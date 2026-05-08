@@ -1445,7 +1445,7 @@
     // ========================================
     async function loadData() {
         try {
-            const response = await fetch('data.json');
+            const response = await fetch('data.json?t=' + Date.now());
             if (response.ok) {
                 const data = await response.json();
                 if (data && data.users && typeof data.users === 'object') {
@@ -1469,6 +1469,22 @@
         renderContent();
         hideLoadingScreen();
         checkOnboarding();
+
+        // Auto-refresh data every 30 seconds to pick up admin changes
+        setInterval(async () => {
+            try {
+                const response = await fetch('data.json?t=' + Date.now());
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.users && typeof data.users === 'object') {
+                        dashboardData = data;
+                        renderContent();
+                    }
+                }
+            } catch (e) {
+                // Silently ignore refresh errors
+            }
+        }, 30000);
     }
 
     // ========================================
