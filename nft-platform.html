@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NovaMint — Digital Collectibles Platform</title>
+<style>
+/* ===== RESET & BASE ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-primary:#0a0e17;
+  --bg-secondary:#111827;
+  --bg-card:#1a2236;
+  --bg-card-hover:#222d45;
+  --bg-input:#0d1321;
+  --accent:#6c5ce7;
+  --accent-glow:#a78bfa;
+  --accent2:#00d2ff;
+  --accent3:#f97316;
+  --text-primary:#e2e8f0;
+  --text-secondary:#94a3b8;
+  --text-muted:#64748b;
+  --border:#1e293b;
+  --success:#22c55e;
+  --danger:#ef4444;
+  --warning:#f59e0b;
+  --rarity-common:#9ca3af;
+  --rarity-uncommon:#22c55e;
+  --rarity-rare:#3b82f6;
+  --rarity-epic:#a855f7;
+  --rarity-legendary:#f59e0b;
+  --rarity-mythic:#ef4444;
+  --radius:12px;
+  --radius-sm:8px;
+  --shadow:0 4px 24px rgba(0,0,0,.4);
+  --transition:all .3s cubic-bezier(.4,0,.2,1);
+}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:var(--bg-primary);
+  color:var(--text-primary);
+  min-height:100vh;
+  overflow-x:hidden;
+  line-height:1.6;
+}
+a{color:var(--accent-glow);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--bg-primary)}
+::-webkit-scrollbar-thumb{background:var(--accent);border-radius:3px}
+
+/* ===== HEADER ===== */
+.header{
+  position:sticky;top:0;z-index:100;
+  background:rgba(10,14,23,.92);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  padding:0 24px;
+  height:64px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.logo{
+  display:flex;align-items:center;gap:10px;
+  font-size:22px;font-weight:800;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  letter-spacing:-.5px;
+}
+.logo-icon{
+  width:36px;height:36px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;-webkit-text-fill-color:#fff;
+}
+.header-right{display:flex;align-items:center;gap:16px}
+.wallet-btn{
+  background:linear-gradient(135deg,var(--accent),#8b5cf6);
+  color:#fff;border:none;padding:8px 20px;
+  border-radius:var(--radius-sm);font-size:14px;font-weight:600;
+  cursor:pointer;transition:var(--transition);
+  display:flex;align-items:center;gap:6px;
+}
+.wallet-btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(108,92,231,.4)}
+.wallet-btn.connected{background:linear-gradient(135deg,#22c55e,#16a34a)}
+.balance-pill{
+  background:var(--bg-card);border:1px solid var(--border);
+  padding:6px 14px;border-radius:20px;font-size:13px;
+  display:flex;align-items:center;gap:6px;color:var(--accent2);
+}
+.balance-pill svg{width:14px;height:14px}
+
+/* ===== NAV ===== */
+.nav{
+  background:var(--bg-secondary);
+  border-bottom:1px solid var(--border);
+  padding:0 24px;
+  display:flex;gap:0;
+  overflow-x:auto;
+  -ms-overflow-style:none;scrollbar-width:none;
+}
+.nav::-webkit-scrollbar{display:none}
+.nav-item{
+  padding:14px 20px;
+  font-size:14px;font-weight:500;
+  color:var(--text-muted);
+  cursor:pointer;white-space:nowrap;
+  border-bottom:2px solid transparent;
+  transition:var(--transition);
+  display:flex;align-items:center;gap:6px;
+}
+.nav-item:hover{color:var(--text-secondary)}
+.nav-item.active{color:var(--accent-glow);border-bottom-color:var(--accent)}
+.nav-item .badge{
+  background:var(--danger);color:#fff;font-size:10px;
+  padding:1px 6px;border-radius:10px;font-weight:700;
+}
+
+/* ===== MAIN CONTENT ===== */
+.main{max-width:1400px;margin:0 auto;padding:24px}
+.section{display:none;animation:fadeIn .4s ease}
+.section.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ===== HERO BANNER ===== */
+.hero{
+  background:linear-gradient(135deg,rgba(108,92,231,.15),rgba(0,210,255,.1));
+  border:1px solid rgba(108,92,231,.2);
+  border-radius:var(--radius);padding:32px;
+  margin-bottom:28px;position:relative;overflow:hidden;
+}
+.hero::before{
+  content:'';position:absolute;top:-50%;right:-20%;
+  width:400px;height:400px;
+  background:radial-gradient(circle,rgba(108,92,231,.2),transparent 70%);
+  pointer-events:none;
+}
+.hero h2{font-size:24px;font-weight:700;margin-bottom:8px}
+.hero p{color:var(--text-secondary);font-size:14px;margin-bottom:16px}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap}
+.btn{
+  padding:10px 24px;border-radius:var(--radius-sm);
+  font-size:14px;font-weight:600;cursor:pointer;
+  border:none;transition:var(--transition);
+  display:inline-flex;align-items:center;gap:6px;
+}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#8b5cf6);color:#fff}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(108,92,231,.4)}
+.btn-secondary{background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border)}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent-glow)}
+.btn-accent{background:linear-gradient(135deg,var(--accent2),#0ea5e9);color:#fff}
+.btn-danger{background:linear-gradient(135deg,var(--danger),#dc2626);color:#fff}
+.btn-success{background:linear-gradient(135deg,var(--success),#16a34a);color:#fff}
+.btn-sm{padding:6px 14px;font-size:12px}
+
+/* ===== SECTION HEADER ===== */
+.section-header{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:20px;flex-wrap:wrap;gap:12px;
+}
+.section-header h3{font-size:18px;font-weight:700}
+.filters{display:flex;gap:8px;flex-wrap:wrap}
+.filter-btn{
+  padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;
+  background:var(--bg-card);border:1px solid var(--border);
+  color:var(--text-secondary);cursor:pointer;transition:var(--transition);
+}
+.filter-btn:hover,.filter-btn.active{
+  border-color:var(--accent);color:var(--accent-glow);
+  background:rgba(108,92,231,.1);
+}
+
+/* ===== NFT CARD GRID ===== */
+.card-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:16px;
+}
+.nft-card{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;
+  cursor:pointer;transition:var(--transition);
+  position:relative;
+}
+.nft-card:hover{
+  transform:translateY(-4px);
+  border-color:rgba(108,92,231,.4);
+  box-shadow:0 8px 32px rgba(108,92,231,.15);
+}
+.nft-card-img{
+  width:100%;aspect-ratio:1;position:relative;overflow:hidden;
+}
+.nft-card-img .art{
+  width:100%;height:100%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:48px;
+}
+.nft-card-img .rarity-tag{
+  position:absolute;top:10px;left:10px;
+  padding:3px 10px;border-radius:12px;
+  font-size:11px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.5px;
+}
+.nft-card-img .id-tag{
+  position:absolute;top:10px;right:10px;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(8px);
+  padding:3px 8px;border-radius:8px;font-size:10px;
+  color:var(--text-secondary);
+}
+.nft-card-body{padding:14px}
+.nft-card-body h4{font-size:14px;font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nft-card-body .collection{font-size:12px;color:var(--text-muted);margin-bottom:10px}
+.nft-card-footer{display:flex;justify-content:space-between;align-items:center;padding:0 14px 14px}
+.nft-card-footer .price{font-size:14px;font-weight:700;color:var(--accent2)}
+.nft-card-footer .price span{font-size:11px;color:var(--text-muted);font-weight:400}
+.nft-card-footer .likes{font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:3px}
+
+/* Rarity Colors */
+.rarity-common .rarity-tag{background:rgba(156,163,175,.2);color:var(--rarity-common);border:1px solid rgba(156,163,175,.3)}
+.rarity-uncommon .rarity-tag{background:rgba(34,197,94,.15);color:var(--rarity-uncommon);border:1px solid rgba(34,197,94,.3)}
+.rarity-rare .rarity-tag{background:rgba(59,130,246,.15);color:var(--rarity-rare);border:1px solid rgba(59,130,246,.3)}
+.rarity-epic .rarity-tag{background:rgba(168,85,247,.15);color:var(--rarity-epic);border:1px solid rgba(168,85,247,.3)}
+.rarity-legendary .rarity-tag{background:rgba(245,158,11,.15);color:var(--rarity-legendary);border:1px solid rgba(245,158,11,.3)}
+.rarity-mythic .rarity-tag{background:rgba(239,68,68,.15);color:var(--rarity-mythic);border:1px solid rgba(239,68,68,.3)}
+
+/* Card glow for legendary+ */
+.rarity-legendary{box-shadow:0 0 20px rgba(245,158,11,.08)}
+.rarity-legendary:hover{box-shadow:0 0 30px rgba(245,158,11,.2)}
+.rarity-mythic{box-shadow:0 0 20px rgba(239,68,68,.08)}
+.rarity-mythic:hover{box-shadow:0 0 30px rgba(239,68,68,.2)}
+
+/* Art gradients */
+.art-0{background:linear-gradient(135deg,#667eea,#764ba2)}
+.art-1{background:linear-gradient(135deg,#f093fb,#f5576c)}
+.art-2{background:linear-gradient(135deg,#4facfe,#00f2fe)}
+.art-3{background:linear-gradient(135deg,#43e97b,#38f9d7)}
+.art-4{background:linear-gradient(135deg,#fa709a,#fee140)}
+.art-5{background:linear-gradient(135deg,#a18cd1,#fbc2eb)}
+.art-6{background:linear-gradient(135deg,#fccb90,#d57eeb)}
+.art-7{background:linear-gradient(135deg,#e0c3fc,#8ec5fc)}
+.art-8{background:linear-gradient(135deg,#f5576c,#ff6a88)}
+.art-9{background:linear-gradient(135deg,#0250c5,#d43f8d)}
+.art-10{background:linear-gradient(135deg,#09203f,#537895)}
+.art-11{background:linear-gradient(135deg,#ee9ca7,#ffdde1)}
+
+/* ===== TRADE TABLE ===== */
+.trade-list{display:flex;flex-direction:column;gap:10px}
+.trade-item{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:16px;
+  display:flex;align-items:center;gap:14px;
+  transition:var(--transition);
+}
+.trade-item:hover{border-color:rgba(108,92,231,.3)}
+.trade-item-img{
+  width:56px;height:56px;border-radius:var(--radius-sm);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:24px;
+}
+.trade-item-info{flex:1;min-width:0}
+.trade-item-info h4{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trade-item-info .meta{font-size:12px;color:var(--text-muted);display:flex;gap:12px;margin-top:2px}
+.trade-item-price{text-align:right;flex-shrink:0}
+.trade-item-price .amount{font-size:16px;font-weight:700;color:var(--accent2)}
+.trade-item-price .usd{font-size:11px;color:var(--text-muted)}
+.trade-item-actions{display:flex;gap:8px;flex-shrink:0}
+.status-tag{
+  padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;
+  text-transform:uppercase;
+}
+.status-active{background:rgba(34,197,94,.15);color:var(--success)}
+.status-pending{background:rgba(245,158,11,.15);color:var(--warning)}
+.status-sold{background:rgba(156,163,175,.15);color:var(--text-muted)}
+
+/* ===== SYNTHESIS ===== */
+.synth-area{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius);padding:28px;
+  margin-bottom:20px;
+}
+.synth-title{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.synth-flow{
+  display:flex;align-items:center;justify-content:center;
+  gap:12px;flex-wrap:wrap;margin:24px 0;
+}
+.synth-slot{
+  width:80px;height:80px;border-radius:var(--radius-sm);
+  border:2px dashed var(--border);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-size:28px;position:relative;transition:var(--transition);
+  background:var(--bg-input);
+}
+.synth-slot.filled{border-style:solid;border-color:var(--accent)}
+.synth-slot .slot-label{font-size:9px;color:var(--text-muted);margin-top:4px}
+.synth-arrow{font-size:24px;color:var(--accent);flex-shrink:0}
+.synth-result{
+  width:100px;height:100px;border-radius:var(--radius);
+  border:2px solid var(--accent-glow);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-size:36px;
+  background:linear-gradient(135deg,rgba(108,92,231,.2),rgba(0,210,255,.1));
+  position:relative;
+}
+.synth-result::after{
+  content:'RESULT';position:absolute;bottom:6px;
+  font-size:8px;color:var(--accent-glow);letter-spacing:1px;font-weight:700;
+}
+.synth-recipes{display:flex;flex-direction:column;gap:12px}
+.recipe-item{
+  background:var(--bg-input);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:14px;
+  display:flex;align-items:center;gap:12px;
+  cursor:pointer;transition:var(--transition);
+}
+.recipe-item:hover,.recipe-item.active{
+  border-color:var(--accent);
+  background:rgba(108,92,231,.08);
+}
+.recipe-item .recipe-img{
+  width:48px;height:48px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+}
+.recipe-item .recipe-info{flex:1;min-width:0}
+.recipe-item .recipe-info h5{font-size:13px;font-weight:600}
+.recipe-item .recipe-info p{font-size:11px;color:var(--text-muted);margin-top:2px}
+.recipe-item .recipe-arrow{color:var(--accent);font-size:16px}
+.recipe-item .recipe-output{
+  width:40px;height:40px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+}
+.synth-btn-wrap{text-align:center;margin-top:20px}
+.synth-effect{
+  display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+  background:radial-gradient(circle,rgba(108,92,231,.3),transparent 60%);
+  z-index:200;pointer-events:none;
+  animation:synthPulse .8s ease forwards;
+}
+@keyframes synthPulse{
+  0%{opacity:0;transform:scale(.8)}
+  50%{opacity:1;transform:scale(1.05)}
+  100%{opacity:0;transform:scale(1)}
+}
+
+/* ===== DECOMPOSE ===== */
+.decompose-card{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius);padding:20px;
+  display:flex;gap:16px;align-items:center;
+  margin-bottom:12px;transition:var(--transition);
+}
+.decompose-card:hover{border-color:rgba(239,68,68,.3)}
+.decompose-card .dc-img{
+  width:64px;height:64px;border-radius:var(--radius-sm);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:28px;
+}
+.decompose-card .dc-info{flex:1;min-width:0}
+.decompose-card .dc-info h4{font-size:14px;font-weight:600}
+.decompose-card .dc-info .dc-yields{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.decompose-card .dc-info .dc-yield-tag{
+  padding:2px 8px;border-radius:8px;font-size:10px;
+  background:rgba(108,92,231,.12);color:var(--accent-glow);
+  border:1px solid rgba(108,92,231,.2);
+}
+.decompose-card .dc-info p{font-size:11px;color:var(--text-muted);margin-top:4px}
+
+/* ===== MINT ===== */
+.mint-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+.mint-box{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;transition:var(--transition);
+}
+.mint-box:hover{border-color:rgba(108,92,231,.3);transform:translateY(-2px)}
+.mint-box-img{
+  width:100%;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;
+  font-size:56px;position:relative;
+}
+.mint-box-img .mint-badge{
+  position:absolute;top:12px;right:12px;
+  padding:4px 12px;border-radius:12px;
+  font-size:11px;font-weight:700;text-transform:uppercase;
+}
+.mint-badge-blind{background:rgba(245,158,11,.2);color:var(--warning);border:1px solid rgba(245,158,11,.3)}
+.mint-badge-direct{background:rgba(34,197,94,.2);color:var(--success);border:1px solid rgba(34,197,94,.3)}
+.mint-box-body{padding:18px}
+.mint-box-body h4{font-size:16px;font-weight:700;margin-bottom:4px}
+.mint-box-body p{font-size:12px;color:var(--text-muted);margin-bottom:14px;line-height:1.5}
+.mint-box-stats{
+  display:flex;justify-content:space-between;
+  padding-top:14px;border-top:1px solid var(--border);
+  margin-bottom:14px;
+}
+.mint-box-stats .stat{text-align:center}
+.mint-box-stats .stat .val{font-size:16px;font-weight:700;color:var(--accent2)}
+.mint-box-stats .stat .label{font-size:10px;color:var(--text-muted);margin-top:2px}
+.mint-progress{
+  width:100%;height:6px;background:var(--bg-input);
+  border-radius:3px;overflow:hidden;margin-bottom:10px;
+}
+.mint-progress-bar{height:100%;border-radius:3px;transition:width 1s ease}
+.mint-remaining{font-size:11px;color:var(--text-muted);margin-bottom:14px;text-align:right}
+
+/* ===== ANNOUNCEMENTS ===== */
+.ann-list{display:flex;flex-direction:column;gap:14px}
+.ann-item{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:18px;
+  transition:var(--transition);cursor:pointer;
+}
+.ann-item:hover{border-color:rgba(108,92,231,.3)}
+.ann-item .ann-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.ann-item .ann-tag{
+  padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;text-transform:uppercase;
+}
+.ann-tag-event{background:rgba(108,92,231,.15);color:var(--accent-glow);border:1px solid rgba(108,92,231,.3)}
+.ann-tag-update{background:rgba(0,210,255,.15);color:var(--accent2);border:1px solid rgba(0,210,255,.3)}
+.ann-tag-mint{background:rgba(34,197,94,.15);color:var(--success);border:1px solid rgba(34,197,94,.3)}
+.ann-tag-hot{background:rgba(239,68,68,.15);color:var(--danger);border:1px solid rgba(239,68,68,.3)}
+.ann-item .ann-date{font-size:11px;color:var(--text-muted)}
+.ann-item h4{font-size:15px;font-weight:600;margin-bottom:6px}
+.ann-item p{font-size:13px;color:var(--text-secondary);line-height:1.6}
+
+/* ===== STATS BAR ===== */
+.stats-bar{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:12px;margin-bottom:24px;
+}
+.stat-card{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:16px;text-align:center;
+}
+.stat-card .stat-val{font-size:22px;font-weight:800;background:linear-gradient(135deg,var(--accent-glow),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-card .stat-label{font-size:11px;color:var(--text-muted);margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
+
+/* ===== MODAL ===== */
+.modal-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(4px);
+  z-index:300;align-items:center;justify-content:center;
+  padding:20px;
+}
+.modal-overlay.show{display:flex}
+.modal{
+  background:var(--bg-secondary);border:1px solid var(--border);
+  border-radius:var(--radius);max-width:480px;width:100%;
+  max-height:90vh;overflow-y:auto;
+}
+.modal-header{
+  padding:18px 20px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.modal-header h3{font-size:16px;font-weight:700}
+.modal-close{background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:4px}
+.modal-body{padding:20px}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+
+/* ===== TOAST ===== */
+.toast-container{position:fixed;top:80px;right:20px;z-index:400;display:flex;flex-direction:column;gap:8px}
+.toast{
+  padding:12px 20px;border-radius:var(--radius-sm);
+  font-size:13px;font-weight:500;
+  box-shadow:var(--shadow);
+  animation:toastIn .3s ease,toastOut .3s ease 2.7s forwards;
+  max-width:320px;
+}
+.toast-success{background:#16a34a;color:#fff}
+.toast-error{background:#dc2626;color:#fff}
+.toast-info{background:var(--accent);color:#fff}
+@keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+@keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateX(40px)}}
+
+/* ===== MOBILE NAV ===== */
+.mobile-nav{
+  display:none;position:fixed;bottom:0;left:0;right:0;
+  background:rgba(17,24,39,.95);backdrop-filter:blur(20px);
+  border-top:1px solid var(--border);
+  padding:6px 0;padding-bottom:env(safe-area-inset-bottom);
+  z-index:100;
+}
+.mobile-nav-inner{
+  display:flex;justify-content:space-around;
+}
+.mobile-nav-item{
+  display:flex;flex-direction:column;align-items:center;
+  padding:6px 0;font-size:10px;color:var(--text-muted);
+  cursor:pointer;transition:var(--transition);gap:2px;
+}
+.mobile-nav-item svg{width:20px;height:20px}
+.mobile-nav-item.active{color:var(--accent-glow)}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:768px){
+  .header{padding:0 16px}
+  .main{padding:16px}
+  .hero{padding:20px}
+  .hero h2{font-size:18px}
+  .card-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+  .nft-card-body{padding:10px}
+  .nft-card-body h4{font-size:12px}
+  .nft-card-footer{padding:0 10px 10px}
+  .nft-card-footer .price{font-size:12px}
+  .nav{display:none}
+  .mobile-nav{display:block}
+  .trade-item{flex-wrap:wrap;gap:10px}
+  .trade-item-price{text-align:left}
+  .synth-flow{gap:8px}
+  .synth-slot{width:60px;height:60px;font-size:22px}
+  .synth-result{width:72px;height:72px;font-size:28px}
+  .mint-grid{grid-template-columns:1fr}
+  .stats-bar{grid-template-columns:repeat(2,1fr)}
+  .balance-pill{display:none}
+  .section-header{flex-direction:column;align-items:flex-start}
+}
+
+/* ===== EMPTY STATE ===== */
+.empty-state{
+  text-align:center;padding:60px 20px;color:var(--text-muted);
+}
+.empty-state .empty-icon{font-size:48px;margin-bottom:12px}
+.empty-state h4{font-size:16px;margin-bottom:6px;color:var(--text-secondary)}
+.empty-state p{font-size:13px}
+
+/* ===== SPARKLE ANIMATION ===== */
+@keyframes sparkle{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:.6;transform:scale(1.2)}
+}
+.sparkle{animation:sparkle 2s ease-in-out infinite}
+
+/* ===== COUNTDOWN ===== */
+.countdown{display:flex;gap:8px;justify-content:center;margin:16px 0}
+.countdown-unit{
+  background:var(--bg-input);border:1px solid var(--border);
+  border-radius:8px;padding:8px 12px;text-align:center;min-width:52px;
+}
+.countdown-unit .num{font-size:20px;font-weight:800;color:var(--accent2)}
+.countdown-unit .lbl{font-size:9px;color:var(--text-muted);text-transform:uppercase;margin-top:2px}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="logo">
+    <div class="logo-icon">◆</div>
+    NovaMint
+  </div>
+  <div class="header-right">
+    <div class="balance-pill">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      <span id="balanceDisplay">2.847 ETH</span>
+    </div>
+    <button class="wallet-btn" id="walletBtn" onclick="connectWallet()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M16 14h2"/></svg>
+      Connect Wallet
+    </button>
+  </div>
+</header>
+
+<!-- DESKTOP NAV -->
+<nav class="nav" id="desktopNav">
+  <div class="nav-item active" data-section="gallery" onclick="switchSection('gallery',this)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    Gallery
+  </div>
+  <div class="nav-item" data-section="trade" onclick="switchSection('trade',this)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+    Trade
+  </div>
+  <div class="nav-item" data-section="synthesis" onclick="switchSection('synthesis',this)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+    Synthesis
+  </div>
+  <div class="nav-item" data-section="decompose" onclick="switchSection('decompose',this)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
+    Decompose
+  </div>
+  <div class="nav-item" data-section="mint" onclick="switchSection('mint',this)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
+    Mint <span class="badge">3</span>
+  </div>
+  <div class="nav-item" data-section="announce" onclick="switchSection('announce',this)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+    Announcements
+  </div>
+</nav>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+
+  <!-- ===== GALLERY SECTION ===== -->
+  <div class="section active" id="sec-gallery">
+    <!-- Hero Banner -->
+    <div class="hero">
+      <h2>🔥 Genesis Collection — Season 3 is Live</h2>
+      <p>Discover 10,000 unique digital artifacts from the NovaMint Genesis universe. Collect, trade, and evolve your assets.</p>
+      <div class="hero-actions">
+        <button class="btn btn-primary" onclick="switchSection('mint',document.querySelector('[data-section=mint]'))">Mint Now</button>
+        <button class="btn btn-secondary" onclick="switchSection('trade',document.querySelector('[data-section=trade]'))">Explore Market</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat-card"><div class="stat-val">12,847</div><div class="stat-label">Items</div></div>
+      <div class="stat-card"><div class="stat-val">3,291</div><div class="stat-label">Owners</div></div>
+      <div class="stat-card"><div class="stat-val">842 Ξ</div><div class="stat-label">Volume</div></div>
+      <div class="stat-card"><div class="stat-val">0.12 Ξ</div><div class="stat-label">Floor</div></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="section-header">
+      <h3>All Collectibles</h3>
+      <div class="filters">
+        <button class="filter-btn active" onclick="filterCards('all',this)">All</button>
+        <button class="filter-btn" onclick="filterCards('common',this)">Common</button>
+        <button class="filter-btn" onclick="filterCards('uncommon',this)">Uncommon</button>
+        <button class="filter-btn" onclick="filterCards('rare',this)">Rare</button>
+        <button class="filter-btn" onclick="filterCards('epic',this)">Epic</button>
+        <button class="filter-btn" onclick="filterCards('legendary',this)">Legendary</button>
+        <button class="filter-btn" onclick="filterCards('mythic',this)">Mythic</button>
+      </div>
+    </div>
+
+    <!-- Card Grid -->
+    <div class="card-grid" id="galleryGrid"></div>
+  </div>
+
+  <!-- ===== TRADE SECTION ===== -->
+  <div class="section" id="sec-trade">
+    <div class="section-header">
+      <h3>Marketplace</h3>
+      <div class="filters">
+        <button class="filter-btn active" onclick="filterTrades('all',this)">All</button>
+        <button class="filter-btn" onclick="filterTrades('active',this)">Active</button>
+        <button class="filter-btn" onclick="filterTrades('pending',this)">Pending</button>
+        <button class="filter-btn" onclick="filterTrades('sold',this)">Sold</button>
+      </div>
+    </div>
+    <div class="trade-list" id="tradeList"></div>
+  </div>
+
+  <!-- ===== SYNTHESIS SECTION ===== -->
+  <div class="section" id="sec-synthesis">
+    <div class="section-header">
+      <h3>✨ Synthesis Forge</h3>
+      <p style="font-size:13px;color:var(--text-muted)">Combine lower-rarity items to forge something legendary.</p>
+    </div>
+
+    <!-- Synthesis Area -->
+    <div class="synth-area">
+      <div class="synth-title">🔥 Active Forge</div>
+      <div class="synth-flow" id="synthFlow">
+        <div class="synth-slot" id="slot0"><span>+</span><span class="slot-label">Slot 1</span></div>
+        <div class="synth-arrow">+</div>
+        <div class="synth-slot" id="slot1"><span>+</span><span class="slot-label">Slot 2</span></div>
+        <div class="synth-arrow">+</div>
+        <div class="synth-slot" id="slot2"><span>+</span><span class="slot-label">Slot 3</span></div>
+        <div class="synth-arrow">→</div>
+        <div class="synth-result art-0" id="synthResult">?<span style="font-size:8px;position:absolute;bottom:6px;color:var(--accent-glow);letter-spacing:1px;font-weight:700">RESULT</span></div>
+      </div>
+      <div class="synth-btn-wrap">
+        <button class="btn btn-primary" onclick="performSynthesis()" id="synthBtn" disabled>Forge Item</button>
+      </div>
+    </div>
+
+    <!-- Recipes -->
+    <div class="section-header">
+      <h3>Recipe Book</h3>
+    </div>
+    <div class="synth-recipes" id="recipeList"></div>
+  </div>
+
+  <!-- ===== DECOMPOSE SECTION ===== -->
+  <div class="section" id="sec-decompose">
+    <div class="section-header">
+      <h3>💥 Decompose Chamber</h3>
+      <p style="font-size:13px;color:var(--text-muted)">Break down high-rarity items into raw materials. Decomposition is irreversible.</p>
+    </div>
+    <div id="decomposeList"></div>
+  </div>
+
+  <!-- ===== MINT SECTION ===== -->
+  <div class="section" id="sec-mint">
+    <div class="section-header">
+      <h3>🎯 Minting Center</h3>
+      <p style="font-size:13px;color:var(--text-muted)">Mint new collectibles via blind boxes or direct purchase.</p>
+    </div>
+    <div class="mint-grid" id="mintGrid"></div>
+  </div>
+
+  <!-- ===== ANNOUNCEMENTS SECTION ===== -->
+  <div class="section" id="sec-announce">
+    <div class="section-header">
+      <h3>📢 Announcements</h3>
+    </div>
+    <div class="ann-list" id="annList"></div>
+  </div>
+
+</main>
+
+<!-- MOBILE NAV -->
+<div class="mobile-nav" id="mobileNav">
+  <div class="mobile-nav-inner">
+    <div class="mobile-nav-item active" data-section="gallery" onclick="switchSection('gallery',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Gallery
+    </div>
+    <div class="mobile-nav-item" data-section="trade" onclick="switchSection('trade',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+      Trade
+    </div>
+    <div class="mobile-nav-item" data-section="synthesis" onclick="switchSection('synthesis',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+      Forge
+    </div>
+    <div class="mobile-nav-item" data-section="decompose" onclick="switchSection('decompose',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      Split
+    </div>
+    <div class="mobile-nav-item" data-section="mint" onclick="switchSection('mint',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
+      Mint
+    </div>
+    <div class="mobile-nav-item" data-section="announce" onclick="switchSection('announce',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      News
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">Item Details</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer" id="modalFooter"></div>
+  </div>
+</div>
+
+<!-- SYNTH EFFECT OVERLAY -->
+<div class="synth-effect" id="synthEffect"></div>
+
+<script>
+// ===== MOCK DATA =====
+const NFT_ITEMS = [
+  {id:'NM-001',name:'Stellar Phoenix',collection:'Genesis S3',rarity:'legendary',price:2.45,art:0,emoji:'🦅',likes:342},
+  {id:'NM-002',name:'Void Walker',collection:'Genesis S3',rarity:'epic',price:0.89,art:1,emoji:'👾',likes:218},
+  {id:'NM-003',name:'Crystal Drake',collection:'Genesis S3',rarity:'rare',price:0.42,art:2,emoji:'🐉',likes:176},
+  {id:'NM-004',name:'Neon Samurai',collection:'Cyber Ronin',rarity:'epic',price:1.12,art:3,emoji:'⚔️',likes:289},
+  {id:'NM-005',name:'Forest Warden',collection:'Genesis S3',rarity:'uncommon',price:0.18,art:4,emoji:'🌿',likes:94},
+  {id:'NM-006',name:'Abyssal Kraken',collection:'Deep Ones',rarity:'mythic',price:5.8,art:5,emoji:'🐙',likes:521},
+  {id:'NM-007',name:'Ember Sprite',collection:'Genesis S3',rarity:'common',price:0.06,art:6,emoji:'🔥',likes:37},
+  {id:'NM-008',name:'Frost Sentinel',collection:'Cyber Ronin',rarity:'rare',price:0.38,art:7,emoji:'❄️',likes:152},
+  {id:'NM-009',name:'Shadow Blade',collection:'Cyber Ronin',rarity:'legendary',price:3.2,art:8,emoji:'🗡️',likes:410},
+  {id:'NM-010',name:'Moss Golem',collection:'Genesis S3',rarity:'common',price:0.05,art:9,emoji:'🪨',likes:28},
+  {id:'NM-011',name:'Plasma Witch',collection:'Deep Ones',rarity:'epic',price:0.95,art:10,emoji:'🧙‍♀️',likes:197},
+  {id:'NM-012',name:'Iron Guardian',collection:'Cyber Ronin',rarity:'uncommon',price:0.21,art:11,emoji:'🛡️',likes:88},
+  {id:'NM-013',name:'Cosmic Jellyfish',collection:'Deep Ones',rarity:'rare',price:0.55,art:0,emoji:'🪼',likes:134},
+  {id:'NM-014',name:'Thunder Wolf',collection:'Genesis S3',rarity:'uncommon',price:0.16,art:1,emoji:'🐺',likes:72},
+  {id:'NM-015',name:'Rune Golem',collection:'Deep Ones',rarity:'common',price:0.04,art:2,emoji:'🗿',likes:19},
+  {id:'NM-016',name:'Celestial Dragon',collection:'Genesis S3',rarity:'mythic',price:8.5,art:3,emoji:'🐲',likes:678},
+  {id:'NM-017',name:'Pixel Ghost',collection:'Cyber Ronin',rarity:'common',price:0.03,art:4,emoji:'👻',likes:15},
+  {id:'NM-018',name:'Sakura Spirit',collection:'Cyber Ronin',rarity:'rare',price:0.44,art:5,emoji:'🌸',likes:163},
+];
+
+const TRADE_LISTINGS = [
+  {item:NFT_ITEMS[0],seller:'0x7a3F...e9B2',price:2.5,usd:4520,status:'active',type:'sell'},
+  {item:NFT_ITEMS[5],seller:'0x1bC4...d3A8',price:5.9,usd:10680,status:'active',type:'sell'},
+  {item:NFT_ITEMS[8],seller:'0x9eF2...b7C1',price:3.15,usd:5700,status:'active',type:'sell'},
+  {item:NFT_ITEMS[1],seller:'0x4dA7...f5E3',price:0.92,usd:1665,status:'active',type:'sell'},
+  {item:NFT_ITEMS[3],seller:'0x3cB8...a2D9',price:1.08,usd:1955,status:'pending',type:'sell'},
+  {item:NFT_ITEMS[15],seller:'0x8fE1...c4B7',price:8.75,usd:15840,status:'pending',type:'sell'},
+  {item:NFT_ITEMS[2],seller:'0x6aD5...e1F4',price:0.45,usd:815,status:'sold',type:'sell'},
+  {item:NFT_ITEMS[9],seller:'0x2bC3...d8A6',price:3.4,usd:6155,status:'sold',type:'sell'},
+  {item:NFT_ITEMS[6],seller:'0x5eF9...b3C2',price:0.07,usd:127,status:'sold',type:'sell'},
+  {item:NFT_ITEMS[11],seller:'0x7dA4...f6E1',price:0.22,usd:398,status:'active',type:'sell'},
+];
+
+const SYNTH_RECIPES = [
+  {id:'R01',name:'Forge Phoenix Egg',materials:['NM-005','NM-014','NM-007'],output:{id:'NM-P01',name:'Phoenix Egg',rarity:'epic',emoji:'🥚'},outputArt:0},
+  {id:'R02',name:'Forge Abyss Core',materials:['NM-002','NM-010','NM-015'],output:{id:'NM-P02',name:'Abyss Core',rarity:'legendary',emoji:'💎'},outputArt:5},
+  {id:'R03',name:'Forge Dragon Heart',materials:['NM-003','NM-012','NM-017'],output:{id:'NM-P03',name:'Dragon Heart',rarity:'legendary',emoji:'❤️‍🔥'},outputArt:8},
+  {id:'R04',name:'Forge Celestial Shard',materials:['NM-004','NM-018','NM-006'],output:{id:'NM-P04',name:'Celestial Shard',rarity:'mythic',emoji:'✨'},outputArt:3},
+];
+
+const DECOMPOSE_ITEMS = [
+  {item:NFT_ITEMS[0],yields:['Void Shard ×2','Ember Dust ×5','Phoenix Plume ×1']},
+  {item:NFT_ITEMS[5],yields:['Abyss Pearl ×3','Dark Ink ×4','Kraken Eye ×1']},
+  {item:NFT_ITEMS[8],yields:['Shadow Steel ×2','Moonstone ×3','Blade Essence ×1']},
+  {item:NFT_ITEMS[15],yields:['Dragon Scale ×5','Celestial Dust ×3','Star Fragment ×2']},
+  {item:NFT_ITEMS[1],yields:['Void Shard ×1','Ectoplasm ×3']},
+  {item:NFT_ITEMS[3],yields:['Plasma Core ×2','Circuit Fragment ×4']},
+];
+
+const MINT_BOXES = [
+  {
+    name:'Genesis Blind Box — Wave 3',
+    desc:'Each box contains a random Genesis S3 collectible. 5% chance for Legendary, 0.5% for Mythic!',
+    type:'blind',price:0.08,total:5000,minted:3847,art:0,emoji:'🎁',
+    odds:[{rarity:'Common',chance:'50%'},{rarity:'Uncommon',chance:'25%'},{rarity:'Rare',chance:'14%'},{rarity:'Epic',chance:'5.5%'},{rarity:'Legendary',chance:'5%'},{rarity:'Mythic',chance:'0.5%'}]
+  },
+  {
+    name:'Cyber Ronin Blind Box',
+    desc:'Cyberpunk-themed warriors and weapons. Guaranteed Rare or above — limited to 2000 boxes.',
+    type:'blind',price:0.15,total:2000,minted:1842,art:8,emoji:'🤖',
+    odds:[{rarity:'Rare',chance:'60%'},{rarity:'Epic',chance:'28%'},{rarity:'Legendary',chance:'10%'},{rarity:'Mythic',chance:'2%'}]
+  },
+  {
+    name:'Deep Ones — Leviathan',
+    desc:'Direct purchase — guaranteed Mythic Leviathan. Only 50 ever minted.',
+    type:'direct',price:4.2,total:50,minted:41,art:5,emoji:'🐋',
+    odds:[]
+  },
+];
+
+const ANNOUNCEMENTS = [
+  {tag:'hot',tagLabel:'🔥 Hot',date:'2025-06-12',title:'Genesis S3 Blind Box — Final Wave Launching June 15',body:'The last 1,153 Genesis Season 3 blind boxes will be released on June 15 at 18:00 UTC. Price: 0.08 ETH. This is your final chance to mint from the Genesis collection!'},
+  {tag:'mint',tagLabel:'🎯 Mint',date:'2025-06-10',title:'New Direct Mint: Deep Ones — Leviathan',body:'A limited-edition Mythic collectible "Leviathan" is now available for direct mint at 4.2 ETH. Only 50 will ever exist. 41/50 already minted.'},
+  {tag:'event',tagLabel:'🎪 Event',date:'2025-06-08',title:'Synthesis Weekend — 2x Success Rate',body:'This weekend (June 8–9), all synthesis recipes have double the base success rate. Legendary recipes now have a 60% chance instead of 30%. Don\'t miss it!'},
+  {tag:'update',tagLabel:'🔧 Update',date:'2025-06-05',title:'Platform Update v2.4: Decompose Chamber',body:'We\'ve added the Decompose Chamber! Break down Epic+ items into raw materials. Decomposition yields vary by item rarity. Full guide available in docs.'},
+  {tag:'event',tagLabel:'🎪 Event',date:'2025-06-01',title:'Trading Competition — 5,000 ETH Prize Pool',body:'Trade any collectible between June 1–30 to earn competition points. Top 100 traders share a 5,000 ETH prize pool. Leaderboard updates every 6 hours.'},
+  {tag:'update',tagLabel:'🔧 Update',date:'2025-05-28',title:'Marketplace v2.3: Bundle Listings & Offers',body:'You can now list multiple items as a bundle and make offers on items that aren\'t listed for sale. Try the new "Make Offer" button on any collectible detail page.'},
+];
+
+// ===== STATE =====
+let walletConnected = false;
+let currentFilter = 'all';
+let currentTradeFilter = 'all';
+let selectedRecipe = null;
+let synthSlots = [null,null,null];
+
+// ===== WALLET =====
+function connectWallet(){
+  if(walletConnected) return;
+  walletConnected = true;
+  const btn = document.getElementById('walletBtn');
+  btn.classList.add('connected');
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M16 14h2"/></svg> 0x7a3F...e9B2';
+  showToast('Wallet connected successfully!','success');
+}
+
+// ===== NAVIGATION =====
+function switchSection(sectionId, el){
+  // Update sections
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sec-'+sectionId).classList.add('active');
+  // Update desktop nav
+  document.querySelectorAll('#desktopNav .nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('#desktopNav .nav-item').forEach(n=>{if(n.dataset.section===sectionId)n.classList.add('active')});
+  // Update mobile nav
+  document.querySelectorAll('#mobileNav .mobile-nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('#mobileNav .mobile-nav-item').forEach(n=>{if(n.dataset.section===sectionId)n.classList.add('active')});
+  // Scroll to top
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ===== GALLERY =====
+function renderGallery(filter='all'){
+  const grid = document.getElementById('galleryGrid');
+  const items = filter==='all' ? NFT_ITEMS : NFT_ITEMS.filter(i=>i.rarity===filter);
+  grid.innerHTML = items.map(item=>`
+    <div class="nft-card rarity-${item.rarity}" onclick="showDetail('${item.id}')">
+      <div class="nft-card-img">
+        <div class="art art-${item.art}">${item.emoji}</div>
+        <div class="rarity-tag">${item.rarity}</div>
+        <div class="id-tag">#${item.id}</div>
+      </div>
+      <div class="nft-card-body">
+        <h4>${item.name}</h4>
+        <div class="collection">${item.collection}</div>
+      </div>
+      <div class="nft-card-footer">
+        <div class="price">${item.price} Ξ <span>≈ $${(item.price*1808).toFixed(0)}</span></div>
+        <div class="likes">♥ ${item.likes}</div>
+      </div>
+    </div>
+  `).join('');
+  if(items.length===0){
+    grid.innerHTML='<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🔍</div><h4>No items found</h4><p>Try a different filter.</p></div>';
+  }
+}
+function filterCards(filter, el){
+  currentFilter=filter;
+  document.querySelectorAll('.filters .filter-btn').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderGallery(filter);
+}
+
+// ===== DETAIL MODAL =====
+function showDetail(id){
+  const item = NFT_ITEMS.find(i=>i.id===id);
+  if(!item) return;
+  document.getElementById('modalTitle').textContent = item.name;
+  document.getElementById('modalBody').innerHTML = `
+    <div style="width:100%;aspect-ratio:1;border-radius:var(--radius);overflow:hidden;margin-bottom:16px">
+      <div class="art art-${item.art}" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:64px">${item.emoji}</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+      <span class="status-tag rarity-${item.rarity}" style="border-radius:12px;font-size:12px">${item.rarity.toUpperCase()}</span>
+      <span style="font-size:13px;color:var(--text-muted)">#${item.id}</span>
+    </div>
+    <div style="margin-bottom:8px"><strong>Collection:</strong> ${item.collection}</div>
+    <div style="margin-bottom:8px"><strong>Floor Price:</strong> <span style="color:var(--accent2)">${item.price} Ξ</span> (≈ $${(item.price*1808).toFixed(0)})</div>
+    <div style="margin-bottom:8px"><strong>Likes:</strong> ♥ ${item.likes}</div>
+    <div style="margin-bottom:8px"><strong>Owner:</strong> 0x7a3F...e9B2</div>
+  `;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn btn-secondary btn-sm" onclick="closeModal()">Close</button>
+    <button class="btn btn-primary btn-sm" onclick="showToast('Item listed for sale!','success');closeModal()">List for Sale</button>
+    <button class="btn btn-accent btn-sm" onclick="showToast('Offer placed!','info');closeModal()">Make Offer</button>
+  `;
+  document.getElementById('detailModal').classList.add('show');
+}
+function closeModal(){
+  document.getElementById('detailModal').classList.remove('show');
+}
+document.getElementById('detailModal').addEventListener('click',function(e){
+  if(e.target===this)closeModal();
+});
+
+// ===== TRADE =====
+function renderTrades(filter='all'){
+  const list = document.getElementById('tradeList');
+  const items = filter==='all' ? TRADE_LISTINGS : TRADE_LISTINGS.filter(t=>t.status===filter);
+  list.innerHTML = items.map(t=>`
+    <div class="trade-item">
+      <div class="trade-item-img art art-${t.item.art}">${t.item.emoji}</div>
+      <div class="trade-item-info">
+        <h4>${t.item.name}</h4>
+        <div class="meta">
+          <span class="status-tag status-${t.status}">${t.status}</span>
+          <span>by ${t.seller}</span>
+        </div>
+      </div>
+      <div class="trade-item-price">
+        <div class="amount">${t.price} Ξ</div>
+        <div class="usd">≈ $${t.usd.toLocaleString()}</div>
+      </div>
+      <div class="trade-item-actions">
+        ${t.status==='active'?'<button class="btn btn-accent btn-sm" onclick="showToast(\'Purchase initiated!\',\'info\')">Buy</button>':''}
+        ${t.status==='active'?'<button class="btn btn-secondary btn-sm" onclick="showToast(\'Offer sent!\',\'info\')">Offer</button>':''}
+        ${t.status==='pending'?'<button class="btn btn-secondary btn-sm" disabled>Pending</button>':''}
+        ${t.status==='sold'?'<button class="btn btn-secondary btn-sm" disabled>Sold</button>':''}
+      </div>
+    </div>
+  `).join('');
+  if(items.length===0){
+    list.innerHTML='<div class="empty-state"><div class="empty-icon">📊</div><h4>No listings found</h4><p>Try a different filter or check back later.</p></div>';
+  }
+}
+function filterTrades(filter, el){
+  currentTradeFilter=filter;
+  document.querySelectorAll('#sec-trade .filter-btn').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderTrades(filter);
+}
+
+// ===== SYNTHESIS =====
+function renderRecipes(){
+  const list = document.getElementById('recipeList');
+  list.innerHTML = SYNTH_RECIPES.map((r,i)=>`
+    <div class="recipe-item ${selectedRecipe===i?'active':''}" onclick="selectRecipe(${i})">
+      <div class="recipe-img art art-${r.outputArt}">${r.output.emoji}</div>
+      <div class="recipe-info">
+        <h5>${r.name}</h5>
+        <p>Requires: ${r.materials.map(m=>{const it=NFT_ITEMS.find(n=>n.id===m);return it?it.emoji+' '+it.name:m}).join(' + ')}</p>
+      </div>
+      <div class="recipe-arrow">→</div>
+      <div class="recipe-output art art-${r.outputArt}">${r.output.emoji}</div>
+    </div>
+  `).join('');
+}
+
+function selectRecipe(idx){
+  selectedRecipe = idx;
+  const recipe = SYNTH_RECIPES[idx];
+  synthSlots = recipe.materials.map(m=>{
+    const item = NFT_ITEMS.find(n=>n.id===m);
+    return item || null;
+  });
+  // Update visual slots
+  for(let i=0;i<3;i++){
+    const slot = document.getElementById('slot'+i);
+    if(synthSlots[i]){
+      slot.classList.add('filled');
+      slot.innerHTML = `<span style="font-size:28px">${synthSlots[i].emoji}</span><span class="slot-label">${synthSlots[i].name}</span>`;
+    } else {
+      slot.classList.remove('filled');
+      slot.innerHTML = '<span>+</span><span class="slot-label">Slot '+(i+1)+'</span>';
+    }
+  }
+  // Update result
+  const res = document.getElementById('synthResult');
+  res.className = 'synth-result art-'+recipe.outputArt;
+  res.innerHTML = `${recipe.output.emoji}<span style="font-size:8px;position:absolute;bottom:6px;color:var(--accent-glow);letter-spacing:1px;font-weight:700">RESULT</span>`;
+  // Enable button
+  document.getElementById('synthBtn').disabled = false;
+  renderRecipes();
+}
+
+function performSynthesis(){
+  if(selectedRecipe===null) return;
+  if(!walletConnected){showToast('Please connect your wallet first!','error');return;}
+  // Show effect
+  const effect = document.getElementById('synthEffect');
+  effect.style.display='block';
+  setTimeout(()=>{effect.style.display='none'},900);
+  const recipe = SYNTH_RECIPES[selectedRecipe];
+  showToast(`Forging ${recipe.output.name}... Success! 🎉`,'success');
+  // Reset
+  setTimeout(()=>{
+    selectedRecipe=null;
+    synthSlots=[null,null,null];
+    for(let i=0;i<3;i++){
+      const slot = document.getElementById('slot'+i);
+      slot.classList.remove('filled');
+      slot.innerHTML = '<span>+</span><span class="slot-label">Slot '+(i+1)+'</span>';
+    }
+    document.getElementById('synthResult').innerHTML = '?<span style="font-size:8px;position:absolute;bottom:6px;color:var(--accent-glow);letter-spacing:1px;font-weight:700">RESULT</span>';
+    document.getElementById('synthBtn').disabled = true;
+    renderRecipes();
+  },1200);
+}
+
+// ===== DECOMPOSE =====
+function renderDecompose(){
+  const list = document.getElementById('decomposeList');
+  list.innerHTML = DECOMPOSE_ITEMS.map(d=>`
+    <div class="decompose-card">
+      <div class="dc-img art art-${d.item.art}">${d.item.emoji}</div>
+      <div class="dc-info">
+        <h4>${d.item.name} <span class="status-tag rarity-${d.item.rarity}" style="font-size:10px;border-radius:8px;margin-left:6px">${d.item.rarity}</span></h4>
+        <div class="dc-yields">${d.yields.map(y=>`<span class="dc-yield-tag">${y}</span>`).join('')}</div>
+        <p>Decomposition is irreversible. You will receive the materials listed above.</p>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="decomposeItem('${d.item.name}')">Decompose</button>
+    </div>
+  `).join('');
+}
+function decomposeItem(name){
+  if(!walletConnected){showToast('Please connect your wallet first!','error');return;}
+  showToast(`Decomposing ${name}... Materials received! 💥`,'success');
+}
+
+// ===== MINT =====
+function renderMint(){
+  const grid = document.getElementById('mintGrid');
+  grid.innerHTML = MINT_BOXES.map((b,i)=>{
+    const pct = Math.round(b.minted/b.total*100);
+    const color = pct>80?'var(--danger)':pct>50?'var(--warning)':'var(--accent2)';
+    return `
+    <div class="mint-box">
+      <div class="mint-box-img art art-${b.art}">
+        ${b.emoji}
+        <div class="mint-badge mint-badge-${b.type}">${b.type==='blind'?'🎁 Blind Box':'⚡ Direct'}</div>
+      </div>
+      <div class="mint-box-body">
+        <h4>${b.name}</h4>
+        <p>${b.desc}</p>
+        ${b.odds.length?`<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:600;margin-bottom:6px;color:var(--text-secondary)">Drop Rates:</div>${b.odds.map(o=>`<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span style="color:var(--text-muted)">${o.rarity}</span><span style="color:var(--rarity-${o.rarity.toLowerCase()})">${o.chance}</span></div>`).join('')}</div>`:''}
+        <div class="mint-progress"><div class="mint-progress-bar" style="width:${pct}%;background:linear-gradient(90deg,${color},${color})"></div></div>
+        <div class="mint-remaining">${b.minted}/${b.total} minted (${pct}%)</div>
+        <div class="mint-box-stats">
+          <div class="stat"><div class="val">${b.price} Ξ</div><div class="label">Price</div></div>
+          <div class="stat"><div class="val">${b.total-b.minted}</div><div class="label">Remaining</div></div>
+          <div class="stat"><div class="val">${pct>80?'🔥':pct>50?'⚡':'🟢'}</div><div class="label">Demand</div></div>
+        </div>
+        <button class="btn ${b.type==='blind'?'btn-primary':'btn-success'}" style="width:100%" onclick="mintItem(${i})">
+          ${b.type==='blind'?'🎰 Open Blind Box':'⚡ Mint Now'}
+        </button>
+      </div>
+    </div>
+  `}).join('');
+}
+function mintItem(idx){
+  if(!walletConnected){showToast('Please connect your wallet first!','error');return;}
+  const b = MINT_BOXES[idx];
+  if(b.type==='blind'){
+    const rarities = ['Common','Uncommon','Rare','Epic','Legendary','Mythic'];
+    const r = rarities[Math.floor(Math.random()*5)]; // weighted simplified
+    showToast(`🎉 You got a ${r} item from ${b.name}!`,'success');
+  } else {
+    showToast(`🎉 ${b.name} minted successfully!`,'success');
+  }
+}
+
+// ===== ANNOUNCEMENTS =====
+function renderAnnouncements(){
+  const list = document.getElementById('annList');
+  list.innerHTML = ANNOUNCEMENTS.map(a=>`
+    <div class="ann-item">
+      <div class="ann-top">
+        <span class="ann-tag ann-tag-${a.tag}">${a.tagLabel}</span>
+        <span class="ann-date">${a.date}</span>
+      </div>
+      <h4>${a.title}</h4>
+      <p>${a.body}</p>
+    </div>
+  `).join('');
+}
+
+// ===== TOAST =====
+function showToast(msg, type='info'){
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast toast-'+type;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(()=>toast.remove(),3200);
+}
+
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded',function(){
+  renderGallery();
+  renderTrades();
+  renderRecipes();
+  renderDecompose();
+  renderMint();
+  renderAnnouncements();
+});
+</script>
+</body>
+</html>
