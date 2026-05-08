@@ -813,7 +813,7 @@
     // FALLBACK EMBEDDED DATA (offline support)
     // ========================================
     const FALLBACK_DATA = {
-        "last_updated": "2026-05-05 12:00",
+        "last_updated": "2026-05-08 23:00 (ET)",
         "users": {
             "LelouchAlleah": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
             "573918": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
@@ -1385,9 +1385,15 @@
                 if (dashboardData.users[name]) dashboardData.users[name][field] = val;
             });
         });
-        // Update timestamp
+        // Update timestamp to New York time
         const now = new Date();
-        dashboardData.last_updated = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + ' ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+        const nyTime = new Date(now.toLocaleString('en-US', {timeZone: 'America/New_York'}));
+        const nyYear = nyTime.getFullYear();
+        const nyMonth = String(nyTime.getMonth()+1).padStart(2,'0');
+        const nyDay = String(nyTime.getDate()).padStart(2,'0');
+        const nyHour = String(nyTime.getHours()).padStart(2,'0');
+        const nyMin = String(nyTime.getMinutes()).padStart(2,'0');
+        dashboardData.last_updated = nyYear + '-' + nyMonth + '-' + nyDay + ' ' + nyHour + ':' + nyMin + ' (ET)';
         renderContent();
         updateAdminExport();
         alert('Changes applied! Remember to export and save data.json to persist.');
