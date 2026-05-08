@@ -260,13 +260,16 @@
             transition: background 0.15s; display: inline-block; min-width: 40px;
         }
         .cell-editable:hover { background: rgba(255,255,255,0.08); }
-        .num-cell { display: flex; align-items: center; justify-content: center; gap: 2px; }
-        .pm-btn { width: 22px; height: 22px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; }
-        .pm-minus { background: rgba(239,68,68,0.2); color: #f87171; }
-        .pm-minus:hover { background: rgba(239,68,68,0.4); }
-        .pm-plus { background: rgba(34,197,94,0.2); color: #4ade80; }
-        .pm-plus:hover { background: rgba(34,197,94,0.4); }
-        .num-val { min-width: 40px; text-align: center; }
+        .inline-num-input {
+            width: 90px; padding: 4px 8px; background: var(--bg-secondary);
+            border: 1px solid var(--bg-glass-border); border-radius: 6px;
+            color: var(--text-primary); font-size: 14px; font-family: inherit;
+            text-align: right; outline: none; transition: border-color 0.2s;
+            font-variant-numeric: tabular-nums;
+        }
+        .inline-num-input:hover { border-color: rgba(255,255,255,0.2); }
+        .inline-num-input:focus { border-color: var(--accent-primary); background: rgba(13, 18, 48, 0.9); }
+        .inline-num-input::-webkit-inner-spin-button { opacity: 0.5; }
         .cell-editing {
             padding: 4px 8px; background: var(--bg-secondary);
             border: 1px solid var(--accent-primary); border-radius: 6px;
@@ -1113,11 +1116,11 @@ function renderTable() {
         tr.innerHTML = `
             <td class="col-check"><input type="checkbox" class="row-check" data-name="${name}" ${selectedUsers.has(name) ? 'checked' : ''} onchange="toggleSelect('${name}', this.checked)"></td>
             <td class="col-name"><span class="cell-editable" ondblclick="editCell(this, '${name}', 'name')">${escHtml(name)}</span></td>
-            <td class="col-num"><div class="num-cell"><button class="pm-btn pm-minus" onclick="adjustNum('${name}','link_visits',-1)">−</button><span class="cell-editable num-val" ondblclick="editCell(this, '${name}', 'link_visits')">${formatNum(data.link_visits)}</span><button class="pm-btn pm-plus" onclick="adjustNum('${name}','link_visits',1)">+</button></div></td>
-            <td class="col-num"><div class="num-cell"><button class="pm-btn pm-minus" onclick="adjustNum('${name}','unique_visitors',-1)">−</button><span class="cell-editable num-val" ondblclick="editCell(this, '${name}', 'unique_visitors')">${formatNum(data.unique_visitors)}</span><button class="pm-btn pm-plus" onclick="adjustNum('${name}','unique_visitors',1)">+</button></div></td>
-            <td class="col-num"><div class="num-cell"><button class="pm-btn pm-minus" onclick="adjustNum('${name}','new_users',-1)">−</button><span class="cell-editable num-val" ondblclick="editCell(this, '${name}', 'new_users')">${formatNum(data.new_users)}</span><button class="pm-btn pm-plus" onclick="adjustNum('${name}','new_users',1)">+</button></div></td>
-            <td class="col-num"><div class="num-cell"><button class="pm-btn pm-minus" onclick="adjustNum('${name}','subscription_revenue',-0.01)">−</button><span class="cell-editable num-val" ondblclick="editCell(this, '${name}', 'subscription_revenue')">${formatCurrency(data.subscription_revenue)}</span><button class="pm-btn pm-plus" onclick="adjustNum('${name}','subscription_revenue',0.01)">+</button></div></td>
-            <td class="col-num"><div class="num-cell"><button class="pm-btn pm-minus" onclick="adjustNum('${name}','ad_revenue',-0.01)">−</button><span class="cell-editable num-val" ondblclick="editCell(this, '${name}', 'ad_revenue')">${formatCurrency(data.ad_revenue)}</span><button class="pm-btn pm-plus" onclick="adjustNum('${name}','ad_revenue',0.01)">+</button></div></td>
+            <td class="col-num"><input class="inline-num-input" type="number" min="0" step="1" value="${data.link_visits || 0}" onchange="updateFieldValue('${name}','link_visits',this.value)" onfocus="this.select()"></td>
+            <td class="col-num"><input class="inline-num-input" type="number" min="0" step="1" value="${data.unique_visitors || 0}" onchange="updateFieldValue('${name}','unique_visitors',this.value)" onfocus="this.select()"></td>
+            <td class="col-num"><input class="inline-num-input" type="number" min="0" step="1" value="${data.new_users || 0}" onchange="updateFieldValue('${name}','new_users',this.value)" onfocus="this.select()"></td>
+            <td class="col-num"><input class="inline-num-input" type="number" min="0" step="0.01" value="${data.subscription_revenue || 0}" onchange="updateFieldValue('${name}','subscription_revenue',this.value)" onfocus="this.select()"></td>
+            <td class="col-num"><input class="inline-num-input" type="number" min="0" step="0.01" value="${data.ad_revenue || 0}" onchange="updateFieldValue('${name}','ad_revenue',this.value)" onfocus="this.select()"></td>
             <td class="col-actions">
                 <button class="del-row-btn" onclick="deleteUser('${name}')" title="Delete">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
@@ -1200,14 +1203,13 @@ function sortBy(key) {
 // ============================
 // Inline Editing
 // ============================
-function adjustNum(name, field, delta) {
+function updateFieldValue(name, field, value) {
     if (!dashboardData.users[name]) return;
     const isRevenue = field === 'subscription_revenue' || field === 'ad_revenue';
-    const cur = dashboardData.users[name][field] || 0;
-    let newVal = isRevenue ? Math.max(0, parseFloat((cur + delta).toFixed(2))) : Math.max(0, cur + delta);
-    dashboardData.users[name][field] = newVal;
+    const numVal = isRevenue ? Math.max(0, parseFloat(value) || 0) : Math.max(0, parseInt(value) || 0);
+    dashboardData.users[name][field] = numVal;
     saveDataLocal();
-    renderTable();
+    updateStats();
 }
 
 function editCell(span, name, field) {
