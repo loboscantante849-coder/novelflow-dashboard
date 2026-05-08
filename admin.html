@@ -657,6 +657,10 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         Add User
                     </button>
+                    <button class="toolbar-btn" onclick="refreshFromServer()" style="background:rgba(59,130,246,0.2);color:#60a5fa;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                        Refresh from Server
+                    </button>
                     <button class="toolbar-btn btn-danger-outline" id="batchZeroBtn" onclick="batchSetZero()" style="display:none;">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
                         Batch Zero
@@ -1010,16 +1014,8 @@ function initApp() {
 }
 
 function loadData() {
-    // Try loading from localStorage first, then fetch data.json
-    const stored = localStorage.getItem('nf_dashboard_data');
-    if (stored) {
-        try {
-            dashboardData = JSON.parse(stored);
-            return;
-        } catch(e) {}
-    }
-    // Fetch data.json
-    fetch('data.json')
+    // Always fetch fresh data.json from server first
+    fetch('data.json?t=' + Date.now())
         .then(r => r.json())
         .then(data => {
             dashboardData = data;
@@ -1028,8 +1024,25 @@ function loadData() {
             updateStats();
         })
         .catch(() => {
-            showToast('Could not load data.json, starting with empty data', 'warning');
+            // Fallback to localStorage if fetch fails
+            const stored = localStorage.getItem('nf_dashboard_data');
+            if (stored) {
+                try {
+                    dashboardData = JSON.parse(stored);
+                    renderTable();
+                    updateStats();
+                    showToast('Using cached data (could not reach server)', 'warning');
+                    return;
+                } catch(e) {}
+            }
+            showToast('Could not load data, starting with empty data', 'warning');
         });
+}
+
+function refreshFromServer() {
+    localStorage.removeItem('nf_dashboard_data');
+    loadData();
+    showToast('Refreshing from server...', 'info');
 }
 
 function saveDataLocal() {
