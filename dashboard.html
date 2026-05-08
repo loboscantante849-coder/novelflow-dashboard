@@ -437,146 +437,6 @@
         .table-row.zero-user:hover { opacity: 0.85; }
 
         /* ========================================
-           Top 3 Podium Ranking
-           ======================================== */
-        .podium-section {
-            display: flex; justify-content: center; align-items: flex-end;
-            gap: 16px; margin-bottom: 48px; padding: 32px 16px 0;
-        }
-        .podium-card {
-            flex: 1; max-width: 260px; min-width: 140px;
-            background: var(--bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border-radius: var(--radius-xl); padding: 28px 20px 24px;
-            border: 1px solid var(--bg-glass-border);
-            text-align: center; position: relative; overflow: hidden;
-            transition: all var(--duration-normal) var(--ease-smooth);
-            box-shadow: var(--shadow-soft);
-        }
-        .podium-card::before {
-            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
-            opacity: 0.8;
-        }
-        .podium-card:hover { transform: translateY(-8px); box-shadow: var(--shadow-glow), var(--shadow-soft); }
-        .podium-card.gold {
-            border-color: rgba(255,215,0,0.3);
-            background: linear-gradient(180deg, rgba(255,215,0,0.1) 0%, var(--bg-card) 60%);
-            order: 2; padding-bottom: 36px;
-        }
-        .podium-card.gold::before { background: linear-gradient(90deg, #ffd700, #ffaa00); }
-        .podium-card.gold:hover { box-shadow: 0 0 40px var(--gold-glow), var(--shadow-soft); border-color: rgba(255,215,0,0.5); }
-        .podium-card.silver {
-            border-color: rgba(192,192,192,0.2);
-            background: linear-gradient(180deg, rgba(192,192,192,0.07) 0%, var(--bg-card) 60%);
-            order: 1; padding-bottom: 28px;
-        }
-        .podium-card.silver::before { background: linear-gradient(90deg, #e8e8e8, #a0a0a0); }
-        .podium-card.silver:hover { box-shadow: 0 0 30px var(--silver-glow), var(--shadow-soft); }
-        .podium-card.bronze {
-            border-color: rgba(205,127,50,0.2);
-            background: linear-gradient(180deg, rgba(205,127,50,0.07) 0%, var(--bg-card) 60%);
-            order: 3; padding-bottom: 20px;
-        }
-        .podium-card.bronze::before { background: linear-gradient(90deg, #cd7f32, #a05a2c); }
-        .podium-card.bronze:hover { box-shadow: 0 0 30px var(--bronze-glow), var(--shadow-soft); }
-        .podium-medal {
-            width: 52px; height: 52px; border-radius: 50%; margin: 0 auto 14px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 24px; position: relative; z-index: 1;
-        }
-        .podium-card.gold .podium-medal { background: linear-gradient(135deg, #ffd700, #ffaa00); box-shadow: 0 4px 20px var(--gold-glow); }
-        .podium-card.silver .podium-medal { background: linear-gradient(135deg, #e8e8e8, #a0a0a0); box-shadow: 0 4px 16px var(--silver-glow); }
-        .podium-card.bronze .podium-medal { background: linear-gradient(135deg, #cd7f32, #a05a2c); box-shadow: 0 4px 16px var(--bronze-glow); }
-        .podium-rank-label {
-            font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;
-            margin-bottom: 8px; position: relative; z-index: 1;
-        }
-        .podium-card.gold .podium-rank-label { color: var(--gold); }
-        .podium-card.silver .podium-rank-label { color: var(--silver); }
-        .podium-card.bronze .podium-rank-label { color: var(--bronze); }
-        .podium-name {
-            font-size: 16px; font-weight: 700; color: var(--text-primary);
-            margin-bottom: 6px; position: relative; z-index: 1;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .podium-value {
-            font-size: 22px; font-weight: 800; position: relative; z-index: 1;
-            font-variant-numeric: tabular-nums;
-        }
-        .podium-card.gold .podium-value { color: var(--gold); }
-        .podium-card.silver .podium-value { color: var(--silver); }
-        .podium-card.bronze .podium-value { color: var(--bronze); }
-        .podium-detail {
-            font-size: 11px; color: var(--text-muted); margin-top: 6px;
-            position: relative; z-index: 1;
-        }
-        .podium-link { text-decoration: none; color: inherit; display: block; }
-
-        /* ========================================
-           Trend Chart Section
-           ======================================== */
-        .trend-section {
-            background: var(--bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border-radius: var(--radius-xl); padding: 28px 24px;
-            border: 1px solid var(--bg-glass-border); margin-bottom: 48px;
-            box-shadow: var(--shadow-soft); position: relative; overflow: hidden;
-        }
-        .trend-section::after {
-            content: ''; position: absolute; inset: 0;
-            background: linear-gradient(135deg, rgba(34,211,238,0.04) 0%, rgba(167,139,250,0.04) 100%);
-            pointer-events: none;
-        }
-        .trend-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 20px; position: relative; z-index: 1; flex-wrap: wrap; gap: 12px;
-        }
-        .trend-title {
-            font-size: 16px; font-weight: 700; color: var(--text-primary);
-            display: flex; align-items: center; gap: 10px;
-        }
-        .trend-title svg { width: 20px; height: 20px; color: var(--metric-link); }
-        .trend-toggle {
-            display: flex; background: var(--bg-glass); border-radius: var(--radius-sm);
-            padding: 3px; border: 1px solid var(--bg-glass-border);
-        }
-        .trend-toggle-btn {
-            padding: 6px 16px; border: none; background: transparent;
-            color: var(--text-secondary); font-size: 12px; font-weight: 600;
-            cursor: pointer; border-radius: 6px; transition: all var(--duration-fast) var(--ease-smooth);
-            font-family: inherit;
-        }
-        .trend-toggle-btn.active { background: var(--accent-gradient); color: white; box-shadow: 0 2px 8px var(--accent-glow); }
-        .trend-toggle-btn:hover:not(.active) { color: var(--text-primary); background: rgba(255,255,255,0.05); }
-        .trend-canvas-wrap {
-            position: relative; z-index: 1; width: 100%; height: 220px;
-        }
-        .trend-canvas-wrap canvas {
-            width: 100%; height: 100%; display: block;
-        }
-        .trend-legend {
-            display: flex; gap: 20px; margin-top: 14px; position: relative; z-index: 1;
-            flex-wrap: wrap;
-        }
-        .trend-legend-item {
-            display: flex; align-items: center; gap: 6px;
-            font-size: 12px; color: var(--text-secondary); font-weight: 500;
-        }
-        .trend-legend-dot {
-            width: 10px; height: 10px; border-radius: 50%;
-        }
-        .trend-summary {
-            display: flex; gap: 24px; margin-top: 16px; padding-top: 16px;
-            border-top: 1px solid var(--border-subtle);
-            position: relative; z-index: 1; flex-wrap: wrap;
-        }
-        .trend-stat {
-            display: flex; flex-direction: column; gap: 2px;
-        }
-        .trend-stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
-        .trend-stat-value { font-size: 18px; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; }
-        .trend-stat-value.up { color: #34d399; }
-        .trend-stat-value.down { color: var(--accent-primary); }
-
-        /* ========================================
            Error State
            ======================================== */
         .error-state { text-align: center; padding: 120px 20px; }
@@ -907,16 +767,6 @@
             .leaderboard-subtitle { font-size: 14px; }
             .leaderboard-table { display: none; }
             .leaderboard-cards { display: flex; }
-            .podium-section { gap: 8px; padding: 16px 0 0; }
-            .podium-card { padding: 20px 14px 16px; min-width: 100px; }
-            .podium-card.gold { padding-bottom: 24px; }
-            .podium-card.silver { padding-bottom: 18px; }
-            .podium-card.bronze { padding-bottom: 12px; }
-            .podium-medal { width: 42px; height: 42px; font-size: 20px; margin-bottom: 10px; }
-            .podium-name { font-size: 13px; }
-            .podium-value { font-size: 17px; }
-            .trend-canvas-wrap { height: 180px; }
-            .trend-section { padding: 20px 16px; }
             .leaderboard-stats { flex-direction: column; gap: 8px; }
             .admin-panel { width: 98%; }
             .admin-user-item { grid-template-columns: 1fr 50px 50px; font-size: 11px; }
@@ -944,12 +794,6 @@
             .lb-card-name { font-size: 14px; }
             .lb-card-total { font-size: 14px; }
             .lb-card-metrics { font-size: 10px; gap: 8px; }
-            .podium-section { flex-direction: column; align-items: center; }
-            .podium-card { max-width: 100%; min-width: 0; width: 100%; }
-            .podium-card.gold { order: 1; padding-bottom: 24px; }
-            .podium-card.silver { order: 2; padding-bottom: 18px; }
-            .podium-card.bronze { order: 3; padding-bottom: 12px; }
-            .trend-canvas-wrap { height: 150px; }
             .sort-tab { padding: 10px 14px; font-size: 12px; }
             .onboarding-step { padding: 12px; gap: 12px; }
         }
@@ -1242,19 +1086,7 @@
             'share.btn': 'Share My Stats',
             'share.copied': 'Link Copied!',
             'search.placeholder': 'Search your name...',
-            'coming.soon': 'Coming Soon',
-            'podium.rank': 'RANK',
-            'podium.visits': 'visits',
-            'podium.users': 'users',
-            'trend.title': 'Daily Click Trend',
-            'trend.7d': '7 Days',
-            'trend.30d': '30 Days',
-            'trend.legend.link_visits': 'Link Visits',
-            'trend.legend.unique_visitors': 'Unique Visitors',
-            'trend.total': 'Total',
-            'trend.avg': 'Average',
-            'trend.peak': 'Peak',
-            'trend.change': 'Change'
+            'coming.soon': 'Coming Soon'
         },
         es: {
             'nav.leaderboard': 'Clasificaci\u00f3n',
@@ -1300,19 +1132,7 @@
             'share.btn': 'Compartir Mis Estad\u00edsticas',
             'share.copied': '\u00a1Enlace Copiado!',
             'search.placeholder': 'Busca tu nombre...',
-            'coming.soon': 'Pr\u00f3ximamente',
-            'podium.rank': 'POSICI\u00d3N',
-            'podium.visits': 'visitas',
-            'podium.users': 'usuarios',
-            'trend.title': 'Tendencia de Clics Diarios',
-            'trend.7d': '7 D\u00edas',
-            'trend.30d': '30 D\u00edas',
-            'trend.legend.link_visits': 'Visitas de Enlaces',
-            'trend.legend.unique_visitors': 'Visitantes \u00danicos',
-            'trend.total': 'Total',
-            'trend.avg': 'Promedio',
-            'trend.peak': 'Pico',
-            'trend.change': 'Cambio'
+            'coming.soon': 'Pr\u00f3ximamente'
         }
     };
 
@@ -1412,177 +1232,6 @@
     }
 
     // ========================================
-    // Trend Chart Data & Drawing
-    // ========================================
-    let trendPeriod = '7d';
-
-    function generateTrendData(days) {
-        const now = new Date();
-        const labels = [];
-        const linkVisits = [];
-        const uniqueVisitors = [];
-        let baseLink = 42 + Math.floor(Math.random() * 30);
-        let baseUnique = 18 + Math.floor(Math.random() * 15);
-        for (let i = days - 1; i >= 0; i--) {
-            const d = new Date(now); d.setDate(d.getDate() - i);
-            const month = d.getMonth() + 1; const day = d.getDate();
-            labels.push(month + '/' + day);
-            // Simulate realistic daily fluctuation with weekend dip
-            const dayOfWeek = d.getDay();
-            const weekendFactor = (dayOfWeek === 0 || dayOfWeek === 6) ? 0.65 : 1;
-            const trendUp = 1 + (days - i) * 0.008; // slight upward trend
-            baseLink = Math.max(5, baseLink + Math.round((Math.random() - 0.4) * 18));
-            baseUnique = Math.max(2, baseUnique + Math.round((Math.random() - 0.4) * 8));
-            linkVisits.push(Math.round(baseLink * weekendFactor * trendUp));
-            uniqueVisitors.push(Math.round(baseUnique * weekendFactor * trendUp));
-        }
-        return { labels, linkVisits, uniqueVisitors };
-    }
-
-    function drawTrendChart() {
-        const wrap = document.querySelector('.trend-canvas-wrap');
-        if (!wrap) return;
-        const canvas = document.getElementById('trendCanvas');
-        if (!canvas) return;
-        const dpr = window.devicePixelRatio || 1;
-        const rect = wrap.getBoundingClientRect();
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        const ctx = canvas.getContext('2d');
-        ctx.scale(dpr, dpr);
-        const w = rect.width;
-        const h = rect.height;
-
-        const days = trendPeriod === '7d' ? 7 : 30;
-        const data = generateTrendData(days);
-        // Store data on canvas for summary
-        canvas._trendData = data;
-        const padLeft = 40;
-        const padRight = 16;
-        const padTop = 16;
-        const padBottom = 32;
-        const chartW = w - padLeft - padRight;
-        const chartH = h - padTop - padBottom;
-
-        ctx.clearRect(0, 0, w, h);
-
-        // Detect theme
-        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-        const gridColor = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
-        const labelColor = isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.3)';
-
-        const allVals = [...data.linkVisits, ...data.uniqueVisitors];
-        const maxVal = Math.max(...allVals, 1);
-        const minVal = 0;
-        const range = maxVal - minVal || 1;
-
-        // Grid lines
-        const gridLines = 4;
-        ctx.strokeStyle = gridColor;
-        ctx.lineWidth = 1;
-        ctx.font = '10px Inter, sans-serif';
-        ctx.fillStyle = labelColor;
-        ctx.textAlign = 'right';
-        for (let i = 0; i <= gridLines; i++) {
-            const y = padTop + (chartH / gridLines) * i;
-            const val = Math.round(maxVal - (maxVal / gridLines) * i);
-            ctx.beginPath(); ctx.moveTo(padLeft, y); ctx.lineTo(w - padRight, y); ctx.stroke();
-            ctx.fillText(val, padLeft - 8, y + 4);
-        }
-
-        // X labels (show subset for 30d)
-        ctx.fillStyle = labelColor;
-        ctx.textAlign = 'center';
-        const labelStep = days <= 7 ? 1 : Math.ceil(days / 7);
-        data.labels.forEach((label, i) => {
-            if (i % labelStep === 0 || i === days - 1) {
-                const x = padLeft + (i / (days - 1)) * chartW;
-                ctx.fillText(label, x, h - 8);
-            }
-        });
-
-        // Draw line helper
-        function drawLine(values, color, fillColor) {
-            const points = values.map((v, i) => ({
-                x: padLeft + (i / (days - 1)) * chartW,
-                y: padTop + chartH - ((v - minVal) / range) * chartH
-            }));
-
-            // Fill area
-            ctx.beginPath();
-            ctx.moveTo(points[0].x, padTop + chartH);
-            points.forEach(p => ctx.lineTo(p.x, p.y));
-            ctx.lineTo(points[points.length - 1].x, padTop + chartH);
-            ctx.closePath();
-            const grad = ctx.createLinearGradient(0, padTop, 0, padTop + chartH);
-            grad.addColorStop(0, fillColor);
-            grad.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = grad;
-            ctx.fill();
-
-            // Line
-            ctx.beginPath();
-            points.forEach((p, i) => { i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y); });
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2.5;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.stroke();
-
-            // Dots (only for 7d)
-            if (days <= 7) {
-                points.forEach(p => {
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-                    ctx.fillStyle = color;
-                    ctx.fill();
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
-                    ctx.fillStyle = '#fff';
-                    ctx.fill();
-                });
-            }
-        }
-
-        drawLine(data.uniqueVisitors, '#a78bfa', 'rgba(167,139,250,0.15)');
-        drawLine(data.linkVisits, '#22d3ee', 'rgba(34,211,238,0.2)');
-
-        // Update summary stats
-        updateTrendSummary(data);
-    }
-
-    function updateTrendSummary(data) {
-        const totalEl = document.getElementById('trendTotal');
-        const avgEl = document.getElementById('trendAvg');
-        const peakEl = document.getElementById('trendPeak');
-        const changeEl = document.getElementById('trendChange');
-        if (!totalEl) return;
-
-        const total = data.linkVisits.reduce((a, b) => a + b, 0);
-        const avg = Math.round(total / data.linkVisits.length);
-        const peak = Math.max(...data.linkVisits);
-        const firstHalf = data.linkVisits.slice(0, Math.floor(data.linkVisits.length / 2));
-        const secondHalf = data.linkVisits.slice(Math.floor(data.linkVisits.length / 2));
-        const avgFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
-        const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
-        const change = avgFirst > 0 ? ((avgSecond - avgFirst) / avgFirst * 100) : 0;
-
-        totalEl.textContent = total.toLocaleString();
-        avgEl.textContent = avg.toLocaleString();
-        peakEl.textContent = peak.toLocaleString();
-        changeEl.textContent = (change >= 0 ? '+' : '') + change.toFixed(1) + '%';
-        changeEl.className = 'trend-stat-value ' + (change >= 0 ? 'up' : 'down');
-    }
-
-    function switchTrendPeriod(period) {
-        trendPeriod = period;
-        document.querySelectorAll('.trend-toggle-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.period === period);
-        });
-        drawTrendChart();
-    }
-
-    // ========================================
     // SVG Icons
     // ========================================
     const icons = {
@@ -1598,8 +1247,7 @@
         share: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
         check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
         arrowRight: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
-        search: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
-        trend: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>'
+        search: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
     };
 
     // ========================================
@@ -1693,59 +1341,11 @@
                     <div class="last-updated">${icons.clock}<span>${t('last.updated')}: ${dashboardData.last_updated}</span></div>
                 </div>
             </section>
-            ${allUsersFull.length >= 3 ? `
-            <section class="podium-section slide-up stagger-1">
-                ${[0,1,2].map(idx => {
-                    const user = allUsersFull[idx];
-                    if (!user) return '';
-                    const rank = idx + 1;
-                    const medalClass = rank === 1 ? 'gold' : rank === 2 ? 'silver' : 'bronze';
-                    const medalEmoji = rank === 1 ? '\u{1F947}' : rank === 2 ? '\u{1F948}' : '\u{1F949}';
-                    const initial = user.username.charAt(0).toUpperCase();
-                    const total = user.total_revenue;
-                    const encodedUsername = encodeURIComponent(user.username);
-                    const sortKey = sortBy === 'total_revenue' ? 'total_revenue' : sortBy;
-                    const displayValue = sortKey === 'total_revenue' || !sortBy ? formatCurrency(total) : formatNumber(user[sortKey] || 0);
-                    return `
-                    <a href="?user=${encodedUsername}" class="podium-link">
-                        <div class="podium-card ${medalClass}">
-                            <div class="podium-medal">${medalEmoji}</div>
-                            <div class="podium-rank-label">${t('podium.rank')} #${rank}</div>
-                            <div class="podium-name">${escapeHtml(user.username)}</div>
-                            <div class="podium-value">${displayValue}</div>
-                            <div class="podium-detail">${formatNumber(user.link_visits || 0)} ${t('podium.visits')} \u00b7 ${formatNumber(user.new_users || 0)} ${t('podium.users')}</div>
-                        </div>
-                    </a>`;
-                }).join('')}
-            </section>
-            ` : ''}
-            <section class="trend-section slide-up stagger-2">
-                <div class="trend-header">
-                    <div class="trend-title">${icons.trend}${t('trend.title')}</div>
-                    <div class="trend-toggle">
-                        <button class="trend-toggle-btn ${trendPeriod === '7d' ? 'active' : ''}" data-period="7d" onclick="switchTrendPeriod('7d')">${t('trend.7d')}</button>
-                        <button class="trend-toggle-btn ${trendPeriod === '30d' ? 'active' : ''}" data-period="30d" onclick="switchTrendPeriod('30d')">${t('trend.30d')}</button>
-                    </div>
-                </div>
-                <div class="trend-canvas-wrap">
-                    <canvas id="trendCanvas"></canvas>
-                </div>
-                <div class="trend-legend">
-                    <div class="trend-legend-item"><div class="trend-legend-dot" style="background:#22d3ee;"></div>${t('trend.legend.link_visits')}</div>
-                    <div class="trend-legend-item"><div class="trend-legend-dot" style="background:#a78bfa;"></div>${t('trend.legend.unique_visitors')}</div>
-                </div>
-                <div class="trend-summary">
-                    <div class="trend-stat"><span class="trend-stat-label">${t('trend.total')}</span><span class="trend-stat-value" id="trendTotal">\u2014</span></div>
-                    <div class="trend-stat"><span class="trend-stat-label">${t('trend.avg')}</span><span class="trend-stat-value" id="trendAvg">\u2014</span></div>
-                    <div class="trend-stat"><span class="trend-stat-label">${t('trend.peak')}</span><span class="trend-stat-value" id="trendPeak">\u2014</span></div>
-                    <div class="trend-stat"><span class="trend-stat-label">${t('trend.change')}</span><span class="trend-stat-value" id="trendChange">\u2014</span></div>
-                </div>
-            </section>
-            <div class="search-container slide-up stagger-2">
+            <div class="search-container slide-up stagger-1">
                 <div class="search-icon">${icons.search}</div>
                 <input type="text" class="search-input" id="searchInput" placeholder="${t('search.placeholder')}" value="${escapeHtml(searchQuery)}" oninput="handleSearch(this.value)">
             </div>
-            <div class="sort-tabs slide-up stagger-2">
+            <div class="sort-tabs slide-up stagger-1">
                 ${sortTabs.map(tab => `<button class="sort-tab ${sortBy === tab.key ? 'active' : ''}" onclick="sortLeaderboard('${tab.key}')">${tab.label}</button>`).join('')}
             </div>
             <div class="leaderboard-table slide-up stagger-2">
@@ -1856,8 +1456,6 @@
             // Re-focus search
             const si = document.getElementById('searchInput');
             if (si && searchQuery) si.focus();
-            // Draw trend chart after DOM ready
-            setTimeout(drawTrendChart, 100);
         }
     }
 
@@ -2157,15 +1755,6 @@
     });
 
     window.addEventListener('popstate', renderContent);
-
-    // Redraw trend chart on resize
-    let trendResizeTimer;
-    window.addEventListener('resize', () => {
-        clearTimeout(trendResizeTimer);
-        trendResizeTimer = setTimeout(() => {
-            if (document.getElementById('trendCanvas')) drawTrendChart();
-        }, 200);
-    });
     </script>
 </body>
 </html>
