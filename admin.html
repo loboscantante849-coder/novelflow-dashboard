@@ -1043,9 +1043,10 @@ function loadData() {
 }
 
 function refreshFromServer() {
-    localStorage.removeItem('nf_dashboard_data');
+    // Don't clear localStorage - just fetch fresh data from server
+    // loadData will overwrite with server data if available
     loadData();
-    showToast('Refreshing from server...', 'info');
+    showToast('Refreshed from server', 'success');
 }
 
 function saveDataLocal() {
@@ -1208,6 +1209,10 @@ function updateFieldValue(name, field, value) {
     const isRevenue = field === 'subscription_revenue' || field === 'ad_revenue';
     const numVal = isRevenue ? Math.max(0, parseFloat(value) || 0) : Math.max(0, parseInt(value) || 0);
     dashboardData.users[name][field] = numVal;
+    // Update last_updated timestamp to now (ET)
+    const now = new Date();
+    const etTime = now.toLocaleString('en-CA', {timeZone: 'America/New_York', year:'numeric', month:'2-digit', day:'2-digit'}) + ' ' + now.toLocaleString('en-US', {timeZone: 'America/New_York', hour:'2-digit', minute:'2-digit', hour12: false});
+    dashboardData.last_updated = etTime.replace(',', '');
     saveDataLocal();
     updateStats();
 }
