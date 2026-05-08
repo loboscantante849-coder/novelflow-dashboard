@@ -467,16 +467,49 @@
             .sidebar { transform: translateX(-100%); }
             .sidebar.open { transform: translateX(0); }
             .main-content { margin-left: 0; }
-            .mobile-menu-btn { display: flex; }
+            .mobile-menu-btn { display: flex; width: 44px; height: 44px; }
             .stats-bar { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 16px; }
+            .stat-item { padding: 14px; }
+            .stat-item .stat-num { font-size: 22px; }
+            .stat-item .stat-lbl { font-size: 9px; letter-spacing: 1px; }
             .page-content { padding: 16px; }
-            .top-header { padding: 0 16px; }
-            .data-table { font-size: 12px; }
-            .data-table th, .data-table td { padding: 8px 10px; }
+            .top-header { padding: 0 16px; height: 56px; }
+            .header-title { font-size: 16px; }
             .header-stat { display: none; }
+            .header-right button[onclick="pushToGitHub()"] {
+                padding: 10px 16px; font-size: 13px; min-height: 44px;
+            }
+            .data-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .data-table { font-size: 12px; min-width: 700px; }
+            .data-table th, .data-table td { padding: 8px 10px; }
+            .table-toolbar { flex-wrap: wrap; gap: 8px; }
+            .search-box { min-width: 100%; order: -1; }
+            .search-box input { min-height: 44px; }
+            .toolbar-btn { min-height: 44px; font-size: 12px; }
+            .setting-row { flex-direction: column; gap: 8px; }
+            .setting-label { min-width: unset; font-size: 13px; }
+            .setting-input { width: 100%; min-height: 44px; }
+            .toggle-vis-btn { width: 44px; height: 44px; }
+            .page-btn { width: 38px; height: 38px; }
+            .inline-num-input { min-height: 40px; width: 80px; }
+            .action-btn { min-height: 48px; padding: 12px 20px; }
+            .del-row-btn { width: 36px; height: 36px; }
+            .modal-box { padding: 24px 20px; }
+            .form-group input { min-height: 44px; }
+            .card-box { padding: 20px 16px; }
+            .login-box { padding: 36px 28px; }
         }
         @media (max-width: 480px) {
-            .stats-bar { grid-template-columns: 1fr 1fr; }
+            .stats-bar { grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; }
+            .stat-item { padding: 12px 10px; }
+            .stat-item .stat-num { font-size: 20px; }
+            .page-content { padding: 12px; }
+            .top-header { padding: 0 12px; }
+            .header-right button[onclick="pushToGitHub()"] {
+                padding: 8px 12px; font-size: 12px;
+            }
+            .data-table { min-width: 600px; }
+            .confirm-box { padding: 24px 20px; }
         }
 
         /* ========== Scrollbar ========== */
@@ -484,6 +517,11 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+        /* ========== Mobile Floating Push Button ========== */
+        @media (max-width: 768px) {
+            #mobilePushBtn { display: flex !important; }
+        }
 
         /* ========== Sidebar Overlay (mobile) ========== */
         .sidebar-overlay {
@@ -626,6 +664,11 @@
                 </button>
             </div>
         </div>
+
+        <!-- Mobile Floating Push Button -->
+        <button id="mobilePushBtn" onclick="pushToGitHub()" style="display:none;position:fixed;bottom:20px;right:20px;z-index:80;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#e94560,#f97316);border:none;color:#fff;font-size:20px;cursor:pointer;box-shadow:0 4px 20px rgba(233,69,96,0.4);transition:all 0.3s;align-items:center;justify-content:center;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4m0 14v4m-9.7-3.3l2.8-2.8m10.2-10.2l2.8-2.8M1 12h4m14 0h4M4.3 4.3l2.8 2.8m10.2 10.2l2.8 2.8"/></svg>
+        </button>
 
         <!-- Stats Summary Bar -->
         <div class="stats-bar" id="statsBar">
