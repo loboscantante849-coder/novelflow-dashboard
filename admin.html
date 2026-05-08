@@ -1604,6 +1604,7 @@ async function pushToGitHub() {
 }
 
 async function testGithubConnection() {
+    saveSettings();
     const token = localStorage.getItem(LS_KEY_GITHUB_TOKEN);
     if (!token) { showToast('Please enter a GitHub Token first', 'warning'); return; }
     const repo = localStorage.getItem(LS_KEY_REPO) || 'loboscantante849-coder/novelflow-dashboard';
