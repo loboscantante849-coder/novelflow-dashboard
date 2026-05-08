@@ -2,1130 +2,1235 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NovaMint — Digital Collectibles Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NovaMint — Digital Collectibles</title>
 <style>
-/* ===== RESET & BASE ===== */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg-primary:#0a0e17;
-  --bg-secondary:#111827;
-  --bg-card:#1a2236;
-  --bg-card-hover:#222d45;
-  --bg-input:#0d1321;
-  --accent:#6c5ce7;
-  --accent-glow:#a78bfa;
-  --accent2:#00d2ff;
-  --accent3:#f97316;
-  --text-primary:#e2e8f0;
-  --text-secondary:#94a3b8;
-  --text-muted:#64748b;
-  --border:#1e293b;
-  --success:#22c55e;
-  --danger:#ef4444;
-  --warning:#f59e0b;
-  --rarity-common:#9ca3af;
-  --rarity-uncommon:#22c55e;
-  --rarity-rare:#3b82f6;
-  --rarity-epic:#a855f7;
-  --rarity-legendary:#f59e0b;
-  --rarity-mythic:#ef4444;
-  --radius:12px;
-  --radius-sm:8px;
-  --shadow:0 4px 24px rgba(0,0,0,.4);
-  --transition:all .3s cubic-bezier(.4,0,.2,1);
+  --bg:#f5f5f5;
+  --white:#ffffff;
+  --primary:#e8a735;
+  --primary-dark:#c4881d;
+  --primary-light:#fff8eb;
+  --primary-bg:#fef6e4;
+  --text1:#1a1a1a;
+  --text2:#666666;
+  --text3:#999999;
+  --text4:#cccccc;
+  --border:#f0f0f0;
+  --red:#e54d42;
+  --green:#07c160;
+  --blue:#5b9bd5;
+  --purple:#9b59b6;
+  --radius:10px;
+  --radius-sm:6px;
+  --radius-lg:14px;
 }
-html{scroll-behavior:smooth}
+html{-webkit-tap-highlight-color:transparent;scroll-behavior:smooth}
 body{
-  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  background:var(--bg-primary);
-  color:var(--text-primary);
-  min-height:100vh;
-  overflow-x:hidden;
-  line-height:1.6;
+  font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',Roboto,sans-serif;
+  background:var(--bg);color:var(--text1);
+  max-width:420px;margin:0 auto;min-height:100vh;
+  overflow-x:hidden;line-height:1.5;padding-bottom:56px;
+  -webkit-font-smoothing:antialiased;
 }
-a{color:var(--accent-glow);text-decoration:none}
-a:hover{text-decoration:underline}
 
-/* ===== SCROLLBAR ===== */
-::-webkit-scrollbar{width:6px}
-::-webkit-scrollbar-track{background:var(--bg-primary)}
-::-webkit-scrollbar-thumb{background:var(--accent);border-radius:3px}
-
-/* ===== HEADER ===== */
-.header{
-  position:sticky;top:0;z-index:100;
-  background:rgba(10,14,23,.92);
-  backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border);
-  padding:0 24px;
-  height:64px;
+/* ===== TOP STATUS BAR ===== */
+.status-bar{
+  background:var(--white);padding:10px 16px;
   display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;
 }
-.logo{
-  display:flex;align-items:center;gap:10px;
-  font-size:22px;font-weight:800;
-  background:linear-gradient(135deg,var(--accent),var(--accent2));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  letter-spacing:-.5px;
+.status-bar .logo{display:flex;align-items:center;gap:6px;font-size:17px;font-weight:700;color:var(--text1)}
+.status-bar .logo i{width:28px;height:28px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-style:normal;font-size:14px;font-weight:800}
+.status-bar .right{display:flex;align-items:center;gap:10px}
+.status-bar .msg-icon{width:22px;height:22px;position:relative;cursor:pointer}
+.status-bar .msg-icon svg{width:100%;height:100%}
+.status-bar .msg-dot{position:absolute;top:0;right:0;width:7px;height:7px;background:var(--red);border-radius:50%;border:1.5px solid var(--white)}
+.connect-btn{
+  background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;
+  border:none;padding:5px 14px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;
 }
-.logo-icon{
-  width:36px;height:36px;
-  background:linear-gradient(135deg,var(--accent),var(--accent2));
-  border-radius:10px;
+.connect-btn.connected{background:var(--green)}
+
+/* ===== PAGE ===== */
+.page{display:none;animation:fadeUp .25s ease}
+.page.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* ===== HOME ===== */
+/* Banner */
+.banner-wrap{margin:10px 12px 0;position:relative;border-radius:var(--radius-lg);overflow:hidden;height:150px}
+.banner-track{display:flex;height:100%;transition:transform .4s ease}
+.banner-slide{
+  min-width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+}
+.banner-slide .b-deco{position:absolute;inset:0;opacity:.15}
+.banner-slide .b-content{position:relative;z-index:2;color:#fff;text-align:center;padding:0 30px}
+.banner-slide .b-content h2{font-size:17px;font-weight:700;margin-bottom:4px;text-shadow:0 1px 4px rgba(0,0,0,.3)}
+.banner-slide .b-content p{font-size:11px;opacity:.9;text-shadow:0 1px 2px rgba(0,0,0,.2)}
+.banner-slide .b-content .b-btn{
+  display:inline-block;margin-top:8px;padding:5px 16px;
+  background:rgba(255,255,255,.25);border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;
+}
+.banner-dots{
+  position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:3;
+}
+.banner-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.5);transition:all .3s}
+.banner-dot.active{background:#fff;width:14px;border-radius:3px}
+
+/* News Ticker */
+.news-bar{
+  margin:8px 12px;background:var(--white);border-radius:var(--radius-sm);
+  padding:8px 12px;display:flex;align-items:center;gap:6px;
+}
+.news-label{
+  background:var(--red);color:#fff;font-size:9px;font-weight:700;
+  padding:1px 5px;border-radius:2px;flex-shrink:0;letter-spacing:.3px;
+}
+.news-text{font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;flex:1}
+.news-text span{display:inline-block;animation:scroll-left 12s linear infinite}
+@keyframes scroll-left{0%{transform:translateX(100%)}100%{transform:translateX(-100%)}}
+
+/* Function Grid */
+.func-area{margin:8px 12px 0}
+.func-area-title{font-size:13px;font-weight:700;margin-bottom:8px;color:var(--text1)}
+.func-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  background:var(--white);border-radius:var(--radius);overflow:hidden;
+}
+.func-cell{
+  display:flex;flex-direction:column;align-items:center;padding:14px 0 10px;
+  cursor:pointer;
+}
+.func-cell:active{background:#fafafa}
+.func-cell .fc-icon{
+  width:38px;height:38px;border-radius:10px;
   display:flex;align-items:center;justify-content:center;
-  font-size:18px;-webkit-text-fill-color:#fff;
+  margin-bottom:5px;
 }
-.header-right{display:flex;align-items:center;gap:16px}
-.wallet-btn{
-  background:linear-gradient(135deg,var(--accent),#8b5cf6);
-  color:#fff;border:none;padding:8px 20px;
-  border-radius:var(--radius-sm);font-size:14px;font-weight:600;
-  cursor:pointer;transition:var(--transition);
-  display:flex;align-items:center;gap:6px;
-}
-.wallet-btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(108,92,231,.4)}
-.wallet-btn.connected{background:linear-gradient(135deg,#22c55e,#16a34a)}
-.balance-pill{
-  background:var(--bg-card);border:1px solid var(--border);
-  padding:6px 14px;border-radius:20px;font-size:13px;
-  display:flex;align-items:center;gap:6px;color:var(--accent2);
-}
-.balance-pill svg{width:14px;height:14px}
+.func-cell .fc-icon svg{width:20px;height:20px}
+.func-cell .fc-label{font-size:10px;color:var(--text2);font-weight:500}
 
-/* ===== NAV ===== */
-.nav{
-  background:var(--bg-secondary);
-  border-bottom:1px solid var(--border);
-  padding:0 24px;
-  display:flex;gap:0;
-  overflow-x:auto;
-  -ms-overflow-style:none;scrollbar-width:none;
+/* Hot Recommend */
+.hot-section{margin:12px}
+.hot-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.hot-header h3{font-size:13px;font-weight:700}
+.hot-header .more{font-size:11px;color:var(--text3);cursor:pointer}
+.hot-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.hot-scroll::-webkit-scrollbar{display:none}
+.hot-card{
+  min-width:130px;background:var(--white);border-radius:var(--radius);
+  overflow:hidden;flex-shrink:0;cursor:pointer;
 }
-.nav::-webkit-scrollbar{display:none}
-.nav-item{
-  padding:14px 20px;
-  font-size:14px;font-weight:500;
-  color:var(--text-muted);
-  cursor:pointer;white-space:nowrap;
-  border-bottom:2px solid transparent;
-  transition:var(--transition);
-  display:flex;align-items:center;gap:6px;
-}
-.nav-item:hover{color:var(--text-secondary)}
-.nav-item.active{color:var(--accent-glow);border-bottom-color:var(--accent)}
-.nav-item .badge{
-  background:var(--danger);color:#fff;font-size:10px;
-  padding:1px 6px;border-radius:10px;font-weight:700;
-}
+.hot-card .hc-img{width:130px;height:130px;position:relative}
+.hot-card .hc-body{padding:7px 8px 8px}
+.hot-card .hc-name{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hot-card .hc-price{font-size:12px;font-weight:700;color:var(--primary);margin-top:2px}
+.hot-card .hc-change{font-size:10px;margin-top:1px}
+.hc-change.up{color:var(--red)}
+.hc-change.down{color:var(--green)}
 
-/* ===== MAIN CONTENT ===== */
-.main{max-width:1400px;margin:0 auto;padding:24px}
-.section{display:none;animation:fadeIn .4s ease}
-.section.active{display:block}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+/* ===== MARKET ===== */
+.mkt-tabs{
+  display:flex;background:var(--white);
+  border-bottom:1px solid var(--border);padding:0 16px;
+}
+.mkt-tab{
+  padding:11px 0;margin-right:20px;font-size:14px;font-weight:600;
+  color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;
+}
+.mkt-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
 
-/* ===== HERO BANNER ===== */
-.hero{
-  background:linear-gradient(135deg,rgba(108,92,231,.15),rgba(0,210,255,.1));
-  border:1px solid rgba(108,92,231,.2);
-  border-radius:var(--radius);padding:32px;
-  margin-bottom:28px;position:relative;overflow:hidden;
+.mkt-search{
+  margin:10px 12px;position:relative;
 }
-.hero::before{
-  content:'';position:absolute;top:-50%;right:-20%;
-  width:400px;height:400px;
-  background:radial-gradient(circle,rgba(108,92,231,.2),transparent 70%);
-  pointer-events:none;
+.mkt-search input{
+  width:100%;padding:8px 12px 8px 32px;border:1px solid var(--border);
+  border-radius:18px;font-size:12px;background:var(--white);outline:none;
 }
-.hero h2{font-size:24px;font-weight:700;margin-bottom:8px}
-.hero p{color:var(--text-secondary);font-size:14px;margin-bottom:16px}
-.hero-actions{display:flex;gap:12px;flex-wrap:wrap}
-.btn{
-  padding:10px 24px;border-radius:var(--radius-sm);
-  font-size:14px;font-weight:600;cursor:pointer;
-  border:none;transition:var(--transition);
-  display:inline-flex;align-items:center;gap:6px;
-}
-.btn-primary{background:linear-gradient(135deg,var(--accent),#8b5cf6);color:#fff}
-.btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(108,92,231,.4)}
-.btn-secondary{background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border)}
-.btn-secondary:hover{border-color:var(--accent);color:var(--accent-glow)}
-.btn-accent{background:linear-gradient(135deg,var(--accent2),#0ea5e9);color:#fff}
-.btn-danger{background:linear-gradient(135deg,var(--danger),#dc2626);color:#fff}
-.btn-success{background:linear-gradient(135deg,var(--success),#16a34a);color:#fff}
-.btn-sm{padding:6px 14px;font-size:12px}
+.mkt-search input::placeholder{color:var(--text4)}
+.mkt-search input:focus{border-color:var(--primary)}
+.mkt-search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--text3)}
 
-/* ===== SECTION HEADER ===== */
-.section-header{
-  display:flex;justify-content:space-between;align-items:center;
-  margin-bottom:20px;flex-wrap:wrap;gap:12px;
+/* Category Row */
+.cat-row{display:flex;gap:6px;padding:0 12px 8px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.cat-row::-webkit-scrollbar{display:none}
+.cat-tag{
+  display:flex;align-items:center;gap:4px;
+  padding:5px 10px;background:var(--white);border-radius:16px;
+  white-space:nowrap;cursor:pointer;border:1px solid var(--border);
+  font-size:11px;color:var(--text2);transition:all .2s;
 }
-.section-header h3{font-size:18px;font-weight:700}
-.filters{display:flex;gap:8px;flex-wrap:wrap}
-.filter-btn{
-  padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;
-  background:var(--bg-card);border:1px solid var(--border);
-  color:var(--text-secondary);cursor:pointer;transition:var(--transition);
-}
-.filter-btn:hover,.filter-btn.active{
-  border-color:var(--accent);color:var(--accent-glow);
-  background:rgba(108,92,231,.1);
-}
-
-/* ===== NFT CARD GRID ===== */
-.card-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
-  gap:16px;
-}
-.nft-card{
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius);overflow:hidden;
-  cursor:pointer;transition:var(--transition);
-  position:relative;
-}
-.nft-card:hover{
-  transform:translateY(-4px);
-  border-color:rgba(108,92,231,.4);
-  box-shadow:0 8px 32px rgba(108,92,231,.15);
-}
-.nft-card-img{
-  width:100%;aspect-ratio:1;position:relative;overflow:hidden;
-}
-.nft-card-img .art{
-  width:100%;height:100%;
+.cat-tag.active{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+.cat-tag .ct-dot{
+  width:20px;height:20px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
-  font-size:48px;
+  font-size:10px;flex-shrink:0;
 }
-.nft-card-img .rarity-tag{
-  position:absolute;top:10px;left:10px;
-  padding:3px 10px;border-radius:12px;
-  font-size:11px;font-weight:700;
-  text-transform:uppercase;letter-spacing:.5px;
-}
-.nft-card-img .id-tag{
-  position:absolute;top:10px;right:10px;
-  background:rgba(0,0,0,.6);backdrop-filter:blur(8px);
-  padding:3px 8px;border-radius:8px;font-size:10px;
-  color:var(--text-secondary);
-}
-.nft-card-body{padding:14px}
-.nft-card-body h4{font-size:14px;font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.nft-card-body .collection{font-size:12px;color:var(--text-muted);margin-bottom:10px}
-.nft-card-footer{display:flex;justify-content:space-between;align-items:center;padding:0 14px 14px}
-.nft-card-footer .price{font-size:14px;font-weight:700;color:var(--accent2)}
-.nft-card-footer .price span{font-size:11px;color:var(--text-muted);font-weight:400}
-.nft-card-footer .likes{font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:3px}
 
-/* Rarity Colors */
-.rarity-common .rarity-tag{background:rgba(156,163,175,.2);color:var(--rarity-common);border:1px solid rgba(156,163,175,.3)}
-.rarity-uncommon .rarity-tag{background:rgba(34,197,94,.15);color:var(--rarity-uncommon);border:1px solid rgba(34,197,94,.3)}
-.rarity-rare .rarity-tag{background:rgba(59,130,246,.15);color:var(--rarity-rare);border:1px solid rgba(59,130,246,.3)}
-.rarity-epic .rarity-tag{background:rgba(168,85,247,.15);color:var(--rarity-epic);border:1px solid rgba(168,85,247,.3)}
-.rarity-legendary .rarity-tag{background:rgba(245,158,11,.15);color:var(--rarity-legendary);border:1px solid rgba(245,158,11,.3)}
-.rarity-mythic .rarity-tag{background:rgba(239,68,68,.15);color:var(--rarity-mythic);border:1px solid rgba(239,68,68,.3)}
-
-/* Card glow for legendary+ */
-.rarity-legendary{box-shadow:0 0 20px rgba(245,158,11,.08)}
-.rarity-legendary:hover{box-shadow:0 0 30px rgba(245,158,11,.2)}
-.rarity-mythic{box-shadow:0 0 20px rgba(239,68,68,.08)}
-.rarity-mythic:hover{box-shadow:0 0 30px rgba(239,68,68,.2)}
-
-/* Art gradients */
-.art-0{background:linear-gradient(135deg,#667eea,#764ba2)}
-.art-1{background:linear-gradient(135deg,#f093fb,#f5576c)}
-.art-2{background:linear-gradient(135deg,#4facfe,#00f2fe)}
-.art-3{background:linear-gradient(135deg,#43e97b,#38f9d7)}
-.art-4{background:linear-gradient(135deg,#fa709a,#fee140)}
-.art-5{background:linear-gradient(135deg,#a18cd1,#fbc2eb)}
-.art-6{background:linear-gradient(135deg,#fccb90,#d57eeb)}
-.art-7{background:linear-gradient(135deg,#e0c3fc,#8ec5fc)}
-.art-8{background:linear-gradient(135deg,#f5576c,#ff6a88)}
-.art-9{background:linear-gradient(135deg,#0250c5,#d43f8d)}
-.art-10{background:linear-gradient(135deg,#09203f,#537895)}
-.art-11{background:linear-gradient(135deg,#ee9ca7,#ffdde1)}
-
-/* ===== TRADE TABLE ===== */
-.trade-list{display:flex;flex-direction:column;gap:10px}
-.trade-item{
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius-sm);padding:16px;
-  display:flex;align-items:center;gap:14px;
-  transition:var(--transition);
+/* Filter Row */
+.filter-row{display:flex;gap:0;padding:0 12px 8px}
+.filter-p{
+  padding:4px 12px;font-size:11px;font-weight:500;
+  color:var(--text3);cursor:pointer;border-radius:12px;margin-right:4px;
 }
-.trade-item:hover{border-color:rgba(108,92,231,.3)}
-.trade-item-img{
-  width:56px;height:56px;border-radius:var(--radius-sm);
-  flex-shrink:0;display:flex;align-items:center;justify-content:center;
-  font-size:24px;
-}
-.trade-item-info{flex:1;min-width:0}
-.trade-item-info h4{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.trade-item-info .meta{font-size:12px;color:var(--text-muted);display:flex;gap:12px;margin-top:2px}
-.trade-item-price{text-align:right;flex-shrink:0}
-.trade-item-price .amount{font-size:16px;font-weight:700;color:var(--accent2)}
-.trade-item-price .usd{font-size:11px;color:var(--text-muted)}
-.trade-item-actions{display:flex;gap:8px;flex-shrink:0}
-.status-tag{
-  padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;
-  text-transform:uppercase;
-}
-.status-active{background:rgba(34,197,94,.15);color:var(--success)}
-.status-pending{background:rgba(245,158,11,.15);color:var(--warning)}
-.status-sold{background:rgba(156,163,175,.15);color:var(--text-muted)}
+.filter-p.active{background:var(--primary);color:#fff}
 
-/* ===== SYNTHESIS ===== */
-.synth-area{
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius);padding:28px;
-  margin-bottom:20px;
+/* Market Card List */
+.mkt-list{padding:0 12px 12px}
+.mkt-card{
+  background:var(--white);border-radius:var(--radius);
+  padding:10px;margin-bottom:8px;display:flex;gap:10px;
+  cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.03);
 }
-.synth-title{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
-.synth-flow{
+.mkt-card:active{background:#fafafa}
+.mkt-card .mc-thumb{
+  width:76px;height:76px;border-radius:var(--radius-sm);flex-shrink:0;
+  position:relative;overflow:hidden;
+}
+.mkt-card .mc-info{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between}
+.mkt-card .mc-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mkt-card .mc-meta{font-size:10px;color:var(--text3);margin-top:2px}
+.mkt-card .mc-bottom{display:flex;justify-content:space-between;align-items:flex-end}
+.mkt-card .mc-price{font-size:14px;font-weight:700;color:var(--primary)}
+.mkt-card .mc-price .mc-unit{font-size:10px;font-weight:400;color:var(--text3)}
+.mkt-card .mc-chg{font-size:11px;font-weight:600}
+.mc-chg.up{color:var(--red)}
+.mc-chg.down{color:var(--green)}
+
+/* Blind Box Grid */
+.blind-list{padding:0 12px 12px;display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.blind-card{background:var(--white);border-radius:var(--radius);overflow:hidden;cursor:pointer}
+.blind-card .bc-thumb{width:100%;aspect-ratio:1;position:relative}
+.blind-card .bc-badge{
+  position:absolute;top:6px;right:6px;padding:2px 6px;border-radius:4px;
+  font-size:9px;font-weight:700;
+}
+.bc-badge-blind{background:rgba(232,167,53,.9);color:#fff}
+.bc-badge-direct{background:rgba(7,193,96,.9);color:#fff}
+.blind-card .bc-body{padding:8px}
+.blind-card .bc-name{font-size:11px;font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blind-card .bc-bar{width:100%;height:3px;background:var(--bg);border-radius:2px;overflow:hidden;margin-bottom:3px}
+.blind-card .bc-bar-fill{height:100%;border-radius:2px}
+.blind-card .bc-meta{display:flex;justify-content:space-between;font-size:9px;color:var(--text3)}
+.blind-card .bc-price{font-size:13px;font-weight:700;color:var(--primary);margin-top:3px}
+
+/* ===== SQUARE ===== */
+.sq-section{margin:10px 12px;background:var(--white);border-radius:var(--radius);overflow:hidden}
+.sq-title{font-size:13px;font-weight:700;padding:12px 14px 6px;display:flex;align-items:center;gap:4px}
+.sq-entries{display:grid;grid-template-columns:repeat(3,1fr)}
+.sq-entry{
+  display:flex;flex-direction:column;align-items:center;padding:12px 4px 10px;
+  cursor:pointer;
+}
+.sq-entry:active{background:#fafafa}
+.sq-entry .se-icon{
+  width:42px;height:42px;border-radius:10px;
   display:flex;align-items:center;justify-content:center;
-  gap:12px;flex-wrap:wrap;margin:24px 0;
+  font-size:20px;margin-bottom:4px;
 }
+.sq-entry .se-label{font-size:10px;color:var(--text2);font-weight:500}
+
+/* Synthesis */
+.synth-wrap{padding:14px}
+.synth-flow{display:flex;align-items:center;justify-content:center;gap:6px;margin:14px 0;flex-wrap:wrap}
 .synth-slot{
-  width:80px;height:80px;border-radius:var(--radius-sm);
-  border:2px dashed var(--border);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  font-size:28px;position:relative;transition:var(--transition);
-  background:var(--bg-input);
+  width:56px;height:56px;border-radius:var(--radius-sm);
+  border:1.5px dashed var(--text4);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;font-size:20px;
+  background:#fafafa;transition:all .2s;
 }
-.synth-slot.filled{border-style:solid;border-color:var(--accent)}
-.synth-slot .slot-label{font-size:9px;color:var(--text-muted);margin-top:4px}
-.synth-arrow{font-size:24px;color:var(--accent);flex-shrink:0}
+.synth-slot.filled{border-style:solid;border-color:var(--primary);background:var(--primary-light)}
+.synth-slot .s-label{font-size:7px;color:var(--text3);margin-top:1px}
+.synth-plus{font-size:14px;color:var(--text3)}
 .synth-result{
-  width:100px;height:100px;border-radius:var(--radius);
-  border:2px solid var(--accent-glow);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  font-size:36px;
-  background:linear-gradient(135deg,rgba(108,92,231,.2),rgba(0,210,255,.1));
-  position:relative;
+  width:64px;height:64px;border-radius:var(--radius);
+  border:2px solid var(--primary);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;font-size:24px;
+  background:var(--primary-light);position:relative;
 }
-.synth-result::after{
-  content:'RESULT';position:absolute;bottom:6px;
-  font-size:8px;color:var(--accent-glow);letter-spacing:1px;font-weight:700;
-}
-.synth-recipes{display:flex;flex-direction:column;gap:12px}
+.synth-result::after{content:'RESULT';position:absolute;bottom:3px;font-size:6px;color:var(--primary-dark);letter-spacing:.5px;font-weight:700}
+.synth-btn{text-align:center;margin:10px 0}
+
+/* Recipe */
 .recipe-item{
-  background:var(--bg-input);border:1px solid var(--border);
-  border-radius:var(--radius-sm);padding:14px;
-  display:flex;align-items:center;gap:12px;
-  cursor:pointer;transition:var(--transition);
+  display:flex;align-items:center;gap:8px;
+  padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;
 }
-.recipe-item:hover,.recipe-item.active{
-  border-color:var(--accent);
-  background:rgba(108,92,231,.08);
+.recipe-item:last-child{border-bottom:none}
+.recipe-item:active,.recipe-item.active{background:var(--primary-light)}
+.recipe-item .ri-img{
+  width:36px;height:36px;border-radius:6px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:16px;
 }
-.recipe-item .recipe-img{
-  width:48px;height:48px;border-radius:8px;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;font-size:22px;
+.recipe-item .ri-info{flex:1;min-width:0}
+.recipe-item .ri-info h5{font-size:12px;font-weight:600}
+.recipe-item .ri-info p{font-size:9px;color:var(--text3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recipe-item .ri-arrow{color:var(--text3);font-size:12px}
+.recipe-item .ri-out{
+  width:32px;height:32px;border-radius:6px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:14px;
 }
-.recipe-item .recipe-info{flex:1;min-width:0}
-.recipe-item .recipe-info h5{font-size:13px;font-weight:600}
-.recipe-item .recipe-info p{font-size:11px;color:var(--text-muted);margin-top:2px}
-.recipe-item .recipe-arrow{color:var(--accent);font-size:16px}
-.recipe-item .recipe-output{
-  width:40px;height:40px;border-radius:8px;flex-shrink:0;
+
+/* Decompose */
+.dec-item{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 14px;border-bottom:1px solid var(--border);
+}
+.dec-item:last-child{border-bottom:none}
+.dec-item .di-img{
+  width:42px;height:42px;border-radius:6px;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;font-size:18px;
 }
-.synth-btn-wrap{text-align:center;margin-top:20px}
-.synth-effect{
-  display:none;position:fixed;top:0;left:0;width:100%;height:100%;
-  background:radial-gradient(circle,rgba(108,92,231,.3),transparent 60%);
-  z-index:200;pointer-events:none;
-  animation:synthPulse .8s ease forwards;
+.dec-item .di-info{flex:1;min-width:0}
+.dec-item .di-info h5{font-size:12px;font-weight:600}
+.dec-item .di-info .di-tags{display:flex;gap:3px;margin-top:3px;flex-wrap:wrap}
+.dec-item .di-info .di-tag{padding:1px 4px;border-radius:2px;font-size:8px;background:var(--primary-light);color:var(--primary-dark)}
+.dec-item .di-info p{font-size:9px;color:var(--text3);margin-top:2px}
+
+/* Announcement */
+.ann-item{padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer}
+.ann-item:last-child{border-bottom:none}
+.ann-item .ai-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.ann-item .ai-tag{padding:1px 5px;border-radius:2px;font-size:9px;font-weight:700}
+.ai-tag-hot{background:#fde8e8;color:var(--red)}
+.ai-tag-mint{background:#e8f5e9;color:var(--green)}
+.ai-tag-event{background:var(--primary-light);color:var(--primary-dark)}
+.ai-tag-update{background:#e8f0fe;color:var(--blue)}
+.ann-item .ai-date{font-size:9px;color:var(--text3)}
+.ann-item h5{font-size:12px;font-weight:600;margin-bottom:2px}
+.ann-item p{font-size:10px;color:var(--text2);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ===== MY ===== */
+.my-header{
+  background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+  padding:28px 20px 22px;color:#fff;text-align:center;
 }
-@keyframes synthPulse{
-  0%{opacity:0;transform:scale(.8)}
-  50%{opacity:1;transform:scale(1.05)}
-  100%{opacity:0;transform:scale(1)}
+.my-avatar{
+  width:56px;height:56px;border-radius:50%;margin:0 auto 6px;
+  background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;
+  font-size:24px;border:2px solid rgba(255,255,255,.4);
+}
+.my-name{font-size:15px;font-weight:700}
+.my-uid{font-size:10px;opacity:.7;margin-top:2px}
+
+.my-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px}
+.my-cell{
+  background:#1c1c1e;border:1px solid var(--primary);border-radius:var(--radius);
+  padding:12px;display:flex;align-items:center;gap:8px;cursor:pointer;
+}
+.my-cell:active{opacity:.85}
+.my-cell .mc-icon{
+  width:32px;height:32px;border-radius:8px;
+  background:rgba(232,167,53,.15);display:flex;align-items:center;justify-content:center;
+  font-size:16px;flex-shrink:0;
+}
+.my-cell .mc-text{font-size:12px;font-weight:600;color:var(--primary)}
+
+.my-tabs{
+  display:flex;margin:0 12px;background:#f0f0f0;border-radius:18px;overflow:hidden;
+}
+.my-tab{
+  flex:1;padding:7px;text-align:center;font-size:12px;font-weight:600;
+  color:var(--text3);cursor:pointer;border-radius:18px;transition:all .2s;
+}
+.my-tab.active{background:var(--primary);color:#fff}
+
+.my-list{padding:10px 12px}
+.my-item{
+  background:var(--white);border-radius:var(--radius);padding:10px;
+  margin-bottom:6px;display:flex;gap:8px;align-items:center;
+}
+.my-item .mi-img{
+  width:48px;height:48px;border-radius:6px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:20px;
+}
+.my-item .mi-info{flex:1;min-width:0}
+.my-item .mi-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.my-item .mi-meta{font-size:10px;color:var(--text3);margin-top:1px}
+.my-item .mi-qty{
+  background:var(--primary-light);color:var(--primary-dark);
+  padding:2px 6px;border-radius:6px;font-size:10px;font-weight:600;
 }
 
-/* ===== DECOMPOSE ===== */
-.decompose-card{
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius);padding:20px;
-  display:flex;gap:16px;align-items:center;
-  margin-bottom:12px;transition:var(--transition);
+/* ===== BUTTONS ===== */
+.btn{
+  padding:7px 16px;border-radius:var(--radius-sm);font-size:12px;font-weight:600;
+  cursor:pointer;border:none;display:inline-flex;align-items:center;gap:3px;
 }
-.decompose-card:hover{border-color:rgba(239,68,68,.3)}
-.decompose-card .dc-img{
-  width:64px;height:64px;border-radius:var(--radius-sm);flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;font-size:28px;
-}
-.decompose-card .dc-info{flex:1;min-width:0}
-.decompose-card .dc-info h4{font-size:14px;font-weight:600}
-.decompose-card .dc-info .dc-yields{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
-.decompose-card .dc-info .dc-yield-tag{
-  padding:2px 8px;border-radius:8px;font-size:10px;
-  background:rgba(108,92,231,.12);color:var(--accent-glow);
-  border:1px solid rgba(108,92,231,.2);
-}
-.decompose-card .dc-info p{font-size:11px;color:var(--text-muted);margin-top:4px}
+.btn:active{opacity:.85}
+.btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff}
+.btn-danger{background:var(--red);color:#fff}
+.btn-green{background:var(--green);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.btn-sm{padding:4px 10px;font-size:10px}
 
-/* ===== MINT ===== */
-.mint-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
-.mint-box{
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius);overflow:hidden;transition:var(--transition);
+/* ===== BOTTOM NAV ===== */
+.bottom-nav{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:420px;background:var(--white);
+  border-top:1px solid var(--border);display:flex;z-index:100;
+  padding-bottom:env(safe-area-inset-bottom);
 }
-.mint-box:hover{border-color:rgba(108,92,231,.3);transform:translateY(-2px)}
-.mint-box-img{
-  width:100%;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;
-  font-size:56px;position:relative;
+.bnav-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  padding:5px 0 3px;font-size:9px;color:var(--text3);cursor:pointer;gap:1px;
 }
-.mint-box-img .mint-badge{
-  position:absolute;top:12px;right:12px;
-  padding:4px 12px;border-radius:12px;
-  font-size:11px;font-weight:700;text-transform:uppercase;
-}
-.mint-badge-blind{background:rgba(245,158,11,.2);color:var(--warning);border:1px solid rgba(245,158,11,.3)}
-.mint-badge-direct{background:rgba(34,197,94,.2);color:var(--success);border:1px solid rgba(34,197,94,.3)}
-.mint-box-body{padding:18px}
-.mint-box-body h4{font-size:16px;font-weight:700;margin-bottom:4px}
-.mint-box-body p{font-size:12px;color:var(--text-muted);margin-bottom:14px;line-height:1.5}
-.mint-box-stats{
-  display:flex;justify-content:space-between;
-  padding-top:14px;border-top:1px solid var(--border);
-  margin-bottom:14px;
-}
-.mint-box-stats .stat{text-align:center}
-.mint-box-stats .stat .val{font-size:16px;font-weight:700;color:var(--accent2)}
-.mint-box-stats .stat .label{font-size:10px;color:var(--text-muted);margin-top:2px}
-.mint-progress{
-  width:100%;height:6px;background:var(--bg-input);
-  border-radius:3px;overflow:hidden;margin-bottom:10px;
-}
-.mint-progress-bar{height:100%;border-radius:3px;transition:width 1s ease}
-.mint-remaining{font-size:11px;color:var(--text-muted);margin-bottom:14px;text-align:right}
-
-/* ===== ANNOUNCEMENTS ===== */
-.ann-list{display:flex;flex-direction:column;gap:14px}
-.ann-item{
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius-sm);padding:18px;
-  transition:var(--transition);cursor:pointer;
-}
-.ann-item:hover{border-color:rgba(108,92,231,.3)}
-.ann-item .ann-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.ann-item .ann-tag{
-  padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;text-transform:uppercase;
-}
-.ann-tag-event{background:rgba(108,92,231,.15);color:var(--accent-glow);border:1px solid rgba(108,92,231,.3)}
-.ann-tag-update{background:rgba(0,210,255,.15);color:var(--accent2);border:1px solid rgba(0,210,255,.3)}
-.ann-tag-mint{background:rgba(34,197,94,.15);color:var(--success);border:1px solid rgba(34,197,94,.3)}
-.ann-tag-hot{background:rgba(239,68,68,.15);color:var(--danger);border:1px solid rgba(239,68,68,.3)}
-.ann-item .ann-date{font-size:11px;color:var(--text-muted)}
-.ann-item h4{font-size:15px;font-weight:600;margin-bottom:6px}
-.ann-item p{font-size:13px;color:var(--text-secondary);line-height:1.6}
-
-/* ===== STATS BAR ===== */
-.stats-bar{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
-  gap:12px;margin-bottom:24px;
-}
-.stat-card{
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius-sm);padding:16px;text-align:center;
-}
-.stat-card .stat-val{font-size:22px;font-weight:800;background:linear-gradient(135deg,var(--accent-glow),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.stat-card .stat-label{font-size:11px;color:var(--text-muted);margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
+.bnav-item svg{width:22px;height:22px}
+.bnav-item.active{color:var(--primary)}
 
 /* ===== MODAL ===== */
-.modal-overlay{
-  display:none;position:fixed;inset:0;
-  background:rgba(0,0,0,.7);backdrop-filter:blur(4px);
-  z-index:300;align-items:center;justify-content:center;
-  padding:20px;
+.modal-mask{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;
+  align-items:flex-end;justify-content:center;
 }
-.modal-overlay.show{display:flex}
-.modal{
-  background:var(--bg-secondary);border:1px solid var(--border);
-  border-radius:var(--radius);max-width:480px;width:100%;
-  max-height:90vh;overflow-y:auto;
+.modal-mask.show{display:flex}
+.modal-box{
+  background:var(--white);border-radius:14px 14px 0 0;
+  width:100%;max-width:420px;max-height:80vh;overflow-y:auto;
+  animation:slideUp .25s ease;
 }
-.modal-header{
-  padding:18px 20px;border-bottom:1px solid var(--border);
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-hd{
+  padding:14px 16px;border-bottom:1px solid var(--border);
   display:flex;justify-content:space-between;align-items:center;
+  position:sticky;top:0;background:var(--white);z-index:1;
 }
-.modal-header h3{font-size:16px;font-weight:700}
-.modal-close{background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:4px}
-.modal-body{padding:20px}
-.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+.modal-hd h3{font-size:15px;font-weight:700}
+.modal-close{background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer}
+.modal-bd{padding:16px}
+.modal-ft{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
 
 /* ===== TOAST ===== */
-.toast-container{position:fixed;top:80px;right:20px;z-index:400;display:flex;flex-direction:column;gap:8px}
+.toast-box{position:fixed;top:50px;left:50%;transform:translateX(-50%);z-index:400;display:flex;flex-direction:column;gap:5px;width:85%;max-width:340px}
 .toast{
-  padding:12px 20px;border-radius:var(--radius-sm);
-  font-size:13px;font-weight:500;
-  box-shadow:var(--shadow);
-  animation:toastIn .3s ease,toastOut .3s ease 2.7s forwards;
-  max-width:320px;
+  padding:9px 14px;border-radius:var(--radius-sm);font-size:12px;font-weight:500;
+  box-shadow:0 4px 14px rgba(0,0,0,.12);
+  animation:tIn .2s ease,tOut .2s ease 2.6s forwards;
 }
-.toast-success{background:#16a34a;color:#fff}
-.toast-error{background:#dc2626;color:#fff}
-.toast-info{background:var(--accent);color:#fff}
-@keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
-@keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateX(40px)}}
+.toast-success{background:#07c160;color:#fff}
+.toast-error{background:#e54d42;color:#fff}
+.toast-info{background:var(--primary);color:#fff}
+@keyframes tIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes tOut{from{opacity:1}to{opacity:0;transform:translateY(-8px)}}
 
-/* ===== MOBILE NAV ===== */
-.mobile-nav{
-  display:none;position:fixed;bottom:0;left:0;right:0;
-  background:rgba(17,24,39,.95);backdrop-filter:blur(20px);
-  border-top:1px solid var(--border);
-  padding:6px 0;padding-bottom:env(safe-area-inset-bottom);
-  z-index:100;
+/* ===== ART THUMBNAILS — iBox-style collectible art ===== */
+/* Gold Cake / Dessert */
+.art-gold-cake{
+  background:linear-gradient(180deg,#ffd700 0%,#ff9900 35%,#cc7700 60%,#8b5a2b 100%);
+  position:relative;
 }
-.mobile-nav-inner{
-  display:flex;justify-content:space-around;
+.art-gold-cake::before{
+  content:'';position:absolute;top:15%;left:20%;width:60%;height:40%;
+  background:radial-gradient(ellipse,rgba(255,255,255,.5) 0%,transparent 70%);
+  border-radius:50% 50% 40% 40%;
 }
-.mobile-nav-item{
-  display:flex;flex-direction:column;align-items:center;
-  padding:6px 0;font-size:10px;color:var(--text-muted);
-  cursor:pointer;transition:var(--transition);gap:2px;
-}
-.mobile-nav-item svg{width:20px;height:20px}
-.mobile-nav-item.active{color:var(--accent-glow)}
-
-/* ===== RESPONSIVE ===== */
-@media(max-width:768px){
-  .header{padding:0 16px}
-  .main{padding:16px}
-  .hero{padding:20px}
-  .hero h2{font-size:18px}
-  .card-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
-  .nft-card-body{padding:10px}
-  .nft-card-body h4{font-size:12px}
-  .nft-card-footer{padding:0 10px 10px}
-  .nft-card-footer .price{font-size:12px}
-  .nav{display:none}
-  .mobile-nav{display:block}
-  .trade-item{flex-wrap:wrap;gap:10px}
-  .trade-item-price{text-align:left}
-  .synth-flow{gap:8px}
-  .synth-slot{width:60px;height:60px;font-size:22px}
-  .synth-result{width:72px;height:72px;font-size:28px}
-  .mint-grid{grid-template-columns:1fr}
-  .stats-bar{grid-template-columns:repeat(2,1fr)}
-  .balance-pill{display:none}
-  .section-header{flex-direction:column;align-items:flex-start}
+.art-gold-cake::after{
+  content:'🍰';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));
 }
 
-/* ===== EMPTY STATE ===== */
-.empty-state{
-  text-align:center;padding:60px 20px;color:var(--text-muted);
+/* Cartoon Mouse */
+.art-cartoon-mouse{
+  background:linear-gradient(160deg,#ff9a9e 0%,#fecfef 50%,#ffe0ec 100%);
+  position:relative;
 }
-.empty-state .empty-icon{font-size:48px;margin-bottom:12px}
-.empty-state h4{font-size:16px;margin-bottom:6px;color:var(--text-secondary)}
-.empty-state p{font-size:13px}
+.art-cartoon-mouse::before{
+  content:'';position:absolute;top:10%;left:15%;width:70%;height:70%;
+  background:radial-gradient(circle,rgba(255,255,255,.3) 0%,transparent 70%);
+  border-radius:50%;
+}
+.art-cartoon-mouse::after{
+  content:'🐭';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.2));
+}
 
-/* ===== SPARKLE ANIMATION ===== */
-@keyframes sparkle{
-  0%,100%{opacity:1;transform:scale(1)}
-  50%{opacity:.6;transform:scale(1.2)}
+/* Cosmic Universe */
+.art-cosmos{
+  background:linear-gradient(160deg,#0c0033 0%,#1a0066 25%,#3300aa 50%,#1a0066 75%,#0c0033 100%);
+  position:relative;
 }
-.sparkle{animation:sparkle 2s ease-in-out infinite}
+.art-cosmos::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(1px 1px at 20% 30%,#fff 50%,transparent 100%),
+             radial-gradient(1px 1px at 40% 70%,#fff 50%,transparent 100%),
+             radial-gradient(1.5px 1.5px at 60% 20%,#aaf 50%,transparent 100%),
+             radial-gradient(1px 1px at 80% 50%,#fff 50%,transparent 100%),
+             radial-gradient(1px 1px at 10% 80%,#fff 50%,transparent 100%),
+             radial-gradient(1.5px 1.5px at 70% 85%,#ccf 50%,transparent 100%),
+             radial-gradient(1px 1px at 90% 10%,#fff 50%,transparent 100%),
+             radial-gradient(2px 2px at 30% 50%,rgba(100,150,255,.6) 50%,transparent 100%);
+}
+.art-cosmos::after{
+  content:'🌌';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 0 8px rgba(100,100,255,.6));
+}
 
-/* ===== COUNTDOWN ===== */
-.countdown{display:flex;gap:8px;justify-content:center;margin:16px 0}
-.countdown-unit{
-  background:var(--bg-input);border:1px solid var(--border);
-  border-radius:8px;padding:8px 12px;text-align:center;min-width:52px;
+/* Golden Mech */
+.art-gold-mech{
+  background:linear-gradient(160deg,#3a3a3a 0%,#5a5a5a 30%,#c8a84e 50%,#5a5a5a 70%,#3a3a3a 100%);
+  position:relative;
 }
-.countdown-unit .num{font-size:20px;font-weight:800;color:var(--accent2)}
-.countdown-unit .lbl{font-size:9px;color:var(--text-muted);text-transform:uppercase;margin-top:2px}
+.art-gold-mech::before{
+  content:'';position:absolute;top:20%;left:10%;right:10%;height:60%;
+  background:linear-gradient(90deg,transparent,rgba(200,168,78,.4),transparent);
+}
+.art-gold-mech::after{
+  content:'🤖';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));
+}
+
+/* Dragon / Phoenix */
+.art-dragon{
+  background:linear-gradient(160deg,#1a0000 0%,#4a0000 30%,#8b0000 55%,#4a0000 75%,#1a0000 100%);
+  position:relative;
+}
+.art-dragon::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 40%,rgba(255,80,0,.3) 0%,transparent 70%);
+}
+.art-dragon::after{
+  content:'🐉';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 0 6px rgba(255,80,0,.5));
+}
+
+/* Ice Crystal */
+.art-ice{
+  background:linear-gradient(160deg,#e0f7fa 0%,#80deea 30%,#4dd0e1 55%,#00acc1 80%,#00838f 100%);
+  position:relative;
+}
+.art-ice::before{
+  content:'';position:absolute;top:15%;left:25%;width:50%;height:40%;
+  background:radial-gradient(ellipse,rgba(255,255,255,.6) 0%,transparent 70%);
+  border-radius:50%;
+}
+.art-ice::after{
+  content:'❄️';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.2));
+}
+
+/* Sakura */
+.art-sakura{
+  background:linear-gradient(160deg,#fff0f5 0%,#ffc0cb 40%,#ff69b4 80%,#db7093 100%);
+  position:relative;
+}
+.art-sakura::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.5) 0%,transparent 50%),
+             radial-gradient(circle at 70% 70%,rgba(255,255,255,.3) 0%,transparent 50%);
+}
+.art-sakura::after{
+  content:'🌸';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.15));
+}
+
+/* Void / Dark */
+.art-void{
+  background:linear-gradient(160deg,#0d0d0d 0%,#1a1a2e 35%,#16213e 60%,#0f3460 100%);
+  position:relative;
+}
+.art-void::before{
+  content:'';position:absolute;top:30%;left:30%;width:40%;height:40%;
+  background:radial-gradient(circle,rgba(120,80,255,.4) 0%,transparent 70%);
+}
+.art-void::after{
+  content:'👾';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 0 8px rgba(120,80,255,.6));
+}
+
+/* Emerald Forest */
+.art-emerald{
+  background:linear-gradient(160deg,#0a3d0a 0%,#1b5e20 30%,#2e7d32 55%,#4caf50 80%,#a5d6a7 100%);
+  position:relative;
+}
+.art-emerald::before{
+  content:'';position:absolute;top:10%;left:10%;width:80%;height:40%;
+  background:linear-gradient(180deg,rgba(255,255,255,.1),transparent);
+}
+.art-emerald::after{
+  content:'🌿';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));
+}
+
+/* Neon Cyber */
+.art-neon{
+  background:linear-gradient(160deg,#0a0a0a 0%,#1a0a2e 30%,#3a0a5e 50%,#0a0a2e 70%,#0a0a0a 100%);
+  position:relative;
+}
+.art-neon::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(45deg,transparent 40%,rgba(0,255,200,.15) 45%,transparent 50%),
+             linear-gradient(-45deg,transparent 40%,rgba(255,0,200,.15) 45%,transparent 50%);
+}
+.art-neon::after{
+  content:'⚔️';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 0 8px rgba(0,255,200,.5));
+}
+
+/* Mythic Kraken */
+.art-kraken{
+  background:linear-gradient(160deg,#0a0a2e 0%,#1a1a5e 25%,#2a2a8e 50%,#1a1a5e 75%,#0a0a2e 100%);
+  position:relative;
+}
+.art-kraken::before{
+  content:'';position:absolute;top:20%;left:15%;width:70%;height:60%;
+  background:radial-gradient(ellipse,rgba(100,50,200,.3) 0%,transparent 70%);
+}
+.art-kraken::after{
+  content:'🐙';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 0 8px rgba(100,50,200,.5));
+}
+
+/* Pixel Ghost */
+.art-pixel{
+  background:linear-gradient(160deg,#1a1a2e 0%,#2d2d5e 40%,#4a4a8e 70%,#6a6aae 100%);
+  position:relative;
+}
+.art-pixel::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 4px,rgba(255,255,255,.03) 4px,rgba(255,255,255,.03) 5px);
+}
+.art-pixel::after{
+  content:'👻';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 0 6px rgba(100,100,255,.4));
+}
+
+/* Celestial */
+.art-celestial{
+  background:linear-gradient(160deg,#ffd700 0%,#ff8c00 20%,#ff4500 45%,#cc3300 65%,#8b0000 100%);
+  position:relative;
+}
+.art-celestial::before{
+  content:'';position:absolute;top:15%;left:20%;width:60%;height:50%;
+  background:radial-gradient(ellipse,rgba(255,255,255,.4) 0%,transparent 70%);
+}
+.art-celestial::after{
+  content:'🐲';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.4));
+}
+
+/* Rune Golem */
+.art-rune{
+  background:linear-gradient(160deg,#4a3728 0%,#6d5c4e 30%,#8b7355 55%,#a0896b 80%,#c4a882 100%);
+  position:relative;
+}
+.art-rune::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle at 50% 50%,rgba(255,215,0,.2) 0%,transparent 60%);
+}
+.art-rune::after{
+  content:'🗿';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));
+}
+
+/* Ember */
+.art-ember{
+  background:linear-gradient(160deg,#1a0000 0%,#4a0000 20%,#8b2500 45%,#cd4f00 70%,#ff6a00 100%);
+  position:relative;
+}
+.art-ember::before{
+  content:'';position:absolute;top:10%;left:15%;width:70%;height:50%;
+  background:radial-gradient(ellipse,rgba(255,200,0,.3) 0%,transparent 70%);
+}
+.art-ember::after{
+  content:'🔥';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 0 6px rgba(255,100,0,.5));
+}
+
+/* Shield */
+.art-shield{
+  background:linear-gradient(160deg,#1a237e 0%,#283593 30%,#3949ab 55%,#5c6bc0 80%,#7986cb 100%);
+  position:relative;
+}
+.art-shield::before{
+  content:'';position:absolute;top:20%;left:25%;width:50%;height:50%;
+  background:radial-gradient(ellipse,rgba(255,255,255,.2) 0%,transparent 70%);
+}
+.art-shield::after{
+  content:'🛡️';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));
+}
+
+/* Witch */
+.art-witch{
+  background:linear-gradient(160deg,#1a0033 0%,#330066 30%,#6600cc 55%,#9900ff 80%,#cc66ff 100%);
+  position:relative;
+}
+.art-witch::before{
+  content:'';position:absolute;top:25%;left:20%;width:60%;height:50%;
+  background:radial-gradient(ellipse,rgba(200,100,255,.3) 0%,transparent 70%);
+}
+.art-witch::after{
+  content:'🧙‍♀️';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 0 6px rgba(150,0,255,.5));
+}
+
+/* Wolf */
+.art-wolf{
+  background:linear-gradient(160deg,#263238 0%,#37474f 30%,#546e7a 55%,#78909c 80%,#b0bec5 100%);
+  position:relative;
+}
+.art-wolf::before{
+  content:'';position:absolute;top:10%;left:10%;width:80%;height:40%;
+  background:linear-gradient(180deg,rgba(255,255,255,.1),transparent);
+}
+.art-wolf::after{
+  content:'🐺';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));
+}
+
+/* Jellyfish */
+.art-jelly{
+  background:linear-gradient(160deg,#001f3f 0%,#003366 25%,#0066cc 50%,#0099ff 75%,#66ccff 100%);
+  position:relative;
+}
+.art-jelly::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle at 50% 40%,rgba(100,200,255,.3) 0%,transparent 60%);
+}
+.art-jelly::after{
+  content:'🪼';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 0 8px rgba(0,150,255,.5));
+}
+
+/* EPOCH */
+.art-epoch{
+  background:linear-gradient(160deg,#0a0a3e 0%,#1a1a6e 25%,#2a2aae 50%,#1a1a6e 75%,#0a0a3e 100%);
+  position:relative;
+}
+.art-epoch::before{
+  content:'';position:absolute;top:20%;left:15%;width:70%;height:60%;
+  background:radial-gradient(ellipse,rgba(150,100,255,.25) 0%,transparent 70%);
+}
+.art-epoch::after{
+  content:'🔮';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 0 8px rgba(150,100,255,.5));
+}
+
+/* Blind box special */
+.art-blindbox{
+  background:linear-gradient(160deg,#1a1a2e 0%,#2a2a5e 30%,#3a3a8e 50%,#5a5aae 70%,#8a8ace 100%);
+  position:relative;
+}
+.art-blindbox::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(255,215,0,.06) 8px,rgba(255,215,0,.06) 9px);
+}
+.art-blindbox::after{
+  content:'🎁';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 0 6px rgba(255,215,0,.5));
+}
+
+/* Leviathan */
+.art-leviathan{
+  background:linear-gradient(160deg,#001a33 0%,#003366 25%,#004c99 50%,#0066cc 75%,#3399ff 100%);
+  position:relative;
+}
+.art-leviathan::before{
+  content:'';position:absolute;top:15%;left:20%;width:60%;height:60%;
+  background:radial-gradient(ellipse,rgba(0,200,255,.2) 0%,transparent 70%);
+}
+.art-leviathan::after{
+  content:'🐋';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 0 8px rgba(0,200,255,.5));
+}
+
+/* ===== Synth Effect ===== */
+.synth-fx{
+  display:none;position:fixed;inset:0;
+  background:radial-gradient(circle,rgba(232,167,53,.3),transparent 60%);
+  z-index:200;pointer-events:none;animation:sPulse .8s ease forwards;
+}
+@keyframes sPulse{0%{opacity:0;transform:scale(.8)}50%{opacity:1}100%{opacity:0;transform:scale(1)}}
+
+@media(min-width:421px){body{box-shadow:0 0 20px rgba(0,0,0,.06)}}
 </style>
 </head>
 <body>
 
-<!-- HEADER -->
-<header class="header">
-  <div class="logo">
-    <div class="logo-icon">◆</div>
-    NovaMint
-  </div>
-  <div class="header-right">
-    <div class="balance-pill">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-      <span id="balanceDisplay">2.847 ETH</span>
+<!-- STATUS BAR -->
+<header class="status-bar">
+  <div class="logo"><i>N</i> NovaMint</div>
+  <div class="right">
+    <div class="msg-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      <div class="msg-dot"></div>
     </div>
-    <button class="wallet-btn" id="walletBtn" onclick="connectWallet()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M16 14h2"/></svg>
-      Connect Wallet
-    </button>
+    <button class="connect-btn" id="connectBtn" onclick="connectWallet()">Connect</button>
   </div>
 </header>
 
-<!-- DESKTOP NAV -->
-<nav class="nav" id="desktopNav">
-  <div class="nav-item active" data-section="gallery" onclick="switchSection('gallery',this)">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-    Gallery
+<!-- TOAST -->
+<div class="toast-box" id="toastBox"></div>
+
+<!-- ===== HOME ===== -->
+<div class="page active" id="pg-home">
+  <div class="banner-wrap">
+    <div class="banner-track" id="bannerTrack">
+      <div class="banner-slide art-cosmos"><div class="b-content"><h2>Genesis S3 — Final Wave</h2><p>Last 1,153 boxes · Minting Now</p><div class="b-btn" onclick="switchTab('market')">Mint Now</div></div></div>
+      <div class="banner-slide art-sakura"><div class="b-content"><h2>2x Synthesis Weekend</h2><p>Double success rate · Limited Time</p><div class="b-btn" onclick="switchTab('square');showSub('synthesis')">Synthesize</div></div></div>
+      <div class="banner-slide art-gold-mech"><div class="b-content"><h2>Trading Competition</h2><p>5,000 ETH Prize Pool</p><div class="b-btn" onclick="switchTab('market')">Join Now</div></div></div>
+    </div>
+    <div class="banner-dots" id="bannerDots">
+      <div class="banner-dot active" onclick="goSlide(0)"></div>
+      <div class="banner-dot" onclick="goSlide(1)"></div>
+      <div class="banner-dot" onclick="goSlide(2)"></div>
+    </div>
   </div>
-  <div class="nav-item" data-section="trade" onclick="switchSection('trade',this)">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
-    Trade
+
+  <div class="news-bar">
+    <span class="news-label">NEWS</span>
+    <div class="news-text"><span>🔥 Genesis S3 Blind Box final wave June 15 · 🎯 Leviathan direct mint live · 📢 Decompose Chamber is live!</span></div>
   </div>
-  <div class="nav-item" data-section="synthesis" onclick="switchSection('synthesis',this)">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-    Synthesis
+
+  <div class="func-area">
+    <div class="func-area-title">Quick Access</div>
+    <div class="func-grid">
+      <div class="func-cell" onclick="showToast('Invite link copied!','info')">
+        <div class="fc-icon" style="background:#fff3d6"><svg viewBox="0 0 24 24" fill="none" stroke="#e8a735" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div>
+        <span class="fc-label">Invite</span>
+      </div>
+      <div class="func-cell" onclick="switchTab('square')">
+        <div class="fc-icon" style="background:#e8f0fe"><svg viewBox="0 0 24 24" fill="none" stroke="#5b9bd5" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+        <span class="fc-label">Hall of Fame</span>
+      </div>
+      <div class="func-cell" onclick="showToast('Redeem shop coming soon!','info')">
+        <div class="fc-icon" style="background:#e8f5e9"><svg viewBox="0 0 24 24" fill="none" stroke="#07c160" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg></div>
+        <span class="fc-label">Redeem</span>
+      </div>
+      <div class="func-cell" onclick="switchTab('square');showSub('announce')">
+        <div class="fc-icon" style="background:#fde8e8"><svg viewBox="0 0 24 24" fill="none" stroke="#e54d42" stroke-width="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg></div>
+        <span class="fc-label">Notices</span>
+      </div>
+      <div class="func-cell" onclick="switchTab('market')">
+        <div class="fc-icon" style="background:#fff3d6"><svg viewBox="0 0 24 24" fill="none" stroke="#e8a735" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
+        <span class="fc-label">Lucky Draw</span>
+      </div>
+      <div class="func-cell" onclick="switchTab('square');showSub('synthesis')">
+        <div class="fc-icon" style="background:#f3e8ff"><svg viewBox="0 0 24 24" fill="none" stroke="#9b59b6" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4"/></svg></div>
+        <span class="fc-label">Synthesis</span>
+      </div>
+      <div class="func-cell" onclick="switchTab('square');showSub('decompose')">
+        <div class="fc-icon" style="background:#fef3c7"><svg viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="1.5"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="10"/></svg></div>
+        <span class="fc-label">Alchemy</span>
+      </div>
+      <div class="func-cell" onclick="switchTab('market')">
+        <div class="fc-icon" style="background:#fce7f3"><svg viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg></div>
+        <span class="fc-label">Events</span>
+      </div>
+    </div>
   </div>
-  <div class="nav-item" data-section="decompose" onclick="switchSection('decompose',this)">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
-    Decompose
+
+  <div class="hot-section">
+    <div class="hot-header"><h3>🔥 Hot Collectibles</h3><span class="more" onclick="switchTab('market')">More →</span></div>
+    <div class="hot-scroll" id="hotScroll"></div>
   </div>
-  <div class="nav-item" data-section="mint" onclick="switchSection('mint',this)">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
-    Mint <span class="badge">3</span>
+</div>
+
+<!-- ===== MARKET ===== -->
+<div class="page" id="pg-market">
+  <div class="mkt-tabs">
+    <div class="mkt-tab active" onclick="switchMkt('collectibles',this)">Digital Collectibles</div>
+    <div class="mkt-tab" onclick="switchMkt('blindbox',this)">Digital Blind Box</div>
   </div>
-  <div class="nav-item" data-section="announce" onclick="switchSection('announce',this)">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-    Announcements
+  <div class="mkt-search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    <input placeholder="Search collectibles..." id="mktSearch" oninput="renderMktCards()">
+  </div>
+  <div class="cat-row" id="catRow"></div>
+  <div class="filter-row" id="filterRow">
+    <div class="filter-p active" onclick="setFilter('all',this)">All</div>
+    <div class="filter-p" onclick="setFilter('following',this)">Following</div>
+    <div class="filter-p" onclick="setFilter('recommended',this)">Recommended</div>
+  </div>
+  <div class="mkt-list" id="mktList"></div>
+  <div class="blind-list" id="blindList" style="display:none"></div>
+</div>
+
+<!-- ===== SQUARE ===== -->
+<div class="page" id="pg-square">
+  <div class="sq-section">
+    <div class="sq-title">Activities</div>
+    <div class="sq-entries">
+      <div class="sq-entry" onclick="showSub('synthesis')">
+        <div class="se-icon" style="background:#f3e8ff">⚗️</div>
+        <span class="se-label">Synthesis</span>
+      </div>
+      <div class="sq-entry" onclick="showSub('decompose')">
+        <div class="se-icon" style="background:#fde8e8">💥</div>
+        <span class="se-label">Decompose</span>
+      </div>
+      <div class="sq-entry" onclick="showSub('announce')">
+        <div class="se-icon" style="background:#fff3d6">📢</div>
+        <span class="se-label">Notices</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sq-section" id="sq-synthesis" style="display:none">
+    <div class="sq-title">⚗️ Synthesis Forge</div>
+    <div class="synth-wrap">
+      <div class="synth-flow" id="synthFlow">
+        <div class="synth-slot" id="slot0"><span style="color:var(--text3)">+</span><span class="s-label">Slot 1</span></div>
+        <div class="synth-plus">+</div>
+        <div class="synth-slot" id="slot1"><span style="color:var(--text3)">+</span><span class="s-label">Slot 2</span></div>
+        <div class="synth-plus">+</div>
+        <div class="synth-slot" id="slot2"><span style="color:var(--text3)">+</span><span class="s-label">Slot 3</span></div>
+        <div class="synth-plus">→</div>
+        <div class="synth-result art-gold-cake" id="synthResult">?<span style="font-size:6px;position:absolute;bottom:3px;color:var(--primary-dark);letter-spacing:.5px;font-weight:700">RESULT</span></div>
+      </div>
+      <div class="synth-btn"><button class="btn btn-primary" onclick="doSynth()" id="synthBtn" disabled>Forge Item</button></div>
+    </div>
+    <div class="sq-title" style="padding:0 14px 6px">📖 Recipe Book</div>
+    <div id="recipeList"></div>
+  </div>
+
+  <div class="sq-section" id="sq-decompose" style="display:none">
+    <div class="sq-title" style="padding:12px 14px 6px">💥 Decompose Chamber</div>
+    <div id="decList"></div>
+  </div>
+
+  <div class="sq-section" id="sq-announce" style="display:none">
+    <div class="sq-title" style="padding:12px 14px 6px">📢 Announcements</div>
+    <div id="annList"></div>
+  </div>
+</div>
+
+<!-- ===== MY ===== -->
+<div class="page" id="pg-my">
+  <div class="my-header">
+    <div class="my-avatar">👤</div>
+    <div class="my-name" id="myName">Connect Wallet</div>
+    <div class="my-uid" id="myUid">—</div>
+  </div>
+  <div class="my-grid">
+    <div class="my-cell" onclick="showToast('Orders coming soon!','info')"><div class="mc-icon">📋</div><span class="mc-text">My Orders</span></div>
+    <div class="my-cell" onclick="showToast('Wallet coming soon!','info')"><div class="mc-icon">💰</div><span class="mc-text">My Wallet</span></div>
+    <div class="my-cell" onclick="showToast('Leaderboard coming soon!','info')"><div class="mc-icon">🏆</div><span class="mc-text">Invite Board</span></div>
+    <div class="my-cell" onclick="showToast('Redeem shop coming soon!','info')"><div class="mc-icon">🛒</div><span class="mc-text">Redeem Shop</span></div>
+  </div>
+  <div class="my-tabs">
+    <div class="my-tab active" onclick="switchMyTab('holdings',this)">Holdings</div>
+    <div class="my-tab" onclick="switchMyTab('blindboxes',this)">Blind Boxes</div>
+  </div>
+  <div class="my-list" id="myHoldings"></div>
+  <div class="my-list" id="myBlind" style="display:none"></div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <div class="bnav-item active" data-t="home" onclick="switchTab('home')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    Home
+  </div>
+  <div class="bnav-item" data-t="market" onclick="switchTab('market')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+    Market
+  </div>
+  <div class="bnav-item" data-t="square" onclick="switchTab('square')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    Square
+  </div>
+  <div class="bnav-item" data-t="my" onclick="switchTab('my')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    My
   </div>
 </nav>
 
-<!-- TOAST CONTAINER -->
-<div class="toast-container" id="toastContainer"></div>
-
-<!-- MAIN CONTENT -->
-<main class="main">
-
-  <!-- ===== GALLERY SECTION ===== -->
-  <div class="section active" id="sec-gallery">
-    <!-- Hero Banner -->
-    <div class="hero">
-      <h2>🔥 Genesis Collection — Season 3 is Live</h2>
-      <p>Discover 10,000 unique digital artifacts from the NovaMint Genesis universe. Collect, trade, and evolve your assets.</p>
-      <div class="hero-actions">
-        <button class="btn btn-primary" onclick="switchSection('mint',document.querySelector('[data-section=mint]'))">Mint Now</button>
-        <button class="btn btn-secondary" onclick="switchSection('trade',document.querySelector('[data-section=trade]'))">Explore Market</button>
-      </div>
-    </div>
-
-    <!-- Stats -->
-    <div class="stats-bar">
-      <div class="stat-card"><div class="stat-val">12,847</div><div class="stat-label">Items</div></div>
-      <div class="stat-card"><div class="stat-val">3,291</div><div class="stat-label">Owners</div></div>
-      <div class="stat-card"><div class="stat-val">842 Ξ</div><div class="stat-label">Volume</div></div>
-      <div class="stat-card"><div class="stat-val">0.12 Ξ</div><div class="stat-label">Floor</div></div>
-    </div>
-
-    <!-- Filters -->
-    <div class="section-header">
-      <h3>All Collectibles</h3>
-      <div class="filters">
-        <button class="filter-btn active" onclick="filterCards('all',this)">All</button>
-        <button class="filter-btn" onclick="filterCards('common',this)">Common</button>
-        <button class="filter-btn" onclick="filterCards('uncommon',this)">Uncommon</button>
-        <button class="filter-btn" onclick="filterCards('rare',this)">Rare</button>
-        <button class="filter-btn" onclick="filterCards('epic',this)">Epic</button>
-        <button class="filter-btn" onclick="filterCards('legendary',this)">Legendary</button>
-        <button class="filter-btn" onclick="filterCards('mythic',this)">Mythic</button>
-      </div>
-    </div>
-
-    <!-- Card Grid -->
-    <div class="card-grid" id="galleryGrid"></div>
-  </div>
-
-  <!-- ===== TRADE SECTION ===== -->
-  <div class="section" id="sec-trade">
-    <div class="section-header">
-      <h3>Marketplace</h3>
-      <div class="filters">
-        <button class="filter-btn active" onclick="filterTrades('all',this)">All</button>
-        <button class="filter-btn" onclick="filterTrades('active',this)">Active</button>
-        <button class="filter-btn" onclick="filterTrades('pending',this)">Pending</button>
-        <button class="filter-btn" onclick="filterTrades('sold',this)">Sold</button>
-      </div>
-    </div>
-    <div class="trade-list" id="tradeList"></div>
-  </div>
-
-  <!-- ===== SYNTHESIS SECTION ===== -->
-  <div class="section" id="sec-synthesis">
-    <div class="section-header">
-      <h3>✨ Synthesis Forge</h3>
-      <p style="font-size:13px;color:var(--text-muted)">Combine lower-rarity items to forge something legendary.</p>
-    </div>
-
-    <!-- Synthesis Area -->
-    <div class="synth-area">
-      <div class="synth-title">🔥 Active Forge</div>
-      <div class="synth-flow" id="synthFlow">
-        <div class="synth-slot" id="slot0"><span>+</span><span class="slot-label">Slot 1</span></div>
-        <div class="synth-arrow">+</div>
-        <div class="synth-slot" id="slot1"><span>+</span><span class="slot-label">Slot 2</span></div>
-        <div class="synth-arrow">+</div>
-        <div class="synth-slot" id="slot2"><span>+</span><span class="slot-label">Slot 3</span></div>
-        <div class="synth-arrow">→</div>
-        <div class="synth-result art-0" id="synthResult">?<span style="font-size:8px;position:absolute;bottom:6px;color:var(--accent-glow);letter-spacing:1px;font-weight:700">RESULT</span></div>
-      </div>
-      <div class="synth-btn-wrap">
-        <button class="btn btn-primary" onclick="performSynthesis()" id="synthBtn" disabled>Forge Item</button>
-      </div>
-    </div>
-
-    <!-- Recipes -->
-    <div class="section-header">
-      <h3>Recipe Book</h3>
-    </div>
-    <div class="synth-recipes" id="recipeList"></div>
-  </div>
-
-  <!-- ===== DECOMPOSE SECTION ===== -->
-  <div class="section" id="sec-decompose">
-    <div class="section-header">
-      <h3>💥 Decompose Chamber</h3>
-      <p style="font-size:13px;color:var(--text-muted)">Break down high-rarity items into raw materials. Decomposition is irreversible.</p>
-    </div>
-    <div id="decomposeList"></div>
-  </div>
-
-  <!-- ===== MINT SECTION ===== -->
-  <div class="section" id="sec-mint">
-    <div class="section-header">
-      <h3>🎯 Minting Center</h3>
-      <p style="font-size:13px;color:var(--text-muted)">Mint new collectibles via blind boxes or direct purchase.</p>
-    </div>
-    <div class="mint-grid" id="mintGrid"></div>
-  </div>
-
-  <!-- ===== ANNOUNCEMENTS SECTION ===== -->
-  <div class="section" id="sec-announce">
-    <div class="section-header">
-      <h3>📢 Announcements</h3>
-    </div>
-    <div class="ann-list" id="annList"></div>
-  </div>
-
-</main>
-
-<!-- MOBILE NAV -->
-<div class="mobile-nav" id="mobileNav">
-  <div class="mobile-nav-inner">
-    <div class="mobile-nav-item active" data-section="gallery" onclick="switchSection('gallery',this)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      Gallery
-    </div>
-    <div class="mobile-nav-item" data-section="trade" onclick="switchSection('trade',this)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
-      Trade
-    </div>
-    <div class="mobile-nav-item" data-section="synthesis" onclick="switchSection('synthesis',this)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-      Forge
-    </div>
-    <div class="mobile-nav-item" data-section="decompose" onclick="switchSection('decompose',this)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-      Split
-    </div>
-    <div class="mobile-nav-item" data-section="mint" onclick="switchSection('mint',this)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
-      Mint
-    </div>
-    <div class="mobile-nav-item" data-section="announce" onclick="switchSection('announce',this)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-      News
-    </div>
+<!-- MODAL -->
+<div class="modal-mask" id="modal">
+  <div class="modal-box">
+    <div class="modal-hd"><h3 id="mTitle">Details</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+    <div class="modal-bd" id="mBody"></div>
+    <div class="modal-ft" id="mFoot"></div>
   </div>
 </div>
 
-<!-- DETAIL MODAL -->
-<div class="modal-overlay" id="detailModal">
-  <div class="modal">
-    <div class="modal-header">
-      <h3 id="modalTitle">Item Details</h3>
-      <button class="modal-close" onclick="closeModal()">&times;</button>
-    </div>
-    <div class="modal-body" id="modalBody"></div>
-    <div class="modal-footer" id="modalFooter"></div>
-  </div>
-</div>
-
-<!-- SYNTH EFFECT OVERLAY -->
-<div class="synth-effect" id="synthEffect"></div>
+<!-- SYNTH FX -->
+<div class="synth-fx" id="synthFx"></div>
 
 <script>
-// ===== MOCK DATA =====
-const NFT_ITEMS = [
-  {id:'NM-001',name:'Stellar Phoenix',collection:'Genesis S3',rarity:'legendary',price:2.45,art:0,emoji:'🦅',likes:342},
-  {id:'NM-002',name:'Void Walker',collection:'Genesis S3',rarity:'epic',price:0.89,art:1,emoji:'👾',likes:218},
-  {id:'NM-003',name:'Crystal Drake',collection:'Genesis S3',rarity:'rare',price:0.42,art:2,emoji:'🐉',likes:176},
-  {id:'NM-004',name:'Neon Samurai',collection:'Cyber Ronin',rarity:'epic',price:1.12,art:3,emoji:'⚔️',likes:289},
-  {id:'NM-005',name:'Forest Warden',collection:'Genesis S3',rarity:'uncommon',price:0.18,art:4,emoji:'🌿',likes:94},
-  {id:'NM-006',name:'Abyssal Kraken',collection:'Deep Ones',rarity:'mythic',price:5.8,art:5,emoji:'🐙',likes:521},
-  {id:'NM-007',name:'Ember Sprite',collection:'Genesis S3',rarity:'common',price:0.06,art:6,emoji:'🔥',likes:37},
-  {id:'NM-008',name:'Frost Sentinel',collection:'Cyber Ronin',rarity:'rare',price:0.38,art:7,emoji:'❄️',likes:152},
-  {id:'NM-009',name:'Shadow Blade',collection:'Cyber Ronin',rarity:'legendary',price:3.2,art:8,emoji:'🗡️',likes:410},
-  {id:'NM-010',name:'Moss Golem',collection:'Genesis S3',rarity:'common',price:0.05,art:9,emoji:'🪨',likes:28},
-  {id:'NM-011',name:'Plasma Witch',collection:'Deep Ones',rarity:'epic',price:0.95,art:10,emoji:'🧙‍♀️',likes:197},
-  {id:'NM-012',name:'Iron Guardian',collection:'Cyber Ronin',rarity:'uncommon',price:0.21,art:11,emoji:'🛡️',likes:88},
-  {id:'NM-013',name:'Cosmic Jellyfish',collection:'Deep Ones',rarity:'rare',price:0.55,art:0,emoji:'🪼',likes:134},
-  {id:'NM-014',name:'Thunder Wolf',collection:'Genesis S3',rarity:'uncommon',price:0.16,art:1,emoji:'🐺',likes:72},
-  {id:'NM-015',name:'Rune Golem',collection:'Deep Ones',rarity:'common',price:0.04,art:2,emoji:'🗿',likes:19},
-  {id:'NM-016',name:'Celestial Dragon',collection:'Genesis S3',rarity:'mythic',price:8.5,art:3,emoji:'🐲',likes:678},
-  {id:'NM-017',name:'Pixel Ghost',collection:'Cyber Ronin',rarity:'common',price:0.03,art:4,emoji:'👻',likes:15},
-  {id:'NM-018',name:'Sakura Spirit',collection:'Cyber Ronin',rarity:'rare',price:0.44,art:5,emoji:'🌸',likes:163},
+const ITEMS=[
+  {id:'NM-001',name:'Golden Cake Genesis',col:'Genesis S3',rarity:'legendary',price:2.45,art:'art-gold-cake',change:12.5,issued:500,circ:312},
+  {id:'NM-002',name:'Void Walker',col:'Genesis S3',rarity:'epic',price:0.89,art:'art-void',change:-3.2,issued:1000,circ:678},
+  {id:'NM-003',name:'Crystal Drake',col:'Genesis S3',rarity:'rare',price:0.42,art:'art-ice',change:5.8,issued:2000,circ:1420},
+  {id:'NM-004',name:'Neon Samurai',col:'Cyber Ronin',rarity:'epic',price:1.12,art:'art-neon',change:8.1,issued:800,circ:534},
+  {id:'NM-005',name:'Forest Warden',col:'Genesis S3',rarity:'uncommon',price:0.18,art:'art-emerald',change:-1.5,issued:5000,circ:3890},
+  {id:'NM-006',name:'Abyssal Kraken',col:'Deep Ones',rarity:'mythic',price:5.8,art:'art-kraken',change:22.3,issued:100,circ:67},
+  {id:'NM-007',name:'Ember Sprite',col:'Genesis S3',rarity:'common',price:0.06,art:'art-ember',change:-0.8,issued:10000,circ:8234},
+  {id:'NM-008',name:'Frost Sentinel',col:'Cyber Ronin',rarity:'rare',price:0.38,art:'art-shield',change:2.4,issued:1500,circ:1012},
+  {id:'NM-009',name:'Shadow Blade',col:'Cyber Ronin',rarity:'legendary',price:3.2,art:'art-dragon',change:15.6,issued:300,circ:198},
+  {id:'NM-010',name:'Moss Golem',col:'Genesis S3',rarity:'common',price:0.05,art:'art-rune',change:0.3,issued:8000,circ:6543},
+  {id:'NM-011',name:'Plasma Witch',col:'Deep Ones',rarity:'epic',price:0.95,art:'art-witch',change:6.7,issued:900,circ:623},
+  {id:'NM-012',name:'Iron Guardian',col:'Cyber Ronin',rarity:'uncommon',price:0.21,art:'art-shield',change:-2.1,issued:4000,circ:2780},
+  {id:'NM-013',name:'Cosmic Jellyfish',col:'Deep Ones',rarity:'rare',price:0.55,art:'art-jelly',change:4.2,issued:1800,circ:1201},
+  {id:'NM-014',name:'Thunder Wolf',col:'Genesis S3',rarity:'uncommon',price:0.16,art:'art-wolf',change:1.9,issued:4500,circ:3210},
+  {id:'NM-015',name:'Rune Golem',col:'Deep Ones',rarity:'common',price:0.04,art:'art-rune',change:-0.5,issued:9000,circ:7650},
+  {id:'NM-016',name:'Celestial Dragon',col:'Genesis S3',rarity:'mythic',price:8.5,art:'art-celestial',change:28.9,issued:50,circ:33},
+  {id:'NM-017',name:'Pixel Ghost',col:'Cyber Ronin',rarity:'common',price:0.03,art:'art-pixel',change:0.1,issued:12000,circ:9870},
+  {id:'NM-018',name:'Sakura Spirit',col:'Cyber Ronin',rarity:'rare',price:0.44,art:'art-sakura',change:3.5,issued:1600,circ:1089},
 ];
 
-const TRADE_LISTINGS = [
-  {item:NFT_ITEMS[0],seller:'0x7a3F...e9B2',price:2.5,usd:4520,status:'active',type:'sell'},
-  {item:NFT_ITEMS[5],seller:'0x1bC4...d3A8',price:5.9,usd:10680,status:'active',type:'sell'},
-  {item:NFT_ITEMS[8],seller:'0x9eF2...b7C1',price:3.15,usd:5700,status:'active',type:'sell'},
-  {item:NFT_ITEMS[1],seller:'0x4dA7...f5E3',price:0.92,usd:1665,status:'active',type:'sell'},
-  {item:NFT_ITEMS[3],seller:'0x3cB8...a2D9',price:1.08,usd:1955,status:'pending',type:'sell'},
-  {item:NFT_ITEMS[15],seller:'0x8fE1...c4B7',price:8.75,usd:15840,status:'pending',type:'sell'},
-  {item:NFT_ITEMS[2],seller:'0x6aD5...e1F4',price:0.45,usd:815,status:'sold',type:'sell'},
-  {item:NFT_ITEMS[9],seller:'0x2bC3...d8A6',price:3.4,usd:6155,status:'sold',type:'sell'},
-  {item:NFT_ITEMS[6],seller:'0x5eF9...b3C2',price:0.07,usd:127,status:'sold',type:'sell'},
-  {item:NFT_ITEMS[11],seller:'0x7dA4...f6E1',price:0.22,usd:398,status:'active',type:'sell'},
+const RECIPES=[
+  {id:'R01',name:'Forge Phoenix Egg',mats:['NM-005','NM-014','NM-007'],out:{name:'Phoenix Egg',art:'art-gold-cake'},outArt:'art-gold-cake'},
+  {id:'R02',name:'Forge Abyss Core',mats:['NM-002','NM-010','NM-015'],out:{name:'Abyss Core',art:'art-kraken'},outArt:'art-kraken'},
+  {id:'R03',name:'Forge Dragon Heart',mats:['NM-003','NM-012','NM-017'],out:{name:'Dragon Heart',art:'art-dragon'},outArt:'art-dragon'},
+  {id:'R04',name:'Forge Celestial Shard',mats:['NM-004','NM-018','NM-006'],out:{name:'Celestial Shard',art:'art-celestial'},outArt:'art-celestial'},
 ];
 
-const SYNTH_RECIPES = [
-  {id:'R01',name:'Forge Phoenix Egg',materials:['NM-005','NM-014','NM-007'],output:{id:'NM-P01',name:'Phoenix Egg',rarity:'epic',emoji:'🥚'},outputArt:0},
-  {id:'R02',name:'Forge Abyss Core',materials:['NM-002','NM-010','NM-015'],output:{id:'NM-P02',name:'Abyss Core',rarity:'legendary',emoji:'💎'},outputArt:5},
-  {id:'R03',name:'Forge Dragon Heart',materials:['NM-003','NM-012','NM-017'],output:{id:'NM-P03',name:'Dragon Heart',rarity:'legendary',emoji:'❤️‍🔥'},outputArt:8},
-  {id:'R04',name:'Forge Celestial Shard',materials:['NM-004','NM-018','NM-006'],output:{id:'NM-P04',name:'Celestial Shard',rarity:'mythic',emoji:'✨'},outputArt:3},
+const DECOMPS=[
+  {item:ITEMS[0],yields:['Void Shard ×2','Ember Dust ×5','Phoenix Plume ×1']},
+  {item:ITEMS[5],yields:['Abyss Pearl ×3','Dark Ink ×4','Kraken Eye ×1']},
+  {item:ITEMS[8],yields:['Shadow Steel ×2','Moonstone ×3','Blade Essence ×1']},
+  {item:ITEMS[15],yields:['Dragon Scale ×5','Celestial Dust ×3','Star Fragment ×2']},
+  {item:ITEMS[1],yields:['Void Shard ×1','Ectoplasm ×3']},
+  {item:ITEMS[3],yields:['Plasma Core ×2','Circuit Fragment ×4']},
 ];
 
-const DECOMPOSE_ITEMS = [
-  {item:NFT_ITEMS[0],yields:['Void Shard ×2','Ember Dust ×5','Phoenix Plume ×1']},
-  {item:NFT_ITEMS[5],yields:['Abyss Pearl ×3','Dark Ink ×4','Kraken Eye ×1']},
-  {item:NFT_ITEMS[8],yields:['Shadow Steel ×2','Moonstone ×3','Blade Essence ×1']},
-  {item:NFT_ITEMS[15],yields:['Dragon Scale ×5','Celestial Dust ×3','Star Fragment ×2']},
-  {item:NFT_ITEMS[1],yields:['Void Shard ×1','Ectoplasm ×3']},
-  {item:NFT_ITEMS[3],yields:['Plasma Core ×2','Circuit Fragment ×4']},
+const MINTS=[
+  {name:'Genesis Blind Box W3',desc:'Random Genesis S3. 5% Legendary!',type:'blind',price:0.08,total:5000,minted:3847,art:'art-blindbox',
+   odds:[{r:'Common',c:'50%'},{r:'Uncommon',c:'25%'},{r:'Rare',c:'14%'},{r:'Epic',c:'5.5%'},{r:'Legendary',c:'5%'},{r:'Mythic',c:'0.5%'}]},
+  {name:'Cyber Ronin Box',desc:'Guaranteed Rare+ cyber warriors.',type:'blind',price:0.15,total:2000,minted:1842,art:'art-neon',
+   odds:[{r:'Rare',c:'60%'},{r:'Epic',c:'28%'},{r:'Legendary',c:'10%'},{r:'Mythic',c:'2%'}]},
+  {name:'Deep Ones — Leviathan',desc:'Direct mint — guaranteed Mythic. Only 50.',type:'direct',price:4.2,total:50,minted:41,art:'art-leviathan',odds:[]},
+  {name:'EPOCH Genesis Box',desc:'Limited EPOCH collection.',type:'blind',price:0.12,total:3000,minted:2150,art:'art-epoch',
+   odds:[{r:'Common',c:'40%'},{r:'Uncommon',c:'30%'},{r:'Rare',c:'18%'},{r:'Epic',c:'8%'},{r:'Legendary',c:'3.5%'},{r:'Mythic',c:'0.5%'}]},
 ];
 
-const MINT_BOXES = [
-  {
-    name:'Genesis Blind Box — Wave 3',
-    desc:'Each box contains a random Genesis S3 collectible. 5% chance for Legendary, 0.5% for Mythic!',
-    type:'blind',price:0.08,total:5000,minted:3847,art:0,emoji:'🎁',
-    odds:[{rarity:'Common',chance:'50%'},{rarity:'Uncommon',chance:'25%'},{rarity:'Rare',chance:'14%'},{rarity:'Epic',chance:'5.5%'},{rarity:'Legendary',chance:'5%'},{rarity:'Mythic',chance:'0.5%'}]
-  },
-  {
-    name:'Cyber Ronin Blind Box',
-    desc:'Cyberpunk-themed warriors and weapons. Guaranteed Rare or above — limited to 2000 boxes.',
-    type:'blind',price:0.15,total:2000,minted:1842,art:8,emoji:'🤖',
-    odds:[{rarity:'Rare',chance:'60%'},{rarity:'Epic',chance:'28%'},{rarity:'Legendary',chance:'10%'},{rarity:'Mythic',chance:'2%'}]
-  },
-  {
-    name:'Deep Ones — Leviathan',
-    desc:'Direct purchase — guaranteed Mythic Leviathan. Only 50 ever minted.',
-    type:'direct',price:4.2,total:50,minted:41,art:5,emoji:'🐋',
-    odds:[]
-  },
+const ANNS=[
+  {tag:'hot',cls:'ai-tag-hot',label:'🔥 Hot',date:'2025-06-12',title:'Genesis S3 Blind Box — Final Wave June 15',body:'Last 1,153 boxes released June 15 at 18:00 UTC. Price: 0.08 ETH.'},
+  {tag:'mint',cls:'ai-tag-mint',label:'🎯 Mint',date:'2025-06-10',title:'New Direct Mint: Deep Ones — Leviathan',body:'Mythic "Leviathan" direct mint at 4.2 ETH. Only 50. 41/50 minted.'},
+  {tag:'event',cls:'ai-tag-event',label:'🎪 Event',date:'2025-06-08',title:'Synthesis Weekend — 2x Success Rate',body:'Double synthesis success rate this weekend. Legendary now 60%.'},
+  {tag:'update',cls:'ai-tag-update',label:'🔧 Update',date:'2025-06-05',title:'Platform v2.4: Decompose Chamber',body:'Break down Epic+ items into materials. Full guide in docs.'},
+  {tag:'event',cls:'ai-tag-event',label:'🎪 Event',date:'2025-06-01',title:'Trading Competition — 5,000 ETH Prize Pool',body:'Trade June 1–30 to earn points. Top 100 share 5,000 ETH.'},
+  {tag:'update',cls:'ai-tag-update',label:'🔧 Update',date:'2025-05-28',title:'Marketplace v2.3: Bundle Listings',body:'List multiple items as bundle. Make offers on unlisted items.'},
 ];
 
-const ANNOUNCEMENTS = [
-  {tag:'hot',tagLabel:'🔥 Hot',date:'2025-06-12',title:'Genesis S3 Blind Box — Final Wave Launching June 15',body:'The last 1,153 Genesis Season 3 blind boxes will be released on June 15 at 18:00 UTC. Price: 0.08 ETH. This is your final chance to mint from the Genesis collection!'},
-  {tag:'mint',tagLabel:'🎯 Mint',date:'2025-06-10',title:'New Direct Mint: Deep Ones — Leviathan',body:'A limited-edition Mythic collectible "Leviathan" is now available for direct mint at 4.2 ETH. Only 50 will ever exist. 41/50 already minted.'},
-  {tag:'event',tagLabel:'🎪 Event',date:'2025-06-08',title:'Synthesis Weekend — 2x Success Rate',body:'This weekend (June 8–9), all synthesis recipes have double the base success rate. Legendary recipes now have a 60% chance instead of 30%. Don\'t miss it!'},
-  {tag:'update',tagLabel:'🔧 Update',date:'2025-06-05',title:'Platform Update v2.4: Decompose Chamber',body:'We\'ve added the Decompose Chamber! Break down Epic+ items into raw materials. Decomposition yields vary by item rarity. Full guide available in docs.'},
-  {tag:'event',tagLabel:'🎪 Event',date:'2025-06-01',title:'Trading Competition — 5,000 ETH Prize Pool',body:'Trade any collectible between June 1–30 to earn competition points. Top 100 traders share a 5,000 ETH prize pool. Leaderboard updates every 6 hours.'},
-  {tag:'update',tagLabel:'🔧 Update',date:'2025-05-28',title:'Marketplace v2.3: Bundle Listings & Offers',body:'You can now list multiple items as a bundle and make offers on items that aren\'t listed for sale. Try the new "Make Offer" button on any collectible detail page.'},
-];
+const CATS=[{name:'All',art:'art-cosmos'},{name:'Genesis S3',art:'art-gold-cake'},{name:'Cyber Ronin',art:'art-neon'},{name:'Deep Ones',art:'art-kraken'},{name:'EPOCH',art:'art-epoch'}];
 
-// ===== STATE =====
-let walletConnected = false;
-let currentFilter = 'all';
-let currentTradeFilter = 'all';
-let selectedRecipe = null;
-let synthSlots = [null,null,null];
+let connected=false,curTab='home',curMkt='collectibles',curFilter='all',curCat='All',selRecipe=null,synthSlots=[null,null,null],bIdx=0,bTimer=null;
 
-// ===== WALLET =====
+// Wallet
 function connectWallet(){
-  if(walletConnected) return;
-  walletConnected = true;
-  const btn = document.getElementById('walletBtn');
-  btn.classList.add('connected');
-  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M16 14h2"/></svg> 0x7a3F...e9B2';
-  showToast('Wallet connected successfully!','success');
+  if(connected)return;connected=true;
+  document.getElementById('connectBtn').textContent='0x7a3F...e9B2';
+  document.getElementById('connectBtn').classList.add('connected');
+  document.getElementById('myName').textContent='Collector';
+  document.getElementById('myUid').textContent='UID: 88421037';
+  showToast('Wallet connected!','success');
 }
 
-// ===== NAVIGATION =====
-function switchSection(sectionId, el){
-  // Update sections
-  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  document.getElementById('sec-'+sectionId).classList.add('active');
-  // Update desktop nav
-  document.querySelectorAll('#desktopNav .nav-item').forEach(n=>n.classList.remove('active'));
-  document.querySelectorAll('#desktopNav .nav-item').forEach(n=>{if(n.dataset.section===sectionId)n.classList.add('active')});
-  // Update mobile nav
-  document.querySelectorAll('#mobileNav .mobile-nav-item').forEach(n=>n.classList.remove('active'));
-  document.querySelectorAll('#mobileNav .mobile-nav-item').forEach(n=>{if(n.dataset.section===sectionId)n.classList.add('active')});
-  // Scroll to top
+// Navigation
+function switchTab(t){
+  curTab=t;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('pg-'+t).classList.add('active');
+  document.querySelectorAll('.bnav-item').forEach(n=>n.classList.toggle('active',n.dataset.t===t));
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-// ===== GALLERY =====
-function renderGallery(filter='all'){
-  const grid = document.getElementById('galleryGrid');
-  const items = filter==='all' ? NFT_ITEMS : NFT_ITEMS.filter(i=>i.rarity===filter);
-  grid.innerHTML = items.map(item=>`
-    <div class="nft-card rarity-${item.rarity}" onclick="showDetail('${item.id}')">
-      <div class="nft-card-img">
-        <div class="art art-${item.art}">${item.emoji}</div>
-        <div class="rarity-tag">${item.rarity}</div>
-        <div class="id-tag">#${item.id}</div>
-      </div>
-      <div class="nft-card-body">
-        <h4>${item.name}</h4>
-        <div class="collection">${item.collection}</div>
-      </div>
-      <div class="nft-card-footer">
-        <div class="price">${item.price} Ξ <span>≈ $${(item.price*1808).toFixed(0)}</span></div>
-        <div class="likes">♥ ${item.likes}</div>
-      </div>
-    </div>
-  `).join('');
-  if(items.length===0){
-    grid.innerHTML='<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🔍</div><h4>No items found</h4><p>Try a different filter.</p></div>';
-  }
+// Banner
+function startBanner(){bTimer=setInterval(()=>{bIdx=(bIdx+1)%3;updBanner()},4000)}
+function updBanner(){
+  document.getElementById('bannerTrack').style.transform=`translateX(-${bIdx*100}%)`;
+  document.querySelectorAll('.banner-dot').forEach((d,i)=>d.classList.toggle('active',i===bIdx));
 }
-function filterCards(filter, el){
-  currentFilter=filter;
-  document.querySelectorAll('.filters .filter-btn').forEach(b=>b.classList.remove('active'));
-  if(el)el.classList.add('active');
-  renderGallery(filter);
+function goSlide(i){bIdx=i;updBanner();clearInterval(bTimer);startBanner()}
+
+// Hot Items
+function renderHot(){
+  const h=ITEMS.filter(i=>['legendary','mythic','epic'].includes(i.rarity)).slice(0,6);
+  document.getElementById('hotScroll').innerHTML=h.map(i=>`
+    <div class="hot-card" onclick="showDetail('${i.id}')">
+      <div class="hc-img ${i.art}"></div>
+      <div class="hc-body">
+        <div class="hc-name">${i.name}</div>
+        <div class="hc-price">${i.price} Ξ</div>
+        <div class="hc-change ${i.change>=0?'up':'down'}">${i.change>=0?'+':''}${i.change}%</div>
+      </div>
+    </div>`).join('');
 }
 
-// ===== DETAIL MODAL =====
-function showDetail(id){
-  const item = NFT_ITEMS.find(i=>i.id===id);
-  if(!item) return;
-  document.getElementById('modalTitle').textContent = item.name;
-  document.getElementById('modalBody').innerHTML = `
-    <div style="width:100%;aspect-ratio:1;border-radius:var(--radius);overflow:hidden;margin-bottom:16px">
-      <div class="art art-${item.art}" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:64px">${item.emoji}</div>
-    </div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-      <span class="status-tag rarity-${item.rarity}" style="border-radius:12px;font-size:12px">${item.rarity.toUpperCase()}</span>
-      <span style="font-size:13px;color:var(--text-muted)">#${item.id}</span>
-    </div>
-    <div style="margin-bottom:8px"><strong>Collection:</strong> ${item.collection}</div>
-    <div style="margin-bottom:8px"><strong>Floor Price:</strong> <span style="color:var(--accent2)">${item.price} Ξ</span> (≈ $${(item.price*1808).toFixed(0)})</div>
-    <div style="margin-bottom:8px"><strong>Likes:</strong> ♥ ${item.likes}</div>
-    <div style="margin-bottom:8px"><strong>Owner:</strong> 0x7a3F...e9B2</div>
-  `;
-  document.getElementById('modalFooter').innerHTML = `
-    <button class="btn btn-secondary btn-sm" onclick="closeModal()">Close</button>
-    <button class="btn btn-primary btn-sm" onclick="showToast('Item listed for sale!','success');closeModal()">List for Sale</button>
-    <button class="btn btn-accent btn-sm" onclick="showToast('Offer placed!','info');closeModal()">Make Offer</button>
-  `;
-  document.getElementById('detailModal').classList.add('show');
+// Market
+function switchMkt(t,el){
+  curMkt=t;
+  document.querySelectorAll('.mkt-tab').forEach(e=>e.classList.remove('active'));if(el)el.classList.add('active');
+  document.getElementById('mktList').style.display=t==='collectibles'?'block':'none';
+  document.getElementById('blindList').style.display=t==='blindbox'?'grid':'none';
+  document.getElementById('catRow').style.display=t==='collectibles'?'flex':'none';
+  document.getElementById('filterRow').style.display=t==='collectibles'?'flex':'none';
 }
-function closeModal(){
-  document.getElementById('detailModal').classList.remove('show');
+function renderCats(){
+  document.getElementById('catRow').innerHTML=CATS.map(c=>`
+    <div class="cat-tag ${c.name===curCat?'active':''}" onclick="setCat('${c.name}',this)">
+      <div class="ct-dot ${c.art}"></div>${c.name}
+    </div>`).join('');
 }
-document.getElementById('detailModal').addEventListener('click',function(e){
-  if(e.target===this)closeModal();
-});
-
-// ===== TRADE =====
-function renderTrades(filter='all'){
-  const list = document.getElementById('tradeList');
-  const items = filter==='all' ? TRADE_LISTINGS : TRADE_LISTINGS.filter(t=>t.status===filter);
-  list.innerHTML = items.map(t=>`
-    <div class="trade-item">
-      <div class="trade-item-img art art-${t.item.art}">${t.item.emoji}</div>
-      <div class="trade-item-info">
-        <h4>${t.item.name}</h4>
-        <div class="meta">
-          <span class="status-tag status-${t.status}">${t.status}</span>
-          <span>by ${t.seller}</span>
+function setCat(n,el){curCat=n;document.querySelectorAll('.cat-tag').forEach(t=>t.classList.remove('active'));if(el)el.classList.add('active');renderMktCards()}
+function setFilter(f,el){curFilter=f;document.querySelectorAll('.filter-p').forEach(p=>p.classList.remove('active'));if(el)el.classList.add('active');renderMktCards()}
+function renderMktCards(){
+  let items=[...ITEMS];
+  if(curCat!=='All')items=items.filter(i=>i.col===curCat);
+  const q=document.getElementById('mktSearch').value.toLowerCase().trim();
+  if(q)items=items.filter(i=>i.name.toLowerCase().includes(q)||i.col.toLowerCase().includes(q)||i.rarity.includes(q));
+  if(curFilter==='recommended')items=items.filter(i=>i.change>5);
+  else if(curFilter==='following')items=items.filter(i=>['legendary','mythic'].includes(i.rarity));
+  document.getElementById('mktList').innerHTML=items.length?items.map(i=>`
+    <div class="mkt-card" onclick="showDetail('${i.id}')">
+      <div class="mc-thumb ${i.art}"></div>
+      <div class="mc-info">
+        <div>
+          <div class="mc-name">${i.name}</div>
+          <div class="mc-meta">${i.col} · ${i.issued} issued · ${i.circ} circulating</div>
+        </div>
+        <div class="mc-bottom">
+          <div class="mc-price">${i.price} Ξ <span class="mc-unit">≈$${(i.price*1808).toFixed(0)}</span></div>
+          <div class="mc-chg ${i.change>=0?'up':'down'}">${i.change>=0?'▲':'▼'}${Math.abs(i.change)}%</div>
         </div>
       </div>
-      <div class="trade-item-price">
-        <div class="amount">${t.price} Ξ</div>
-        <div class="usd">≈ $${t.usd.toLocaleString()}</div>
-      </div>
-      <div class="trade-item-actions">
-        ${t.status==='active'?'<button class="btn btn-accent btn-sm" onclick="showToast(\'Purchase initiated!\',\'info\')">Buy</button>':''}
-        ${t.status==='active'?'<button class="btn btn-secondary btn-sm" onclick="showToast(\'Offer sent!\',\'info\')">Offer</button>':''}
-        ${t.status==='pending'?'<button class="btn btn-secondary btn-sm" disabled>Pending</button>':''}
-        ${t.status==='sold'?'<button class="btn btn-secondary btn-sm" disabled>Sold</button>':''}
-      </div>
-    </div>
-  `).join('');
-  if(items.length===0){
-    list.innerHTML='<div class="empty-state"><div class="empty-icon">📊</div><h4>No listings found</h4><p>Try a different filter or check back later.</p></div>';
-  }
+    </div>`).join(''):'<div style="text-align:center;padding:40px 0;color:var(--text3);font-size:12px">No items found</div>';
 }
-function filterTrades(filter, el){
-  currentTradeFilter=filter;
-  document.querySelectorAll('#sec-trade .filter-btn').forEach(b=>b.classList.remove('active'));
-  if(el)el.classList.add('active');
-  renderTrades(filter);
+function renderBlind(){
+  document.getElementById('blindList').innerHTML=MINTS.map((b,i)=>{
+    const p=Math.round(b.minted/b.total*100),c=p>80?'var(--red)':p>50?'var(--primary)':'var(--green)';
+    return `<div class="blind-card" onclick="doMint(${i})">
+      <div class="bc-thumb ${b.art}"><div class="bc-badge bc-badge-${b.type}">${b.type==='blind'?'BLIND':'DIRECT'}</div></div>
+      <div class="bc-body">
+        <div class="bc-name">${b.name}</div>
+        <div class="bc-bar"><div class="bc-bar-fill" style="width:${p}%;background:${c}"></div></div>
+        <div class="bc-meta"><span>${b.minted}/${b.total}</span><span>${p}%</span></div>
+        <div class="bc-price">${b.price} Ξ</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
-// ===== SYNTHESIS =====
+// Square
+function showSub(s){
+  document.getElementById('sq-synthesis').style.display=s==='synthesis'?'block':'none';
+  document.getElementById('sq-decompose').style.display=s==='decompose'?'block':'none';
+  document.getElementById('sq-announce').style.display=s==='announce'?'block':'none';
+}
 function renderRecipes(){
-  const list = document.getElementById('recipeList');
-  list.innerHTML = SYNTH_RECIPES.map((r,i)=>`
-    <div class="recipe-item ${selectedRecipe===i?'active':''}" onclick="selectRecipe(${i})">
-      <div class="recipe-img art art-${r.outputArt}">${r.output.emoji}</div>
-      <div class="recipe-info">
-        <h5>${r.name}</h5>
-        <p>Requires: ${r.materials.map(m=>{const it=NFT_ITEMS.find(n=>n.id===m);return it?it.emoji+' '+it.name:m}).join(' + ')}</p>
-      </div>
-      <div class="recipe-arrow">→</div>
-      <div class="recipe-output art art-${r.outputArt}">${r.output.emoji}</div>
-    </div>
-  `).join('');
+  document.getElementById('recipeList').innerHTML=RECIPES.map((r,i)=>`
+    <div class="recipe-item ${selRecipe===i?'active':''}" onclick="selRec(${i})">
+      <div class="ri-img ${r.outArt}"></div>
+      <div class="ri-info"><h5>${r.name}</h5><p>${r.mats.map(m=>{const it=ITEMS.find(n=>n.id===m);return it?it.name:m}).join(' + ')}</p></div>
+      <div class="ri-arrow">→</div>
+      <div class="ri-out ${r.outArt}"></div>
+    </div>`).join('');
 }
-
-function selectRecipe(idx){
-  selectedRecipe = idx;
-  const recipe = SYNTH_RECIPES[idx];
-  synthSlots = recipe.materials.map(m=>{
-    const item = NFT_ITEMS.find(n=>n.id===m);
-    return item || null;
-  });
-  // Update visual slots
+function selRec(idx){
+  selRecipe=idx;const r=RECIPES[idx];
+  synthSlots=r.mats.map(m=>ITEMS.find(n=>n.id===m)||null);
   for(let i=0;i<3;i++){
-    const slot = document.getElementById('slot'+i);
-    if(synthSlots[i]){
-      slot.classList.add('filled');
-      slot.innerHTML = `<span style="font-size:28px">${synthSlots[i].emoji}</span><span class="slot-label">${synthSlots[i].name}</span>`;
-    } else {
-      slot.classList.remove('filled');
-      slot.innerHTML = '<span>+</span><span class="slot-label">Slot '+(i+1)+'</span>';
-    }
+    const s=document.getElementById('slot'+i);
+    if(synthSlots[i]){s.classList.add('filled');s.innerHTML=`<span style="font-size:18px">${synthSlots[i].name.split(' ')[0]}</span><span class="s-label">${synthSlots[i].name}</span>`}
+    else{s.classList.remove('filled');s.innerHTML='<span style="color:var(--text3)">+</span><span class="s-label">Slot '+(i+1)+'</span>'}
   }
-  // Update result
-  const res = document.getElementById('synthResult');
-  res.className = 'synth-result art-'+recipe.outputArt;
-  res.innerHTML = `${recipe.output.emoji}<span style="font-size:8px;position:absolute;bottom:6px;color:var(--accent-glow);letter-spacing:1px;font-weight:700">RESULT</span>`;
-  // Enable button
-  document.getElementById('synthBtn').disabled = false;
-  renderRecipes();
+  const res=document.getElementById('synthResult');res.className='synth-result '+r.outArt;
+  res.innerHTML='?<span style="font-size:6px;position:absolute;bottom:3px;color:var(--primary-dark);letter-spacing:.5px;font-weight:700">RESULT</span>';
+  document.getElementById('synthBtn').disabled=false;renderRecipes();
 }
-
-function performSynthesis(){
-  if(selectedRecipe===null) return;
-  if(!walletConnected){showToast('Please connect your wallet first!','error');return;}
-  // Show effect
-  const effect = document.getElementById('synthEffect');
-  effect.style.display='block';
-  setTimeout(()=>{effect.style.display='none'},900);
-  const recipe = SYNTH_RECIPES[selectedRecipe];
-  showToast(`Forging ${recipe.output.name}... Success! 🎉`,'success');
-  // Reset
+function doSynth(){
+  if(selRecipe===null)return;if(!connected){showToast('Connect wallet first!','error');return}
+  const fx=document.getElementById('synthFx');fx.style.display='block';setTimeout(()=>fx.style.display='none',900);
+  showToast(`Forging ${RECIPES[selRecipe].out.name}... Success! 🎉`,'success');
   setTimeout(()=>{
-    selectedRecipe=null;
-    synthSlots=[null,null,null];
-    for(let i=0;i<3;i++){
-      const slot = document.getElementById('slot'+i);
-      slot.classList.remove('filled');
-      slot.innerHTML = '<span>+</span><span class="slot-label">Slot '+(i+1)+'</span>';
-    }
-    document.getElementById('synthResult').innerHTML = '?<span style="font-size:8px;position:absolute;bottom:6px;color:var(--accent-glow);letter-spacing:1px;font-weight:700">RESULT</span>';
-    document.getElementById('synthBtn').disabled = true;
-    renderRecipes();
+    selRecipe=null;synthSlots=[null,null,null];
+    for(let i=0;i<3;i++){const s=document.getElementById('slot'+i);s.classList.remove('filled');s.innerHTML='<span style="color:var(--text3)">+</span><span class="s-label">Slot '+(i+1)+'</span>'}
+    const res=document.getElementById('synthResult');res.className='synth-result art-gold-cake';
+    res.innerHTML='?<span style="font-size:6px;position:absolute;bottom:3px;color:var(--primary-dark);letter-spacing:.5px;font-weight:700">RESULT</span>';
+    document.getElementById('synthBtn').disabled=true;renderRecipes();
   },1200);
 }
-
-// ===== DECOMPOSE =====
-function renderDecompose(){
-  const list = document.getElementById('decomposeList');
-  list.innerHTML = DECOMPOSE_ITEMS.map(d=>`
-    <div class="decompose-card">
-      <div class="dc-img art art-${d.item.art}">${d.item.emoji}</div>
-      <div class="dc-info">
-        <h4>${d.item.name} <span class="status-tag rarity-${d.item.rarity}" style="font-size:10px;border-radius:8px;margin-left:6px">${d.item.rarity}</span></h4>
-        <div class="dc-yields">${d.yields.map(y=>`<span class="dc-yield-tag">${y}</span>`).join('')}</div>
-        <p>Decomposition is irreversible. You will receive the materials listed above.</p>
+function renderDecomp(){
+  document.getElementById('decList').innerHTML=DECOMPS.map(d=>`
+    <div class="dec-item">
+      <div class="di-img ${d.item.art}"></div>
+      <div class="di-info">
+        <h5>${d.item.name} <span style="font-size:8px;color:var(--${d.item.rarity==='mythic'?'red':d.item.rarity==='legendary'?'primary':d.item.rarity==='epic'?'purple':d.item.rarity==='rare'?'blue':'text3'});font-weight:700">${d.item.rarity.toUpperCase()}</span></h5>
+        <div class="di-tags">${d.yields.map(y=>`<span class="di-tag">${y}</span>`).join('')}</div>
+        <p>Irreversible decomposition</p>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="decomposeItem('${d.item.name}')">Decompose</button>
-    </div>
-  `).join('');
+      <button class="btn btn-danger btn-sm" onclick="doDecomp('${d.item.name}')">Split</button>
+    </div>`).join('');
 }
-function decomposeItem(name){
-  if(!walletConnected){showToast('Please connect your wallet first!','error');return;}
-  showToast(`Decomposing ${name}... Materials received! 💥`,'success');
-}
-
-// ===== MINT =====
-function renderMint(){
-  const grid = document.getElementById('mintGrid');
-  grid.innerHTML = MINT_BOXES.map((b,i)=>{
-    const pct = Math.round(b.minted/b.total*100);
-    const color = pct>80?'var(--danger)':pct>50?'var(--warning)':'var(--accent2)';
-    return `
-    <div class="mint-box">
-      <div class="mint-box-img art art-${b.art}">
-        ${b.emoji}
-        <div class="mint-badge mint-badge-${b.type}">${b.type==='blind'?'🎁 Blind Box':'⚡ Direct'}</div>
-      </div>
-      <div class="mint-box-body">
-        <h4>${b.name}</h4>
-        <p>${b.desc}</p>
-        ${b.odds.length?`<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:600;margin-bottom:6px;color:var(--text-secondary)">Drop Rates:</div>${b.odds.map(o=>`<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span style="color:var(--text-muted)">${o.rarity}</span><span style="color:var(--rarity-${o.rarity.toLowerCase()})">${o.chance}</span></div>`).join('')}</div>`:''}
-        <div class="mint-progress"><div class="mint-progress-bar" style="width:${pct}%;background:linear-gradient(90deg,${color},${color})"></div></div>
-        <div class="mint-remaining">${b.minted}/${b.total} minted (${pct}%)</div>
-        <div class="mint-box-stats">
-          <div class="stat"><div class="val">${b.price} Ξ</div><div class="label">Price</div></div>
-          <div class="stat"><div class="val">${b.total-b.minted}</div><div class="label">Remaining</div></div>
-          <div class="stat"><div class="val">${pct>80?'🔥':pct>50?'⚡':'🟢'}</div><div class="label">Demand</div></div>
-        </div>
-        <button class="btn ${b.type==='blind'?'btn-primary':'btn-success'}" style="width:100%" onclick="mintItem(${i})">
-          ${b.type==='blind'?'🎰 Open Blind Box':'⚡ Mint Now'}
-        </button>
-      </div>
-    </div>
-  `}).join('');
-}
-function mintItem(idx){
-  if(!walletConnected){showToast('Please connect your wallet first!','error');return;}
-  const b = MINT_BOXES[idx];
-  if(b.type==='blind'){
-    const rarities = ['Common','Uncommon','Rare','Epic','Legendary','Mythic'];
-    const r = rarities[Math.floor(Math.random()*5)]; // weighted simplified
-    showToast(`🎉 You got a ${r} item from ${b.name}!`,'success');
-  } else {
-    showToast(`🎉 ${b.name} minted successfully!`,'success');
-  }
-}
-
-// ===== ANNOUNCEMENTS =====
-function renderAnnouncements(){
-  const list = document.getElementById('annList');
-  list.innerHTML = ANNOUNCEMENTS.map(a=>`
+function doDecomp(n){if(!connected){showToast('Connect wallet first!','error');return}showToast(`Decomposing ${n}... Done! 💥`,'success')}
+function renderAnns(){
+  document.getElementById('annList').innerHTML=ANNS.map(a=>`
     <div class="ann-item">
-      <div class="ann-top">
-        <span class="ann-tag ann-tag-${a.tag}">${a.tagLabel}</span>
-        <span class="ann-date">${a.date}</span>
-      </div>
-      <h4>${a.title}</h4>
-      <p>${a.body}</p>
+      <div class="ai-top"><span class="ai-tag ${a.cls}">${a.label}</span><span class="ai-date">${a.date}</span></div>
+      <h5>${a.title}</h5><p>${a.body}</p>
+    </div>`).join('');
+}
+
+// Mint
+function doMint(i){
+  if(!connected){showToast('Connect wallet first!','error');return}
+  const b=MINTS[i];
+  if(b.type==='blind'){const r=['Common','Uncommon','Rare','Epic','Legendary','Mythic'][Math.floor(Math.random()*5)];showToast(`🎉 You got a ${r} from ${b.name}!`,'success')}
+  else showToast(`🎉 ${b.name} minted!`,'success');
+}
+
+// My
+function switchMyTab(t,el){
+  document.querySelectorAll('.my-tab').forEach(e=>e.classList.remove('active'));if(el)el.classList.add('active');
+  document.getElementById('myHoldings').style.display=t==='holdings'?'block':'none';
+  document.getElementById('myBlind').style.display=t==='blindboxes'?'block':'none';
+}
+function renderMy(){
+  const h=ITEMS.filter(i=>['legendary','mythic','epic','rare'].includes(i.rarity));
+  document.getElementById('myHoldings').innerHTML=h.map(i=>`
+    <div class="my-item" onclick="showDetail('${i.id}')">
+      <div class="mi-img ${i.art}"></div>
+      <div class="mi-info"><div class="mi-name">${i.name}</div><div class="mi-meta">${i.rarity} · ${i.col}</div></div>
+      <div class="mi-qty">×${Math.floor(Math.random()*3)+1}</div>
+    </div>`).join('');
+  document.getElementById('myBlind').innerHTML=MINTS.filter(b=>b.type==='blind').map(b=>`
+    <div class="my-item">
+      <div class="mi-img ${b.art}"></div>
+      <div class="mi-info"><div class="mi-name">${b.name}</div><div class="mi-meta">Blind Box · ${b.price} Ξ</div></div>
+      <div class="mi-qty">×${Math.floor(Math.random()*2)+1}</div>
+    </div>`).join('');
+}
+
+// Detail Modal
+function showDetail(id){
+  const i=ITEMS.find(x=>x.id===id);if(!i)return;
+  document.getElementById('mTitle').textContent=i.name;
+  document.getElementById('mBody').innerHTML=`
+    <div style="width:100%;aspect-ratio:1;border-radius:var(--radius);overflow:hidden;margin-bottom:14px"><div class="${i.art}" style="width:100%;height:100%"></div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;background:#f5f5f5;color:var(--${i.rarity==='mythic'?'red':i.rarity==='legendary'?'primary':i.rarity==='epic'?'purple':i.rarity==='rare'?'blue':'text3'})">${i.rarity.toUpperCase()}</span>
+      <span style="font-size:11px;color:var(--text3)">#${i.id}</span>
     </div>
-  `).join('');
+    <div style="font-size:12px;margin-bottom:4px"><strong>Collection:</strong> ${i.col}</div>
+    <div style="font-size:12px;margin-bottom:4px"><strong>Price:</strong> <span style="color:var(--primary);font-weight:700">${i.price} Ξ</span> <span style="color:var(--text3);font-size:10px">(≈$${(i.price*1808).toFixed(0)})</span></div>
+    <div style="font-size:12px;margin-bottom:4px"><strong>Issued:</strong> ${i.issued} · <strong>Circulating:</strong> ${i.circ}</div>
+    <div style="font-size:12px;margin-bottom:4px"><strong>24h:</strong> <span style="color:${i.change>=0?'var(--red)':'var(--green)'}">${i.change>=0?'+':''}${i.change}%</span></div>
+    <div style="font-size:12px"><strong>Owner:</strong> 0x7a3F...e9B2</div>`;
+  document.getElementById('mFoot').innerHTML=`
+    <button class="btn btn-outline btn-sm" onclick="closeModal()">Close</button>
+    <button class="btn btn-primary btn-sm" onclick="showToast('Listed!','success');closeModal()">List for Sale</button>
+    <button class="btn btn-green btn-sm" onclick="showToast('Offer placed!','info');closeModal()">Make Offer</button>`;
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal(){document.getElementById('modal').classList.remove('show')}
+document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal()});
+
+// Toast
+function showToast(m,t='info'){
+  const c=document.getElementById('toastBox'),d=document.createElement('div');
+  d.className='toast toast-'+t;d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),3000);
 }
 
-// ===== TOAST =====
-function showToast(msg, type='info'){
-  const container = document.getElementById('toastContainer');
-  const toast = document.createElement('div');
-  toast.className = 'toast toast-'+type;
-  toast.textContent = msg;
-  container.appendChild(toast);
-  setTimeout(()=>toast.remove(),3200);
-}
-
-// ===== INIT =====
+// Init
 document.addEventListener('DOMContentLoaded',function(){
-  renderGallery();
-  renderTrades();
-  renderRecipes();
-  renderDecompose();
-  renderMint();
-  renderAnnouncements();
+  startBanner();renderHot();renderCats();renderMktCards();renderBlind();
+  renderRecipes();renderDecomp();renderAnns();renderMy();
 });
 </script>
 </body>
