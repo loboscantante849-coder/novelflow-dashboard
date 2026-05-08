@@ -120,6 +120,7 @@ a:hover { color: #a89cff; }
 /* ===== Main Content ===== */
 .main-content {
   margin-left: 260px;
+  margin-right: 230px;
   padding: 40px 48px 80px;
   max-width: 920px;
 }
@@ -636,13 +637,168 @@ a:hover { color: #a89cff; }
   color: #5a5f7a;
 }
 
+/* ===== Right Side Poster ===== */
+.right-poster {
+  position: fixed;
+  right: 20px;
+  top: 80px;
+  width: 200px;
+  max-height: calc(100vh - 110px);
+  z-index: 50;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.right-poster::-webkit-scrollbar { display: none; }
+
+.poster-inner {
+  background: linear-gradient(180deg, #0d1028 0%, #080b1a 100%);
+  border: 1px solid rgba(124, 108, 255, 0.25);
+  border-radius: 20px;
+  padding: 28px 16px 22px;
+  box-shadow:
+    0 0 40px rgba(124, 108, 255, 0.12),
+    0 0 80px rgba(0, 212, 255, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+.poster-inner::before {
+  content: '';
+  position: absolute;
+  top: -50%; left: -50%;
+  width: 200%; height: 200%;
+  background: conic-gradient(from 0deg, transparent, rgba(124, 108, 255, 0.08), transparent, rgba(0, 212, 255, 0.06), transparent);
+  animation: posterRotate 8s linear infinite;
+  z-index: 0;
+}
+@keyframes posterRotate {
+  100% { transform: rotate(360deg); }
+}
+.poster-inner > * { position: relative; z-index: 1; }
+
+.poster-logo {
+  font-size: 24px;
+  font-weight: 800;
+  text-align: center;
+  background: linear-gradient(135deg, #7c6cff, #00d4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.5px;
+  margin-bottom: 2px;
+}
+.poster-tagline {
+  text-align: center;
+  font-size: 10px;
+  color: #5a5f7a;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.poster-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(124, 108, 255, 0.3), transparent);
+  margin: 16px 0;
+}
+.poster-benefits {
+  text-align: center;
+  margin: 4px 0;
+}
+.poster-benefit {
+  margin-bottom: 18px;
+}
+.poster-benefit:last-child { margin-bottom: 0; }
+.poster-benefit .pb-value {
+  font-size: 22px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #7c6cff, #00d4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.2;
+}
+.poster-benefit .pb-label {
+  font-size: 11px;
+  color: #6a6f8a;
+  font-weight: 500;
+  margin-top: 2px;
+}
+.poster-cta {
+  text-align: center;
+  margin-top: 6px;
+  padding: 10px 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #a89cff;
+  letter-spacing: 0.3px;
+}
+.poster-cta span {
+  background: linear-gradient(90deg, #a89cff, #00d4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Discord section in poster */
+.poster-discord {
+  margin-top: 4px;
+  text-align: center;
+}
+.pd-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #d0d4e8;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+.pd-desc {
+  font-size: 11px;
+  color: #6a6f8a;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+.discord-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #5865f2, #4752c4);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform .2s, box-shadow .2s, background .2s;
+  box-shadow: 0 4px 20px rgba(88, 101, 242, 0.3);
+}
+.discord-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 28px rgba(88, 101, 242, 0.5);
+  background: linear-gradient(135deg, #6b73f5, #5865f2);
+  color: #fff;
+}
+.discord-btn svg {
+  flex-shrink: 0;
+}
+
 /* ===== Responsive ===== */
+@media (max-width: 1200px) {
+  .right-poster { display: none; }
+  .main-content { margin-right: 0; }
+}
+
 @media (max-width: 1024px) {
   .sidebar { transform: translateX(-100%); }
   .sidebar.open { transform: translateX(0); }
   .mobile-nav-toggle { display: flex; }
   .mobile-overlay.show { display: block; }
-  .main-content { margin-left: 0; padding: 70px 24px 60px; }
+  .main-content { margin-left: 0; margin-right: 0; padding: 70px 24px 60px; }
   .hero h1 { font-size: 30px; }
 }
 
@@ -1031,6 +1187,40 @@ a:hover { color: #a89cff; }
   </footer>
 
 </main>
+
+<!-- ===== Right Side Poster ===== -->
+<aside class="right-poster">
+  <div class="poster-inner">
+    <div class="poster-logo">NovelFlow</div>
+    <div class="poster-tagline">Book Recommender</div>
+    <div class="poster-divider"></div>
+    <div class="poster-benefits">
+      <div class="poster-benefit">
+        <div class="pb-value">100%</div>
+        <div class="pb-label">Revenue Share</div>
+      </div>
+      <div class="poster-benefit">
+        <div class="pb-value">$50–500</div>
+        <div class="pb-label">Earn Per Week</div>
+      </div>
+      <div class="poster-benefit">
+        <div class="pb-value">Bi-Weekly</div>
+        <div class="pb-label">Payout Cycle</div>
+      </div>
+    </div>
+    <div class="poster-divider"></div>
+    <div class="poster-cta"><span>Start Earning Today →</span></div>
+    <div class="poster-divider"></div>
+    <div class="poster-discord">
+      <div class="pd-title">Join Our Community &amp; Start Earning</div>
+      <div class="pd-desc">Connect with fellow recommenders, get tips, and grow your earnings together.</div>
+      <a href="https://discord.gg/YEysRSs5" target="_blank" class="discord-btn">
+        <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M6.44 5.72a.86.86 0 110 1.72.86.86 0 010-1.72zm3.14 0a.86.86 0 110 1.72.86.86 0 010-1.72z"/><path d="M13.16.66A12.6 12.6 0 009.99.14a.05.05 0 00-.05.03c-.19.33-.39.76-.53 1.1a11.67 11.67 0 00-3.82 0c-.15-.35-.36-.77-.55-1.1A.05.05 0 005 .14 12.57 12.57 0 001.83.66a.05.05 0 00-.03.02C-.53 3.66-.08 6.59.3 8.98a.05.05 0 00.02.04 12.68 12.68 0 003.83 2.04.05.05 0 00.06-.02c.3-.4.56-.83.8-1.29a.05.05 0 00-.03-.07 8.35 8.35 0 01-1.15-.55.05.05 0 01-.01-.08l.23-.18a.05.05 0 01.05-.01c2.42 1.1 5.04 1.1 7.43 0a.05.05 0 01.05.01l.23.18a.05.05 0 01-.01.08c-.37.22-.75.4-1.15.55a.05.05 0 00-.03.07c.24.46.5.89.8 1.29a.05.05 0 00.06.02 12.64 12.64 0 003.85-2.04.05.05 0 00.02-.04c.48-2.83.08-5.13-1.28-8.3a.04.04 0 00-.02-.02z"/></svg>
+        Join Discord →
+      </a>
+    </div>
+  </div>
+</aside>
 
 <!-- ===== JavaScript ===== -->
 <script>
