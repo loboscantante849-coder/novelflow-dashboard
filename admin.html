@@ -1,0 +1,1686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NovelFlow Admin Dashboard</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #050714;
+            --bg-secondary: #0d1230;
+            --bg-card: rgba(20, 28, 68, 0.7);
+            --bg-card-hover: rgba(30, 40, 90, 0.85);
+            --bg-glass: rgba(255, 255, 255, 0.03);
+            --bg-glass-border: rgba(255, 255, 255, 0.08);
+            --accent-primary: #e94560;
+            --accent-secondary: #f97316;
+            --accent-gradient: linear-gradient(135deg, #e94560 0%, #f97316 50%, #fbbf24 100%);
+            --accent-glow: rgba(233, 69, 96, 0.4);
+            --metric-link: #22d3ee;
+            --metric-visitors: #a78bfa;
+            --metric-users: #34d399;
+            --metric-subscription: #fbbf24;
+            --metric-ad: #f472b6;
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+            --text-muted: #475569;
+            --text-inverse: #0f172a;
+            --border-subtle: rgba(255, 255, 255, 0.06);
+            --border-glow: rgba(233, 69, 96, 0.3);
+            --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.4);
+            --shadow-glow: 0 0 40px rgba(233, 69, 96, 0.15);
+            --success: #34d399;
+            --danger: #ef4444;
+            --warning: #fbbf24;
+            --sidebar-width: 260px;
+            --header-height: 64px;
+        }
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* ========== Login Screen ========== */
+        #loginScreen {
+            position: fixed; inset: 0; z-index: 10000;
+            background: var(--bg-primary);
+            display: flex; align-items: center; justify-content: center;
+        }
+        #loginScreen.hidden { display: none; }
+        .login-box {
+            width: 420px; max-width: 90vw; padding: 48px 40px;
+            background: var(--bg-card); backdrop-filter: blur(20px);
+            border: 1px solid var(--bg-glass-border); border-radius: 24px;
+            box-shadow: var(--shadow-soft); text-align: center;
+        }
+        .login-logo {
+            width: 72px; height: 72px; margin: 0 auto 24px;
+            background: var(--accent-gradient); border-radius: 20px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 32px; box-shadow: 0 8px 24px var(--accent-glow);
+        }
+        .login-title { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+        .login-subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 32px; }
+        .login-input {
+            width: 100%; padding: 14px 18px; background: var(--bg-secondary);
+            border: 1px solid var(--bg-glass-border); border-radius: 12px;
+            color: var(--text-primary); font-size: 15px; font-family: inherit;
+            outline: none; transition: border-color 0.3s;
+        }
+        .login-input:focus { border-color: var(--accent-primary); }
+        .login-input::placeholder { color: var(--text-muted); }
+        .login-btn {
+            width: 100%; padding: 14px; margin-top: 20px;
+            background: var(--accent-gradient); color: #fff;
+            border: none; border-radius: 12px; font-size: 15px;
+            font-weight: 700; cursor: pointer; font-family: inherit;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 16px var(--accent-glow);
+        }
+        .login-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px var(--accent-glow); }
+        .login-error {
+            color: var(--danger); font-size: 13px; margin-top: 12px;
+            min-height: 20px;
+        }
+
+        /* ========== Layout ========== */
+        #appContainer { display: none; }
+        #appContainer.active { display: flex; min-height: 100vh; }
+
+        /* ========== Sidebar ========== */
+        .sidebar {
+            width: var(--sidebar-width); min-height: 100vh;
+            background: var(--bg-secondary); border-right: 1px solid var(--border-subtle);
+            display: flex; flex-direction: column; position: fixed; left: 0; top: 0;
+            z-index: 100; transition: transform 0.3s;
+        }
+        .sidebar-header {
+            padding: 20px 24px; border-bottom: 1px solid var(--border-subtle);
+            display: flex; align-items: center; gap: 14px;
+        }
+        .sidebar-logo-icon {
+            width: 40px; height: 40px; background: var(--accent-gradient);
+            border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            font-size: 18px; box-shadow: 0 4px 12px var(--accent-glow); flex-shrink: 0;
+        }
+        .sidebar-brand { font-size: 16px; font-weight: 800; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .sidebar-label { font-size: 11px; color: var(--text-muted); letter-spacing: 1px; }
+        .sidebar-nav { flex: 1; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
+        .nav-item {
+            display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+            border-radius: 12px; color: var(--text-secondary); cursor: pointer;
+            transition: all 0.2s; font-size: 14px; font-weight: 500;
+        }
+        .nav-item:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+        .nav-item.active { color: #fff; background: linear-gradient(135deg, rgba(233,69,96,0.2), rgba(249,115,22,0.15)); border: 1px solid rgba(233,69,96,0.3); }
+        .nav-item svg { width: 20px; height: 20px; flex-shrink: 0; }
+        .sidebar-footer {
+            padding: 16px 24px; border-top: 1px solid var(--border-subtle);
+            display: flex; align-items: center; gap: 10px;
+        }
+        .logout-btn {
+            display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+            background: transparent; border: 1px solid rgba(239,68,68,0.3);
+            border-radius: 8px; color: #ef4444; cursor: pointer; font-size: 13px;
+            font-family: inherit; transition: all 0.2s;
+        }
+        .logout-btn:hover { background: rgba(239,68,68,0.15); border-color: #ef4444; }
+        .logout-btn svg { width: 16px; height: 16px; }
+
+        /* ========== Main Content ========== */
+        .main-content {
+            flex: 1; margin-left: var(--sidebar-width);
+            display: flex; flex-direction: column;
+        }
+
+        /* ========== Top Header ========== */
+        .top-header {
+            height: var(--header-height); padding: 0 32px;
+            background: rgba(5, 7, 20, 0.8); backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 50;
+        }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .mobile-menu-btn {
+            display: none; width: 40px; height: 40px; background: var(--bg-glass);
+            border: 1px solid var(--bg-glass-border); border-radius: 10px;
+            color: var(--text-secondary); cursor: pointer; align-items: center; justify-content: center;
+        }
+        .mobile-menu-btn svg { width: 22px; height: 22px; }
+        .header-title { font-size: 18px; font-weight: 700; }
+        .header-right { display: flex; align-items: center; gap: 12px; }
+        .header-stat {
+            display: flex; align-items: center; gap: 6px; padding: 6px 14px;
+            background: var(--bg-glass); border: 1px solid var(--bg-glass-border);
+            border-radius: 10px; font-size: 13px; color: var(--text-secondary);
+        }
+        .header-stat strong { color: var(--text-primary); font-weight: 700; }
+
+        /* ========== Stats Summary Bar ========== */
+        .stats-bar {
+            display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;
+            padding: 24px 32px;
+        }
+        .stat-item {
+            background: var(--bg-card); border: 1px solid var(--bg-glass-border);
+            border-radius: 16px; padding: 20px; text-align: center;
+            transition: transform 0.2s;
+        }
+        .stat-item:hover { transform: translateY(-2px); }
+        .stat-item .stat-num { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; }
+        .stat-item .stat-lbl { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px; font-weight: 600; }
+        .stat-item:nth-child(1) .stat-num { color: var(--metric-link); }
+        .stat-item:nth-child(2) .stat-num { color: var(--metric-visitors); }
+        .stat-item:nth-child(3) .stat-num { color: var(--metric-users); }
+        .stat-item:nth-child(4) .stat-num { color: var(--metric-subscription); }
+        .stat-item:nth-child(5) .stat-num { color: var(--metric-ad); }
+
+        /* ========== Page Content ========== */
+        .page-content { padding: 24px 32px; flex: 1; }
+        .page-section { display: none; }
+        .page-section.active { display: block; }
+        .section-title { font-size: 20px; font-weight: 800; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        .section-title svg { width: 24px; height: 24px; color: var(--accent-primary); }
+
+        /* ========== Data Table ========== */
+        .table-toolbar {
+            display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+        }
+        .search-box {
+            flex: 1; min-width: 200px; position: relative;
+        }
+        .search-box input {
+            width: 100%; padding: 10px 16px 10px 40px; background: var(--bg-secondary);
+            border: 1px solid var(--bg-glass-border); border-radius: 10px;
+            color: var(--text-primary); font-size: 14px; font-family: inherit; outline: none;
+            transition: border-color 0.2s;
+        }
+        .search-box input:focus { border-color: var(--accent-primary); }
+        .search-box input::placeholder { color: var(--text-muted); }
+        .search-box svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-muted); }
+        .toolbar-btn {
+            padding: 10px 18px; border-radius: 10px; font-size: 13px;
+            font-weight: 600; cursor: pointer; font-family: inherit;
+            transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+        }
+        .toolbar-btn svg { width: 16px; height: 16px; }
+        .btn-add { background: var(--accent-gradient); color: #fff; border: none; box-shadow: 0 4px 12px var(--accent-glow); }
+        .btn-add:hover { transform: translateY(-1px); }
+        .btn-danger-outline { background: transparent; border: 1px solid rgba(239,68,68,0.4); color: #ef4444; }
+        .btn-danger-outline:hover { background: rgba(239,68,68,0.1); }
+        .btn-secondary-outline { background: transparent; border: 1px solid var(--bg-glass-border); color: var(--text-secondary); }
+        .btn-secondary-outline:hover { border-color: var(--accent-primary); color: var(--text-primary); }
+
+        .data-table-wrapper {
+            background: var(--bg-card); border: 1px solid var(--bg-glass-border);
+            border-radius: 16px; overflow: hidden;
+        }
+        .data-table {
+            width: 100%; border-collapse: collapse; font-size: 14px;
+        }
+        .data-table thead {
+            background: rgba(255,255,255,0.03);
+        }
+        .data-table th {
+            padding: 14px 16px; text-align: left; font-size: 11px;
+            font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+            color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle);
+            cursor: pointer; user-select: none; white-space: nowrap;
+            transition: color 0.2s;
+        }
+        .data-table th:hover { color: var(--text-primary); }
+        .data-table th .sort-arrow { font-size: 10px; margin-left: 4px; opacity: 0.5; }
+        .data-table th.sorted .sort-arrow { opacity: 1; color: var(--accent-primary); }
+        .data-table td {
+            padding: 12px 16px; border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+        }
+        .data-table tbody tr { transition: background 0.15s; }
+        .data-table tbody tr:hover { background: rgba(255,255,255,0.03); }
+        .data-table tbody tr.selected { background: rgba(233,69,96,0.08); }
+        .data-table .col-check { width: 40px; text-align: center; }
+        .data-table .col-name { font-weight: 600; min-width: 140px; }
+        .data-table .col-num { text-align: right; font-variant-numeric: tabular-nums; min-width: 90px; }
+        .data-table .col-actions { width: 60px; text-align: center; }
+
+        .cell-editable {
+            cursor: pointer; padding: 4px 8px; border-radius: 6px;
+            transition: background 0.15s; display: inline-block; min-width: 40px;
+        }
+        .cell-editable:hover { background: rgba(255,255,255,0.08); }
+        .cell-editing {
+            padding: 4px 8px; background: var(--bg-secondary);
+            border: 1px solid var(--accent-primary); border-radius: 6px;
+            color: var(--text-primary); font-size: 14px; font-family: inherit;
+            outline: none; width: 90px; text-align: right;
+        }
+        .name-editing {
+            text-align: left; width: 140px;
+        }
+        .del-row-btn {
+            width: 30px; height: 30px; background: transparent;
+            border: 1px solid rgba(239,68,68,0.3); border-radius: 6px;
+            color: #ef4444; cursor: pointer; display: inline-flex;
+            align-items: center; justify-content: center; transition: all 0.2s;
+        }
+        .del-row-btn:hover { background: rgba(239,68,68,0.15); border-color: #ef4444; }
+        .del-row-btn svg { width: 14px; height: 14px; }
+
+        .select-all-check, .row-check {
+            width: 18px; height: 18px; accent-color: var(--accent-primary);
+            cursor: pointer;
+        }
+
+        /* ========== Pagination ========== */
+        .table-footer {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 16px; font-size: 13px; color: var(--text-secondary);
+        }
+        .pagination { display: flex; align-items: center; gap: 6px; }
+        .page-btn {
+            width: 34px; height: 34px; border-radius: 8px;
+            background: var(--bg-glass); border: 1px solid var(--bg-glass-border);
+            color: var(--text-secondary); cursor: pointer; font-size: 13px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s; font-family: inherit;
+        }
+        .page-btn:hover { border-color: var(--accent-primary); color: var(--text-primary); }
+        .page-btn.active { background: var(--accent-gradient); color: #fff; border: none; }
+        .page-btn:disabled { opacity: 0.3; cursor: default; }
+
+        /* ========== Add User Modal ========== */
+        .modal-overlay {
+            position: fixed; inset: 0; z-index: 500;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+            display: none; align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            width: 500px; max-width: 92vw; background: var(--bg-secondary);
+            border: 1px solid var(--bg-glass-border); border-radius: 20px;
+            padding: 32px; box-shadow: var(--shadow-soft);
+        }
+        .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 24px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+        .form-group input {
+            width: 100%; padding: 10px 14px; background: var(--bg-primary);
+            border: 1px solid var(--bg-glass-border); border-radius: 10px;
+            color: var(--text-primary); font-size: 14px; font-family: inherit;
+            outline: none; transition: border-color 0.2s;
+        }
+        .form-group input:focus { border-color: var(--accent-primary); }
+        .modal-actions { display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end; }
+        .modal-btn {
+            padding: 10px 24px; border-radius: 10px; font-size: 14px;
+            font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s;
+        }
+        .modal-btn-primary { background: var(--accent-gradient); color: #fff; border: none; box-shadow: 0 4px 12px var(--accent-glow); }
+        .modal-btn-primary:hover { transform: translateY(-1px); }
+        .modal-btn-cancel { background: transparent; border: 1px solid var(--bg-glass-border); color: var(--text-secondary); }
+        .modal-btn-cancel:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+
+        /* ========== Import/Export/Push/Settings Sections ========== */
+        .card-box {
+            background: var(--bg-card); border: 1px solid var(--bg-glass-border);
+            border-radius: 16px; padding: 28px; margin-bottom: 20px;
+        }
+        .card-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .card-title svg { width: 20px; height: 20px; color: var(--accent-primary); }
+        .card-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6; }
+
+        .import-textarea {
+            width: 100%; min-height: 200px; padding: 16px;
+            background: var(--bg-primary); border: 1px solid var(--bg-glass-border);
+            border-radius: 12px; color: var(--text-primary); font-size: 13px;
+            font-family: 'Courier New', monospace; outline: none;
+            transition: border-color 0.2s; resize: vertical;
+        }
+        .import-textarea:focus { border-color: var(--accent-primary); }
+        .import-textarea::placeholder { color: var(--text-muted); }
+
+        .drop-zone {
+            border: 2px dashed var(--bg-glass-border); border-radius: 16px;
+            padding: 48px; text-align: center; cursor: pointer;
+            transition: all 0.3s; margin-bottom: 16px;
+        }
+        .drop-zone:hover, .drop-zone.drag-over {
+            border-color: var(--accent-primary); background: rgba(233,69,96,0.05);
+        }
+        .drop-zone svg { width: 48px; height: 48px; color: var(--text-muted); margin-bottom: 12px; }
+        .drop-zone p { color: var(--text-secondary); font-size: 14px; }
+        .drop-zone .hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+
+        .action-btn {
+            padding: 12px 24px; border-radius: 12px; font-size: 14px;
+            font-weight: 700; cursor: pointer; font-family: inherit;
+            transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+        }
+        .action-btn svg { width: 18px; height: 18px; }
+        .action-btn-primary { background: var(--accent-gradient); color: #fff; border: none; box-shadow: 0 4px 12px var(--accent-glow); }
+        .action-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px var(--accent-glow); }
+        .action-btn-secondary { background: var(--bg-glass); border: 1px solid var(--bg-glass-border); color: var(--text-primary); }
+        .action-btn-secondary:hover { border-color: var(--accent-primary); }
+        .action-btn-success { background: linear-gradient(135deg, #34d399, #22d3ee); color: #fff; border: none; }
+        .action-btn-success:hover { transform: translateY(-2px); }
+
+        .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+
+        /* ========== Settings ========== */
+        .settings-group { margin-bottom: 28px; }
+        .settings-group-title { font-size: 14px; font-weight: 700; color: var(--accent-secondary); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; }
+        .setting-row {
+            display: flex; align-items: center; gap: 16px; margin-bottom: 14px;
+        }
+        .setting-label {
+            min-width: 160px; font-size: 14px; font-weight: 500;
+        }
+        .setting-input {
+            flex: 1; padding: 10px 14px; background: var(--bg-primary);
+            border: 1px solid var(--bg-glass-border); border-radius: 10px;
+            color: var(--text-primary); font-size: 14px; font-family: inherit;
+            outline: none; transition: border-color 0.2s;
+        }
+        .setting-input:focus { border-color: var(--accent-primary); }
+        .toggle-vis-btn {
+            width: 40px; height: 40px; background: var(--bg-glass);
+            border: 1px solid var(--bg-glass-border); border-radius: 8px;
+            color: var(--text-secondary); cursor: pointer; display: flex;
+            align-items: center; justify-content: center; transition: all 0.2s;
+        }
+        .toggle-vis-btn:hover { border-color: var(--accent-primary); color: var(--text-primary); }
+        .toggle-vis-btn svg { width: 18px; height: 18px; }
+
+        /* ========== Push Section ========== */
+        .push-status {
+            padding: 20px; border-radius: 12px; margin-top: 16px; display: none;
+        }
+        .push-status.visible { display: block; }
+        .push-status.success { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); color: var(--success); }
+        .push-status.error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: var(--danger); }
+        .push-status.info { background: rgba(34,211,238,0.1); border: 1px solid rgba(34,211,238,0.3); color: var(--metric-link); }
+        .push-status pre { font-size: 12px; margin-top: 8px; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; }
+
+        /* ========== Toast ========== */
+        #toastContainer {
+            position: fixed; top: 24px; right: 24px; z-index: 9999;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .toast {
+            padding: 14px 20px; border-radius: 12px; font-size: 14px;
+            font-weight: 500; min-width: 280px; max-width: 420px;
+            display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            animation: toastIn 0.3s ease-out;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        .toast.removing { opacity: 0; transform: translateX(100px); }
+        .toast svg { width: 20px; height: 20px; flex-shrink: 0; }
+        .toast.success { background: rgba(52,211,153,0.15); border: 1px solid rgba(52,211,153,0.3); color: var(--success); }
+        .toast.error { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: var(--danger); }
+        .toast.warning { background: rgba(251,191,36,0.15); border: 1px solid rgba(251,191,36,0.3); color: var(--warning); }
+        .toast.info { background: rgba(34,211,238,0.15); border: 1px solid rgba(34,211,238,0.3); color: var(--metric-link); }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: translateX(0); } }
+
+        /* ========== Confirm Dialog ========== */
+        .confirm-overlay {
+            position: fixed; inset: 0; z-index: 600;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+            display: none; align-items: center; justify-content: center;
+        }
+        .confirm-overlay.active { display: flex; }
+        .confirm-box {
+            width: 420px; max-width: 90vw; background: var(--bg-secondary);
+            border: 1px solid var(--bg-glass-border); border-radius: 20px;
+            padding: 32px; text-align: center;
+        }
+        .confirm-icon { font-size: 48px; margin-bottom: 16px; }
+        .confirm-text { font-size: 15px; color: var(--text-secondary); margin-bottom: 24px; line-height: 1.6; }
+
+        /* ========== Responsive ========== */
+        @media (max-width: 1024px) {
+            .stats-bar { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; }
+            .mobile-menu-btn { display: flex; }
+            .stats-bar { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 16px; }
+            .page-content { padding: 16px; }
+            .top-header { padding: 0 16px; }
+            .data-table { font-size: 12px; }
+            .data-table th, .data-table td { padding: 8px 10px; }
+            .header-stat { display: none; }
+        }
+        @media (max-width: 480px) {
+            .stats-bar { grid-template-columns: 1fr 1fr; }
+        }
+
+        /* ========== Scrollbar ========== */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+        /* ========== Sidebar Overlay (mobile) ========== */
+        .sidebar-overlay {
+            position: fixed; inset: 0; z-index: 90;
+            background: rgba(0,0,0,0.5); display: none;
+        }
+        .sidebar-overlay.active { display: block; }
+    </style>
+</head>
+<body>
+
+<!-- Toast Container -->
+<div id="toastContainer"></div>
+
+<!-- Confirm Dialog -->
+<div class="confirm-overlay" id="confirmDialog">
+    <div class="confirm-box">
+        <div class="confirm-icon" id="confirmIcon">⚠️</div>
+        <div class="confirm-text" id="confirmText">Are you sure?</div>
+        <div style="display:flex;gap:12px;justify-content:center;">
+            <button class="modal-btn modal-btn-cancel" id="confirmCancel">Cancel</button>
+            <button class="modal-btn modal-btn-primary" id="confirmOk">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal-overlay" id="addUserModal">
+    <div class="modal-box">
+        <div class="modal-title">➕ Add New Recommender</div>
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="newUserName" placeholder="e.g. JohnDoe">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group">
+                <label>Link Visits</label>
+                <input type="number" id="newLinkVisits" value="0" min="0">
+            </div>
+            <div class="form-group">
+                <label>Unique Visitors</label>
+                <input type="number" id="newUniqueVisitors" value="0" min="0">
+            </div>
+            <div class="form-group">
+                <label>New Users</label>
+                <input type="number" id="newNewUsers" value="0" min="0">
+            </div>
+            <div class="form-group">
+                <label>Subscription Revenue ($)</label>
+                <input type="number" id="newSubRevenue" value="0" min="0" step="0.01">
+            </div>
+            <div class="form-group" style="grid-column: span 2;">
+                <label>Ad Revenue ($)</label>
+                <input type="number" id="newAdRevenue" value="0" min="0" step="0.01">
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-btn modal-btn-cancel" onclick="closeModal('addUserModal')">Cancel</button>
+            <button class="modal-btn modal-btn-primary" onclick="addUser()">Add User</button>
+        </div>
+    </div>
+</div>
+
+<!-- Login Screen -->
+<div id="loginScreen">
+    <div class="login-box">
+        <div class="login-logo">🛡️</div>
+        <div class="login-title">Admin Access</div>
+        <div class="login-subtitle">NovelFlow Dashboard Management</div>
+        <input type="password" class="login-input" id="loginPassword" placeholder="Enter password..." autocomplete="current-password">
+        <button class="login-btn" onclick="attemptLogin()">Unlock</button>
+        <div class="login-error" id="loginError"></div>
+    </div>
+</div>
+
+<!-- App Container -->
+<div id="appContainer">
+    <!-- Sidebar Overlay (mobile) -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo-icon">📊</div>
+            <div>
+                <div class="sidebar-brand">NovelFlow</div>
+                <div class="sidebar-label">ADMIN PANEL</div>
+            </div>
+        </div>
+        <div class="sidebar-nav">
+            <div class="nav-item active" data-page="data" onclick="switchPage('data')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                Data Management
+            </div>
+            <div class="nav-item" data-page="import" onclick="switchPage('import')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Import Data
+            </div>
+            <div class="nav-item" data-page="export" onclick="switchPage('export')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Export Data
+            </div>
+            <div class="nav-item" data-page="push" onclick="switchPage('push')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4m0 14v4m-9.7-3.3l2.8-2.8m10.2-10.2l2.8-2.8M1 12h4m14 0h4M4.3 4.3l2.8 2.8m10.2 10.2l2.8 2.8"/></svg>
+                Push to GitHub
+            </div>
+            <div class="nav-item" data-page="settings" onclick="switchPage('settings')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                Settings
+            </div>
+        </div>
+        <div class="sidebar-footer">
+            <button class="logout-btn" onclick="logout()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Logout
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Header -->
+        <div class="top-header">
+            <div class="header-left">
+                <button class="mobile-menu-btn" onclick="toggleSidebar()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                </button>
+                <div class="header-title" id="pageTitle">Data Management</div>
+            </div>
+            <div class="header-right">
+                <div class="header-stat">
+                    👥 <strong id="headerUserCount">0</strong> users
+                </div>
+                <div class="header-stat">
+                    🕐 <span id="headerLastUpdated">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Summary Bar -->
+        <div class="stats-bar" id="statsBar">
+            <div class="stat-item">
+                <div class="stat-num" id="totalLinkVisits">0</div>
+                <div class="stat-lbl">Link Visits</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num" id="totalUniqueVisitors">0</div>
+                <div class="stat-lbl">Unique Visitors</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num" id="totalNewUsers">0</div>
+                <div class="stat-lbl">New Users</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num" id="totalSubRevenue">$0</div>
+                <div class="stat-lbl">Sub Revenue</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num" id="totalAdRevenue">$0</div>
+                <div class="stat-lbl">Ad Revenue</div>
+            </div>
+        </div>
+
+        <!-- Page Sections -->
+        <div class="page-content">
+            <!-- ===== Data Management ===== -->
+            <div class="page-section active" id="page-data">
+                <div class="table-toolbar">
+                    <div class="search-box">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="text" id="searchInput" placeholder="Search by username..." oninput="renderTable()">
+                    </div>
+                    <button class="toolbar-btn btn-add" onclick="openModal('addUserModal')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Add User
+                    </button>
+                    <button class="toolbar-btn btn-danger-outline" id="batchZeroBtn" onclick="batchSetZero()" style="display:none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                        Batch Zero
+                    </button>
+                    <button class="toolbar-btn btn-danger-outline" id="batchDeleteBtn" onclick="batchDelete()" style="display:none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        Batch Delete
+                    </button>
+                </div>
+                <div class="data-table-wrapper">
+                    <table class="data-table" id="dataTable">
+                        <thead>
+                            <tr>
+                                <th class="col-check"><input type="checkbox" class="select-all-check" id="selectAll" onchange="toggleSelectAll()"></th>
+                                <th data-key="name" onclick="sortBy('name')">Username <span class="sort-arrow">↕</span></th>
+                                <th data-key="link_visits" onclick="sortBy('link_visits')">Link Visits <span class="sort-arrow">↕</span></th>
+                                <th data-key="unique_visitors" onclick="sortBy('unique_visitors')">Unique Visitors <span class="sort-arrow">↕</span></th>
+                                <th data-key="new_users" onclick="sortBy('new_users')">New Users <span class="sort-arrow">↕</span></th>
+                                <th data-key="subscription_revenue" onclick="sortBy('subscription_revenue')">Sub Revenue <span class="sort-arrow">↕</span></th>
+                                <th data-key="ad_revenue" onclick="sortBy('ad_revenue')">Ad Revenue <span class="sort-arrow">↕</span></th>
+                                <th class="col-actions"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                    <div class="table-footer">
+                        <div id="tableInfo">Showing 0 of 0 users</div>
+                        <div class="pagination" id="pagination"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== Import Data ===== -->
+            <div class="page-section" id="page-import">
+                <div class="card-box">
+                    <div class="card-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        Paste JSON
+                    </div>
+                    <div class="card-desc">Paste a complete data.json content below. This will <strong>replace all current data</strong>.</div>
+                    <textarea class="import-textarea" id="importJsonText" placeholder='{"last_updated":"2026-05-08 23:00 (ET)","users":{...}}'></textarea>
+                    <div class="action-row">
+                        <button class="action-btn action-btn-primary" onclick="importJson()">📥 Import JSON</button>
+                    </div>
+                </div>
+
+                <div class="card-box">
+                    <div class="card-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Upload File
+                    </div>
+                    <div class="card-desc">Drag & drop a data.json file or click to browse.</div>
+                    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <p>Drop data.json here</p>
+                        <p class="hint">or click to select file</p>
+                    </div>
+                    <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileUpload(event)">
+                </div>
+
+                <div class="card-box">
+                    <div class="card-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                        CSV Import
+                    </div>
+                    <div class="card-desc">One user per line: <code>username,link_visits,unique_visitors,new_users,subscription_revenue,ad_revenue</code><br>This will <strong>add to</strong> existing data (existing usernames will be updated).</div>
+                    <textarea class="import-textarea" id="importCsvText" placeholder="LelouchAlleah,100,50,10,25.50,5.00&#10;573918,200,80,20,50.00,10.00" style="min-height:120px;"></textarea>
+                    <div class="action-row">
+                        <button class="action-btn action-btn-primary" onclick="importCsv()">📥 Import CSV</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== Export Data ===== -->
+            <div class="page-section" id="page-export">
+                <div class="card-box">
+                    <div class="card-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Export data.json
+                    </div>
+                    <div class="card-desc">Download the current data as <code>data.json</code>. The <code>last_updated</code> field will be set to the current New York time automatically.</div>
+                    <div class="action-row">
+                        <button class="action-btn action-btn-primary" onclick="exportJson()">💾 Download data.json</button>
+                    </div>
+                </div>
+
+                <div class="card-box">
+                    <div class="card-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                        Export CSV
+                    </div>
+                    <div class="card-desc">Download as CSV format that can be opened in Excel.</div>
+                    <div class="action-row">
+                        <button class="action-btn action-btn-secondary" onclick="exportCsv()">📊 Download CSV</button>
+                    </div>
+                </div>
+
+                <div class="card-box">
+                    <div class="card-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                        Copy JSON to Clipboard
+                    </div>
+                    <div class="card-desc">Copy the current data as JSON text to clipboard.</div>
+                    <div class="action-row">
+                        <button class="action-btn action-btn-secondary" onclick="copyJsonToClipboard()">📋 Copy JSON</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== Push to GitHub ===== -->
+            <div class="page-section" id="page-push">
+                <div class="card-box">
+                    <div class="card-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4m0 14v4m-9.7-3.3l2.8-2.8m10.2-10.2l2.8-2.8M1 12h4m14 0h4M4.3 4.3l2.8 2.8m10.2 10.2l2.8 2.8"/></svg>
+                        Push to GitHub
+                    </div>
+                    <div class="card-desc">
+                        Push the current data directly to your GitHub repository. This will update <code>data.json</code> in the repo, and Vercel will automatically redeploy.<br><br>
+                        <strong>Repository:</strong> <code id="pushRepoDisplay">loboscantante849-coder/novelflow-dashboard</code><br>
+                        <strong>File:</strong> <code>data.json</code><br>
+                        <strong>GitHub Token:</strong> <span id="pushTokenStatus" style="color:var(--danger);">Not configured</span>
+                    </div>
+                    <div class="action-row">
+                        <button class="action-btn action-btn-success" onclick="pushToGitHub()" id="pushBtn">🚀 Push to GitHub</button>
+                        <button class="action-btn action-btn-secondary" onclick="switchPage('settings')">⚙️ Configure Token</button>
+                    </div>
+                    <div class="push-status" id="pushStatus"></div>
+                </div>
+            </div>
+
+            <!-- ===== Settings ===== -->
+            <div class="page-section" id="page-settings">
+                <div class="card-box">
+                    <div class="card-title">🔑 GitHub Configuration</div>
+                    <div class="settings-group">
+                        <div class="setting-row">
+                            <div class="setting-label">GitHub Token</div>
+                            <input type="password" class="setting-input" id="settingGithubToken" placeholder="ghp_xxxxxxxxxxxx">
+                            <button class="toggle-vis-btn" onclick="toggleTokenVis()" title="Show/Hide">
+                                <svg id="eyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </button>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">Repository</div>
+                            <input type="text" class="setting-input" id="settingRepo" placeholder="owner/repo" value="loboscantante849-coder/novelflow-dashboard">
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">File Path</div>
+                            <input type="text" class="setting-input" id="settingFilePath" placeholder="data.json" value="data.json">
+                        </div>
+                        <div class="action-row">
+                            <button class="action-btn action-btn-primary" onclick="saveSettings()">💾 Save Settings</button>
+                            <button class="action-btn action-btn-secondary" onclick="testGithubConnection()">🔗 Test Connection</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-box">
+                    <div class="card-title">🔒 Password</div>
+                    <div class="settings-group">
+                        <div class="setting-row">
+                            <div class="setting-label">Current Password</div>
+                            <input type="password" class="setting-input" id="settingCurrentPwd" placeholder="Enter current password">
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">New Password</div>
+                            <input type="password" class="setting-input" id="settingNewPwd" placeholder="Enter new password">
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">Confirm Password</div>
+                            <input type="password" class="setting-input" id="settingConfirmPwd" placeholder="Confirm new password">
+                        </div>
+                        <div class="action-row">
+                            <button class="action-btn action-btn-primary" onclick="changePassword()">🔑 Change Password</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-box">
+                    <div class="card-title">🗑️ Danger Zone</div>
+                    <div class="card-desc">Reset all local data to default (all zeros). This cannot be undone.</div>
+                    <div class="action-row">
+                        <button class="action-btn btn-danger-outline" style="border-width:2px;padding:12px 24px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;" onclick="resetAllData()">⚠️ Reset All Data</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================
+// State
+// ============================
+let dashboardData = { last_updated: '', users: {} };
+let sortKey = 'name';
+let sortDir = 'asc';
+let currentPage = 1;
+const pageSize = 20;
+let selectedUsers = new Set();
+let confirmCallback = null;
+
+const DEFAULT_PASSWORD = 'novelflow2026';
+const LS_KEY_AUTH = 'nf_admin_auth';
+const LS_KEY_PWD = 'nf_admin_pwd';
+const LS_KEY_GITHUB_TOKEN = 'nf_github_token';
+const LS_KEY_REPO = 'nf_github_repo';
+const LS_KEY_FILE_PATH = 'nf_github_filepath';
+
+// ============================
+// Utility
+// ============================
+function getNYTime() {
+    const now = new Date();
+    const nyStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+    const nyDate = new Date(nyStr);
+    const y = nyDate.getFullYear();
+    const m = String(nyDate.getMonth() + 1).padStart(2, '0');
+    const d = String(nyDate.getDate()).padStart(2, '0');
+    const h = String(nyDate.getHours()).padStart(2, '0');
+    const min = String(nyDate.getMinutes()).padStart(2, '0');
+    return `${y}-${m}-${d} ${h}:${min} (ET)`;
+}
+
+function formatNum(n) {
+    if (n === undefined || n === null) return '0';
+    return Number(n).toLocaleString('en-US');
+}
+
+function formatCurrency(n) {
+    if (n === undefined || n === null) return '$0.00';
+    return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    const icons = {
+        success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+        error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+        warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+        info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+    };
+    toast.innerHTML = (icons[type] || icons.info) + `<span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('removing');
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
+}
+
+function showConfirm(text, callback, icon = '⚠️') {
+    document.getElementById('confirmIcon').textContent = icon;
+    document.getElementById('confirmText').innerHTML = text;
+    document.getElementById('confirmDialog').classList.add('active');
+    confirmCallback = callback;
+}
+
+document.getElementById('confirmOk').onclick = () => {
+    document.getElementById('confirmDialog').classList.remove('active');
+    if (confirmCallback) confirmCallback();
+    confirmCallback = null;
+};
+document.getElementById('confirmCancel').onclick = () => {
+    document.getElementById('confirmDialog').classList.remove('active');
+    confirmCallback = null;
+};
+
+// ============================
+// Auth
+// ============================
+function getStoredPassword() {
+    return localStorage.getItem(LS_KEY_PWD) || DEFAULT_PASSWORD;
+}
+
+function attemptLogin() {
+    const pwd = document.getElementById('loginPassword').value;
+    if (pwd === getStoredPassword()) {
+        localStorage.setItem(LS_KEY_AUTH, '1');
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('appContainer').classList.add('active');
+        initApp();
+    } else {
+        document.getElementById('loginError').textContent = '❌ Incorrect password';
+        document.getElementById('loginPassword').value = '';
+        document.getElementById('loginPassword').focus();
+    }
+}
+
+function logout() {
+    localStorage.removeItem(LS_KEY_AUTH);
+    location.reload();
+}
+
+function checkAuth() {
+    if (localStorage.getItem(LS_KEY_AUTH) === '1') {
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('appContainer').classList.add('active');
+        initApp();
+    }
+}
+
+document.getElementById('loginPassword').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') attemptLogin();
+});
+
+// ============================
+// Navigation
+// ============================
+const pageTitles = {
+    data: 'Data Management',
+    import: 'Import Data',
+    export: 'Export Data',
+    push: 'Push to GitHub',
+    settings: 'Settings'
+};
+
+function switchPage(page) {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelector(`.nav-item[data-page="${page}"]`).classList.add('active');
+    document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+    document.getElementById(`page-${page}`).classList.add('active');
+    document.getElementById('pageTitle').textContent = pageTitles[page] || page;
+    // close sidebar on mobile
+    if (window.innerWidth <= 768) toggleSidebar();
+}
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('active');
+}
+
+function openModal(id) {
+    document.getElementById(id).classList.add('active');
+}
+function closeModal(id) {
+    document.getElementById(id).classList.remove('active');
+}
+
+// ============================
+// Data Management
+// ============================
+function initApp() {
+    loadData();
+    renderTable();
+    updateStats();
+    loadSettings();
+}
+
+function loadData() {
+    // Try loading from localStorage first, then fetch data.json
+    const stored = localStorage.getItem('nf_dashboard_data');
+    if (stored) {
+        try {
+            dashboardData = JSON.parse(stored);
+            return;
+        } catch(e) {}
+    }
+    // Fetch data.json
+    fetch('data.json')
+        .then(r => r.json())
+        .then(data => {
+            dashboardData = data;
+            saveDataLocal();
+            renderTable();
+            updateStats();
+        })
+        .catch(() => {
+            showToast('Could not load data.json, starting with empty data', 'warning');
+        });
+}
+
+function saveDataLocal() {
+    localStorage.setItem('nf_dashboard_data', JSON.stringify(dashboardData));
+}
+
+function updateStats() {
+    const users = dashboardData.users || {};
+    const keys = Object.keys(users);
+    let tv = 0, tuv = 0, tnu = 0, tsr = 0, tar = 0;
+    keys.forEach(k => {
+        const u = users[k];
+        tv += Number(u.link_visits) || 0;
+        tuv += Number(u.unique_visitors) || 0;
+        tnu += Number(u.new_users) || 0;
+        tsr += Number(u.subscription_revenue) || 0;
+        tar += Number(u.ad_revenue) || 0;
+    });
+    document.getElementById('totalLinkVisits').textContent = formatNum(tv);
+    document.getElementById('totalUniqueVisitors').textContent = formatNum(tuv);
+    document.getElementById('totalNewUsers').textContent = formatNum(tnu);
+    document.getElementById('totalSubRevenue').textContent = formatCurrency(tsr);
+    document.getElementById('totalAdRevenue').textContent = formatCurrency(tar);
+    document.getElementById('headerUserCount').textContent = keys.length;
+    document.getElementById('headerLastUpdated').textContent = dashboardData.last_updated || '-';
+    updatePushStatus();
+}
+
+function getFilteredUsers() {
+    const search = (document.getElementById('searchInput').value || '').toLowerCase();
+    const users = dashboardData.users || {};
+    let entries = Object.entries(users);
+    if (search) {
+        entries = entries.filter(([name]) => name.toLowerCase().includes(search));
+    }
+    // Sort
+    entries.sort((a, b) => {
+        let va, vb;
+        if (sortKey === 'name') {
+            va = a[0].toLowerCase();
+            vb = b[0].toLowerCase();
+        } else {
+            va = Number(a[1][sortKey]) || 0;
+            vb = Number(b[1][sortKey]) || 0;
+        }
+        if (va < vb) return sortDir === 'asc' ? -1 : 1;
+        if (va > vb) return sortDir === 'asc' ? 1 : -1;
+        return 0;
+    });
+    return entries;
+}
+
+function renderTable() {
+    const entries = getFilteredUsers();
+    const total = entries.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    if (currentPage > totalPages) currentPage = totalPages;
+    const start = (currentPage - 1) * pageSize;
+    const pageEntries = entries.slice(start, start + pageSize);
+
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+
+    pageEntries.forEach(([name, data]) => {
+        const tr = document.createElement('tr');
+        if (selectedUsers.has(name)) tr.classList.add('selected');
+
+        tr.innerHTML = `
+            <td class="col-check"><input type="checkbox" class="row-check" data-name="${name}" ${selectedUsers.has(name) ? 'checked' : ''} onchange="toggleSelect('${name}', this.checked)"></td>
+            <td class="col-name"><span class="cell-editable" ondblclick="editCell(this, '${name}', 'name')">${escHtml(name)}</span></td>
+            <td class="col-num"><span class="cell-editable" ondblclick="editCell(this, '${name}', 'link_visits')">${formatNum(data.link_visits)}</span></td>
+            <td class="col-num"><span class="cell-editable" ondblclick="editCell(this, '${name}', 'unique_visitors')">${formatNum(data.unique_visitors)}</span></td>
+            <td class="col-num"><span class="cell-editable" ondblclick="editCell(this, '${name}', 'new_users')">${formatNum(data.new_users)}</span></td>
+            <td class="col-num"><span class="cell-editable" ondblclick="editCell(this, '${name}', 'subscription_revenue')">${formatCurrency(data.subscription_revenue)}</span></td>
+            <td class="col-num"><span class="cell-editable" ondblclick="editCell(this, '${name}', 'ad_revenue')">${formatCurrency(data.ad_revenue)}</span></td>
+            <td class="col-actions">
+                <button class="del-row-btn" onclick="deleteUser('${name}')" title="Delete">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    // Info
+    document.getElementById('tableInfo').textContent = `Showing ${pageEntries.length} of ${total} users`;
+
+    // Pagination
+    const pag = document.getElementById('pagination');
+    pag.innerHTML = '';
+    if (totalPages > 1) {
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'page-btn';
+        prevBtn.textContent = '‹';
+        prevBtn.disabled = currentPage === 1;
+        prevBtn.onclick = () => { currentPage--; renderTable(); };
+        pag.appendChild(prevBtn);
+
+        const maxVisible = 5;
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+        let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+        if (endPage - startPage < maxVisible - 1) startPage = Math.max(1, endPage - maxVisible + 1);
+
+        for (let i = startPage; i <= endPage; i++) {
+            const btn = document.createElement('button');
+            btn.className = `page-btn ${i === currentPage ? 'active' : ''}`;
+            btn.textContent = i;
+            btn.onclick = () => { currentPage = i; renderTable(); };
+            pag.appendChild(btn);
+        }
+
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'page-btn';
+        nextBtn.textContent = '›';
+        nextBtn.disabled = currentPage === totalPages;
+        nextBtn.onclick = () => { currentPage++; renderTable(); };
+        pag.appendChild(nextBtn);
+    }
+
+    // Batch buttons visibility
+    const hasSelection = selectedUsers.size > 0;
+    document.getElementById('batchZeroBtn').style.display = hasSelection ? 'flex' : 'none';
+    document.getElementById('batchDeleteBtn').style.display = hasSelection ? 'flex' : 'none';
+
+    // Sort header indicators
+    document.querySelectorAll('.data-table th[data-key]').forEach(th => {
+        const key = th.getAttribute('data-key');
+        const arrow = th.querySelector('.sort-arrow');
+        th.classList.toggle('sorted', key === sortKey);
+        if (key === sortKey) {
+            arrow.textContent = sortDir === 'asc' ? '↑' : '↓';
+        } else {
+            arrow.textContent = '↕';
+        }
+    });
+}
+
+function escHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+
+function sortBy(key) {
+    if (sortKey === key) {
+        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortKey = key;
+        sortDir = 'asc';
+    }
+    currentPage = 1;
+    renderTable();
+}
+
+// ============================
+// Inline Editing
+// ============================
+function editCell(span, name, field) {
+    if (span.querySelector('input')) return; // already editing
+    const currentVal = field === 'name' ? name : (dashboardData.users[name]?.[field] ?? 0);
+    const input = document.createElement('input');
+    input.type = field === 'name' ? 'text' : 'number';
+    input.className = 'cell-editing' + (field === 'name' ? ' name-editing' : '');
+    input.value = currentVal;
+    if (field !== 'name') {
+        input.step = (field === 'subscription_revenue' || field === 'ad_revenue') ? '0.01' : '1';
+        input.min = '0';
+    }
+    span.textContent = '';
+    span.appendChild(input);
+    input.focus();
+    input.select();
+
+    const finish = () => {
+        const newVal = input.value.trim();
+        if (field === 'name') {
+            if (newVal && newVal !== name) {
+                if (dashboardData.users[newVal]) {
+                    showToast(`Username "${newVal}" already exists!`, 'error');
+                    span.textContent = escHtml(name);
+                    return;
+                }
+                dashboardData.users[newVal] = dashboardData.users[name];
+                delete dashboardData.users[name];
+                // Update selectedUsers
+                if (selectedUsers.has(name)) {
+                    selectedUsers.delete(name);
+                    selectedUsers.add(newVal);
+                }
+                saveDataLocal();
+                showToast(`Renamed "${name}" → "${newVal}"`, 'success');
+            } else {
+                span.textContent = escHtml(name);
+                return;
+            }
+        } else {
+            const numVal = (field === 'subscription_revenue' || field === 'ad_revenue')
+                ? parseFloat(newVal) || 0
+                : parseInt(newVal) || 0;
+            if (!dashboardData.users[name]) {
+                span.textContent = '-';
+                return;
+            }
+            dashboardData.users[name][field] = numVal;
+            saveDataLocal();
+        }
+        renderTable();
+        updateStats();
+    };
+
+    input.addEventListener('blur', finish);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { input.blur(); }
+        if (e.key === 'Escape') {
+            input.removeEventListener('blur', finish);
+            span.textContent = field === 'name' ? escHtml(name) : (field.includes('revenue') ? formatCurrency(currentVal) : formatNum(currentVal));
+        }
+    });
+}
+
+// ============================
+// Add / Delete User
+// ============================
+function addUser() {
+    const name = document.getElementById('newUserName').value.trim();
+    if (!name) { showToast('Username is required', 'error'); return; }
+    if (dashboardData.users[name]) { showToast(`"${name}" already exists!`, 'error'); return; }
+
+    dashboardData.users[name] = {
+        link_visits: parseInt(document.getElementById('newLinkVisits').value) || 0,
+        unique_visitors: parseInt(document.getElementById('newUniqueVisitors').value) || 0,
+        new_users: parseInt(document.getElementById('newNewUsers').value) || 0,
+        subscription_revenue: parseFloat(document.getElementById('newSubRevenue').value) || 0,
+        ad_revenue: parseFloat(document.getElementById('newAdRevenue').value) || 0
+    };
+    saveDataLocal();
+    closeModal('addUserModal');
+    // Reset form
+    document.getElementById('newUserName').value = '';
+    document.getElementById('newLinkVisits').value = '0';
+    document.getElementById('newUniqueVisitors').value = '0';
+    document.getElementById('newNewUsers').value = '0';
+    document.getElementById('newSubRevenue').value = '0';
+    document.getElementById('newAdRevenue').value = '0';
+    renderTable();
+    updateStats();
+    showToast(`Added "${name}" successfully!`, 'success');
+}
+
+function deleteUser(name) {
+    showConfirm(`Are you sure you want to delete <strong>${escHtml(name)}</strong>?`, () => {
+        delete dashboardData.users[name];
+        selectedUsers.delete(name);
+        saveDataLocal();
+        renderTable();
+        updateStats();
+        showToast(`Deleted "${name}"`, 'success');
+    }, '🗑️');
+}
+
+// ============================
+// Select / Batch
+// ============================
+function toggleSelect(name, checked) {
+    if (checked) selectedUsers.add(name);
+    else selectedUsers.delete(name);
+    renderTable();
+}
+
+function toggleSelectAll() {
+    const checked = document.getElementById('selectAll').checked;
+    const entries = getFilteredUsers();
+    const start = (currentPage - 1) * pageSize;
+    const pageEntries = entries.slice(start, start + pageSize);
+    pageEntries.forEach(([name]) => {
+        if (checked) selectedUsers.add(name);
+        else selectedUsers.delete(name);
+    });
+    renderTable();
+}
+
+function batchSetZero() {
+    if (selectedUsers.size === 0) return;
+    showConfirm(`Set all data to 0 for <strong>${selectedUsers.size}</strong> selected user(s)?`, () => {
+        selectedUsers.forEach(name => {
+            if (dashboardData.users[name]) {
+                dashboardData.users[name].link_visits = 0;
+                dashboardData.users[name].unique_visitors = 0;
+                dashboardData.users[name].new_users = 0;
+                dashboardData.users[name].subscription_revenue = 0;
+                dashboardData.users[name].ad_revenue = 0;
+            }
+        });
+        saveDataLocal();
+        renderTable();
+        updateStats();
+        showToast(`Reset ${selectedUsers.size} user(s) to zero`, 'success');
+    }, '🔄');
+}
+
+function batchDelete() {
+    if (selectedUsers.size === 0) return;
+    showConfirm(`Delete <strong>${selectedUsers.size}</strong> selected user(s)? This cannot be undone.`, () => {
+        selectedUsers.forEach(name => {
+            delete dashboardData.users[name];
+        });
+        selectedUsers.clear();
+        saveDataLocal();
+        renderTable();
+        updateStats();
+        showToast('Deleted selected users', 'success');
+    }, '🗑️');
+}
+
+// ============================
+// Import
+// ============================
+function importJson() {
+    const text = document.getElementById('importJsonText').value.trim();
+    if (!text) { showToast('Please paste JSON data first', 'warning'); return; }
+    try {
+        const data = JSON.parse(text);
+        if (!data.users || typeof data.users !== 'object') throw new Error('Invalid format: missing "users" object');
+        dashboardData = data;
+        saveDataLocal();
+        renderTable();
+        updateStats();
+        document.getElementById('importJsonText').value = '';
+        showToast(`Imported ${Object.keys(data.users).length} users successfully!`, 'success');
+    } catch(e) {
+        showToast(`Invalid JSON: ${e.message}`, 'error');
+    }
+}
+
+function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (!data.users || typeof data.users !== 'object') throw new Error('Invalid format');
+            dashboardData = data;
+            saveDataLocal();
+            renderTable();
+            updateStats();
+            showToast(`Imported ${Object.keys(data.users).length} users from file!`, 'success');
+        } catch(err) {
+            showToast(`Invalid JSON file: ${err.message}`, 'error');
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+}
+
+// Drop zone
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('drag-over'); });
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        try {
+            const data = JSON.parse(ev.target.result);
+            if (!data.users || typeof data.users !== 'object') throw new Error('Invalid format');
+            dashboardData = data;
+            saveDataLocal();
+            renderTable();
+            updateStats();
+            showToast(`Imported ${Object.keys(data.users).length} users from file!`, 'success');
+        } catch(err) {
+            showToast(`Invalid JSON file: ${err.message}`, 'error');
+        }
+    };
+    reader.readAsText(file);
+});
+
+function importCsv() {
+    const text = document.getElementById('importCsvText').value.trim();
+    if (!text) { showToast('Please paste CSV data first', 'warning'); return; }
+    const lines = text.split('\n').filter(l => l.trim());
+    let count = 0;
+    let updated = 0;
+    lines.forEach(line => {
+        const parts = line.split(',').map(s => s.trim());
+        if (parts.length < 1 || !parts[0]) return;
+        const name = parts[0];
+        const isUpdate = !!dashboardData.users[name];
+        dashboardData.users[name] = {
+            link_visits: parseInt(parts[1]) || 0,
+            unique_visitors: parseInt(parts[2]) || 0,
+            new_users: parseInt(parts[3]) || 0,
+            subscription_revenue: parseFloat(parts[4]) || 0,
+            ad_revenue: parseFloat(parts[5]) || 0
+        };
+        if (isUpdate) updated++;
+        count++;
+    });
+    saveDataLocal();
+    renderTable();
+    updateStats();
+    document.getElementById('importCsvText').value = '';
+    showToast(`Imported ${count} users (${updated} updated, ${count - updated} new)`, 'success');
+}
+
+// ============================
+// Export
+// ============================
+function buildExportJson() {
+    // Update last_updated to NY time
+    dashboardData.last_updated = getNYTime();
+    return JSON.stringify(dashboardData, null, 2);
+}
+
+function exportJson() {
+    const json = buildExportJson();
+    saveDataLocal();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'data.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('data.json downloaded!', 'success');
+}
+
+function exportCsv() {
+    const users = dashboardData.users || {};
+    let csv = 'Username,Link Visits,Unique Visitors,New Users,Subscription Revenue,Ad Revenue\n';
+    Object.entries(users).forEach(([name, data]) => {
+        csv += `"${name}",${data.link_visits},${data.unique_visitors},${data.new_users},${data.subscription_revenue},${data.ad_revenue}\n`;
+    });
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'novelflow_data.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('CSV downloaded!', 'success');
+}
+
+function copyJsonToClipboard() {
+    const json = buildExportJson();
+    navigator.clipboard.writeText(json).then(() => {
+        showToast('JSON copied to clipboard!', 'success');
+    }).catch(() => {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = json;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('JSON copied to clipboard!', 'success');
+    });
+}
+
+// ============================
+// Push to GitHub
+// ============================
+function updatePushStatus() {
+    const token = localStorage.getItem(LS_KEY_GITHUB_TOKEN);
+    const statusEl = document.getElementById('pushTokenStatus');
+    if (token) {
+        statusEl.textContent = '✅ Configured';
+        statusEl.style.color = 'var(--success)';
+    } else {
+        statusEl.textContent = '❌ Not configured';
+        statusEl.style.color = 'var(--danger)';
+    }
+    const repo = localStorage.getItem(LS_KEY_REPO) || 'loboscantante849-coder/novelflow-dashboard';
+    document.getElementById('pushRepoDisplay').textContent = repo;
+}
+
+async function pushToGitHub() {
+    const token = localStorage.getItem(LS_KEY_GITHUB_TOKEN);
+    if (!token) {
+        showToast('GitHub Token not configured. Go to Settings.', 'error');
+        return;
+    }
+
+    const repo = localStorage.getItem(LS_KEY_REPO) || 'loboscantante849-coder/novelflow-dashboard';
+    const filePath = localStorage.getItem(LS_KEY_FILE_PATH) || 'data.json';
+    const pushBtn = document.getElementById('pushBtn');
+    const statusEl = document.getElementById('pushStatus');
+
+    pushBtn.disabled = true;
+    pushBtn.textContent = '⏳ Pushing...';
+
+    statusEl.className = 'push-status visible info';
+    statusEl.innerHTML = '🔄 Fetching current file SHA...';
+
+    try {
+        // Step 1: Get current file SHA
+        const getResp = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}`, {
+            headers: {
+                'Authorization': `token ${token}`,
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        });
+
+        if (!getResp.ok) {
+            const errData = await getResp.json().catch(() => ({}));
+            throw new Error(`Failed to get file SHA (${getResp.status}): ${errData.message || getResp.statusText}`);
+        }
+
+        const fileData = await getResp.json();
+        const sha = fileData.sha;
+
+        statusEl.innerHTML = '📦 Encoding and pushing data...';
+
+        // Step 2: Update last_updated and prepare content
+        dashboardData.last_updated = getNYTime();
+        const content = JSON.stringify(dashboardData, null, 2);
+        const base64Content = btoa(unescape(encodeURIComponent(content)));
+
+        // Step 3: Push
+        const putResp = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `token ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/vnd.github.v3+json'
+            },
+            body: JSON.stringify({
+                message: `Update data.json - ${dashboardData.last_updated}`,
+                content: base64Content,
+                sha: sha
+            })
+        });
+
+        if (!putResp.ok) {
+            const errData = await putResp.json().catch(() => ({}));
+            throw new Error(`Push failed (${putResp.status}): ${errData.message || putResp.statusText}`);
+        }
+
+        const result = await putResp.json();
+        saveDataLocal();
+
+        statusEl.className = 'push-status visible success';
+        statusEl.innerHTML = `✅ Successfully pushed to GitHub!<br>
+            <strong>Commit:</strong> <a href="${result.commit?.html_url || '#'}" target="_blank" style="color:var(--success);">${result.commit?.sha?.substring(0, 7) || 'N/A'}</a><br>
+            <strong>Message:</strong> ${result.commit?.message || 'Update data.json'}<br>
+            <strong>Vercel will auto-deploy shortly.</strong>`;
+        showToast('Successfully pushed to GitHub! 🚀', 'success');
+        updateStats();
+
+    } catch(err) {
+        statusEl.className = 'push-status visible error';
+        statusEl.innerHTML = `❌ Push failed: ${escHtml(err.message)}`;
+        showToast('Push failed: ' + err.message, 'error');
+    } finally {
+        pushBtn.disabled = false;
+        pushBtn.textContent = '🚀 Push to GitHub';
+    }
+}
+
+async function testGithubConnection() {
+    const token = localStorage.getItem(LS_KEY_GITHUB_TOKEN);
+    if (!token) { showToast('Please enter a GitHub Token first', 'warning'); return; }
+    const repo = localStorage.getItem(LS_KEY_REPO) || 'loboscantante849-coder/novelflow-dashboard';
+    const filePath = localStorage.getItem(LS_KEY_FILE_PATH) || 'data.json';
+
+    try {
+        const resp = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}`, {
+            headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' }
+        });
+        if (resp.ok) {
+            const data = await resp.json();
+            showToast(`✅ Connection OK! File SHA: ${data.sha?.substring(0, 7)}`, 'success');
+        } else {
+            const errData = await resp.json().catch(() => ({}));
+            showToast(`❌ Connection failed (${resp.status}): ${errData.message || resp.statusText}`, 'error');
+        }
+    } catch(e) {
+        showToast(`❌ Network error: ${e.message}`, 'error');
+    }
+}
+
+// ============================
+// Settings
+// ============================
+function loadSettings() {
+    const token = localStorage.getItem(LS_KEY_GITHUB_TOKEN) || '';
+    const repo = localStorage.getItem(LS_KEY_REPO) || 'loboscantante849-coder/novelflow-dashboard';
+    const filePath = localStorage.getItem(LS_KEY_FILE_PATH) || 'data.json';
+    document.getElementById('settingGithubToken').value = token;
+    document.getElementById('settingRepo').value = repo;
+    document.getElementById('settingFilePath').value = filePath;
+    updatePushStatus();
+}
+
+function saveSettings() {
+    const token = document.getElementById('settingGithubToken').value.trim();
+    const repo = document.getElementById('settingRepo').value.trim();
+    const filePath = document.getElementById('settingFilePath').value.trim();
+    if (token) localStorage.setItem(LS_KEY_GITHUB_TOKEN, token);
+    else localStorage.removeItem(LS_KEY_GITHUB_TOKEN);
+    localStorage.setItem(LS_KEY_REPO, repo || 'loboscantante849-coder/novelflow-dashboard');
+    localStorage.setItem(LS_KEY_FILE_PATH, filePath || 'data.json');
+    updatePushStatus();
+    showToast('Settings saved!', 'success');
+}
+
+function toggleTokenVis() {
+    const input = document.getElementById('settingGithubToken');
+    input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function changePassword() {
+    const current = document.getElementById('settingCurrentPwd').value;
+    const newPwd = document.getElementById('settingNewPwd').value;
+    const confirm = document.getElementById('settingConfirmPwd').value;
+
+    if (current !== getStoredPassword()) {
+        showToast('Current password is incorrect', 'error');
+        return;
+    }
+    if (!newPwd || newPwd.length < 4) {
+        showToast('New password must be at least 4 characters', 'error');
+        return;
+    }
+    if (newPwd !== confirm) {
+        showToast('Passwords do not match', 'error');
+        return;
+    }
+    localStorage.setItem(LS_KEY_PWD, newPwd);
+    document.getElementById('settingCurrentPwd').value = '';
+    document.getElementById('settingNewPwd').value = '';
+    document.getElementById('settingConfirmPwd').value = '';
+    showToast('Password changed successfully!', 'success');
+}
+
+function resetAllData() {
+    showConfirm('Reset ALL user data to zeros? This cannot be undone.', () => {
+        Object.keys(dashboardData.users).forEach(name => {
+            dashboardData.users[name] = {
+                link_visits: 0, unique_visitors: 0, new_users: 0,
+                subscription_revenue: 0, ad_revenue: 0
+            };
+        });
+        saveDataLocal();
+        renderTable();
+        updateStats();
+        showToast('All data reset to zero', 'success');
+    }, '⚠️');
+}
+
+// ============================
+// Init
+// ============================
+checkAuth();
+</script>
+</body>
+</html>
