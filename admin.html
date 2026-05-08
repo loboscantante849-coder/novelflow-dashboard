@@ -707,6 +707,10 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         Add User
                     </button>
+                    <button class="toolbar-btn" onclick="resetAllData()" style="background:rgba(239,68,68,0.2);color:#f87171;" title="Reset all user data to 0 (keeps usernames)">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+                        Reset Data
+                    </button>
                     <button class="toolbar-btn" onclick="refreshFromServer()" style="background:rgba(59,130,246,0.2);color:#60a5fa;">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                         Refresh from Server
@@ -1766,6 +1770,34 @@ function resetAllData() {
 // Init
 // ============================
 checkAuth();
+
+function resetAllData() {
+    const users = dashboardData.users || {};
+    const keys = Object.keys(users);
+    if (keys.length === 0) {
+        showToast('No users to reset', 'warning');
+        return;
+    }
+    if (!confirm(`Reset ALL data to 0 for ${keys.length} users?\nUsernames will be kept. This cannot be undone.`)) return;
+    
+    keys.forEach(name => {
+        users[name].link_visits = 0;
+        users[name].unique_visitors = 0;
+        users[name].new_users = 0;
+        users[name].subscription_revenue = 0;
+        users[name].ad_revenue = 0;
+    });
+    
+    // Update timestamp
+    const now = new Date();
+    const etTime = now.toLocaleString('en-CA', {timeZone:'America/New_York', year:'numeric', month:'2-digit', day:'2-digit'}) + ' ' + now.toLocaleString('en-US', {timeZone:'America/New_York', hour:'2-digit', minute:'2-digit', hour12:false});
+    dashboardData.last_updated = etTime.replace(',', '');
+    
+    saveDataLocal();
+    renderTable();
+    updateStats();
+    showToast(`All data reset to 0 for ${keys.length} users`, 'success');
+}
 </script>
 </body>
 </html>
