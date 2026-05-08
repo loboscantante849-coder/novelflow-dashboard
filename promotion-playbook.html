@@ -637,6 +637,9 @@ a:hover { color: #a89cff; }
   color: #5a5f7a;
 }
 
+/* ===== Principles Grid ===== */
+.principles-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
 /* ===== Right Side Poster ===== */
 .right-poster {
   position: fixed;
@@ -806,7 +809,10 @@ a:hover { color: #a89cff; }
   .main-content { padding: 70px 16px 60px; }
   .hero { padding: 32px 0 28px; }
   .hero h1 { font-size: 26px; }
+  .hero p { font-size: 15px; }
   .card { padding: 24px 20px; }
+  .card h2 { font-size: 19px; }
+  .card h3 { font-size: 15px; }
   .earnings-banner { grid-template-columns: 1fr; }
   .steps-grid { grid-template-columns: 1fr; }
   .tools-grid { grid-template-columns: 1fr; }
@@ -814,6 +820,36 @@ a:hover { color: #a89cff; }
   .goals-grid { grid-template-columns: 1fr; }
   .apply-card { padding: 28px 20px; }
   .apply-card h2 { font-size: 22px; }
+  .principles-grid { grid-template-columns: 1fr; }
+  .discord-banner {
+    background: rgba(88, 101, 242, 0.14);
+    border-color: rgba(88, 101, 242, 0.35);
+    padding: 16px 18px;
+    gap: 12px;
+  }
+  .discord-banner .db-icon { font-size: 32px; }
+  .discord-banner .db-text { font-size: 14px; }
+  .discord-banner .db-text strong { font-size: 15px; }
+  .card table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .mobile-nav-toggle { width: 48px; height: 48px; font-size: 22px; }
+}
+@media (max-width: 480px) {
+  .main-content { padding: 66px 12px 48px; }
+  .hero h1 { font-size: 22px; letter-spacing: -0.5px; }
+  .card { padding: 20px 16px; }
+  .card h2 { font-size: 17px; }
+  .earnings-card { padding: 18px 16px; }
+  .earnings-card .ec-value { font-size: 24px; }
+  .step-card { padding: 18px 16px; }
+  .tool-card { padding: 18px 16px; }
+  .compound-card { padding: 18px 16px; }
+  .compound-card .cc-amount { font-size: 26px; }
+  .goal-item { padding: 14px 16px; }
+  .apply-card { padding: 24px 16px; }
+  .apply-card h2 { font-size: 20px; }
+  .btn-primary { padding: 14px 28px; font-size: 14px; min-height: 48px; }
+  .highlight-box { padding: 18px 20px; }
+  .discord-btn { padding: 14px; font-size: 14px; min-height: 48px; }
 }
 
 /* ===== Intersection Observer Animation ===== */
@@ -1052,7 +1088,7 @@ a:hover { color: #a89cff; }
       <h2>Core Promotion Principles</h2>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+    <div class="principles-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
       <div>
         <h3 style="color:#6ee7a0;">✅ Do This</h3>
         <ul class="do-list">
