@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>NovaMint — Digital Collectibles</title>
+<title>迷人数藏 — 让数藏更迷人</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -47,11 +47,11 @@ body{
 .status-bar .msg-icon{width:22px;height:22px;position:relative;cursor:pointer}
 .status-bar .msg-icon svg{width:100%;height:100%}
 .status-bar .msg-dot{position:absolute;top:0;right:0;width:7px;height:7px;background:var(--red);border-radius:50%;border:1.5px solid var(--white)}
-.connect-btn{
+.balance-btn{
   background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;
   border:none;padding:5px 14px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;
 }
-.connect-btn.connected{background:var(--green)}
+.balance-btn .bal-icon{margin-right:3px}
 
 /* ===== PAGE ===== */
 .page{display:none;animation:fadeUp .25s ease}
@@ -251,7 +251,7 @@ body{
   align-items:center;justify-content:center;font-size:24px;
   background:var(--primary-light);position:relative;
 }
-.synth-result::after{content:'RESULT';position:absolute;bottom:3px;font-size:6px;color:var(--primary-dark);letter-spacing:.5px;font-weight:700}
+.synth-result::after{content:'产物';position:absolute;bottom:3px;font-size:6px;color:var(--primary-dark);letter-spacing:.5px;font-weight:700}
 .synth-btn{text-align:center;margin:10px 0}
 
 /* Recipe */
@@ -355,6 +355,15 @@ body{
   padding:2px 6px;border-radius:6px;font-size:10px;font-weight:600;
 }
 
+/* Wallet Balance Bar */
+.balance-bar{
+  margin:0 12px 8px;background:var(--white);border-radius:var(--radius);
+  padding:10px 14px;display:flex;justify-content:space-between;align-items:center;
+}
+.balance-bar .bb-label{font-size:11px;color:var(--text2)}
+.balance-bar .bb-amount{font-size:18px;font-weight:700;color:var(--primary)}
+.balance-bar .bb-amount .bb-unit{font-size:11px;font-weight:400;color:var(--text3)}
+
 /* ===== BUTTONS ===== */
 .btn{
   padding:7px 16px;border-radius:var(--radius-sm);font-size:12px;font-weight:600;
@@ -416,297 +425,258 @@ body{
 @keyframes tIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes tOut{from{opacity:1}to{opacity:0;transform:translateY(-8px)}}
 
-/* ===== ART THUMBNAILS — iBox-style collectible art ===== */
-/* Gold Cake / Dessert */
-.art-gold-cake{
-  background:linear-gradient(180deg,#ffd700 0%,#ff9900 35%,#cc7700 60%,#8b5a2b 100%);
+/* ===== ART THUMBNAILS — 三国角色风格 ===== */
+/* 关羽 — 忠义赤金 */
+.art-guanyu{
+  background:linear-gradient(160deg,#8b0000 0%,#cc0000 30%,#ff3300 55%,#ff6600 75%,#ffd700 100%);
   position:relative;
 }
-.art-gold-cake::before{
+.art-guanyu::before{
+  content:'';position:absolute;top:10%;left:15%;width:70%;height:50%;
+  background:radial-gradient(ellipse,rgba(255,215,0,.35) 0%,transparent 70%);
+}
+.art-guanyu::after{
+  content:'⚔️';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.4));
+}
+
+/* 张飞 — 猛将墨黑 */
+.art-zhangfei{
+  background:linear-gradient(160deg,#1a1a1a 0%,#333333 30%,#4d4d4d 55%,#1a1a1a 80%,#0d0d0d 100%);
+  position:relative;
+}
+.art-zhangfei::before{
+  content:'';position:absolute;top:20%;left:20%;width:60%;height:50%;
+  background:radial-gradient(ellipse,rgba(200,50,50,.3) 0%,transparent 70%);
+}
+.art-zhangfei::after{
+  content:'🐍';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 6px rgba(200,50,50,.5));
+}
+
+/* 赵云 — 银龙白光 */
+.art-zhaoyun{
+  background:linear-gradient(160deg,#e8e8e8 0%,#c0c0c0 25%,#a0a0d0 50%,#c0c0e0 75%,#e8e8ff 100%);
+  position:relative;
+}
+.art-zhaoyun::before{
   content:'';position:absolute;top:15%;left:20%;width:60%;height:40%;
-  background:radial-gradient(ellipse,rgba(255,255,255,.5) 0%,transparent 70%);
-  border-radius:50% 50% 40% 40%;
-}
-.art-gold-cake::after{
-  content:'🍰';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));
-}
-
-/* Cartoon Mouse */
-.art-cartoon-mouse{
-  background:linear-gradient(160deg,#ff9a9e 0%,#fecfef 50%,#ffe0ec 100%);
-  position:relative;
-}
-.art-cartoon-mouse::before{
-  content:'';position:absolute;top:10%;left:15%;width:70%;height:70%;
-  background:radial-gradient(circle,rgba(255,255,255,.3) 0%,transparent 70%);
-  border-radius:50%;
-}
-.art-cartoon-mouse::after{
-  content:'🐭';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 2px 4px rgba(0,0,0,.2));
-}
-
-/* Cosmic Universe */
-.art-cosmos{
-  background:linear-gradient(160deg,#0c0033 0%,#1a0066 25%,#3300aa 50%,#1a0066 75%,#0c0033 100%);
-  position:relative;
-}
-.art-cosmos::before{
-  content:'';position:absolute;inset:0;
-  background:radial-gradient(1px 1px at 20% 30%,#fff 50%,transparent 100%),
-             radial-gradient(1px 1px at 40% 70%,#fff 50%,transparent 100%),
-             radial-gradient(1.5px 1.5px at 60% 20%,#aaf 50%,transparent 100%),
-             radial-gradient(1px 1px at 80% 50%,#fff 50%,transparent 100%),
-             radial-gradient(1px 1px at 10% 80%,#fff 50%,transparent 100%),
-             radial-gradient(1.5px 1.5px at 70% 85%,#ccf 50%,transparent 100%),
-             radial-gradient(1px 1px at 90% 10%,#fff 50%,transparent 100%),
-             radial-gradient(2px 2px at 30% 50%,rgba(100,150,255,.6) 50%,transparent 100%);
-}
-.art-cosmos::after{
-  content:'🌌';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 0 8px rgba(100,100,255,.6));
-}
-
-/* Golden Mech */
-.art-gold-mech{
-  background:linear-gradient(160deg,#3a3a3a 0%,#5a5a5a 30%,#c8a84e 50%,#5a5a5a 70%,#3a3a3a 100%);
-  position:relative;
-}
-.art-gold-mech::before{
-  content:'';position:absolute;top:20%;left:10%;right:10%;height:60%;
-  background:linear-gradient(90deg,transparent,rgba(200,168,78,.4),transparent);
-}
-.art-gold-mech::after{
-  content:'🤖';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));
-}
-
-/* Dragon / Phoenix */
-.art-dragon{
-  background:linear-gradient(160deg,#1a0000 0%,#4a0000 30%,#8b0000 55%,#4a0000 75%,#1a0000 100%);
-  position:relative;
-}
-.art-dragon::before{
-  content:'';position:absolute;inset:0;
-  background:radial-gradient(ellipse at 50% 40%,rgba(255,80,0,.3) 0%,transparent 70%);
-}
-.art-dragon::after{
-  content:'🐉';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 0 6px rgba(255,80,0,.5));
-}
-
-/* Ice Crystal */
-.art-ice{
-  background:linear-gradient(160deg,#e0f7fa 0%,#80deea 30%,#4dd0e1 55%,#00acc1 80%,#00838f 100%);
-  position:relative;
-}
-.art-ice::before{
-  content:'';position:absolute;top:15%;left:25%;width:50%;height:40%;
   background:radial-gradient(ellipse,rgba(255,255,255,.6) 0%,transparent 70%);
-  border-radius:50%;
 }
-.art-ice::after{
-  content:'❄️';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 2px 4px rgba(0,0,0,.2));
+.art-zhaoyun::after{
+  content:'🐉';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 6px rgba(160,160,220,.5));
 }
 
-/* Sakura */
-.art-sakura{
-  background:linear-gradient(160deg,#fff0f5 0%,#ffc0cb 40%,#ff69b4 80%,#db7093 100%);
+/* 诸葛亮 — 卧龙青岚 */
+.art-zhugeliang{
+  background:linear-gradient(160deg,#0a3d2e 0%,#1a6b4a 30%,#2e8b57 55%,#4caf7d 80%,#8fd4b0 100%);
   position:relative;
 }
-.art-sakura::before{
+.art-zhugeliang::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle at 50% 40%,rgba(180,255,200,.2) 0%,transparent 60%);
+}
+.art-zhugeliang::after{
+  content:'🪶';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 0 8px rgba(100,255,150,.4));
+}
+
+/* 吕布 — 霸王赤焰 */
+.art-lvbu{
+  background:linear-gradient(160deg,#1a0000 0%,#660000 25%,#cc0000 50%,#ff3300 75%,#ff9900 100%);
+  position:relative;
+}
+.art-lvbu::before{
+  content:'';position:absolute;top:15%;left:10%;width:80%;height:60%;
+  background:radial-gradient(ellipse,rgba(255,100,0,.3) 0%,transparent 70%);
+}
+.art-lvbu::after{
+  content:'🏹';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 0 8px rgba(255,50,0,.5));
+}
+
+/* 貂蝉 — 闭月羞花 */
+.art-diaochan{
+  background:linear-gradient(160deg,#fff0f5 0%,#ffc0cb 30%,#ff69b4 60%,#db7093 80%,#c71585 100%);
+  position:relative;
+}
+.art-diaochan::before{
   content:'';position:absolute;inset:0;
   background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.5) 0%,transparent 50%),
              radial-gradient(circle at 70% 70%,rgba(255,255,255,.3) 0%,transparent 50%);
 }
-.art-sakura::after{
-  content:'🌸';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 2px 4px rgba(0,0,0,.15));
+.art-diaochan::after{
+  content:'🌙';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 6px rgba(200,0,100,.3));
 }
 
-/* Void / Dark */
-.art-void{
-  background:linear-gradient(160deg,#0d0d0d 0%,#1a1a2e 35%,#16213e 60%,#0f3460 100%);
+/* 曹操 — 奸雄暗金 */
+.art-caocao{
+  background:linear-gradient(160deg,#0d0d0d 0%,#1a1a2e 25%,#3a3a5e 50%,#c8a84e 75%,#8b7530 100%);
   position:relative;
 }
-.art-void::before{
-  content:'';position:absolute;top:30%;left:30%;width:40%;height:40%;
-  background:radial-gradient(circle,rgba(120,80,255,.4) 0%,transparent 70%);
+.art-caocao::before{
+  content:'';position:absolute;top:20%;left:10%;right:10%;height:60%;
+  background:linear-gradient(90deg,transparent,rgba(200,168,78,.3),transparent);
 }
-.art-void::after{
-  content:'👾';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 0 8px rgba(120,80,255,.6));
+.art-caocao::after{
+  content:'👑';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 6px rgba(200,168,78,.5));
 }
 
-/* Emerald Forest */
-.art-emerald{
-  background:linear-gradient(160deg,#0a3d0a 0%,#1b5e20 30%,#2e7d32 55%,#4caf50 80%,#a5d6a7 100%);
+/* 刘备 — 仁德玄金 */
+.art-liubei{
+  background:linear-gradient(160deg,#2e1a00 0%,#5c3a10 25%,#8b6914 50%,#c49b2a 75%,#e8c84e 100%);
   position:relative;
 }
-.art-emerald::before{
-  content:'';position:absolute;top:10%;left:10%;width:80%;height:40%;
-  background:linear-gradient(180deg,rgba(255,255,255,.1),transparent);
+.art-liubei::before{
+  content:'';position:absolute;top:10%;left:15%;width:70%;height:50%;
+  background:radial-gradient(ellipse,rgba(255,215,0,.25) 0%,transparent 70%);
 }
-.art-emerald::after{
-  content:'🌿';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));
+.art-liubei::after{
+  content:'🤝';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));
 }
 
-/* Neon Cyber */
-.art-neon{
-  background:linear-gradient(160deg,#0a0a0a 0%,#1a0a2e 30%,#3a0a5e 50%,#0a0a2e 70%,#0a0a0a 100%);
+/* 孙权 — 碧江东流 */
+.art-sunquan{
+  background:linear-gradient(160deg,#001a33 0%,#003366 25%,#006699 50%,#0099cc 75%,#33ccff 100%);
   position:relative;
 }
-.art-neon::before{
-  content:'';position:absolute;inset:0;
-  background:linear-gradient(45deg,transparent 40%,rgba(0,255,200,.15) 45%,transparent 50%),
-             linear-gradient(-45deg,transparent 40%,rgba(255,0,200,.15) 45%,transparent 50%);
-}
-.art-neon::after{
-  content:'⚔️';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 0 8px rgba(0,255,200,.5));
-}
-
-/* Mythic Kraken */
-.art-kraken{
-  background:linear-gradient(160deg,#0a0a2e 0%,#1a1a5e 25%,#2a2a8e 50%,#1a1a5e 75%,#0a0a2e 100%);
-  position:relative;
-}
-.art-kraken::before{
-  content:'';position:absolute;top:20%;left:15%;width:70%;height:60%;
-  background:radial-gradient(ellipse,rgba(100,50,200,.3) 0%,transparent 70%);
-}
-.art-kraken::after{
-  content:'🐙';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 0 8px rgba(100,50,200,.5));
-}
-
-/* Pixel Ghost */
-.art-pixel{
-  background:linear-gradient(160deg,#1a1a2e 0%,#2d2d5e 40%,#4a4a8e 70%,#6a6aae 100%);
-  position:relative;
-}
-.art-pixel::before{
-  content:'';position:absolute;inset:0;
-  background:repeating-linear-gradient(0deg,transparent,transparent 4px,rgba(255,255,255,.03) 4px,rgba(255,255,255,.03) 5px);
-}
-.art-pixel::after{
-  content:'👻';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 0 6px rgba(100,100,255,.4));
-}
-
-/* Celestial */
-.art-celestial{
-  background:linear-gradient(160deg,#ffd700 0%,#ff8c00 20%,#ff4500 45%,#cc3300 65%,#8b0000 100%);
-  position:relative;
-}
-.art-celestial::before{
+.art-sunquan::before{
   content:'';position:absolute;top:15%;left:20%;width:60%;height:50%;
-  background:radial-gradient(ellipse,rgba(255,255,255,.4) 0%,transparent 70%);
+  background:radial-gradient(ellipse,rgba(100,200,255,.25) 0%,transparent 70%);
 }
-.art-celestial::after{
-  content:'🐲';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 2px 6px rgba(0,0,0,.4));
-}
-
-/* Rune Golem */
-.art-rune{
-  background:linear-gradient(160deg,#4a3728 0%,#6d5c4e 30%,#8b7355 55%,#a0896b 80%,#c4a882 100%);
-  position:relative;
-}
-.art-rune::before{
-  content:'';position:absolute;inset:0;
-  background:radial-gradient(circle at 50% 50%,rgba(255,215,0,.2) 0%,transparent 60%);
-}
-.art-rune::after{
-  content:'🗿';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));
+.art-sunquan::after{
+  content:'🌊';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 6px rgba(0,150,255,.4));
 }
 
-/* Ember */
-.art-ember{
-  background:linear-gradient(160deg,#1a0000 0%,#4a0000 20%,#8b2500 45%,#cd4f00 70%,#ff6a00 100%);
+/* 周瑜 — 烈焰赤壁 */
+.art-zhouyu{
+  background:linear-gradient(160deg,#1a0000 0%,#8b2500 25%,#cd4f00 50%,#ff6a00 75%,#ffa500 100%);
   position:relative;
 }
-.art-ember::before{
+.art-zhouyu::before{
   content:'';position:absolute;top:10%;left:15%;width:70%;height:50%;
   background:radial-gradient(ellipse,rgba(255,200,0,.3) 0%,transparent 70%);
 }
-.art-ember::after{
+.art-zhouyu::after{
   content:'🔥';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 0 6px rgba(255,100,0,.5));
+  filter:drop-shadow(0 0 8px rgba(255,100,0,.5));
 }
 
-/* Shield */
-.art-shield{
-  background:linear-gradient(160deg,#1a237e 0%,#283593 30%,#3949ab 55%,#5c6bc0 80%,#7986cb 100%);
+/* 马超 — 银枪白马 */
+.art-machao{
+  background:linear-gradient(160deg,#e0e0e0 0%,#b0b0c0 25%,#8080a0 50%,#b0b0d0 75%,#e0e0ff 100%);
   position:relative;
 }
-.art-shield::before{
-  content:'';position:absolute;top:20%;left:25%;width:50%;height:50%;
-  background:radial-gradient(ellipse,rgba(255,255,255,.2) 0%,transparent 70%);
+.art-machao::before{
+  content:'';position:absolute;top:15%;left:20%;width:60%;height:40%;
+  background:radial-gradient(ellipse,rgba(255,255,255,.5) 0%,transparent 70%);
 }
-.art-shield::after{
-  content:'🛡️';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));
+.art-machao::after{
+  content:'🏇';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 4px rgba(80,80,160,.4));
 }
 
-/* Witch */
-.art-witch{
-  background:linear-gradient(160deg,#1a0033 0%,#330066 30%,#6600cc 55%,#9900ff 80%,#cc66ff 100%);
+/* 黄忠 — 老将铜弓 */
+.art-huangzhong{
+  background:linear-gradient(160deg,#4a3728 0%,#6d5c4e 25%,#8b7355 50%,#a0896b 75%,#c4a882 100%);
   position:relative;
 }
-.art-witch::before{
-  content:'';position:absolute;top:25%;left:20%;width:60%;height:50%;
-  background:radial-gradient(ellipse,rgba(200,100,255,.3) 0%,transparent 70%);
-}
-.art-witch::after{
-  content:'🧙‍♀️';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 0 6px rgba(150,0,255,.5));
-}
-
-/* Wolf */
-.art-wolf{
-  background:linear-gradient(160deg,#263238 0%,#37474f 30%,#546e7a 55%,#78909c 80%,#b0bec5 100%);
-  position:relative;
-}
-.art-wolf::before{
-  content:'';position:absolute;top:10%;left:10%;width:80%;height:40%;
-  background:linear-gradient(180deg,rgba(255,255,255,.1),transparent);
-}
-.art-wolf::after{
-  content:'🐺';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));
-}
-
-/* Jellyfish */
-.art-jelly{
-  background:linear-gradient(160deg,#001f3f 0%,#003366 25%,#0066cc 50%,#0099ff 75%,#66ccff 100%);
-  position:relative;
-}
-.art-jelly::before{
+.art-huangzhong::before{
   content:'';position:absolute;inset:0;
-  background:radial-gradient(circle at 50% 40%,rgba(100,200,255,.3) 0%,transparent 60%);
+  background:radial-gradient(circle at 50% 50%,rgba(255,215,0,.2) 0%,transparent 60%);
 }
-.art-jelly::after{
-  content:'🪼';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 0 8px rgba(0,150,255,.5));
+.art-huangzhong::after{
+  content:'🎯';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));
 }
 
-/* EPOCH */
-.art-epoch{
-  background:linear-gradient(160deg,#0a0a3e 0%,#1a1a6e 25%,#2a2aae 50%,#1a1a6e 75%,#0a0a3e 100%);
+/* 司马懿 — 隐谋深紫 */
+.art-simayi{
+  background:linear-gradient(160deg,#0d0020 0%,#1a0044 25%,#3300aa 50%,#4400cc 75%,#6600ff 100%);
   position:relative;
 }
-.art-epoch::before{
-  content:'';position:absolute;top:20%;left:15%;width:70%;height:60%;
-  background:radial-gradient(ellipse,rgba(150,100,255,.25) 0%,transparent 70%);
+.art-simayi::before{
+  content:'';position:absolute;top:25%;left:20%;width:60%;height:50%;
+  background:radial-gradient(ellipse,rgba(120,60,220,.3) 0%,transparent 70%);
 }
-.art-epoch::after{
-  content:'🔮';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 0 8px rgba(150,100,255,.5));
+.art-simayi::after{
+  content:'🦉';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 0 8px rgba(100,0,200,.5));
+}
+
+/* 甄姬 — 洛水仙姿 */
+.art-zhenji{
+  background:linear-gradient(160deg,#e8e0f0 0%,#c8b8e0 25%,#a880d0 50%,#8860c0 75%,#6840a0 100%);
+  position:relative;
+}
+.art-zhenji::before{
+  content:'';position:absolute;top:15%;left:20%;width:60%;height:50%;
+  background:radial-gradient(ellipse,rgba(255,255,255,.4) 0%,transparent 70%);
+}
+.art-zhenji::after{
+  content:'💫';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 0 8px rgba(160,100,220,.5));
+}
+
+/* 大乔 — 江东玉兰 */
+.art-daqiao{
+  background:linear-gradient(160deg,#f0f8ff 0%,#c8e6ff 25%,#80c4ff 50%,#40a0f0 75%,#2080d0 100%);
+  position:relative;
+}
+.art-daqiao::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.5) 0%,transparent 50%);
+}
+.art-daqiao::after{
+  content:'🪷';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 6px rgba(60,120,200,.3));
+}
+
+/* 小乔 — 娇花映水 */
+.art-xiaoqiao{
+  background:linear-gradient(160deg,#fff0f5 0%,#ffb6c1 25%,#ff8ca0 50%,#ff6080 75%,#ff3070 100%);
+  position:relative;
+}
+.art-xiaoqiao::before{
+  content:'';position:absolute;top:15%;left:20%;width:60%;height:50%;
+  background:radial-gradient(ellipse,rgba(255,255,255,.45) 0%,transparent 70%);
+}
+.art-xiaoqiao::after{
+  content:'🌸';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 4px rgba(200,0,80,.3));
+}
+
+/* 华佗 — 妙手回春 */
+.art-huatuo{
+  background:linear-gradient(160deg,#e8f5e9 0%,#a5d6a7 25%,#66bb6a 50%,#43a047 75%,#2e7d32 100%);
+  position:relative;
+}
+.art-huatuo::before{
+  content:'';position:absolute;top:10%;left:10%;width:80%;height:40%;
+  background:linear-gradient(180deg,rgba(255,255,255,.2),transparent);
+}
+.art-huatuo::after{
+  content:'💊';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 4px rgba(0,100,0,.3));
+}
+
+/* 典韦 — 恶来铁壁 */
+.art-dianwei{
+  background:linear-gradient(160deg,#1a1a1a 0%,#3a3a3a 25%,#5a5a5a 50%,#7a4a2a 75%,#5a3010 100%);
+  position:relative;
+}
+.art-dianwei::before{
+  content:'';position:absolute;top:20%;left:15%;width:70%;height:60%;
+  background:radial-gradient(ellipse,rgba(180,100,30,.25) 0%,transparent 70%);
+}
+.art-dianwei::after{
+  content:'🛡️';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 6px rgba(100,60,0,.5));
 }
 
 /* Blind box special */
@@ -723,18 +693,18 @@ body{
   filter:drop-shadow(0 0 6px rgba(255,215,0,.5));
 }
 
-/* Leviathan */
-.art-leviathan{
-  background:linear-gradient(160deg,#001a33 0%,#003366 25%,#004c99 50%,#0066cc 75%,#3399ff 100%);
+/* 神龙 — 合成终极 */
+.art-shenlong{
+  background:linear-gradient(160deg,#ffd700 0%,#ff8c00 20%,#ff4500 45%,#cc3300 65%,#8b0000 100%);
   position:relative;
 }
-.art-leviathan::before{
-  content:'';position:absolute;top:15%;left:20%;width:60%;height:60%;
-  background:radial-gradient(ellipse,rgba(0,200,255,.2) 0%,transparent 70%);
+.art-shenlong::before{
+  content:'';position:absolute;top:15%;left:20%;width:60%;height:50%;
+  background:radial-gradient(ellipse,rgba(255,255,255,.4) 0%,transparent 70%);
 }
-.art-leviathan::after{
-  content:'🐋';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
-  filter:drop-shadow(0 0 8px rgba(0,200,255,.5));
+.art-shenlong::after{
+  content:'🐲';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.4));
 }
 
 /* ===== Synth Effect ===== */
@@ -752,13 +722,13 @@ body{
 
 <!-- STATUS BAR -->
 <header class="status-bar">
-  <div class="logo"><i>N</i> NovaMint</div>
+  <div class="logo"><i>迷</i> 迷人数藏</div>
   <div class="right">
     <div class="msg-icon">
       <svg viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
       <div class="msg-dot"></div>
     </div>
-    <button class="connect-btn" id="connectBtn" onclick="connectWallet()">Connect</button>
+    <button class="balance-btn" id="connectBtn" onclick="connectWallet()">💰 余额 ¥2000</button>
   </div>
 </header>
 
@@ -769,9 +739,9 @@ body{
 <div class="page active" id="pg-home">
   <div class="banner-wrap">
     <div class="banner-track" id="bannerTrack">
-      <div class="banner-slide art-cosmos"><div class="b-content"><h2>Genesis S3 — Final Wave</h2><p>Last 1,153 boxes · Minting Now</p><div class="b-btn" onclick="switchTab('market')">Mint Now</div></div></div>
-      <div class="banner-slide art-sakura"><div class="b-content"><h2>2x Synthesis Weekend</h2><p>Double success rate · Limited Time</p><div class="b-btn" onclick="switchTab('square');showSub('synthesis')">Synthesize</div></div></div>
-      <div class="banner-slide art-gold-mech"><div class="b-content"><h2>Trading Competition</h2><p>5,000 ETH Prize Pool</p><div class="b-btn" onclick="switchTab('market')">Join Now</div></div></div>
+      <div class="banner-slide art-guanyu"><div class="b-content"><h2>迷人数藏 · 让数藏更迷人</h2><p>三国英雄首批限量发行 · 即将售罄</p><div class="b-btn" onclick="switchTab('market')">立即购买</div></div></div>
+      <div class="banner-slide art-zhugeliang"><div class="b-content"><h2>合成活动 · 限时双倍成功率</h2><p>集齐英雄碎片合成传说 · 限时开启</p><div class="b-btn" onclick="switchTab('square');showSub('synthesis')">去合成</div></div></div>
+      <div class="banner-slide art-lvbu"><div class="b-content"><h2>交易大赛 · 赢万元大奖</h2><p>交易即积分 · 排行榜瓜分奖池</p><div class="b-btn" onclick="switchTab('market')">参与活动</div></div></div>
     </div>
     <div class="banner-dots" id="bannerDots">
       <div class="banner-dot active" onclick="goSlide(0)"></div>
@@ -781,50 +751,50 @@ body{
   </div>
 
   <div class="news-bar">
-    <span class="news-label">NEWS</span>
-    <div class="news-text"><span>🔥 Genesis S3 Blind Box final wave June 15 · 🎯 Leviathan direct mint live · 📢 Decompose Chamber is live!</span></div>
+    <span class="news-label">公告</span>
+    <div class="news-text"><span>🔥 关羽典藏版即将售罄 · 🎯 吕布·霸王赤焰直购上线 · 📢 分解系统已开放！</span></div>
   </div>
 
   <div class="func-area">
-    <div class="func-area-title">Quick Access</div>
+    <div class="func-area-title">快捷入口</div>
     <div class="func-grid">
-      <div class="func-cell" onclick="showToast('Invite link copied!','info')">
+      <div class="func-cell" onclick="showToast('邀请链接已复制！','info')">
         <div class="fc-icon" style="background:#fff3d6"><svg viewBox="0 0 24 24" fill="none" stroke="#e8a735" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div>
-        <span class="fc-label">Invite</span>
+        <span class="fc-label">邀请好友</span>
       </div>
       <div class="func-cell" onclick="switchTab('square')">
         <div class="fc-icon" style="background:#e8f0fe"><svg viewBox="0 0 24 24" fill="none" stroke="#5b9bd5" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
-        <span class="fc-label">Hall of Fame</span>
+        <span class="fc-label">名人堂</span>
       </div>
-      <div class="func-cell" onclick="showToast('Redeem shop coming soon!','info')">
+      <div class="func-cell" onclick="showToast('兑换商城即将开放！','info')">
         <div class="fc-icon" style="background:#e8f5e9"><svg viewBox="0 0 24 24" fill="none" stroke="#07c160" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg></div>
-        <span class="fc-label">Redeem</span>
+        <span class="fc-label">兑换商城</span>
       </div>
       <div class="func-cell" onclick="switchTab('square');showSub('announce')">
         <div class="fc-icon" style="background:#fde8e8"><svg viewBox="0 0 24 24" fill="none" stroke="#e54d42" stroke-width="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg></div>
-        <span class="fc-label">Notices</span>
+        <span class="fc-label">官方公告</span>
       </div>
       <div class="func-cell" onclick="switchTab('market')">
         <div class="fc-icon" style="background:#fff3d6"><svg viewBox="0 0 24 24" fill="none" stroke="#e8a735" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
-        <span class="fc-label">Lucky Draw</span>
+        <span class="fc-label">幸运抽奖</span>
       </div>
       <div class="func-cell" onclick="switchTab('square');showSub('synthesis')">
         <div class="fc-icon" style="background:#f3e8ff"><svg viewBox="0 0 24 24" fill="none" stroke="#9b59b6" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4"/></svg></div>
-        <span class="fc-label">Synthesis</span>
+        <span class="fc-label">合成活动</span>
       </div>
       <div class="func-cell" onclick="switchTab('square');showSub('decompose')">
         <div class="fc-icon" style="background:#fef3c7"><svg viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="1.5"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="10"/></svg></div>
-        <span class="fc-label">Alchemy</span>
+        <span class="fc-label">点金活动</span>
       </div>
       <div class="func-cell" onclick="switchTab('market')">
         <div class="fc-icon" style="background:#fce7f3"><svg viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg></div>
-        <span class="fc-label">Events</span>
+        <span class="fc-label">缤纷活动</span>
       </div>
     </div>
   </div>
 
   <div class="hot-section">
-    <div class="hot-header"><h3>🔥 Hot Collectibles</h3><span class="more" onclick="switchTab('market')">More →</span></div>
+    <div class="hot-header"><h3>🔥 热门藏品</h3><span class="more" onclick="switchTab('market')">更多 →</span></div>
     <div class="hot-scroll" id="hotScroll"></div>
   </div>
 </div>
@@ -832,18 +802,18 @@ body{
 <!-- ===== MARKET ===== -->
 <div class="page" id="pg-market">
   <div class="mkt-tabs">
-    <div class="mkt-tab active" onclick="switchMkt('collectibles',this)">Digital Collectibles</div>
-    <div class="mkt-tab" onclick="switchMkt('blindbox',this)">Digital Blind Box</div>
+    <div class="mkt-tab active" onclick="switchMkt('collectibles',this)">数字藏品</div>
+    <div class="mkt-tab" onclick="switchMkt('blindbox',this)">数字盲盒</div>
   </div>
   <div class="mkt-search">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-    <input placeholder="Search collectibles..." id="mktSearch" oninput="renderMktCards()">
+    <input placeholder="搜索三国英雄..." id="mktSearch" oninput="renderMktCards()">
   </div>
   <div class="cat-row" id="catRow"></div>
   <div class="filter-row" id="filterRow">
-    <div class="filter-p active" onclick="setFilter('all',this)">All</div>
-    <div class="filter-p" onclick="setFilter('following',this)">Following</div>
-    <div class="filter-p" onclick="setFilter('recommended',this)">Recommended</div>
+    <div class="filter-p active" onclick="setFilter('all',this)">全部</div>
+    <div class="filter-p" onclick="setFilter('following',this)">关注</div>
+    <div class="filter-p" onclick="setFilter('recommended',this)">推荐</div>
   </div>
   <div class="mkt-list" id="mktList"></div>
   <div class="blind-list" id="blindList" style="display:none"></div>
@@ -852,48 +822,48 @@ body{
 <!-- ===== SQUARE ===== -->
 <div class="page" id="pg-square">
   <div class="sq-section">
-    <div class="sq-title">Activities</div>
+    <div class="sq-title">活动中心</div>
     <div class="sq-entries">
       <div class="sq-entry" onclick="showSub('synthesis')">
         <div class="se-icon" style="background:#f3e8ff">⚗️</div>
-        <span class="se-label">Synthesis</span>
+        <span class="se-label">合成</span>
       </div>
       <div class="sq-entry" onclick="showSub('decompose')">
         <div class="se-icon" style="background:#fde8e8">💥</div>
-        <span class="se-label">Decompose</span>
+        <span class="se-label">分解</span>
       </div>
       <div class="sq-entry" onclick="showSub('announce')">
         <div class="se-icon" style="background:#fff3d6">📢</div>
-        <span class="se-label">Notices</span>
+        <span class="se-label">公告</span>
       </div>
     </div>
   </div>
 
   <div class="sq-section" id="sq-synthesis" style="display:none">
-    <div class="sq-title">⚗️ Synthesis Forge</div>
+    <div class="sq-title">⚗️ 合成熔炉</div>
     <div class="synth-wrap">
       <div class="synth-flow" id="synthFlow">
-        <div class="synth-slot" id="slot0"><span style="color:var(--text3)">+</span><span class="s-label">Slot 1</span></div>
+        <div class="synth-slot" id="slot0"><span style="color:var(--text3)">+</span><span class="s-label">素材1</span></div>
         <div class="synth-plus">+</div>
-        <div class="synth-slot" id="slot1"><span style="color:var(--text3)">+</span><span class="s-label">Slot 2</span></div>
+        <div class="synth-slot" id="slot1"><span style="color:var(--text3)">+</span><span class="s-label">素材2</span></div>
         <div class="synth-plus">+</div>
-        <div class="synth-slot" id="slot2"><span style="color:var(--text3)">+</span><span class="s-label">Slot 3</span></div>
+        <div class="synth-slot" id="slot2"><span style="color:var(--text3)">+</span><span class="s-label">素材3</span></div>
         <div class="synth-plus">→</div>
-        <div class="synth-result art-gold-cake" id="synthResult">?<span style="font-size:6px;position:absolute;bottom:3px;color:var(--primary-dark);letter-spacing:.5px;font-weight:700">RESULT</span></div>
+        <div class="synth-result art-shenlong" id="synthResult">?<span style="font-size:6px;position:absolute;bottom:3px;color:var(--primary-dark);letter-spacing:.5px;font-weight:700">产物</span></div>
       </div>
-      <div class="synth-btn"><button class="btn btn-primary" onclick="doSynth()" id="synthBtn" disabled>Forge Item</button></div>
+      <div class="synth-btn"><button class="btn btn-primary" onclick="doSynth()" id="synthBtn" disabled>开始合成</button></div>
     </div>
-    <div class="sq-title" style="padding:0 14px 6px">📖 Recipe Book</div>
+    <div class="sq-title" style="padding:0 14px 6px">📖 合成配方</div>
     <div id="recipeList"></div>
   </div>
 
   <div class="sq-section" id="sq-decompose" style="display:none">
-    <div class="sq-title" style="padding:12px 14px 6px">💥 Decompose Chamber</div>
+    <div class="sq-title" style="padding:12px 14px 6px">💥 分解室</div>
     <div id="decList"></div>
   </div>
 
   <div class="sq-section" id="sq-announce" style="display:none">
-    <div class="sq-title" style="padding:12px 14px 6px">📢 Announcements</div>
+    <div class="sq-title" style="padding:12px 14px 6px">📢 官方公告</div>
     <div id="annList"></div>
   </div>
 </div>
@@ -902,18 +872,24 @@ body{
 <div class="page" id="pg-my">
   <div class="my-header">
     <div class="my-avatar">👤</div>
-    <div class="my-name" id="myName">Connect Wallet</div>
-    <div class="my-uid" id="myUid">—</div>
+    <div class="my-name" id="myName">数藏玩家</div>
+    <div class="my-uid" id="myUid">UID: 88421037</div>
+  </div>
+  <div class="balance-bar">
+    <div>
+      <div class="bb-label">账户余额</div>
+    </div>
+    <div class="bb-amount" id="myBalance">¥2000 <span class="bb-unit">CNY</span></div>
   </div>
   <div class="my-grid">
-    <div class="my-cell" onclick="showToast('Orders coming soon!','info')"><div class="mc-icon">📋</div><span class="mc-text">My Orders</span></div>
-    <div class="my-cell" onclick="showToast('Wallet coming soon!','info')"><div class="mc-icon">💰</div><span class="mc-text">My Wallet</span></div>
-    <div class="my-cell" onclick="showToast('Leaderboard coming soon!','info')"><div class="mc-icon">🏆</div><span class="mc-text">Invite Board</span></div>
-    <div class="my-cell" onclick="showToast('Redeem shop coming soon!','info')"><div class="mc-icon">🛒</div><span class="mc-text">Redeem Shop</span></div>
+    <div class="my-cell" onclick="showToast('订单功能即将上线！','info')"><div class="mc-icon">📋</div><span class="mc-text">我的订单</span></div>
+    <div class="my-cell" onclick="showToast('钱包功能即将上线！','info')"><div class="mc-icon">💰</div><span class="mc-text">我的钱包</span></div>
+    <div class="my-cell" onclick="showToast('邀新榜单即将上线！','info')"><div class="mc-icon">🏆</div><span class="mc-text">邀新榜单</span></div>
+    <div class="my-cell" onclick="showToast('兑换商城即将开放！','info')"><div class="mc-icon">🛒</div><span class="mc-text">兑换商城</span></div>
   </div>
   <div class="my-tabs">
-    <div class="my-tab active" onclick="switchMyTab('holdings',this)">Holdings</div>
-    <div class="my-tab" onclick="switchMyTab('blindboxes',this)">Blind Boxes</div>
+    <div class="my-tab active" onclick="switchMyTab('holdings',this)">我的藏品</div>
+    <div class="my-tab" onclick="switchMyTab('blindboxes',this)">我的盲盒</div>
   </div>
   <div class="my-list" id="myHoldings"></div>
   <div class="my-list" id="myBlind" style="display:none"></div>
@@ -923,26 +899,26 @@ body{
 <nav class="bottom-nav">
   <div class="bnav-item active" data-t="home" onclick="switchTab('home')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-    Home
+    首页
   </div>
   <div class="bnav-item" data-t="market" onclick="switchTab('market')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
-    Market
+    市场
   </div>
   <div class="bnav-item" data-t="square" onclick="switchTab('square')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-    Square
+    广场
   </div>
   <div class="bnav-item" data-t="my" onclick="switchTab('my')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-    My
+    我的
   </div>
 </nav>
 
 <!-- MODAL -->
 <div class="modal-mask" id="modal">
   <div class="modal-box">
-    <div class="modal-hd"><h3 id="mTitle">Details</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+    <div class="modal-hd"><h3 id="mTitle">详情</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
     <div class="modal-bd" id="mBody"></div>
     <div class="modal-ft" id="mFoot"></div>
   </div>
@@ -952,74 +928,77 @@ body{
 <div class="synth-fx" id="synthFx"></div>
 
 <script>
+let balance=2000;
+
 const ITEMS=[
-  {id:'NM-001',name:'Golden Cake Genesis',col:'Genesis S3',rarity:'legendary',price:2.45,art:'art-gold-cake',change:12.5,issued:500,circ:312},
-  {id:'NM-002',name:'Void Walker',col:'Genesis S3',rarity:'epic',price:0.89,art:'art-void',change:-3.2,issued:1000,circ:678},
-  {id:'NM-003',name:'Crystal Drake',col:'Genesis S3',rarity:'rare',price:0.42,art:'art-ice',change:5.8,issued:2000,circ:1420},
-  {id:'NM-004',name:'Neon Samurai',col:'Cyber Ronin',rarity:'epic',price:1.12,art:'art-neon',change:8.1,issued:800,circ:534},
-  {id:'NM-005',name:'Forest Warden',col:'Genesis S3',rarity:'uncommon',price:0.18,art:'art-emerald',change:-1.5,issued:5000,circ:3890},
-  {id:'NM-006',name:'Abyssal Kraken',col:'Deep Ones',rarity:'mythic',price:5.8,art:'art-kraken',change:22.3,issued:100,circ:67},
-  {id:'NM-007',name:'Ember Sprite',col:'Genesis S3',rarity:'common',price:0.06,art:'art-ember',change:-0.8,issued:10000,circ:8234},
-  {id:'NM-008',name:'Frost Sentinel',col:'Cyber Ronin',rarity:'rare',price:0.38,art:'art-shield',change:2.4,issued:1500,circ:1012},
-  {id:'NM-009',name:'Shadow Blade',col:'Cyber Ronin',rarity:'legendary',price:3.2,art:'art-dragon',change:15.6,issued:300,circ:198},
-  {id:'NM-010',name:'Moss Golem',col:'Genesis S3',rarity:'common',price:0.05,art:'art-rune',change:0.3,issued:8000,circ:6543},
-  {id:'NM-011',name:'Plasma Witch',col:'Deep Ones',rarity:'epic',price:0.95,art:'art-witch',change:6.7,issued:900,circ:623},
-  {id:'NM-012',name:'Iron Guardian',col:'Cyber Ronin',rarity:'uncommon',price:0.21,art:'art-shield',change:-2.1,issued:4000,circ:2780},
-  {id:'NM-013',name:'Cosmic Jellyfish',col:'Deep Ones',rarity:'rare',price:0.55,art:'art-jelly',change:4.2,issued:1800,circ:1201},
-  {id:'NM-014',name:'Thunder Wolf',col:'Genesis S3',rarity:'uncommon',price:0.16,art:'art-wolf',change:1.9,issued:4500,circ:3210},
-  {id:'NM-015',name:'Rune Golem',col:'Deep Ones',rarity:'common',price:0.04,art:'art-rune',change:-0.5,issued:9000,circ:7650},
-  {id:'NM-016',name:'Celestial Dragon',col:'Genesis S3',rarity:'mythic',price:8.5,art:'art-celestial',change:28.9,issued:50,circ:33},
-  {id:'NM-017',name:'Pixel Ghost',col:'Cyber Ronin',rarity:'common',price:0.03,art:'art-pixel',change:0.1,issued:12000,circ:9870},
-  {id:'NM-018',name:'Sakura Spirit',col:'Cyber Ronin',rarity:'rare',price:0.44,art:'art-sakura',change:3.5,issued:1600,circ:1089},
+  {id:'SG-001',name:'关羽',col:'蜀汉五虎',rarity:'传说',price:1688,art:'art-guanyu',change:12.5,issued:500,circ:312},
+  {id:'SG-002',name:'张飞',col:'蜀汉五虎',rarity:'史诗',price:668,art:'art-zhangfei',change:-3.2,issued:1000,circ:678},
+  {id:'SG-003',name:'赵云',col:'蜀汉五虎',rarity:'稀有',price:388,art:'art-zhaoyu',change:5.8,issued:2000,circ:1420},
+  {id:'SG-004',name:'诸葛亮',col:'蜀汉谋士',rarity:'史诗',price:888,art:'art-zhugeliang',change:8.1,issued:800,circ:534},
+  {id:'SG-005',name:'吕布',col:'群雄争霸',rarity:'传说',price:1888,art:'art-lvbu',change:22.3,issued:100,circ:67},
+  {id:'SG-006',name:'貂蝉',col:'群雄争霸',rarity:'史诗',price:588,art:'art-diaochan',change:15.6,issued:300,circ:198},
+  {id:'SG-007',name:'曹操',col:'曹魏霸业',rarity:'传说',price:1588,art:'art-caocao',change:6.7,issued:900,circ:623},
+  {id:'SG-008',name:'刘备',col:'蜀汉谋士',rarity:'稀有',price:298,art:'art-liubei',change:-1.5,issued:5000,circ:3890},
+  {id:'SG-009',name:'孙权',col:'东吴英杰',rarity:'稀有',price:328,art:'art-sunquan',change:2.4,issued:1500,circ:1012},
+  {id:'SG-010',name:'周瑜',col:'东吴英杰',rarity:'史诗',price:528,art:'art-zhouyu',change:4.2,issued:1800,circ:1201},
+  {id:'SG-011',name:'马超',col:'蜀汉五虎',rarity:'稀有',price:358,art:'art-machao',change:1.9,issued:4500,circ:3210},
+  {id:'SG-012',name:'黄忠',col:'蜀汉五虎',rarity:'普通',price:68,art:'art-huangzhong',change:-0.8,issued:10000,circ:8234},
+  {id:'SG-013',name:'司马懿',col:'曹魏霸业',rarity:'史诗',price:768,art:'art-simayi',change:9.3,issued:600,circ:412},
+  {id:'SG-014',name:'甄姬',col:'曹魏霸业',rarity:'稀有',price:258,art:'art-zhenji',change:3.5,issued:1600,circ:1089},
+  {id:'SG-015',name:'大乔',col:'东吴英杰',rarity:'稀有',price:228,art:'art-daqiao',change:2.1,issued:2000,circ:1456},
+  {id:'SG-016',name:'小乔',col:'东吴英杰',rarity:'稀有',price:198,art:'art-xiaoqiao',change:-2.1,issued:4000,circ:2780},
+  {id:'SG-017',name:'华佗',col:'群雄争霸',rarity:'普通',price:45,art:'art-huatuo',change:0.3,issued:8000,circ:6543},
+  {id:'SG-018',name:'典韦',col:'曹魏霸业',rarity:'普通',price:58,art:'art-dianwei',change:-0.5,issued:9000,circ:7650},
 ];
 
 const RECIPES=[
-  {id:'R01',name:'Forge Phoenix Egg',mats:['NM-005','NM-014','NM-007'],out:{name:'Phoenix Egg',art:'art-gold-cake'},outArt:'art-gold-cake'},
-  {id:'R02',name:'Forge Abyss Core',mats:['NM-002','NM-010','NM-015'],out:{name:'Abyss Core',art:'art-kraken'},outArt:'art-kraken'},
-  {id:'R03',name:'Forge Dragon Heart',mats:['NM-003','NM-012','NM-017'],out:{name:'Dragon Heart',art:'art-dragon'},outArt:'art-dragon'},
-  {id:'R04',name:'Forge Celestial Shard',mats:['NM-004','NM-018','NM-006'],out:{name:'Celestial Shard',art:'art-celestial'},outArt:'art-celestial'},
+  {id:'R01',name:'合成·武圣令',mats:['SG-012','SG-011','SG-008'],out:{name:'武圣令',art:'art-guanyu'},outArt:'art-guanyu'},
+  {id:'R02',name:'合成·霸王印',mats:['SG-002','SG-017','SG-018'],out:{name:'霸王印',art:'art-lvbu'},outArt:'art-lvbu'},
+  {id:'R03',name:'合成·凤雏羽',mats:['SG-003','SG-016','SG-015'],out:{name:'凤雏羽',art:'art-zhugeliang'},outArt:'art-zhugeliang'},
+  {id:'R04',name:'合成·帝王玺',mats:['SG-004','SG-014','SG-005'],out:{name:'帝王玺',art:'art-caocao'},outArt:'art-caocao'},
 ];
 
 const DECOMPS=[
-  {item:ITEMS[0],yields:['Void Shard ×2','Ember Dust ×5','Phoenix Plume ×1']},
-  {item:ITEMS[5],yields:['Abyss Pearl ×3','Dark Ink ×4','Kraken Eye ×1']},
-  {item:ITEMS[8],yields:['Shadow Steel ×2','Moonstone ×3','Blade Essence ×1']},
-  {item:ITEMS[15],yields:['Dragon Scale ×5','Celestial Dust ×3','Star Fragment ×2']},
-  {item:ITEMS[1],yields:['Void Shard ×1','Ectoplasm ×3']},
-  {item:ITEMS[3],yields:['Plasma Core ×2','Circuit Fragment ×4']},
+  {item:ITEMS[0],yields:['忠义碎片 ×2','赤兔魂 ×5','青龙偃月 ×1']},
+  {item:ITEMS[4],yields:['霸气息 ×3','方天画戟碎片 ×4','赤兔魂 ×1']},
+  {item:ITEMS[6],yields:['奸雄令 ×2','铜雀台砖 ×3','魏王印 ×1']},
+  {item:ITEMS[5],yields:['闭月纱 ×5','凤仪碎片 ×3','连环计 ×2']},
+  {item:ITEMS[3],yields:['锦囊 ×1','八阵图碎片 ×3']},
+  {item:ITEMS[12],yields:['隐谋策 ×2','狼顾之相 ×4']},
 ];
 
 const MINTS=[
-  {name:'Genesis Blind Box W3',desc:'Random Genesis S3. 5% Legendary!',type:'blind',price:0.08,total:5000,minted:3847,art:'art-blindbox',
-   odds:[{r:'Common',c:'50%'},{r:'Uncommon',c:'25%'},{r:'Rare',c:'14%'},{r:'Epic',c:'5.5%'},{r:'Legendary',c:'5%'},{r:'Mythic',c:'0.5%'}]},
-  {name:'Cyber Ronin Box',desc:'Guaranteed Rare+ cyber warriors.',type:'blind',price:0.15,total:2000,minted:1842,art:'art-neon',
-   odds:[{r:'Rare',c:'60%'},{r:'Epic',c:'28%'},{r:'Legendary',c:'10%'},{r:'Mythic',c:'2%'}]},
-  {name:'Deep Ones — Leviathan',desc:'Direct mint — guaranteed Mythic. Only 50.',type:'direct',price:4.2,total:50,minted:41,art:'art-leviathan',odds:[]},
-  {name:'EPOCH Genesis Box',desc:'Limited EPOCH collection.',type:'blind',price:0.12,total:3000,minted:2150,art:'art-epoch',
-   odds:[{r:'Common',c:'40%'},{r:'Uncommon',c:'30%'},{r:'Rare',c:'18%'},{r:'Epic',c:'8%'},{r:'Legendary',c:'3.5%'},{r:'Mythic',c:'0.5%'}]},
+  {name:'蜀汉英雄盲盒',desc:'随机蜀汉英雄！5%传说概率！',type:'blind',price:99,total:5000,minted:3847,art:'art-blindbox',
+   odds:[{r:'普通',c:'50%'},{r:'稀有',c:'25%'},{r:'史诗',c:'14%'},{r:'传说',c:'5.5%'},{r:'神话',c:'5%'},{r:'绝版',c:'0.5%'}]},
+  {name:'三国争霸盲盒',desc:'保底稀有以上三国英雄。',type:'blind',price:168,total:2000,minted:1842,art:'art-lvbu',
+   odds:[{r:'稀有',c:'60%'},{r:'史诗',c:'28%'},{r:'传说',c:'10%'},{r:'神话',c:'2%'}]},
+  {name:'吕布·霸王赤焰',desc:'直购 — 限定传说品质，仅100份。',type:'direct',price:1888,total:100,minted:41,art:'art-lvbu',odds:[]},
+  {name:'东吴精英盲盒',desc:'东吴系列限量盲盒。',type:'blind',price:128,total:3000,minted:2150,art:'art-sunquan',
+   odds:[{r:'普通',c:'40%'},{r:'稀有',c:'30%'},{r:'史诗',c:'18%'},{r:'传说',c:'8%'},{r:'神话',c:'3.5%'},{r:'绝版',c:'0.5%'}]},
 ];
 
 const ANNS=[
-  {tag:'hot',cls:'ai-tag-hot',label:'🔥 Hot',date:'2025-06-12',title:'Genesis S3 Blind Box — Final Wave June 15',body:'Last 1,153 boxes released June 15 at 18:00 UTC. Price: 0.08 ETH.'},
-  {tag:'mint',cls:'ai-tag-mint',label:'🎯 Mint',date:'2025-06-10',title:'New Direct Mint: Deep Ones — Leviathan',body:'Mythic "Leviathan" direct mint at 4.2 ETH. Only 50. 41/50 minted.'},
-  {tag:'event',cls:'ai-tag-event',label:'🎪 Event',date:'2025-06-08',title:'Synthesis Weekend — 2x Success Rate',body:'Double synthesis success rate this weekend. Legendary now 60%.'},
-  {tag:'update',cls:'ai-tag-update',label:'🔧 Update',date:'2025-06-05',title:'Platform v2.4: Decompose Chamber',body:'Break down Epic+ items into materials. Full guide in docs.'},
-  {tag:'event',cls:'ai-tag-event',label:'🎪 Event',date:'2025-06-01',title:'Trading Competition — 5,000 ETH Prize Pool',body:'Trade June 1–30 to earn points. Top 100 share 5,000 ETH.'},
-  {tag:'update',cls:'ai-tag-update',label:'🔧 Update',date:'2025-05-28',title:'Marketplace v2.3: Bundle Listings',body:'List multiple items as bundle. Make offers on unlisted items.'},
+  {tag:'hot',cls:'ai-tag-hot',label:'🔥 热门',date:'2025-06-12',title:'蜀汉英雄盲盒 · 最终批次6月15日发售',body:'最后1,153盒于6月15日18:00发售，售价¥99。'},
+  {tag:'mint',cls:'ai-tag-mint',label:'🎯 铸造',date:'2025-06-10',title:'新直购：吕布·霸王赤焰',body:'传说品质"吕布"直购价¥1888，仅100份，已铸41/100。'},
+  {tag:'event',cls:'ai-tag-event',label:'🎪 活动',date:'2025-06-08',title:'合成周末 · 双倍成功率',body:'本周末合成成功率翻倍，传说品质成功率提升至60%。'},
+  {tag:'update',cls:'ai-tag-update',label:'🔧 更新',date:'2025-06-05',title:'平台v2.4：分解系统上线',body:'史诗及以上藏品可分解为材料，详见帮助文档。'},
+  {tag:'event',cls:'ai-tag-event',label:'🎪 活动',date:'2025-06-01',title:'交易大赛 · 万元奖池',body:'6月1日-30日交易积分排行，前100名瓜分奖池。'},
+  {tag:'update',cls:'ai-tag-update',label:'🔧 更新',date:'2025-05-28',title:'市场v2.3：批量上架功能',body:'支持批量上架藏品，可对未上架藏品出价。'},
 ];
 
-const CATS=[{name:'All',art:'art-cosmos'},{name:'Genesis S3',art:'art-gold-cake'},{name:'Cyber Ronin',art:'art-neon'},{name:'Deep Ones',art:'art-kraken'},{name:'EPOCH',art:'art-epoch'}];
+const CATS=[{name:'全部',art:'art-guanyu'},{name:'蜀汉五虎',art:'art-guanyu'},{name:'蜀汉谋士',art:'art-zhugeliang'},{name:'曹魏霸业',art:'art-caocao'},{name:'东吴英杰',art:'art-sunquan'},{name:'群雄争霸',art:'art-lvbu'}];
 
-let connected=false,curTab='home',curMkt='collectibles',curFilter='all',curCat='All',selRecipe=null,synthSlots=[null,null,null],bIdx=0,bTimer=null;
+let curTab='home',curMkt='collectibles',curFilter='all',curCat='全部',selRecipe=null,synthSlots=[null,null,null],bIdx=0,bTimer=null;
 
 // Wallet
 function connectWallet(){
-  if(connected)return;connected=true;
-  document.getElementById('connectBtn').textContent='0x7a3F...e9B2';
-  document.getElementById('connectBtn').classList.add('connected');
-  document.getElementById('myName').textContent='Collector';
-  document.getElementById('myUid').textContent='UID: 88421037';
-  showToast('Wallet connected!','success');
+  showToast('余额 ¥'+balance,'info');
+}
+
+function updateBalanceUI(){
+  document.getElementById('connectBtn').innerHTML='💰 余额 ¥'+balance;
+  const mb=document.getElementById('myBalance');
+  if(mb) mb.innerHTML='¥'+balance+' <span class="bb-unit">CNY</span>';
 }
 
 // Navigation
@@ -1041,13 +1020,13 @@ function goSlide(i){bIdx=i;updBanner();clearInterval(bTimer);startBanner()}
 
 // Hot Items
 function renderHot(){
-  const h=ITEMS.filter(i=>['legendary','mythic','epic'].includes(i.rarity)).slice(0,6);
+  const h=ITEMS.filter(i=>['传说','史诗'].includes(i.rarity)).slice(0,6);
   document.getElementById('hotScroll').innerHTML=h.map(i=>`
     <div class="hot-card" onclick="showDetail('${i.id}')">
       <div class="hc-img ${i.art}"></div>
       <div class="hc-body">
         <div class="hc-name">${i.name}</div>
-        <div class="hc-price">${i.price} Ξ</div>
+        <div class="hc-price">¥${i.price}起</div>
         <div class="hc-change ${i.change>=0?'up':'down'}">${i.change>=0?'+':''}${i.change}%</div>
       </div>
     </div>`).join('');
@@ -1072,36 +1051,36 @@ function setCat(n,el){curCat=n;document.querySelectorAll('.cat-tag').forEach(t=>
 function setFilter(f,el){curFilter=f;document.querySelectorAll('.filter-p').forEach(p=>p.classList.remove('active'));if(el)el.classList.add('active');renderMktCards()}
 function renderMktCards(){
   let items=[...ITEMS];
-  if(curCat!=='All')items=items.filter(i=>i.col===curCat);
+  if(curCat!=='全部')items=items.filter(i=>i.col===curCat);
   const q=document.getElementById('mktSearch').value.toLowerCase().trim();
-  if(q)items=items.filter(i=>i.name.toLowerCase().includes(q)||i.col.toLowerCase().includes(q)||i.rarity.includes(q));
+  if(q)items=items.filter(i=>i.name.includes(q)||i.col.includes(q)||i.rarity.includes(q));
   if(curFilter==='recommended')items=items.filter(i=>i.change>5);
-  else if(curFilter==='following')items=items.filter(i=>['legendary','mythic'].includes(i.rarity));
+  else if(curFilter==='following')items=items.filter(i=>['传说','史诗'].includes(i.rarity));
   document.getElementById('mktList').innerHTML=items.length?items.map(i=>`
     <div class="mkt-card" onclick="showDetail('${i.id}')">
       <div class="mc-thumb ${i.art}"></div>
       <div class="mc-info">
         <div>
           <div class="mc-name">${i.name}</div>
-          <div class="mc-meta">${i.col} · ${i.issued} issued · ${i.circ} circulating</div>
+          <div class="mc-meta">首发${i.issued}份 · 流通${i.circ}份</div>
         </div>
         <div class="mc-bottom">
-          <div class="mc-price">${i.price} Ξ <span class="mc-unit">≈$${(i.price*1808).toFixed(0)}</span></div>
+          <div class="mc-price">¥${i.price}起</div>
           <div class="mc-chg ${i.change>=0?'up':'down'}">${i.change>=0?'▲':'▼'}${Math.abs(i.change)}%</div>
         </div>
       </div>
-    </div>`).join(''):'<div style="text-align:center;padding:40px 0;color:var(--text3);font-size:12px">No items found</div>';
+    </div>`).join(''):'<div style="text-align:center;padding:40px 0;color:var(--text3);font-size:12px">暂无藏品</div>';
 }
 function renderBlind(){
   document.getElementById('blindList').innerHTML=MINTS.map((b,i)=>{
     const p=Math.round(b.minted/b.total*100),c=p>80?'var(--red)':p>50?'var(--primary)':'var(--green)';
     return `<div class="blind-card" onclick="doMint(${i})">
-      <div class="bc-thumb ${b.art}"><div class="bc-badge bc-badge-${b.type}">${b.type==='blind'?'BLIND':'DIRECT'}</div></div>
+      <div class="bc-thumb ${b.art}"><div class="bc-badge bc-badge-${b.type}">${b.type==='blind'?'盲盒':'直购'}</div></div>
       <div class="bc-body">
         <div class="bc-name">${b.name}</div>
         <div class="bc-bar"><div class="bc-bar-fill" style="width:${p}%;background:${c}"></div></div>
         <div class="bc-meta"><span>${b.minted}/${b.total}</span><span>${p}%</span></div>
-        <div class="bc-price">${b.price} Ξ</div>
+        <div class="bc-price">¥${b.price}</div>
       </div>
     </div>`;
   }).join('');
@@ -1127,22 +1106,22 @@ function selRec(idx){
   synthSlots=r.mats.map(m=>ITEMS.find(n=>n.id===m)||null);
   for(let i=0;i<3;i++){
     const s=document.getElementById('slot'+i);
-    if(synthSlots[i]){s.classList.add('filled');s.innerHTML=`<span style="font-size:18px">${synthSlots[i].name.split(' ')[0]}</span><span class="s-label">${synthSlots[i].name}</span>`}
-    else{s.classList.remove('filled');s.innerHTML='<span style="color:var(--text3)">+</span><span class="s-label">Slot '+(i+1)+'</span>'}
+    if(synthSlots[i]){s.classList.add('filled');s.innerHTML=`<span style="font-size:18px">${synthSlots[i].name.charAt(0)}</span><span class="s-label">${synthSlots[i].name}</span>`}
+    else{s.classList.remove('filled');s.innerHTML='<span style="color:var(--text3)">+</span><span class="s-label">素材'+(i+1)+'</span>'}
   }
   const res=document.getElementById('synthResult');res.className='synth-result '+r.outArt;
-  res.innerHTML='?<span style="font-size:6px;position:absolute;bottom:3px;color:var(--primary-dark);letter-spacing:.5px;font-weight:700">RESULT</span>';
+  res.innerHTML='?<span style="font-size:6px;position:absolute;bottom:3px;color:var(--primary-dark);letter-spacing:.5px;font-weight:700">产物</span>';
   document.getElementById('synthBtn').disabled=false;renderRecipes();
 }
 function doSynth(){
-  if(selRecipe===null)return;if(!connected){showToast('Connect wallet first!','error');return}
+  if(selRecipe===null)return;
   const fx=document.getElementById('synthFx');fx.style.display='block';setTimeout(()=>fx.style.display='none',900);
-  showToast(`Forging ${RECIPES[selRecipe].out.name}... Success! 🎉`,'success');
+  showToast(`正在合成${RECIPES[selRecipe].out.name}... 合成成功！🎉`,'success');
   setTimeout(()=>{
     selRecipe=null;synthSlots=[null,null,null];
-    for(let i=0;i<3;i++){const s=document.getElementById('slot'+i);s.classList.remove('filled');s.innerHTML='<span style="color:var(--text3)">+</span><span class="s-label">Slot '+(i+1)+'</span>'}
-    const res=document.getElementById('synthResult');res.className='synth-result art-gold-cake';
-    res.innerHTML='?<span style="font-size:6px;position:absolute;bottom:3px;color:var(--primary-dark);letter-spacing:.5px;font-weight:700">RESULT</span>';
+    for(let i=0;i<3;i++){const s=document.getElementById('slot'+i);s.classList.remove('filled');s.innerHTML='<span style="color:var(--text3)">+</span><span class="s-label">素材'+(i+1)+'</span>'}
+    const res=document.getElementById('synthResult');res.className='synth-result art-shenlong';
+    res.innerHTML='?<span style="font-size:6px;position:absolute;bottom:3px;color:var(--primary-dark);letter-spacing:.5px;font-weight:700">产物</span>';
     document.getElementById('synthBtn').disabled=true;renderRecipes();
   },1200);
 }
@@ -1151,14 +1130,14 @@ function renderDecomp(){
     <div class="dec-item">
       <div class="di-img ${d.item.art}"></div>
       <div class="di-info">
-        <h5>${d.item.name} <span style="font-size:8px;color:var(--${d.item.rarity==='mythic'?'red':d.item.rarity==='legendary'?'primary':d.item.rarity==='epic'?'purple':d.item.rarity==='rare'?'blue':'text3'});font-weight:700">${d.item.rarity.toUpperCase()}</span></h5>
+        <h5>${d.item.name} <span style="font-size:8px;color:var(--${d.item.rarity==='传说'?'red':d.item.rarity==='史诗'?'primary':d.item.rarity==='稀有'?'blue':'text3'});font-weight:700">${d.item.rarity}</span></h5>
         <div class="di-tags">${d.yields.map(y=>`<span class="di-tag">${y}</span>`).join('')}</div>
-        <p>Irreversible decomposition</p>
+        <p>分解后不可恢复</p>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="doDecomp('${d.item.name}')">Split</button>
+      <button class="btn btn-danger btn-sm" onclick="doDecomp('${d.item.name}')">分解</button>
     </div>`).join('');
 }
-function doDecomp(n){if(!connected){showToast('Connect wallet first!','error');return}showToast(`Decomposing ${n}... Done! 💥`,'success')}
+function doDecomp(n){showToast(`正在分解${n}... 分解完成！💥`,'success')}
 function renderAnns(){
   document.getElementById('annList').innerHTML=ANNS.map(a=>`
     <div class="ann-item">
@@ -1167,12 +1146,21 @@ function renderAnns(){
     </div>`).join('');
 }
 
-// Mint
+// Mint / Purchase
 function doMint(i){
-  if(!connected){showToast('Connect wallet first!','error');return}
   const b=MINTS[i];
-  if(b.type==='blind'){const r=['Common','Uncommon','Rare','Epic','Legendary','Mythic'][Math.floor(Math.random()*5)];showToast(`🎉 You got a ${r} from ${b.name}!`,'success')}
-  else showToast(`🎉 ${b.name} minted!`,'success');
+  if(balance<b.price){showToast('余额不足！请充值','error');return}
+  balance-=b.price;updateBalanceUI();
+  if(b.type==='blind'){const r=['普通','稀有','史诗','传说','神话','绝版'][Math.floor(Math.random()*5)];showToast(`🎉 从${b.name}中获得了 ${r} 品质！`,'success')}
+  else showToast(`🎉 ${b.name} 购买成功！`,'success');
+}
+
+// Buy from detail
+function buyItem(id){
+  const i=ITEMS.find(x=>x.id===id);if(!i)return;
+  if(balance<i.price){showToast('余额不足！请充值','error');return}
+  balance-=i.price;updateBalanceUI();
+  showToast(`🎉 成功购买 ${i.name}！`,'success');closeModal();
 }
 
 // My
@@ -1182,7 +1170,7 @@ function switchMyTab(t,el){
   document.getElementById('myBlind').style.display=t==='blindboxes'?'block':'none';
 }
 function renderMy(){
-  const h=ITEMS.filter(i=>['legendary','mythic','epic','rare'].includes(i.rarity));
+  const h=ITEMS.filter(i=>['传说','史诗','稀有'].includes(i.rarity));
   document.getElementById('myHoldings').innerHTML=h.map(i=>`
     <div class="my-item" onclick="showDetail('${i.id}')">
       <div class="mi-img ${i.art}"></div>
@@ -1192,7 +1180,7 @@ function renderMy(){
   document.getElementById('myBlind').innerHTML=MINTS.filter(b=>b.type==='blind').map(b=>`
     <div class="my-item">
       <div class="mi-img ${b.art}"></div>
-      <div class="mi-info"><div class="mi-name">${b.name}</div><div class="mi-meta">Blind Box · ${b.price} Ξ</div></div>
+      <div class="mi-info"><div class="mi-name">${b.name}</div><div class="mi-meta">盲盒 · ¥${b.price}</div></div>
       <div class="mi-qty">×${Math.floor(Math.random()*2)+1}</div>
     </div>`).join('');
 }
@@ -1204,18 +1192,17 @@ function showDetail(id){
   document.getElementById('mBody').innerHTML=`
     <div style="width:100%;aspect-ratio:1;border-radius:var(--radius);overflow:hidden;margin-bottom:14px"><div class="${i.art}" style="width:100%;height:100%"></div></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;background:#f5f5f5;color:var(--${i.rarity==='mythic'?'red':i.rarity==='legendary'?'primary':i.rarity==='epic'?'purple':i.rarity==='rare'?'blue':'text3'})">${i.rarity.toUpperCase()}</span>
+      <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;background:#f5f5f5;color:var(--${i.rarity==='传说'?'red':i.rarity==='史诗'?'primary':i.rarity==='稀有'?'blue':'text3'})">${i.rarity}</span>
       <span style="font-size:11px;color:var(--text3)">#${i.id}</span>
     </div>
-    <div style="font-size:12px;margin-bottom:4px"><strong>Collection:</strong> ${i.col}</div>
-    <div style="font-size:12px;margin-bottom:4px"><strong>Price:</strong> <span style="color:var(--primary);font-weight:700">${i.price} Ξ</span> <span style="color:var(--text3);font-size:10px">(≈$${(i.price*1808).toFixed(0)})</span></div>
-    <div style="font-size:12px;margin-bottom:4px"><strong>Issued:</strong> ${i.issued} · <strong>Circulating:</strong> ${i.circ}</div>
-    <div style="font-size:12px;margin-bottom:4px"><strong>24h:</strong> <span style="color:${i.change>=0?'var(--red)':'var(--green)'}">${i.change>=0?'+':''}${i.change}%</span></div>
-    <div style="font-size:12px"><strong>Owner:</strong> 0x7a3F...e9B2</div>`;
+    <div style="font-size:12px;margin-bottom:4px"><strong>系列：</strong>${i.col}</div>
+    <div style="font-size:12px;margin-bottom:4px"><strong>价格：</strong><span style="color:var(--primary);font-weight:700">¥${i.price}</span></div>
+    <div style="font-size:12px;margin-bottom:4px"><strong>首发份数：</strong>${i.issued} · <strong>流通份数：</strong>${i.circ}</div>
+    <div style="font-size:12px;margin-bottom:4px"><strong>24h涨跌：</strong><span style="color:${i.change>=0?'var(--red)':'var(--green)'}">${i.change>=0?'+':''}${i.change}%</span></div>`;
   document.getElementById('mFoot').innerHTML=`
-    <button class="btn btn-outline btn-sm" onclick="closeModal()">Close</button>
-    <button class="btn btn-primary btn-sm" onclick="showToast('Listed!','success');closeModal()">List for Sale</button>
-    <button class="btn btn-green btn-sm" onclick="showToast('Offer placed!','info');closeModal()">Make Offer</button>`;
+    <button class="btn btn-outline btn-sm" onclick="closeModal()">关闭</button>
+    <button class="btn btn-primary btn-sm" onclick="buyItem('${i.id}')">立即购买</button>
+    <button class="btn btn-green btn-sm" onclick="showToast('已挂售！','success');closeModal()">挂售</button>`;
   document.getElementById('modal').classList.add('show');
 }
 function closeModal(){document.getElementById('modal').classList.remove('show')}
@@ -1229,6 +1216,7 @@ function showToast(m,t='info'){
 
 // Init
 document.addEventListener('DOMContentLoaded',function(){
+  updateBalanceUI();
   startBanner();renderHot();renderCats();renderMktCards();renderBlind();
   renderRecipes();renderDecomp();renderAnns();renderMy();
 });
