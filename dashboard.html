@@ -1752,6 +1752,102 @@
     }
 };
 
+
+const translations = {
+        en: {
+            'nav.leaderboard': 'Leaderboard',
+            'loading': 'Loading data...',
+            'footer.text': 'Recommender Dashboard \u00a9 2026',
+            'last.updated': 'Last updated',
+            'welcome': 'Welcome back',
+            'your.performance': 'Your Performance Dashboard',
+            'metrics.link_visits': 'Link Visits',
+            'metrics.link_visits_desc': 'Total clicks on your referral links',
+            'metrics.unique_visitors': 'Unique Visitors',
+            'metrics.unique_visitors_desc': 'Distinct users who visited',
+            'metrics.new_users': 'New Users',
+            'metrics.new_users_desc': 'New signups from your referrals',
+            'metrics.subscription_revenue': 'Subscription Revenue',
+            'metrics.subscription_revenue_desc': 'Revenue from subscriptions',
+            'metrics.ad_revenue': 'Ad Revenue',
+            'metrics.ad_revenue_desc': 'Revenue from advertisements',
+            'rank.title': 'Your Rank in the Leaderboard',
+            'rank.of': 'of',
+            'rank.gap': 'Gap to #1:',
+            'rank.top_performer': 'Top Performer',
+            'back.btn': '\u2190 Back to Leaderboard',
+            'leaderboard.title': 'Top Referrers',
+            'leaderboard.subtitle': 'Real-time performance rankings',
+            'leaderboard.total_users': 'Total Referrers',
+            'sort.total_revenue': 'Total Revenue',
+            'sort.new_users': 'New Users',
+            'sort.link_visits': 'Link Visits',
+            'sort.unique_visitors': 'Unique Visitors',
+            'table.rank': 'Rank',
+            'table.referrer': 'Referrer',
+            'table.link_visits': 'Link Visits',
+            'table.unique_visitors': 'Unique',
+            'table.new_users': 'New Users',
+            'table.subscription': 'Subscription',
+            'table.ad_revenue': 'Ad Revenue',
+            'table.total': 'Total',
+            'table.view': 'View',
+            'error.title': 'User Not Found',
+            'error.message': 'The referrer you\'re looking for doesn\'t exist in our database.',
+            'error.back': '\u2190 Back to Leaderboard',
+            'share.btn': 'Share My Stats',
+            'share.copied': 'Link Copied!',
+            'search.placeholder': 'Search your name...',
+            'coming.soon': 'Coming Soon'
+        },
+        es: {
+            'nav.leaderboard': 'Clasificaci\u00f3n',
+            'loading': 'Cargando datos...',
+            'footer.text': 'Panel de Recomendadores \u00a9 2026',
+            'last.updated': '\u00daltima actualizaci\u00f3n',
+            'welcome': 'Bienvenido de nuevo',
+            'your.performance': 'Tu Panel de Rendimiento',
+            'metrics.link_visits': 'Visitas de Enlaces',
+            'metrics.link_visits_desc': 'Clics totales en tus enlaces de referido',
+            'metrics.unique_visitors': 'Visitantes \u00danicos',
+            'metrics.unique_visitors_desc': 'Usuarios distintos que visitaron',
+            'metrics.new_users': 'Nuevos Usuarios',
+            'metrics.new_users_desc': 'Nuevos registros de tus referidos',
+            'metrics.subscription_revenue': 'Ingresos por Suscripci\u00f3n',
+            'metrics.subscription_revenue_desc': 'Ingresos de suscripciones',
+            'metrics.ad_revenue': 'Ingresos por Publicidad',
+            'metrics.ad_revenue_desc': 'Ingresos de anuncios',
+            'rank.title': 'Tu Posici\u00f3n en la Clasificaci\u00f3n',
+            'rank.of': 'de',
+            'rank.gap': 'Diferencia con #1:',
+            'rank.top_performer': 'Mejor Rendimiento',
+            'back.btn': '\u2190 Volver a Clasificaci\u00f3n',
+            'leaderboard.title': 'Mejores Referidores',
+            'leaderboard.subtitle': 'Rankings de rendimiento en tiempo real',
+            'leaderboard.total_users': 'Total de Referidores',
+            'sort.total_revenue': 'Ingresos Totales',
+            'sort.new_users': 'Nuevos Usuarios',
+            'sort.link_visits': 'Visitas',
+            'sort.unique_visitors': '\u00danicos',
+            'table.rank': 'Posici\u00f3n',
+            'table.referrer': 'Referidor',
+            'table.link_visits': 'Visitas',
+            'table.unique_visitors': '\u00danicos',
+            'table.new_users': 'Nuevos',
+            'table.subscription': 'Suscripci\u00f3n',
+            'table.ad_revenue': 'Publicidad',
+            'table.total': 'Total',
+            'table.view': 'Ver',
+            'error.title': 'Usuario No Encontrado',
+            'error.message': 'El referidor que buscas no existe en nuestra base de datos.',
+            'error.back': '\u2190 Volver a Clasificaci\u00f3n',
+            'share.btn': 'Compartir Mis Estad\u00edsticas',
+            'share.copied': '\u00a1Enlace Copiado!',
+            'search.placeholder': 'Busca tu nombre...',
+            'coming.soon': 'Pr\u00f3ximamente'
+        }
+    };
+
     let currentLang = 'en';
     let dashboardData = null;
     let searchQuery = '';
@@ -2470,7 +2566,14 @@
             currentLang = savedLang;
             document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.lang === savedLang));
         }
-        renderContent();
+        try {
+            renderContent();
+        } catch (renderErr) {
+            console.error('[loadData] renderContent() failed:', renderErr);
+            // Show error message in main content
+            const mc = document.getElementById('mainContent');
+            if (mc) mc.innerHTML = '<div style="text-align:center;padding:80px 20px;"><h2 style="color:#ef4444;">⚠️ Render Error</h2><p style="color:#94a3b8;margin-top:12px;">Failed to render dashboard. Try refreshing.</p><p style="color:#475569;font-size:13px;margin-top:8px;">' + (renderErr.message || '') + '</p></div>';
+        }
         hideLoadingScreen();
         checkOnboarding();
 

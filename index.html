@@ -1466,7 +1466,13 @@
             currentLang = savedLang;
             document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.lang === savedLang));
         }
-        renderContent();
+        try {
+            renderContent();
+        } catch (renderErr) {
+            console.error('[loadData] renderContent() failed:', renderErr);
+            const mc = document.getElementById('mainContent');
+            if (mc) mc.innerHTML = '<div style="text-align:center;padding:80px 20px;"><h2 style="color:#ef4444;">⚠️ Render Error</h2><p style="color:#94a3b8;margin-top:12px;">Failed to render dashboard. Try refreshing.</p><p style="color:#475569;font-size:13px;margin-top:8px;">' + (renderErr.message || '') + '</p></div>';
+        }
         hideLoadingScreen();
         checkOnboarding();
     }
