@@ -723,9 +723,11 @@
            Visits Trend Chart Styles
            ======================================== */
         .stat-card.clickable { cursor: pointer; position: relative; }
-        .stat-card.clickable:hover { border-color: rgba(34, 211, 238, 0.5); }
-        .stat-card.clickable::after { content: '📈'; position: absolute; top: 12px; right: 12px; font-size: 14px; opacity: 0.5; z-index: 2; }
-        .stat-card.clickable.expanded::after { opacity: 0.8; }
+        .stat-card.clickable:hover { transform: translateY(-6px) scale(1.02); }
+        .stat-card.clickable::after { content: '📈'; position: absolute; top: 12px; right: 12px; font-size: 14px; opacity: 0.4; z-index: 2; transition: opacity 0.2s; }
+        .stat-card.clickable:hover::after { opacity: 0.8; }
+        .stat-card.clickable.expanded::after { content: '📊'; opacity: 0.8; }
+        .trend-no-data { text-align: center; padding: 12px; color: var(--text-muted); font-size: 12px; font-style: italic; }
         .visits-trend-container {
             max-height: 0; overflow: hidden; transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, margin 0.3s ease;
             opacity: 0; margin-top: 0;
@@ -1018,55 +1020,55 @@
     const FALLBACK_DATA = {
         "last_updated": "2026-05-08 22:08 (ET)",
         "users": {
-            "LelouchAlleah": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "573918": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "943640": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "AE XYLIA": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Angelicious22": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "BiKosi": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "LelouchAlleah": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "573918": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "943640": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "AE XYLIA": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Angelicious22": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "BiKosi": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
             "Boochick5": {"link_visits":5,"link_unique":1,"link_visits_daily":{"2026-05-01":0,"2026-05-02":0,"2026-05-03":0,"2026-05-04":0,"2026-05-05":1,"2026-05-06":1,"2026-05-07":1,"2026-05-08":1,"2026-05-09":1},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "BritTyson": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Buffie": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Cabbie": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Catania": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Chanda": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Chell": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Connie": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Cons Espher": {"link_visits":40,"link_unique":17,"link_visits_daily":{"2026-05-01":1,"2026-05-02":3,"2026-05-03":2,"2026-05-04":3,"2026-05-05":5,"2026-05-06":7,"2026-05-07":7,"2026-05-08":9,"2026-05-09":3},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Diana": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "BritTyson": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Buffie": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Cabbie": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Catania": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Chanda": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Chell": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Connie": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Cons Espher": {"link_visits":40,"link_unique":17,"link_visits_daily":{"2026-05-01":1,"2026-05-02":3,"2026-05-03":2,"2026-05-04":3,"2026-05-05":5,"2026-05-06":7,"2026-05-07":7,"2026-05-08":9,"2026-05-09":3},"link_unique_daily":{"2026-05-01":1,"2026-05-02":3,"2026-05-03":2,"2026-05-04":3,"2026-05-05":5,"2026-05-06":7,"2026-05-07":7,"2026-05-08":9,"2026-05-09":3},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Diana": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
             "DRAS": {"link_visits":18,"link_unique":8,"link_visits_daily":{"2026-05-01":0,"2026-05-02":0,"2026-05-03":0,"2026-05-04":0,"2026-05-05":4,"2026-05-06":5,"2026-05-07":4,"2026-05-08":4,"2026-05-09":1},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Harriet 335": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Hbomb": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "jeje": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Jennifer": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Jess E": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Justjenn": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Laurie": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "MadHatter": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Mari": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Martine": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "mhairi5574": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Harriet 335": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Hbomb": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "jeje": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Jennifer": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Jess E": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Justjenn": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Laurie": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "MadHatter": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Mari": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Martine": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "mhairi5574": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
             "Mimi/Tigress/Casside": {"link_visits":1,"link_unique":1,"link_visits_daily":{"2026-05-01":0,"2026-05-02":0,"2026-05-03":0,"2026-05-04":0,"2026-05-05":0,"2026-05-06":0,"2026-05-07":1,"2026-05-08":0,"2026-05-09":0},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "MomLooks30": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Momof2girls1930": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Not Mean Just Spicy Nice": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "onnie": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Poof": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Pumpkin": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "purpleheart42": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "QueenJustice": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Reepha": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "RhiannanWrites": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Rjd": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Rox": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "skyedragon1988": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Sue": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Taylorb": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Terry": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "TheAmazingJeni": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Yakirah": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Zoe": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "\u2661Crystal\u2661Dawn\u2661": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00}
+            "MomLooks30": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Momof2girls1930": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Not Mean Just Spicy Nice": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "onnie": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Poof": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Pumpkin": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "purpleheart42": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "QueenJustice": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Reepha": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "RhiannanWrites": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Rjd": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Rox": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "skyedragon1988": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Sue": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Taylorb": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Terry": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "TheAmazingJeni": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Yakirah": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Zoe": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "\u2661Crystal\u2661Dawn\u2661": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"link_unique_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00}
         }
     };
 
@@ -1300,11 +1302,11 @@
         const t = (key) => translations[currentLang][key] || key;
 
         const metrics = [
-            { key: 'link_visits', icon: icons.link, value: userData.link_visits || 0, isCurrency: false, color: '#22d3ee', sparkData: generateSparklineData(userData.link_visits || 0), clickable: true, dailyData: userData.link_visits_daily || {} },
-            { key: 'link_unique', icon: icons.users, value: userData.link_unique || 0, isCurrency: false, color: '#a78bfa', sparkData: generateSparklineData(userData.link_unique || 0) },
+            { key: 'link_visits', icon: icons.link, value: userData.link_visits || 0, isCurrency: false, color: '#22d3ee', sparkData: generateSparklineData(userData.link_visits || 0), clickable: true, chartLabel: 'visits', dailyData: userData.link_visits_daily || {} },
+            { key: 'link_unique', icon: icons.users, value: userData.link_unique || 0, isCurrency: false, color: '#a78bfa', sparkData: generateSparklineData(userData.link_unique || 0), clickable: true, chartLabel: 'unique', dailyData: userData.link_unique_daily || {} },
             { key: 'new_users', icon: icons.userPlus, value: userData.new_users || 0, isCurrency: false, color: '#34d399', sparkData: generateSparklineData(userData.new_users || 0), pending: true },
-            { key: 'subscription_revenue', icon: icons.dollar, value: userData.subscription_revenue || 0, isCurrency: true, color: '#fbbf24', sparkData: generateSparklineData(userData.subscription_revenue || 0) },
-            { key: 'ad_revenue', icon: icons.ad, value: userData.ad_revenue || 0, isCurrency: true, color: '#f472b6', sparkData: generateSparklineData(userData.ad_revenue || 0) }
+            { key: 'subscription_revenue', icon: icons.dollar, value: userData.subscription_revenue || 0, isCurrency: true, color: '#fbbf24', sparkData: generateSparklineData(userData.subscription_revenue || 0), clickable: true, chartLabel: 'sub revenue', dailyData: {} },
+            { key: 'ad_revenue', icon: icons.ad, value: userData.ad_revenue || 0, isCurrency: true, color: '#f472b6', sparkData: generateSparklineData(userData.ad_revenue || 0), clickable: true, chartLabel: 'ad revenue', dailyData: {} }
         ];
 
         return `
@@ -1327,7 +1329,7 @@
                 ${metrics.map((metric, index) => {
                     const zero = isZero(metric.value);
                     return `
-                    <div class="stat-card ${zero ? 'zero-data' : 'has-data'} ${metric.clickable ? 'clickable' : ''} slide-up stagger-${index + 1}" ${metric.clickable ? `onclick="toggleVisitsTrend(this, '${encodeURIComponent(JSON.stringify(metric.dailyData || {}))}')"` : ''}>
+                    <div class="stat-card ${zero ? 'zero-data' : 'has-data'} ${metric.clickable ? 'clickable' : ''} slide-up stagger-${index + 1}" ${metric.clickable ? `onclick="toggleTrendChart(this, '${encodeURIComponent(JSON.stringify(metric.dailyData || {}))}', '${metric.color}', '${metric.chartLabel || ''}')"` : ''}>
                         <div class="stat-header">
                             <div class="stat-icon">${metric.icon}</div>
                             ${!zero ? `<div class="sparkline-container"><canvas id="sparkline-${index}" width="60" height="30" data-values="${metric.sparkData.join(',')}" data-color="${metric.color}"></canvas></div>` : ''}
@@ -1335,7 +1337,7 @@
                         <span class="stat-label">${t('metrics.' + metric.key)}</span>
                         <div class="stat-value" id="stat-${index}">${metric.pending ? '<span class="metric-pending">—</span>' : (zero ? t('coming.soon') : '0')}</div>
                         <p class="stat-desc">${t('metrics.' + metric.key + '_desc')}</p>
-                        ${metric.clickable ? `<div class="visits-trend-container" id="visitsTrend"><span class="trend-label">Daily Trend</span><canvas id="visitsTrendChart"></canvas></div>` : ''}
+                        ${metric.clickable ? `<div class="visits-trend-container" id="trend-${index}"><span class="trend-label">Daily Trend</span><canvas id="trendChart-${index}"></canvas></div>` : ''}
                     </div>`;
                 }).join('')}
             </section>
@@ -1603,7 +1605,7 @@
         const name = input.value.trim();
         if (!name) return;
         if (dashboardData.users[name]) { alert('User already exists!'); return; }
-        dashboardData.users[name] = { link_visits: 0, link_unique: 0, link_visits_daily: {}, unique_visitors: 0, new_users: 0, subscription_revenue: 0, ad_revenue: 0 };
+        dashboardData.users[name] = { link_visits: 0, link_unique: 0, link_visits_daily: {}, link_unique_daily: {}, unique_visitors: 0, new_users: 0, subscription_revenue: 0, ad_revenue: 0 };
         input.value = '';
         renderAdminUserList(document.getElementById('adminSearch').value);
         updateAdminExport();
@@ -1679,9 +1681,10 @@
     // ========================================
     // Visits Trend Chart (Chart.js)
     // ========================================
-    let visitsChartInstance = null;
+    // Track active chart instances per card index
+    const chartInstances = {};
 
-    function toggleVisitsTrend(cardEl, dailyDataEncoded) {
+    function toggleTrendChart(cardEl, dailyDataEncoded, chartColor, chartLabel) {
         const container = cardEl.querySelector('.visits-trend-container');
         if (!container) return;
         
@@ -1689,7 +1692,9 @@
         if (isShowing) {
             container.classList.remove('show');
             cardEl.classList.remove('expanded');
-            if (visitsChartInstance) { visitsChartInstance.destroy(); visitsChartInstance = null; }
+            // Destroy the chart for this card
+            const canvasId = container.querySelector('canvas')?.id;
+            if (canvasId && chartInstances[canvasId]) { chartInstances[canvasId].destroy(); delete chartInstances[canvasId]; }
             return;
         }
         
@@ -1702,15 +1707,27 @@
         const labels = sortedDates.map(d => { const parts = d.split('-'); return parts[1] + '/' + parts[2]; });
         const values = sortedDates.map(d => dailyData[d]);
         
-        if (labels.length === 0) return;
-        
         container.classList.add('show');
         cardEl.classList.add('expanded');
         
-        // Destroy previous chart if any
-        if (visitsChartInstance) { visitsChartInstance.destroy(); visitsChartInstance = null; }
+        // If no daily data, show a message
+        if (labels.length === 0) {
+            setTimeout(() => {
+                const existing = container.querySelector('.trend-no-data');
+                if (!existing) {
+                    const msg = document.createElement('div');
+                    msg.className = 'trend-no-data';
+                    msg.textContent = 'Trend data coming soon';
+                    container.appendChild(msg);
+                }
+            }, 100);
+            return;
+        }
         
         // Create chart after container is visible
+        const canvasId = container.querySelector('canvas')?.id;
+        if (canvasId && chartInstances[canvasId]) { chartInstances[canvasId].destroy(); delete chartInstances[canvasId]; }
+        
         setTimeout(() => {
             const canvas = container.querySelector('canvas');
             if (!canvas) return;
@@ -1718,18 +1735,20 @@
             const isDark = !document.documentElement.hasAttribute('data-theme') || document.documentElement.getAttribute('data-theme') !== 'light';
             const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
             const textColor = isDark ? '#94a3b8' : '#475569';
+            const bgColor = chartColor + '26'; // ~15% opacity hex
+            const borderColorLight = chartColor + '4D'; // ~30% opacity
             
-            visitsChartInstance = new Chart(canvas, {
+            chartInstances[canvas.id] = new Chart(canvas, {
                 type: 'line',
                 data: {
                     labels: labels,
                     datasets: [{
                         data: values,
-                        borderColor: '#22d3ee',
-                        backgroundColor: 'rgba(34, 211, 238, 0.15)',
+                        borderColor: chartColor,
+                        backgroundColor: bgColor,
                         borderWidth: 2.5,
                         pointRadius: 3,
-                        pointBackgroundColor: '#22d3ee',
+                        pointBackgroundColor: chartColor,
                         pointBorderColor: isDark ? '#0d1230' : '#ffffff',
                         pointBorderWidth: 2,
                         pointHoverRadius: 5,
@@ -1745,15 +1764,15 @@
                         tooltip: {
                             backgroundColor: isDark ? 'rgba(13, 18, 48, 0.95)' : 'rgba(255,255,255,0.95)',
                             titleColor: isDark ? '#fff' : '#0f172a',
-                            bodyColor: isDark ? '#22d3ee' : '#0891b2',
-                            borderColor: 'rgba(34, 211, 238, 0.3)',
+                            bodyColor: chartColor,
+                            borderColor: borderColorLight,
                             borderWidth: 1,
                             cornerRadius: 8,
                             padding: 10,
                             displayColors: false,
                             callbacks: {
                                 title: function(ctx) { return ctx[0].label; },
-                                label: function(ctx) { return ctx.raw + ' visits'; }
+                                label: function(ctx) { return ctx.raw + ' ' + chartLabel; }
                             }
                         }
                     },
