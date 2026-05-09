@@ -1478,7 +1478,7 @@
                     ];
                     metrics.forEach((metric, index) => {
                         if (isZero(metric.value)) return; // Skip animation for zero
-                        if (index === 2) return; // Skip new_users (pending)
+                        // All metrics now have real data
                         const element = document.getElementById(`stat-${index}`);
                         if (element) animateNumber(element, metric.value, 2000, metric.isCurrency);
                         const canvas = document.getElementById(`sparkline-${index}`);
