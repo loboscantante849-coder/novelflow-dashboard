@@ -718,6 +718,33 @@
         /* ========================================
            Responsive
            ======================================== */
+
+        /* ========================================
+           Visits Trend Chart Styles
+           ======================================== */
+        .stat-card.clickable { cursor: pointer; position: relative; }
+        .stat-card.clickable:hover { border-color: rgba(34, 211, 238, 0.5); }
+        .stat-card.clickable::after { content: '📈'; position: absolute; top: 12px; right: 12px; font-size: 14px; opacity: 0.5; z-index: 2; }
+        .stat-card.clickable.expanded::after { opacity: 0.8; }
+        .visits-trend-container {
+            max-height: 0; overflow: hidden; transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, margin 0.3s ease;
+            opacity: 0; margin-top: 0;
+        }
+        .visits-trend-container.show {
+            max-height: 280px; opacity: 1; margin-top: 12px;
+        }
+        .visits-trend-container canvas {
+            width: 100% !important; height: 160px !important;
+        }
+        .trend-label {
+            font-size: 10px; color: var(--text-muted); text-transform: uppercase;
+            letter-spacing: 1px; margin-bottom: 6px; display: block;
+        }
+        .metric-pending {
+            font-size: 12px; color: var(--text-muted); font-style: italic;
+            letter-spacing: 0.5px;
+        }
+
         @media (max-width: 1440px) {
             .container { max-width: 1200px; }
             .stats-grid { grid-template-columns: repeat(3, 1fr); }
@@ -778,6 +805,10 @@
             .back-btn { padding: 12px 20px; min-height: 48px; }
             .search-input { padding: 12px 16px 12px 44px; font-size: 16px; min-height: 48px; }
         }
+        @media (max-width: 768px) {
+            .visits-trend-container canvas { height: 140px !important; }
+            .visits-trend-container.show { max-height: 250px; }
+        }
         @media (max-width: 480px) {
             .container { padding: 0 12px; }
             .logo-text { font-size: 16px; }
@@ -819,6 +850,7 @@
         .stagger-4 { animation-delay: 0.4s; }
         .stagger-5 { animation-delay: 0.5s; }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <!-- Loading Screen -->
@@ -984,57 +1016,57 @@
     // FALLBACK EMBEDDED DATA (offline support)
     // ========================================
     const FALLBACK_DATA = {
-        "last_updated": "2026-05-08 23:00 (ET)",
+        "last_updated": "2026-05-08 22:08 (ET)",
         "users": {
-            "LelouchAlleah": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "573918": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "943640": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "AE XYLIA": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Angelicious22": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "BiKosi": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Boochick5": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "BritTyson": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Buffie": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Cabbie": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Catania": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Chanda": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Chell": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Connie": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Cons Espher": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Diana": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "DRAS": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Harriet 335": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Hbomb": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "jeje": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Jennifer": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Jess E": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Justjenn": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Laurie": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "MadHatter": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Mari": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Martine": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "mhairi5574": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Mimi/Tigress/Casside": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "MomLooks30": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Momof2girls1930": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Not Mean Just Spicy Nice": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "onnie": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Poof": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Pumpkin": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "purpleheart42": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "QueenJustice": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Reepha": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "RhiannanWrites": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Rjd": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Rox": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "skyedragon1988": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Sue": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Taylorb": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Terry": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "TheAmazingJeni": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Yakirah": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "Zoe": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
-            "\u2661Crystal\u2661Dawn\u2661": {"link_visits":0,"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00}
+            "LelouchAlleah": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "573918": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "943640": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "AE XYLIA": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Angelicious22": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "BiKosi": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Boochick5": {"link_visits":5,"link_unique":1,"link_visits_daily":{"2026-05-01":0,"2026-05-02":0,"2026-05-03":0,"2026-05-04":0,"2026-05-05":1,"2026-05-06":1,"2026-05-07":1,"2026-05-08":1,"2026-05-09":1},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "BritTyson": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Buffie": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Cabbie": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Catania": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Chanda": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Chell": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Connie": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Cons Espher": {"link_visits":40,"link_unique":17,"link_visits_daily":{"2026-05-01":1,"2026-05-02":3,"2026-05-03":2,"2026-05-04":3,"2026-05-05":5,"2026-05-06":7,"2026-05-07":7,"2026-05-08":9,"2026-05-09":3},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Diana": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "DRAS": {"link_visits":18,"link_unique":8,"link_visits_daily":{"2026-05-01":0,"2026-05-02":0,"2026-05-03":0,"2026-05-04":0,"2026-05-05":4,"2026-05-06":5,"2026-05-07":4,"2026-05-08":4,"2026-05-09":1},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Harriet 335": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Hbomb": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "jeje": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Jennifer": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Jess E": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Justjenn": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Laurie": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "MadHatter": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Mari": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Martine": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "mhairi5574": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Mimi/Tigress/Casside": {"link_visits":1,"link_unique":1,"link_visits_daily":{"2026-05-01":0,"2026-05-02":0,"2026-05-03":0,"2026-05-04":0,"2026-05-05":0,"2026-05-06":0,"2026-05-07":1,"2026-05-08":0,"2026-05-09":0},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "MomLooks30": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Momof2girls1930": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Not Mean Just Spicy Nice": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "onnie": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Poof": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Pumpkin": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "purpleheart42": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "QueenJustice": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Reepha": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "RhiannanWrites": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Rjd": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Rox": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "skyedragon1988": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Sue": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Taylorb": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Terry": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "TheAmazingJeni": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Yakirah": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "Zoe": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00},
+            "\u2661Crystal\u2661Dawn\u2661": {"link_visits":0,"link_unique":0,"link_visits_daily":{},"unique_visitors":0,"new_users":0,"subscription_revenue":0.00,"ad_revenue":0.00}
         }
     };
 
@@ -1049,12 +1081,14 @@
             'last.updated': 'Last updated',
             'welcome': 'Welcome back',
             'your.performance': 'Your Performance Dashboard',
-            'metrics.link_visits': 'Link Visits',
-            'metrics.link_visits_desc': 'Total clicks on your referral links',
-            'metrics.unique_visitors': 'Unique Visitors',
-            'metrics.unique_visitors_desc': 'Distinct users who visited',
+            'metrics.link_visits': 'Visits',
+            'metrics.link_visits_desc': 'Total visits (not deduplicated)',
+            'metrics.unique_visitors': 'Unique',
+            'metrics.unique_visitors_desc': 'Deduplicated visitors this month',
+            'metrics.link_unique': 'Unique',
+            'metrics.link_unique_desc': 'Deduplicated visitors this month',
             'metrics.new_users': 'New Users',
-            'metrics.new_users_desc': 'New signups from your referrals',
+            'metrics.new_users_desc': 'Coming soon',
             'metrics.subscription_revenue': 'Subscription Revenue',
             'metrics.subscription_revenue_desc': 'Revenue from subscriptions',
             'metrics.ad_revenue': 'Ad Revenue',
@@ -1069,11 +1103,13 @@
             'leaderboard.total_users': 'Total Referrers',
             'sort.total_revenue': 'Total Revenue',
             'sort.new_users': 'New Users',
-            'sort.link_visits': 'Link Visits',
-            'sort.unique_visitors': 'Unique Visitors',
+            'sort.link_visits': 'Visits',
+            'sort.link_unique': 'Unique',
+            'sort.unique_visitors': 'Unique',
             'table.rank': 'Rank',
             'table.referrer': 'Referrer',
-            'table.link_visits': 'Link Visits',
+            'table.link_visits': 'Visits',
+            'table.link_unique': 'Unique',
             'table.unique_visitors': 'Unique',
             'table.new_users': 'New Users',
             'table.subscription': 'Subscription',
@@ -1095,12 +1131,12 @@
             'last.updated': '\u00daltima actualizaci\u00f3n',
             'welcome': 'Bienvenido de nuevo',
             'your.performance': 'Tu Panel de Rendimiento',
-            'metrics.link_visits': 'Visitas de Enlaces',
-            'metrics.link_visits_desc': 'Clics totales en tus enlaces de referido',
+            'metrics.link_visits': 'Visitas',
+            'metrics.link_visits_desc': 'Visitas totales (sin deduplicar)',
             'metrics.unique_visitors': 'Visitantes \u00danicos',
-            'metrics.unique_visitors_desc': 'Usuarios distintos que visitaron',
+            'metrics.unique_visitors_desc': 'Visitantes deduplicados este mes',
             'metrics.new_users': 'Nuevos Usuarios',
-            'metrics.new_users_desc': 'Nuevos registros de tus referidos',
+            'metrics.new_users_desc': 'Próximamente',
             'metrics.subscription_revenue': 'Ingresos por Suscripci\u00f3n',
             'metrics.subscription_revenue_desc': 'Ingresos de suscripciones',
             'metrics.ad_revenue': 'Ingresos por Publicidad',
@@ -1205,7 +1241,7 @@
     function formatCurrency(value) { return '$' + value.toFixed(2); }
     function formatNumber(num) { if (num === 0) return '\u2014'; return num.toLocaleString(); }
     function isZero(value) { return value === 0 || value === '0' || value === 0.00; }
-    function isAllZero(userData) { return isZero(userData.link_visits) && isZero(userData.unique_visitors) && isZero(userData.new_users) && isZero(userData.subscription_revenue) && isZero(userData.ad_revenue); }
+    function isAllZero(userData) { return isZero(userData.link_visits) && isZero(userData.link_unique) && isZero(userData.unique_visitors) && isZero(userData.new_users) && isZero(userData.subscription_revenue) && isZero(userData.ad_revenue); }
     function animateNumber(element, target, duration = 2000, isCurrency = false) {
         const startTime = performance.now();
         function easeOutExpo(t) { return t === 1 ? 1 : 1 - Math.pow(2, -10 * t); }
@@ -1264,9 +1300,9 @@
         const t = (key) => translations[currentLang][key] || key;
 
         const metrics = [
-            { key: 'link_visits', icon: icons.link, value: userData.link_visits || 0, isCurrency: false, color: '#22d3ee', sparkData: generateSparklineData(userData.link_visits || 0) },
-            { key: 'unique_visitors', icon: icons.users, value: userData.unique_visitors || 0, isCurrency: false, color: '#a78bfa', sparkData: generateSparklineData(userData.unique_visitors || 0) },
-            { key: 'new_users', icon: icons.userPlus, value: userData.new_users || 0, isCurrency: false, color: '#34d399', sparkData: generateSparklineData(userData.new_users || 0) },
+            { key: 'link_visits', icon: icons.link, value: userData.link_visits || 0, isCurrency: false, color: '#22d3ee', sparkData: generateSparklineData(userData.link_visits || 0), clickable: true, dailyData: userData.link_visits_daily || {} },
+            { key: 'link_unique', icon: icons.users, value: userData.link_unique || 0, isCurrency: false, color: '#a78bfa', sparkData: generateSparklineData(userData.link_unique || 0) },
+            { key: 'new_users', icon: icons.userPlus, value: userData.new_users || 0, isCurrency: false, color: '#34d399', sparkData: generateSparklineData(userData.new_users || 0), pending: true },
             { key: 'subscription_revenue', icon: icons.dollar, value: userData.subscription_revenue || 0, isCurrency: true, color: '#fbbf24', sparkData: generateSparklineData(userData.subscription_revenue || 0) },
             { key: 'ad_revenue', icon: icons.ad, value: userData.ad_revenue || 0, isCurrency: true, color: '#f472b6', sparkData: generateSparklineData(userData.ad_revenue || 0) }
         ];
@@ -1291,14 +1327,15 @@
                 ${metrics.map((metric, index) => {
                     const zero = isZero(metric.value);
                     return `
-                    <div class="stat-card ${zero ? 'zero-data' : 'has-data'} slide-up stagger-${index + 1}">
+                    <div class="stat-card ${zero ? 'zero-data' : 'has-data'} ${metric.clickable ? 'clickable' : ''} slide-up stagger-${index + 1}" ${metric.clickable ? `onclick="toggleVisitsTrend(this, '${encodeURIComponent(JSON.stringify(metric.dailyData || {}))}')"` : ''}>
                         <div class="stat-header">
                             <div class="stat-icon">${metric.icon}</div>
                             ${!zero ? `<div class="sparkline-container"><canvas id="sparkline-${index}" width="60" height="30" data-values="${metric.sparkData.join(',')}" data-color="${metric.color}"></canvas></div>` : ''}
                         </div>
                         <span class="stat-label">${t('metrics.' + metric.key)}</span>
-                        <div class="stat-value" id="stat-${index}">${zero ? t('coming.soon') : '0'}</div>
+                        <div class="stat-value" id="stat-${index}">${metric.pending ? '<span class="metric-pending">—</span>' : (zero ? t('coming.soon') : '0')}</div>
                         <p class="stat-desc">${t('metrics.' + metric.key + '_desc')}</p>
+                        ${metric.clickable ? `<div class="visits-trend-container" id="visitsTrend"><span class="trend-label">Daily Trend</span><canvas id="visitsTrendChart"></canvas></div>` : ''}
                     </div>`;
                 }).join('')}
             </section>
@@ -1329,6 +1366,7 @@
             { key: 'total_revenue', label: t('sort.total_revenue') },
             { key: 'new_users', label: t('sort.new_users') },
             { key: 'link_visits', label: t('sort.link_visits') },
+            { key: 'link_unique', label: t('sort.link_unique') },
             { key: 'unique_visitors', label: t('sort.unique_visitors') }
         ];
 
@@ -1378,7 +1416,7 @@
                                     <a href="?user=${encodedUsername}" class="user-link">${escapeHtml(user.username)}</a>
                                 </div>
                                 <div class="col value-cell ${isZero(user.link_visits) ? 'zero' : ''}">${formatNumber(user.link_visits || 0)}</div>
-                                <div class="col value-cell ${isZero(user.unique_visitors) ? 'zero' : ''}">${formatNumber(user.unique_visitors || 0)}</div>
+                                <div class="col value-cell ${isZero(user.link_unique) ? 'zero' : ''}">${formatNumber(user.link_unique || 0)}</div>
                                 <div class="col value-cell ${isZero(user.new_users) ? 'zero' : ''}">${formatNumber(user.new_users || 0)}</div>
                                 <div class="col revenue-cell ${isZero(user.subscription_revenue) ? 'zero' : ''}">${formatCurrency(user.subscription_revenue || 0)}</div>
                                 <div class="col revenue-cell ${isZero(user.ad_revenue) ? 'zero' : ''}">${formatCurrency(user.ad_revenue || 0)}</div>
@@ -1434,13 +1472,14 @@
                 setTimeout(() => {
                     const metrics = [
                         { value: userData.link_visits || 0, isCurrency: false },
-                        { value: userData.unique_visitors || 0, isCurrency: false },
+                        { value: userData.link_unique || 0, isCurrency: false },
                         { value: userData.new_users || 0, isCurrency: false },
                         { value: userData.subscription_revenue || 0, isCurrency: true },
                         { value: userData.ad_revenue || 0, isCurrency: true }
                     ];
                     metrics.forEach((metric, index) => {
                         if (isZero(metric.value)) return; // Skip animation for zero
+                        if (index === 2) return; // Skip new_users (pending)
                         const element = document.getElementById(`stat-${index}`);
                         if (element) animateNumber(element, metric.value, 2000, metric.isCurrency);
                         const canvas = document.getElementById(`sparkline-${index}`);
@@ -1542,7 +1581,7 @@
         list.innerHTML = entries.map(([name, d]) => `
             <div class="admin-user-item" data-name="${escapeHtml(name)}">
                 <span class="name">${escapeHtml(name)}</span>
-                <input type="number" data-field="link_visits" value="${d.link_visits}" min="0">
+                <input type="number" data-field="link_visits" value="${d.link_visits}" min="0">\n                <input type="number" class="col-uniq" data-field="link_unique" value="${d.link_unique || 0}" min="0">
                 <input type="number" class="col-uniq" data-field="unique_visitors" value="${d.unique_visitors}" min="0">
                 <input type="number" data-field="new_users" value="${d.new_users}" min="0">
                 <input type="number" step="0.01" class="col-sub" data-field="subscription_revenue" value="${d.subscription_revenue}" min="0">
@@ -1564,7 +1603,7 @@
         const name = input.value.trim();
         if (!name) return;
         if (dashboardData.users[name]) { alert('User already exists!'); return; }
-        dashboardData.users[name] = { link_visits: 0, unique_visitors: 0, new_users: 0, subscription_revenue: 0, ad_revenue: 0 };
+        dashboardData.users[name] = { link_visits: 0, link_unique: 0, link_visits_daily: {}, unique_visitors: 0, new_users: 0, subscription_revenue: 0, ad_revenue: 0 };
         input.value = '';
         renderAdminUserList(document.getElementById('adminSearch').value);
         updateAdminExport();
@@ -1634,6 +1673,105 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url; a.download = 'data.json'; a.click();
         URL.revokeObjectURL(url);
+    }
+
+
+    // ========================================
+    // Visits Trend Chart (Chart.js)
+    // ========================================
+    let visitsChartInstance = null;
+
+    function toggleVisitsTrend(cardEl, dailyDataEncoded) {
+        const container = cardEl.querySelector('.visits-trend-container');
+        if (!container) return;
+        
+        const isShowing = container.classList.contains('show');
+        if (isShowing) {
+            container.classList.remove('show');
+            cardEl.classList.remove('expanded');
+            if (visitsChartInstance) { visitsChartInstance.destroy(); visitsChartInstance = null; }
+            return;
+        }
+        
+        // Parse daily data
+        let dailyData = {};
+        try { dailyData = JSON.parse(decodeURIComponent(dailyDataEncoded)); } catch(e) { dailyData = {}; }
+        
+        // Sort dates and prepare chart data
+        const sortedDates = Object.keys(dailyData).sort();
+        const labels = sortedDates.map(d => { const parts = d.split('-'); return parts[1] + '/' + parts[2]; });
+        const values = sortedDates.map(d => dailyData[d]);
+        
+        if (labels.length === 0) return;
+        
+        container.classList.add('show');
+        cardEl.classList.add('expanded');
+        
+        // Destroy previous chart if any
+        if (visitsChartInstance) { visitsChartInstance.destroy(); visitsChartInstance = null; }
+        
+        // Create chart after container is visible
+        setTimeout(() => {
+            const canvas = container.querySelector('canvas');
+            if (!canvas) return;
+            
+            const isDark = !document.documentElement.hasAttribute('data-theme') || document.documentElement.getAttribute('data-theme') !== 'light';
+            const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+            const textColor = isDark ? '#94a3b8' : '#475569';
+            
+            visitsChartInstance = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        borderColor: '#22d3ee',
+                        backgroundColor: 'rgba(34, 211, 238, 0.15)',
+                        borderWidth: 2.5,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#22d3ee',
+                        pointBorderColor: isDark ? '#0d1230' : '#ffffff',
+                        pointBorderWidth: 2,
+                        pointHoverRadius: 5,
+                        fill: true,
+                        tension: 0.35
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: isDark ? 'rgba(13, 18, 48, 0.95)' : 'rgba(255,255,255,0.95)',
+                            titleColor: isDark ? '#fff' : '#0f172a',
+                            bodyColor: isDark ? '#22d3ee' : '#0891b2',
+                            borderColor: 'rgba(34, 211, 238, 0.3)',
+                            borderWidth: 1,
+                            cornerRadius: 8,
+                            padding: 10,
+                            displayColors: false,
+                            callbacks: {
+                                title: function(ctx) { return ctx[0].label; },
+                                label: function(ctx) { return ctx.raw + ' visits'; }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: gridColor, drawBorder: false },
+                            ticks: { color: textColor, font: { size: 10 }, maxRotation: 0 }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: gridColor, drawBorder: false },
+                            ticks: { color: textColor, font: { size: 10 }, stepSize: Math.max(1, Math.ceil(Math.max(...values) / 5)) }
+                        }
+                    },
+                    interaction: { mode: 'index', intersect: false }
+                }
+            });
+        }, 100);
     }
 
     // ========================================
