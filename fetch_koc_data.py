@@ -11,23 +11,100 @@ PROJECT_ID = "1006"
 REPO_DIR = os.path.expanduser("~/novelflow-dashboard")
 BEIDOU_INFO = "/app/data/所有对话/主对话/beidou-api-info.md"
 MONTHLY_REF = "/app/data/所有对话/主对话/beidou-koc-monthly-data.json"
+ANYSTORIES_INFO = os.path.join(REPO_DIR, "anystories-api-info.md")
+CAMPAIGN_CONFIG = os.path.join(REPO_DIR, "campaign_config.json")
 
-def get_token():
+# === 投放报表API配置 ===
+PUTREPORT_API = "https://ad.anystories.app/api/v1/novelflowmiddlegroundmanage/putreport/putreport"
+PUTREPORT_HEADERS = {
+    "Accept": "application/json",
+    "Content-Type": "application/json;charset=UTF-8",
+    "X-OS": "web",
+    "X-AppName": "web-admin",
+    "X-AppIdentifier": "web",
+    "X-AppVersion": "1.0.0,1",
+    "Cache-Control": "no-cache"
+}
+
+
+def get_beidou_token():
+    """获取北斗API Token"""
     with open(BEIDOU_INFO, "r") as f:
         content = f.read()
     match = re.search(r'当前Token[^:]*:\s*`?([a-zA-Z0-9_\-\.]+)`?', content)
     if match:
         return match.group(1)
-    raise Exception("Token not found")
+    raise Exception("Beidou Token not found")
+
+
+def get_putreport_token():
+    """获取投放报表API的OIDC Token"""
+    # 尝试多个位置
+    possible_paths = [
+        "/app/data/所有对话/主对话/anystories-api-info.md",
+        "/root/novelflow-dashboard/anystories-api-info.md",
+        "anystories-api-info.md",
+        "./anystories-api-info.md",
+        os.path.join(os.path.dirname(__file__), "anystories-api-info.md")
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    content = f.read()
+                match = re.search(r'当前Token[^:]*:\s*`?([a-zA-Z0-9_\-\.]+)`?', content)
+                if match:
+                    return match.group(1)
+            except:
+                continue
+    
+    raise Exception("Putreport Token not found")
+
+
+def load_campaign_config():
+    """加载广告系列配置"""
+    # 尝试多个位置
+    possible_paths = [
+        CAMPAIGN_CONFIG,
+        os.path.join(os.path.dirname(__file__), "campaign_config.json"),
+        "campaign_config.json",
+        "./campaign_config.json",
+        "/root/novelflow-dashboard/campaign_config.json"
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"  WARN: Error loading {path}: {e}")
+                continue
+    
+    print("  WARN: campaign_config.json not found, using default config")
+    return {
+        "campaign_ids": [
+            {"id": "69f42260362028a0ac10b770", "koc_username": "ConsEspher", "is_active": True},
+            {"id": "69f94be3e71c030eb9032000", "koc_username": "DRAS", "is_active": True}
+        ],
+        "historical_campaign_ids": []
+    }
+
 
 def get_date_range():
+    """获取当月日期范围"""
     now = datetime.now(timezone(timedelta(hours=8)))
     first_day = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     start = first_day.strftime("%Y-%m-%d 00:00")
     end = now.strftime("%Y-%m-%d 23:59")
-    return start, end
+    date_from = first_day.strftime("%Y-%m-%d")
+    date_to = now.strftime("%Y-%m-%d")
+    return start, end, date_from, date_to
+
 
 def build_koc_filter():
+    """构建北斗API的KOC过滤器"""
     return {
         "relation": "and",
         "conditions": [
@@ -43,7 +120,9 @@ def build_koc_filter():
         }]
     }
 
+
 def build_by_field_params():
+    """构建字段参数"""
     return [{
         "fieldName": "e.self_campaign_name", "propNmCh": "广告系列名称（自建）",
         "propNm": "self_campaign_name", "field": "e.self_campaign_name",
@@ -53,7 +132,9 @@ def build_by_field_params():
         "sqlExpression": "", "isVisible": "1"
     }]
 
+
 def build_measures(field, aggregator, name, alias):
+    """构建指标"""
     return [{
         "event_name": "app_launch", "event_id": 225,
         "metadata": {"color": "success", "origiName": name},
@@ -61,7 +142,9 @@ def build_measures(field, aggregator, name, alias):
         "measureAliasName": alias, "bucketId": 1, "fieldLabel": "实体数"
     }]
 
-def call_api(token, body, max_retries=5, wait_seconds=12):
+
+def call_beidou_api(token, body, max_retries=5, wait_seconds=12):
+    """调用北斗API"""
     url = f"{API_BASE}/api/v1/event-analysis-report/query-report"
     headers = {
         "Authorization": f"Bearer {token}",
@@ -79,11 +162,140 @@ def call_api(token, body, max_retries=5, wait_seconds=12):
         time.sleep(wait_seconds)
     raise Exception(f"API not done after {max_retries} retries")
 
+
+def fetch_putreport_data(campaignid, date_from, date_to, token):
+    """
+    调用投放报表API获取单个广告系列的Unique和New Users数据
+    
+    Args:
+        campaignid: 广告系列ID
+        date_from: 开始日期 (YYYY-MM-DD)
+        date_to: 结束日期 (YYYY-MM-DD)
+        token: Bearer Token
+    
+    Returns:
+        dict: {
+            'campaignid': str,
+            'date': str,
+            'h5landingpageclickusernum': int,  # Unique (H5落地页点击用户数)
+            'newusernum': int,  # New Users (纯新增用户数)
+            'daily': [{'date': str, 'h5landingpageclickusernum': int, 'newusernum': int}]
+        }
+    """
+    payload = {
+        "filters": {
+            "productline": ["NovelFlow"],
+            "mediasource": [],
+            "mediasource2": ["SocialMedia"],
+            "date": {
+                "from": date_from,
+                "to": date_to,
+                "datesLabel": ""
+            },
+            "campaignid": [campaignid],
+            "adsetid": [],
+            "adid": [],
+            "copywritingid": []
+        },
+        "groupings": ["date"]
+    }
+    
+    headers = {**PUTREPORT_HEADERS, "Authorization": f"Bearer {token}"}
+    
+    try:
+        resp = requests.post(PUTREPORT_API, json=payload, headers=headers, timeout=180)
+        resp.raise_for_status()
+        result = resp.json()
+        
+        if result.get("code") != 200:
+            print(f"    API error: code={result.get('code')}, msg={result.get('msg', 'unknown')}")
+            return None
+        
+        data_list = result.get("data", [])
+        if not data_list:
+            print(f"    No data returned for campaign {campaignid}")
+            return None
+        
+        # 提取daily数据
+        daily = []
+        total_h5 = 0
+        total_new = 0
+        
+        for item in data_list:
+            h5 = item.get("h5landingpageclickusernum", 0) or 0
+            new = item.get("newusernum", 0) or 0
+            date = item.get("date", "")
+            
+            daily.append({
+                "date": date,
+                "h5landingpageclickusernum": h5,
+                "newusernum": new
+            })
+            total_h5 += h5
+            total_new += new
+        
+        return {
+            "campaignid": campaignid,
+            "total_h5landingpageclickusernum": total_h5,
+            "total_newusernum": total_new,
+            "daily": daily
+        }
+        
+    except requests.exceptions.Timeout:
+        print(f"    Timeout for campaign {campaignid}")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"    Request error for campaign {campaignid}: {e}")
+        return None
+    except Exception as e:
+        print(f"    Error for campaign {campaignid}: {e}")
+        return None
+
+
+def fetch_all_putreport_data(campaign_ids, date_from, date_to):
+    """
+    批量获取所有广告系列的投放报表数据
+    
+    Args:
+        campaign_ids: 广告系列ID列表
+        date_from: 开始日期
+        date_to: 结束日期
+    
+    Returns:
+        dict: {campaignid: putreport_data}
+    """
+    print("\n--- Fetching Putreport Data (Unique & New Users) ---")
+    token = get_putreport_token()
+    print(f"Token: {token[:20]}...")
+    print(f"Date range: {date_from} ~ {date_to}")
+    print(f"Campaigns: {len(campaign_ids)}")
+    
+    results = {}
+    for i, cid in enumerate(campaign_ids):
+        print(f"\n  [{i+1}/{len(campaign_ids)}] Fetching campaign: {cid}")
+        data = fetch_putreport_data(cid, date_from, date_to, token)
+        if data:
+            print(f"    Total Unique: {data['total_h5landingpageclickusernum']}")
+            print(f"    Total New Users: {data['total_newusernum']}")
+            print(f"    Daily records: {len(data['daily'])}")
+            results[cid] = data
+        else:
+            print(f"    Failed to fetch data")
+        # 避免请求过快
+        time.sleep(0.5)
+    
+    print(f"\n  Successfully fetched: {len(results)}/{len(campaign_ids)} campaigns")
+    return results
+
+
 def extract_koc_username(campaign_name):
+    """从北斗广告系列名称提取KOC用户名"""
     match = re.search(r'KOC_([A-Za-z0-9_/]+)$', campaign_name)
     return match.group(1).replace("/", " ") if match else None
 
+
 def map_koc_username(campaign_username, data_users):
+    """映射KOC用户名到data.json中的用户名"""
     # Direct match
     if campaign_username in data_users:
         return campaign_username
@@ -95,7 +307,9 @@ def map_koc_username(campaign_username, data_users):
             return u
     return None
 
+
 def parse_daily_data(resp_data):
+    """解析北斗API的daily数据"""
     result = {}
     if not resp_data or not resp_data.get("items"):
         return result
@@ -115,7 +329,9 @@ def parse_daily_data(resp_data):
         result[campaign_name] = daily
     return result
 
+
 def parse_monthly_data(resp_data):
+    """解析北斗API的monthly数据"""
     result = {}
     if not resp_data or not resp_data.get("items"):
         return result
@@ -126,7 +342,9 @@ def parse_monthly_data(resp_data):
         result[campaign_name] = sum_values[0] if sum_values else 0
     return result
 
+
 def calc_unique_daily(link_visits, link_unique, link_visits_daily):
+    """根据总Unique和daily visits计算daily unique（比例分配）"""
     if link_visits == 0 or link_unique == 0:
         return {}
     ratio = link_unique / link_visits
@@ -142,23 +360,26 @@ def calc_unique_daily(link_visits, link_unique, link_visits_daily):
                 int_parts[sorted_dates[i]] += 1
     return {d: max(0, v) for d, v in int_parts.items()}
 
+
 def get_ny_time_str():
+    """获取纽约时间字符串"""
     ny_tz = timezone(timedelta(hours=-4))
     return datetime.now(ny_tz).strftime("%Y-%m-%d %H:%M (ET)")
 
+
 def load_monthly_ref():
-    """Load reference monthly unique data as fallback"""
+    """加载月度参考数据（北斗月报）"""
     try:
         with open(MONTHLY_REF, "r") as f:
             return json.load(f).get("data", {})
     except:
         return {}
 
+
 def update_fallback_data(data):
-    """Replace FALLBACK_DATA in dashboard.html with current data.json content."""
-    import os as _os
-    html_path = _os.path.join(REPO_DIR, "dashboard.html")
-    if not _os.path.exists(html_path):
+    """更新dashboard.html中的FALLBACK_DATA"""
+    html_path = os.path.join(REPO_DIR, "dashboard.html")
+    if not os.path.exists(html_path):
         print(f"  WARNING: {html_path} not found, skipping FALLBACK_DATA update")
         return
     
@@ -192,7 +413,7 @@ def update_fallback_data(data):
         print("  WARNING: Could not find FALLBACK_DATA end, skipping")
         return
     
-    # Build new FALLBACK_DATA, remove runtime metadata
+    # Build new FALLBACK_DATA
     clean_data = json.loads(json.dumps(data))
     for uname in clean_data.get("users", {}):
         clean_data["users"][uname].pop("unique_last_success", None)
@@ -205,28 +426,56 @@ def update_fallback_data(data):
     
     print(f"  FALLBACK_DATA updated ({len(new_fallback)} chars)")
 
+
 def main():
     print("=== KOC Data Fetch Start ===")
-    token = get_token()
-    print(f"Token: {token[:20]}...")
-    start, end = get_date_range()
+    print("Data sources: Putreport API (Unique/New Users) + Beidou API (Visits)")
+    token = get_beidou_token()
+    print(f"\nBeidou Token: {token[:20]}...")
+    start, end, date_from, date_to = get_date_range()
     print(f"Date: {start} ~ {end}")
+    print(f"Date range for putreport: {date_from} ~ {date_to}")
 
+    # Load data.json
     with open(f"{REPO_DIR}/data.json", "r") as f:
         data = json.load(f)
     data_users = list(data["users"].keys())
 
+    # Load campaign config
+    campaign_config = load_campaign_config()
+    
+    # 获取活跃的广告系列ID列表
+    active_campaigns = [c["id"] for c in campaign_config.get("campaign_ids", []) if c.get("is_active", False)]
+    print(f"\nActive campaigns: {len(active_campaigns)}")
+    for cid in active_campaigns:
+        print(f"  - {cid}")
+
     # === BULLETPROOF: Snapshot ALL existing unique data before any modification ===
     existing_unique = {}
     existing_unique_daily = {}
+    existing_new_users = {}
+    existing_new_users_daily = {}
     for name, u in data["users"].items():
         if u.get("link_unique", 0) > 0:
             existing_unique[name] = u["link_unique"]
         if u.get("link_unique_daily") and len(u.get("link_unique_daily", {})) > 0:
             existing_unique_daily[name] = dict(u["link_unique_daily"])
+        if u.get("new_users", 0) > 0:
+            existing_new_users[name] = u["new_users"]
+        if u.get("new_users_daily") and len(u.get("new_users_daily", {})) > 0:
+            existing_new_users_daily[name] = dict(u["new_users_daily"])
 
-    # Query 1: Visits by Day
-    print("\n--- Query 1: Visits (BodyCount DAY) ---")
+    # ================================================
+    # STEP 1: 获取投放报表数据 (Unique + New Users)
+    # ================================================
+    putreport_results = {}
+    if active_campaigns:
+        putreport_results = fetch_all_putreport_data(active_campaigns, date_from, date_to)
+    
+    # ================================================
+    # STEP 2: 获取北斗API数据 (Visits)
+    # ================================================
+    print("\n--- Query Beidou: Visits (BodyCount DAY) ---")
     visits_body = {
         "approx": True, "sampling_factor": 1, "projectId": 1006,
         "timeZones": ["Etc/Greenwich", "Etc/Greenwich"],
@@ -239,160 +488,163 @@ def main():
         "unit": "DAY"
     }
     try:
-        visits_resp = call_api(token, visits_body)
+        visits_resp = call_beidou_api(token, visits_body)
         visits_data = parse_daily_data(visits_resp)
-        print(f"  Got {len(visits_data)} campaigns")
+        print(f"  Got {len(visits_data)} campaigns from Beidou")
     except Exception as e:
         if "TOKEN_EXPIRED" in str(e):
-            print("TOKEN EXPIRED!"); sys.exit(1)
+            print("Beidou TOKEN EXPIRED!"); sys.exit(1)
         print(f"ERROR: {e}"); visits_data = {}
 
-    # Query 2: Unique by Month (BodyCount MONTH)
-    print("\n--- Query 2: Unique (BodyCount MONTH) ---")
-    unique_body = {
-        "approx": True, "sampling_factor": 1, "projectId": 1006,
-        "timeZones": ["Etc/Greenwich", "Etc/Greenwich"],
-        "analysisTypeName": "ccid",
-        "byFieldParams": build_by_field_params(),
-        "arith_rollup": True, "maxRowNumber": 2000, "maxGroupNumber": 500,
-        "measures": build_measures("BodyCount", "BodyCount", "月度去重拉活", "measure_6"),
-        "filter": build_koc_filter(),
-        "dateRange": [start, end],
-        "unit": "MONTH"
-    }
-    unique_data = {}
-    try:
-        unique_resp = call_api(token, unique_body, max_retries=6, wait_seconds=15)
-        unique_data = parse_monthly_data(unique_resp)
-        print(f"  Got {len(unique_data)} campaigns")
-        for k, v in unique_data.items():
-            print(f"    {k}: {v}")
-    except Exception as e:
-        if "TOKEN_EXPIRED" in str(e):
-            print("TOKEN EXPIRED!"); sys.exit(1)
-        print(f"  Monthly query failed: {e}")
-
-    # Load fallback
-    if not unique_data:
-        print("  Loading fallback from beidou-koc-monthly-data.json")
-        monthly_ref = load_monthly_ref()
-        for koc_key, val in monthly_ref.items():
-            # koc_key is like "KOC_ConsEspher"
-            koc_name = koc_key.replace("KOC_", "")
-            campaign_name = f"NovelFlow_SocialMedia_KOC_{koc_name}"
-            if val > 0:
-                unique_data[campaign_name] = val
-        print(f"  Fallback: {len(unique_data)} campaigns")
-        for k, v in unique_data.items():
-            print(f"    {k}: {v}")
-
-    # Process
-    # === BULLETPROOF UNIQUE DATA PROTECTION ===
-    # Rules:
-    #   - API returns positive unique → accept it
-    #   - API returns 0 but existing > 0 → REJECT API, keep existing (the recurring bug!)
-    #   - API returns None (campaign missing) → keep existing, recalculate daily if visits updated
-    #   - Never overwrite positive link_unique or non-empty link_unique_daily with 0/empty
-    #   - Track unique_last_success timestamp per user
+    # ================================================
+    # STEP 3: 处理数据并写入data.json
+    # ================================================
     print("\n--- Processing ---")
     updated_users = set()
-    unique_api_had_positive = False
+    putreport_had_data = False
     
+    # 构建campaignid -> koc_username映射
+    cid_to_koc = {}
+    for c in campaign_config.get("campaign_ids", []):
+        cid_to_koc[c["id"]] = c.get("koc_username", "")
+    for c in campaign_config.get("historical_campaign_ids", []):
+        if c["id"] not in cid_to_koc:
+            cid_to_koc[c["id"]] = c.get("koc_username", "")
+    
+    # 处理投放报表数据
+    for cid, putreport_data in putreport_results.items():
+        koc_username = cid_to_koc.get(cid, "")
+        if not koc_username:
+            print(f"  WARN: Cannot find KOC username for campaign {cid}")
+            continue
+        
+        # 尝试映射到data.json中的用户名
+        mapped_name = map_koc_username(koc_username, data_users)
+        if not mapped_name:
+            print(f"  WARN: Cannot map KOC '{koc_username}' to data.json users")
+            continue
+        
+        # 提取总量
+        total_unique = putreport_data.get("total_h5landingpageclickusernum", 0)
+        total_new_users = putreport_data.get("total_newusernum", 0)
+        daily_data = putreport_data.get("daily", [])
+        
+        # 构建daily字典
+        unique_daily = {}
+        new_users_daily = {}
+        for d in daily_data:
+            date = d.get("date", "")
+            if date:
+                unique_daily[date] = d.get("h5landingpageclickusernum", 0)
+                new_users_daily[date] = d.get("newusernum", 0)
+        
+        # 旧值
+        old_unique = existing_unique.get(mapped_name, 0)
+        old_new_users = existing_new_users.get(mapped_name, 0)
+        
+        # === UNIQUE数据保护 ===
+        if total_unique > 0:
+            data["users"][mapped_name]["link_unique"] = total_unique
+            data["users"][mapped_name]["link_unique_daily"] = unique_daily
+            data["users"][mapped_name]["unique_last_success"] = get_ny_time_str()
+            putreport_had_data = True
+            print(f"  {mapped_name}: unique={total_unique} (from putreport)")
+        elif old_unique > 0:
+            # API返回0但旧值>0，保留旧值
+            data["users"][mapped_name]["link_unique"] = old_unique
+            # 用新API的daily结构更新（如果API返回了daily数据）
+            if unique_daily:
+                # 计算新的daily unique
+                visits_daily = data["users"][mapped_name].get("link_visits_daily", {})
+                if visits_daily:
+                    data["users"][mapped_name]["link_unique_daily"] = calc_unique_daily(
+                        sum(visits_daily.values()), old_unique, visits_daily
+                    )
+            print(f"  {mapped_name}: unique={old_unique} (putreport=0, kept existing)")
+        else:
+            data["users"][mapped_name]["link_unique"] = 0
+            data["users"][mapped_name]["link_unique_daily"] = {}
+            print(f"  {mapped_name}: unique=0 (confirmed zero)")
+        
+        # === New Users数据保护 ===
+        if total_new_users > 0:
+            data["users"][mapped_name]["new_users"] = total_new_users
+            data["users"][mapped_name]["new_users_daily"] = new_users_daily
+            print(f"    new_users={total_new_users} (from putreport)")
+        elif old_new_users > 0:
+            data["users"][mapped_name]["new_users"] = old_new_users
+            print(f"    new_users={old_new_users} (putreport=0, kept existing)")
+        else:
+            data["users"][mapped_name]["new_users"] = 0
+            data["users"][mapped_name]["new_users_daily"] = {}
+            print(f"    new_users=0 (confirmed zero)")
+        
+        updated_users.add(mapped_name)
+    
+    # 处理Visits数据（北斗API）
     for campaign_name, daily_visits in visits_data.items():
         koc_name = extract_koc_username(campaign_name)
         if not koc_name or "KOC-RW" in campaign_name:
             continue
         mapped_name = map_koc_username(koc_name, data_users)
         if not mapped_name:
-            print(f"  WARN: Cannot map '{koc_name}'")
+            print(f"  WARN: Cannot map Beidou campaign '{koc_name}'")
             continue
+        
         total_visits = sum(daily_visits.values())
         
-        # Determine unique count with bulletproof logic
-        api_unique = unique_data.get(campaign_name, None)
-        old_unique = existing_unique.get(mapped_name, 0)
-        old_unique_daily = existing_unique_daily.get(mapped_name, {})
-        
         if mapped_name in data["users"]:
-            # Always update visits (visits API is reliable)
             data["users"][mapped_name]["link_visits"] = total_visits
             data["users"][mapped_name]["link_visits_daily"] = daily_visits
             
-            # === UNIQUE DATA PROTECTION ===
-            if api_unique is not None and api_unique > 0:
-                # Case 1: API returned valid positive → accept
-                data["users"][mapped_name]["link_unique"] = api_unique
-                data["users"][mapped_name]["link_unique_daily"] = calc_unique_daily(total_visits, api_unique, daily_visits)
-                data["users"][mapped_name]["unique_last_success"] = get_ny_time_str()
-                unique_api_had_positive = True
-                print(f"  {mapped_name}: visits={total_visits}, unique={api_unique} (API OK)")
-                
-            elif api_unique == 0 and old_unique > 0:
-                # Case 2: API returned 0 but we have existing positive → REJECT API, keep existing
-                # This is THE bug that keeps recurring: API intermittently returns 0
-                data["users"][mapped_name]["link_unique"] = old_unique
-                data["users"][mapped_name]["link_unique_daily"] = calc_unique_daily(total_visits, old_unique, daily_visits)
-                print(f"  {mapped_name}: visits={total_visits}, unique={old_unique} (API=0 REJECTED, kept existing)")
-                
-            elif api_unique is None and old_unique > 0:
-                # Case 3: API didn't return this campaign → keep existing, update daily with new visits
-                data["users"][mapped_name]["link_unique"] = old_unique
-                data["users"][mapped_name]["link_unique_daily"] = calc_unique_daily(total_visits, old_unique, daily_visits)
-                print(f"  {mapped_name}: visits={total_visits}, unique={old_unique} (API N/A, kept existing)")
-                
-            else:
-                # Case 4: API=0 and existing=0 → confirmed zero
-                data["users"][mapped_name]["link_unique"] = 0
-                data["users"][mapped_name]["link_unique_daily"] = {}
-                print(f"  {mapped_name}: visits={total_visits}, unique=0 (confirmed zero)")
+            # 如果unique已从putreport更新，重新计算daily unique
+            if mapped_name not in updated_users:
+                current_unique = data["users"][mapped_name].get("link_unique", 0)
+                if current_unique > 0:
+                    data["users"][mapped_name]["link_unique_daily"] = calc_unique_daily(
+                        total_visits, current_unique, daily_visits
+                    )
             
+            print(f"  {mapped_name}: visits={total_visits}")
             updated_users.add(mapped_name)
 
-    # Also update unique for campaigns in unique_data not in visits_data
-    for campaign_name, unique_count in unique_data.items():
-        koc_name = extract_koc_username(campaign_name)
-        if not koc_name or "KOC-RW" in campaign_name:
-            continue
-        mapped_name = map_koc_username(koc_name, data_users)
-        if mapped_name and mapped_name not in updated_users and mapped_name in data["users"]:
-            old_unique = existing_unique.get(mapped_name, 0)
-            if unique_count > 0:
-                data["users"][mapped_name]["link_unique"] = unique_count
-                data["users"][mapped_name]["unique_last_success"] = get_ny_time_str()
-                print(f"  {mapped_name}: unique={unique_count} (no daily visits, API OK)")
-            elif unique_count == 0 and old_unique > 0:
-                print(f"  {mapped_name}: unique={old_unique} (API=0 REJECTED, no visits)")
-            else:
-                print(f"  {mapped_name}: unique=0 (confirmed zero, no visits)")
-
+    # 更新last_updated
     data["last_updated"] = get_ny_time_str()
+    data["data_source_note"] = "Unique/New Users from Putreport API; Visits from Beidou API"
     print(f"\nlast_updated: {data['last_updated']}")
     print(f"Updated {len(updated_users)} users")
-    print(f"Unique API had positive data: {unique_api_had_positive}")
+    print(f"Putreport had data: {putreport_had_data}")
 
+    # 保存data.json
     with open(f"{REPO_DIR}/data.json", "w") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     print("data.json saved")
     
-    # Update FALLBACK_DATA in dashboard.html to match data.json
+    # 更新FALLBACK_DATA
     print("\n--- Updating FALLBACK_DATA ---")
     update_fallback_data(data)
 
     # Git push
     print("\n--- Git Push ---")
     import subprocess
-    subprocess.run(["git", "add", "data.json", "dashboard.html", "fetch_koc_data.py"], cwd=REPO_DIR, capture_output=True)
-    result = subprocess.run(["git", "commit", "-m", f"Update KOC data {data['last_updated']}"], cwd=REPO_DIR, capture_output=True, text=True)
+    subprocess.run(["git", "add", "data.json", "dashboard.html", "fetch_koc_data.py", "campaign_config.json"], 
+                   cwd=REPO_DIR, capture_output=True)
+    result = subprocess.run(["git", "commit", "-m", 
+                           f"Update KOC data with Putreport API (Unique/New Users) {data['last_updated']}"], 
+                          cwd=REPO_DIR, capture_output=True, text=True)
     if "nothing to commit" in result.stdout or "nothing to commit" in result.stderr:
         print("No changes")
     else:
         print(f"Committed")
-        result = subprocess.run(["git", "push", "origin", "main"], cwd=REPO_DIR, capture_output=True, text=True, env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
+        result = subprocess.run(["git", "push", "origin", "main"], 
+                               cwd=REPO_DIR, capture_output=True, text=True, 
+                               env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
         if result.returncode == 0:
             print("Push successful")
         else:
             print(f"Push failed: {result.stderr}")
     print("\n=== Done ===")
+
 
 if __name__ == "__main__":
     main()

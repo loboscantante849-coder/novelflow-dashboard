@@ -628,6 +628,10 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4m0 14v4m-9.7-3.3l2.8-2.8m10.2-10.2l2.8-2.8M1 12h4m14 0h4M4.3 4.3l2.8 2.8m10.2 10.2l2.8 2.8"/></svg>
                 Push to GitHub
             </div>
+            <div class="nav-item" data-page="campaign" onclick="switchPage('campaign')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/></svg>
+                Campaign Config
+            </div>
             <div class="nav-item" data-page="settings" onclick="switchPage('settings')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
                 Settings
@@ -845,6 +849,76 @@
                 </div>
             </div>
 
+            <!-- ===== Campaign Config ===== -->
+            <div class="page-section" id="page-campaign">
+                <div class="card-box">
+                    <div class="card-title">📊 广告系列配置</div>
+                    <div class="card-desc">
+                        管理KOC广告系列ID，用于从投放报表API获取Unique和New Users数据。<br>
+                        <strong>Unique</strong> → H5落地页点击用户数（天然去重）<br>
+                        <strong>New Users</strong> → 纯新增用户数
+                    </div>
+                    
+                    <!-- Add New Campaign -->
+                    <div class="settings-group">
+                        <div class="settings-group-title">➕ 添加新广告系列</div>
+                        <div class="setting-row">
+                            <div class="setting-label">Campaign ID</div>
+                            <input type="text" class="setting-input" id="newCampaignId" placeholder="例如: 69f42260362028a0ac10b770" style="flex:1;">
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">KOC Username</div>
+                            <input type="text" class="setting-input" id="newKocUsername" placeholder="例如: ConsEspher" style="flex:1;">
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">状态</div>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                <input type="checkbox" id="newCampaignActive" checked style="width:18px;height:18px;accent-color:var(--accent-primary);">
+                                <span style="font-size:14px;">启用（is_active=true）</span>
+                            </label>
+                        </div>
+                        <div class="action-row">
+                            <button class="action-btn action-btn-primary" onclick="addCampaign()">➕ 添加广告系列</button>
+                            <button class="action-btn action-btn-secondary" onclick="testCampaignApi()">🔍 测试API连接</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Campaigns List -->
+                <div class="card-box">
+                    <div class="card-title">✅ 活跃广告系列</div>
+                    <div id="activeCampaignsList" style="display:flex;flex-direction:column;gap:8px;">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+
+                <!-- Historical Campaigns List -->
+                <div class="card-box">
+                    <div class="card-title">📜 历史广告系列</div>
+                    <div class="card-desc">以下广告系列已停用，但仍保留在配置文件中。</div>
+                    <div id="historicalCampaignsList" style="display:flex;flex-direction:column;gap:8px;">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+
+                <!-- API Test -->
+                <div class="card-box">
+                    <div class="card-title">🧪 API测试</div>
+                    <div class="settings-group">
+                        <div class="setting-row">
+                            <div class="setting-label">Campaign ID</div>
+                            <input type="text" class="setting-input" id="testCampaignId" placeholder="输入Campaign ID" style="flex:1;">
+                        </div>
+                        <div class="action-row">
+                            <button class="action-btn action-btn-secondary" onclick="testSingleCampaignApi()">🔍 查询单个广告系列</button>
+                        </div>
+                        <div id="apiTestResult" style="margin-top:16px;padding:16px;background:var(--bg-primary);border-radius:12px;display:none;">
+                            <pre id="apiTestResultContent" style="font-size:12px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- ===== Settings ===== -->
             <div class="page-section" id="page-settings">
                 <div class="card-box">
@@ -923,6 +997,26 @@ const LS_KEY_PWD = 'nf_admin_pwd';
 const LS_KEY_GITHUB_TOKEN = 'nf_github_token';
 const LS_KEY_REPO = 'nf_github_repo';
 const LS_KEY_FILE_PATH = 'nf_github_filepath';
+const LS_KEY_CAMPAIGN_CONFIG = 'nf_campaign_config';
+
+// Default campaign config
+const DEFAULT_CAMPAIGN_CONFIG = {
+    "campaign_ids": [
+        {
+            "id": "69f42260362028a0ac10b770",
+            "koc_username": "ConsEspher",
+            "campaign_name": "NovelFlow_SocialMedia_KOC_ConsEspher",
+            "is_active": true
+        },
+        {
+            "id": "69f94be3e71c030eb9032000",
+            "koc_username": "DRAS",
+            "campaign_name": "NovelFlow_SocialMedia_KOC_DRAS",
+            "is_active": true
+        }
+    ],
+    "historical_campaign_ids": []
+};
 
 // ============================
 // Utility
@@ -1030,6 +1124,7 @@ const pageTitles = {
     import: 'Import Data',
     export: 'Export Data',
     push: 'Push to GitHub',
+    campaign: 'Campaign Config',
     settings: 'Settings'
 };
 
@@ -1039,6 +1134,12 @@ function switchPage(page) {
     document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
     document.getElementById(`page-${page}`).classList.add('active');
     document.getElementById('pageTitle').textContent = pageTitles[page] || page;
+    
+    // Initialize campaign config when switching to campaign page
+    if (page === 'campaign') {
+        renderCampaignConfig();
+    }
+    
     // close sidebar on mobile
     if (window.innerWidth <= 768) toggleSidebar();
 }
@@ -1764,6 +1865,334 @@ function resetAllData() {
         updateStats();
         showToast('All data reset to zero', 'success');
     }, '⚠️');
+}
+
+// ============================
+// Campaign Config Functions
+// ============================
+function getCampaignConfig() {
+    const stored = localStorage.getItem(LS_KEY_CAMPAIGN_CONFIG);
+    if (stored) {
+        try {
+            return JSON.parse(stored);
+        } catch (e) {
+            return DEFAULT_CAMPAIGN_CONFIG;
+        }
+    }
+    return DEFAULT_CAMPAIGN_CONFIG;
+}
+
+function saveCampaignConfig(config) {
+    localStorage.setItem(LS_KEY_CAMPAIGN_CONFIG, JSON.stringify(config));
+}
+
+function renderCampaignConfig() {
+    const config = getCampaignConfig();
+    
+    // Render active campaigns
+    const activeList = document.getElementById('activeCampaignsList');
+    const activeCampaigns = config.campaign_ids.filter(c => c.is_active);
+    
+    if (activeCampaigns.length === 0) {
+        activeList.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center;">暂无活跃广告系列</div>';
+    } else {
+        activeList.innerHTML = activeCampaigns.map(c => `
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg-primary);border-radius:10px;border:1px solid var(--bg-glass-border);">
+                <div style="flex:1;">
+                    <div style="font-weight:600;margin-bottom:4px;">${c.koc_username}</div>
+                    <div style="font-size:12px;color:var(--text-muted);word-break:break-all;">${c.id}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${c.campaign_name || 'N/A'}</div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button class="action-btn action-btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="toggleCampaignActive('${c.id}')" title="停用">
+                        ⏸️
+                    </button>
+                    <button class="del-row-btn" onclick="deleteCampaign('${c.id}')" title="删除">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    // Render historical campaigns
+    const histList = document.getElementById('historicalCampaignsList');
+    const histCampaigns = config.campaign_ids.filter(c => !c.is_active).concat(config.historical_campaign_ids || []);
+    
+    if (histCampaigns.length === 0) {
+        histList.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center;">暂无历史广告系列</div>';
+    } else {
+        histList.innerHTML = histCampaigns.map(c => `
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg-primary);border-radius:10px;border:1px solid var(--bg-glass-border);opacity:0.7;">
+                <div style="flex:1;">
+                    <div style="font-weight:600;margin-bottom:4px;">${c.koc_username || 'Unknown'}</div>
+                    <div style="font-size:12px;color:var(--text-muted);word-break:break-all;">${c.id}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${c.campaign_name || 'N/A'}</div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button class="action-btn action-btn-success" style="padding:6px 12px;font-size:12px;" onclick="reactivateCampaign('${c.id}')" title="重新启用">
+                        ✅
+                    </button>
+                    <button class="del-row-btn" onclick="deleteCampaignPermanently('${c.id}')" title="永久删除">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+function addCampaign() {
+    const id = document.getElementById('newCampaignId').value.trim();
+    const username = document.getElementById('newKocUsername').value.trim();
+    const isActive = document.getElementById('newCampaignActive').checked;
+    
+    if (!id) {
+        showToast('请输入Campaign ID', 'error');
+        return;
+    }
+    if (!username) {
+        showToast('请输入KOC Username', 'error');
+        return;
+    }
+    
+    const config = getCampaignConfig();
+    
+    // Check if already exists
+    const exists = config.campaign_ids.find(c => c.id === id);
+    if (exists) {
+        showToast('该Campaign ID已存在', 'error');
+        return;
+    }
+    
+    const newCampaign = {
+        id: id,
+        koc_username: username,
+        campaign_name: `NovelFlow_SocialMedia_KOC_${username}`,
+        is_active: isActive
+    };
+    
+    config.campaign_ids.push(newCampaign);
+    saveCampaignConfig(config);
+    
+    // Clear inputs
+    document.getElementById('newCampaignId').value = '';
+    document.getElementById('newKocUsername').value = '';
+    
+    renderCampaignConfig();
+    showToast(`广告系列 ${username} 添加成功！`, 'success');
+}
+
+function toggleCampaignActive(id) {
+    const config = getCampaignConfig();
+    const campaign = config.campaign_ids.find(c => c.id === id);
+    if (campaign) {
+        campaign.is_active = false;
+        // Move to historical
+        config.historical_campaign_ids = config.historical_campaign_ids || [];
+        if (!config.historical_campaign_ids.find(c => c.id === id)) {
+            config.historical_campaign_ids.push({...campaign, note: '已停用'});
+        }
+        saveCampaignConfig(config);
+        renderCampaignConfig();
+        showToast(`广告系列 ${campaign.koc_username} 已停用`, 'success');
+    }
+}
+
+function reactivateCampaign(id) {
+    const config = getCampaignConfig();
+    const campaign = config.campaign_ids.find(c => c.id === id);
+    
+    if (campaign) {
+        campaign.is_active = true;
+        // Remove from historical
+        config.historical_campaign_ids = (config.historical_campaign_ids || []).filter(c => c.id !== id);
+        saveCampaignConfig(config);
+        renderCampaignConfig();
+        showToast(`广告系列 ${campaign.koc_username} 已重新启用`, 'success');
+    }
+}
+
+function deleteCampaign(id) {
+    showConfirm(`确定要删除此广告系列吗？`, () => {
+        const config = getCampaignConfig();
+        config.campaign_ids = config.campaign_ids.filter(c => c.id !== id);
+        config.historical_campaign_ids = (config.historical_campaign_ids || []).filter(c => c.id !== id);
+        saveCampaignConfig(config);
+        renderCampaignConfig();
+        showToast('广告系列已删除', 'success');
+    }, '⚠️');
+}
+
+function deleteCampaignPermanently(id) {
+    showConfirm(`确定要永久删除此广告系列吗？`, () => {
+        const config = getCampaignConfig();
+        config.historical_campaign_ids = (config.historical_campaign_ids || []).filter(c => c.id !== id);
+        saveCampaignConfig(config);
+        renderCampaignConfig();
+        showToast('广告系列已永久删除', 'success');
+    }, '⚠️');
+}
+
+async function testCampaignApi() {
+    showToast('正在测试API连接...', 'info');
+    
+    // Get token from anystories-api-info.md (via fetch)
+    try {
+        const tokenResponse = await fetch('anystories-api-info.md');
+        const tokenText = await tokenResponse.text();
+        const tokenMatch = tokenText.match(/当前Token[^:]*:\s*`?([a-zA-Z0-9_\-\.]+)`?/);
+        
+        if (!tokenMatch) {
+            showToast('无法从 anystories-api-info.md 获取Token', 'error');
+            return;
+        }
+        
+        const token = tokenMatch[1];
+        showToast('Token获取成功，正在测试...', 'info');
+        
+        // Test with first active campaign
+        const config = getCampaignConfig();
+        const activeCampaigns = config.campaign_ids.filter(c => c.is_active);
+        
+        if (activeCampaigns.length === 0) {
+            showToast('没有活跃的广告系列可测试', 'warning');
+            return;
+        }
+        
+        const testId = activeCampaigns[0].id;
+        const resultDiv = document.getElementById('apiTestResult');
+        const resultContent = document.getElementById('apiTestResultContent');
+        
+        resultDiv.style.display = 'block';
+        resultContent.textContent = `Testing campaign: ${testId}\n\n`;
+        
+        const now = new Date();
+        const dateTo = now.toISOString().split('T')[0];
+        const dateFrom = dateTo.substring(0, 7) + '-01';
+        
+        const payload = {
+            filters: {
+                productline: ["NovelFlow"],
+                mediasource: [],
+                mediasource2: ["SocialMedia"],
+                date: { from: dateFrom, to: dateTo, datesLabel: "" },
+                campaignid: [testId],
+                adsetid: [],
+                adid: [],
+                copywritingid: []
+            },
+            groupings: ["date"]
+        };
+        
+        const response = await fetch('https://ad.anystories.app/api/v1/novelflowmiddlegroundmanage/putreport/putreport', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'X-OS': 'web',
+                'X-AppName': 'web-admin',
+                'X-AppIdentifier': 'web',
+                'X-AppVersion': '1.0.0,1',
+                'Content-Type': 'application/json;charset=UTF-8',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        resultContent.textContent += `Status: ${response.status}\n\n`;
+        resultContent.textContent += `Response:\n${JSON.stringify(result, null, 2)}`;
+        
+        if (result.code === 200 && result.data && result.data.length > 0) {
+            const data = result.data[0];
+            showToast(`API测试成功！Unique=${data.h5landingpageclickusernum || 0}, New Users=${data.newusernum || 0}`, 'success');
+        } else if (result.code === 200) {
+            showToast('API连接成功，但该广告系列暂无数据', 'warning');
+        } else {
+            showToast(`API返回错误: ${result.code}`, 'error');
+        }
+        
+    } catch (error) {
+        showToast(`API测试失败: ${error.message}`, 'error');
+        document.getElementById('apiTestResult').style.display = 'block';
+        document.getElementById('apiTestResultContent').textContent = `Error: ${error.message}`;
+    }
+}
+
+async function testSingleCampaignApi() {
+    const testId = document.getElementById('testCampaignId').value.trim();
+    
+    if (!testId) {
+        showToast('请输入Campaign ID', 'error');
+        return;
+    }
+    
+    showToast('正在查询...', 'info');
+    
+    try {
+        const tokenResponse = await fetch('anystories-api-info.md');
+        const tokenText = await tokenResponse.text();
+        const tokenMatch = tokenText.match(/当前Token[^:]*:\s*`?([a-zA-Z0-9_\-\.]+)`?/);
+        
+        if (!tokenMatch) {
+            showToast('无法获取Token', 'error');
+            return;
+        }
+        
+        const token = tokenMatch[1];
+        const now = new Date();
+        const dateTo = now.toISOString().split('T')[0];
+        const dateFrom = dateTo.substring(0, 7) + '-01';
+        
+        const payload = {
+            filters: {
+                productline: ["NovelFlow"],
+                mediasource: [],
+                mediasource2: ["SocialMedia"],
+                date: { from: dateFrom, to: dateTo, datesLabel: "" },
+                campaignid: [testId],
+                adsetid: [],
+                adid: [],
+                copywritingid: []
+            },
+            groupings: ["date"]
+        };
+        
+        const response = await fetch('https://ad.anystories.app/api/v1/novelflowmiddlegroundmanage/putreport/putreport', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'X-OS': 'web',
+                'X-AppName': 'web-admin',
+                'X-AppIdentifier': 'web',
+                'X-AppVersion': '1.0.0,1',
+                'Content-Type': 'application/json;charset=UTF-8',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        const resultDiv = document.getElementById('apiTestResult');
+        const resultContent = document.getElementById('apiTestResultContent');
+        
+        resultDiv.style.display = 'block';
+        resultContent.textContent = JSON.stringify(result, null, 2);
+        
+        if (result.code === 200 && result.data && result.data.length > 0) {
+            const data = result.data[0];
+            showToast(`查询成功！Unique=${data.h5landingpageclickusernum || 0}, New Users=${data.newusernum || 0}`, 'success');
+        } else if (result.code === 200) {
+            showToast('该广告系列暂无数据', 'warning');
+        } else {
+            showToast(`API返回错误: ${result.code}`, 'error');
+        }
+        
+    } catch (error) {
+        showToast(`查询失败: ${error.message}`, 'error');
+        document.getElementById('apiTestResult').style.display = 'block';
+        document.getElementById('apiTestResultContent').textContent = `Error: ${error.message}`;
+    }
 }
 
 // ============================
