@@ -2021,6 +2021,12 @@
             { key: 'ad_revenue', icon: icons.ad, value: userData.ad_revenue || 0, isCurrency: true, color: '#f472b6', sparkData: generateSparklineData(userData.ad_revenue || 0), clickable: true, chartLabel: 'ad revenue', dailyData: userData.ad_revenue_daily || {} }
         ];
 
+        // Store chart data in global variable for onclick access
+        window._userChartData = {};
+        metrics.forEach((m, i) => {
+            window._userChartData[i] = { dailyData: m.dailyData || {}, color: m.color, label: m.chartLabel || '' };
+        });
+
         return `
             <section class="page-header slide-up">
                 <p class="user-welcome">${t('welcome')}</p>
