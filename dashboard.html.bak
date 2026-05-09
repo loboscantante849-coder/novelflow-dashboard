@@ -855,18 +855,7 @@
         .stagger-4 { animation-delay: 0.4s; }
         .stagger-5 { animation-delay: 0.5s; }
     </style>
-    <script src="chart.umd.min.js?v=20260509c"></script>
-    <script>
-        // Chart.js load check - if CDN/local fails, try alternative
-        if (typeof Chart === 'undefined') {
-            console.warn('Chart.js not loaded from local, trying CDN fallback...');
-            var s = document.createElement('script');
-            s.src = 'https://unpkg.com/chart.js@4/dist/chart.umd.min.js';
-            s.onload = function() { console.log('Chart.js loaded from CDN fallback'); };
-            s.onerror = function() { console.error('All Chart.js sources failed'); };
-            document.head.appendChild(s);
-        }
-    </script>
+    <script src="chart.umd.min.js?v=20260509b"></script>
 </head>
 <body>
     <!-- Loading Screen -->
@@ -1320,12 +1309,6 @@
             { key: 'ad_revenue', icon: icons.ad, value: userData.ad_revenue || 0, isCurrency: true, color: '#f472b6', sparkData: generateSparklineData(userData.ad_revenue || 0), clickable: true, chartLabel: 'ad revenue', dailyData: userData.ad_revenue_daily || {} }
         ];
 
-        // Store chart data in global variable for onclick access
-        window._userChartData = {};
-        metrics.forEach((m, i) => {
-            window._userChartData[i] = { dailyData: m.dailyData || {}, color: m.color, label: m.chartLabel || '' };
-        });
-
         return `
             <section class="page-header slide-up">
                 <p class="user-welcome">${t('welcome')}</p>
@@ -1346,7 +1329,7 @@
                 ${metrics.map((metric, index) => {
                     const zero = isZero(metric.value);
                     return `
-                    <div class="stat-card ${zero ? 'zero-data' : 'has-data'} ${metric.clickable ? 'clickable' : ''} slide-up stagger-${index + 1}" ${metric.clickable ? `onclick="toggleTrendChart(this, ${index})"` : ''}>
+                    <div class="stat-card ${zero ? 'zero-data' : 'has-data'} ${metric.clickable ? 'clickable' : ''} slide-up stagger-${index + 1}" ${metric.clickable ? `onclick="toggleTrendChart(this, '${encodeURIComponent(JSON.stringify(metric.dailyData || {}))}', '${metric.color}', '${metric.chartLabel || ''}')"` : ''}>
                         <div class="stat-header">
                             <div class="stat-icon">${metric.icon}</div>
                             ${!zero ? `<div class="sparkline-container"><canvas id="sparkline-${index}" width="60" height="30" data-values="${metric.sparkData.join(',')}" data-color="${metric.color}"></canvas></div>` : ''}
@@ -1388,12 +1371,6 @@
             { key: 'link_unique', label: t('sort.link_unique') },
             { key: 'unique_visitors', label: t('sort.unique_visitors') }
         ];
-
-        // Store chart data in global variable for onclick access
-        window._userChartData = {};
-        metrics.forEach((m, i) => {
-            window._userChartData[i] = { dailyData: m.dailyData || {}, color: m.color, label: m.chartLabel || '' };
-        });
 
         return `
             <section class="leaderboard-header slide-up">
@@ -1706,9 +1683,8 @@
     // ========================================
     // Track active chart instances per card index
     const chartInstances = {};
-    window._userChartData = {}; // global store for daily data by metric index
 
-    function toggleTrendChart(cardEl, metricIndex) {
+    function toggleTrendChart(cardEl, dailyDataEncoded, chartColor, chartLabel) {
         const container = cardEl.querySelector('.visits-trend-container');
         if (!container) return;
         
@@ -1722,10 +1698,9 @@
             return;
         }
         
-        // Get data from global store
-        const chartInfo = window._userChartData[metricIndex];
-        if (!chartInfo) return;
-        const { dailyData, color: chartColor, label: chartLabel } = chartInfo;
+        // Parse daily data
+        let dailyData = {};
+        try { dailyData = JSON.parse(decodeURIComponent(dailyDataEncoded)); } catch(e) { dailyData = {}; }
         
         // Sort dates and prepare chart data
         const sortedDates = Object.keys(dailyData).sort();
@@ -1749,21 +1724,6 @@
             return;
         }
         
-        // Check Chart.js availability
-        if (typeof Chart === 'undefined') {
-            setTimeout(() => {
-                const existing = container.querySelector('.trend-no-data');
-                if (!existing) {
-                    const msg = document.createElement('div');
-                    msg.className = 'trend-no-data';
-                    msg.textContent = 'Chart library loading... please try again';
-                    msg.style.color = '#fbbf24';
-                    container.appendChild(msg);
-                }
-            }, 100);
-            return;
-        }
-        
         // Create chart after container is visible
         const canvasId = container.querySelector('canvas')?.id;
         if (canvasId && chartInstances[canvasId]) { chartInstances[canvasId].destroy(); delete chartInstances[canvasId]; }
@@ -1778,10 +1738,7 @@
             const bgColor = chartColor + '26'; // ~15% opacity hex
             const borderColorLight = chartColor + '4D'; // ~30% opacity
             
-            const maxVal = values.length ? Math.max(...values) : 1;
-            
-            try {
-                chartInstances[canvas.id] = new Chart(canvas, {
+            chartInstances[canvas.id] = new Chart(canvas, {
                 type: 'line',
                 data: {
                     labels: labels,
@@ -1827,24 +1784,13 @@
                         y: {
                             beginAtZero: true,
                             grid: { color: gridColor, drawBorder: false },
-                            ticks: { color: textColor, font: { size: 10 }, stepSize: Math.max(1, Math.ceil(maxVal / 5)) }
+                            ticks: { color: textColor, font: { size: 10 }, stepSize: Math.max(1, Math.ceil(Math.max(...values) / 5)) }
                         }
                     },
                     interaction: { mode: 'index', intersect: false }
                 }
             });
-            } catch(e) {
-                console.error('Chart creation failed:', e);
-                const existing = container.querySelector('.trend-no-data');
-                if (!existing) {
-                    const msg = document.createElement('div');
-                    msg.className = 'trend-no-data';
-                    msg.textContent = 'Chart error - try refreshing';
-                    msg.style.color = '#f87171';
-                    container.appendChild(msg);
-                }
-            }
-        }, 150);
+        }, 100);
     }
 
     // ========================================
