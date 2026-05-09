@@ -2429,6 +2429,42 @@
             dashboardData = JSON.parse(JSON.stringify(FALLBACK_DATA));
         }
 
+        // === SELF-HEAL: Recover corrupted unique data ===
+        // Defense layer 2: even if backend accidentally writes bad data, frontend fixes it
+        if (dashboardData && dashboardData.users) {
+            let healedCount = 0;
+            Object.entries(dashboardData.users).forEach(([name, user]) => {
+                const hasUniqueDaily = user.link_unique_daily && Object.keys(user.link_unique_daily).length > 0;
+                const hasUnique = user.link_unique && user.link_unique > 0;
+                const hasVisitsDaily = user.link_visits_daily && Object.keys(user.link_visits_daily).length > 0;
+                const hasVisits = user.link_visits && user.link_visits > 0;
+                // Heal 1: link_unique=0 but daily has data → recover total from daily sum
+                if (!hasUnique && hasUniqueDaily) {
+                    const recovered = Object.values(user.link_unique_daily).reduce((a, b) => a + b, 0);
+                    if (recovered > 0) {
+                        user.link_unique = recovered;
+                        healedCount++;
+                        console.log(`[Self-Heal] ${name}: link_unique recovered=${recovered}`);
+                    }
+                }
+                // Heal 2: link_unique>0 but daily empty → generate daily via ratio
+                if (hasUnique && !hasUniqueDaily && hasVisitsDaily && hasVisits) {
+                    const ratio = user.link_unique / user.link_visits;
+                    const entries = Object.entries(user.link_visits_daily);
+                    const intParts = entries.map(([date, v]) => [date, Math.floor(v * ratio)]);
+                    const sumInt = intParts.reduce((acc, [, v]) => acc + v, 0);
+                    const deficit = user.link_unique - sumInt;
+                    const sorted = intParts.map(([date, v], i) => ({ date, v, frac: entries[i][1] * ratio - v })).sort((a, b) => b.frac - a.frac);
+                    const daily = {};
+                    sorted.forEach((item, i) => { daily[item.date] = i < deficit ? item.v + 1 : item.v; });
+                    user.link_unique_daily = daily;
+                    healedCount++;
+                    console.log(`[Self-Heal] ${name}: link_unique_daily generated (${Object.keys(daily).length} days)`);
+                }
+            });
+            if (healedCount > 0) console.log(`[Self-Heal] Healed ${healedCount} user(s)`);
+        }
+
         const savedLang = localStorage.getItem('dashboardLang');
         if (savedLang) {
             currentLang = savedLang;
@@ -2445,6 +2481,28 @@
                 if (response.ok) {
                     const data = await response.json();
                     if (data && data.users && typeof data.users === 'object') {
+                        // Self-heal on refresh too
+                        Object.entries(data.users).forEach(([name, user]) => {
+                            const hasUniqueDaily = user.link_unique_daily && Object.keys(user.link_unique_daily).length > 0;
+                            const hasUnique = user.link_unique && user.link_unique > 0;
+                            const hasVisitsDaily = user.link_visits_daily && Object.keys(user.link_visits_daily).length > 0;
+                            const hasVisits = user.link_visits && user.link_visits > 0;
+                            if (!hasUnique && hasUniqueDaily) {
+                                const recovered = Object.values(user.link_unique_daily).reduce((a, b) => a + b, 0);
+                                if (recovered > 0) user.link_unique = recovered;
+                            }
+                            if (hasUnique && !hasUniqueDaily && hasVisitsDaily && hasVisits) {
+                                const ratio = user.link_unique / user.link_visits;
+                                const entries = Object.entries(user.link_visits_daily);
+                                const intParts = entries.map(([date, v]) => [date, Math.floor(v * ratio)]);
+                                const sumInt = intParts.reduce((acc, [, v]) => acc + v, 0);
+                                const deficit = user.link_unique - sumInt;
+                                const sorted = intParts.map(([date, v], i) => ({ date, v, frac: entries[i][1] * ratio - v })).sort((a, b) => b.frac - a.frac);
+                                const daily = {};
+                                sorted.forEach((item, i) => { daily[item.date] = i < deficit ? item.v + 1 : item.v; });
+                                user.link_unique_daily = daily;
+                            }
+                        });
                         dashboardData = data;
                         renderContent();
                     }

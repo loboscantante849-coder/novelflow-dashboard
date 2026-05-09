@@ -154,6 +154,57 @@ def load_monthly_ref():
     except:
         return {}
 
+def update_fallback_data(data):
+    """Replace FALLBACK_DATA in dashboard.html with current data.json content."""
+    import os as _os
+    html_path = _os.path.join(REPO_DIR, "dashboard.html")
+    if not _os.path.exists(html_path):
+        print(f"  WARNING: {html_path} not found, skipping FALLBACK_DATA update")
+        return
+    
+    with open(html_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    
+    start_marker = "const FALLBACK_DATA = {"
+    start_idx = content.find(start_marker)
+    if start_idx == -1:
+        print("  WARNING: FALLBACK_DATA not found in dashboard.html, skipping")
+        return
+    
+    # Count braces to find the matching closing };
+    brace_count = 0
+    end_idx = None
+    for i in range(start_idx, len(content)):
+        if content[i] == '{':
+            brace_count += 1
+        elif content[i] == '}':
+            brace_count -= 1
+            if brace_count == 0:
+                remaining = content[i:]
+                semi_idx = remaining.find(';')
+                if semi_idx is not None and semi_idx < 5:
+                    end_idx = i + semi_idx + 1
+                else:
+                    end_idx = i + 1
+                break
+    
+    if end_idx is None:
+        print("  WARNING: Could not find FALLBACK_DATA end, skipping")
+        return
+    
+    # Build new FALLBACK_DATA, remove runtime metadata
+    clean_data = json.loads(json.dumps(data))
+    for uname in clean_data.get("users", {}):
+        clean_data["users"][uname].pop("unique_last_success", None)
+    
+    new_fallback = "const FALLBACK_DATA = " + json.dumps(clean_data, indent=4, ensure_ascii=False) + ";"
+    new_content = content[:start_idx] + new_fallback + content[end_idx:]
+    
+    with open(html_path, "w", encoding="utf-8") as f:
+        f.write(new_content)
+    
+    print(f"  FALLBACK_DATA updated ({len(new_fallback)} chars)")
+
 def main():
     print("=== KOC Data Fetch Start ===")
     token = get_token()
@@ -165,11 +216,14 @@ def main():
         data = json.load(f)
     data_users = list(data["users"].keys())
 
-    # Save existing unique values as baseline
+    # === BULLETPROOF: Snapshot ALL existing unique data before any modification ===
     existing_unique = {}
+    existing_unique_daily = {}
     for name, u in data["users"].items():
         if u.get("link_unique", 0) > 0:
             existing_unique[name] = u["link_unique"]
+        if u.get("link_unique_daily") and len(u.get("link_unique_daily", {})) > 0:
+            existing_unique_daily[name] = dict(u["link_unique_daily"])
 
     # Query 1: Visits by Day
     print("\n--- Query 1: Visits (BodyCount DAY) ---")
@@ -233,8 +287,17 @@ def main():
             print(f"    {k}: {v}")
 
     # Process
+    # === BULLETPROOF UNIQUE DATA PROTECTION ===
+    # Rules:
+    #   - API returns positive unique → accept it
+    #   - API returns 0 but existing > 0 → REJECT API, keep existing (the recurring bug!)
+    #   - API returns None (campaign missing) → keep existing, recalculate daily if visits updated
+    #   - Never overwrite positive link_unique or non-empty link_unique_daily with 0/empty
+    #   - Track unique_last_success timestamp per user
     print("\n--- Processing ---")
     updated_users = set()
+    unique_api_had_positive = False
+    
     for campaign_name, daily_visits in visits_data.items():
         koc_name = extract_koc_username(campaign_name)
         if not koc_name or "KOC-RW" in campaign_name:
@@ -245,20 +308,45 @@ def main():
             continue
         total_visits = sum(daily_visits.values())
         
-        # Get unique: prefer API data, then existing data, then 0
-        unique_count = unique_data.get(campaign_name, None)
-        if unique_count is None:
-            unique_count = existing_unique.get(mapped_name, 0)
-            if unique_count > 0:
-                print(f"  {mapped_name}: using existing unique={unique_count} (API unavailable)")
+        # Determine unique count with bulletproof logic
+        api_unique = unique_data.get(campaign_name, None)
+        old_unique = existing_unique.get(mapped_name, 0)
+        old_unique_daily = existing_unique_daily.get(mapped_name, {})
         
         if mapped_name in data["users"]:
+            # Always update visits (visits API is reliable)
             data["users"][mapped_name]["link_visits"] = total_visits
-            data["users"][mapped_name]["link_unique"] = unique_count
             data["users"][mapped_name]["link_visits_daily"] = daily_visits
-            data["users"][mapped_name]["link_unique_daily"] = calc_unique_daily(total_visits, unique_count, daily_visits)
+            
+            # === UNIQUE DATA PROTECTION ===
+            if api_unique is not None and api_unique > 0:
+                # Case 1: API returned valid positive → accept
+                data["users"][mapped_name]["link_unique"] = api_unique
+                data["users"][mapped_name]["link_unique_daily"] = calc_unique_daily(total_visits, api_unique, daily_visits)
+                data["users"][mapped_name]["unique_last_success"] = get_ny_time_str()
+                unique_api_had_positive = True
+                print(f"  {mapped_name}: visits={total_visits}, unique={api_unique} (API OK)")
+                
+            elif api_unique == 0 and old_unique > 0:
+                # Case 2: API returned 0 but we have existing positive → REJECT API, keep existing
+                # This is THE bug that keeps recurring: API intermittently returns 0
+                data["users"][mapped_name]["link_unique"] = old_unique
+                data["users"][mapped_name]["link_unique_daily"] = calc_unique_daily(total_visits, old_unique, daily_visits)
+                print(f"  {mapped_name}: visits={total_visits}, unique={old_unique} (API=0 REJECTED, kept existing)")
+                
+            elif api_unique is None and old_unique > 0:
+                # Case 3: API didn't return this campaign → keep existing, update daily with new visits
+                data["users"][mapped_name]["link_unique"] = old_unique
+                data["users"][mapped_name]["link_unique_daily"] = calc_unique_daily(total_visits, old_unique, daily_visits)
+                print(f"  {mapped_name}: visits={total_visits}, unique={old_unique} (API N/A, kept existing)")
+                
+            else:
+                # Case 4: API=0 and existing=0 → confirmed zero
+                data["users"][mapped_name]["link_unique"] = 0
+                data["users"][mapped_name]["link_unique_daily"] = {}
+                print(f"  {mapped_name}: visits={total_visits}, unique=0 (confirmed zero)")
+            
             updated_users.add(mapped_name)
-            print(f"  {mapped_name}: visits={total_visits}, unique={unique_count}")
 
     # Also update unique for campaigns in unique_data not in visits_data
     for campaign_name, unique_count in unique_data.items():
@@ -267,21 +355,33 @@ def main():
             continue
         mapped_name = map_koc_username(koc_name, data_users)
         if mapped_name and mapped_name not in updated_users and mapped_name in data["users"]:
-            data["users"][mapped_name]["link_unique"] = unique_count
-            print(f"  {mapped_name}: unique={unique_count} (no daily visits)")
+            old_unique = existing_unique.get(mapped_name, 0)
+            if unique_count > 0:
+                data["users"][mapped_name]["link_unique"] = unique_count
+                data["users"][mapped_name]["unique_last_success"] = get_ny_time_str()
+                print(f"  {mapped_name}: unique={unique_count} (no daily visits, API OK)")
+            elif unique_count == 0 and old_unique > 0:
+                print(f"  {mapped_name}: unique={old_unique} (API=0 REJECTED, no visits)")
+            else:
+                print(f"  {mapped_name}: unique=0 (confirmed zero, no visits)")
 
     data["last_updated"] = get_ny_time_str()
     print(f"\nlast_updated: {data['last_updated']}")
     print(f"Updated {len(updated_users)} users")
+    print(f"Unique API had positive data: {unique_api_had_positive}")
 
     with open(f"{REPO_DIR}/data.json", "w") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     print("data.json saved")
+    
+    # Update FALLBACK_DATA in dashboard.html to match data.json
+    print("\n--- Updating FALLBACK_DATA ---")
+    update_fallback_data(data)
 
     # Git push
     print("\n--- Git Push ---")
     import subprocess
-    subprocess.run(["git", "add", "data.json"], cwd=REPO_DIR, capture_output=True)
+    subprocess.run(["git", "add", "data.json", "dashboard.html", "fetch_koc_data.py"], cwd=REPO_DIR, capture_output=True)
     result = subprocess.run(["git", "commit", "-m", f"Update KOC data {data['last_updated']}"], cwd=REPO_DIR, capture_output=True, text=True)
     if "nothing to commit" in result.stdout or "nothing to commit" in result.stderr:
         print("No changes")
