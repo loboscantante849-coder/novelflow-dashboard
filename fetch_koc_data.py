@@ -8,7 +8,7 @@ from datetime import datetime, timezone, timedelta
 
 API_BASE = "https://beidou.win"
 PROJECT_ID = "1006"
-REPO_DIR = os.path.expanduser("~/novelflow-dashboard")
+REPO_DIR = "/app/data/所有对话/主对话/novelflow-dashboard"
 BEIDOU_INFO = "/app/data/所有对话/主对话/beidou-api-info.md"
 MONTHLY_REF = "/app/data/所有对话/主对话/beidou-koc-monthly-data.json"
 ANYSTORIES_INFO = os.path.join(REPO_DIR, "anystories-api-info.md")
