@@ -1009,8 +1009,10 @@
     </div>
 
     <script>
-    // =================================    // FALLBACK EMBEDDED DATA (offline support)
-    // =================================    const FALLBACK_DATA = {
+    // =================================
+    // FALLBACK EMBEDDED DATA (offline support)
+    // =================================
+    const FALLBACK_DATA = {
     "last_updated": "2026-05-10 21:41 (ET)",
     "users": {
         "573918": {
@@ -1844,8 +1846,10 @@ const translations = {
     let dashboardData = null;
     let searchQuery = '';
 
-    // =================================    // Particle System
-    // =================================    function initParticles() {
+    // =================================
+    // Particle System
+    // =================================
+    function initParticles() {
         const canvas = document.getElementById('particles-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
@@ -1875,8 +1879,10 @@ const translations = {
         window.addEventListener('resize', () => { resize(); init(); });
     }
 
-    // =================================    // Sparkline Chart
-    // =================================    function drawSparkline(canvas, data, color) {
+    // =================================
+    // Sparkline Chart
+    // =================================
+    function drawSparkline(canvas, data, color) {
         const ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
         ctx.clearRect(0, 0, w, h);
         if (!data || data.length < 2) { ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1; ctx.stroke(); return; }
@@ -1891,8 +1897,10 @@ const translations = {
         ctx.fillStyle = grad; ctx.fill();
     }
 
-    // =================================    // Utility Functions
-    // =================================    function getUrlParam(name) { const v = new URLSearchParams(window.location.search).get(name); return v ? decodeURIComponent(v) : null; }
+    // =================================
+    // Utility Functions
+    // =================================
+    function getUrlParam(name) { const v = new URLSearchParams(window.location.search).get(name); return v ? decodeURIComponent(v) : null; }
     function escapeHtml(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
     function setLanguage(lang) {
         currentLang = lang; localStorage.setItem('dashboardLang', lang);
@@ -1929,8 +1937,10 @@ const translations = {
         data.push(baseValue); return data;
     }
 
-    // =================================    // SVG Icons
-    // =================================    const icons = {
+    // =================================
+    // SVG Icons
+    // =================================
+    const icons = {
         link: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
         users: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
         userPlus: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>',
@@ -1946,7 +1956,8 @@ const translations = {
         search: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
     };
 
-    // =================================    // Render Functions
+    // =================================
+    // Render Functions
     // =================================
     function renderUserPage(username, userData) {
         const totalRevenue = getTotalRevenue(userData);
@@ -2196,8 +2207,10 @@ const translations = {
         });
     }
 
-    // =================================    // Theme Toggle
-    // =================================    function initTheme() {
+    // =================================
+    // Theme Toggle
+    // =================================
+    function initTheme() {
         const saved = localStorage.getItem('dashboardTheme') || 'dark';
         const sun = document.querySelector('.sun-icon'), moon = document.querySelector('.moon-icon');
         document.documentElement.setAttribute('data-theme', saved);
@@ -2210,11 +2223,15 @@ const translations = {
         document.querySelector('.moon-icon').style.display = next === 'light' ? 'block' : 'none';
     }
 
-    // =================================    // Loading Screen
-    // =================================    function hideLoadingScreen() { setTimeout(() => document.getElementById('loadingScreen').classList.add('hidden'), 1800); }
+    // =================================
+    // Loading Screen
+    // =================================
+    function hideLoadingScreen() { setTimeout(() => document.getElementById('loadingScreen').classList.add('hidden'), 1800); }
 
-    // =================================    // Onboarding (first visit)
-    // =================================    function checkOnboarding() {
+    // =================================
+    // Onboarding (first visit)
+    // =================================
+    function checkOnboarding() {
         if (!localStorage.getItem('nf_onboarded')) {
             document.getElementById('onboardingOverlay').classList.remove('hidden');
         }
@@ -2224,8 +2241,10 @@ const translations = {
         document.getElementById('onboardingOverlay').classList.add('hidden');
     }
 
-    // =================================    // Admin Panel
-    // =================================    function toggleAdmin(show) {
+    // =================================
+    // Admin Panel
+    // =================================
+    function toggleAdmin(show) {
         const overlay = document.getElementById('adminOverlay');
         if (show) {
             overlay.classList.add('visible');
@@ -2339,8 +2358,10 @@ const translations = {
     }
 
 
-    // =================================    // Visits Trend Chart (Chart.js)
-    // =================================    // Track active chart instances per card index
+    // =================================
+    // Visits Trend Chart (Chart.js)
+    // =================================
+    // Track active chart instances per card index
     const chartInstances = {};
     window._userChartData = {}; // global store for daily data by metric index
 
@@ -2483,8 +2504,10 @@ const translations = {
         }, 150);
     }
 
-    // =================================    // Data Loading (fetch from data.json + fallback)
-    // =================================    async function loadData() {
+    // =================================
+    // Data Loading (fetch from data.json + fallback)
+    // =================================
+    async function loadData() {
         try {
             const response = await fetch('data.json?t=' + Date.now());
             if (response.ok) {
@@ -2593,8 +2616,10 @@ const translations = {
         }, 30000);
     }
 
-    // =================================    // Event Listeners
-    // =================================    document.addEventListener('DOMContentLoaded', () => {
+    // =================================
+    // Event Listeners
+    // =================================
+    document.addEventListener('DOMContentLoaded', () => {
         initParticles();
         initTheme();
 
