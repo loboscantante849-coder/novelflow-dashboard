@@ -1991,7 +1991,7 @@ const translations = {
                 ${metrics.map((metric, index) => {
                     const zero = isZero(metric.value);
                     return `
-                    <div class="stat-card ${zero ? 'zero-data' : 'has-data'} ${metric.clickable ? 'clickable' : ''} slide-up stagger-${index + 1}" ${metric.clickable ? `onclick="toggleTrendChart(this, ${index})"` : ''}>
+                    <div class="stat-card ${zero ? 'zero-data' : 'has-data'} ${metric.clickable ? 'clickable expanded' : ''} slide-up stagger-${index + 1}" ${metric.clickable ? `onclick="toggleTrendChart(this, ${index})"` : ''}>
                         <div class="stat-header">
                             <div class="stat-icon">${metric.icon}</div>
                             ${!zero ? `<div class="sparkline-container"><canvas id="sparkline-${index}" width="60" height="30" data-values="${metric.sparkData.join(',')}" data-color="${metric.color}"></canvas></div>` : ''}
@@ -1999,7 +1999,7 @@ const translations = {
                         <span class="stat-label">${t('metrics.' + metric.key)}</span>
                         <div class="stat-value" id="stat-${index}">${zero ? t('coming.soon') : '0'}</div>
                         <p class="stat-desc">${t('metrics.' + metric.key + '_desc')}</p>
-                        ${metric.clickable ? `<div class="visits-trend-container" id="trend-${index}"><span class="trend-label">Daily Trend</span><canvas id="trendChart-${index}"></canvas></div>` : ''}
+                        ${metric.clickable ? `<div class="visits-trend-container show" id="trend-${index}"><span class="trend-label">Daily Trend</span><canvas id="trendChart-${index}"></canvas></div>` : ''}
                     </div>`;
                 }).join('')}
             </section>
@@ -2148,6 +2148,13 @@ const translations = {
                         if (element) animateNumber(element, metric.value, 2000, metric.isCurrency);
                         const canvas = document.getElementById(`sparkline-${index}`);
                         if (canvas) { drawSparkline(canvas, canvas.dataset.values.split(',').map(Number), canvas.dataset.color); }
+                    });
+                    // Auto-expand all trend charts by default
+                    document.querySelectorAll('.stat-card.expanded').forEach((card) => {
+                        const onclick = card.getAttribute('onclick');
+                        const match = onclick?.match(/toggleTrendChart\(this, (\d+)\)/);
+                        const idx = match ? parseInt(match[1]) : -1;
+                        if (idx >= 0) toggleTrendChart(card, idx);
                     });
                 }, 400);
             } else {
