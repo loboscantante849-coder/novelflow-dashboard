@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NovelFlow KOC — 提交推荐书籍</title>
+<title>NovelFlow KOC — Submit Book Recommendation</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -369,15 +369,15 @@ a:hover { color: #a89cff; }
 <div class="container">
   <!-- Hero -->
   <div class="hero">
-    <div class="hero-badge">📚 KOC 书单提交</div>
-    <h1>推荐你喜欢的书籍 <span class="gradient-text">共同推广</span></h1>
-    <p>分享你想要推广的书籍，我们会为你创建专属推广链接，让更多读者发现好书！</p>
+    <div class="hero-badge">📚 KOC Book Submission</div>
+    <h1>Recommend Your Favorite Books <span class="gradient-text">Grow Together</span></h1>
+    <p>Share books you want to promote. We'll create exclusive referral links so more readers can discover great books!</p>
   </div>
 
   <!-- Info Box -->
   <div class="info-box">
-    <p><strong>提交后会发生什么？</strong><br>
-    你的推荐会被收录到公开书单墙。当我们为该书创建好推广链接后，会在 Discord 通知你！</p>
+    <p><strong>What happens after submission?</strong><br>
+    Your recommendation will be added to the public book wall. Once we create the referral link, we'll notify you on Discord!</p>
   </div>
 
   <!-- Error Message -->
@@ -387,25 +387,25 @@ a:hover { color: #a89cff; }
   <div class="card form-container" id="formContainer">
     <form id="bookForm">
       <div class="form-group">
-        <label for="discordUsername">Discord Username <span class="required">*</span></label>
-        <input type="text" id="discordUsername" class="form-input" placeholder="例如：john_doe#1234 或 john_doe" required>
+        <label for="discordUsername">Discord Username</label>
+        <input type="text" id="discordUsername" class="form-input" placeholder="e.g., john_doe#1234 or john_doe">
       </div>
 
       <div class="form-group">
-        <label for="bookName">书名 <span class="required">*</span></label>
-        <input type="text" id="bookName" class="form-input" placeholder="输入书籍名称" required>
+        <label for="bookName">Book Name <span class="required">*</span></label>
+        <input type="text" id="bookName" class="form-input" placeholder="Enter the book title" required>
       </div>
 
       <div class="form-group">
-        <label for="promotionMethod">预计推广方式 <span class="required">*</span></label>
-        <select id="promotionMethod" class="form-select" required>
-          <option value="">请选择推广方式</option>
+        <label for="promotionMethod">Promotion Method</label>
+        <select id="promotionMethod" class="form-select">
+          <option value="">Select promotion method</option>
           <option value="Facebook Groups">Facebook Groups</option>
           <option value="Facebook Pages">Facebook Pages</option>
           <option value="Discord">Discord</option>
           <option value="TikTok">TikTok</option>
           <option value="Reels">Reels (Instagram/Facebook)</option>
-          <option value="Other">其他方式</option>
+          <option value="Other">Other</option>
         </select>
         <div class="promo-tags">
           <span class="promo-tag">Facebook Groups</span>
@@ -418,12 +418,12 @@ a:hover { color: #a89cff; }
       </div>
 
       <div class="form-group">
-        <label for="notes">备注（可选）</label>
-        <textarea id="notes" class="form-textarea" placeholder="任何补充信息，如你的读者群体特点等..."></textarea>
+        <label for="notes">Notes (Optional)</label>
+        <textarea id="notes" class="form-textarea" placeholder="Any additional info, like your audience characteristics..."></textarea>
       </div>
 
       <button type="submit" class="btn-submit" id="submitBtn">
-        <span class="btn-text">🚀 提交推荐</span>
+        <span class="btn-text">🚀 Submit Book Recommendation</span>
         <span class="spinner"></span>
       </button>
     </form>
@@ -432,19 +432,13 @@ a:hover { color: #a89cff; }
   <!-- Success Message -->
   <div class="card success-message" id="successMessage">
     <div class="success-icon">✅</div>
-    <h2>提交成功！</h2>
-    <p>你的书籍推荐已收到！</p>
+    <h2>Submission Received!</h2>
+    <p>Your book recommendation has been received!</p>
     <p id="submittedBook"></p>
     <div class="next-step">
-      <p>📌 <strong>接下来会发生什么？</strong></p>
-      <p>我们的团队会审核你的推荐，并尽快为该书创建专属推广链接。完成后会在 Discord 通知你！</p>
+      <p>📌 <strong>What happens next?</strong></p>
+      <p>Our team will review your recommendation and create the referral link as soon as possible. We'll notify you on Discord when it's done!</p>
     </div>
-  </div>
-
-  <!-- Navigation Links -->
-  <div class="nav-links">
-    <a href="book-wall.html">📖 查看书单墙</a>
-    <a href="book-admin.html">🔧 管理后台</a>
   </div>
 </div>
 
@@ -482,28 +476,22 @@ function generateSubmissionId() {
 }
 
 function formatDiscordMessage(submission) {
-  const timestamp = new Date(submission.submittedAt).toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
+  let parts = [`📖 Book Submission`];
   
-  return `📖 **新书籍推荐提交**
-
-━━━━━━━━━━━━━━━━━━━━
-👤 **Discord 用户:** ${submission.discordUsername}
-📚 **书名:** ${submission.bookName}
-📢 **推广方式:** ${submission.promotionMethod}
-🕐 **提交时间:** ${timestamp}
-${submission.notes ? `📝 **备注:** ${submission.notes}` : ''}
-━━━━━━━━━━━━━━━━━━━━
-
-*提交ID: ${submission.id}*
-
-> 💡 请将此消息发送到 Discord #book-submissions 频道完成提交！`;
+  if (submission.bookName) {
+    parts.push(`Book: ${submission.bookName}`);
+  }
+  if (submission.discordUsername) {
+    parts.push(`Discord: ${submission.discordUsername}`);
+  }
+  if (submission.promotionMethod) {
+    parts.push(`Channel: ${submission.promotionMethod}`);
+  }
+  if (submission.notes) {
+    parts.push(`Notes: ${submission.notes}`);
+  }
+  
+  return parts.join(' | ');
 }
 
 async function copyToClipboard(text) {
@@ -539,16 +527,8 @@ form.addEventListener('submit', async (e) => {
   const notes = document.getElementById('notes').value.trim();
   
   // Validation
-  if (!discordUsername) {
-    showError('请输入 Discord 用户名');
-    return;
-  }
   if (!bookName) {
-    showError('请输入书名');
-    return;
-  }
-  if (!promotionMethod) {
-    showError('请选择推广方式');
+    showError('Please enter the book name');
     return;
   }
   
@@ -571,7 +551,7 @@ form.addEventListener('submit', async (e) => {
     const copied = await copyToClipboard(discordMessage);
     
     if (!copied) {
-      showError('复制失败，请检查浏览器权限设置');
+      showError('Copy failed, please check browser permissions');
       setLoading(false);
       return;
     }
@@ -584,8 +564,8 @@ form.addEventListener('submit', async (e) => {
     // Update success message to include Discord action
     const nextStepEl = successMessage.querySelector('.next-step');
     nextStepEl.innerHTML = `
-      <p style="color: #00d482; font-size: 16px;">✅ <strong>消息已复制到剪贴板！</strong></p>
-      <p style="margin-top: 12px;">请打开 Discord，进入 <strong>#book-submissions</strong> 频道，粘贴并发送消息完成提交。</p>
+      <p style="color: #00d482; font-size: 16px;">✅ <strong>Message copied to clipboard!</strong></p>
+      <p style="margin-top: 12px;">Please open Discord, go to <strong>#book-submissions</strong> channel, paste and send the message to complete your submission.</p>
       <a href="${DISCORD_INVITE_LINK}" target="_blank" class="discord-btn" style="
         display: inline-flex;
         align-items: center;
@@ -602,7 +582,7 @@ form.addEventListener('submit', async (e) => {
         transition: all .2s;
         box-shadow: 0 4px 15px rgba(88, 101, 242, 0.3);
       " onmouseover="this.style.background='#4752C4'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='#5865F2'; this.style.transform='translateY(0)'">
-        💬 打开 Discord 频道
+        💬 Open Discord Channel
       </a>
     `;
     
@@ -614,7 +594,7 @@ form.addEventListener('submit', async (e) => {
     
   } catch (error) {
     console.error('Submit error:', error);
-    showError('提交失败，请重试');
+    showError('Submission failed, please try again');
   } finally {
     setLoading(false);
   }
