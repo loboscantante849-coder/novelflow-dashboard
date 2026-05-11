@@ -470,19 +470,6 @@ function setLoading(loading) {
   }
 }
 
-function generateSubmissionId() {
-  return 'sub_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-}
-
-function formatSubmissionData(submission) {
-  return {
-    bookName: submission.bookName,
-    discordUsername: submission.discordUsername,
-    promotionMethod: submission.promotionMethod,
-    notes: submission.notes
-  };
-}
-
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   hideError();
@@ -500,31 +487,53 @@ form.addEventListener('submit', async (e) => {
   
   setLoading(true);
   
-  const submission = {
-    id: generateSubmissionId(),
-    discordUsername: discordUsername,
+  const submissionData = {
     bookName: bookName,
-    promotionMethod: promotionMethod,
-    notes: notes || '',
-    submittedAt: new Date().toISOString(),
-    status: 'pending'
+    discordUsername: discordUsername || 'Anonymous',
+    promotionMethod: promotionMethod || 'Other',
+    notes: notes || ''
   };
   
   try {
-    // Show success message
+    const response = await fetch('/api/submit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(submissionData)
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Submission failed');
+    }
+    
+    // Success - show success message
+    formContainer.classList.add('hidden');
+    submittedBook.textContent = `📚 "${bookName}"`;
+    successMessage.classList.add('show');
+    form.reset();
+    
+  } catch (error) {
+    console.error('Submission error:', error);
+    
+    // Fallback to localStorage
+    localStorage.setItem('pendingSubmission', JSON.stringify(submissionData));
+    
+    // Still show success with note about backup
     formContainer.classList.add('hidden');
     submittedBook.textContent = `📚 "${bookName}"`;
     successMessage.classList.add('show');
     
-    // Store submission in localStorage as backup
-    localStorage.setItem('pendingSubmission', JSON.stringify(submission));
-    
-    // Reset form
-    form.reset();
-    
-  } catch (error) {
-    console.error('Submit error:', error);
-    showError('Submission failed, please try again');
+    // Update the next step message to indicate offline mode
+    const nextStepDiv = successMessage.querySelector('.next-step');
+    if (nextStepDiv) {
+      nextStepDiv.innerHTML = `
+        <p>📌 <strong>Submission saved locally!</strong></p>
+        <p>Note: Unable to sync to server. Your submission is saved in browser storage and will be synced when the connection is restored.</p>
+        <a href="book-wall.html" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>
+      `;
+    }
   } finally {
     setLoading(false);
   }
