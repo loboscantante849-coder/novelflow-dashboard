@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NovelFlow KOC — 提交推荐书籍</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #050714;
+  color: #c8cdd5;
+  line-height: 1.7;
+  font-size: 15px;
+  min-height: 100vh;
+}
+a { color: #7c6cff; text-decoration: none; transition: color .2s; }
+a:hover { color: #a89cff; }
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0a0d1f; }
+::-webkit-scrollbar-thumb { background: #2a2d45; border-radius: 3px; }
+
+/* ===== Main Container ===== */
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+/* ===== Hero Section ===== */
+.hero {
+  text-align: center;
+  margin-bottom: 40px;
+}
+.hero-badge {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 20px;
+  background: rgba(124, 108, 255, 0.12);
+  border: 1px solid rgba(124, 108, 255, 0.25);
+  color: #a89cff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin-bottom: 20px;
+}
+.hero h1 {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 14px;
+  letter-spacing: -0.5px;
+}
+.hero h1 .gradient-text {
+  background: linear-gradient(135deg, #7c6cff 0%, #00d4ff 50%, #7c6cff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% auto;
+  animation: shimmer 3s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0%, 100% { background-position: 0% center; }
+  50% { background-position: 200% center; }
+}
+.hero p {
+  font-size: 16px;
+  color: #8a8faa;
+  max-width: 480px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+/* ===== Card ===== */
+.card {
+  background: linear-gradient(135deg, rgba(14, 17, 38, 0.9), rgba(10, 13, 31, 0.95));
+  border: 1px solid rgba(124, 108, 255, 0.08);
+  border-radius: 20px;
+  padding: 36px;
+  margin-bottom: 24px;
+}
+
+/* ===== Form Styles ===== */
+.form-group {
+  margin-bottom: 24px;
+}
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #a0a4c0;
+  margin-bottom: 8px;
+  letter-spacing: 0.3px;
+}
+.form-group label .required {
+  color: #ff6b6b;
+  margin-left: 3px;
+}
+.form-input {
+  width: 100%;
+  padding: 14px 18px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(124, 108, 255, 0.15);
+  border-radius: 12px;
+  color: #e0e3ec;
+  font-size: 15px;
+  font-family: 'Inter', sans-serif;
+  transition: border-color .2s, box-shadow .2s;
+}
+.form-input:focus {
+  outline: none;
+  border-color: #7c6cff;
+  box-shadow: 0 0 0 3px rgba(124, 108, 255, 0.15);
+}
+.form-input::placeholder {
+  color: #5a5f7a;
+}
+.form-select {
+  width: 100%;
+  padding: 14px 18px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(124, 108, 255, 0.15);
+  border-radius: 12px;
+  color: #e0e3ec;
+  font-size: 15px;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%237a7f9a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  transition: border-color .2s, box-shadow .2s;
+}
+.form-select:focus {
+  outline: none;
+  border-color: #7c6cff;
+  box-shadow: 0 0 0 3px rgba(124, 108, 255, 0.15);
+}
+.form-select option {
+  background: #0a0d1f;
+  color: #e0e3ec;
+}
+.form-textarea {
+  width: 100%;
+  padding: 14px 18px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(124, 108, 255, 0.15);
+  border-radius: 12px;
+  color: #e0e3ec;
+  font-size: 15px;
+  font-family: 'Inter', sans-serif;
+  resize: vertical;
+  min-height: 100px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.form-textarea:focus {
+  outline: none;
+  border-color: #7c6cff;
+  box-shadow: 0 0 0 3px rgba(124, 108, 255, 0.15);
+}
+.form-textarea::placeholder {
+  color: #5a5f7a;
+}
+
+/* ===== Submit Button ===== */
+.btn-submit {
+  width: 100%;
+  padding: 16px 36px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #7c6cff, #5a4ce0);
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: transform .2s, box-shadow .2s, opacity .2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.btn-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(124, 108, 255, 0.4);
+}
+.btn-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+.btn-submit .spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: none;
+}
+.btn-submit.loading .spinner {
+  display: block;
+}
+.btn-submit.loading .btn-text {
+  display: none;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Success Message ===== */
+.success-message {
+  display: none;
+  text-align: center;
+  padding: 40px 20px;
+}
+.success-message.show {
+  display: block;
+}
+.success-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(0, 212, 130, 0.2), rgba(0, 212, 255, 0.15));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  font-size: 36px;
+}
+.success-message h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #e0e3ec;
+  margin-bottom: 12px;
+}
+.success-message p {
+  font-size: 15px;
+  color: #8a8faa;
+  margin-bottom: 8px;
+}
+.success-message .next-step {
+  background: rgba(124, 108, 255, 0.08);
+  border: 1px solid rgba(124, 108, 255, 0.15);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-top: 24px;
+  text-align: left;
+}
+.success-message .next-step p {
+  font-size: 14px;
+  color: #a0a4c0;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ===== Error Message ===== */
+.error-message {
+  display: none;
+  background: rgba(255, 100, 100, 0.1);
+  border: 1px solid rgba(255, 100, 100, 0.25);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  color: #ff8888;
+  font-size: 14px;
+}
+.error-message.show {
+  display: block;
+}
+
+/* ===== Info Box ===== */
+.info-box {
+  background: rgba(0, 212, 255, 0.05);
+  border: 1px solid rgba(0, 212, 255, 0.12);
+  border-radius: 14px;
+  padding: 18px 22px;
+  margin-bottom: 28px;
+}
+.info-box p {
+  font-size: 13px;
+  color: #8a8faa;
+  line-height: 1.6;
+}
+.info-box strong {
+  color: #00d4ff;
+}
+
+/* ===== Navigation Links ===== */
+.nav-links {
+  text-align: center;
+  margin-top: 32px;
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+}
+.nav-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  background: rgba(124, 108, 255, 0.08);
+  border: 1px solid rgba(124, 108, 255, 0.15);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all .2s;
+}
+.nav-links a:hover {
+  background: rgba(124, 108, 255, 0.15);
+  border-color: rgba(124, 108, 255, 0.3);
+  color: #a89cff;
+}
+
+/* ===== Promotion Method Tags ===== */
+.promo-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.promo-tag {
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(124, 108, 255, 0.08);
+  border: 1px solid rgba(124, 108, 255, 0.12);
+  color: #8a8faa;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* ===== Form Container ===== */
+.form-container {
+  transition: opacity .3s;
+}
+.form-container.hidden {
+  display: none;
+}
+
+/* ===== Mobile Responsive ===== */
+@media (max-width: 640px) {
+  .container {
+    padding: 32px 16px 60px;
+  }
+  .hero h1 {
+    font-size: 28px;
+  }
+  .card {
+    padding: 28px 20px;
+  }
+  .nav-links {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .nav-links a {
+    width: 100%;
+    justify-content: center;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-badge">📚 KOC 书单提交</div>
+    <h1>推荐你喜欢的书籍 <span class="gradient-text">共同推广</span></h1>
+    <p>分享你想要推广的书籍，我们会为你创建专属推广链接，让更多读者发现好书！</p>
+  </div>
+
+  <!-- Info Box -->
+  <div class="info-box">
+    <p><strong>提交后会发生什么？</strong><br>
+    你的推荐会被收录到公开书单墙。当我们为该书创建好推广链接后，会在 Discord 通知你！</p>
+  </div>
+
+  <!-- Error Message -->
+  <div class="error-message" id="errorMessage"></div>
+
+  <!-- Form -->
+  <div class="card form-container" id="formContainer">
+    <form id="bookForm">
+      <div class="form-group">
+        <label for="discordUsername">Discord Username <span class="required">*</span></label>
+        <input type="text" id="discordUsername" class="form-input" placeholder="例如：john_doe#1234 或 john_doe" required>
+      </div>
+
+      <div class="form-group">
+        <label for="bookName">书名 <span class="required">*</span></label>
+        <input type="text" id="bookName" class="form-input" placeholder="输入书籍名称" required>
+      </div>
+
+      <div class="form-group">
+        <label for="promotionMethod">预计推广方式 <span class="required">*</span></label>
+        <select id="promotionMethod" class="form-select" required>
+          <option value="">请选择推广方式</option>
+          <option value="Facebook Groups">Facebook Groups</option>
+          <option value="Facebook Pages">Facebook Pages</option>
+          <option value="Discord">Discord</option>
+          <option value="TikTok">TikTok</option>
+          <option value="Reels">Reels (Instagram/Facebook)</option>
+          <option value="Other">其他方式</option>
+        </select>
+        <div class="promo-tags">
+          <span class="promo-tag">Facebook Groups</span>
+          <span class="promo-tag">Facebook Pages</span>
+          <span class="promo-tag">Discord</span>
+          <span class="promo-tag">TikTok</span>
+          <span class="promo-tag">Reels</span>
+          <span class="promo-tag">Other</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="notes">备注（可选）</label>
+        <textarea id="notes" class="form-textarea" placeholder="任何补充信息，如你的读者群体特点等..."></textarea>
+      </div>
+
+      <button type="submit" class="btn-submit" id="submitBtn">
+        <span class="btn-text">🚀 提交推荐</span>
+        <span class="spinner"></span>
+      </button>
+    </form>
+  </div>
+
+  <!-- Success Message -->
+  <div class="card success-message" id="successMessage">
+    <div class="success-icon">✅</div>
+    <h2>提交成功！</h2>
+    <p>你的书籍推荐已收到！</p>
+    <p id="submittedBook"></p>
+    <div class="next-step">
+      <p>📌 <strong>接下来会发生什么？</strong></p>
+      <p>我们的团队会审核你的推荐，并尽快为该书创建专属推广链接。完成后会在 Discord 通知你！</p>
+    </div>
+  </div>
+
+  <!-- Navigation Links -->
+  <div class="nav-links">
+    <a href="book-wall.html">📖 查看书单墙</a>
+    <a href="book-admin.html">🔧 管理后台</a>
+  </div>
+</div>
+
+<script>
+// Discord Configuration - Replace with your actual Discord server invite
+const DISCORD_INVITE_LINK = 'https://discord.gg/xrDJEqFF';
+
+const form = document.getElementById('bookForm');
+const submitBtn = document.getElementById('submitBtn');
+const errorMessage = document.getElementById('errorMessage');
+const successMessage = document.getElementById('successMessage');
+const formContainer = document.getElementById('formContainer');
+const submittedBook = document.getElementById('submittedBook');
+
+function showError(message) {
+  errorMessage.textContent = message;
+  errorMessage.classList.add('show');
+}
+
+function hideError() {
+  errorMessage.classList.remove('show');
+}
+
+function setLoading(loading) {
+  submitBtn.disabled = loading;
+  if (loading) {
+    submitBtn.classList.add('loading');
+  } else {
+    submitBtn.classList.remove('loading');
+  }
+}
+
+function generateSubmissionId() {
+  return 'sub_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+function formatDiscordMessage(submission) {
+  const timestamp = new Date(submission.submittedAt).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+  
+  return `📖 **新书籍推荐提交**
+
+━━━━━━━━━━━━━━━━━━━━
+👤 **Discord 用户:** ${submission.discordUsername}
+📚 **书名:** ${submission.bookName}
+📢 **推广方式:** ${submission.promotionMethod}
+🕐 **提交时间:** ${timestamp}
+${submission.notes ? `📝 **备注:** ${submission.notes}` : ''}
+━━━━━━━━━━━━━━━━━━━━
+
+*提交ID: ${submission.id}*
+
+> 💡 请将此消息发送到 Discord #book-submissions 频道完成提交！`;
+}
+
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (err) {
+    // Fallback for older browsers
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      return true;
+    } catch (e) {
+      document.body.removeChild(textarea);
+      return false;
+    }
+  }
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideError();
+  
+  const discordUsername = document.getElementById('discordUsername').value.trim();
+  const bookName = document.getElementById('bookName').value.trim();
+  const promotionMethod = document.getElementById('promotionMethod').value;
+  const notes = document.getElementById('notes').value.trim();
+  
+  // Validation
+  if (!discordUsername) {
+    showError('请输入 Discord 用户名');
+    return;
+  }
+  if (!bookName) {
+    showError('请输入书名');
+    return;
+  }
+  if (!promotionMethod) {
+    showError('请选择推广方式');
+    return;
+  }
+  
+  setLoading(true);
+  
+  const submission = {
+    id: generateSubmissionId(),
+    discordUsername: discordUsername,
+    bookName: bookName,
+    promotionMethod: promotionMethod,
+    notes: notes || '',
+    submittedAt: new Date().toISOString(),
+    status: 'pending'
+  };
+  
+  try {
+    const discordMessage = formatDiscordMessage(submission);
+    
+    // Copy to clipboard
+    const copied = await copyToClipboard(discordMessage);
+    
+    if (!copied) {
+      showError('复制失败，请检查浏览器权限设置');
+      setLoading(false);
+      return;
+    }
+    
+    // Show success with Discord action
+    formContainer.classList.add('hidden');
+    submittedBook.textContent = `📚 "${bookName}"`;
+    successMessage.classList.add('show');
+    
+    // Update success message to include Discord action
+    const nextStepEl = successMessage.querySelector('.next-step');
+    nextStepEl.innerHTML = `
+      <p style="color: #00d482; font-size: 16px;">✅ <strong>消息已复制到剪贴板！</strong></p>
+      <p style="margin-top: 12px;">请打开 Discord，进入 <strong>#book-submissions</strong> 频道，粘贴并发送消息完成提交。</p>
+      <a href="${DISCORD_INVITE_LINK}" target="_blank" class="discord-btn" style="
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 20px;
+        padding: 14px 28px;
+        background: #5865F2;
+        color: white;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 14px;
+        text-decoration: none;
+        transition: all .2s;
+        box-shadow: 0 4px 15px rgba(88, 101, 242, 0.3);
+      " onmouseover="this.style.background='#4752C4'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='#5865F2'; this.style.transform='translateY(0)'">
+        💬 打开 Discord 频道
+      </a>
+    `;
+    
+    // Store submission in localStorage as backup
+    localStorage.setItem('pendingSubmission', JSON.stringify(submission));
+    
+    // Reset form
+    form.reset();
+    
+  } catch (error) {
+    console.error('Submit error:', error);
+    showError('提交失败，请重试');
+  } finally {
+    setLoading(false);
+  }
+});
+</script>
+
+</body>
+</html>
