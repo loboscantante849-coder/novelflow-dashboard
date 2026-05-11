@@ -432,19 +432,18 @@ a:hover { color: #a89cff; }
   <!-- Success Message -->
   <div class="card success-message" id="successMessage">
     <div class="success-icon">✅</div>
-    <h2>Submission Received!</h2>
-    <p>Your book recommendation has been received!</p>
+    <h2>Thank You!</h2>
+    <p>Your submission has been received!</p>
     <p id="submittedBook"></p>
     <div class="next-step">
       <p>📌 <strong>What happens next?</strong></p>
-      <p>Our team will review your recommendation and create the referral link as soon as possible. We'll notify you on Discord when it's done!</p>
+      <p>Your referral link will be created within 24 hours. Check the Book Wall to find it — you can search by book name.</p>
+      <a href="book-wall.html" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>
     </div>
   </div>
 </div>
 
 <script>
-// Discord Configuration - Replace with your actual Discord server invite
-const DISCORD_INVITE_LINK = 'https://discord.gg/xrDJEqFF';
 
 const form = document.getElementById('bookForm');
 const submitBtn = document.getElementById('submitBtn');
@@ -475,46 +474,13 @@ function generateSubmissionId() {
   return 'sub_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 }
 
-function formatDiscordMessage(submission) {
-  let parts = [`📖 Book Submission`];
-  
-  if (submission.bookName) {
-    parts.push(`Book: ${submission.bookName}`);
-  }
-  if (submission.discordUsername) {
-    parts.push(`Discord: ${submission.discordUsername}`);
-  }
-  if (submission.promotionMethod) {
-    parts.push(`Channel: ${submission.promotionMethod}`);
-  }
-  if (submission.notes) {
-    parts.push(`Notes: ${submission.notes}`);
-  }
-  
-  return parts.join(' | ');
-}
-
-async function copyToClipboard(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch (err) {
-    // Fallback for older browsers
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
-    textarea.select();
-    try {
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-      return true;
-    } catch (e) {
-      document.body.removeChild(textarea);
-      return false;
-    }
-  }
+function formatSubmissionData(submission) {
+  return {
+    bookName: submission.bookName,
+    discordUsername: submission.discordUsername,
+    promotionMethod: submission.promotionMethod,
+    notes: submission.notes
+  };
 }
 
 form.addEventListener('submit', async (e) => {
@@ -545,46 +511,10 @@ form.addEventListener('submit', async (e) => {
   };
   
   try {
-    const discordMessage = formatDiscordMessage(submission);
-    
-    // Copy to clipboard
-    const copied = await copyToClipboard(discordMessage);
-    
-    if (!copied) {
-      showError('Copy failed, please check browser permissions');
-      setLoading(false);
-      return;
-    }
-    
-    // Show success with Discord action
+    // Show success message
     formContainer.classList.add('hidden');
     submittedBook.textContent = `📚 "${bookName}"`;
     successMessage.classList.add('show');
-    
-    // Update success message to include Discord action
-    const nextStepEl = successMessage.querySelector('.next-step');
-    nextStepEl.innerHTML = `
-      <p style="color: #00d482; font-size: 16px;">✅ <strong>Message copied to clipboard!</strong></p>
-      <p style="margin-top: 12px;">Please open Discord, go to <strong>#book-submissions</strong> channel, paste and send the message to complete your submission.</p>
-      <a href="${DISCORD_INVITE_LINK}" target="_blank" class="discord-btn" style="
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        margin-top: 20px;
-        padding: 14px 28px;
-        background: #5865F2;
-        color: white;
-        border-radius: 10px;
-        font-weight: 600;
-        font-size: 14px;
-        text-decoration: none;
-        transition: all .2s;
-        box-shadow: 0 4px 15px rgba(88, 101, 242, 0.3);
-      " onmouseover="this.style.background='#4752C4'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='#5865F2'; this.style.transform='translateY(0)'">
-        💬 Open Discord Channel
-      </a>
-    `;
     
     // Store submission in localStorage as backup
     localStorage.setItem('pendingSubmission', JSON.stringify(submission));

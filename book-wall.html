@@ -412,8 +412,7 @@ a:hover { color: #a89cff; }
 
   <!-- Navigation Links -->
   <div class="nav-links">
-    <a href="book-submit.html">➕ 提交推荐</a>
-    <a href="book-admin.html">🔧 管理后台</a>
+    <a href="book-submit.html">➕ Submit a Book</a>
   </div>
 
   <div class="last-updated" id="lastUpdated"></div>
@@ -444,7 +443,7 @@ function getInitials(name) {
 }
 
 function anonymizeName(name) {
-  // 只显示名字的第一部分，并隐藏数字部分
+  // Only show first part of name, hide numbers
   const match = name.match(/^([a-zA-Z_]+)/);
   if (match) {
     const firstPart = match[1];
