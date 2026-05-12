@@ -238,14 +238,10 @@
     let userData = [];
     let hotBooksData = [];
 
-    // Anonymize Discord username - take first 3 characters + ***
+    // Show full Discord username
     function anonymizeName(name) {
       if (!name) return '???';
-      const trimmed = name.trim();
-      if (trimmed.length <= 3) {
-        return trimmed + '***';
-      }
-      return trimmed.substring(0, 3) + '***';
+      return name.trim();
     }
 
     // Get initials from name
