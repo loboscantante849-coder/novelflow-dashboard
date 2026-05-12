@@ -80,7 +80,7 @@ a:hover { color: #a89cff; }
 /* ===== Stats Bar ===== */
 .stats-bar {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
   margin-bottom: 40px;
 }
@@ -164,27 +164,6 @@ a:hover { color: #a89cff; }
   align-items: center;
   gap: 6px;
 }
-.book-stats {
-  display: flex;
-  gap: 16px;
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-.book-stat {
-  text-align: center;
-  flex: 1;
-}
-.book-stat-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: #00d4ff;
-}
-.book-stat-label {
-  font-size: 11px;
-  color: #6a6f8a;
-  margin-top: 2px;
-}
 .book-expand {
   display: none;
   margin-top: 16px;
@@ -203,63 +182,43 @@ a:hover { color: #a89cff; }
   margin-top: 12px;
   text-align: center;
 }
-.recommender-list {
+
+/* ===== Book Item (inside recommender card) ===== */
+.book-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
-.recommender-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.book-item {
   padding: 10px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
-.recommender-item:last-child {
+.book-item:last-child {
   border-bottom: none;
 }
-.recommender-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, rgba(124, 108, 255, 0.3), rgba(0, 212, 255, 0.2));
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.book-item-name {
   font-size: 14px;
   font-weight: 600;
+  color: #eef0f6;
+  margin-bottom: 4px;
+}
+.book-item-link {
+  font-size: 12px;
+  color: #7c6cff;
+  margin-bottom: 2px;
+}
+.book-item-link a {
+  color: #7c6cff;
+  text-decoration: none;
+}
+.book-item-link a:hover {
   color: #a89cff;
-  flex-shrink: 0;
+  text-decoration: underline;
 }
-.recommender-info {
-  flex: 1;
-  min-width: 0;
-}
-.recommender-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: #c8cdd5;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.recommender-method {
-  font-size: 11px;
+.book-item-pending {
+  font-size: 12px;
   color: #5a5f7a;
-}
-
-/* ===== Promotion Method Badge ===== */
-.method-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
-  border-radius: 6px;
-  background: rgba(0, 212, 255, 0.08);
-  border: 1px solid rgba(0, 212, 255, 0.15);
-  color: #5cc8e8;
-  font-size: 11px;
-  font-weight: 500;
+  font-style: italic;
 }
 
 /* ===== Loading State ===== */
@@ -388,10 +347,6 @@ a:hover { color: #a89cff; }
       <div class="stat-value" id="totalRecommenders">-</div>
       <div class="stat-label">Recommenders</div>
     </div>
-    <div class="stat-card">
-      <div class="stat-value" id="topMethod">-</div>
-      <div class="stat-label">Top Method</div>
-    </div>
   </div>
 
   <!-- Loading State -->
@@ -422,26 +377,6 @@ a:hover { color: #a89cff; }
 const DATA_URL = '/api/submissions';
 let allSubmissions = [];
 
-function getMethodIcon(method) {
-  const icons = {
-    'Facebook Groups': '👥',
-    'Facebook Pages': '📄',
-    'Discord': '💬',
-    'TikTok': '🎵',
-    'Reels': '🎬',
-    'Other': '🔗'
-  };
-  return icons[method] || '📢';
-}
-
-function getInitials(name) {
-  const parts = name.split(/[\s_#-]+/);
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  return name.substring(0, 2).toUpperCase();
-}
-
 function anonymizeName(name) {
   // Only show first part of name, hide numbers
   const match = name.match(/^([a-zA-Z_]+)/);
@@ -455,52 +390,37 @@ function anonymizeName(name) {
   return name.substring(0, 3) + '***';
 }
 
-function aggregateBooks(submissions) {
-  const bookMap = {};
+function aggregateByRecommender(submissions) {
+  const recommenderMap = {};
   
   submissions.forEach(sub => {
-    const bookName = sub.bookName.toLowerCase().trim();
-    if (!bookMap[bookName]) {
-      bookMap[bookName] = {
-        bookName: sub.bookName,
-        recommenders: []
-      };
+    const name = anonymizeName(sub.discordUsername);
+    if (!recommenderMap[name]) {
+      recommenderMap[name] = { books: [] };
     }
-    bookMap[bookName].recommenders.push({
-      anonymizedName: anonymizeName(sub.discordUsername),
+    recommenderMap[name].books.push({
+      bookName: sub.bookName,
+      code: sub.code || '',
+      link: sub.link || '',
       method: sub.promotionMethod
     });
   });
   
-  return Object.values(bookMap).sort((a, b) => b.recommenders.length - a.recommenders.length);
+  return Object.entries(recommenderMap).map(([name, data]) => ({
+    name,
+    books: data.books,
+    bookCount: data.books.length
+  })).sort((a, b) => b.bookCount - a.bookCount);
 }
 
-function getTopMethod(submissions) {
-  const methodCount = {};
-  submissions.forEach(sub => {
-    methodCount[sub.promotionMethod] = (methodCount[sub.promotionMethod] || 0) + 1;
-  });
-  
-  let topMethod = '';
-  let maxCount = 0;
-  Object.entries(methodCount).forEach(([method, count]) => {
-    if (count > maxCount) {
-      maxCount = count;
-      topMethod = method;
-    }
-  });
-  
-  return topMethod;
-}
-
-function renderBooks(aggregatedBooks) {
+function renderBooks(aggregatedRecommenders) {
   const grid = document.getElementById('bookGrid');
   const loading = document.getElementById('loadingState');
   const empty = document.getElementById('emptyState');
   
   loading.style.display = 'none';
   
-  if (aggregatedBooks.length === 0) {
+  if (aggregatedRecommenders.length === 0) {
     empty.style.display = 'block';
     grid.style.display = 'none';
     return;
@@ -509,54 +429,45 @@ function renderBooks(aggregatedBooks) {
   empty.style.display = 'none';
   grid.style.display = 'grid';
   
-  const topMethod = getTopMethod(allSubmissions);
+  // Count unique books and recommenders
+  const uniqueBooks = new Set(allSubmissions.map(s => s.bookName.toLowerCase().trim())).size;
+  const uniqueRecommenders = aggregatedRecommenders.length;
   
   // Update stats
-  document.getElementById('totalBooks').textContent = aggregatedBooks.length;
-  document.getElementById('totalRecommenders').textContent = allSubmissions.length;
-  document.getElementById('topMethod').textContent = getMethodIcon(topMethod) || '-';
+  document.getElementById('totalBooks').textContent = uniqueBooks;
+  document.getElementById('totalRecommenders').textContent = uniqueRecommenders;
   
-  grid.innerHTML = aggregatedBooks.map(book => {
-    const methodCount = {};
-    book.recommenders.forEach(r => {
-      methodCount[r.method] = (methodCount[r.method] || 0) + 1;
-    });
-    
+  grid.innerHTML = aggregatedRecommenders.map(recommender => {
     return `
       <div class="book-card" onclick="toggleExpand(this)">
         <div class="book-header">
-          <div class="book-icon">📚</div>
+          <div class="book-icon">👤</div>
           <div>
-            <div class="book-title">${escapeHtml(book.bookName)}</div>
+            <div class="book-title">${escapeHtml(recommender.name)}</div>
             <div class="book-meta">
-              <span>👤 ${book.recommenders.length} recommender${book.recommenders.length > 1 ? 's' : ''}</span>
+              <span>📚 ${recommender.bookCount} book${recommender.bookCount > 1 ? 's' : ''} recommended</span>
             </div>
           </div>
         </div>
-        <div class="book-stats">
-          ${Object.entries(methodCount).map(([method, count]) => `
-            <div class="book-stat">
-              <div class="book-stat-value">${getMethodIcon(method)}</div>
-              <div class="book-stat-label">${count} · ${method}</div>
-            </div>
-          `).join('')}
-        </div>
-        <div class="expand-hint">Click to see recommenders</div>
+        <div class="expand-hint">Click to see their books</div>
         <div class="book-expand">
-          <div style="font-size: 12px; color: #6a6f8a; margin-bottom: 10px;">Recommenders (anonymized)</div>
-          <ul class="recommender-list">
-            ${book.recommenders.map(r => `
-              <li class="recommender-item">
-                <div class="recommender-avatar">${getInitials(r.anonymizedName)}</div>
-                <div class="recommender-info">
-                  <div class="recommender-name">${escapeHtml(r.anonymizedName)}</div>
-                  <div class="recommender-method">
-                    <span class="method-badge">${getMethodIcon(r.method)} ${r.method}</span>
-                  </div>
+          <div class="book-list">
+            ${recommender.books.map(book => {
+              const hasCode = book.code && book.code.trim();
+              const hasLink = book.link && book.link.trim();
+              
+              return `
+                <div class="book-item">
+                  <div class="book-item-name">📚 ${escapeHtml(book.bookName)}</div>
+                  ${hasCode ? `<div class="book-item-link">🔢 Code: ${escapeHtml(book.code)}</div>` : ''}
+                  ${hasLink 
+                    ? `<div class="book-item-link">🔗 <a href="${escapeHtml(book.link)}" target="_blank">${escapeHtml(book.link)}</a></div>` 
+                    : `<div class="book-item-pending">⏳ Link pending...</div>`
+                  }
                 </div>
-              </li>
-            `).join('')}
-          </ul>
+              `;
+            }).join('')}
+          </div>
         </div>
       </div>
     `;
@@ -580,12 +491,12 @@ async function loadData() {
     
     allSubmissions = await response.json();
     
-    // Update last updated time
+    // Update last updated time - US Eastern Time
     document.getElementById('lastUpdated').textContent = 
-      `Last updated: ${new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai' })}`;
+      `Last updated: ${new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })}`;
     
-    const aggregatedBooks = aggregateBooks(allSubmissions);
-    renderBooks(aggregatedBooks);
+    const aggregatedRecommenders = aggregateByRecommender(allSubmissions);
+    renderBooks(aggregatedRecommenders);
   } catch (error) {
     console.error('Error loading data:', error);
     document.getElementById('loadingState').innerHTML = `
