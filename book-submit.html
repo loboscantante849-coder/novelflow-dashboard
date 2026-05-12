@@ -87,7 +87,7 @@ a:hover { color: #a89cff; }
   </div>
 
   <div class="info-box">
-    <p><strong>What happens after submission?</strong><br>Your recommendation will be added to the public book wall. Once we create the referral link, we'll notify you on Discord!</p>
+    <p><strong>What happens after submission?</strong><br>After you submit a book name, your exclusive referral link and code will be generated within <strong>~5 minutes</strong>. You can then find them on the Book Wall — search by your name to get your link, code, and ready-to-use promo copy!</p>
   </div>
 
   <div class="error-message" id="errorMessage"></div>
@@ -105,7 +105,7 @@ a:hover { color: #a89cff; }
       <div class="form-group">
         <label for="promotionMethod">Promotion Method</label>
         <select id="promotionMethod" class="form-select">
-          <option value="">Select promotion method</option>
+          <option value="All Channels" selected>All Channels</option>
           <option value="Facebook Groups">Facebook Groups</option>
           <option value="Facebook Pages">Facebook Pages</option>
           <option value="Discord">Discord</option>
@@ -114,18 +114,15 @@ a:hover { color: #a89cff; }
           <option value="Other">Other</option>
         </select>
         <div class="promo-tags">
+          <span class="promo-tag">All Channels</span>
           <span class="promo-tag">Facebook Groups</span>
           <span class="promo-tag">Facebook Pages</span>
           <span class="promo-tag">Discord</span>
           <span class="promo-tag">TikTok</span>
           <span class="promo-tag">Reels</span>
-          <span class="promo-tag">Other</span>
         </div>
       </div>
-      <div class="form-group">
-        <label for="notes">Notes (Optional)</label>
-        <textarea id="notes" class="form-textarea" placeholder="Any additional info, like your audience characteristics..."></textarea>
-      </div>
+
       <button type="submit" class="btn-submit" id="submitBtn">
         <span class="btn-text">🚀 Submit Book Recommendation</span>
         <span class="spinner"></span>
@@ -251,12 +248,12 @@ form.addEventListener('submit', async (e) => {
   const discordUsername = document.getElementById('discordUsername').value.trim();
   const bookName = document.getElementById('bookName').value.trim();
   const promotionMethod = document.getElementById('promotionMethod').value;
-  const notes = document.getElementById('notes').value.trim();
+
   
   if (!bookName) { showError('Please enter the book name'); return; }
   
   setLoading(true);
-  const submissionData = { bookName, discordUsername: discordUsername || 'Anonymous', promotionMethod: promotionMethod || 'Other', notes: notes || '' };
+  const submissionData = { bookName, discordUsername: discordUsername || 'Anonymous', promotionMethod: promotionMethod || 'All Channels' };
   
   try {
     showProcessingStatus();
