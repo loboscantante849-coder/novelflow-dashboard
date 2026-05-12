@@ -287,14 +287,14 @@
         btn.innerHTML = '✓ Copied!';
         btn.classList.add('copied');
         setTimeout(() => {
-          btn.innerHTML = '📋 一键复制推广文案';
+          btn.innerHTML = '📋 Copy Promo';
           btn.classList.remove('copied');
         }, 1500);
       } catch (err) {
         console.error('Copy promo failed:', err);
         btn.innerHTML = '✗ Failed';
         setTimeout(() => {
-          btn.innerHTML = '📋 一键复制推广文案';
+          btn.innerHTML = '📋 Copy Promo';
         }, 1500);
       }
     }
@@ -505,7 +505,7 @@
           }
           
           const promoBtn = isCompleted
-            ? '<button class="copy-promo-btn" onclick="event.stopPropagation(); copyPromoText(\'' + escapeHtml(book.bookName) + '\', \'' + escapeHtml(book.link) + '\', \'' + escapeHtml(book.code || '') + '\', this)">📋 一键复制推广文案</button>'
+            ? '<button class="copy-promo-btn" onclick="event.stopPropagation(); copyPromoText(\'' + escapeHtml(book.bookName) + '\', \'' + escapeHtml(book.link) + '\', \'' + escapeHtml(book.code || '') + '\', this)">📋 Copy Promo</button>'
             : '';
           
           bookItemsHtml +=
