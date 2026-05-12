@@ -516,24 +516,9 @@ form.addEventListener('submit', async (e) => {
     
   } catch (error) {
     console.error('Submission error:', error);
-    
-    // Fallback to localStorage
-    localStorage.setItem('pendingSubmission', JSON.stringify(submissionData));
-    
-    // Still show success with note about backup
-    formContainer.classList.add('hidden');
-    submittedBook.textContent = `📚 "${bookName}"`;
-    successMessage.classList.add('show');
-    
-    // Update the next step message to indicate offline mode
-    const nextStepDiv = successMessage.querySelector('.next-step');
-    if (nextStepDiv) {
-      nextStepDiv.innerHTML = `
-        <p>📌 <strong>Submission saved locally!</strong></p>
-        <p>Note: Unable to sync to server. Your submission is saved in browser storage and will be synced when the connection is restored.</p>
-        <a href="book-wall.html" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>
-      `;
-    }
+    showError('Submission failed: ' + error.message + '. Please try again.');
+    setLoading(false);
+    return;
   } finally {
     setLoading(false);
   }
