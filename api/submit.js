@@ -232,27 +232,24 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
       linkName,
       applicationId: BOOKSTORE_APP_ID,
       mediaSource: 'SocialMedia',
-      channelName: 'KOC',
-      channelCode: `KOC_${code}`,
+      channelName: 'NovelFlow_SocialMedia_Facebook-grounp_Facebook_xujt',
+      channelNameId: '699ef7b8194eb218db3c2270',
       contentType: 1,
-      contentTypeName: '小说',
       contentNameOrSku: `${bookTitle} (${bookId})`,
+      contentName: bookTitle,
       languageCode: 'en',
+      redirectConfigId: '68fecf8b3a29f6eff435fd3b',
       redirectPosition: '书籍详情页',
+      redirectProtocol: 'novelflow:///book',
       contentRedirectSequence: 1,
       operatorName: '徐敬涛',
-      adGroupName: `${BOOKSTORE_APP_ID}_Android_SocialMedia_NovelFlow_SocialMedia_KOC_KOC_${code}_${linkName}_xujt`,
-      channelSource: 'SocialMedia(KOC)',
-      isEnabled: true,
       templateId: '6a01499261118c6285dff7dd',
-      probability: 100,
-      isAutoRedirect: 0,
-      channelNameId: '699ef7b8194eb218db3c2270',
-      redirectConfigId: '68fecf8b3a29f6eff435fd3b',
+      isEnabled: true,
       landingPageTemplates: [{
         templateId: '6a01499261118c6285dff7dd',
         templateName: linkName,
-        templateWeight: 100
+        templateWeight: 100,
+        isDeleted: false
       }]
     })
   });
