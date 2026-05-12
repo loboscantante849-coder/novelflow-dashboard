@@ -1901,15 +1901,20 @@
     function getTotalRevenue(user) { return (user.subscription_revenue || 0) + (user.ad_revenue || 0); }
     function getSortedUsers(sortBy = 'total_revenue') {
         if (!dashboardData || !dashboardData.users) return [];
-        const users = Object.entries(dashboardData.users).map(([username, data]) => ({ username, ...data, total_revenue: getTotalRevenue(data) }));
+        const users = Object.entries(dashboardData.users).map(([username, data]) => ({
+            username, ...data, total_revenue: getTotalRevenue(data),
+            // Map: unique_visitors sort should use link_unique (the real data field)
+            effective_unique: data.link_unique || data.unique_visitors || 0
+        }));
         users.sort((a, b) => {
             // Users with no data always go to the bottom
-            const aTotal = (a.link_visits || 0) + (a.link_unique || 0) + (a.new_users || 0) + a.total_revenue;
-            const bTotal = (b.link_visits || 0) + (b.link_unique || 0) + (b.new_users || 0) + b.total_revenue;
+            const aTotal = (a.link_visits || 0) + (a.effective_unique || 0) + (a.new_users || 0) + a.total_revenue;
+            const bTotal = (b.link_visits || 0) + (b.effective_unique || 0) + (b.new_users || 0) + b.total_revenue;
             if (aTotal === 0 && bTotal > 0) return 1;
             if (aTotal > 0 && bTotal === 0) return -1;
             // Normal descending sort
-            return sortBy === 'total_revenue' ? b.total_revenue - a.total_revenue : (b[sortBy] || 0) - (a[sortBy] || 0);
+            const getVal = (u, key) => key === 'total_revenue' ? u.total_revenue : key === 'unique_visitors' ? u.effective_unique : (u[key] || 0);
+            return getVal(b, sortBy) - getVal(a, sortBy);
         });
         return users;
     }
