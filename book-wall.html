@@ -256,8 +256,8 @@
       const cta = code ? `Click the link or search code ${code} to read the full novel for free → {link}` : `Read the full novel for free → {link}`;
       return template
         .replace(/{bookName}/g, bookName)
-        .replace(/{link}/g, link)
-        .replace('{cta}', cta);
+        .replace('{cta}', cta)
+        .replace(/{link}/g, link);
     }
 
     // Copy to clipboard with feedback
@@ -284,7 +284,7 @@
       const promoText = generatePromoText(bookName, link, code);
       try {
         await navigator.clipboard.writeText(promoText);
-        btn.innerHTML = '✓ Copied!';
+        btn.innerHTML = '✅ Copied!';
         btn.classList.add('copied');
         setTimeout(() => {
           btn.innerHTML = '📋 Copy Promo';
