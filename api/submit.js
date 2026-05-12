@@ -96,9 +96,10 @@ module.exports = async (req, res) => {
     // Step 4: Auto-create code and link if BOOKSTORE_TOKEN is available
     if (BOOKSTORE_TOKEN) {
       try {
-        // 4a: Search for book by name to get bookId
+        // 4a: Search for book by name to get bookId (skuid)
+        // Using booklist API with title param for fuzzy match, filtered by NovelFlow appId
         const searchResponse = await fetch(
-          `${BOOKSTORE_API_BASE}/book/search?keyword=${encodeURIComponent(bookName.trim())}&pageSize=5`,
+          `${BOOKSTORE_API_BASE}/book/booklist?pageNum=1&pageSize=10&title=${encodeURIComponent(bookName.trim())}&applicationId=${BOOKSTORE_APP_ID}`,
           {
             headers: {
               'Authorization': `Bearer ${BOOKSTORE_TOKEN}`,
@@ -113,11 +114,11 @@ module.exports = async (req, res) => {
         if (searchResponse.ok) {
           const searchData = await searchResponse.json();
           if (searchData.code === 200 && searchData.data?.data?.length > 0) {
-            // Take the first match
+            // Take the first match (already filtered by NovelFlow appId)
             const book = searchData.data.data[0];
-            bookId = book.id || book.bookId || book.skuId;
-            matchedBookName = book.bookName || book.name;
-            console.log(`Book found: ${matchedBookName}, ID: ${bookId}`);
+            bookId = book.bookId || book.skuId || book.id;
+            matchedBookName = book.bookName || book.title || bookName;
+            console.log(`Book found: ${matchedBookName}, bookId(skuid): ${bookId}`);
           }
         }
 
