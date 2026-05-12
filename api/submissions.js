@@ -6,7 +6,7 @@ module.exports = async (req, res) => {
 
   const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
   if (!GITHUB_TOKEN) {
-    return res.status(500).json({ error: 'Server configuration error' });
+    return res.status(500).json({ error: 'GITHUB_TOKEN not set in Vercel environment variables' });
   }
 
   const owner = 'loboscantante849-coder';
