@@ -221,6 +221,40 @@ a:hover { color: #a89cff; }
   font-style: italic;
 }
 
+/* ===== Status States ===== */
+.book-item-matched {
+  font-size: 11px;
+  color: #7c6cff;
+  font-style: italic;
+  margin-top: 2px;
+}
+
+/* Pending state */
+.book-item-pending-state {
+  opacity: 0.7;
+}
+.book-item-pending-name {
+  color: #8a8faa !important;
+}
+.book-item-pending-text {
+  font-size: 12px;
+  color: #5a5f7a;
+  font-style: italic;
+}
+
+/* Failed state */
+.book-item-failed-state {
+  opacity: 0.8;
+}
+.book-item-failed-name {
+  color: #ff8888 !important;
+}
+.book-item-failed-text {
+  font-size: 12px;
+  color: #ff6b6b;
+  font-style: italic;
+}
+
 /* ===== Loading State ===== */
 .loading {
   text-align: center;
@@ -402,7 +436,9 @@ function aggregateByRecommender(submissions) {
       bookName: sub.bookName,
       code: sub.code || '',
       link: sub.link || '',
-      method: sub.promotionMethod
+      method: sub.promotionMethod,
+      status: sub.status || null,
+      matchedBookName: sub.matchedBookName || null
     });
   });
   
@@ -453,19 +489,53 @@ function renderBooks(aggregatedRecommenders) {
         <div class="book-expand">
           <div class="book-list">
             ${recommender.books.map(book => {
+              const status = book.status;
               const hasCode = book.code && book.code.trim();
               const hasLink = book.link && book.link.trim();
+              const hasMatchedName = book.matchedBookName && book.matchedBookName !== book.bookName;
               
-              return `
-                <div class="book-item">
-                  <div class="book-item-name">📚 ${escapeHtml(book.bookName)}</div>
-                  ${hasCode ? `<div class="book-item-link">🔢 Code: ${escapeHtml(book.code)}</div>` : ''}
-                  ${hasLink 
-                    ? `<div class="book-item-link">🔗 <a href="${escapeHtml(book.link)}" target="_blank">${escapeHtml(book.link)}</a></div>` 
-                    : `<div class="book-item-pending">⏳ Link pending...</div>`
-                  }
-                </div>
-              `;
+              // Determine display based on status
+              if (status === 'completed') {
+                // ✅ Completed: show code and link
+                return `
+                  <div class="book-item">
+                    <div class="book-item-name">✅ ${escapeHtml(book.bookName)}</div>
+                    ${hasMatchedName ? `<div class="book-item-matched">Matched: ${escapeHtml(book.matchedBookName)}</div>` : ''}
+                    ${hasCode ? `<div class="book-item-link">🔢 Code: ${escapeHtml(book.code)}</div>` : ''}
+                    ${hasLink 
+                      ? `<div class="book-item-link">🔗 <a href="${escapeHtml(book.link)}" target="_blank">${escapeHtml(book.link)}</a></div>` 
+                      : ''}
+                  </div>
+                `;
+              } else if (status === 'pending') {
+                // ⏳ Pending: show creating message, gray style
+                return `
+                  <div class="book-item book-item-pending-state">
+                    <div class="book-item-name book-item-pending-name">⏳ ${escapeHtml(book.bookName)}</div>
+                    <div class="book-item-pending-text">Creating code & link...</div>
+                  </div>
+                `;
+              } else if (status === 'failed') {
+                // ❌ Failed: show failed message, red style
+                return `
+                  <div class="book-item book-item-failed-state">
+                    <div class="book-item-name book-item-failed-name">❌ ${escapeHtml(book.bookName)}</div>
+                    <div class="book-item-failed-text">Creation failed</div>
+                  </div>
+                `;
+              } else {
+                // No status (legacy data): keep existing logic
+                return `
+                  <div class="book-item">
+                    <div class="book-item-name">📚 ${escapeHtml(book.bookName)}</div>
+                    ${hasCode ? `<div class="book-item-link">🔢 Code: ${escapeHtml(book.code)}</div>` : ''}
+                    ${hasLink 
+                      ? `<div class="book-item-link">🔗 <a href="${escapeHtml(book.link)}" target="_blank">${escapeHtml(book.link)}</a></div>` 
+                      : `<div class="book-item-pending">⏳ Link pending...</div>`
+                    }
+                  </div>
+                `;
+              }
             }).join('')}
           </div>
         </div>
@@ -484,6 +554,8 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+let refreshInterval = null;
+
 async function loadData() {
   try {
     const response = await fetch(DATA_URL + '?t=' + Date.now());
@@ -497,6 +569,21 @@ async function loadData() {
     
     const aggregatedRecommenders = aggregateByRecommender(allSubmissions);
     renderBooks(aggregatedRecommenders);
+    
+    // Auto-refresh logic: if any submission is pending, refresh every 30s
+    const hasPending = allSubmissions.some(sub => sub.status === 'pending');
+    if (hasPending) {
+      if (!refreshInterval) {
+        refreshInterval = setInterval(loadData, 30000);
+        console.log('Auto-refresh started (pending submissions detected)');
+      }
+    } else {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+        console.log('Auto-refresh stopped (all submissions completed/failed)');
+      }
+    }
   } catch (error) {
     console.error('Error loading data:', error);
     document.getElementById('loadingState').innerHTML = `
