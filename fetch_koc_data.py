@@ -591,6 +591,11 @@ def main():
             print(f"  WARN: Cannot map Beidou campaign '{koc_name}'")
             continue
         
+        # Skip numeric-only IDs (API artifact, not real KOC users)
+        if mapped_name.isdigit():
+            print(f"  SKIP: '{mapped_name}' is a numeric ID (API duplicate), not a real KOC")
+            continue
+        
         total_visits = sum(daily_visits.values())
         
         if mapped_name in data["users"]:
