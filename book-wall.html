@@ -251,11 +251,12 @@
     }
 
     // Generate promotion text
-    function generatePromoText(bookName, link) {
+    function generatePromoText(bookName, link, code) {
       const template = PROMO_TEMPLATES[Math.floor(Math.random() * PROMO_TEMPLATES.length)];
+      const codePart = code ? `\n\n🔑 Search code: ${code}` : '';
       return template
         .replace(/{bookName}/g, bookName)
-        .replace(/{link}/g, link);
+        .replace(/{link}/g, link) + codePart;
     }
 
     // Copy to clipboard with feedback
@@ -278,21 +279,21 @@
     }
 
     // Copy promo text with feedback
-    async function copyPromoText(bookName, link, btn) {
-      const promoText = generatePromoText(bookName, link);
+    async function copyPromoText(bookName, link, code, btn) {
+      const promoText = generatePromoText(bookName, link, code);
       try {
         await navigator.clipboard.writeText(promoText);
         btn.innerHTML = '✓ Copied!';
         btn.classList.add('copied');
         setTimeout(() => {
-          btn.innerHTML = '📋 Copy Promo';
+          btn.innerHTML = '📋 一键复制推广文案';
           btn.classList.remove('copied');
         }, 1500);
       } catch (err) {
         console.error('Copy promo failed:', err);
         btn.innerHTML = '✗ Failed';
         setTimeout(() => {
-          btn.innerHTML = '📋 Copy Promo';
+          btn.innerHTML = '📋 一键复制推广文案';
         }, 1500);
       }
     }
@@ -503,7 +504,7 @@
           }
           
           const promoBtn = isCompleted
-            ? '<button class="copy-promo-btn" onclick="event.stopPropagation(); copyPromoText(\'' + escapeHtml(book.bookName) + '\', \'' + escapeHtml(book.link) + '\', this)">📋 Copy Promo</button>'
+            ? '<button class="copy-promo-btn" onclick="event.stopPropagation(); copyPromoText(\'' + escapeHtml(book.bookName) + '\', \'' + escapeHtml(book.link) + '\', \'' + escapeHtml(book.code || '') + '\', this)">📋 一键复制推广文案</button>'
             : '';
           
           bookItemsHtml +=
