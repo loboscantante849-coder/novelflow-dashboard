@@ -1883,7 +1883,7 @@
     function formatCurrency(value) { return '$' + value.toFixed(2); }
     function formatNumber(num) { if (num === 0) return '\u2014'; return num.toLocaleString(); }
     function isZero(value) { return value === 0 || value === '0' || value === 0.00; }
-    function isAllZero(userData) { return isZero(userData.link_visits) && isZero(userData.unique_visitors) && isZero(userData.new_users) && isZero(userData.subscription_revenue) && isZero(userData.ad_revenue); }
+    function isAllZero(userData) { return isZero(userData.link_visits) && isZero(userData.link_unique || userData.unique_visitors) && isZero(userData.new_users) && isZero(userData.subscription_revenue) && isZero(userData.ad_revenue); }
     function animateNumber(element, target, duration = 2000, isCurrency = false) {
         const startTime = performance.now();
         function easeOutExpo(t) { return t === 1 ? 1 : 1 - Math.pow(2, -10 * t); }
@@ -1943,8 +1943,8 @@
 
         const metrics = [
             { key: 'link_visits', icon: icons.link, value: userData.link_visits || 0, isCurrency: false, color: '#22d3ee', sparkData: generateSparklineData(userData.link_visits || 0) },
-            { key: 'unique_visitors', icon: icons.users, value: userData.unique_visitors || 0, isCurrency: false, color: '#a78bfa', sparkData: generateSparklineData(userData.unique_visitors || 0) },
-            { key: 'new_users', icon: icons.userPlus, value: userData.new_users || 0, isCurrency: false, color: '#34d399', sparkData: generateSparklineData(userData.new_users || 0) },
+            { key: 'unique_visitors', icon: icons.users, value: userData.link_unique || userData.unique_visitors || 0, isCurrency: false, color: '#a78bfa', sparkData: Object.values(userData.link_unique_daily || {}).reverse() },
+            { key: 'new_users', icon: icons.userPlus, value: userData.new_users || 0, isCurrency: false, color: '#34d399', sparkData: Object.values(userData.new_users_daily || {}).reverse() },
             { key: 'subscription_revenue', icon: icons.dollar, value: userData.subscription_revenue || 0, isCurrency: true, color: '#fbbf24', sparkData: generateSparklineData(userData.subscription_revenue || 0) },
             { key: 'ad_revenue', icon: icons.ad, value: userData.ad_revenue || 0, isCurrency: true, color: '#f472b6', sparkData: generateSparklineData(userData.ad_revenue || 0) }
         ];
@@ -2056,7 +2056,7 @@
                                     <a href="?user=${encodedUsername}" class="user-link">${escapeHtml(user.username)}</a>
                                 </div>
                                 <div class="col value-cell ${isZero(user.link_visits) ? 'zero' : ''}">${formatNumber(user.link_visits || 0)}</div>
-                                <div class="col value-cell ${isZero(user.unique_visitors) ? 'zero' : ''}">${formatNumber(user.unique_visitors || 0)}</div>
+                                <div class="col value-cell ${isZero(user.link_unique || user.unique_visitors) ? 'zero' : ''}">${formatNumber(user.link_unique || user.unique_visitors || 0)}</div>
                                 <div class="col value-cell ${isZero(user.new_users) ? 'zero' : ''}">${formatNumber(user.new_users || 0)}</div>
                                 <div class="col revenue-cell ${isZero(user.subscription_revenue) ? 'zero' : ''}">${formatCurrency(user.subscription_revenue || 0)}</div>
                                 <div class="col revenue-cell ${isZero(user.ad_revenue) ? 'zero' : ''}">${formatCurrency(user.ad_revenue || 0)}</div>
@@ -2112,7 +2112,7 @@
                 setTimeout(() => {
                     const metrics = [
                         { value: userData.link_visits || 0, isCurrency: false },
-                        { value: userData.unique_visitors || 0, isCurrency: false },
+                        { value: userData.link_unique || userData.unique_visitors || 0, isCurrency: false },
                         { value: userData.new_users || 0, isCurrency: false },
                         { value: userData.subscription_revenue || 0, isCurrency: true },
                         { value: userData.ad_revenue || 0, isCurrency: true }
