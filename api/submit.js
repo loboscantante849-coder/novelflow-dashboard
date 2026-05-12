@@ -113,8 +113,9 @@ async function autoCreateCodeAndLink(submission, existingData, apiBase, GITHUB_T
   const STARTING_CODE = 4545;
 
   // 4a: Search for book by name to get bookId (skuid)
+  // Must pass: applicationId=NovelFlow, languageCode=en, bookStatus=1, title+bookName for fuzzy match
   const searchResponse = await fetch(
-    `${BOOKSTORE_API_BASE}/book/booklist?pageNum=1&pageSize=10&title=${encodeURIComponent(bookName.trim())}&applicationId=${BOOKSTORE_APP_ID}`,
+    `${BOOKSTORE_API_BASE}/book/booklist?current=1&pageSize=10&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&languageCode=en&bookStatus=1&title=${encodeURIComponent(bookName.trim())}&bookName=${encodeURIComponent(bookName.trim())}`,
     {
       headers: {
         'Authorization': `Bearer ${BOOKSTORE_TOKEN}`,
