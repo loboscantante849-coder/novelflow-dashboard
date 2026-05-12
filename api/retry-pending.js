@@ -244,7 +244,25 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
   if (linkResp.ok) {
     const linkData = await linkResp.json();
     if (linkData.code === 200 && linkData.data) {
-      return linkData.data.shortUrl;
+      // API returns linkId, need to fetch details to get shortUrl
+      const linkId = linkData.data;
+      if (typeof linkId === 'string' && linkId.length > 10) {
+        try {
+          const detailResp = await fetch(`${BOOKSTORE_API_BASE}/SocialMediaLinkConfig/${linkId}`, {
+            headers: { 'Authorization': `Bearer ${BOOKSTORE_TOKEN}`, 'Content-Type': 'application/json' }
+          });
+          if (detailResp.ok) {
+            const detailData = await detailResp.json();
+            if (detailData.code === 200 && detailData.data && detailData.data.shortUrl) {
+              return detailData.data.shortUrl;
+            }
+          }
+        } catch (e) { console.error('Failed to fetch link details:', e.message); }
+        return null;
+      }
+      if (typeof linkData.data === 'object' && linkData.data.shortUrl) {
+        return linkData.data.shortUrl;
+      }
     }
   }
 
