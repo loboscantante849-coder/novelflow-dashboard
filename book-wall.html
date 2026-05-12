@@ -113,6 +113,11 @@
     /* Hot Books Section */
     .hot-books-section { background: linear-gradient(135deg, rgba(14, 17, 38, 0.6), rgba(10, 13, 31, 0.8)); border: 1px solid rgba(124, 108, 255, 0.08); border-radius: 20px; padding: 28px; margin-bottom: 32px; }
     .hot-books-list { display: flex; flex-direction: column; gap: 12px; }
+    .hot-books-list.collapsed .hot-book-item:nth-child(n+9) { display: none; }
+    .show-more-btn { display: block; margin: 16px auto 0; padding: 8px 24px; border-radius: 8px; background: rgba(124, 108, 255, 0.1); border: 1px solid rgba(124, 108, 255, 0.2); color: #a89cff; font-size: 13px; cursor: pointer; transition: all .2s; font-family: inherit; }
+    .show-more-btn:hover { background: rgba(124, 108, 255, 0.2); border-color: rgba(124, 108, 255, 0.4); }
+    .show-more-btn .arrow { display: inline-block; transition: transform .2s; margin-left: 4px; }
+    .show-more-btn.expanded .arrow { transform: rotate(180deg); }
     .hot-book-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: rgba(0, 0, 0, 0.2); border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.04); transition: border-color .2s; }
     .hot-book-item:hover { border-color: rgba(124, 108, 255, 0.15); }
     .hot-book-icon { font-size: 20px; }
@@ -409,6 +414,9 @@
       badge.textContent = books.length;
       section.style.display = 'block';
       
+      const MAX_VISIBLE = 8;
+      const needsCollapse = books.length > MAX_VISIBLE;
+      
       list.innerHTML = books.map(book => {
         const promoterText = book.promoterCount === 1 
           ? '1 person promoting' 
@@ -421,6 +429,33 @@
           </div>
         `;
       }).join('');
+      
+      if (needsCollapse) {
+        list.classList.add('collapsed');
+        const btn = document.createElement('button');
+        btn.className = 'show-more-btn';
+        btn.innerHTML = `Show all ${books.length} books <span class="arrow">▼</span>`;
+        btn.onclick = function() {
+          const isCollapsed = list.classList.contains('collapsed');
+          if (isCollapsed) {
+            list.classList.remove('collapsed');
+            btn.innerHTML = `Show less <span class="arrow">▲</span>`;
+            btn.classList.add('expanded');
+          } else {
+            list.classList.add('collapsed');
+            btn.innerHTML = `Show all ${books.length} books <span class="arrow">▼</span>`;
+            btn.classList.remove('expanded');
+          }
+        };
+        // Remove existing button if any
+        const existingBtn = list.parentNode.querySelector('.show-more-btn');
+        if (existingBtn) existingBtn.remove();
+        list.parentNode.appendChild(btn);
+      } else {
+        list.classList.remove('collapsed');
+        const existingBtn = list.parentNode.querySelector('.show-more-btn');
+        if (existingBtn) existingBtn.remove();
+      }
     }
 
     // Render user cards
