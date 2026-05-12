@@ -199,7 +199,7 @@ async function createCode(bookId, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE
         'Content-Type': 'application/json;charset=UTF-8',
         'X-OS': 'web', 'X-AppName': 'web-admin', 'X-AppIdentifier': 'web', 'X-AppVersion': '1.0.0,1'
       },
-      body: JSON.stringify({ applicationId: BOOKSTORE_APP_ID, keyword: String(tryCode), bookId: bookId, channel: 'FB' })
+      body: JSON.stringify({ applicationId: BOOKSTORE_APP_ID, keyword: String(tryCode), bookId: bookId, channel: 'FB', isEnable: true })
     });
 
     if (codeResp.ok) {
@@ -229,19 +229,26 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
       'X-AppVersion': '1.0.0,1'
     },
     body: JSON.stringify({
+      linkName,
       applicationId: BOOKSTORE_APP_ID,
-      channelNameId: '699ef7b8194eb218db3c2270',
-      channelName: 'NovelFlow_SocialMedia_Facebook-grounp_Facebook_xujt',
       mediaSource: 'SocialMedia',
+      channelName: 'KOC',
+      channelCode: `KOC_${code}`,
       contentType: 1,
-      contentNameOrSku: bookId,
-      contentName: bookTitle,
+      contentTypeName: '小说',
+      contentNameOrSku: `${bookTitle} (${bookId})`,
       languageCode: 'en',
-      redirectConfigId: '68fecf8b3a29f6eff435fd3b',
       redirectPosition: '书籍详情页',
       contentRedirectSequence: 1,
       operatorName: '徐敬涛',
-      linkName,
+      adGroupName: `${BOOKSTORE_APP_ID}_Android_SocialMedia_NovelFlow_SocialMedia_KOC_KOC_${code}_${linkName}_xujt`,
+      channelSource: 'SocialMedia(KOC)',
+      isEnabled: true,
+      templateId: '6a01499261118c6285dff7dd',
+      probability: 100,
+      isAutoRedirect: 0,
+      channelNameId: '699ef7b8194eb218db3c2270',
+      redirectConfigId: '68fecf8b3a29f6eff435fd3b',
       landingPageTemplates: [{
         templateId: '6a01499261118c6285dff7dd',
         templateName: linkName,
