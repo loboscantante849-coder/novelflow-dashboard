@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NovelFlow KOC — 管理后台</title>
+<title>NovelFlow KOC — Admin Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -615,34 +615,34 @@ tbody tr:last-child td {
   <div class="login-screen" id="loginScreen">
     <div class="login-card" id="step1Password">
       <div class="login-icon">🔐</div>
-      <h1>管理后台</h1>
-      <p>输入密码以访问管理功能</p>
+      <h1>Admin Dashboard</h1>
+      <p>Enter password to access admin features</p>
       
-      <div class="login-error" id="loginError">密码错误，请重试</div>
+      <div class="login-error" id="loginError">Incorrect password, please try again</div>
       
       <form class="login-form" id="loginForm">
         <div class="form-group">
-          <label for="password">访问密码</label>
-          <input type="password" id="password" class="form-input" placeholder="输入管理员密码" required>
+          <label for="password">Access Password</label>
+          <input type="password" id="password" class="form-input" placeholder="Enter admin password" required>
         </div>
-        <button type="submit" class="btn-login">验证密码</button>
+        <button type="submit" class="btn-login">Verify Password</button>
       </form>
     </div>
 
     <!-- Step 2: GitHub Token -->
     <div class="login-card" id="step2Token" style="display: none;">
       <div class="login-icon">🔑</div>
-      <h1>配置 GitHub Token</h1>
-      <p>需要 GitHub Personal Access Token 才能操作数据<br><small style="color: #8a8faa;">Token 仅在当前会话有效，关闭页面后自动清除</small></p>
+      <h1>Configure GitHub Token</h1>
+      <p>GitHub Personal Access Token is required to manage data<br><small style="color: #8a8faa;">Token is only valid for current session, cleared after closing page</small></p>
       
-      <div class="login-error" id="tokenError">Token 无效，请检查后重试</div>
+      <div class="login-error" id="tokenError">Invalid token, please check and try again</div>
       
       <form class="login-form" id="tokenForm">
         <div class="form-group">
           <label for="githubToken">GitHub PAT Token</label>
           <input type="password" id="githubToken" class="form-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" required>
         </div>
-        <button type="submit" class="btn-login">确认并进入后台</button>
+        <button type="submit" class="btn-login">Confirm & Enter Dashboard</button>
         <button type="button" class="btn-back" onclick="goBackToStep1()" style="
           width: 100%;
           padding: 12px;
@@ -655,7 +655,7 @@ tbody tr:last-child td {
           font-family: 'Inter', sans-serif;
           cursor: pointer;
           transition: all .2s;
-        ">← 返回上一步</button>
+        ">← Back to Previous Step</button>
       </form>
     </div>
   </div>
@@ -663,21 +663,21 @@ tbody tr:last-child td {
   <!-- Token Status Banner -->
   <div class="token-status" id="tokenStatus" style="display: none;">
     <span class="token-icon">🔑</span>
-    <span>GitHub Token 已配置</span>
-    <button onclick="showTokenModal()" class="token-action">修改</button>
+    <span>GitHub Token Configured</span>
+    <button onclick="showTokenModal()" class="token-action">Modify</button>
   </div>
 
   <!-- Dashboard Screen -->
   <div class="dashboard-screen" id="dashboardScreen">
     <div class="dashboard-header">
       <div class="dashboard-title">
-        <h1>📊 KOC 书单管理</h1>
-        <p>管理所有书籍推荐提交</p>
+        <h1>📊 KOC Book Management</h1>
+        <p>Manage all book recommendation submissions</p>
       </div>
       <div class="dashboard-actions">
-        <a href="https://tinyurl.com/ypbru28w" class="btn-secondary">📖 查看书单墙</a>
-        <a href="https://tinyurl.com/4ajvzsec" class="btn-secondary">➕ 提交入口</a>
-        <button class="btn-secondary btn-danger" onclick="logout()">🚪 退出</button>
+        <a href="https://tinyurl.com/ypbru28w" target="_blank" class="btn-secondary">📖 View Book Wall</a>
+        <a href="https://tinyurl.com/4ajvzsec" target="_blank" class="btn-secondary">➕ Submit Book</a>
+        <button class="btn-secondary btn-danger" onclick="logout()">🚪 Logout</button>
       </div>
     </div>
 
@@ -685,65 +685,65 @@ tbody tr:last-child td {
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-value" id="statTotal">0</div>
-        <div class="stat-label">总提交数</div>
+        <div class="stat-label">Total Submissions</div>
       </div>
       <div class="stat-card">
         <div class="stat-value" id="statPending">0</div>
-        <div class="stat-label">待处理</div>
+        <div class="stat-label">Pending</div>
       </div>
       <div class="stat-card">
         <div class="stat-value" id="statLinkCreated">0</div>
-        <div class="stat-label">已创建链接</div>
+        <div class="stat-label">Link Created</div>
       </div>
       <div class="stat-card">
         <div class="stat-value" id="statSent">0</div>
-        <div class="stat-label">已发送</div>
+        <div class="stat-label">Sent</div>
       </div>
     </div>
 
     <!-- Filter -->
     <div class="filter-bar">
       <select class="filter-select" id="filterStatus">
-        <option value="">所有状态</option>
-        <option value="pending">待处理</option>
-        <option value="link-created">已创建链接</option>
-        <option value="sent">已发送</option>
+        <option value="">All Status</option>
+        <option value="pending">Pending</option>
+        <option value="link-created">Link Created</option>
+        <option value="sent">Sent</option>
       </select>
       <select class="filter-select" id="filterMethod">
-        <option value="">所有推广方式</option>
+        <option value="">All Methods</option>
         <option value="Facebook Groups">Facebook Groups</option>
         <option value="Facebook Pages">Facebook Pages</option>
         <option value="Discord">Discord</option>
         <option value="TikTok">TikTok</option>
         <option value="Reels">Reels</option>
-        <option value="Other">其他</option>
+        <option value="Other">Other</option>
       </select>
-      <button class="btn-secondary" onclick="exportData()">📥 导出CSV</button>
-      <span class="filter-info" id="filterInfo">显示全部 0 条记录</span>
+      <button class="btn-secondary" onclick="exportData()">📥 Export CSV</button>
+      <span class="filter-info" id="filterInfo">Showing 0 of 0 records</span>
     </div>
 
     <!-- Table -->
     <div class="table-container">
       <div class="loading" id="loadingState">
         <div class="loading-spinner"></div>
-        <p>正在加载数据...</p>
+        <p>Loading data...</p>
       </div>
       <div class="empty-state" id="emptyState" style="display: none;">
         <div class="empty-icon">📭</div>
-        <h3>暂无数据</h3>
-        <p>还没有人提交推荐</p>
+        <h3>No Submissions Yet</h3>
+        <p>Be the first to recommend a book!</p>
       </div>
       <div class="table-scroll" id="tableContainer" style="display: none;">
         <table>
           <thead>
             <tr>
               <th>Discord</th>
-              <th>书名</th>
-              <th>推广方式</th>
-              <th>提交时间</th>
-              <th>备注</th>
-              <th>状态</th>
-              <th>操作</th>
+              <th>Book Name</th>
+              <th>Method</th>
+              <th>Submitted</th>
+              <th>Notes</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody id="tableBody"></tbody>
@@ -756,11 +756,11 @@ tbody tr:last-child td {
 <!-- Delete Confirmation Modal -->
 <div class="modal-overlay" id="deleteModal">
   <div class="modal">
-    <h2>确认删除</h2>
-    <p id="deleteMessage">确定要删除这条提交记录吗？此操作无法撤销。</p>
+    <h2>Confirm Delete</h2>
+    <p id="deleteMessage">Are you sure you want to delete this submission? This action cannot be undone.</p>
     <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeDeleteModal()">取消</button>
-      <button class="btn-secondary btn-danger" id="confirmDeleteBtn">确认删除</button>
+      <button class="btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn-secondary btn-danger" id="confirmDeleteBtn">Confirm Delete</button>
     </div>
   </div>
 </div>
@@ -771,15 +771,15 @@ tbody tr:last-child td {
 <!-- Token Update Modal -->
 <div class="token-modal-overlay" id="tokenModal">
   <div class="token-modal">
-    <h2>🔑 更新 GitHub Token</h2>
+    <h2>🔑 Update GitHub Token</h2>
     <form id="tokenUpdateForm">
       <div class="form-group">
-        <label for="newGithubToken">新的 GitHub PAT Token</label>
+        <label for="newGithubToken">New GitHub PAT Token</label>
         <input type="password" id="newGithubToken" class="form-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" required>
       </div>
       <div style="display: flex; gap: 12px;">
-        <button type="button" onclick="closeTokenModal()" class="btn-secondary" style="flex: 1; justify-content: center;">取消</button>
-        <button type="submit" class="btn-login" style="flex: 1;">保存</button>
+        <button type="button" onclick="closeTokenModal()" class="btn-secondary" style="flex: 1; justify-content: center;">Cancel</button>
+        <button type="submit" class="btn-login" style="flex: 1;">Save</button>
       </div>
     </form>
   </div>
@@ -787,10 +787,19 @@ tbody tr:last-child td {
 
 <script>
 // Config
-const ADMIN_PASSWORD = 'novelflow2026';
+// SHA-256 hash of 'novelflow2026' - more secure than plain text
+const ADMIN_PASSWORD_HASH = 'a36ef0c5a1dd9c4212a13ea9564d9cb2fe49e87cbb99aaaa9feb7226714f4842';
 const REPO_OWNER = 'loboscantante849-coder';
 const REPO_NAME = 'novelflow-dashboard';
 const FILE_PATH = 'submissions.json';
+// Simple SHA-256 implementation for browser compatibility
+async function sha256(message) {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 
 // Token will be loaded from sessionStorage at runtime
 let GITHUB_TOKEN = sessionStorage.getItem('githubToken') || '';
@@ -807,7 +816,8 @@ let fileSha = null;
 document.getElementById('loginForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const password = document.getElementById('password').value;
-  if (password === ADMIN_PASSWORD) {
+  const inputHash = await sha256(password);
+    if (inputHash === ADMIN_PASSWORD_HASH) {
     sessionStorage.setItem('adminLoggedIn', 'true');
     // Go to Step 2: Token input
     document.getElementById('step1Password').style.display = 'none';
@@ -828,7 +838,7 @@ document.getElementById('tokenForm').addEventListener('submit', async (e) => {
   const token = document.getElementById('githubToken').value.trim();
   
   if (!token) {
-    document.getElementById('tokenError').textContent = '请输入 GitHub Token';
+    document.getElementById('tokenError').textContent = 'Please enter GitHub Token';
     document.getElementById('tokenError').classList.add('show');
     return;
   }
@@ -850,7 +860,7 @@ document.getElementById('tokenForm').addEventListener('submit', async (e) => {
     
     loadData();
   } else {
-    document.getElementById('tokenError').textContent = 'Token 无效，请检查后重试';
+    document.getElementById('tokenError').textContent = 'Invalid token, please check and try again';
     document.getElementById('tokenError').classList.add('show');
     document.getElementById('githubToken').value = '';
   }
@@ -913,11 +923,11 @@ document.getElementById('tokenUpdateForm').addEventListener('submit', async (e) 
     sessionStorage.setItem('githubToken', newToken);
     GITHUB_TOKEN = newToken;
     closeTokenModal();
-    showToast('Token 已更新', 'success');
+    showToast('Token updated', 'success');
     // Refresh SHA
     await getFileSha();
   } else {
-    showToast('Token 无效，请检查后重试', 'error');
+    showToast('Invalid token, please check and try again', 'error');
   }
 });
 
@@ -952,7 +962,7 @@ checkLoginStatus();
 async function loadData() {
   // Check if token is available
   if (!GITHUB_TOKEN) {
-    showToast('请先配置 GitHub Token', 'error');
+    showToast('Please configure GitHub Token first', 'error');
     logout();
     return;
   }
@@ -970,7 +980,7 @@ async function loadData() {
     updateStats();
   } catch (error) {
     console.error('Error loading data:', error);
-    showToast('加载数据失败', 'error');
+    showToast('Failed to load data', 'error');
   } finally {
     document.getElementById('loadingState').style.display = 'none';
   }
@@ -1010,16 +1020,16 @@ function getMethodIcon(method) {
 
 function getStatusLabel(status) {
   const labels = {
-    'pending': '⏳ 待处理',
-    'link-created': '🔗 已创建链接',
-    'sent': '✅ 已发送'
+    'pending': '⏳ Pending',
+    'link-created': '🔗 Link Created',
+    'sent': '✅ Sent'
   };
   return labels[status] || status;
 }
 
 function formatDate(isoString) {
   const date = new Date(isoString);
-  return date.toLocaleString('zh-CN', {
+  return date.toLocaleString('en-US', {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -1058,7 +1068,7 @@ function renderTable() {
   const filtered = getFilteredData();
   
   document.getElementById('filterInfo').textContent = 
-    `显示 ${currentFilterStatus || currentFilterMethod ? '筛选后 ' : ''}${filtered.length} 条记录`;
+    `Showing ${filtered.length} of ${filtered.length} records`;
   
   if (allSubmissions.length === 0) {
     document.getElementById('emptyState').style.display = 'block';
@@ -1081,15 +1091,15 @@ function renderTable() {
         <div class="status-dropdown">
           <span class="status-badge ${sub.status}">${getStatusLabel(sub.status)}</span>
           <div class="status-dropdown-content">
-            <button onclick="updateStatus('${sub.id}', 'pending')">⏳ 待处理</button>
-            <button onclick="updateStatus('${sub.id}', 'link-created')">🔗 已创建链接</button>
-            <button onclick="updateStatus('${sub.id}', 'sent')">✅ 已发送</button>
+            <button onclick="updateStatus('${sub.id}', 'pending')">⏳ Pending</button>
+            <button onclick="updateStatus('${sub.id}', 'link-created')">🔗 Link Created</button>
+            <button onclick="updateStatus('${sub.id}', 'sent')">✅ Sent</button>
           </div>
         </div>
       </td>
       <td>
         <div class="action-btns">
-          <button class="btn-delete" onclick="confirmDelete('${sub.id}')" title="删除">🗑️</button>
+          <button class="btn-delete" onclick="confirmDelete('${sub.id}')" title="Delete">🗑️</button>
         </div>
       </td>
     </tr>
@@ -1117,10 +1127,10 @@ async function updateStatus(id, newStatus) {
     await saveToGitHub();
     renderTable();
     updateStats();
-    showToast('状态已更新', 'success');
+    showToast('Status updated', 'success');
   } catch (error) {
     console.error('Error updating status:', error);
-    showToast('更新失败', 'error');
+    showToast('Update failed', 'error');
   }
 }
 
@@ -1128,7 +1138,7 @@ function confirmDelete(id) {
   deleteTargetId = id;
   const sub = allSubmissions.find(s => s.id === id);
   document.getElementById('deleteMessage').textContent = 
-    `确定要删除 "${sub.bookName}" 的提交记录吗？此操作无法撤销。`;
+    `Are you sure you want to delete the submission for "${sub.bookName}"? This action cannot be undone.`;
   document.getElementById('deleteModal').classList.add('show');
 }
 
@@ -1150,10 +1160,10 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', async () =
     closeDeleteModal();
     renderTable();
     updateStats();
-    showToast('记录已删除', 'success');
+    showToast('Record deleted', 'success');
   } catch (error) {
     console.error('Error deleting:', error);
-    showToast('删除失败', 'error');
+    showToast('Delete failed', 'error');
   }
 });
 
@@ -1194,7 +1204,7 @@ async function saveToGitHub() {
 function exportData() {
   const data = getFilteredData();
   if (data.length === 0) {
-    showToast('没有数据可导出', 'error');
+    showToast('No data to export', 'error');
     return;
   }
   
@@ -1216,7 +1226,7 @@ function exportData() {
   link.download = `koc-submissions-${new Date().toISOString().split('T')[0]}.csv`;
   link.click();
   
-  showToast('CSV 已导出', 'success');
+  showToast('CSV exported', 'success');
 }
 
 function showToast(message, type = 'success') {

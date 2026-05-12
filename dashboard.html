@@ -858,7 +858,7 @@
                     <button class="lang-btn active" data-lang="en">EN</button>
                     <button class="lang-btn" data-lang="es">ES</button>
                 </div>
-                <a href="https://novelflow-dashboard.vercel.app/promotion-playbook.html" target="_blank" class="nav-link" id="promotionGuideLink" style="background:linear-gradient(135deg,rgba(233,69,96,0.15),rgba(249,115,22,0.15));border-color:rgba(233,69,96,0.3);">
+                <a href="https://tinyurl.com/46bf4zm5" target="_blank" class="nav-link" id="promotionGuideLink" style="background:linear-gradient(135deg,rgba(233,69,96,0.15),rgba(249,115,22,0.15));border-color:rgba(233,69,96,0.3);">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                     <span data-i18n="nav.promotion">Promotion Guide</span>
                 </a>
@@ -876,7 +876,7 @@
         <div class="mobile-nav-overlay" id="mobileNavOverlay"></div>
         <div class="mobile-nav-dropdown" id="mobileNavDropdown">
             <button class="mobile-nav-close" id="mobileNavClose" aria-label="Close menu">&times;</button>
-            <a href="https://novelflow-dashboard.vercel.app/promotion-playbook.html" target="_blank" class="mobile-nav-item" style="background:linear-gradient(135deg,rgba(233,69,96,0.12),rgba(249,115,22,0.12));border-color:rgba(233,69,96,0.3);">
+            <a href="https://tinyurl.com/46bf4zm5" target="_blank" class="mobile-nav-item" style="background:linear-gradient(135deg,rgba(233,69,96,0.12),rgba(249,115,22,0.12));border-color:rgba(233,69,96,0.3);">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                 <span data-i18n="nav.promotion">Promotion Guide</span>
             </a>
@@ -1958,8 +1958,13 @@
 
         const metrics = [
             { key: 'link_visits', icon: icons.link, value: userData.link_visits || 0, isCurrency: false, color: '#22d3ee', sparkData: generateSparklineData(userData.link_visits || 0) },
+<<<<<<< HEAD
             { key: 'unique_visitors', icon: icons.users, value: userData.link_unique || userData.unique_visitors || 0, isCurrency: false, color: '#a78bfa', sparkData: Object.values(userData.link_unique_daily || {}).reverse() },
             { key: 'new_users', icon: icons.userPlus, value: userData.new_users || 0, isCurrency: false, color: '#34d399', sparkData: Object.values(userData.new_users_daily || {}).reverse() },
+=======
+            { key: 'unique_visitors', icon: icons.users, value: userData.link_unique || 0, isCurrency: false, color: '#a78bfa', sparkData: Object.values(userData.link_unique_daily || {}).reverse() },
+            { key: 'new_users', icon: icons.userPlus, value: userData.new_users || 0, isCurrency: false, color: '#34d399', sparkData: generateSparklineData(userData.new_users || 0) },
+>>>>>>> 2046813 (fix: security hash passwords, translate book-admin to English, fix tinyurl links)
             { key: 'subscription_revenue', icon: icons.dollar, value: userData.subscription_revenue || 0, isCurrency: true, color: '#fbbf24', sparkData: generateSparklineData(userData.subscription_revenue || 0) },
             { key: 'ad_revenue', icon: icons.ad, value: userData.ad_revenue || 0, isCurrency: true, color: '#f472b6', sparkData: generateSparklineData(userData.ad_revenue || 0) }
         ];

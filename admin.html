@@ -852,41 +852,41 @@
             <!-- ===== Campaign Config ===== -->
             <div class="page-section" id="page-campaign">
                 <div class="card-box">
-                    <div class="card-title">📊 广告系列配置</div>
+                    <div class="card-title">📊 Campaign Configuration</div>
                     <div class="card-desc">
-                        管理KOC广告系列ID，用于从投放报表API获取Unique和New Users数据。<br>
-                        <strong>Unique</strong> → H5落地页点击用户数（天然去重）<br>
-                        <strong>New Users</strong> → 纯新增用户数
+                        Manage KOC campaign IDs for fetching Unique and New Users data from the reporting API.<br>
+                        <strong>Unique</strong> → H5 landing page click users (naturally deduplicated)<br>
+                        <strong>New Users</strong> → Pure new user count
                     </div>
                     
                     <!-- Add New Campaign -->
                     <div class="settings-group">
-                        <div class="settings-group-title">➕ 添加新广告系列</div>
+                        <div class="settings-group-title">➕ Add New Campaign</div>
                         <div class="setting-row">
                             <div class="setting-label">Campaign ID</div>
-                            <input type="text" class="setting-input" id="newCampaignId" placeholder="例如: 69f42260362028a0ac10b770" style="flex:1;">
+                            <input type="text" class="setting-input" id="newCampaignId" placeholder="e.g., 69f42260362028a0ac10b770" style="flex:1;">
                         </div>
                         <div class="setting-row">
                             <div class="setting-label">KOC Username</div>
-                            <input type="text" class="setting-input" id="newKocUsername" placeholder="例如: ConsEspher" style="flex:1;">
+                            <input type="text" class="setting-input" id="newKocUsername" placeholder="e.g., ConsEspher" style="flex:1;">
                         </div>
                         <div class="setting-row">
-                            <div class="setting-label">状态</div>
+                            <div class="setting-label">Status</div>
                             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
                                 <input type="checkbox" id="newCampaignActive" checked style="width:18px;height:18px;accent-color:var(--accent-primary);">
-                                <span style="font-size:14px;">启用（is_active=true）</span>
+                                <span style="font-size:14px;">Enabled (is_active=true)</span>
                             </label>
                         </div>
                         <div class="action-row">
-                            <button class="action-btn action-btn-primary" onclick="addCampaign()">➕ 添加广告系列</button>
-                            <button class="action-btn action-btn-secondary" onclick="testCampaignApi()">🔍 测试API连接</button>
+                            <button class="action-btn action-btn-primary" onclick="addCampaign()">➕ Add Campaign</button>
+                            <button class="action-btn action-btn-secondary" onclick="testCampaignApi()">🔍 Test API Connection</button>
                         </div>
                     </div>
                 </div>
 
                 <!-- Active Campaigns List -->
                 <div class="card-box">
-                    <div class="card-title">✅ 活跃广告系列</div>
+                    <div class="card-title">✅ Active Campaigns</div>
                     <div id="activeCampaignsList" style="display:flex;flex-direction:column;gap:8px;">
                         <!-- Dynamic content -->
                     </div>
@@ -894,8 +894,8 @@
 
                 <!-- Historical Campaigns List -->
                 <div class="card-box">
-                    <div class="card-title">📜 历史广告系列</div>
-                    <div class="card-desc">以下广告系列已停用，但仍保留在配置文件中。</div>
+                    <div class="card-title">📜 Historical Campaigns</div>
+                    <div class="card-desc">The following campaigns have been deactivated but are still retained in the config file.</div>
                     <div id="historicalCampaignsList" style="display:flex;flex-direction:column;gap:8px;">
                         <!-- Dynamic content -->
                     </div>
@@ -903,14 +903,14 @@
 
                 <!-- API Test -->
                 <div class="card-box">
-                    <div class="card-title">🧪 API测试</div>
+                    <div class="card-title">🧪 API Test</div>
                     <div class="settings-group">
                         <div class="setting-row">
                             <div class="setting-label">Campaign ID</div>
-                            <input type="text" class="setting-input" id="testCampaignId" placeholder="输入Campaign ID" style="flex:1;">
+                            <input type="text" class="setting-input" id="testCampaignId" placeholder="Enter Campaign ID" style="flex:1;">
                         </div>
                         <div class="action-row">
-                            <button class="action-btn action-btn-secondary" onclick="testSingleCampaignApi()">🔍 查询单个广告系列</button>
+                            <button class="action-btn action-btn-secondary" onclick="testSingleCampaignApi()">🔍 Query Single Campaign</button>
                         </div>
                         <div id="apiTestResult" style="margin-top:16px;padding:16px;background:var(--bg-primary);border-radius:12px;display:none;">
                             <pre id="apiTestResultContent" style="font-size:12px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;"></pre>
@@ -991,13 +991,22 @@ const pageSize = 20;
 let selectedUsers = new Set();
 let confirmCallback = null;
 
-const DEFAULT_PASSWORD = 'novelflow2026';
+// SHA-256 hash of 'novelflow2026' - more secure than plain text
+const DEFAULT_PASSWORD_HASH = 'a36ef0c5a1dd9c4212a13ea9564d9cb2fe49e87cbb99aaaa9feb7226714f4842';
 const LS_KEY_AUTH = 'nf_admin_auth';
-const LS_KEY_PWD = 'nf_admin_pwd';
+const LS_KEY_PWD_HASH = 'nf_admin_pwd_hash';
 const LS_KEY_GITHUB_TOKEN = 'nf_github_token';
 const LS_KEY_REPO = 'nf_github_repo';
 const LS_KEY_FILE_PATH = 'nf_github_filepath';
 const LS_KEY_CAMPAIGN_CONFIG = 'nf_campaign_config';
+
+// Simple SHA-256 implementation for browser compatibility
+async function sha256(message) {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 // Default campaign config
 const DEFAULT_CAMPAIGN_CONFIG = {
@@ -1081,13 +1090,16 @@ document.getElementById('confirmCancel').onclick = () => {
 // ============================
 // Auth
 // ============================
-function getStoredPassword() {
-    return localStorage.getItem(LS_KEY_PWD) || DEFAULT_PASSWORD;
+function getStoredPasswordHash() {
+    return localStorage.getItem(LS_KEY_PWD_HASH) || DEFAULT_PASSWORD_HASH;
 }
 
-function attemptLogin() {
+async function attemptLogin() {
     const pwd = document.getElementById('loginPassword').value;
-    if (pwd === getStoredPassword()) {
+    const inputHash = await sha256(pwd);
+    const storedHash = getStoredPasswordHash();
+    
+    if (inputHash === storedHash) {
         localStorage.setItem(LS_KEY_AUTH, '1');
         document.getElementById('loginScreen').classList.add('hidden');
         document.getElementById('appContainer').classList.add('active');
@@ -1828,12 +1840,13 @@ function toggleTokenVis() {
     input.type = input.type === 'password' ? 'text' : 'password';
 }
 
-function changePassword() {
+async function changePassword() {
     const current = document.getElementById('settingCurrentPwd').value;
     const newPwd = document.getElementById('settingNewPwd').value;
     const confirm = document.getElementById('settingConfirmPwd').value;
 
-    if (current !== getStoredPassword()) {
+    const currentHash = await sha256(current);
+    if (currentHash !== getStoredPasswordHash()) {
         showToast('Current password is incorrect', 'error');
         return;
     }
@@ -1845,7 +1858,8 @@ function changePassword() {
         showToast('Passwords do not match', 'error');
         return;
     }
-    localStorage.setItem(LS_KEY_PWD, newPwd);
+    const newHash = await sha256(newPwd);
+    localStorage.setItem(LS_KEY_PWD_HASH, newHash);
     document.getElementById('settingCurrentPwd').value = '';
     document.getElementById('settingNewPwd').value = '';
     document.getElementById('settingConfirmPwd').value = '';
@@ -1894,7 +1908,7 @@ function renderCampaignConfig() {
     const activeCampaigns = config.campaign_ids.filter(c => c.is_active);
     
     if (activeCampaigns.length === 0) {
-        activeList.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center;">暂无活跃广告系列</div>';
+        activeList.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center;">No active campaigns</div>';
     } else {
         activeList.innerHTML = activeCampaigns.map(c => `
             <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg-primary);border-radius:10px;border:1px solid var(--bg-glass-border);">
@@ -1904,10 +1918,10 @@ function renderCampaignConfig() {
                     <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${c.campaign_name || 'N/A'}</div>
                 </div>
                 <div style="display:flex;gap:8px;">
-                    <button class="action-btn action-btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="toggleCampaignActive('${c.id}')" title="停用">
+                    <button class="action-btn action-btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="toggleCampaignActive('${c.id}')" title="Deactivate">
                         ⏸️
                     </button>
-                    <button class="del-row-btn" onclick="deleteCampaign('${c.id}')" title="删除">
+                    <button class="del-row-btn" onclick="deleteCampaign('${c.id}')" title="Delete">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                     </button>
                 </div>
@@ -1920,7 +1934,7 @@ function renderCampaignConfig() {
     const histCampaigns = config.campaign_ids.filter(c => !c.is_active).concat(config.historical_campaign_ids || []);
     
     if (histCampaigns.length === 0) {
-        histList.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center;">暂无历史广告系列</div>';
+        histList.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center;">No historical campaigns</div>';
     } else {
         histList.innerHTML = histCampaigns.map(c => `
             <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg-primary);border-radius:10px;border:1px solid var(--bg-glass-border);opacity:0.7;">
@@ -1930,10 +1944,10 @@ function renderCampaignConfig() {
                     <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${c.campaign_name || 'N/A'}</div>
                 </div>
                 <div style="display:flex;gap:8px;">
-                    <button class="action-btn action-btn-success" style="padding:6px 12px;font-size:12px;" onclick="reactivateCampaign('${c.id}')" title="重新启用">
+                    <button class="action-btn action-btn-success" style="padding:6px 12px;font-size:12px;" onclick="reactivateCampaign('${c.id}')" title="Reactivate">
                         ✅
                     </button>
-                    <button class="del-row-btn" onclick="deleteCampaignPermanently('${c.id}')" title="永久删除">
+                    <button class="del-row-btn" onclick="deleteCampaignPermanently('${c.id}')" title="Delete Permanently">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                     </button>
                 </div>
@@ -1948,11 +1962,11 @@ function addCampaign() {
     const isActive = document.getElementById('newCampaignActive').checked;
     
     if (!id) {
-        showToast('请输入Campaign ID', 'error');
+        showToast('Please enter Campaign ID', 'error');
         return;
     }
     if (!username) {
-        showToast('请输入KOC Username', 'error');
+        showToast('Please enter KOC Username', 'error');
         return;
     }
     
@@ -1961,7 +1975,7 @@ function addCampaign() {
     // Check if already exists
     const exists = config.campaign_ids.find(c => c.id === id);
     if (exists) {
-        showToast('该Campaign ID已存在', 'error');
+        showToast('This Campaign ID already exists', 'error');
         return;
     }
     
@@ -1980,7 +1994,7 @@ function addCampaign() {
     document.getElementById('newKocUsername').value = '';
     
     renderCampaignConfig();
-    showToast(`广告系列 ${username} 添加成功！`, 'success');
+    showToast(`Campaign ${username} added successfully!`, 'success');
 }
 
 function toggleCampaignActive(id) {
@@ -1991,11 +2005,11 @@ function toggleCampaignActive(id) {
         // Move to historical
         config.historical_campaign_ids = config.historical_campaign_ids || [];
         if (!config.historical_campaign_ids.find(c => c.id === id)) {
-            config.historical_campaign_ids.push({...campaign, note: '已停用'});
+            config.historical_campaign_ids.push({...campaign, note: 'Deactivated'});
         }
         saveCampaignConfig(config);
         renderCampaignConfig();
-        showToast(`广告系列 ${campaign.koc_username} 已停用`, 'success');
+        showToast(`Campaign ${campaign.koc_username} deactivated`, 'success');
     }
 }
 
@@ -2009,54 +2023,54 @@ function reactivateCampaign(id) {
         config.historical_campaign_ids = (config.historical_campaign_ids || []).filter(c => c.id !== id);
         saveCampaignConfig(config);
         renderCampaignConfig();
-        showToast(`广告系列 ${campaign.koc_username} 已重新启用`, 'success');
+        showToast(`Campaign ${campaign.koc_username} reactivated`, 'success');
     }
 }
 
 function deleteCampaign(id) {
-    showConfirm(`确定要删除此广告系列吗？`, () => {
+    showConfirm(`Are you sure you want to delete this campaign?`, () => {
         const config = getCampaignConfig();
         config.campaign_ids = config.campaign_ids.filter(c => c.id !== id);
         config.historical_campaign_ids = (config.historical_campaign_ids || []).filter(c => c.id !== id);
         saveCampaignConfig(config);
         renderCampaignConfig();
-        showToast('广告系列已删除', 'success');
+        showToast('Campaign deleted', 'success');
     }, '⚠️');
 }
 
 function deleteCampaignPermanently(id) {
-    showConfirm(`确定要永久删除此广告系列吗？`, () => {
+    showConfirm(`Are you sure you want to permanently delete this campaign?`, () => {
         const config = getCampaignConfig();
         config.historical_campaign_ids = (config.historical_campaign_ids || []).filter(c => c.id !== id);
         saveCampaignConfig(config);
         renderCampaignConfig();
-        showToast('广告系列已永久删除', 'success');
+        showToast('Campaign permanently deleted', 'success');
     }, '⚠️');
 }
 
 async function testCampaignApi() {
-    showToast('正在测试API连接...', 'info');
+    showToast('Testing API connection...', 'info');
     
     // Get token from anystories-api-info.md (via fetch)
     try {
         const tokenResponse = await fetch('anystories-api-info.md');
         const tokenText = await tokenResponse.text();
-        const tokenMatch = tokenText.match(/当前Token[^:]*:\s*`?([a-zA-Z0-9_\-\.]+)`?/);
+        const tokenMatch = tokenText.match(/Current\s+Token[^:]*:\s*`?([a-zA-Z0-9_\-\.]+)`?/);
         
         if (!tokenMatch) {
-            showToast('无法从 anystories-api-info.md 获取Token', 'error');
+            showToast('Cannot get Token from anystories-api-info.md', 'error');
             return;
         }
         
         const token = tokenMatch[1];
-        showToast('Token获取成功，正在测试...', 'info');
+        showToast('Token obtained, testing...', 'info');
         
         // Test with first active campaign
         const config = getCampaignConfig();
         const activeCampaigns = config.campaign_ids.filter(c => c.is_active);
         
         if (activeCampaigns.length === 0) {
-            showToast('没有活跃的广告系列可测试', 'warning');
+            showToast('No active campaigns to test', 'warning');
             return;
         }
         
@@ -2105,15 +2119,15 @@ async function testCampaignApi() {
         
         if (result.code === 200 && result.data && result.data.length > 0) {
             const data = result.data[0];
-            showToast(`API测试成功！Unique=${data.h5landingpageclickusernum || 0}, New Users=${data.newusernum || 0}`, 'success');
+            showToast(`API test successful! Unique=${data.h5landingpageclickusernum || 0}, New Users=${data.newusernum || 0}`, 'success');
         } else if (result.code === 200) {
-            showToast('API连接成功，但该广告系列暂无数据', 'warning');
+            showToast('API connected, but no data for this campaign', 'warning');
         } else {
-            showToast(`API返回错误: ${result.code}`, 'error');
+            showToast(`API error: ${result.code}`, 'error');
         }
         
     } catch (error) {
-        showToast(`API测试失败: ${error.message}`, 'error');
+        showToast(`API test failed: ${error.message}`, 'error');
         document.getElementById('apiTestResult').style.display = 'block';
         document.getElementById('apiTestResultContent').textContent = `Error: ${error.message}`;
     }
@@ -2123,19 +2137,19 @@ async function testSingleCampaignApi() {
     const testId = document.getElementById('testCampaignId').value.trim();
     
     if (!testId) {
-        showToast('请输入Campaign ID', 'error');
+        showToast('Please enter Campaign ID', 'error');
         return;
     }
     
-    showToast('正在查询...', 'info');
+    showToast('Querying...', 'info');
     
     try {
         const tokenResponse = await fetch('anystories-api-info.md');
         const tokenText = await tokenResponse.text();
-        const tokenMatch = tokenText.match(/当前Token[^:]*:\s*`?([a-zA-Z0-9_\-\.]+)`?/);
+        const tokenMatch = tokenText.match(/Current\s+Token[^:]*:\s*`?([a-zA-Z0-9_\-\.]+)`?/);
         
         if (!tokenMatch) {
-            showToast('无法获取Token', 'error');
+            showToast('Cannot get Token', 'error');
             return;
         }
         
@@ -2181,15 +2195,15 @@ async function testSingleCampaignApi() {
         
         if (result.code === 200 && result.data && result.data.length > 0) {
             const data = result.data[0];
-            showToast(`查询成功！Unique=${data.h5landingpageclickusernum || 0}, New Users=${data.newusernum || 0}`, 'success');
+            showToast(`Query successful! Unique=${data.h5landingpageclickusernum || 0}, New Users=${data.newusernum || 0}`, 'success');
         } else if (result.code === 200) {
-            showToast('该广告系列暂无数据', 'warning');
+            showToast('No data for this campaign', 'warning');
         } else {
-            showToast(`API返回错误: ${result.code}`, 'error');
+            showToast(`API error: ${result.code}`, 'error');
         }
         
     } catch (error) {
-        showToast(`查询失败: ${error.message}`, 'error');
+        showToast(`Query failed: ${error.message}`, 'error');
         document.getElementById('apiTestResult').style.display = 'block';
         document.getElementById('apiTestResultContent').textContent = `Error: ${error.message}`;
     }
