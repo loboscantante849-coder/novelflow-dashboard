@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NovelFlow KOC — 书籍推荐墙</title>
+<title>NovelFlow — Book Recommendation Wall</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -373,16 +373,16 @@ a:hover { color: #a89cff; }
 <div class="container">
   <!-- Hero -->
   <div class="hero">
-    <div class="hero-badge">📖 书单推荐墙</div>
-    <h1>大家都在推荐 <span class="gradient-text">什么书？</span></h1>
-    <p>查看 KOC 社区推荐的所有书籍，发现热门推荐，发现志同道合的推广伙伴！</p>
+    <div class="hero-badge">📖 Book Recommendation Wall</div>
+    <h1>What's Everyone Recommending <span class="gradient-text">Next?</span></h1>
+    <p>Browse all books recommended by our community. Discover trending picks and find fellow promoters!</p>
   </div>
 
   <!-- Stats -->
   <div class="stats-bar">
     <div class="stat-card">
       <div class="stat-value" id="totalBooks">-</div>
-      <div class="stat-label">推荐书籍总数</div>
+      <div class="stat-label">Total Books</div>
     </div>
     <div class="stat-card">
       <div class="stat-value" id="totalRecommenders">-</div>
@@ -390,14 +390,14 @@ a:hover { color: #a89cff; }
     </div>
     <div class="stat-card">
       <div class="stat-value" id="topMethod">-</div>
-      <div class="stat-label">最热推广方式</div>
+      <div class="stat-label">Top Method</div>
     </div>
   </div>
 
   <!-- Loading State -->
   <div class="loading" id="loadingState">
     <div class="loading-spinner"></div>
-    <p>正在加载书单...</p>
+    <p>Loading recommendations...</p>
   </div>
 
   <!-- Empty State -->
@@ -419,7 +419,7 @@ a:hover { color: #a89cff; }
 </div>
 
 <script>
-const DATA_URL = 'submissions.json';
+const DATA_URL = '/api/submissions';
 let allSubmissions = [];
 
 function getMethodIcon(method) {
@@ -529,7 +529,7 @@ function renderBooks(aggregatedBooks) {
           <div>
             <div class="book-title">${escapeHtml(book.bookName)}</div>
             <div class="book-meta">
-              <span>👤 ${book.recommenders.length} 人推荐</span>
+              <span>👤 ${book.recommenders.length} recommender${book.recommenders.length > 1 ? 's' : ''}</span>
             </div>
           </div>
         </div>
@@ -537,13 +537,13 @@ function renderBooks(aggregatedBooks) {
           ${Object.entries(methodCount).map(([method, count]) => `
             <div class="book-stat">
               <div class="book-stat-value">${getMethodIcon(method)}</div>
-              <div class="book-stat-label">${count}人 · ${method}</div>
+              <div class="book-stat-label">${count} · ${method}</div>
             </div>
           `).join('')}
         </div>
-        <div class="expand-hint">点击查看推荐者详情</div>
+        <div class="expand-hint">Click to see recommenders</div>
         <div class="book-expand">
-          <div style="font-size: 12px; color: #6a6f8a; margin-bottom: 10px;">推荐者（已匿名处理）</div>
+          <div style="font-size: 12px; color: #6a6f8a; margin-bottom: 10px;">Recommenders (anonymized)</div>
           <ul class="recommender-list">
             ${book.recommenders.map(r => `
               <li class="recommender-item">
@@ -582,14 +582,14 @@ async function loadData() {
     
     // Update last updated time
     document.getElementById('lastUpdated').textContent = 
-      `最后更新: ${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}`;
+      `Last updated: ${new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai' })}`;
     
     const aggregatedBooks = aggregateBooks(allSubmissions);
     renderBooks(aggregatedBooks);
   } catch (error) {
     console.error('Error loading data:', error);
     document.getElementById('loadingState').innerHTML = `
-      <div style="color: #ff8888;">加载失败，请刷新页面重试</div>
+      <div style="color: #ff8888;">Failed to load, please refresh</div>
     `;
   }
 }
