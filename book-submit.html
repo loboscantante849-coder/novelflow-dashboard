@@ -180,7 +180,7 @@ function updateStep(stepId, status) {
   const step = document.getElementById(stepId);
   if (!step) return;
   step.classList.remove('current', 'done', 'failed');
-  step.classList.add(status);
+  if (status) step.classList.add(status);
   const icon = step.querySelector('.step-icon');
   if (status === 'done') { icon.textContent = '✓'; }
   else if (status === 'failed') { icon.textContent = '✗'; }
@@ -191,7 +191,10 @@ function showProcessingStatus() {
   formContainer.classList.add('hidden');
   processingStatus.classList.add('show');
   successMessage.classList.remove('show');
-  ['stepSave', 'stepSearch', 'stepCode', 'stepLink'].forEach(id => updateStep(id, ''));
+  ['stepSave', 'stepSearch', 'stepCode', 'stepLink'].forEach(id => {
+    const step = document.getElementById(id);
+    if (step) { step.classList.remove('current', 'done', 'failed'); step.querySelector('.step-icon').textContent = ''; }
+  });
   updateStep('stepSave', 'current');
 }
 
