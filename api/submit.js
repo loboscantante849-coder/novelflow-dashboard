@@ -235,7 +235,7 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
       channelName: 'NovelFlow_SocialMedia_Facebook-grounp_Facebook_xujt',
       channelNameId: '699ef7b8194eb218db3c2270',
       contentType: 1,
-      contentNameOrSku: `${bookTitle} (${bookId})`,
+      contentNameOrSku: bookId,
       contentName: bookTitle,
       languageCode: 'en',
       redirectConfigId: '68fecf8b3a29f6eff435fd3b',
