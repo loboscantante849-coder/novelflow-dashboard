@@ -32,15 +32,11 @@ module.exports = async (req, res) => {
     });
 
     let sha = null;
-    if (getResponse.ok) {
-      const data = await getResponse.json();
-      sha = data.sha;
-    }
-
-    // Step 2: Read existing submissions
     let existingData = [];
     if (getResponse.ok) {
       const data = await getResponse.json();
+      sha = data.sha;
+      // Read content from the same response
       const content = Buffer.from(data.content, 'base64').toString('utf-8');
       try {
         existingData = JSON.parse(content);
