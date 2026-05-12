@@ -217,30 +217,36 @@ async function createCode(bookId, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE
 
 async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID) {
   const linkName = `${code}${bookTitle}-书籍详情页-FB`;
-  // Note: NOT passing channelCode to avoid adGroupName duplicates
-  const adGroupName = `${BOOKSTORE_APP_ID}_Android_SocialMedia_NovelFlow_SocialMedia_KOC__${linkName}_novelflow`;
 
   const linkResp = await fetch(`${BOOKSTORE_API_BASE}/SocialMediaLinkConfig`, {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${BOOKSTORE_TOKEN}`, 'Content-Type': 'application/json' },
+    headers: {
+      'Authorization': `Bearer ${BOOKSTORE_TOKEN}`,
+      'Content-Type': 'application/json',
+      'X-OS': 'web',
+      'X-AppName': 'web-admin',
+      'X-AppIdentifier': 'web',
+      'X-AppVersion': '1.0.0,1'
+    },
     body: JSON.stringify({
-      linkName, 
-      applicationId: BOOKSTORE_APP_ID, 
-      mediaSource: 'SocialMedia', 
-      channelName: 'KOC',
-      // NOTE: NOT passing channelCode
-      contentType: 1, 
-      contentTypeName: '小说', 
-      contentNameOrSku: `${bookTitle} (${bookId})`,
-      languageCode: 'en', 
-      redirectPosition: '书籍详情页', 
+      applicationId: BOOKSTORE_APP_ID,
+      channelNameId: '699ef7b8194eb218db3c2270',
+      channelName: 'NovelFlow_SocialMedia_Facebook-grounp_Facebook_xujt',
+      mediaSource: 'SocialMedia',
+      contentType: 1,
+      contentNameOrSku: bookId,
+      contentName: bookTitle,
+      languageCode: 'en',
+      redirectConfigId: '68fecf8b3a29f6eff435fd3b',
+      redirectPosition: '书籍详情页',
       contentRedirectSequence: 1,
-      operatorName: 'novelflow', 
-      adGroupName, 
-      channelSource: 'SocialMedia(KOC)',
-      isEnabled: true, 
-      probability: 100, 
-      isAutoRedirect: 0
+      operatorName: '徐敬涛',
+      linkName,
+      landingPageTemplates: [{
+        templateId: '6a01499261118c6285dff7dd',
+        templateName: linkName,
+        templateWeight: 100
+      }]
     })
   });
 
