@@ -1,5 +1,6 @@
 module.exports = async (req, res) => {
-  if (req.method !== 'POST') {
+  // Support both POST and GET (for easier testing)
+  if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -41,58 +42,83 @@ module.exports = async (req, res) => {
       submissions = [];
     }
 
-    // Step 2: Find pending or failed submissions
-    const toRetry = submissions.filter(sub => sub.status === 'pending' || sub.status === 'failed');
+    // Step 2: Find FIRST pending or failed submission (process ONE at a time)
+    const toRetry = submissions.find(sub => sub.status === 'pending' || sub.status === 'failed');
     
-    if (toRetry.length === 0) {
-      return res.status(200).json({ success: true, message: 'No pending or failed submissions to retry', retried: 0 });
+    if (!toRetry) {
+      return res.status(200).json({ 
+        success: true, 
+        message: 'No pending or failed submissions to retry',
+        retried: 0,
+        remaining: 0
+      });
     }
 
-    console.log(`Found ${toRetry.length} submissions to retry`);
+    console.log(`Retrying: ${toRetry.id} - ${toRetry.bookName}`);
 
-    // Step 3: Process each submission
-    const results = [];
-    for (const submission of toRetry) {
-      try {
-        console.log(`Retrying: ${submission.id} - ${submission.bookName}`);
-        
-        // Search book
-        const book = await searchBook(submission.bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
-        if (!book) {
-          await updateSubmission(submission.id, { status: 'failed', error: 'Book not found during retry' }, apiBase, GITHUB_TOKEN, sha);
-          results.push({ id: submission.id, bookName: submission.bookName, status: 'failed', reason: 'Book not found' });
-          continue;
-        }
-
-        console.log(`Matched: "${book.title}" (${book.bookId}) for query "${submission.bookName}"`);
-
-        // Create code
-        const finalCode = await createCode(book.bookId, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
-        if (!finalCode) {
-          await updateSubmission(submission.id, { status: 'failed', bookId: book.bookId, matchedBookName: book.title, error: 'Code creation failed during retry' }, apiBase, GITHUB_TOKEN, sha);
-          results.push({ id: submission.id, bookName: submission.bookName, status: 'failed', reason: 'Code creation failed' });
-          continue;
-        }
-
-        // Create link
-        const shortUrl = await createLink(book.bookId, book.title, finalCode, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
-
-        // Update submission
-        const fields = { code: String(finalCode), bookId: book.bookId, matchedBookName: book.title, status: 'completed' };
-        if (shortUrl) { fields.link = `https://${shortUrl}`; fields.shortUrl = shortUrl; }
-        await updateSubmission(submission.id, fields, apiBase, GITHUB_TOKEN, sha);
-
-        results.push({ id: submission.id, bookName: submission.bookName, status: 'completed', code: finalCode, link: shortUrl });
-        console.log(`Retry succeeded: ${submission.id} - code=${finalCode}, link=${shortUrl}`);
-
-      } catch (err) {
-        console.error(`Retry error for ${submission.id}:`, err.message);
-        await updateSubmission(submission.id, { status: 'failed', error: err.message }, apiBase, GITHUB_TOKEN, sha);
-        results.push({ id: submission.id, bookName: submission.bookName, status: 'failed', reason: err.message });
+    try {
+      // Search book
+      const book = await searchBook(toRetry.bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
+      if (!book) {
+        await updateSubmission(toRetry.id, { status: 'failed', error: 'Book not found during retry' }, apiBase, GITHUB_TOKEN);
+        return res.status(200).json({ 
+          success: true, 
+          id: toRetry.id, 
+          bookName: toRetry.bookName, 
+          status: 'failed', 
+          reason: 'Book not found',
+          remaining: countPending(submissions, toRetry.id)
+        });
       }
-    }
 
-    return res.status(200).json({ success: true, retried: toRetry.length, results });
+      console.log(`Matched: "${book.title}" (${book.bookId}) for query "${toRetry.bookName}"`);
+
+      // Create code
+      const finalCode = await createCode(book.bookId, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
+      if (!finalCode) {
+        await updateSubmission(toRetry.id, { status: 'failed', bookId: book.bookId, matchedBookName: book.title, error: 'Code creation failed during retry' }, apiBase, GITHUB_TOKEN);
+        return res.status(200).json({ 
+          success: true, 
+          id: toRetry.id, 
+          bookName: toRetry.bookName, 
+          status: 'failed', 
+          reason: 'Code creation failed',
+          remaining: countPending(submissions, toRetry.id)
+        });
+      }
+
+      // Create link
+      const shortUrl = await createLink(book.bookId, book.title, finalCode, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
+
+      // Update submission
+      const fields = { code: String(finalCode), bookId: book.bookId, matchedBookName: book.title, status: 'completed' };
+      if (shortUrl) { fields.link = `https://${shortUrl}`; fields.shortUrl = shortUrl; }
+      await updateSubmission(toRetry.id, fields, apiBase, GITHUB_TOKEN);
+
+      console.log(`Retry succeeded: ${toRetry.id} - code=${finalCode}, link=${shortUrl}`);
+
+      return res.status(200).json({ 
+        success: true, 
+        id: toRetry.id,
+        bookName: toRetry.bookName,
+        status: 'completed', 
+        code: finalCode, 
+        link: shortUrl,
+        remaining: countPending(submissions, toRetry.id)
+      });
+
+    } catch (err) {
+      console.error(`Retry error for ${toRetry.id}:`, err.message);
+      await updateSubmission(toRetry.id, { status: 'failed', error: err.message }, apiBase, GITHUB_TOKEN);
+      return res.status(200).json({ 
+        success: true, 
+        id: toRetry.id,
+        bookName: toRetry.bookName,
+        status: 'failed', 
+        reason: err.message,
+        remaining: countPending(submissions, toRetry.id)
+      });
+    }
 
   } catch (error) {
     console.error('Retry-pending error:', error);
@@ -100,22 +126,27 @@ module.exports = async (req, res) => {
   }
 };
 
-// ============ Fuzzy Book Search (same as submit.js) ============
+// Count remaining pending/failed submissions (excluding the one just processed)
+function countPending(submissions, excludeId) {
+  return submissions.filter(sub => (sub.status === 'pending' || sub.status === 'failed') && sub.id !== excludeId).length;
+}
+
+// ============ Fuzzy Book Search ============
 
 async function searchBook(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID) {
   // Strategy 1: Full book name as-is
   let result = await doSearch(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
   if (result) return result;
 
-  // Strategy 2: Without leading "The"
-  const withoutThe = bookName.replace(/^The\s+/i, '').trim();
-  if (withoutThe !== bookName && withoutThe.length > 2) {
-    result = await doSearch(withoutThe, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
+  // Strategy 2: Without leading "The", "A", "An"
+  const withoutArticle = bookName.replace(/^(The|A|An)\s+/i, '').trim();
+  if (withoutArticle !== bookName && withoutArticle.length > 2) {
+    result = await doSearch(withoutArticle, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
     if (result) return result;
   }
 
   // Strategy 3: First + last significant word
-  const words = bookName.split(/\s+/).filter(w => w.toLowerCase() !== 'the' && w.length > 2);
+  const words = bookName.split(/\s+/).filter(w => !/^(the|a|an)$/i.test(w) && w.length > 2);
   if (words.length >= 3) {
     const firstLast = words[0] + ' ' + words[words.length - 1];
     result = await doSearch(firstLast, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
@@ -149,7 +180,7 @@ async function doSearch(query, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_AP
 // ============ Create Promotion Code ============
 
 async function createCode(bookId, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID) {
-  const STARTING_CODE = 4545;
+  const STARTING_CODE = 4544;
 
   for (let tryCode = STARTING_CODE; tryCode < STARTING_CODE + 100; tryCode++) {
     const codeResp = await fetch(`${BOOKSTORE_API_BASE}/book/savebookpromotionkeywords`, {
@@ -173,7 +204,7 @@ async function createCode(bookId, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE
   return null;
 }
 
-// ============ Create Short Link ============
+// ============ Create Short Link (no channelCode) ============
 
 async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID) {
   const linkName = `${code}${bookTitle}-书籍详情页-FB`;
@@ -183,11 +214,23 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
     method: 'POST',
     headers: { 'Authorization': `Bearer ${BOOKSTORE_TOKEN}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      linkName, applicationId: BOOKSTORE_APP_ID, mediaSource: 'SocialMedia', channelName: 'KOC',
-      contentType: 1, contentTypeName: '小说', contentNameOrSku: `${bookTitle} (${bookId})`,
-      languageCode: 'en', redirectPosition: '书籍详情页', contentRedirectSequence: 1,
-      operatorName: 'novelflow', adGroupName, channelSource: 'SocialMedia(KOC)',
-      isEnabled: true, probability: 100, isAutoRedirect: 0
+      linkName, 
+      applicationId: BOOKSTORE_APP_ID, 
+      mediaSource: 'SocialMedia', 
+      channelName: 'KOC',
+      // NOTE: NOT passing channelCode
+      contentType: 1, 
+      contentTypeName: '小说', 
+      contentNameOrSku: `${bookTitle} (${bookId})`,
+      languageCode: 'en', 
+      redirectPosition: '书籍详情页', 
+      contentRedirectSequence: 1,
+      operatorName: 'novelflow', 
+      adGroupName, 
+      channelSource: 'SocialMedia(KOC)',
+      isEnabled: true, 
+      probability: 100, 
+      isAutoRedirect: 0
     })
   });
 
@@ -198,12 +241,14 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
     }
   }
 
+  const errorText = await linkResp.text().catch(() => 'unknown');
+  console.error('Link creation failed:', linkResp.status, errorText);
   return null;
 }
 
 // ============ Update Submission ============
 
-async function updateSubmission(submissionId, fields, apiBase, GITHUB_TOKEN, sha) {
+async function updateSubmission(submissionId, fields, apiBase, GITHUB_TOKEN) {
   try {
     // Re-fetch to get latest sha
     const getResp = await fetch(apiBase, {
