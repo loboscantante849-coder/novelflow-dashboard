@@ -131,8 +131,8 @@ a:hover { color: #a89cff; }
   </div>
 
   <div class="nav-links" id="formNavLinks">
-    <a href="book-wall.html">📖 View Book Wall</a>
-    <a href="promotion-guide.html">📋 Promotion Guide</a>
+    <a href="https://tinyurl.com/ypbru28w">📖 View Book Wall</a>
+    <a href="https://tinyurl.com/46bf4zm5">📋 Promotion Guide</a>
   </div>
 
   <div class="card processing-status" id="processingStatus">
@@ -158,7 +158,7 @@ a:hover { color: #a89cff; }
     <div class="next-step" id="nextStep">
       <p>📌 <strong>What happens next?</strong></p>
       <p>Your referral link will be created within 24 hours. Check the Book Wall to find it — you can search by book name.</p>
-      <a href="book-wall.html" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>
+      <a href="https://tinyurl.com/ypbru28w" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>
     </div>
   </div>
 </div>
@@ -216,17 +216,17 @@ function showSuccess(result) {
     linkContainer.style.display = 'block';
     linkUrl.textContent = result.submission.link;
     linkUrl.href = result.submission.link;
-    nextStep.innerHTML = '<p>📌 <strong>All done!</strong></p><p>Your referral link is ready! Share it on Discord to start promoting.</p><a href="book-wall.html" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>';
+    nextStep.innerHTML = '<p>📌 <strong>All done!</strong></p><p>Your referral link is ready! Share it on Discord to start promoting.</p><a href="https://tinyurl.com/ypbru28w" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>';
   } else if (result.status === 'completed') {
     successIcon.textContent = '✅';
     successTitle.textContent = 'Submission Saved!';
     linkContainer.style.display = 'none';
-    nextStep.innerHTML = '<p>📌 <strong>What happens next?</strong></p><p>Your referral link will be created shortly. Check the Book Wall in a few minutes.</p><a href="book-wall.html" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>';
+    nextStep.innerHTML = '<p>📌 <strong>What happens next?</strong></p><p>Your referral link will be created shortly. Check the Book Wall in a few minutes.</p><a href="https://tinyurl.com/ypbru28w" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>';
   } else {
     successIcon.textContent = '⏳';
     successTitle.textContent = 'Creating Link...';
     linkContainer.style.display = 'none';
-    nextStep.innerHTML = '<p>📌 <strong>Link creation in progress...</strong></p><p>We\'ll keep trying. Check the Book Wall in a few minutes.</p><a href="book-wall.html" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>';
+    nextStep.innerHTML = '<p>📌 <strong>Link creation in progress...</strong></p><p>We\'ll keep trying. Check the Book Wall in a few minutes.</p><a href="https://tinyurl.com/ypbru28w" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>';
   }
 }
 
