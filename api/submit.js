@@ -25,10 +25,9 @@ module.exports = async (req, res) => {
   const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage';
   const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
   const BOOKSTORE_TOKEN = process.env.BOOKSTORE_TOKEN;
-  const STARTING_CODE = 4545; // Next available code after 4544 (The Luna Warrior)
 
   try {
-    // Step 1: Get current file SHA
+    // Step 1: Get current file SHA and existing data
     const getResponse = await fetch(apiBase, {
       headers: {
         'Authorization': `token ${GITHUB_TOKEN}`,
@@ -42,39 +41,32 @@ module.exports = async (req, res) => {
     if (getResponse.ok) {
       const data = await getResponse.json();
       sha = data.sha;
-      // Read content from the same response
       const content = Buffer.from(data.content, 'base64').toString('utf-8');
       try {
         existingData = JSON.parse(content);
-        if (!Array.isArray(existingData)) {
-          existingData = [];
-        }
+        if (!Array.isArray(existingData)) existingData = [];
       } catch (e) {
         existingData = [];
       }
     }
 
-    // Step 2: Add new submission
+    // Step 2: Add new submission with status "pending"
     const newSubmission = {
       id: 'sub_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
       bookName: bookName.trim(),
       discordUsername: discordUsername.trim(),
       promotionMethod: promotionMethod || '',
       notes: notes || '',
-      submittedAt: new Date().toISOString()
+      submittedAt: new Date().toISOString(),
+      status: 'pending'  // pending -> processing -> completed / failed
     };
 
     existingData.push(newSubmission);
 
-    // Step 3: Write updated content to GitHub
+    // Step 3: Save to GitHub immediately (fast response to user)
     const content = Buffer.from(JSON.stringify(existingData, null, 2)).toString('base64');
-    const putBody = {
-      message: 'Add new book submission: ' + bookName,
-      content: content
-    };
-    if (sha) {
-      putBody.sha = sha;
-    }
+    const putBody = { message: 'Add new book submission: ' + bookName, content: content };
+    if (sha) putBody.sha = sha;
 
     const putResponse = await fetch(apiBase, {
       method: 'PUT',
@@ -93,242 +85,196 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: 'Failed to save submission' });
     }
 
-    // Step 4: Auto-create code and link if BOOKSTORE_TOKEN is available
-    if (BOOKSTORE_TOKEN) {
-      try {
-        // 4a: Search for book by name to get bookId (skuid)
-        // Using booklist API with title param for fuzzy match, filtered by NovelFlow appId
-        const searchResponse = await fetch(
-          `${BOOKSTORE_API_BASE}/book/booklist?pageNum=1&pageSize=10&title=${encodeURIComponent(bookName.trim())}&applicationId=${BOOKSTORE_APP_ID}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${BOOKSTORE_TOKEN}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
+    // Return success immediately - code/link will be created async
+    res.status(200).json({ success: true, submission: newSubmission });
 
-        let bookId = null;
-        let matchedBookName = null;
-
-        if (searchResponse.ok) {
-          const searchData = await searchResponse.json();
-          if (searchData.code === 200 && searchData.data?.data?.length > 0) {
-            // Take the first match (already filtered by NovelFlow appId)
-            const book = searchData.data.data[0];
-            bookId = book.bookId || book.skuId || book.id;
-            matchedBookName = book.bookName || book.title || bookName;
-            console.log(`Book found: ${matchedBookName}, bookId(skuid): ${bookId}`);
-          }
-        }
-
-        if (!bookId) {
-          console.warn(`Book not found for: ${bookName}, skipping code/link creation`);
-          return res.status(200).json({ 
-            success: true, 
-            submission: newSubmission,
-            warning: 'Book not found in bookstore, code/link not created'
-          });
-        }
-
-        // 4b: Get existing codes to find next available code
-        const listResponse = await fetch(
-          `${BOOKSTORE_API_BASE}/book/savebookpromotionkeywords?pageNum=1&pageSize=1&applicationId=${BOOKSTORE_APP_ID}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${BOOKSTORE_TOKEN}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-
-        let nextCode = STARTING_CODE;
-        
-        // Try to get max existing code from list
-        // Note: The list API might return codes, parse from the response
-        // For now, we'll try codes incrementally until success
-        // This is a fallback - ideally we should query the existing codes
-        
-        // 4c: Create the search code
-        const codeResponse = await fetch(`${BOOKSTORE_API_BASE}/book/savebookpromotionkeywords`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${BOOKSTORE_TOKEN}`,
-            'Content-Type': 'application/json;charset=UTF-8',
-            'X-OS': 'web',
-            'X-AppName': 'web-admin',
-            'X-AppIdentifier': 'web',
-            'X-AppVersion': '1.0.0,1'
-          },
-          body: JSON.stringify({
-            applicationId: BOOKSTORE_APP_ID,
-            keyword: String(STARTING_CODE),
-            bookId: bookId,
-            channel: 'FB'
-          })
-        });
-
-        let codeResult = null;
-        let shortUrl = null;
-        let finalCode = STARTING_CODE;
-
-        if (codeResponse.ok) {
-          const codeData = await codeResponse.json();
-          if (codeData.code === 200 && codeData.data) {
-            codeResult = codeData.data;
-            finalCode = codeData.data.keywordId || STARTING_CODE;
-            console.log(`Search code created: ${finalCode}`);
-          }
-        }
-
-        // If code creation failed (duplicate), try incrementally
-        if (!codeResult) {
-          for (let tryCode = STARTING_CODE + 1; tryCode < STARTING_CODE + 100; tryCode++) {
-            const retryResponse = await fetch(`${BOOKSTORE_API_BASE}/book/savebookpromotionkeywords`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${BOOKSTORE_TOKEN}`,
-                'Content-Type': 'application/json;charset=UTF-8',
-                'X-OS': 'web',
-                'X-AppName': 'web-admin',
-                'X-AppIdentifier': 'web',
-                'X-AppVersion': '1.0.0,1'
-              },
-              body: JSON.stringify({
-                applicationId: BOOKSTORE_APP_ID,
-                keyword: String(tryCode),
-                bookId: bookId,
-                channel: 'FB'
-              })
-            });
-
-            if (retryResponse.ok) {
-              const retryData = await retryResponse.json();
-              if (retryData.code === 200 && retryData.data) {
-                codeResult = retryData.data;
-                finalCode = retryData.data.keywordId || tryCode;
-                console.log(`Search code created: ${finalCode}`);
-                break;
-              }
-            }
-          }
-        }
-
-        // 4d: Create the short link
-        // Note: Not passing channelCode to avoid adGroupName duplication
-        const linkName = `${finalCode}${matchedBookName || bookName}-书籍详情页-FB`;
-        const adGroupName = `${BOOKSTORE_APP_ID}_Android_SocialMedia_NovelFlow_SocialMedia_KOC__${linkName}_novelflow`;
-
-        const linkResponse = await fetch(`${BOOKSTORE_API_BASE}/SocialMediaLinkConfig`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${BOOKSTORE_TOKEN}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            linkName: linkName,
-            applicationId: BOOKSTORE_APP_ID,
-            mediaSource: 'SocialMedia',
-            channelName: 'KOC',
-            contentType: 1,
-            contentTypeName: '小说',
-            contentNameOrSku: `${matchedBookName || bookName} (${bookId})`,
-            languageCode: 'en',
-            redirectPosition: '书籍详情页',
-            contentRedirectSequence: 1,
-            operatorName: 'novelflow',
-            adGroupName: adGroupName,
-            channelSource: 'SocialMedia(KOC)',
-            isEnabled: true,
-            probability: 100,
-            isAutoRedirect: 0
-          })
-        });
-
-        if (linkResponse.ok) {
-          const linkData = await linkResponse.json();
-          if (linkData.code === 200 && linkData.data) {
-            shortUrl = linkData.data.shortUrl || linkData.shortUrl;
-            console.log(`Short link created: ${shortUrl}`);
-          }
-        }
-
-        // 4e: Update submission with code and link
-        // Re-fetch the file to get latest SHA
-        const refreshResponse = await fetch(apiBase, {
-          headers: {
-            'Authorization': `token ${GITHUB_TOKEN}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'NovelFlow-API'
-          }
-        });
-
-        if (refreshResponse.ok) {
-          const refreshData = await refreshResponse.json();
-          const latestSha = refreshData.sha;
-          
-          // Find and update the submission we just created
-          const latestContent = Buffer.from(refreshData.content, 'base64').toString('utf-8');
-          let latestData = JSON.parse(latestContent);
-          
-          // Find the submission by ID
-          const submissionIndex = latestData.findIndex(s => s.id === newSubmission.id);
-          if (submissionIndex !== -1) {
-            latestData[submissionIndex].code = String(finalCode);
-            latestData[submissionIndex].bookId = bookId;
-            if (shortUrl) {
-              latestData[submissionIndex].link = shortUrl;
-              latestData[submissionIndex].shortUrl = shortUrl;
-            }
-            
-            // Update the file
-            const updateContent = Buffer.from(JSON.stringify(latestData, null, 2)).toString('base64');
-            await fetch(apiBase, {
-              method: 'PUT',
-              headers: {
-                'Authorization': `token ${GITHUB_TOKEN}`,
-                'Accept': 'application/vnd.github.v3+json',
-                'Content-Type': 'application/json',
-                'User-Agent': 'NovelFlow-API'
-              },
-              body: JSON.stringify({
-                message: 'Update submission with code and link: ' + bookName,
-                content: updateContent,
-                sha: latestSha
-              })
-            });
-            
-            // Update the response object
-            newSubmission.code = String(finalCode);
-            newSubmission.bookId = bookId;
-            if (shortUrl) {
-              newSubmission.link = shortUrl;
-              newSubmission.shortUrl = shortUrl;
-            }
-          }
-        }
-
-        console.log(`Submission completed: ${newSubmission.id}, code: ${finalCode}`);
-
-      } catch (autoCreateError) {
-        // Auto-create failed, but submission itself was saved
-        console.error('Auto-create code/link failed:', autoCreateError.message);
-        return res.status(200).json({ 
-          success: true, 
-          submission: newSubmission,
-          warning: 'Auto-create code/link failed: ' + autoCreateError.message
-        });
-      }
+    // Step 4: Async - auto create code and link (after response sent)
+    if (!BOOKSTORE_TOKEN) {
+      console.log('BOOKSTORE_TOKEN not set, skipping auto code/link creation');
+      return;
     }
 
-    return res.status(200).json({ 
-      success: true, 
-      submission: newSubmission 
-    });
+    try {
+      await autoCreateCodeAndLink(newSubmission, existingData, apiBase, GITHUB_TOKEN, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
+    } catch (autoError) {
+      console.error('Auto-create code/link failed:', autoError.message);
+    }
 
   } catch (error) {
-    console.error('Server error:', error);
-    return res.status(500).json({ error: 'Server error: ' + error.message, stack: error.stack });
+    console.error('Submit error:', error);
+    if (!res.headersSent) {
+      return res.status(500).json({ error: 'Internal server error' });
+    }
   }
 };
 
+async function autoCreateCodeAndLink(submission, existingData, apiBase, GITHUB_TOKEN, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID) {
+  const bookName = submission.bookName;
+  const STARTING_CODE = 4545;
+
+  // 4a: Search for book by name to get bookId (skuid)
+  const searchResponse = await fetch(
+    `${BOOKSTORE_API_BASE}/book/booklist?pageNum=1&pageSize=10&title=${encodeURIComponent(bookName.trim())}&applicationId=${BOOKSTORE_APP_ID}`,
+    {
+      headers: {
+        'Authorization': `Bearer ${BOOKSTORE_TOKEN}`,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+
+  let bookId = null;
+  let matchedBookName = null;
+
+  if (searchResponse.ok) {
+    const searchData = await searchResponse.json();
+    if (searchData.code === 200 && searchData.data?.data?.length > 0) {
+      const book = searchData.data.data[0];
+      bookId = book.bookId || book.skuId || book.id;
+      matchedBookName = book.bookName || book.title || bookName;
+      console.log(`Book found: ${matchedBookName}, bookId: ${bookId}`);
+    }
+  }
+
+  if (!bookId) {
+    console.warn(`Book not found for: ${bookName}, marking as failed`);
+    await updateSubmissionStatus(submission.id, 'failed', { error: 'Book not found in bookstore' }, apiBase, GITHUB_TOKEN);
+    return;
+  }
+
+  // 4b: Create the search code (try from STARTING_CODE, increment on duplicate)
+  let codeResult = null;
+  let finalCode = null;
+
+  for (let tryCode = STARTING_CODE; tryCode < STARTING_CODE + 100; tryCode++) {
+    const codeResponse = await fetch(`${BOOKSTORE_API_BASE}/book/savebookpromotionkeywords`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${BOOKSTORE_TOKEN}`,
+        'Content-Type': 'application/json;charset=UTF-8',
+        'X-OS': 'web',
+        'X-AppName': 'web-admin',
+        'X-AppIdentifier': 'web',
+        'X-AppVersion': '1.0.0,1'
+      },
+      body: JSON.stringify({
+        applicationId: BOOKSTORE_APP_ID,
+        keyword: String(tryCode),
+        bookId: bookId,
+        channel: 'FB'
+      })
+    });
+
+    if (codeResponse.ok) {
+      const codeData = await codeResponse.json();
+      if (codeData.code === 200 && codeData.data) {
+        codeResult = codeData.data;
+        finalCode = tryCode;
+        console.log(`Search code created: ${finalCode}`);
+        break;
+      }
+    }
+    // If not 200, code likely exists, try next
+  }
+
+  if (!codeResult) {
+    console.error('Failed to create search code after 100 attempts');
+    await updateSubmissionStatus(submission.id, 'failed', { bookId, error: 'Code creation failed' }, apiBase, GITHUB_TOKEN);
+    return;
+  }
+
+  // 4c: Create the short link (not passing channelCode)
+  const linkName = `${finalCode}${matchedBookName}-书籍详情页-FB`;
+  const adGroupName = `${BOOKSTORE_APP_ID}_Android_SocialMedia_NovelFlow_SocialMedia_KOC__${linkName}_novelflow`;
+
+  const linkResponse = await fetch(`${BOOKSTORE_API_BASE}/SocialMediaLinkConfig`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${BOOKSTORE_TOKEN}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      linkName: linkName,
+      applicationId: BOOKSTORE_APP_ID,
+      mediaSource: 'SocialMedia',
+      channelName: 'KOC',
+      contentType: 1,
+      contentTypeName: '小说',
+      contentNameOrSku: `${matchedBookName} (${bookId})`,
+      languageCode: 'en',
+      redirectPosition: '书籍详情页',
+      contentRedirectSequence: 1,
+      operatorName: 'novelflow',
+      adGroupName: adGroupName,
+      channelSource: 'SocialMedia(KOC)',
+      isEnabled: true,
+      probability: 100,
+      isAutoRedirect: 0
+    })
+  });
+
+  let shortUrl = null;
+  if (linkResponse.ok) {
+    const linkData = await linkResponse.json();
+    if (linkData.code === 200 && linkData.data) {
+      shortUrl = linkData.data.shortUrl || linkData.shortUrl;
+      console.log(`Short link created: ${shortUrl}`);
+    }
+  }
+
+  // 4d: Update submission with code and link
+  const updateData = {
+    code: String(finalCode),
+    bookId: bookId,
+    status: 'completed'
+  };
+  if (shortUrl) {
+    updateData.link = `https://${shortUrl}`;
+    updateData.shortUrl = shortUrl;
+  }
+
+  await updateSubmissionStatus(submission.id, 'completed', updateData, apiBase, GITHUB_TOKEN);
+  console.log(`Submission ${submission.id} completed: code=${finalCode}, link=${shortUrl}`);
+}
+
+async function updateSubmissionStatus(submissionId, status, updateFields, apiBase, GITHUB_TOKEN) {
+  // Re-fetch latest data
+  const getResponse = await fetch(apiBase, {
+    headers: {
+      'Authorization': `token ${GITHUB_TOKEN}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'NovelFlow-API'
+    }
+  });
+
+  if (!getResponse.ok) return;
+
+  const data = await getResponse.json();
+  const latestSha = data.sha;
+  const latestContent = Buffer.from(data.content, 'base64').toString('utf-8');
+  let latestData = JSON.parse(latestContent);
+
+  // Find and update the submission
+  const idx = latestData.findIndex(s => s.id === submissionId);
+  if (idx === -1) return;
+
+  latestData[idx].status = status;
+  Object.assign(latestData[idx], updateFields);
+
+  // Write back
+  const updateContent = Buffer.from(JSON.stringify(latestData, null, 2)).toString('base64');
+  await fetch(apiBase, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `token ${GITHUB_TOKEN}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+      'User-Agent': 'NovelFlow-API'
+    },
+    body: JSON.stringify({
+      message: `Update submission ${submissionId}: ${status}`,
+      content: updateContent,
+      sha: latestSha
+    })
+  });
+}
