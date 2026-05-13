@@ -1453,7 +1453,19 @@
         } else { renderContent(); }
     }
 
-    function handleSearch(value) { searchQuery = value; renderContent(); }
+    function handleSearch(value) {
+        searchQuery = value;
+        const input = document.getElementById('searchInput');
+        const cursorPos = input ? input.selectionStart : 0;
+        renderContent();
+        // Restore cursor position after re-render
+        const newInput = document.getElementById('searchInput');
+        if (newInput && cursorPos !== null) {
+            newInput.value = value;
+            newInput.setSelectionRange(cursorPos, cursorPos);
+            newInput.focus();
+        }
+    }
 
     function shareStats(username) {
         const url = `${window.location.origin}${window.location.pathname}?user=${username}`;
