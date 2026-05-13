@@ -3892,6 +3892,7 @@
     // ========================================
     // Event Listeners
     // ========================================
+    window.addEventListener('load', () => { setTimeout(() => { const ls = document.getElementById('loadingScreen'); if (ls && !ls.classList.contains('hidden')) { ls.classList.add('hidden'); console.log('Force hide loading screen on window.load'); } }, 3000); });
     document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { const ls = document.getElementById('loadingScreen'); if (ls) ls.classList.add('hidden'); }, 8000);
         initParticles();
