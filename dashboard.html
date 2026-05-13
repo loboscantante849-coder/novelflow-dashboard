@@ -1029,6 +1029,8 @@
             'metrics.subscription_revenue_desc': 'Revenue from subscriptions',
             'metrics.ad_revenue': 'Ad Revenue',
             'metrics.ad_revenue_desc': 'Revenue from advertisements',
+            'metrics.total_revenue': 'Total Revenue',
+            'metrics.total_revenue_desc': 'Combined subscription and ad revenue',
             'rank.title': 'Your Rank in the Leaderboard',
             'rank.of': 'of',
             'rank.gap': 'Gap to #1:',
@@ -1075,6 +1077,8 @@
             'metrics.subscription_revenue_desc': 'Ingresos de suscripciones',
             'metrics.ad_revenue': 'Ingresos por Publicidad',
             'metrics.ad_revenue_desc': 'Ingresos de anuncios',
+            'metrics.total_revenue': 'Ingresos Totales',
+            'metrics.total_revenue_desc': 'Ingresos combinados de suscripciones y anuncios',
             'rank.title': 'Tu Posici\u00f3n en la Clasificaci\u00f3n',
             'rank.of': 'de',
             'rank.gap': 'Diferencia con #1:',
@@ -1188,7 +1192,7 @@
         }
         requestAnimationFrame(update);
     }
-    function getTotalRevenue(user) { return (user.subscription_revenue || 0) + (user.ad_revenue || 0) + (user.d14income || 0); }
+    function getTotalRevenue(user) { return (user.subscription_revenue || 0) + (user.ad_revenue || 0); }
     function getSortedUsers(sortBy = 'total_revenue') {
         if (!dashboardData || !dashboardData.users) return [];
         const users = Object.entries(dashboardData.users).map(([username, data]) => ({
@@ -1252,7 +1256,7 @@
             { key: 'new_users', icon: icons.userPlus, value: userData.new_users || 0, isCurrency: false, color: '#34d399', sparkData: Object.values(userData.new_users_daily || {}).reverse() },
             { key: 'subscription_revenue', icon: icons.dollar, value: userData.subscription_revenue || 0, isCurrency: true, color: '#fbbf24', sparkData: generateSparklineData(userData.subscription_revenue || 0) },
             { key: 'ad_revenue', icon: icons.ad, value: userData.ad_revenue || 0, isCurrency: true, color: '#f472b6', sparkData: generateSparklineData(userData.ad_revenue || 0) },
-            { key: 'd14income', icon: icons.dollar, value: userData.d14income || 0, isCurrency: true, color: '#f59e0b', sparkData: Object.values(userData.d14income_daily || {}).reverse() }
+            { key: 'total_revenue', icon: icons.dollar, value: (userData.subscription_revenue || 0) + (userData.ad_revenue || 0), isCurrency: true, color: '#f59e0b', sparkData: Object.values(userData.d14income_daily || {}).reverse() }
         ];
 
         return `
