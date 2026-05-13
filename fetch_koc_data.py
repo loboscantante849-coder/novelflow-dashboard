@@ -383,54 +383,11 @@ def load_monthly_ref():
 
 
 def update_fallback_data(data):
-    """更新dashboard.html中的FALLBACK_DATA"""
-    html_path = os.path.join(REPO_DIR, "dashboard.html")
-    if not os.path.exists(html_path):
-        print(f"  WARNING: {html_path} not found, skipping FALLBACK_DATA update")
-        return
-    
-    with open(html_path, "r", encoding="utf-8") as f:
-        content = f.read()
-    
-    start_marker = "const FALLBACK_DATA = {"
-    start_idx = content.find(start_marker)
-    if start_idx == -1:
-        print("  WARNING: FALLBACK_DATA not found in dashboard.html, skipping")
-        return
-    
-    # Count braces to find the matching closing };
-    brace_count = 0
-    end_idx = None
-    for i in range(start_idx, len(content)):
-        if content[i] == '{':
-            brace_count += 1
-        elif content[i] == '}':
-            brace_count -= 1
-            if brace_count == 0:
-                remaining = content[i:]
-                semi_idx = remaining.find(';')
-                if semi_idx is not None and semi_idx < 5:
-                    end_idx = i + semi_idx + 1
-                else:
-                    end_idx = i + 1
-                break
-    
-    if end_idx is None:
-        print("  WARNING: Could not find FALLBACK_DATA end, skipping")
-        return
-    
-    # Build new FALLBACK_DATA
-    clean_data = json.loads(json.dumps(data))
-    for uname in clean_data.get("users", {}):
-        clean_data["users"][uname].pop("unique_last_success", None)
-    
-    new_fallback = "const FALLBACK_DATA = " + json.dumps(clean_data, indent=4, ensure_ascii=False) + ";"
-    new_content = content[:start_idx] + new_fallback + content[end_idx:]
-    
-    with open(html_path, "w", encoding="utf-8") as f:
-        f.write(new_content)
-    
-    print(f"  FALLBACK_DATA updated ({len(new_fallback)} chars)")
+    """DISABLED: No longer updating dashboard.html FALLBACK_DATA.
+    Data is loaded from data.json only. This prevents JS syntax errors
+    from automated HTML modifications."""
+    print("  FALLBACK_DATA update skipped (data.json is the only data source)")
+    return
 
 
 def main():
@@ -650,7 +607,7 @@ def main():
     # Git push
     print("\n--- Git Push ---")
     import subprocess
-    subprocess.run(["git", "add", "data.json", "dashboard.html", "fetch_koc_data.py", "campaign_config.json"], 
+    subprocess.run(["git", "add", "data.json", "fetch_koc_data.py", "campaign_config.json"], 
                    cwd=REPO_DIR, capture_output=True)
     result = subprocess.run(["git", "commit", "-m", 
                            f"Update KOC data with Putreport API (Unique/New Users) {data['last_updated']}"], 
@@ -675,9 +632,9 @@ def main():
                                 cwd=REPO_DIR, capture_output=True, text=True).stdout.strip()
         # Copy files to gh-pages
         subprocess.run(["git", "checkout", "gh-pages"], cwd=REPO_DIR, capture_output=True)
-        subprocess.run(["git", "checkout", "main", "--", "data.json", "dashboard.html"],
+        subprocess.run(["git", "checkout", "main", "--", "data.json"],
                       cwd=REPO_DIR, capture_output=True)
-        subprocess.run(["git", "add", "data.json", "dashboard.html"], cwd=REPO_DIR, capture_output=True)
+        subprocess.run(["git", "add", "data.json"], cwd=REPO_DIR, capture_output=True)
         r = subprocess.run(["git", "commit", "-m", f"auto sync KOC data {data['last_updated']}"],
                           cwd=REPO_DIR, capture_output=True, text=True)
         if "nothing to commit" not in r.stdout and "nothing to commit" not in r.stderr:
