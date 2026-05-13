@@ -1,3 +1,7 @@
+## 自动化脚本Token
+- 当前Token: `eyJhbGciOiJSUzI1NiIsImtpZCI6IkU4QzAzQjVGMzhENjQzRTE3OTQ4MEU1NkE2REI4QkQ5IiwidHlwIjoiYXQrand0In0.eyJuYmYiOjE3NzgyNDk1NDMsImV4cCI6MTc3OTU0NTU0MywiaXNzIjoiaHR0cHM6Ly9zdHMuYW55c3Rvcmllcy5hcHAiLCJjbGllbnRfaWQiOiJBdXRoQ2xpZW50Iiwic3ViIjoiMTE2NCIsImF1dGhfdGltZSI6MTc3NzM0MDY2NCwiaWRwIjoibG9jYWwiLCJuaWNrbmFtZSI6IuW-kOaVrOa2myIsIm5hbWUiOiJ4dWp0Iiwic2lkIjoiRUU0MzJGRjNGRjMxOUZBOTZENUQzRUMxRkU4MTVFOTMiLCJpYXQiOjE3NzgyNDk1NDMsInNjb3BlIjpbIm9wZW5pZCIsInByb2ZpbGUiLCJyb2xlcyIsImVtYWlsIl0sImFtciI6WyJwd2QiXX0.e7hFrNiB1wVPWWEM-PXkY0L09h49dQa9E24nGJQ-Gc6bUV9F2mndTxVi9TJQvpQBtq32YBtXW3qwUc0JBBYNrv8RL3b1tORfzvXC17sBA995Vff-4mF5_54h1J1DssJoNcavn5kW52mrfC6xYsA3MET3__vNMXwdQpgBtBVR8MZiuZb7hGR2bHL8K056zFtUG1-0mLP_HM2JbuUkTo3S8XQ08C2nZ51ogntp_jeipYathxhnWKLMWUhFut5aNX0wshWDnZVWb1SrxEjgdFk8hpmprIXQaJ6thf1mKb_eSx6Aa1c9Mb03b5bE_HfwTtfzMLQHHAKWtd5AUdKcgGSuoA`
+- Token expires ~2027-07 (exp:1779545543)
+
 # Anystories API Documentation
 
 ## Overview
@@ -9,7 +13,7 @@ The Anystories投放中台系统 provides APIs for accessing campaign performanc
 - **Method**: OIDC Bearer Token
 - **Header**: `Authorization: Bearer {token}`
 - **Token Type**: JWT (RS256)
-- **Token Expiry**: ~2027-04 (exp: 1806636482)
+- **Token Expiry**: ~2027-07 (exp: 1779545543)
 - **Token Source**: OIDC login at `https://sts.anystories.app`
 
 ## Required Headers
