@@ -3543,7 +3543,7 @@
                 <p class="leaderboard-subtitle">${t('leaderboard.subtitle')}</p>
                 <div class="leaderboard-stats">
                     <div class="leaderboard-stat"><strong>${allUsersFull.length}</strong><span>${t('leaderboard.total_users')}</span></div>
-                    <div class="leaderboard-stat" style="color: var(--gold);"><strong style="color: var(--gold);">$${allUsersFull.reduce((sum, u) => sum + (u.d14income || 0), 0).toFixed(2)}</strong><span>Total Earnings (14d)</span></div>
+                    
                     <div class="last-updated">${icons.clock}<span>${t('last.updated')}: ${dashboardData.last_updated}</span></div>
                 </div>
             </section>
