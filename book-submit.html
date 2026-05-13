@@ -152,16 +152,16 @@ a:hover { color: #a89cff; }
     <h2 id="successTitle">Thank You!</h2>
     <p id="submittedBook"></p>
     <div id="linkContainer" class="book-link" style="display: none;">
-      <p style="margin-bottom: 8px; font-size: 13px; color: #6a6f8a;">Your referral link:</p>
-      <a id="linkUrl" href="#" target="_blank"></a>
+      <p style="margin-bottom: 8px; font-size: 13px; color: #6a6f8a;">Your referral link: <span style="color:#6a6f8a;font-size:11px;">(tap to copy)</span></p>
+      <div id="linkValue" style="color: #22d3ee; font-weight: 600; font-size: 15px; word-break: break-all; cursor: pointer; background: rgba(20, 28, 68, 0.5); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); text-align: left;" onclick="copyLink()"></div>
     </div>
     <div id="codeContainer" class="book-link" style="display: none; margin-top: 10px;">
-      <p style="margin-bottom: 8px; font-size: 13px; color: #6a6f8a;">Your search code:</p>
-      <span id="codeValue" style="color: #22d3ee; font-weight: 600; font-size: 15px; word-break: break-all; cursor: pointer;" onclick="copyCode()"></span>
+      <p style="margin-bottom: 8px; font-size: 13px; color: #6a6f8a;">Your search code: <span style="color:#6a6f8a;font-size:11px;">(tap to copy)</span></p>
+      <div id="codeValue" style="color: #22d3ee; font-weight: 600; font-size: 15px; cursor: pointer; background: rgba(20, 28, 68, 0.5); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); text-align: left;" onclick="copyCode()"></div>
     </div>
     <div id="promoContainer" class="book-link" style="display: none; margin-top: 10px;">
-      <p style="margin-bottom: 8px; font-size: 13px; color: #6a6f8a;">Ready-to-use promo copy:</p>
-      <div id="promoValue" style="color: #c4c9e0; font-size: 14px; line-height: 1.6; white-space: pre-wrap; cursor: pointer; background: rgba(20, 28, 68, 0.5); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);" onclick="copyPromo()"></div>
+      <p style="margin-bottom: 8px; font-size: 13px; color: #6a6f8a;">Ready-to-use promo copy: <span style="color:#6a6f8a;font-size:11px;">(tap to copy)</span></p>
+      <div id="promoValue" style="color: #c4c9e0; font-size: 14px; line-height: 1.5; white-space: pre-line; cursor: pointer; background: rgba(20, 28, 68, 0.5); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); text-align: left;" onclick="copyPromo()"></div>
     </div>
     <div class="next-step" id="nextStep">
       <p>📌 <strong>What happens next?</strong></p>
@@ -208,20 +208,28 @@ function showProcessingStatus() {
 
 function generatePromoCopy(bookName, link, code) {
   const templates = [
-    `POV: You just discovered your next obsession. ${bookName} is the kind of story that keeps you up at 3am — and you'll thank it for that. 🐺🔥\n\nRead now → ${link}`,
-    `Just found a book that hits DIFFERENT. ${bookName} — every chapter pulls you in deeper. If you love enemies-to-lovers tension, this one's for you. ✨\n\nRead now → ${link}`,
-    `That moment when you start a book and cancel all your plans... ${bookName} is THAT book. Trust me on this one. 🔥\n\nRead now → ${link}`
+    `POV: You just discovered your next obsession. ${bookName} is the kind of story that keeps you up at 3am — and you'll thank it for that. 🐺🔥\nRead now → ${link}`,
+    `Just found a book that hits DIFFERENT. ${bookName} — every chapter pulls you in deeper. If you love enemies-to-lovers tension, this one's for you. ✨\nRead now → ${link}`,
+    `That moment when you start a book and cancel all your plans... ${bookName} is THAT book. Trust me on this one. 🔥\nRead now → ${link}`
   ];
   return templates[Math.floor(Math.random() * templates.length)];
+}
+
+function copyLink() {
+  const link = document.getElementById('linkValue').textContent;
+  navigator.clipboard.writeText(link).then(() => {
+    const el = document.getElementById('linkValue');
+    el.style.borderColor = '#22d3ee';
+    setTimeout(() => el.style.borderColor = 'rgba(255,255,255,0.06)', 1500);
+  });
 }
 
 function copyCode() {
   const code = document.getElementById('codeValue').textContent;
   navigator.clipboard.writeText(code).then(() => {
     const el = document.getElementById('codeValue');
-    const orig = el.textContent;
-    el.textContent = '✓ Copied!';
-    setTimeout(() => el.textContent = orig, 1500);
+    el.style.borderColor = '#22d3ee';
+    setTimeout(() => el.style.borderColor = 'rgba(255,255,255,0.06)', 1500);
   });
 }
 
@@ -243,7 +251,7 @@ function showSuccess(result) {
   const successIcon = document.getElementById('successIcon');
   const successTitle = document.getElementById('successTitle');
   const linkContainer = document.getElementById('linkContainer');
-  const linkUrl = document.getElementById('linkUrl');
+  const linkValue = document.getElementById('linkValue');
   const codeContainer = document.getElementById('codeContainer');
   const codeValue = document.getElementById('codeValue');
   const promoContainer = document.getElementById('promoContainer');
@@ -254,8 +262,7 @@ function showSuccess(result) {
     successIcon.textContent = '✅';
     successTitle.textContent = 'Link Created!';
     linkContainer.style.display = 'block';
-    linkUrl.textContent = result.submission.link;
-    linkUrl.href = result.submission.link;
+    linkValue.textContent = result.submission.link;
     
     // Show code
     if (result.submission?.code) {
