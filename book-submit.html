@@ -155,6 +155,14 @@ a:hover { color: #a89cff; }
       <p style="margin-bottom: 8px; font-size: 13px; color: #6a6f8a;">Your referral link:</p>
       <a id="linkUrl" href="#" target="_blank"></a>
     </div>
+    <div id="codeContainer" class="book-link" style="display: none; margin-top: 10px;">
+      <p style="margin-bottom: 8px; font-size: 13px; color: #6a6f8a;">Your search code:</p>
+      <span id="codeValue" style="color: #22d3ee; font-weight: 600; font-size: 15px; word-break: break-all; cursor: pointer;" onclick="copyCode()"></span>
+    </div>
+    <div id="promoContainer" class="book-link" style="display: none; margin-top: 10px;">
+      <p style="margin-bottom: 8px; font-size: 13px; color: #6a6f8a;">Ready-to-use promo copy:</p>
+      <div id="promoValue" style="color: #c4c9e0; font-size: 14px; line-height: 1.6; white-space: pre-wrap; cursor: pointer; background: rgba(20, 28, 68, 0.5); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);" onclick="copyPromo()"></div>
+    </div>
     <div class="next-step" id="nextStep">
       <p>📌 <strong>What happens next?</strong></p>
       <p>Your referral link will be created within 24 hours. Check the Book Wall to find it — you can search by book name.</p>
@@ -198,6 +206,34 @@ function showProcessingStatus() {
   updateStep('stepSave', 'current');
 }
 
+function generatePromoCopy(bookName, link, code) {
+  const templates = [
+    `POV: You just discovered your next obsession. ${bookName} is the kind of story that keeps you up at 3am — and you'll thank it for that. 🐺🔥\n\nRead now → ${link}`,
+    `Just found a book that hits DIFFERENT. ${bookName} — every chapter pulls you in deeper. If you love enemies-to-lovers tension, this one's for you. ✨\n\nRead now → ${link}`,
+    `That moment when you start a book and cancel all your plans... ${bookName} is THAT book. Trust me on this one. 🔥\n\nRead now → ${link}`
+  ];
+  return templates[Math.floor(Math.random() * templates.length)];
+}
+
+function copyCode() {
+  const code = document.getElementById('codeValue').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    const el = document.getElementById('codeValue');
+    const orig = el.textContent;
+    el.textContent = '✓ Copied!';
+    setTimeout(() => el.textContent = orig, 1500);
+  });
+}
+
+function copyPromo() {
+  const promo = document.getElementById('promoValue').textContent;
+  navigator.clipboard.writeText(promo).then(() => {
+    const el = document.getElementById('promoValue');
+    el.style.borderColor = '#22d3ee';
+    setTimeout(() => el.style.borderColor = 'rgba(255,255,255,0.06)', 1500);
+  });
+}
+
 function showSuccess(result) {
   formContainer.classList.add('hidden');
   processingStatus.classList.remove('show');
@@ -208,6 +244,10 @@ function showSuccess(result) {
   const successTitle = document.getElementById('successTitle');
   const linkContainer = document.getElementById('linkContainer');
   const linkUrl = document.getElementById('linkUrl');
+  const codeContainer = document.getElementById('codeContainer');
+  const codeValue = document.getElementById('codeValue');
+  const promoContainer = document.getElementById('promoContainer');
+  const promoValue = document.getElementById('promoValue');
   const nextStep = document.getElementById('nextStep');
   
   if (result.status === 'completed' && result.submission?.link) {
@@ -216,16 +256,36 @@ function showSuccess(result) {
     linkContainer.style.display = 'block';
     linkUrl.textContent = result.submission.link;
     linkUrl.href = result.submission.link;
-    nextStep.innerHTML = '<p>📌 <strong>All done!</strong></p><p>Your referral link is ready! Share it on Discord to start promoting.</p><a href="https://tinyurl.com/ypbru28w" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>';
+    
+    // Show code
+    if (result.submission?.code) {
+      codeContainer.style.display = 'block';
+      codeValue.textContent = result.submission.code;
+    }
+    
+    // Show promo copy
+    const promoCopy = generatePromoCopy(
+      result.submission?.matchedBookName || result.submission?.bookName || 'this book',
+      result.submission.link,
+      result.submission?.code || ''
+    );
+    promoContainer.style.display = 'block';
+    promoValue.textContent = promoCopy;
+    
+    nextStep.innerHTML = '<p>📌 <strong>All done!</strong></p><p>Your referral link, code and promo copy are ready! Click any of them to copy.</p><a href="https://tinyurl.com/ypbru28w" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>';
   } else if (result.status === 'completed') {
     successIcon.textContent = '✅';
     successTitle.textContent = 'Submission Saved!';
     linkContainer.style.display = 'none';
+    codeContainer.style.display = 'none';
+    promoContainer.style.display = 'none';
     nextStep.innerHTML = '<p>📌 <strong>What happens next?</strong></p><p>Your referral link will be created shortly. Check the Book Wall in a few minutes.</p><a href="https://tinyurl.com/ypbru28w" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>';
   } else {
     successIcon.textContent = '⏳';
     successTitle.textContent = 'Creating Link...';
     linkContainer.style.display = 'none';
+    codeContainer.style.display = 'none';
+    promoContainer.style.display = 'none';
     nextStep.innerHTML = '<p>📌 <strong>Link creation in progress...</strong></p><p>We\'ll keep trying. Check the Book Wall in a few minutes.</p><a href="https://tinyurl.com/ypbru28w" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>';
   }
 }
