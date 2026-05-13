@@ -450,11 +450,15 @@ def main():
     # Load campaign config
     campaign_config = load_campaign_config()
     
-    # 获取活跃的广告系列ID列表
-    active_campaigns = [c["id"] for c in campaign_config.get("campaign_ids", []) if c.get("is_active", False)]
-    print(f"\nActive campaigns: {len(active_campaigns)}")
-    for cid in active_campaigns:
-        print(f"  - {cid}")
+    # 获取有投放报表数字ID的活跃广告系列（只有这些才能查Putreport API）
+    putreport_campaigns = []
+    for c in campaign_config.get("campaign_ids", []):
+        if c.get("is_active", False) and c.get("putreport_id"):
+            putreport_campaigns.append({"channel_id": c["id"], "putreport_id": c["putreport_id"], "koc_username": c.get("koc_username", "")})
+    active_campaigns = [pc["putreport_id"] for pc in putreport_campaigns]
+    print(f"\nActive Putreport campaigns (with numeric IDs): {len(active_campaigns)}")
+    for pc in putreport_campaigns:
+        print(f"  - {pc['koc_username']}: {pc['putreport_id']}")
 
     # === BULLETPROOF: Snapshot ALL existing unique data before any modification ===
     existing_unique = {}
@@ -509,10 +513,12 @@ def main():
     updated_users = set()
     putreport_had_data = False
     
-    # 构建campaignid -> koc_username映射
+    # 构建putreport_id -> koc_username映射（用数字ID做key）
     cid_to_koc = {}
     for c in campaign_config.get("campaign_ids", []):
-        cid_to_koc[c["id"]] = c.get("koc_username", "")
+        prid = c.get("putreport_id", "")
+        if prid:
+            cid_to_koc[prid] = c.get("koc_username", "")
     for c in campaign_config.get("historical_campaign_ids", []):
         if c["id"] not in cid_to_koc:
             cid_to_koc[c["id"]] = c.get("koc_username", "")
