@@ -6,30 +6,6 @@ import sys
 import os
 from datetime import datetime, timezone, timedelta
 
-# =============================================================================
-# ID系统说明 (2026-05-13 更新)
-# =============================================================================
-# KOC渠道使用两套不同的ID系统：
-#
-# 1. 书城渠道号 (Channel Code) - fullChannelCode
-#    - 格式: NovelFlow_SocialMedia_KOC_{username} 或 NovelFlow_SocialMedia_KOC-RW_{username}
-#    - 来源: /app/data/所有对话/主对话/koc_campaign_ids.json
-#    - 示例: NovelFlow_SocialMedia_KOC_MimiTigressCasside
-#    - 用途: 北斗API查询、KOC管理后台
-#
-# 2. 投放报表campaignid - campaign_id
-#    - 格式: 24位十六进制字符串
-#    - 示例: 69f42260362028a0ac10b770
-#    - 来源: 投放报表API (putreport)
-#    - 用途: putreport API查询广告效果数据
-#
-# 注意: campaign_config.json 中存储的是书城渠道号(fullChannelCode)，
-#       但fetch_putreport_data() 需要的是投放报表的campaignid。
-#       目前只有少数KOC有对应的campaignid，大部分KOC的campaignid尚未创建。
-# =============================================================================
-
-
-
 API_BASE = "https://beidou.win"
 PROJECT_ID = "1006"
 REPO_DIR = "/app/data/所有对话/主对话/novelflow-dashboard"
