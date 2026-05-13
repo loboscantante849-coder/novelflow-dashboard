@@ -142,6 +142,19 @@ module.exports = async (req, res) => {
 
 // ============ Fuzzy Book Search ============
 
+// Calculate similarity between search query and book title
+function similarity(query, title) {
+  const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !/^(the|and|or|of|a|an|in|on|at|to|for|with)/.test(w));
+  const titleWords = title.toLowerCase().split(/\s+/);
+  let matches = 0;
+  for (const qw of queryWords) {
+    if (titleWords.some(tw => tw.includes(qw) || qw.includes(tw))) {
+      matches++;
+    }
+  }
+  return queryWords.length > 0 ? matches / queryWords.length : 0;
+}
+
 async function searchBook(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID) {
   // Strategy 1: Full book name as-is
   let result = await doSearch(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
@@ -182,8 +195,20 @@ async function doSearch(query, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_AP
   const data = await resp.json();
   if (data.code !== 200 || !data.data?.data?.length) return null;
 
-  const book = data.data.data[0];
-  return { bookId: book.bookId || book.bookSkuId, title: book.title || book.bookName };
+  // Sort by similarity to query and require minimum similarity threshold
+  const books = data.data.data;
+  const scored = books.map(book => {
+    const title = book.title || book.bookName || '';
+    return { book, score: similarity(query, title) };
+  });
+  
+  scored.sort((a, b) => b.score - a.score);
+  
+  // Only return if similarity >= 0.3 (at least some word overlap)
+  if (scored[0].score < 0.3) return null;
+  
+  const best = scored[0].book;
+  return { bookId: best.bookId || best.bookSkuId, title: best.title || best.bookName };
 }
 
 // ============ Create Promotion Code ============
