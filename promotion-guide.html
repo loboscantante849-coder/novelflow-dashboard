@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
 <title>NovelFlow KOC — Promotion Guide</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -46,17 +46,13 @@ a:hover { color: #a89cff; }
 .cta-card:hover { transform: translateY(-4px); border-color: rgba(124, 108, 255, 0.2); box-shadow: 0 12px 40px rgba(124, 108, 255, 0.1); }
 .cta-card.discord { border-color: rgba(88, 101, 242, 0.2); }
 .cta-card.discord:hover { border-color: rgba(88, 101, 242, 0.4); box-shadow: 0 12px 40px rgba(88, 101, 242, 0.1); }
-.cta-card.leaderboard { border-color: rgba(0, 212, 130, 0.2); }
-.cta-card.leaderboard:hover { border-color: rgba(0, 212, 130, 0.4); box-shadow: 0 12px 40px rgba(0, 212, 130, 0.1); }
 .cta-icon { font-size: 36px; margin-bottom: 12px; }
 .cta-title { font-size: 16px; font-weight: 700; color: #eef0f6; margin-bottom: 8px; }
 .cta-desc { font-size: 13px; color: #8a8faa; margin-bottom: 16px; }
-.cta-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 10px; background: rgba(124, 108, 255, 0.15); border: 1px solid rgba(124, 108, 255, 0.3); color: #a89cff; font-size: 14px; font-weight: 600; transition: all .2s; }
+.cta-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 10px; background: rgba(124, 108, 255, 0.15); border: 1px solid rgba(124, 108, 255, 0.3); color: #a89cff; font-size: 14px; font-weight: 600; transition: all .2s; cursor: pointer; min-height: 44px; }
 .cta-btn:hover { background: rgba(124, 108, 255, 0.25); border-color: rgba(124, 108, 255, 0.5); color: #c8bfff; }
 .cta-card.discord .cta-btn { background: rgba(88, 101, 242, 0.15); border-color: rgba(88, 101, 242, 0.3); color: #7289da; }
 .cta-card.discord .cta-btn:hover { background: rgba(88, 101, 242, 0.25); border-color: rgba(88, 101, 242, 0.5); color: #9ca3ef; }
-.cta-card.leaderboard .cta-btn { background: rgba(0, 212, 130, 0.15); border-color: rgba(0, 212, 130, 0.3); color: #00d4aa; }
-.cta-card.leaderboard .cta-btn:hover { background: rgba(0, 212, 130, 0.25); border-color: rgba(0, 212, 130, 0.5); color: #34d399; }
 
 /* Rewards Section */
 .rewards-section { margin-bottom: 48px; }
@@ -81,17 +77,65 @@ a:hover { color: #a89cff; }
 
 /* Navigation */
 .nav-links { text-align: center; display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
-.nav-links a { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 10px; background: rgba(124, 108, 255, 0.08); border: 1px solid rgba(124, 108, 255, 0.15); font-size: 13px; font-weight: 500; transition: all .2s; }
+.nav-links a { display: inline-flex; align-items: center; gap: 6px; padding: 12px 24px; border-radius: 10px; background: rgba(124, 108, 255, 0.08); border: 1px solid rgba(124, 108, 255, 0.15); font-size: 14px; font-weight: 500; transition: all .2s; min-height: 44px; }
 .nav-links a:hover { background: rgba(124, 108, 255, 0.15); border-color: rgba(124, 108, 255, 0.3); color: #a89cff; }
 
-/* Responsive */
-@media (max-width: 640px) {
-  .container { padding: 32px 16px 60px; }
-  .hero h1 { font-size: 28px; }
-  .step-card { flex-direction: column; gap: 12px; }
-  .step-number { width: 40px; height: 40px; font-size: 18px; }
+/* Responsive - Mobile Optimization */
+@media (max-width: 768px) {
+  .container { padding: 24px 16px 60px; }
+  .hero { margin-bottom: 36px; }
+  .hero h1 { font-size: 26px; margin-bottom: 12px; }
+  .hero p { font-size: 15px; }
+  .hero-badge { font-size: 11px; padding: 5px 14px; margin-bottom: 16px; }
+  
+  .section-title { font-size: 13px; margin-bottom: 18px; }
+  
+  .steps-section, .cta-section, .rewards-section, .platforms-section { margin-bottom: 36px; }
+  
+  .step-card { padding: 20px; gap: 16px; border-radius: 14px; }
+  .step-number { width: 42px; height: 42px; font-size: 18px; border-radius: 10px; }
+  .step-title { font-size: 16px; }
+  .step-desc { font-size: 14px; }
+  
+  .cta-grid { grid-template-columns: 1fr; gap: 14px; }
+  .cta-card { padding: 22px; border-radius: 14px; }
+  .cta-icon { font-size: 32px; margin-bottom: 10px; }
+  .cta-title { font-size: 15px; }
+  .cta-desc { font-size: 13px; }
+  .cta-btn { padding: 12px 20px; font-size: 14px; width: 100%; justify-content: center; min-height: 48px; }
+  
+  .rewards-card { padding: 22px; border-radius: 14px; }
+  .rewards-title { font-size: 16px; margin-bottom: 14px; }
+  .rewards-item { padding: 10px 0; }
+  .rewards-icon { font-size: 16px; }
+  .rewards-text { font-size: 13px; }
+  
+  .platforms-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .platform-card { padding: 16px 10px; border-radius: 10px; }
+  .platform-icon { font-size: 24px; margin-bottom: 6px; }
+  .platform-name { font-size: 12px; }
+  .platform-desc { font-size: 10px; display: none; }
+  
   .nav-links { flex-direction: column; gap: 12px; }
-  .nav-links a { width: 100%; justify-content: center; }
+  .nav-links a { width: 100%; justify-content: center; padding: 14px 20px; font-size: 14px; min-height: 48px; }
+}
+
+@media (max-width: 480px) {
+  .container { padding: 20px 14px 50px; }
+  .hero h1 { font-size: 24px; }
+  .hero p { font-size: 14px; }
+  
+  .step-card { padding: 16px; gap: 12px; }
+  .step-number { width: 38px; height: 38px; font-size: 16px; }
+  .step-title { font-size: 15px; margin-bottom: 6px; }
+  .step-desc { font-size: 13px; line-height: 1.5; }
+  
+  .cta-card { padding: 18px; }
+  .cta-icon { font-size: 28px; }
+  
+  .platforms-grid { grid-template-columns: repeat(2, 1fr); }
+  
+  .rewards-card { padding: 18px; }
 }
 </style>
 </head>
@@ -139,7 +183,7 @@ a:hover { color: #a89cff; }
         <div class="step-number">5</div>
         <div class="step-content">
           <div class="step-title">Earn Rewards!</div>
-          <div class="step-desc">When new users sign up through your <span class="step-highlight">referral link</span>, you'll earn rewards! Track your performance on the leaderboard.</div>
+          <div class="step-desc">When new users sign up through your <span class="step-highlight">referral link</span>, you'll earn rewards! Keep track of your referrals and enjoy the benefits.</div>
         </div>
       </div>
     </div>
@@ -157,11 +201,6 @@ a:hover { color: #a89cff; }
           Join Discord ↗
         </a>
       </div>
-      <div class="cta-card leaderboard">
-        <div class="cta-icon">🏆</div>
-        <div class="cta-title">View Leaderboard</div>
-        <div class="cta-desc">See how you rank against other KOCs and track your referrals.</div>
-      </div>
     </div>
   </div>
 
@@ -177,7 +216,7 @@ a:hover { color: #a89cff; }
         </li>
         <li class="rewards-item">
           <span class="rewards-icon">🎯</span>
-          <span class="rewards-text"><strong>Leaderboard Bonuses:</strong> Top performers receive additional bonuses and exclusive rewards.</span>
+          <span class="rewards-text"><strong>Performance Bonuses:</strong> Top performers receive additional bonuses and exclusive rewards.</span>
         </li>
         <li class="rewards-item">
           <span class="rewards-icon">⭐</span>
@@ -197,7 +236,7 @@ a:hover { color: #a89cff; }
     <div class="platforms-grid">
       <div class="platform-card">
         <div class="platform-icon">👥</div>
-        <div class="platform-name">Facebook Groups</div>
+        <div class="platform-name">Facebook</div>
         <div class="platform-desc">Book lovers communities</div>
       </div>
       <div class="platform-card">

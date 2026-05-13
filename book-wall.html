@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <title>NovelFlow KOC — Book Wall</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -140,13 +140,78 @@
     
     /* Responsive */
     @media (max-width: 768px) {
-      .container { padding: 32px 16px 60px; }
-      .hero h1 { font-size: 28px; }
-      .stats-bar { grid-template-columns: repeat(2, 1fr); gap: 12px; }
-      .user-grid { grid-template-columns: 1fr; }
-      .nav-links { flex-direction: column; gap: 12px; }
-      .nav-links a { width: 100%; justify-content: center; }
-      .link-value { font-size: 11px; }
+      .container { padding: 24px 16px 60px; }
+      .hero { margin-bottom: 32px; }
+      .hero-badge { font-size: 11px; padding: 5px 12px; margin-bottom: 16px; }
+      .hero h1 { font-size: 24px; margin-bottom: 12px; }
+      .hero p { font-size: 14px; }
+      
+      .stats-bar { grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 32px; }
+      .stat-card { padding: 16px 12px; border-radius: 14px; }
+      .stat-value { font-size: 22px; }
+      .stat-label { font-size: 11px; }
+      
+      .search-section { margin-bottom: 24px; }
+      .search-box { max-width: 100%; }
+      .search-input { padding: 14px 16px 14px 44px; font-size: 16px; border-radius: 10px; }
+      .search-icon { left: 14px; font-size: 16px; }
+      
+      .pending-alert { padding: 14px 16px; margin-bottom: 20px; }
+      .pending-alert p { font-size: 13px; }
+      
+      .section-title { font-size: 18px; margin-bottom: 16px; }
+      .section-title .count-badge { font-size: 11px; padding: 3px 8px; }
+      
+      .user-grid { grid-template-columns: 1fr; gap: 14px; margin-bottom: 36px; }
+      .user-card { padding: 20px 16px; border-radius: 14px; }
+      .user-header { gap: 12px; }
+      .user-avatar { width: 44px; height: 44px; font-size: 14px; border-radius: 10px; }
+      .user-name { font-size: 16px; }
+      .user-stats { font-size: 12px; gap: 10px; }
+      
+      .user-books { margin-top: 16px; padding-top: 16px; }
+      .book-item { padding: 14px; border-radius: 10px; }
+      .book-item-header { margin-bottom: 10px; }
+      .book-item-icon { font-size: 16px; }
+      .book-item-title { font-size: 14px; }
+      .book-item-status { font-size: 10px; padding: 2px 8px; }
+      
+      .link-row { padding: 8px 0; }
+      .link-icon { font-size: 13px; width: 18px; }
+      .link-label { font-size: 11px; width: 50px; }
+      .link-value { font-size: 12px; }
+      .copy-btn { width: 32px; height: 32px; font-size: 13px; border-radius: 8px; }
+      
+      .copy-promo-btn { padding: 12px 14px; font-size: 13px; min-height: 44px; border-radius: 10px; }
+      
+      .hot-books-section { padding: 22px 18px; border-radius: 16px; margin-bottom: 28px; }
+      .hot-books-list { gap: 10px; }
+      .hot-book-item { padding: 12px 14px; border-radius: 10px; }
+      .hot-book-icon { font-size: 18px; }
+      .hot-book-name { font-size: 13px; }
+      .hot-book-count { font-size: 11px; padding: 3px 8px; }
+      .show-more-btn { padding: 8px 20px; font-size: 12px; }
+      
+      .nav-links { flex-direction: column; gap: 10px; margin-top: 24px; }
+      .nav-links a { width: 100%; justify-content: center; padding: 14px 20px; font-size: 14px; min-height: 48px; }
+      .last-updated { margin-top: 20px; font-size: 11px; }
+      
+      .loading { padding: 48px 16px; }
+      .loading-spinner { width: 40px; height: 40px; }
+      .empty-state { padding: 48px 16px; border-radius: 16px; }
+      .empty-icon { font-size: 40px; }
+      .empty-state h3 { font-size: 16px; }
+      .empty-state p { font-size: 13px; }
+    }
+
+    @media (max-width: 480px) {
+      .container { padding: 20px 14px 50px; }
+      .hero h1 { font-size: 22px; }
+      .stats-bar { gap: 8px; }
+      .stat-card { padding: 14px 10px; }
+      .stat-value { font-size: 20px; }
+      .user-card { padding: 18px 14px; }
+      .nav-links a { font-size: 13px; }
     }
     @media (max-width: 480px) {
       .stats-bar { grid-template-columns: 1fr 1fr; }
