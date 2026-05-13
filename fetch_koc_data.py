@@ -666,6 +666,33 @@ def main():
             print("Push successful")
         else:
             print(f"Push failed: {result.stderr}")
+
+    # Sync gh-pages branch for GitHub Pages
+    print("\n--- Syncing gh-pages ---")
+    try:
+        # Save current branch
+        current = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                                cwd=REPO_DIR, capture_output=True, text=True).stdout.strip()
+        # Copy files to gh-pages
+        subprocess.run(["git", "checkout", "gh-pages"], cwd=REPO_DIR, capture_output=True)
+        subprocess.run(["git", "checkout", "main", "--", "data.json", "dashboard.html"],
+                      cwd=REPO_DIR, capture_output=True)
+        subprocess.run(["git", "add", "data.json", "dashboard.html"], cwd=REPO_DIR, capture_output=True)
+        r = subprocess.run(["git", "commit", "-m", f"auto sync KOC data {data['last_updated']}"],
+                          cwd=REPO_DIR, capture_output=True, text=True)
+        if "nothing to commit" not in r.stdout and "nothing to commit" not in r.stderr:
+            subprocess.run(["git", "push", "origin", "gh-pages"],
+                          cwd=REPO_DIR, capture_output=True, text=True,
+                          env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
+            print("gh-pages synced and pushed")
+        else:
+            print("gh-pages: no changes")
+        # Switch back
+        subprocess.run(["git", "checkout", current], cwd=REPO_DIR, capture_output=True)
+    except Exception as e:
+        print(f"gh-pages sync failed: {e}")
+        subprocess.run(["git", "checkout", "main"], cwd=REPO_DIR, capture_output=True)
+
     print("\n=== Done ===")
 
 
