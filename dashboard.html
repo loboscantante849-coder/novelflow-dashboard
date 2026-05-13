@@ -3349,7 +3349,7 @@
     // ========================================
     async function loadData() {
         try {
-            const response = await fetch('data.json?t=' + Date.now());
+            const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), 5000); const response = await fetch('data.json?t=' + Date.now(), { signal: controller.signal }); clearTimeout(timeoutId);
             if (response.ok) {
                 const data = await response.json();
                 if (data && data.users && typeof data.users === 'object') {
@@ -3395,6 +3395,7 @@
     // Event Listeners
     // ========================================
     document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => { const ls = document.getElementById('loadingScreen'); if (ls) ls.classList.add('hidden'); }, 8000);
         initParticles();
         initTheme();
 
