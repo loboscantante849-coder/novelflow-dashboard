@@ -132,22 +132,22 @@ a:hover { color: #a89cff; }
       <div class="form-group">
         <label>Promotion Method</label>
         <select id="promotionMethod" class="form-select">
-          <option value="All Channels">All Channels</option>
-          <option value="Group Chat">Group Chat</option>
-          <option value="DMs">Direct Messages</option>
-          <option value="Status/Bio">Status/Bio</option>
+          <option value="All Channels" selected>All Channels</option>
+          <option value="Facebook Groups">Facebook Groups</option>
+          <option value="Facebook Pages">Facebook Pages</option>
+          <option value="Discord">Discord</option>
+          <option value="TikTok">TikTok</option>
+          <option value="Reels">Reels (Instagram/Facebook)</option>
           <option value="Other">Other</option>
         </select>
         <div class="promo-tags">
-          <span class="promo-tag">Free to Join</span>
-          <span class="promo-tag">No Minimum Spend</span>
-          <span class="promo-tag">Lifetime Rewards</span>
+          <span class="promo-tag">All Channels</span>
+          <span class="promo-tag">Facebook Groups</span>
+          <span class="promo-tag">Facebook Pages</span>
+          <span class="promo-tag">Discord</span>
+          <span class="promo-tag">TikTok</span>
+          <span class="promo-tag">Reels</span>
         </div>
-      </div>
-      
-      <div class="form-group">
-        <label>Notes (Optional)</label>
-        <textarea id="notes" class="form-textarea" placeholder="Any additional info about your recommendation..."></textarea>
       </div>
       
       <button type="submit" id="submitBtn" class="btn-submit">
@@ -445,7 +445,7 @@ function showCandidateSelection(submissionData, candidates) {
     candidateSection.classList.add('show');
     noCandidatesSection.style.display = 'none';
   } else {
-    candidateSection.classList.remove('show');
+    candidateSection.classList.add('show');
     noCandidatesSection.style.display = 'block';
   }
 }
@@ -472,7 +472,6 @@ form.addEventListener('submit', async (e) => {
   const discordUsername = document.getElementById('discordUsername').value.trim();
   const bookName = document.getElementById('bookName').value.trim();
   const promotionMethod = document.getElementById('promotionMethod').value;
-  const notes = document.getElementById('notes').value.trim();
 
   if (!bookName) { showError('Please enter the book name'); return; }
   
@@ -483,7 +482,6 @@ form.addEventListener('submit', async (e) => {
     bookName, 
     discordUsername: discordUsername || 'Anonymous', 
     promotionMethod: promotionMethod || 'All Channels',
-    notes: notes || ''
   };
   
   try {
