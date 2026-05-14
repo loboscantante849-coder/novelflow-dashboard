@@ -75,6 +75,38 @@ a:hover { color: #a89cff; }
 .promo-tag { padding: 4px 10px; border-radius: 6px; background: rgba(124, 108, 255, 0.08); border: 1px solid rgba(124, 108, 255, 0.12); color: #8a8faa; font-size: 11px; font-weight: 500; }
 .form-container { transition: opacity .3s; }
 .form-container.hidden { display: none; }
+
+/* Candidate Selection Styles */
+.candidate-section { display: none; margin-top: 24px; }
+.candidate-section.show { display: block; }
+.candidate-section h3 { font-size: 18px; font-weight: 600; color: #e0e3ec; margin-bottom: 8px; text-align: center; }
+.candidate-section > p { font-size: 14px; color: #8a8faa; text-align: center; margin-bottom: 20px; }
+.candidate-list { display: flex; flex-direction: column; gap: 12px; }
+.candidate-card { background: rgba(0, 0, 0, 0.25); border: 2px solid rgba(124, 108, 255, 0.15); border-radius: 14px; padding: 16px; cursor: pointer; transition: all .2s; display: flex; gap: 14px; align-items: center; }
+.candidate-card:hover { border-color: rgba(124, 108, 255, 0.4); background: rgba(124, 108, 255, 0.08); }
+.candidate-card.selected { border-color: #7c6cff; background: rgba(124, 108, 255, 0.15); }
+.candidate-cover { width: 50px; height: 70px; border-radius: 6px; background: rgba(124, 108, 255, 0.15); object-fit: cover; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.candidate-info { flex: 1; min-width: 0; }
+.candidate-title { font-size: 15px; font-weight: 600; color: #e0e3ec; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.candidate-author { font-size: 13px; color: #8a8faa; margin-bottom: 6px; }
+.candidate-meta { display: flex; align-items: center; gap: 10px; }
+.candidate-score { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+.candidate-score.high { background: rgba(0, 212, 130, 0.15); color: #00d4aa; }
+.candidate-score.medium { background: rgba(255, 193, 7, 0.15); color: #ffc107; }
+.candidate-score.low { background: rgba(255, 107, 107, 0.15); color: #ff6b6b; }
+.candidate-check { width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(124, 108, 255, 0.3); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; color: transparent; transition: all .2s; }
+.candidate-card.selected .candidate-check { background: #7c6cff; border-color: #7c6cff; color: white; }
+.btn-confirm { width: 100%; padding: 16px; margin-top: 20px; background: linear-gradient(135deg, #00d4aa, #00b894); }
+.btn-confirm:hover:not(:disabled) { box-shadow: 0 8px 30px rgba(0, 212, 170, 0.4); }
+.btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-retry { width: 100%; padding: 14px; margin-top: 12px; background: rgba(124, 108, 255, 0.1); border: 1px solid rgba(124, 108, 255, 0.25); color: #a89cff; }
+.btn-retry:hover { background: rgba(124, 108, 255, 0.2); }
+.no-candidates { text-align: center; padding: 40px 20px; }
+.no-candidates h3 { font-size: 18px; font-weight: 600; color: #e0e3ec; margin-bottom: 8px; }
+.no-candidates p { font-size: 14px; color: #8a8faa; margin-bottom: 20px; }
+.btn-back { display: inline-block; padding: 12px 24px; border-radius: 10px; background: rgba(124, 108, 255, 0.1); border: 1px solid rgba(124, 108, 255, 0.2); color: #a89cff; font-size: 14px; font-weight: 500; cursor: pointer; transition: all .2s; }
+.btn-back:hover { background: rgba(124, 108, 255, 0.2); }
+
 @media (max-width: 768px) {
   .container { padding: 24px 16px 60px; }
   .hero { margin-bottom: 32px; }
@@ -107,6 +139,9 @@ a:hover { color: #a89cff; }
   .book-link { padding: 14px 16px; }
   .success-message .next-step { padding: 14px 16px; margin-top: 20px; }
   .error-message { padding: 12px 16px; font-size: 13px; }
+  .candidate-card { padding: 14px; }
+  .candidate-cover { width: 45px; height: 63px; }
+  .candidate-title { font-size: 14px; }
 }
 
 @media (max-width: 480px) {
@@ -128,7 +163,7 @@ a:hover { color: #a89cff; }
   </div>
 
   <div class="info-box">
-    <p><strong>What happens after submission?</strong><br>After you submit a book name, your exclusive referral link and code will be generated within <strong>~5 minutes</strong>. You can then find them on the Book Wall — search by your name to get your link, code, and ready-to-use promo copy!</p>
+    <p><strong>What happens after submission?</strong><br>After you submit a book name, you'll select from matching books. Then your exclusive referral link and code will be generated!</p>
   </div>
 
   <div class="error-message" id="errorMessage"></div>
@@ -169,6 +204,25 @@ a:hover { color: #a89cff; }
         <span class="spinner"></span>
       </button>
     </form>
+
+    <!-- Candidate Selection Section -->
+    <div class="candidate-section" id="candidateSection">
+      <h3>Select Your Book</h3>
+      <p>We found some matching books. Please select the correct one:</p>
+      <div class="candidate-list" id="candidateList"></div>
+      <button type="button" class="btn-submit btn-confirm" id="confirmBtn" disabled>
+        <span class="btn-text">✅ Confirm & Create Link</span>
+        <span class="spinner"></span>
+      </button>
+      <button type="button" class="btn-submit btn-retry" id="retryBtn">✏️ None of these - Try Different Name</button>
+    </div>
+
+    <!-- No Candidates Section -->
+    <div class="no-candidates" id="noCandidatesSection" style="display: none;">
+      <h3>Book Not Found</h3>
+      <p>We couldn't find any books matching your search. Please check the spelling and try again.</p>
+      <button type="button" class="btn-back" id="backBtn">← Try Again</button>
+    </div>
   </div>
 
   <div class="nav-links" id="formNavLinks">
@@ -181,9 +235,9 @@ a:hover { color: #a89cff; }
     <h2 id="processingTitle">Creating Your Link...</h2>
     <p id="processingMessage">Please wait while we set up your referral link</p>
     <div class="processing-steps" id="processingSteps">
-      <div class="processing-step current" id="stepSave"><div class="step-icon"></div><span>Saving submission...</span></div>
-      <div class="processing-step" id="stepSearch"><div class="step-icon"></div><span>Searching for book...</span></div>
-      <div class="processing-step" id="stepCode"><div class="step-icon"></div><span>Creating search code...</span></div>
+      <div class="processing-step done" id="stepSave"><div class="step-icon">✓</div><span>Saving submission...</span></div>
+      <div class="processing-step done" id="stepSelect"><div class="step-icon">✓</div><span>Book selected</span></div>
+      <div class="processing-step current" id="stepCode"><div class="step-icon"></div><span>Creating search code...</span></div>
       <div class="processing-step" id="stepLink"><div class="step-icon"></div><span>Creating referral link...</span></div>
     </div>
   </div>
@@ -206,7 +260,7 @@ a:hover { color: #a89cff; }
     </div>
     <div class="next-step" id="nextStep">
       <p>📌 <strong>What happens next?</strong></p>
-      <p>Your referral link will be created within 24 hours. Check the Book Wall to find it — you can search by book name.</p>
+      <p>Your referral link, code and promo copy are ready! Click any of them to copy.</p>
       <a href="https://tinyurl.com/ypbru28w" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>
     </div>
   </div>
@@ -221,9 +275,28 @@ const processingStatus = document.getElementById('processingStatus');
 const successMessage = document.getElementById('successMessage');
 const submittedBook = document.getElementById('submittedBook');
 
+// Candidate selection elements
+const candidateSection = document.getElementById('candidateSection');
+const candidateList = document.getElementById('candidateList');
+const confirmBtn = document.getElementById('confirmBtn');
+const retryBtn = document.getElementById('retryBtn');
+const noCandidatesSection = document.getElementById('noCandidatesSection');
+const backBtn = document.getElementById('backBtn');
+const formNavLinks = document.getElementById('formNavLinks');
+
+// State
+let currentSubmission = null;
+let selectedCandidate = null;
+
+// Functions
 function showError(message) { errorMessage.textContent = message; errorMessage.classList.add('show'); }
 function hideError() { errorMessage.classList.remove('show'); }
-function setLoading(loading) { submitBtn.disabled = loading; if (loading) { submitBtn.classList.add('loading'); } else { submitBtn.classList.remove('loading'); } }
+function setLoading(loading, btn) { 
+  if (btn) {
+    btn.disabled = loading; 
+    if (loading) { btn.classList.add('loading'); } else { btn.classList.remove('loading'); }
+  }
+}
 
 function updateStep(stepId, status) {
   const step = document.getElementById(stepId);
@@ -238,13 +311,16 @@ function updateStep(stepId, status) {
 
 function showProcessingStatus() {
   formContainer.classList.add('hidden');
+  formNavLinks.style.display = 'none';
   processingStatus.classList.add('show');
   successMessage.classList.remove('show');
-  ['stepSave', 'stepSearch', 'stepCode', 'stepLink'].forEach(id => {
+  ['stepSave', 'stepSelect', 'stepCode', 'stepLink'].forEach(id => {
     const step = document.getElementById(id);
     if (step) { step.classList.remove('current', 'done', 'failed'); step.querySelector('.step-icon').textContent = ''; }
   });
-  updateStep('stepSave', 'current');
+  updateStep('stepSave', 'done');
+  updateStep('stepSelect', 'done');
+  updateStep('stepCode', 'current');
 }
 
 function generatePromoCopy(bookName, link, code) {
@@ -287,7 +363,7 @@ function showSuccess(result) {
   formContainer.classList.add('hidden');
   processingStatus.classList.remove('show');
   successMessage.classList.add('show');
-  submittedBook.textContent = `📚 "${result.submission?.bookName || 'Your book'}"`;
+  submittedBook.textContent = `📚 "${result.matchedBookName || result.submission?.bookName || 'Your book'}"`;
   
   const successIcon = document.getElementById('successIcon');
   const successTitle = document.getElementById('successTitle');
@@ -299,64 +375,125 @@ function showSuccess(result) {
   const promoValue = document.getElementById('promoValue');
   const nextStep = document.getElementById('nextStep');
   
-  if (result.status === 'completed' && result.submission?.link) {
+  if (result.link) {
     successIcon.textContent = '✅';
     successTitle.textContent = 'Link Created!';
     linkContainer.style.display = 'block';
-    linkValue.textContent = result.submission.link;
+    linkValue.textContent = result.link;
     
-    // Show code
-    if (result.submission?.code) {
+    if (result.code) {
       codeContainer.style.display = 'block';
-      codeValue.textContent = result.submission.code;
+      codeValue.textContent = result.code;
     }
     
-    // Show promo copy
     const promoCopy = generatePromoCopy(
-      result.submission?.matchedBookName || result.submission?.bookName || 'this book',
-      result.submission.link,
-      result.submission?.code || ''
+      result.matchedBookName || result.submission?.bookName || 'this book',
+      result.link,
+      result.code || ''
     );
     promoContainer.style.display = 'block';
     promoValue.textContent = promoCopy;
     
     nextStep.innerHTML = '<p>📌 <strong>All done!</strong></p><p>Your referral link, code and promo copy are ready! Click any of them to copy.</p><a href="https://tinyurl.com/ypbru28w" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>';
-  } else if (result.status === 'completed') {
+  } else {
     successIcon.textContent = '✅';
     successTitle.textContent = 'Submission Saved!';
     linkContainer.style.display = 'none';
     codeContainer.style.display = 'none';
     promoContainer.style.display = 'none';
     nextStep.innerHTML = '<p>📌 <strong>What happens next?</strong></p><p>Your referral link will be created shortly. Check the Book Wall in a few minutes.</p><a href="https://tinyurl.com/ypbru28w" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>';
+  }
+}
+
+// Candidate rendering
+function getScoreClass(score) {
+  if (score >= 0.8) return 'high';
+  if (score >= 0.5) return 'medium';
+  return 'low';
+}
+
+function getScoreLabel(score) {
+  if (score >= 0.8) return '🎯 High Match';
+  if (score >= 0.5) return '⚡ Medium Match';
+  return '🔍 Low Match';
+}
+
+function renderCandidates(candidates) {
+  candidateList.innerHTML = '';
+  candidates.forEach((candidate, index) => {
+    const card = document.createElement('div');
+    card.className = 'candidate-card';
+    card.dataset.index = index;
+    card.dataset.bookId = candidate.bookId;
+    card.dataset.title = candidate.title;
+    card.dataset.author = candidate.author || '';
+    
+    const coverHtml = candidate.coverImage 
+      ? `<img src="${candidate.coverImage}" class="candidate-cover" alt="cover" onerror="this.style.display='none';this.nextSibling.style.display='flex'"><span style="display:none">📖</span>`
+      : `<span class="candidate-cover">📖</span>`;
+    
+    card.innerHTML = `
+      ${coverHtml}
+      <div class="candidate-info">
+        <div class="candidate-title">${escapeHtml(candidate.title)}</div>
+        ${candidate.author ? `<div class="candidate-author">by ${escapeHtml(candidate.author)}</div>` : ''}
+        <div class="candidate-meta">
+          <span class="candidate-score ${getScoreClass(candidate.score)}">${getScoreLabel(candidate.score)} (${Math.round(candidate.score * 100)}%)</span>
+        </div>
+      </div>
+      <div class="candidate-check">✓</div>
+    `;
+    
+    card.addEventListener('click', () => selectCandidate(card, candidate));
+    candidateList.appendChild(card);
+  });
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function selectCandidate(card, candidate) {
+  // Remove previous selection
+  document.querySelectorAll('.candidate-card.selected').forEach(c => c.classList.remove('selected'));
+  
+  // Select this one
+  card.classList.add('selected');
+  selectedCandidate = candidate;
+  confirmBtn.disabled = false;
+}
+
+function showCandidateSelection(submission, candidates) {
+  currentSubmission = submission;
+  selectedCandidate = null;
+  confirmBtn.disabled = true;
+  
+  if (candidates && candidates.length > 0) {
+    renderCandidates(candidates);
+    candidateSection.classList.add('show');
+    noCandidatesSection.style.display = 'none';
   } else {
-    successIcon.textContent = '⏳';
-    successTitle.textContent = 'Creating Link...';
-    linkContainer.style.display = 'none';
-    codeContainer.style.display = 'none';
-    promoContainer.style.display = 'none';
-    nextStep.innerHTML = '<p>📌 <strong>Link creation in progress...</strong></p><p>We\'ll keep trying. Check the Book Wall in a few minutes.</p><a href="https://tinyurl.com/ypbru28w" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>';
+    candidateSection.classList.remove('show');
+    noCandidatesSection.style.display = 'block';
   }
 }
 
-async function retryPending() {
-  try {
-    const response = await fetch('https://novelflow-dashboard.vercel.app/api/retry-pending', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch (err) { console.error('Retry error:', err); return null; }
+function resetToForm() {
+  currentSubmission = null;
+  selectedCandidate = null;
+  form.reset();
+  formContainer.classList.remove('hidden');
+  formNavLinks.style.display = 'flex';
+  candidateSection.classList.remove('show');
+  noCandidatesSection.style.display = 'none';
+  processingStatus.classList.remove('show');
+  successMessage.classList.remove('show');
+  errorMessage.classList.remove('show');
 }
 
-async function keepRetrying(maxAttempts = 10) {
-  for (let i = 0; i < maxAttempts; i++) {
-    const result = await retryPending();
-    if (!result || result.remaining === 0) { console.log('All pending submissions processed'); return result; }
-    console.log(`Remaining pending: ${result.remaining}, retrying...`);
-    await new Promise(resolve => setTimeout(resolve, 5000));
-  }
-  console.log('Max retry attempts reached');
-  return null;
-}
-
+// Form submission
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   hideError();
@@ -365,51 +502,93 @@ form.addEventListener('submit', async (e) => {
   const bookName = document.getElementById('bookName').value.trim();
   const promotionMethod = document.getElementById('promotionMethod').value;
 
-  
   if (!bookName) { showError('Please enter the book name'); return; }
   
-  setLoading(true);
+  setLoading(true, submitBtn);
   const submissionData = { bookName, discordUsername: discordUsername || 'Anonymous', promotionMethod: promotionMethod || 'All Channels' };
   
   try {
-    showProcessingStatus();
-    const response = await fetch('https://novelflow-dashboard.vercel.app/api/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(submissionData) });
-    if (!response.ok) { const errorData = await response.json().catch(() => ({})); throw new Error(errorData.error || 'Submission failed'); }
+    const response = await fetch('https://novelflow-dashboard.vercel.app/api/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(submissionData)
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Submission failed');
+    }
     
     const result = await response.json();
     
-    if (result.status === 'completed') {
-      updateStep('stepSave', 'done');
-      updateStep('stepSearch', 'done');
-      updateStep('stepCode', 'done');
-      updateStep('stepLink', 'done');
+    if (result.status === 'awaiting_confirmation') {
+      showCandidateSelection(result.submission, result.candidates);
+    } else if (result.status === 'completed') {
       showSuccess(result);
     } else {
-      updateStep('stepSave', 'done');
-      if (!result.matchedBookName) {
-        document.getElementById('processingTitle').textContent = 'Book Not Found';
-        document.getElementById('processingMessage').textContent = 'The book will be retried automatically. Check back later.';
-        formContainer.classList.add('hidden');
-        processingStatus.classList.add('show');
-        successMessage.classList.add('show');
-        submittedBook.textContent = `📚 "${bookName}"`;
-        keepRetrying(12);
-      } else {
-        updateStep('stepCode', 'current');
-        document.getElementById('processingTitle').textContent = 'Creating Link...';
-        await keepRetrying(12);
-        window.location.reload();
-      }
+      throw new Error('Unexpected response status');
     }
+    
     form.reset();
   } catch (error) {
     console.error('Submission error:', error);
     showError(error.message || 'Submission failed. Please try again.');
-    formContainer.classList.remove('hidden');
-    processingStatus.classList.remove('show');
   } finally {
-    setLoading(false);
+    setLoading(false, submitBtn);
   }
+});
+
+// Confirm button - create link for selected candidate
+confirmBtn.addEventListener('click', async () => {
+  if (!selectedCandidate || !currentSubmission) return;
+  
+  setLoading(true, confirmBtn);
+  showProcessingStatus();
+  
+  try {
+    const response = await fetch('https://novelflow-dashboard.vercel.app/api/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        submissionId: currentSubmission.id,
+        bookId: selectedCandidate.bookId,
+        bookTitle: selectedCandidate.title,
+        bookAuthor: selectedCandidate.author || ''
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Confirmation failed');
+    }
+    
+    const result = await response.json();
+    
+    if (result.status === 'completed') {
+      updateStep('stepCode', 'done');
+      updateStep('stepLink', 'done');
+      showSuccess(result);
+    } else {
+      updateStep('stepCode', 'failed');
+      throw new Error(result.message || 'Failed to create link');
+    }
+  } catch (error) {
+    console.error('Confirm error:', error);
+    showError(error.message || 'Failed to create link. Please try again.');
+    resetToForm();
+  } finally {
+    setLoading(false, confirmBtn);
+  }
+});
+
+// Retry button - reset form
+retryBtn.addEventListener('click', () => {
+  resetToForm();
+});
+
+// Back button - reset form
+backBtn.addEventListener('click', () => {
+  resetToForm();
 });
 </script>
 </body>

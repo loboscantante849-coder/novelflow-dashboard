@@ -36,7 +36,7 @@ module.exports = async (req, res) => {
       try { existingData = JSON.parse(content); if (!Array.isArray(existingData)) existingData = []; } catch (e) { existingData = []; }
     }
 
-    // Step 2: Create new submission with status "pending"
+    // Step 2: Create new submission with status "awaiting_confirmation"
     const newSubmission = {
       id: 'sub_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
       bookName: bookName.trim(),
@@ -44,12 +44,12 @@ module.exports = async (req, res) => {
       promotionMethod: promotionMethod || '',
       notes: notes || '',
       submittedAt: new Date().toISOString(),
-      status: 'pending'
+      status: 'awaiting_confirmation'
     };
 
     existingData.push(newSubmission);
 
-    // Step 3: Save to GitHub FIRST (as pending)
+    // Step 3: Save to GitHub FIRST (as awaiting_confirmation)
     let content = Buffer.from(JSON.stringify(existingData, null, 2)).toString('base64');
     const putBody = { message: 'Add submission: ' + bookName, content };
     if (sha) putBody.sha = sha;
@@ -68,70 +68,23 @@ module.exports = async (req, res) => {
     // Update SHA for subsequent updates
     const newSha = sha ? sha : (await putResponse.json()).content.sha;
 
-    // Step 4: If no BOOKSTORE_TOKEN, return pending immediately
-    if (!BOOKSTORE_TOKEN) {
-      return res.status(200).json({ 
-        success: true, 
-        submission: newSubmission,
-        message: 'Submission saved. Link creation pending - will be processed shortly.'
-      });
+    // Step 4: Search for candidates
+    let candidates = [];
+    if (BOOKSTORE_TOKEN) {
+      candidates = await searchBooks(bookName.trim(), BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
     }
 
-    // Step 5: SYNC execute - Search book
-    const book = await searchBook(bookName.trim(), BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
-    
-    if (!book) {
-      // Book not found - keep pending for retry
-      return res.status(200).json({ 
-        success: true, 
-        submission: newSubmission,
-        status: 'pending',
-        message: 'Book not found in system. Will retry automatically.'
-      });
-    }
+    console.log(`Search for "${bookName}" found ${candidates.length} candidates`);
 
-    console.log(`Matched: "${book.title}" (${book.bookId}) for query "${bookName}"`);
-
-    // Step 6: SYNC execute - Create search code
-    const finalCode = await createCode(book.bookId, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
-    
-    if (!finalCode) {
-      // Code creation failed - keep pending for retry
-      return res.status(200).json({ 
-        success: true, 
-        submission: newSubmission,
-        status: 'pending',
-        matchedBookName: book.title,
-        bookId: book.bookId,
-        message: 'Code creation failed. Will retry automatically.'
-      });
-    }
-
-    // Step 7: SYNC execute - Create short link (no channelCode)
-    const shortUrl = await createLink(book.bookId, book.title, finalCode, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
-
-    // Step 8: Update submission to completed
-    const fields = { 
-      code: String(finalCode), 
-      bookId: book.bookId, 
-      matchedBookName: book.title, 
-      status: 'completed'
-    };
-    if (shortUrl) { 
-      fields.link = `https://${shortUrl}`; 
-      fields.shortUrl = shortUrl; 
-    }
-
-    await updateSubmission(newSubmission.id, fields, apiBase, GITHUB_TOKEN);
-
-    console.log(`Done: code=${finalCode}, link=${shortUrl}`);
-
-    // Return success
-    return res.status(200).json({ 
-      success: true, 
-      submission: { ...newSubmission, ...fields },
-      status: 'completed',
-      message: 'Submission complete! Your referral link is ready.'
+    // Step 5: Return candidates to frontend for user confirmation
+    return res.status(200).json({
+      success: true,
+      submission: newSubmission,
+      status: 'awaiting_confirmation',
+      candidates: candidates,
+      message: candidates.length > 0 
+        ? `Found ${candidates.length} book(s). Please confirm the correct one.`
+        : 'No matching books found. Please check the book name and try again.'
     });
 
   } catch (error) {
@@ -140,7 +93,7 @@ module.exports = async (req, res) => {
   }
 };
 
-// ============ Fuzzy Book Search ============
+// ============ Search Books (Returns Candidates) ============
 
 // Calculate similarity between search query and book title
 function similarity(query, title) {
@@ -155,61 +108,88 @@ function similarity(query, title) {
   return queryWords.length > 0 ? matches / queryWords.length : 0;
 }
 
-async function searchBook(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID) {
+// Search for multiple candidate books (returns array)
+async function searchBooks(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID) {
+  const allCandidates = new Map(); // Use Map to deduplicate by bookId
+
   // Strategy 1: Full book name as-is
-  let result = await doSearch(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
-  if (result) return result;
+  const candidates1 = await doSearch(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, bookName);
+  candidates1.forEach(c => allCandidates.set(c.bookId, c));
 
   // Strategy 2: Without leading "The", "A", "An"
   const withoutArticle = bookName.replace(/^(The|A|An)\s+/i, '').trim();
   if (withoutArticle !== bookName && withoutArticle.length > 2) {
-    result = await doSearch(withoutArticle, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
-    if (result) return result;
+    const candidates2 = await doSearch(withoutArticle, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, bookName);
+    candidates2.forEach(c => {
+      if (!allCandidates.has(c.bookId)) allCandidates.set(c.bookId, c);
+    });
   }
 
-  // Strategy 3: First + last significant word (e.g. "Game Destiny" for "Game of Destiny")
+  // Strategy 3: First + last significant word
   const words = bookName.split(/\s+/).filter(w => !/^(the|a|an)$/i.test(w) && w.length > 2);
   if (words.length >= 3) {
     const firstLast = words[0] + ' ' + words[words.length - 1];
-    result = await doSearch(firstLast, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
-    if (result) return result;
+    const candidates3 = await doSearch(firstLast, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, bookName);
+    candidates3.forEach(c => {
+      if (!allCandidates.has(c.bookId)) allCandidates.set(c.bookId, c);
+    });
   }
 
   // Strategy 4: First significant word only
   if (words.length >= 1) {
-    result = await doSearch(words[0], BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
-    if (result) return result;
+    const candidates4 = await doSearch(words[0], BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, bookName);
+    candidates4.forEach(c => {
+      if (!allCandidates.has(c.bookId)) allCandidates.set(c.bookId, c);
+    });
   }
 
-  return null;
+  // Convert to array, sort by score, return top 5
+  const result = Array.from(allCandidates.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+
+  return result;
 }
 
-async function doSearch(query, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID) {
+// Single search query - returns all matches above threshold as candidates
+async function doSearch(query, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, originalQuery) {
   const url = `${BOOKSTORE_API_BASE}/book/booklist?current=1&pageSize=10&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&languageCode=en&bookStatus=1&title=${encodeURIComponent(query)}&bookName=${encodeURIComponent(query)}`;
-  
+
   const resp = await fetch(url, {
     headers: { 'Authorization': `Bearer ${BOOKSTORE_TOKEN}`, 'Content-Type': 'application/json' }
   });
 
-  if (!resp.ok) return null;
+  if (!resp.ok) return [];
   const data = await resp.json();
-  if (data.code !== 200 || !data.data?.data?.length) return null;
+  if (data.code !== 200 || !data.data?.data?.length) return [];
 
-  // Sort by similarity to query and require minimum similarity threshold
+  // Return all books above similarity threshold as candidates
   const books = data.data.data;
-  const scored = books.map(book => {
-    const title = book.title || book.bookName || '';
-    return { book, score: similarity(query, title) };
-  });
-  
-  scored.sort((a, b) => b.score - a.score);
-  
-  // Only return if similarity >= 0.3 (at least some word overlap)
-  if (scored[0].score < 0.3) return null;
-  
-  const best = scored[0].book;
-  return { bookId: best.bookId || best.bookSkuId, title: best.title || best.bookName };
+  const scored = books
+    .map(book => {
+      const title = book.title || book.bookName || '';
+      const score = Math.max(
+        similarity(originalQuery, title),
+        similarity(query, title)
+      );
+      return {
+        bookId: book.bookId || book.bookSkuId,
+        title: title,
+        author: book.authorName || book.author || '',
+        coverImage: book.coverImageUrl || book.cover || '',
+        score: score
+      };
+    })
+    .filter(c => c.score >= 0.3) // Minimum similarity threshold
+    .sort((a, b) => b.score - a.score);
+
+  return scored;
 }
+
+// Export functions for use by confirm.js
+module.exports.searchBooks = searchBooks;
+module.exports.createCode = createCode;
+module.exports.createLink = createLink;
 
 // ============ Create Promotion Code ============
 
@@ -238,7 +218,7 @@ async function createCode(bookId, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE
   return null;
 }
 
-// ============ Create Short Link (no channelCode) ============
+// ============ Create Short Link ============
 
 async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID) {
   const linkName = `${code}${bookTitle}-书籍详情页-FB`;
@@ -282,7 +262,6 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
   if (linkResp.ok) {
     const linkData = await linkResp.json();
     if (linkData.code === 200 && linkData.data) {
-      // API returns linkId, need to fetch details to get shortUrl
       const linkId = linkData.data;
       if (typeof linkId === 'string' && linkId.length > 10) {
         try {
@@ -296,17 +275,14 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
             }
           }
         } catch (e) { console.error('Failed to fetch link details:', e.message); }
-        // If detail fetch fails, return the linkId so we can at least save it
         return null;
       }
-      // If data is an object with shortUrl
       if (typeof linkData.data === 'object' && linkData.data.shortUrl) {
         return linkData.data.shortUrl;
       }
     }
   }
 
-  // Log error for debugging
   const errorText = await linkResp.text().catch(() => 'unknown');
   console.error('Link creation failed:', linkResp.status, errorText);
   return null;
@@ -316,7 +292,6 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
 
 async function updateSubmission(submissionId, fields, apiBase, GITHUB_TOKEN) {
   try {
-    // Get latest SHA
     const getResp = await fetch(apiBase, {
       headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'NovelFlow-API' }
     });
@@ -339,3 +314,5 @@ async function updateSubmission(submissionId, fields, apiBase, GITHUB_TOKEN) {
     console.error('Update failed:', err.message); 
   }
 }
+
+module.exports.updateSubmission = updateSubmission;
