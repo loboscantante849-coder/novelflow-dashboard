@@ -166,7 +166,7 @@ def call_beidou_api(token, body, max_retries=5, wait_seconds=12):
 
 def fetch_putreport_data(campaignid, date_from, date_to, token):
     """
-    调用投放报表API获取单个广告系列的Unique和New Users数据
+    调用投放报表API获取单个广告系列的汇总数据（campaign级别）
     
     Args:
         campaignid: 广告系列ID
@@ -177,16 +177,14 @@ def fetch_putreport_data(campaignid, date_from, date_to, token):
     Returns:
         dict: {
             'campaignid': str,
-            'date': str,
-            'h5landingpageclickusernum': int,  # Unique (H5落地页点击用户数)
-            'newusernum': int,  # New Users (纯新增用户数)
-            'd7income': float,  # D7收入
-            'daily': [{'date': str, 'h5landingpageclickusernum': int, 'newusernum': int, 'd7income': float}]
+            'h5landingpageclickusernum': int,
+            'newusernum': int,
+            'd7income': float
         }
     """
     payload = {
         "filters": {
-            "productline": ["NovelFlow"],
+            "productline": [],
             "mediasource": [],
             "mediasource2": ["SocialMedia"],
             "date": {
@@ -199,13 +197,13 @@ def fetch_putreport_data(campaignid, date_from, date_to, token):
             "adid": [],
             "copywritingid": []
         },
-        "groupings": ["date"]
+        "groupings": ["campaignid"]
     }
     
     headers = {**PUTREPORT_HEADERS, "Authorization": f"Bearer {token}"}
     
     try:
-        resp = requests.post(PUTREPORT_API, json=payload, headers=headers, timeout=180)
+        resp = requests.post(PUTREPORT_API, json=payload, headers=headers, timeout=30)
         resp.raise_for_status()
         result = resp.json()
         
@@ -218,57 +216,18 @@ def fetch_putreport_data(campaignid, date_from, date_to, token):
             print(f"    No data returned for campaign {campaignid}")
             return None
         
-        # 提取daily数据
-        daily = []
-        total_h5 = 0
-        total_new = 0
+        item = data_list[0]
+        h5 = item.get("h5landingpageclickusernum", 0) or 0
+        new = item.get("newusernum", 0) or 0
+        d7 = item.get("d7income", 0.0) or 0.0
         
-        for item in data_list:
-            h5 = item.get("h5landingpageclickusernum", 0) or 0
-            new = item.get("newusernum", 0) or 0
-            d7 = item.get("d7income", 0.0) or 0.0
-            date = item.get("date", "")
-            
-            daily.append({
-                "date": date,
-                "h5landingpageclickusernum": h5,
-                "newusernum": new,
-                "d7income": d7
-            })
-            total_h5 += h5
-            total_new += new
-        
-        # d7income从campaign汇总级别获取（更准确），不按天累加
-        total_d7income_by_daily = round(sum(d.get("d7income", 0.0) or 0.0 for d in daily), 2)
-        
-        # 额外查询campaign汇总级别获取精确d7income
-        total_d7income = total_d7income_by_daily  # 默认fallback
-        try:
-            summary_body = {
-                "filters": {
-                    "productline": [], "mediasource": [], "mediasource2": ["SocialMedia"],
-                    "date": {"from": date_from, "to": date_to, "datesLabel": ""},
-                    "campaignid": [campaignid],
-                    "adsetid": [], "adid": [], "copywritingid": []
-                },
-                "groupings": ["campaignid"]
-            }
-            summary_resp = requests.post(PUTREPORT_API, json=summary_body, headers={**PUTREPORT_HEADERS, "Authorization": f"Bearer {token}"}, timeout=15)
-            summary_data = summary_resp.json().get("data", [])
-            if summary_data and len(summary_data) > 0:
-                api_d7 = summary_data[0].get("d7income", 0.0) or 0.0
-                if api_d7 > 0:
-                    total_d7income = round(api_d7, 2)
-                    print(f"    D7 income (campaign summary): ${total_d7income}")
-        except Exception as e:
-            print(f"    WARN: Failed to get campaign summary d7income: {e}")
+        print(f"    Unique: {h5}, New: {new}, D7: ${d7:.2f}")
         
         return {
             "campaignid": campaignid,
-            "total_h5landingpageclickusernum": total_h5,
-            "total_newusernum": total_new,
-            "total_d7income": total_d7income,
-            "daily": daily
+            "h5landingpageclickusernum": h5,
+            "newusernum": new,
+            "d7income": round(d7, 2)
         }
         
     except requests.exceptions.Timeout:
@@ -305,9 +264,6 @@ def fetch_all_putreport_data(campaign_ids, date_from, date_to):
         print(f"\n  [{i+1}/{len(campaign_ids)}] Fetching campaign: {cid}")
         data = fetch_putreport_data(cid, date_from, date_to, token)
         if data:
-            print(f"    Total Unique: {data['total_h5landingpageclickusernum']}")
-            print(f"    Total New Users: {data['total_newusernum']}")
-            print(f"    Daily records: {len(data['daily'])}")
             results[cid] = data
         else:
             print(f"    Failed to fetch data")
@@ -560,22 +516,10 @@ def main():
             print(f"  WARN: Cannot map KOC '{koc_username}' to data.json users")
             continue
         
-        # 提取总量
-        total_unique = putreport_data.get("total_h5landingpageclickusernum", 0)
-        total_new_users = putreport_data.get("total_newusernum", 0)
-        total_d7income = putreport_data.get("total_d7income", 0.0)
-        daily_data = putreport_data.get("daily", [])
-        
-        # 构建daily字典
-        unique_daily = {}
-        new_users_daily = {}
-        d7income_daily = {}
-        for d in daily_data:
-            date = d.get("date", "")
-            if date:
-                unique_daily[date] = d.get("h5landingpageclickusernum", 0)
-                new_users_daily[date] = d.get("newusernum", 0)
-                d7income_daily[date] = d.get("d7income", 0.0)
+        # 提取汇总数据
+        total_unique = putreport_data.get("h5landingpageclickusernum", 0)
+        total_new_users = putreport_data.get("newusernum", 0)
+        total_d7income = putreport_data.get("d7income", 0.0)
         
         # 旧值
         old_unique = existing_unique.get(mapped_name, 0)
@@ -584,52 +528,37 @@ def main():
         # === UNIQUE数据保护 ===
         if total_unique > 0:
             data["users"][mapped_name]["link_unique"] = total_unique
-            data["users"][mapped_name]["link_unique_daily"] = unique_daily
             data["users"][mapped_name]["unique_last_success"] = get_ny_time_str()
             putreport_had_data = True
             print(f"  {mapped_name}: unique={total_unique} (from putreport)")
         elif old_unique > 0:
-            # API返回0但旧值>0，保留旧值
             data["users"][mapped_name]["link_unique"] = old_unique
-            # 用新API的daily结构更新（如果API返回了daily数据）
-            if unique_daily:
-                # 计算新的daily unique
-                visits_daily = data["users"][mapped_name].get("link_visits_daily", {})
-                if visits_daily:
-                    data["users"][mapped_name]["link_unique_daily"] = calc_unique_daily(
-                        sum(visits_daily.values()), old_unique, visits_daily
-                    )
             print(f"  {mapped_name}: unique={old_unique} (putreport=0, kept existing)")
         else:
             data["users"][mapped_name]["link_unique"] = 0
-            data["users"][mapped_name]["link_unique_daily"] = {}
             print(f"  {mapped_name}: unique=0 (confirmed zero)")
         
         # === New Users数据保护 ===
         if total_new_users > 0:
             data["users"][mapped_name]["new_users"] = total_new_users
-            data["users"][mapped_name]["new_users_daily"] = new_users_daily
             print(f"    new_users={total_new_users} (from putreport)")
         elif old_new_users > 0:
             data["users"][mapped_name]["new_users"] = old_new_users
             print(f"    new_users={old_new_users} (putreport=0, kept existing)")
         else:
             data["users"][mapped_name]["new_users"] = 0
-            data["users"][mapped_name]["new_users_daily"] = {}
             print(f"    new_users=0 (confirmed zero)")
         
         # === D7收入 ===
         old_d7income = data["users"][mapped_name].get("d7income", 0.0)
         if total_d7income > 0:
             data["users"][mapped_name]["d7income"] = total_d7income
-            data["users"][mapped_name]["d7income_daily"] = d7income_daily
             print(f"    d7income=${total_d7income:.2f} (from putreport)")
         elif old_d7income > 0:
             data["users"][mapped_name]["d7income"] = old_d7income
             print(f"    d7income=${old_d7income:.2f} (putreport=0, kept existing)")
         else:
             data["users"][mapped_name]["d7income"] = 0.0
-            data["users"][mapped_name]["d7income_daily"] = {}
             print(f"    d7income=$0.00 (confirmed zero)")
         
         updated_users.add(mapped_name)
