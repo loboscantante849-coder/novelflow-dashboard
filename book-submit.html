@@ -98,175 +98,134 @@ a:hover { color: #a89cff; }
 .candidate-card.selected .candidate-check { background: #7c6cff; border-color: #7c6cff; color: white; }
 .btn-confirm { width: 100%; padding: 16px; margin-top: 20px; background: linear-gradient(135deg, #00d4aa, #00b894); }
 .btn-confirm:hover:not(:disabled) { box-shadow: 0 8px 30px rgba(0, 212, 170, 0.4); }
-.btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-retry { width: 100%; padding: 14px; margin-top: 12px; background: rgba(124, 108, 255, 0.1); border: 1px solid rgba(124, 108, 255, 0.25); color: #a89cff; }
-.btn-retry:hover { background: rgba(124, 108, 255, 0.2); }
-.no-candidates { text-align: center; padding: 40px 20px; }
-.no-candidates h3 { font-size: 18px; font-weight: 600; color: #e0e3ec; margin-bottom: 8px; }
-.no-candidates p { font-size: 14px; color: #8a8faa; margin-bottom: 20px; }
-.btn-back { display: inline-block; padding: 12px 24px; border-radius: 10px; background: rgba(124, 108, 255, 0.1); border: 1px solid rgba(124, 108, 255, 0.2); color: #a89cff; font-size: 14px; font-weight: 500; cursor: pointer; transition: all .2s; }
-.btn-back:hover { background: rgba(124, 108, 255, 0.2); }
-
-@media (max-width: 768px) {
-  .container { padding: 24px 16px 60px; }
-  .hero { margin-bottom: 32px; }
-  .hero-badge { font-size: 11px; padding: 5px 12px; margin-bottom: 16px; }
-  .hero h1 { font-size: 24px; margin-bottom: 12px; }
-  .hero p { font-size: 14px; }
-  .card { padding: 24px 18px; border-radius: 16px; margin-bottom: 20px; }
-  .form-group { margin-bottom: 20px; }
-  .form-group label { font-size: 12px; margin-bottom: 6px; }
-  .form-input, .form-select, .form-textarea { padding: 14px 16px; font-size: 16px; border-radius: 10px; }
-  .form-select { background-position: right 12px center; padding-right: 40px; }
-  .form-textarea { min-height: 90px; }
-  .btn-submit { padding: 16px 24px; font-size: 15px; min-height: 52px; border-radius: 12px; }
-  .info-box { padding: 16px 18px; margin-bottom: 24px; }
-  .info-box p { font-size: 13px; line-height: 1.5; }
-  .promo-tags { gap: 6px; }
-  .promo-tag { padding: 4px 8px; font-size: 10px; }
-  .nav-links { flex-direction: column; gap: 10px; margin-top: 24px; }
-  .nav-links a { width: 100%; justify-content: center; padding: 14px 20px; font-size: 14px; min-height: 48px; }
-  .processing-status { padding: 32px 16px; }
-  .processing-icon { width: 60px; height: 60px; font-size: 28px; }
-  .processing-status h2 { font-size: 20px; }
-  .processing-status p { font-size: 14px; }
-  .processing-steps { padding: 14px 16px; }
-  .processing-step { font-size: 13px; padding: 6px 0; }
-  .success-message { padding: 32px 16px; }
-  .success-icon { width: 60px; height: 60px; font-size: 28px; }
-  .success-message h2 { font-size: 20px; }
-  .success-message p { font-size: 14px; }
-  .book-link { padding: 14px 16px; }
-  .success-message .next-step { padding: 14px 16px; margin-top: 20px; }
-  .error-message { padding: 12px 16px; font-size: 13px; }
-  .candidate-card { padding: 14px; }
-  .candidate-cover { width: 45px; height: 63px; }
-  .candidate-title { font-size: 14px; }
-}
-
-@media (max-width: 480px) {
-  .container { padding: 20px 14px 50px; }
-  .hero h1 { font-size: 22px; }
-  .hero p { font-size: 13px; }
-  .card { padding: 20px 14px; border-radius: 14px; }
-  .btn-submit { width: 100%; }
-  .nav-links a { font-size: 13px; }
-}
+.btn-recommend-another { width: 100%; padding: 14px 24px; margin-top: 16px; background: linear-gradient(135deg, #7c6cff, #5a4ce0); color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; transition: transform .2s, box-shadow .2s; }
+.btn-recommend-another:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(124, 108, 255, 0.4); }
 </style>
 </head>
 <body>
 <div class="container">
   <div class="hero">
-    <div class="hero-badge">📚 KOC Book Submission</div>
-    <h1>Recommend Your Favorite Books <span class="gradient-text">Grow Together</span></h1>
-    <p>Share books you want to promote. We'll create exclusive referral links so more readers can discover great books!</p>
+    <div class="hero-badge">📚 KOC Dashboard</div>
+    <h1>Submit Your <span class="gradient-text">Book Recommendation</span></h1>
+    <p>Help fellow readers discover amazing stories. Share a book you love and get a unique referral link!</p>
   </div>
-
+  
   <div class="info-box">
-    <p><strong>What happens after submission?</strong><br>After you submit a book name, you'll select from matching books. Then your exclusive referral link and code will be generated!</p>
+    <p>🎯 <strong>How it works:</strong> Enter your Discord username, provide the book name, and we'll create a personalized referral link for you. Share it in your Discord group to earn rewards!</p>
   </div>
-
-  <div class="error-message" id="errorMessage"></div>
-
+  
+  <div id="errorMessage" class="error-message"></div>
+  
+  <!-- Form Container -->
   <div class="card form-container" id="formContainer">
     <form id="bookForm">
       <div class="form-group">
-        <label for="discordUsername">Discord Username</label>
-        <input type="text" id="discordUsername" class="form-input" placeholder="e.g., john_doe#1234 or john_doe">
+        <label>Discord Username <span class="required">*</span></label>
+        <input type="text" id="discordUsername" class="form-input" placeholder="yourname#1234" maxlength="50">
       </div>
+      
       <div class="form-group">
-        <label for="bookName">Book Name <span class="required">*</span></label>
-        <input type="text" id="bookName" class="form-input" placeholder="Enter the book title" required>
+        <label>Book Name <span class="required">*</span></label>
+        <input type="text" id="bookName" class="form-input" placeholder="Enter the book title..." required>
       </div>
+      
       <div class="form-group">
-        <label for="promotionMethod">Promotion Method</label>
+        <label>Promotion Method</label>
         <select id="promotionMethod" class="form-select">
-          <option value="All Channels" selected>All Channels</option>
-          <option value="Facebook Groups">Facebook Groups</option>
-          <option value="Facebook Pages">Facebook Pages</option>
-          <option value="Discord">Discord</option>
-          <option value="TikTok">TikTok</option>
-          <option value="Reels">Reels (Instagram/Facebook)</option>
+          <option value="All Channels">All Channels</option>
+          <option value="Group Chat">Group Chat</option>
+          <option value="DMs">Direct Messages</option>
+          <option value="Status/Bio">Status/Bio</option>
           <option value="Other">Other</option>
         </select>
         <div class="promo-tags">
-          <span class="promo-tag">All Channels</span>
-          <span class="promo-tag">Facebook Groups</span>
-          <span class="promo-tag">Facebook Pages</span>
-          <span class="promo-tag">Discord</span>
-          <span class="promo-tag">TikTok</span>
-          <span class="promo-tag">Reels</span>
+          <span class="promo-tag">Free to Join</span>
+          <span class="promo-tag">No Minimum Spend</span>
+          <span class="promo-tag">Lifetime Rewards</span>
         </div>
       </div>
-
-      <button type="submit" class="btn-submit" id="submitBtn">
-        <span class="btn-text">🚀 Submit Book Recommendation</span>
+      
+      <div class="form-group">
+        <label>Notes (Optional)</label>
+        <textarea id="notes" class="form-textarea" placeholder="Any additional info about your recommendation..."></textarea>
+      </div>
+      
+      <button type="submit" id="submitBtn" class="btn-submit">
+        <span class="btn-text">🔍 Submit Book Recommendation</span>
         <span class="spinner"></span>
       </button>
     </form>
-
-    <!-- Candidate Selection Section -->
-    <div class="candidate-section" id="candidateSection">
-      <h3>Select Your Book</h3>
-      <p>We found some matching books. Please select the correct one:</p>
-      <div class="candidate-list" id="candidateList"></div>
-      <button type="button" class="btn-submit btn-confirm" id="confirmBtn" disabled>
-        <span class="btn-text">✅ Confirm & Create Link</span>
-        <span class="spinner"></span>
-      </button>
-      <button type="button" class="btn-submit btn-retry" id="retryBtn">✏️ None of these - Try Different Name</button>
-    </div>
-
-    <!-- No Candidates Section -->
+  </div>
+  
+  <!-- Candidate Selection Section -->
+  <div class="card candidate-section" id="candidateSection">
+    <h3>Select Your Book</h3>
+    <p>We found some matching books. Please select the correct one:</p>
+    <div class="candidate-list" id="candidateList"></div>
+    <button type="button" id="confirmBtn" class="btn-submit btn-confirm" disabled>
+      <span class="btn-text">✓ Confirm & Create Link</span>
+      <span class="spinner"></span>
+    </button>
     <div class="no-candidates" id="noCandidatesSection" style="display: none;">
-      <h3>Book Not Found</h3>
-      <p>We couldn't find any books matching your search. Please check the spelling and try again.</p>
-      <button type="button" class="btn-back" id="backBtn">← Try Again</button>
+      <p style="text-align: center; color: #8a8faa; margin: 20px 0;">No matching books found. Please try a different book name.</p>
+    </div>
+    <button type="button" id="backBtn" class="btn-recommend-another" style="background: rgba(124, 108, 255, 0.15);">← Back to Form</button>
+  </div>
+  
+  <!-- Processing Status -->
+  <div class="processing-status" id="processingStatus">
+    <div class="processing-icon">⚡</div>
+    <h2>Creating Your Link...</h2>
+    <p>Please wait while we set everything up.</p>
+    <div class="processing-steps">
+      <div class="processing-step" id="stepSave"><div class="step-icon"></div> Saving submission</div>
+      <div class="processing-step" id="stepSelect"><div class="step-icon"></div> Verifying book selection</div>
+      <div class="processing-step" id="stepCode"><div class="step-icon"></div> Creating search code</div>
+      <div class="processing-step" id="stepLink"><div class="step-icon"></div> Generating referral link</div>
     </div>
   </div>
-
-  <div class="nav-links" id="formNavLinks">
-    <a href="https://tinyurl.com/ypbru28w">📖 View Book Wall</a>
-    <a href="https://tinyurl.com/46bf4zm5">📋 Promotion Guide</a>
-  </div>
-
-  <div class="card processing-status" id="processingStatus">
-    <div class="processing-icon">⚙️</div>
-    <h2 id="processingTitle">Creating Your Link...</h2>
-    <p id="processingMessage">Please wait while we set up your referral link</p>
-    <div class="processing-steps" id="processingSteps">
-      <div class="processing-step done" id="stepSave"><div class="step-icon">✓</div><span>Saving submission...</span></div>
-      <div class="processing-step done" id="stepSelect"><div class="step-icon">✓</div><span>Book selected</span></div>
-      <div class="processing-step current" id="stepCode"><div class="step-icon"></div><span>Creating search code...</span></div>
-      <div class="processing-step" id="stepLink"><div class="step-icon"></div><span>Creating referral link...</span></div>
-    </div>
-  </div>
-
-  <div class="card success-message" id="successMessage">
+  
+  <!-- Success Message -->
+  <div class="success-message" id="successMessage">
     <div class="success-icon" id="successIcon">✅</div>
-    <h2 id="successTitle">Thank You!</h2>
-    <p id="submittedBook"></p>
-    <div id="linkContainer" class="book-link" style="display: none;">
-      <p style="margin-bottom: 8px; font-size: 13px; color: #6a6f8a;">Your referral link: <span style="color:#6a6f8a;font-size:11px;">(tap to copy)</span></p>
-      <div id="linkValue" style="color: #22d3ee; font-weight: 600; font-size: 15px; word-break: break-all; cursor: pointer; background: rgba(20, 28, 68, 0.5); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); text-align: center;" onclick="copyLink()"></div>
+    <h2 id="successTitle">Link Created!</h2>
+    <p id="submittedBook">📚 "Your Book"</p>
+    
+    <div class="book-link" id="linkContainer" style="display: none;">
+      <p style="font-size: 12px; color: #8a8faa; margin-bottom: 6px;">Your Referral Link:</p>
+      <a href="#" id="linkValue" onclick="copyLink(); return false;"></a>
     </div>
-    <div id="codeContainer" class="book-link" style="display: none; margin-top: 10px;">
-      <p style="margin-bottom: 8px; font-size: 13px; color: #6a6f8a;">Your search code: <span style="color:#6a6f8a;font-size:11px;">(tap to copy)</span></p>
-      <div id="codeValue" style="color: #22d3ee; font-weight: 600; font-size: 15px; cursor: pointer; background: rgba(20, 28, 68, 0.5); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); text-align: center;" onclick="copyCode()"></div>
+    
+    <div class="book-link" id="codeContainer" style="display: none;">
+      <p style="font-size: 12px; color: #8a8faa; margin-bottom: 6px;">Search Code:</p>
+      <span id="codeValue" style="color: #00d4aa; font-weight: 600; cursor: pointer;" onclick="copyCode()"></span>
     </div>
-    <div id="promoContainer" class="book-link" style="display: none; margin-top: 10px;">
-      <p style="margin-bottom: 8px; font-size: 13px; color: #6a6f8a;">Ready-to-use promo copy: <span style="color:#6a6f8a;font-size:11px;">(tap to copy)</span></p>
-      <div id="promoValue" style="color: #c4c9e0; font-size: 14px; line-height: 1.5; white-space: pre-line; cursor: pointer; background: rgba(20, 28, 68, 0.5); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); text-align: left;" onclick="copyPromo()"></div>
+    
+    <div class="book-link" id="promoContainer" style="display: none;">
+      <p style="font-size: 12px; color: #8a8faa; margin-bottom: 6px;">Promo Copy:</p>
+      <span id="promoValue" style="color: #e0e3ec; white-space: pre-wrap;"></span>
     </div>
+    
     <div class="next-step" id="nextStep">
-      <p>📌 <strong>What happens next?</strong></p>
+      <p>📌 <strong>All done!</strong></p>
       <p>Your referral link, code and promo copy are ready! Click any of them to copy.</p>
-      <a href="https://tinyurl.com/ypbru28w" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>
     </div>
+    
+    <button type="button" id="recommendAnotherBtn" class="btn-recommend-another">📚 Recommend Another Book</button>
+    
+    <div class="nav-links" id="formNavLinks">
+      <a href="https://tinyurl.com/ypbru28w">📖 View Book Wall</a>
+    </div>
+  </div>
+  
+  <div class="nav-links" id="mainNavLinks">
+    <a href="https://tinyurl.com/ypbru28w">📖 View Book Wall</a>
+    <a href="https://novelflow-dashboard.vercel.app/">🏠 Dashboard</a>
   </div>
 </div>
 
 <script>
+// Elements
 const form = document.getElementById('bookForm');
 const submitBtn = document.getElementById('submitBtn');
 const errorMessage = document.getElementById('errorMessage');
@@ -283,9 +242,11 @@ const retryBtn = document.getElementById('retryBtn');
 const noCandidatesSection = document.getElementById('noCandidatesSection');
 const backBtn = document.getElementById('backBtn');
 const formNavLinks = document.getElementById('formNavLinks');
+const mainNavLinks = document.getElementById('mainNavLinks');
+const recommendAnotherBtn = document.getElementById('recommendAnotherBtn');
 
 // State
-let currentSubmission = null;
+let currentSubmissionData = null;
 let selectedCandidate = null;
 
 // Functions
@@ -311,6 +272,8 @@ function updateStep(stepId, status) {
 
 function showProcessingStatus() {
   formContainer.classList.add('hidden');
+  candidateSection.classList.remove('show');
+  mainNavLinks.style.display = 'none';
   formNavLinks.style.display = 'none';
   processingStatus.classList.add('show');
   successMessage.classList.remove('show');
@@ -361,9 +324,11 @@ function copyPromo() {
 
 function showSuccess(result) {
   formContainer.classList.add('hidden');
+  candidateSection.classList.remove('show');
   processingStatus.classList.remove('show');
   successMessage.classList.add('show');
-  submittedBook.textContent = `📚 "${result.matchedBookName || result.submission?.bookName || 'Your book'}"`;
+  mainNavLinks.style.display = 'none';
+  submittedBook.textContent = `📚 "${result.matchedBookName || result.bookName || 'Your book'}"`;
   
   const successIcon = document.getElementById('successIcon');
   const successTitle = document.getElementById('successTitle');
@@ -387,21 +352,21 @@ function showSuccess(result) {
     }
     
     const promoCopy = generatePromoCopy(
-      result.matchedBookName || result.submission?.bookName || 'this book',
+      result.matchedBookName || result.bookName || 'this book',
       result.link,
       result.code || ''
     );
     promoContainer.style.display = 'block';
     promoValue.textContent = promoCopy;
     
-    nextStep.innerHTML = '<p>📌 <strong>All done!</strong></p><p>Your referral link, code and promo copy are ready! Click any of them to copy.</p><a href="https://tinyurl.com/ypbru28w" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>';
+    nextStep.innerHTML = '<p>📌 <strong>All done!</strong></p><p>Your referral link, code and promo copy are ready! Click any of them to copy.</p>';
   } else {
     successIcon.textContent = '✅';
     successTitle.textContent = 'Submission Saved!';
     linkContainer.style.display = 'none';
     codeContainer.style.display = 'none';
     promoContainer.style.display = 'none';
-    nextStep.innerHTML = '<p>📌 <strong>What happens next?</strong></p><p>Your referral link will be created shortly. Check the Book Wall in a few minutes.</p><a href="https://tinyurl.com/ypbru28w" class="btn-submit" style="margin-top: 20px; text-decoration: none;">📖 View Book Wall</a>';
+    nextStep.innerHTML = '<p>📌 <strong>What happens next?</strong></p><p>Your referral link will be created shortly. Check the Book Wall in a few minutes.</p>';
   }
 }
 
@@ -465,10 +430,15 @@ function selectCandidate(card, candidate) {
   confirmBtn.disabled = false;
 }
 
-function showCandidateSelection(submission, candidates) {
-  currentSubmission = submission;
+function showCandidateSelection(submissionData, candidates) {
+  // Store the form data for later use in confirm
+  currentSubmissionData = submissionData;
   selectedCandidate = null;
   confirmBtn.disabled = true;
+  
+  // Hide form, show candidate selection
+  formContainer.classList.add('hidden');
+  mainNavLinks.style.display = 'none';
   
   if (candidates && candidates.length > 0) {
     renderCandidates(candidates);
@@ -481,10 +451,11 @@ function showCandidateSelection(submission, candidates) {
 }
 
 function resetToForm() {
-  currentSubmission = null;
+  currentSubmissionData = null;
   selectedCandidate = null;
   form.reset();
   formContainer.classList.remove('hidden');
+  mainNavLinks.style.display = 'flex';
   formNavLinks.style.display = 'flex';
   candidateSection.classList.remove('show');
   noCandidatesSection.style.display = 'none';
@@ -501,17 +472,25 @@ form.addEventListener('submit', async (e) => {
   const discordUsername = document.getElementById('discordUsername').value.trim();
   const bookName = document.getElementById('bookName').value.trim();
   const promotionMethod = document.getElementById('promotionMethod').value;
+  const notes = document.getElementById('notes').value.trim();
 
   if (!bookName) { showError('Please enter the book name'); return; }
   
   setLoading(true, submitBtn);
-  const submissionData = { bookName, discordUsername: discordUsername || 'Anonymous', promotionMethod: promotionMethod || 'All Channels' };
+  
+  // Store form data for later use in confirm
+  const submissionData = { 
+    bookName, 
+    discordUsername: discordUsername || 'Anonymous', 
+    promotionMethod: promotionMethod || 'All Channels',
+    notes: notes || ''
+  };
   
   try {
     const response = await fetch('https://novelflow-dashboard.vercel.app/api/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(submissionData)
+      body: JSON.stringify({ bookName })
     });
     
     if (!response.ok) {
@@ -522,14 +501,14 @@ form.addEventListener('submit', async (e) => {
     const result = await response.json();
     
     if (result.status === 'awaiting_confirmation') {
-      showCandidateSelection(result.submission, result.candidates);
+      showCandidateSelection(submissionData, result.candidates);
     } else if (result.status === 'completed') {
       showSuccess(result);
     } else {
       throw new Error('Unexpected response status');
     }
     
-    form.reset();
+    // Note: We no longer reset the form here - it's hidden instead
   } catch (error) {
     console.error('Submission error:', error);
     showError(error.message || 'Submission failed. Please try again.');
@@ -540,7 +519,7 @@ form.addEventListener('submit', async (e) => {
 
 // Confirm button - create link for selected candidate
 confirmBtn.addEventListener('click', async () => {
-  if (!selectedCandidate || !currentSubmission) return;
+  if (!selectedCandidate || !currentSubmissionData) return;
   
   setLoading(true, confirmBtn);
   showProcessingStatus();
@@ -550,7 +529,7 @@ confirmBtn.addEventListener('click', async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        submissionId: currentSubmission.id,
+        ...currentSubmissionData,
         bookId: selectedCandidate.bookId,
         bookTitle: selectedCandidate.title,
         bookAuthor: selectedCandidate.author || ''
@@ -564,9 +543,9 @@ confirmBtn.addEventListener('click', async () => {
     
     const result = await response.json();
     
-    if (result.status === 'completed') {
-      updateStep('stepCode', 'done');
-      updateStep('stepLink', 'done');
+    if (result.status === 'completed' || result.status === 'pending') {
+      updateStep('stepCode', result.status === 'completed' ? 'done' : 'failed');
+      updateStep('stepLink', result.status === 'completed' ? 'done' : 'failed');
       showSuccess(result);
     } else {
       updateStep('stepCode', 'failed');
@@ -588,6 +567,11 @@ retryBtn.addEventListener('click', () => {
 
 // Back button - reset form
 backBtn.addEventListener('click', () => {
+  resetToForm();
+});
+
+// Recommend Another Book button
+recommendAnotherBtn.addEventListener('click', () => {
   resetToForm();
 });
 </script>

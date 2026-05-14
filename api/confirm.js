@@ -8,9 +8,9 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'GITHUB_TOKEN not set' });
   }
 
-  const { submissionId, bookId, bookTitle, bookAuthor } = req.body || {};
-  if (!submissionId || !bookId) {
-    return res.status(400).json({ error: 'submissionId and bookId are required' });
+  const { bookName, discordUsername, promotionMethod, notes, bookId, bookTitle, bookAuthor } = req.body || {};
+  if (!bookName || !bookId) {
+    return res.status(400).json({ error: 'bookName and bookId are required' });
   }
 
   const owner = 'loboscantante849-coder';
@@ -21,59 +21,90 @@ module.exports = async (req, res) => {
   const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
   const BOOKSTORE_TOKEN = process.env.BOOKSTORE_TOKEN;
 
-  if (!BOOKSTORE_TOKEN) {
-    // No token - just update status to pending for manual processing
-    await updateSubmission(submissionId, {
-      status: 'pending',
-      bookId: bookId,
-      matchedBookName: bookTitle || 'Unknown',
-      confirmedAt: new Date().toISOString(),
-      note: 'BOOKSTORE_TOKEN not available - pending manual processing'
-    }, apiBase, GITHUB_TOKEN);
-
-    return res.status(200).json({
-      success: true,
-      submissionId,
-      status: 'pending',
-      message: 'Book confirmed but token unavailable. Will be processed shortly.'
-    });
-  }
+  // Generate submission ID locally
+  const submissionId = 'sub_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
   try {
-    // Step 1: Update submission status to 'processing'
-    await updateSubmission(submissionId, {
-      status: 'processing',
+    // Step 1: Get current submissions and SHA
+    const getResponse = await fetch(apiBase, {
+      headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'NovelFlow-API' }
+    });
+
+    let sha = null;
+    let existingData = [];
+    if (getResponse.ok) {
+      const data = await getResponse.json();
+      sha = data.sha;
+      const content = Buffer.from(data.content, 'base64').toString('utf-8');
+      try { existingData = JSON.parse(content); if (!Array.isArray(existingData)) existingData = []; } catch (e) { existingData = []; }
+    }
+
+    // Step 2: Create new submission with status "processing"
+    const newSubmission = {
+      id: submissionId,
+      bookName: bookName.trim(),
+      discordUsername: (discordUsername || 'Anonymous').trim(),
+      promotionMethod: promotionMethod || '',
+      notes: notes || '',
       bookId: bookId,
-      matchedBookName: bookTitle || 'Unknown',
+      matchedBookName: bookTitle || bookName,
       author: bookAuthor || '',
-      confirmedAt: new Date().toISOString()
-    }, apiBase, GITHUB_TOKEN);
+      submittedAt: new Date().toISOString(),
+      confirmedAt: new Date().toISOString(),
+      status: 'processing'
+    };
 
-    console.log(`Confirmed: "${bookTitle}" (${bookId}) for submission ${submissionId}`);
+    existingData.push(newSubmission);
 
-    // Step 2: Create search code
-    const finalCode = await createCode(bookId, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
+    // Step 3: Save to GitHub FIRST (as processing)
+    let content = Buffer.from(JSON.stringify(existingData, null, 2)).toString('base64');
+    const putBody = { message: 'Add confirmed submission: ' + bookName, content };
+    if (sha) putBody.sha = sha;
+
+    const putResponse = await fetch(apiBase, {
+      method: 'PUT',
+      headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json', 'User-Agent': 'NovelFlow-API' },
+      body: JSON.stringify(putBody)
+    });
+
+    if (!putResponse.ok) {
+      console.error('GitHub save error');
+      return res.status(500).json({ error: 'Failed to save submission' });
+    }
+
+    // Update SHA for subsequent updates
+    const newSha = sha ? sha : (await putResponse.json()).content.sha;
+
+    console.log(`Confirmed: "${bookTitle || bookName}" (${bookId}) for submission ${submissionId}`);
+
+    // Step 4: Create search code (only if token available)
+    let finalCode = null;
+    if (BOOKSTORE_TOKEN) {
+      finalCode = await createCode(bookId, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
+    }
 
     if (!finalCode) {
+      // Update status to pending for manual processing
       await updateSubmission(submissionId, {
-        status: 'failed',
-        error: 'Code creation failed'
-      }, apiBase, GITHUB_TOKEN);
+        status: 'pending',
+        error: BOOKSTORE_TOKEN ? 'Code creation failed' : 'BOOKSTORE_TOKEN not available'
+      }, apiBase, GITHUB_TOKEN, newSha);
 
       return res.status(200).json({
-        success: false,
+        success: true,
         submissionId,
-        status: 'failed',
-        message: 'Failed to create search code. Please try again.'
+        status: 'pending',
+        matchedBookName: bookTitle || bookName,
+        message: 'Submission saved! Search code will be created shortly.'
       });
     }
 
     console.log(`Created code: ${finalCode} for ${bookId}`);
 
-    // Step 3: Create short link
+    // Step 5: Create short link
     const shortUrl = await createLink(bookId, bookTitle, finalCode, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
 
-    // Step 4: Update submission to completed
+    // Step 6: Update submission to completed
     const fields = {
       code: String(finalCode),
       status: 'completed',
@@ -85,7 +116,7 @@ module.exports = async (req, res) => {
       fields.shortUrl = shortUrl;
     }
 
-    await updateSubmission(submissionId, fields, apiBase, GITHUB_TOKEN);
+    await updateSubmission(submissionId, fields, apiBase, GITHUB_TOKEN, newSha);
 
     console.log(`Completed: ${submissionId} - code=${finalCode}, link=${shortUrl}`);
 
@@ -95,18 +126,22 @@ module.exports = async (req, res) => {
       status: 'completed',
       code: finalCode,
       link: shortUrl ? `https://${shortUrl}` : null,
-      matchedBookName: bookTitle,
+      matchedBookName: bookTitle || bookName,
       message: 'Link and code created successfully!'
     });
 
   } catch (error) {
     console.error('Confirm error:', error);
 
-    // Update status to failed
-    await updateSubmission(submissionId, {
-      status: 'failed',
-      error: error.message
-    }, apiBase, GITHUB_TOKEN);
+    // Try to update status to failed if possible
+    try {
+      await updateSubmission(submissionId, {
+        status: 'failed',
+        error: error.message
+      }, apiBase, GITHUB_TOKEN, null);
+    } catch (e) {
+      console.error('Failed to update submission status:', e.message);
+    }
 
     return res.status(500).json({
       success: false,
@@ -216,15 +251,24 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
 
 // ============ Update Submission ============
 
-async function updateSubmission(submissionId, fields, apiBase, GITHUB_TOKEN) {
+async function updateSubmission(submissionId, fields, apiBase, GITHUB_TOKEN, currentSha) {
   try {
-    const getResp = await fetch(apiBase, {
-      headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'NovelFlow-API' }
-    });
-    if (!getResp.ok) return;
-    const data = await getResp.json();
+    let sha = currentSha;
+    
+    // If no SHA provided, fetch it
+    if (!sha) {
+      const getResp = await fetch(apiBase, {
+        headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'NovelFlow-API' }
+      });
+      if (!getResp.ok) return;
+      const data = await getResp.json();
+      sha = data.sha;
+    }
 
-    const latest = JSON.parse(Buffer.from(data.content, 'base64').toString('utf-8'));
+    const latest = JSON.parse(Buffer.from((await (await fetch(apiBase, {
+      headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'NovelFlow-API' }
+    })).json()).content, 'base64').toString('utf-8'));
+    
     const idx = latest.findIndex(s => s.id === submissionId);
     if (idx === -1) return;
 
@@ -234,7 +278,7 @@ async function updateSubmission(submissionId, fields, apiBase, GITHUB_TOKEN) {
     await fetch(apiBase, {
       method: 'PUT',
       headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json', 'User-Agent': 'NovelFlow-API' },
-      body: JSON.stringify({ message: `Update ${submissionId}: ${fields.status || 'updated'}`, content: updateContent, sha: data.sha })
+      body: JSON.stringify({ message: `Update ${submissionId}: ${fields.status || 'updated'}`, content: updateContent, sha: sha })
     });
   } catch (err) {
     console.error('Update failed:', err.message);

@@ -4,9 +4,18 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-        { "key": "Pragma", "value": "no-cache" },
-        { "key": "Expires", "value": "0" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "Pragma",
+          "value": "no-cache"
+        },
+        {
+          "key": "Expires",
+          "value": "0"
+        }
       ]
     }
   ],
@@ -18,6 +27,10 @@
     "api/submissions.js": {
       "memory": 256,
       "maxDuration": 10
+    },
+    "api/confirm.js": {
+      "memory": 512,
+      "maxDuration": 30
     }
   }
 }
