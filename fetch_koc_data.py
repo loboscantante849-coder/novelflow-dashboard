@@ -179,8 +179,8 @@ def fetch_putreport_data(campaignid, date_from, date_to, token):
             'date': str,
             'h5landingpageclickusernum': int,  # Unique (H5落地页点击用户数)
             'newusernum': int,  # New Users (纯新增用户数)
-            'd14income': float,  # D14收入
-            'daily': [{'date': str, 'h5landingpageclickusernum': int, 'newusernum': int, 'd14income': float}]
+            'd7income': float,  # D7收入
+            'daily': [{'date': str, 'h5landingpageclickusernum': int, 'newusernum': int, 'd7income': float}]
         }
     """
     payload = {
@@ -221,29 +221,29 @@ def fetch_putreport_data(campaignid, date_from, date_to, token):
         daily = []
         total_h5 = 0
         total_new = 0
-        total_d14income = 0.0
+        total_d7income = 0.0
         
         for item in data_list:
             h5 = item.get("h5landingpageclickusernum", 0) or 0
             new = item.get("newusernum", 0) or 0
-            d14 = item.get("d14income", 0.0) or 0.0
+            d7 = item.get("d7income", 0.0) or 0.0
             date = item.get("date", "")
             
             daily.append({
                 "date": date,
                 "h5landingpageclickusernum": h5,
                 "newusernum": new,
-                "d14income": d14
+                "d7income": d7
             })
             total_h5 += h5
             total_new += new
-            total_d14income += d14
+            total_d7income += d7
         
         return {
             "campaignid": campaignid,
             "total_h5landingpageclickusernum": total_h5,
             "total_newusernum": total_new,
-            "total_d14income": round(total_d14income, 2),
+            "total_d7income": round(total_d7income, 2),
             "daily": daily
         }
         
@@ -539,19 +539,19 @@ def main():
         # 提取总量
         total_unique = putreport_data.get("total_h5landingpageclickusernum", 0)
         total_new_users = putreport_data.get("total_newusernum", 0)
-        total_d14income = putreport_data.get("total_d14income", 0.0)
+        total_d7income = putreport_data.get("total_d7income", 0.0)
         daily_data = putreport_data.get("daily", [])
         
         # 构建daily字典
         unique_daily = {}
         new_users_daily = {}
-        d14income_daily = {}
+        d7income_daily = {}
         for d in daily_data:
             date = d.get("date", "")
             if date:
                 unique_daily[date] = d.get("h5landingpageclickusernum", 0)
                 new_users_daily[date] = d.get("newusernum", 0)
-                d14income_daily[date] = d.get("d14income", 0.0)
+                d7income_daily[date] = d.get("d7income", 0.0)
         
         # 旧值
         old_unique = existing_unique.get(mapped_name, 0)
@@ -594,19 +594,19 @@ def main():
             data["users"][mapped_name]["new_users_daily"] = {}
             print(f"    new_users=0 (confirmed zero)")
         
-        # === D14收入 ===
-        old_d14income = data["users"][mapped_name].get("d14income", 0.0)
-        if total_d14income > 0:
-            data["users"][mapped_name]["d14income"] = total_d14income
-            data["users"][mapped_name]["d14income_daily"] = d14income_daily
-            print(f"    d14income=${total_d14income:.2f} (from putreport)")
-        elif old_d14income > 0:
-            data["users"][mapped_name]["d14income"] = old_d14income
-            print(f"    d14income=${old_d14income:.2f} (putreport=0, kept existing)")
+        # === D7收入 ===
+        old_d7income = data["users"][mapped_name].get("d7income", 0.0)
+        if total_d7income > 0:
+            data["users"][mapped_name]["d7income"] = total_d7income
+            data["users"][mapped_name]["d7income_daily"] = d7income_daily
+            print(f"    d7income=${total_d7income:.2f} (from putreport)")
+        elif old_d7income > 0:
+            data["users"][mapped_name]["d7income"] = old_d7income
+            print(f"    d7income=${old_d7income:.2f} (putreport=0, kept existing)")
         else:
-            data["users"][mapped_name]["d14income"] = 0.0
-            data["users"][mapped_name]["d14income_daily"] = {}
-            print(f"    d14income=$0.00 (confirmed zero)")
+            data["users"][mapped_name]["d7income"] = 0.0
+            data["users"][mapped_name]["d7income_daily"] = {}
+            print(f"    d7income=$0.00 (confirmed zero)")
         
         updated_users.add(mapped_name)
     

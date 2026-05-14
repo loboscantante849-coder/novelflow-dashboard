@@ -1003,7 +1003,7 @@
     // FALLBACK EMBEDDED DATA (offline support)
     // ========================================
     const FALLBACK_DATA = {
-    "last_updated": "2026-05-13 21:34 (ET)",
+    "last_updated": "2026-05-13 22:05 (ET)",
     "users": {
         "573918": {
             "link_visits": 0,
@@ -1051,8 +1051,8 @@
             },
             "subscription_revenue_daily": {},
             "ad_revenue_daily": {},
-            "d14income": 0.0,
-            "d14income_daily": {}
+            "d7income": 0.0,
+            "d7income_daily": {}
         },
         "AE XYLIA": {
             "link_visits": 0,
@@ -1094,13 +1094,14 @@
             "ad_revenue_daily": {}
         },
         "Boochick5": {
-            "link_visits": 9,
+            "link_visits": 10,
             "unique_visitors": 0,
             "new_users": 0,
             "subscription_revenue": 0,
             "ad_revenue": 0,
             "link_unique": 1,
             "link_visits_daily": {
+                "2026-05-14": 1,
                 "2026-05-13": 1,
                 "2026-05-12": 1,
                 "2026-05-11": 1,
@@ -1112,7 +1113,8 @@
                 "2026-05-05": 1
             },
             "link_unique_daily": {
-                "2026-05-13": 1,
+                "2026-05-14": 1,
+                "2026-05-13": 0,
                 "2026-05-12": 0,
                 "2026-05-11": 0,
                 "2026-05-10": 0,
@@ -1271,15 +1273,15 @@
                 "2026-05-05": 0.0,
                 "2026-05-02": 0.0
             },
-            "d14income": 0.53,
-            "d14income_daily": {
+            "d7income": 0.52,
+            "d7income_daily": {
                 "2026-05-12": 0.32,
                 "2026-05-09": 0.0,
                 "2026-05-08": 0.02,
                 "2026-05-07": 0.04,
                 "2026-05-06": 0.05,
                 "2026-05-05": 0.0,
-                "2026-05-02": 0.1
+                "2026-05-02": 0.09
             }
         },
         "Diana": {
@@ -1296,13 +1298,14 @@
             "ad_revenue_daily": {}
         },
         "DRAS": {
-            "link_visits": 25,
+            "link_visits": 26,
             "unique_visitors": 18,
             "new_users": 6,
             "subscription_revenue": 0.0,
             "ad_revenue": 0.0,
             "link_unique": 18,
             "link_visits_daily": {
+                "2026-05-14": 1,
                 "2026-05-13": 1,
                 "2026-05-12": 1,
                 "2026-05-11": 2,
@@ -1335,8 +1338,8 @@
                 "2026-05-06": 0.0,
                 "2026-05-05": 0.0
             },
-            "d14income": 0.0,
-            "d14income_daily": {}
+            "d7income": 0.0,
+            "d7income_daily": {}
         },
         "Harriet 335": {
             "link_visits": 0,
@@ -1785,8 +1788,8 @@
             'metrics.subscription_revenue_desc': 'Revenue from subscriptions',
             'metrics.ad_revenue': 'Ad Revenue',
             'metrics.ad_revenue_desc': 'Revenue from advertisements',
-            'metrics.d14income': 'Total Revenue',
-            'metrics.d14income_desc': 'Combined subscription and ad revenue',
+            'metrics.d7income': 'Total Revenue',
+            'metrics.d7income_desc': 'Combined subscription and ad revenue',
             'rank.title': 'Your Rank in the Leaderboard',
             'rank.of': 'of',
             'rank.gap': 'Gap to #1:',
@@ -1833,8 +1836,8 @@
             'metrics.subscription_revenue_desc': 'Ingresos de suscripciones',
             'metrics.ad_revenue': 'Ingresos por Publicidad',
             'metrics.ad_revenue_desc': 'Ingresos de anuncios',
-            'metrics.d14income': 'Ingresos Totales',
-            'metrics.d14income_desc': 'Ingresos combinados de suscripciones y anuncios',
+            'metrics.d7income': 'Ingresos Totales',
+            'metrics.d7income_desc': 'Ingresos combinados de suscripciones y anuncios',
             'rank.title': 'Tu Posici\u00f3n en la Clasificaci\u00f3n',
             'rank.of': 'de',
             'rank.gap': 'Diferencia con #1:',
@@ -1948,7 +1951,7 @@
         }
         requestAnimationFrame(update);
     }
-    function getTotalRevenue(user) { return (user.d14income > 0 ? user.d14income : (user.subscription_revenue || 0) + (user.ad_revenue || 0)); }
+    function getTotalRevenue(user) { return (user.d7income > 0 ? user.d7income : (user.subscription_revenue || 0) + (user.ad_revenue || 0)); }
     function getSortedUsers(sortBy = 'total_revenue') {
         if (!dashboardData || !dashboardData.users) return [];
         const users = Object.entries(dashboardData.users).map(([username, data]) => ({
@@ -2012,7 +2015,7 @@
             { key: 'new_users', icon: icons.userPlus, value: userData.new_users || 0, isCurrency: false, color: '#34d399', sparkData: Object.values(userData.new_users_daily || {}).reverse() },
             { key: 'subscription_revenue', icon: icons.dollar, value: userData.subscription_revenue || 0, isCurrency: true, color: '#fbbf24', sparkData: generateSparklineData(userData.subscription_revenue || 0) },
             { key: 'ad_revenue', icon: icons.ad, value: userData.ad_revenue || 0, isCurrency: true, color: '#f472b6', sparkData: generateSparklineData(userData.ad_revenue || 0) },
-            { key: 'd14income', icon: icons.dollar, value: (userData.d14income > 0 ? userData.d14income : (userData.subscription_revenue || 0) + (userData.ad_revenue || 0)), isCurrency: true, color: '#f59e0b', sparkData: Object.values(userData.d14income_daily || {}).reverse() }
+            { key: 'd7income', icon: icons.dollar, value: (userData.d7income > 0 ? userData.d7income : (userData.subscription_revenue || 0) + (userData.ad_revenue || 0)), isCurrency: true, color: '#f59e0b', sparkData: Object.values(userData.d7income_daily || {}).reverse() }
         ];
 
         return `
