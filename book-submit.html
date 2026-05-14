@@ -328,6 +328,7 @@ function showSuccess(result) {
   processingStatus.classList.remove('show');
   successMessage.classList.add('show');
   mainNavLinks.style.display = 'none';
+  formNavLinks.style.display = 'flex';
   submittedBook.textContent = `📚 "${result.matchedBookName || result.bookName || 'Your book'}"`;
   
   const successIcon = document.getElementById('successIcon');
