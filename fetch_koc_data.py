@@ -93,12 +93,13 @@ def load_campaign_config():
 
 
 def get_date_range():
-    """获取当月日期范围"""
+    """获取日期范围：从4月28号开始，截止到当天"""
     now = datetime.now(timezone(timedelta(hours=8)))
-    first_day = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    start = first_day.strftime("%Y-%m-%d 00:00")
+    # 从2026-04-28开始
+    start_date = now.replace(year=2026, month=4, day=28, hour=0, minute=0, second=0, microsecond=0)
+    start = start_date.strftime("%Y-%m-%d 00:00")
     end = now.strftime("%Y-%m-%d 23:59")
-    date_from = first_day.strftime("%Y-%m-%d")
+    date_from = start_date.strftime("%Y-%m-%d")
     date_to = now.strftime("%Y-%m-%d")
     return start, end, date_from, date_to
 
