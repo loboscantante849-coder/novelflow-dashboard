@@ -220,7 +220,7 @@ a:hover { color: #a89cff; }
   
   <div class="nav-links" id="mainNavLinks">
     <a href="https://tinyurl.com/ypbru28w">📖 View Book Wall</a>
-    <a href="https://novelflow-dashboard.vercel.app/">🏠 Dashboard</a>
+    <a href="/">🏠 Dashboard</a>
   </div>
 </div>
 
@@ -393,8 +393,9 @@ function renderCandidates(candidates) {
     card.dataset.title = candidate.title;
     card.dataset.author = candidate.author || '';
     
-    const coverHtml = candidate.coverImage 
-      ? `<img src="${candidate.coverImage}" class="candidate-cover" alt="cover" onerror="this.style.display='none';this.nextSibling.style.display='flex'"><span style="display:none">📖</span>`
+    const safeCover = (candidate.coverImage && candidate.coverImage.startsWith('https://')) ? candidate.coverImage : '';
+    const coverHtml = safeCover
+      ? `<img src="${safeCover}" class="candidate-cover" alt="cover" onerror="this.style.display='none';this.nextSibling.style.display='flex'"><span style="display:none">📖</span>`
       : `<span class="candidate-cover">📖</span>`;
     
     card.innerHTML = `
@@ -439,6 +440,7 @@ function showCandidateSelection(submissionData, candidates) {
   // Hide form, show candidate selection
   formContainer.classList.add('hidden');
   mainNavLinks.style.display = 'none';
+  formNavLinks.style.display = 'none';
   
   if (candidates && candidates.length > 0) {
     renderCandidates(candidates);
@@ -485,7 +487,7 @@ form.addEventListener('submit', async (e) => {
   };
   
   try {
-    const response = await fetch('https://novelflow-dashboard.vercel.app/api/submit', {
+    const response = await fetch('/api/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bookName })
@@ -523,7 +525,7 @@ confirmBtn.addEventListener('click', async () => {
   showProcessingStatus();
   
   try {
-    const response = await fetch('https://novelflow-dashboard.vercel.app/api/confirm', {
+    const response = await fetch('/api/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

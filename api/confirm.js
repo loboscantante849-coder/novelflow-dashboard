@@ -1,6 +1,29 @@
+// Simple in-memory rate limiter
+const confirmCounts = new Map();
+const RATE_LIMIT = 5; // max 5 confirms per IP per hour
+const RATE_WINDOW = 60 * 60 * 1000; // 1 hour
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const record = confirmCounts.get(ip);
+  if (!record || now - record.start > RATE_WINDOW) {
+    confirmCounts.set(ip, { start: now, count: 1 });
+    return true;
+  }
+  if (record.count >= RATE_LIMIT) return false;
+  record.count++;
+  return true;
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Rate limit check
+  const clientIp = req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown';
+  if (!checkRateLimit(clientIp)) {
+    return res.status(429).json({ error: 'Too many submissions. Please try again later.' });
   }
 
   const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
