@@ -222,7 +222,6 @@ def fetch_putreport_data(campaignid, date_from, date_to, token):
         daily = []
         total_h5 = 0
         total_new = 0
-        total_d7income = 0.0
         
         for item in data_list:
             h5 = item.get("h5landingpageclickusernum", 0) or 0
@@ -238,13 +237,37 @@ def fetch_putreport_data(campaignid, date_from, date_to, token):
             })
             total_h5 += h5
             total_new += new
-            total_d7income += d7
+        
+        # d7income从campaign汇总级别获取（更准确），不按天累加
+        total_d7income_by_daily = round(sum(d.get("d7income", 0.0) or 0.0 for d in daily), 2)
+        
+        # 额外查询campaign汇总级别获取精确d7income
+        total_d7income = total_d7income_by_daily  # 默认fallback
+        try:
+            summary_body = {
+                "filters": {
+                    "productline": [], "mediasource": [], "mediasource2": ["SocialMedia"],
+                    "date": {"from": date_from, "to": date_to, "datesLabel": ""},
+                    "campaignid": [campaignid],
+                    "adsetid": [], "adid": [], "copywritingid": []
+                },
+                "groupings": ["campaignid"]
+            }
+            summary_resp = requests.post(PUTREPORT_API, json=summary_body, headers={**PUTREPORT_HEADERS, "Authorization": f"Bearer {token}"}, timeout=15)
+            summary_data = summary_resp.json().get("data", [])
+            if summary_data and len(summary_data) > 0:
+                api_d7 = summary_data[0].get("d7income", 0.0) or 0.0
+                if api_d7 > 0:
+                    total_d7income = round(api_d7, 2)
+                    print(f"    D7 income (campaign summary): ${total_d7income}")
+        except Exception as e:
+            print(f"    WARN: Failed to get campaign summary d7income: {e}")
         
         return {
             "campaignid": campaignid,
             "total_h5landingpageclickusernum": total_h5,
             "total_newusernum": total_new,
-            "total_d7income": round(total_d7income, 2),
+            "total_d7income": total_d7income,
             "daily": daily
         }
         
