@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-const CLIENT_SECRET = 'MWBTsNd-5Ot-0gQ8CzzeYbucCUjQdmxS';
+const CLIENT_SECRET = process.env.JWT_SECRET || 'novelflow-secret-2026';
 
 // Verify JWT and extract payload
 function verifyJWT(token) {
@@ -74,14 +74,26 @@ module.exports = async (req, res) => {
       return res.status(200).json({ loggedIn: false });
     }
 
-    // Return user info
-    return res.status(200).json({
-      loggedIn: true,
-      discordId: payload.discordId,
-      username: payload.globalName || payload.username,
-      avatar: payload.avatar,
-      discriminator: payload.discriminator,
-    });
+    // Check account type and return appropriate user info
+    if (payload.type === 'local') {
+      // Local account (username + NovelFlow ID)
+      return res.status(200).json({
+        loggedIn: true,
+        accountType: 'local',
+        username: payload.username,
+        novelFlowId: payload.novelFlowId,
+      });
+    } else {
+      // Discord OAuth account
+      return res.status(200).json({
+        loggedIn: true,
+        accountType: 'discord',
+        discordId: payload.discordId,
+        username: payload.globalName || payload.username,
+        avatar: payload.avatar,
+        discriminator: payload.discriminator,
+      });
+    }
   } catch (error) {
     console.error('Auth check error:', error);
     return res.status(200).json({ loggedIn: false });
