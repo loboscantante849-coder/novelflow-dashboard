@@ -109,6 +109,79 @@ a:hover { color: #a89cff; }
 .btn-confirm:hover:not(:disabled) { box-shadow: 0 8px 30px rgba(0, 212, 170, 0.4); }
 .btn-recommend-another { width: 100%; padding: 14px 24px; margin-top: 16px; background: linear-gradient(135deg, #7c6cff, #5a4ce0); color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; transition: transform .2s, box-shadow .2s; }
 .btn-recommend-another:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(124, 108, 255, 0.4); }
+
+/* ===========================================
+   Mobile Responsive (max-width: 480px)
+   =========================================== */
+@media (max-width: 480px) {
+  .container { padding: 70px 16px 60px; }
+  
+  /* Language Toggle - ensure it doesn't cover content */
+  .lang-toggle { top: 12px; right: 12px; }
+  .lang-toggle button { padding: 8px 12px; font-size: 11px; }
+  
+  /* Hero Section */
+  .hero { margin-bottom: 24px; }
+  .hero h1 { font-size: 26px; margin-bottom: 10px; }
+  .hero p { font-size: 14px; line-height: 1.6; }
+  .hero-badge { font-size: 11px; padding: 4px 12px; margin-bottom: 16px; }
+  
+  /* Card & Form */
+  .card { padding: 20px 16px; border-radius: 16px; }
+  .form-group { margin-bottom: 18px; }
+  .form-group label { font-size: 12px; }
+  .form-input, .form-select, .form-textarea { 
+    padding: 12px 14px; 
+    font-size: 16px; /* Prevent iOS zoom */
+    min-height: 48px;
+  }
+  
+  /* Promotion method tags */
+  .promo-tags { flex-wrap: wrap; gap: 8px; }
+  .promo-tag { padding: 8px 12px; font-size: 12px; min-height: 36px; }
+  
+  /* Buttons */
+  .btn-submit { min-height: 48px; font-size: 15px; padding: 14px 24px; }
+  .btn-confirm { min-height: 48px; }
+  .btn-recommend-another { min-height: 48px; font-size: 14px; }
+  
+  /* Success Page - link/code area */
+  .book-link { padding: 14px 16px; font-size: 13px; }
+  .book-link a { word-break: break-all; font-size: 13px; }
+  .success-message h2 { font-size: 20px; }
+  .success-message .next-step { padding: 14px 16px; }
+  .success-message .next-step p { font-size: 13px; line-height: 1.5; }
+  
+  /* Success Page - action buttons row */
+  .success-actions { flex-direction: column; gap: 12px; }
+  .success-actions .btn-secondary { min-height: 48px; }
+  
+  /* Candidate Cards - single column on mobile */
+  .candidate-list { grid-template-columns: 1fr; gap: 12px; }
+  .candidate-card { padding: 14px; }
+  .candidate-cover { width: 50px; height: 70px; font-size: 20px; }
+  .candidate-title { font-size: 14px; }
+  .candidate-author { font-size: 12px; }
+  .candidate-score { font-size: 10px; padding: 2px 6px; }
+  .candidate-check { width: 20px; height: 20px; font-size: 12px; }
+  
+  /* Processing Status */
+  .processing-status { padding: 24px 16px; }
+  .processing-icon { width: 56px; height: 56px; font-size: 28px; }
+  .processing-status h2 { font-size: 20px; }
+  .processing-steps { padding: 12px 14px; }
+  .processing-step { font-size: 13px; }
+  
+  /* Navigation buttons at bottom */
+  .bottom-nav { padding: 12px 16px; gap: 12px; }
+  .nav-link { padding: 12px 16px; font-size: 13px; min-height: 44px; }
+  
+  /* Error message */
+  .error-message { padding: 12px 16px; font-size: 13px; }
+  
+  /* Info box */
+  .info-box { padding: 14px 16px; font-size: 13px; }
+}
 </style>
 </head>
 <body>
