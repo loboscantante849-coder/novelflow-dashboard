@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NovelFlow Recommender Dashboard</title>
     <meta name="description" content="NovelFlow Recommender Dashboard - Track your referral performance metrics in real-time">
@@ -824,6 +825,165 @@
     @keyframes forceHideLoading {
         to { opacity: 0; visibility: hidden; pointer-events: none; }
     }
+/*
+===========================================================================
+	Mobile Responsive (max-width: 480px)
+=====================================================================
+@media max-width: 480px {
+
+  /* General container adjustments */
+
+  .container { padding: 60px 12px 70px; }
+
+  /* Header & Navigation */
+
+  .header { padding: 10px 12px; height: auto; min-height: 56px; }
+  .header-left { gap: 8px; }
+  .logo { font-size: 18px; gap: 6px; }
+  .logo-icon { font-size: 22qpx; }
+  .logo-text { font-size: 16px; }
+  .header-right { gap: 8px; }
+  .theme-toggle, .lang-btn { padding: 6px 10px; font-size: 11px; }
+
+  /* Mobile Hamburger */
+
+  .hamburger { display: flex; padding: 8px; margin-left: 4px; }
+
+  /* Mobile Nav Overlay */
+
+  .mobile-nav-dropdown { width: 85%; max-width: 320px; padding: 20px; }
+  .mobile-nav-header { padding-bottom: 16px; margin-bottom: 16px; }
+  .mobile-nav-title { font-size: 18px; }
+  .mobile-nav-links { gap: 8px; }
+  .mobile-nav-link { padding: 12px 16px; font-size: 14px; min-height: 48px; border-radius: 10px; }
+  .mobile-nav-divider { margin: 12px 0; }
+
+  /* Hero Section */
+
+  .hero { margin-bottom: 24px; padding: 0; }
+  .hero h1 { font-size: 28px; }
+  .hero p { font-size: 14px; max-width: 100%; }
+  .hero-badge { font-size: 11px; padding: 4px 12px; margin-bottom: 16px; }
+
+  /* Stats Cards Grid - 2 columns on mobile */
+
+  .stats-grid { grid-template-columns: repeat(2, 1); gap: 12px; margin-bottom: 20px; }
+  .stat-card { padding: 16px 12px; border-radius: 14px; }
+  .stat-icon { width: 36px; height: 36px; font-size: 18px; }
+  .stat-value { font-size: 22px; }
+  .stat-label { font-size: 11px; }
+  .stat-change { font-size: 10px; }
+
+  /* Metric Cards - 2 columns */
+
+  .metrics-grid { grid-template-columns: repeat(2, 1); gap: 12px; margin-bottom: 20px; }
+  .metric-card { padding: 16px; border-radius: 14px; }
+  .metric-header { margin-bottom: 12px; }
+  .metric-icon { width: 32px; height: 32px; font-size: 16px; }
+  .metric-title { font-size: 12px; }
+  .metric-value { font-size: 22px; font-weight: 700; }
+  .metric-sub { font-size: 11px; }
+
+  /* Leaderboard */Promotion
+
+  .leaderboard { margin-bottom: 20px; }
+  .leaderboard-header { padding: 14px 16px; }
+  .leaderboard-header h2 { font-size: 16px; }
+  .leaderboard-actions { gap: 8px; }
+  .leaderboard-actions button { padding: 8px 12px; font-size: 12px; min-height: 36px; }
+
+  /* RankC Card */
+
+  .rank-card { padding: 14px; margin-bottom: 10px; border-radius: 12px; }
+  .rank-badge { width: 36px; height: 36px; font-size: 14px; border-radius: 10px; }
+  .rank-badge.gold { background: linear-gradient(135deg, #464646, #ffaa00); font-size: 14px; }
+  .rank-badge.silver { background: linear-gradient(135deg, #c0c0c0,#`0a0a0); font-size: 14px; }
+  .rank-badge.bronze { background: linear-gradient(135deg, #cd7f32,#a05a20); font-size: 14px; }
+  .rank-info { flex: 1; margin-left: 12px; }
+  .rank-name { font-size: 15px; }
+  .rank-metrics { font-size: 11px; gap: 6px; }
+  .rank-metrics span { padding: 2px 6px; }
+  .rank-actions { gap: 6px; }
+  .rank-actions button { padding: 6px 10px; font-size: 11px; min-height: 32px; min-width: 32px; }
+
+  /* Search Box */
+
+  .search-box { max-width: 100%; }
+  .search-input { padding: 12px 14px 12px 40px; font-size: 15px; min-height: 48px; }
+  .search-icon { left: 12px; font-size: 16px; }
+
+  /* Table - horizontal scroll */
+
+  .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .data-table { min-width: 600px; font-size: 13px; }
+  .data-table th, .data-table td { padding: 10px 12px; }
+  .data-table th { font-size: 11px; }
+
+  /* Onboarding Overlay */Promotion
+
+  .onboarding-content { width: 95%; max-width: 360px; padding: 24px 20px; border-radius: 20px; }
+  .onboarding-content h2 { font-size: 22px; }
+  .onboarding-content p { font-size: 13px; line-height: 1.6; }
+  .onboarding-step { padding: 14px; }
+  .onboarding-step-num { width: 28px; height: 28px; font-size: 14px; }
+  .onboarding-step-text strong { font-size: 14px; }
+  .onboarding-step-text p { font-size: 12px; }
+  .onboarding-skip { padding: 10px 20px; font-size: 13px; min-height: 44px; }
+
+  /* Admin Overlay */Promotion
+
+  .admin-overlay { padding: 16px; }
+  .admin-panel { width: 95%; max-width: 400px; max-height: 90vh; border-radius: 16px; }
+  .admin-header { padding: 16px; }
+  .admin-header h2 { font-size: 18px; }
+  .admin-close { width: 32px; height: 32px; font-size: 20px; }
+  .admin-tabs { padding: 0 16px; gap: 8px; }
+  .admin-tab { padding: 8px 14px; font-size: 12px; }
+  .admin-section { padding: 16px; }
+  .admin-user-item { padding: 10px; gap: 6px; flex-wrap: wrap; }
+  #dmin-user-list .name { width: 100%; font-size: 13px; margin-bottom: 4px; }
+  #dmin-user-list input { width: calc(50%-3); padding: 6px 8px; font-size: 12px; }
+  .admin-actions { flex-wrap: wrap; gap: 8px; }
+  .admin-actions button { flex: 1; min-width: calc(50%-4); padding: 10px 12px; font-size: 12px; min-height: 44px; }
+  .admin-textarea { width: 100%; min-height: 120px; font-size: 12px; }
+
+  /* Buttons */
+
+  .btn-primary { padding: 12px 20px; font-size: 14px; min-height: 48px; }
+  .btn-secondary { padding: 10px 16px; font-size: 13px; min-height: 44px; }
+
+  /* Bottom Nav */
+
+  .nav-btn { padding: 12px 14px; font-size: 13px; min-height: 44px; }
+
+  /* Footer */
+
+  .footer { padding: 16px 12px; font-size: 12px; }
+
+  /* Loading Screen */Promotion
+
+  .loading-logo { width: 64px; height: 64px; font-size: 28px; border-radius: 16px; }
+  .loading-text { font-size: 12px; }
+  .loading-bar { width: 160px; }
+
+  /* Empty State */Promotion
+
+  .empty-state { padding: 40px 20px; }
+  .empty-icon { font-size: 40px; }
+  .empty-state h3 { font-size: 18px; }
+  .empty-state p { font-size: 14px; }
+
+  /* Toast Notifications */
+
+  .toast { 
+    left: 12px; 
+    right: 12px; 
+    bottom: 80px; 
+    padding: 12px 16px; 
+    font-size: 13px;
+    border-radius: 12px;
+  }
+}
 </style>
 </head>
 <body>
@@ -1003,7 +1163,7 @@
     // FALLBACK EMBEDDED DATA (offline support)
     // ========================================
     const FALLBACK_DATA = {
-    "last_updated": "2026-05-14 21:34 (ET)",
+    "last_updated": "2026-05-15 05:33 (ET)",
     "users": {
         "573918": {
             "link_visits": 0,
@@ -1019,13 +1179,14 @@
             "ad_revenue_daily": {}
         },
         "943640": {
-            "link_visits": 2,
+            "link_visits": 3,
             "unique_visitors": 0,
             "new_users": 0,
             "subscription_revenue": 0,
             "ad_revenue": 0,
             "link_unique": 0,
             "link_visits_daily": {
+                "2026-05-15": 1,
                 "2026-05-14": 1,
                 "2026-05-12": 1
             },
@@ -1221,13 +1382,14 @@
             "ad_revenue_daily": {}
         },
         "Cons Espher": {
-            "link_visits": 63,
+            "link_visits": 66,
             "unique_visitors": 32,
             "new_users": 13,
             "subscription_revenue": 0.0,
             "ad_revenue": 0.01,
             "link_unique": 38,
             "link_visits_daily": {
+                "2026-05-15": 3,
                 "2026-05-14": 2,
                 "2026-05-13": 5,
                 "2026-05-12": 4,
@@ -1275,7 +1437,7 @@
                 "2026-05-05": 0.0,
                 "2026-05-02": 0.0
             },
-            "d7income": 0.7,
+            "d7income": 0.73,
             "d7income_daily": {
                 "2026-05-12": 0.35,
                 "2026-05-09": 0.0,
@@ -1300,13 +1462,14 @@
             "ad_revenue_daily": {}
         },
         "DRAS": {
-            "link_visits": 27,
+            "link_visits": 29,
             "unique_visitors": 18,
             "new_users": 6,
             "subscription_revenue": 0.0,
             "ad_revenue": 0.0,
-            "link_unique": 21,
+            "link_unique": 22,
             "link_visits_daily": {
+                "2026-05-15": 2,
                 "2026-05-14": 2,
                 "2026-05-13": 1,
                 "2026-05-12": 1,

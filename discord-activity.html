@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <meta name="theme-color" content="#0a0a1a">
-    <title>NovelFlow - 推广助手</title>
+    <title>NovelFlow - Discord Activity</title>
     <script src="https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@0.1.9/dist/discord-sdk-embedded.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -253,53 +253,20 @@
         body.discord-embedded {
             min-height: 100vh;
             min-height: 100dvh;
-            overflow: hidden;
         }
         
         body.discord-embedded .app-container {
             max-width: 100%;
             min-height: 100vh;
             min-height: 100dvh;
-            height: 100vh;
-            height: 100dvh;
-            overflow-y: auto;
-            overflow-x: hidden;
-            -webkit-overflow-scrolling: touch;
-        }
-        
-        /* Discord mode - ensure all interactive elements are clickable */
-        body.discord-embedded button,
-        body.discord-embedded a,
-        body.discord-embedded .book-card,
-        body.discord-embedded .nav-item,
-        body.discord-embedded .profile-card,
-        body.discord-embedded .task-card,
-        body.discord-embedded .result-card,
-        body.discord-embedded .my-book-item,
-        body.discord-embedded .banner-dot,
-        body.discord-embedded .filter-btn,
-        body.discord-embedded .lang-btn,
-        body.discord-embedded .create-link-btn {
-            pointer-events: auto !important;
-            cursor: pointer;
-        }
-        
-        /* Ensure background effects don't block clicks */
-        body.discord-embedded .banner-bg-effect,
-        body.discord-embedded .profile-header::before {
-            pointer-events: none;
         }
         
         body.discord-embedded .bottom-nav {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            transform: none;
-            width: 100%;
+            display: none !important;
         }
         
         body.discord-embedded .tab-content {
-            padding-bottom: 80px; /* Space for fixed bottom nav */
+            padding-bottom: 20px;
         }
         
         /* Discord顶部状态栏 */
@@ -635,52 +602,30 @@
         
         async function checkLogin() {
             // 1. 检测是否在Discord嵌入模式
-            if (isInDiscord()) {
+            if (isInDiscord() && window.DiscordSDK) {
                 try {
-                    console.log('Discord environment detected, initializing SDK...');
-                    applyDiscordMode(true);
-                    
-                    // Check if SDK is available
-                    if (typeof DiscordSDK !== 'undefined') {
-                        const discord = new DiscordSDK(DISCORD_CONFIG.EMBEDDED_APP_ID);
-                        await discord.ready();
-                        console.log('Discord SDK ready');
-                        
-                        // Get authorization using the SDK's authorize command
-                        const auth = await discord.commands.authorize({
-                            client_id: DISCORD_CONFIG.EMBEDDED_APP_ID,
-                            response_type: 'code',
-                            state: '',
-                            prompt: 'none',
-                            scope: ['identify']
-                        });
-                        
-                        // Exchange code for token via backend API
-                        const res = await fetch('/api/auth/discord-activity', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ code: auth.code })
-                        });
-                        
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (data.user) {
-                                AppState.user = data.user;
-                                AppState.isLoggedIn = true;
-                                AppState.isDiscordEmbedded = true;
-                                localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
-                                updateProfileUI();
-                                updateDiscordStatusBar();
-                                console.log('Discord Embedded login success:', AppState.user);
-                                return;
-                            }
-                        }
-                    } else {
-                        console.log('Discord SDK not loaded (not in Discord context), using fallback');
+                    console.log('Initializing Discord Embedded SDK...');
+                    const discord = new window.DiscordSDK(DISCORD_CONFIG.EMBEDDED_APP_ID);
+                    await discord.ready();
+                    const user = discord.commands.getUser();
+                    if (user) {
+                        AppState.user = {
+                            id: user.id,
+                            username: user.username,
+                            avatar: user.avatar,
+                            global_name: user.global_name
+                        };
+                        AppState.isLoggedIn = true;
+                        AppState.isDiscordEmbedded = true;
+                        localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
+                        applyDiscordMode(true);
+                        updateProfileUI();
+                        updateDiscordStatusBar();
+                        console.log('Discord Embedded login success:', AppState.user);
+                        return;
                     }
                 } catch (e) {
-                    console.log('Discord Embedded SDK error, will try localStorage fallback:', e);
-                    applyDiscordMode(true); // Still apply Discord mode for CSS
+                    console.log('Discord Embedded SDK not available, fallback to OAuth:', e);
                 }
             }
             
@@ -716,7 +661,7 @@
                 console.error('Login check failed:', e);
                 updateProfileUI();
             }
-        }
+        }; AppState.isLoggedIn = true; } updateProfileUI(); } catch (e) { console.error('Login check failed:', e); updateProfileUI(); } }
         function updateProfileUI() { const avatar = document.getElementById('profileAvatar'); const name = document.getElementById('profileName'); const uid = document.getElementById('profileUid'); const loginBtn = document.getElementById('loginBtn'); const logoutBtn = document.getElementById('logoutBtn'); const status = document.getElementById('profileStatus'); if (AppState.isLoggedIn && AppState.user) { const username = AppState.user.global_name || AppState.user.username; const avatarUrl = AppState.user.avatar ? 'https://cdn.discordapp.com/avatars/' + AppState.user.id + '/' + AppState.user.avatar + '.png?size=128' : 'https://cdn.discordapp.com/embed/avatars/0.png'; avatar.innerHTML = '<img src="' + avatarUrl + '" alt="" onerror="this.parentElement.textContent=\'' + (username.charAt(0).toUpperCase()) + '\'">'; name.textContent = username; uid.textContent = 'Discord ID: ' + AppState.user.id; loginBtn.style.display = 'none'; logoutBtn.style.display = 'inline-flex'; status.style.display = 'block'; } else { avatar.textContent = '?'; name.textContent = '未登录'; uid.textContent = '登录后解锁更多功能'; loginBtn.style.display = 'inline-flex'; logoutBtn.style.display = 'none'; status.style.display = 'none'; } }
         
         // ========== Discord 检测 ==========
@@ -766,7 +711,18 @@
         function renderTasks() { const tasks = [ { id: 1, name: '每日登录', reward: '+10积分', progress: 100, status: 'claimed', type: 'daily', icon: '📅' }, { id: 2, name: '推荐一本好书', reward: '+50积分', progress: 60, status: 'pending', type: 'daily', icon: '📚' }, { id: 3, name: '分享到社交平台', reward: '+30积分', progress: 0, status: 'locked', type: 'daily', icon: '📤' }, { id: 4, name: '本周推荐5本书', reward: '+200积分', progress: 40, status: 'pending', type: 'weekly', icon: '🏆' }, { id: 5, name: '邀请好友加入', reward: '+500积分', progress: 0, status: 'locked', type: 'special', icon: '👥' } ]; const filtered = AppState.currentTaskFilter === 'all' ? tasks : tasks.filter(t => t.type === AppState.currentTaskFilter); const container = document.getElementById('taskList'); container.innerHTML = filtered.map(task => { const statusClass = task.status === 'claimed' ? 'completed' : ''; const btnDisabled = task.status === 'locked' ? 'disabled' : ''; const btnClass = task.status === 'claimed' ? 'claimed' : ''; const btnText = task.status === 'claimed' ? '✓ 已领取' : task.progress === 100 ? '领取奖励' : task.progress > 0 ? '继续任务' : '去完成'; const statusText = task.progress === 100 ? '已完成' : task.progress === 0 ? '未开始' : '进行中'; return '<div class="task-card ' + task.type + ' ' + statusClass + '"><div class="task-top"><div class="task-icon">' + task.icon + '</div><div class="task-info"><div class="task-name">' + task.name + '</div><div class="task-reward">⭐ ' + task.reward + '</div></div></div><div class="task-progress"><div class="progress-bar"><div class="progress-fill" style="width:' + task.progress + '%"></div></div><div class="progress-text"><span>' + task.progress + '%</span><span>' + statusText + '</span></div></div><button class="task-claim-btn ' + btnClass + '" ' + btnDisabled + '>' + btnText + '</button></div>'; }).join(''); }
         document.querySelectorAll('.filter-btn').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); AppState.currentTaskFilter = btn.textContent === '全部' ? 'all' : 'all'; renderTasks(); }); });
         
-        document.addEventListener('DOMContentLoaded', async () => {
+        // ========== 强制 Discord Activity 模式 ==========
+(function() {
+    // 强制启用 Discord 模式
+    document.body.classList.add('discord-embedded');
+    const statusBar = document.getElementById('discordStatusBar');
+    if (statusBar) statusBar.classList.add('show');
+    
+    // 覆盖 isInDiscord 函数，使其始终返回 true
+    window.isInDiscord = function() { return true; };
+})();
+
+document.addEventListener('DOMContentLoaded', async () => {
             // 检测Discord嵌入模式
             const inDiscord = isInDiscord();
             applyDiscordMode(inDiscord);

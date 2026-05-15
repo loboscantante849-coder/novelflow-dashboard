@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <title>NovelFlow KOC — Book Wall</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -216,7 +217,89 @@
     @media (max-width: 480px) {
       .stats-bar { grid-template-columns: 1fr 1fr; }
     }
-  </style>
+  
+/* ===========================================
+   Mobile Responsive (max-width: 480px)
+   =========================================== */
+@media (max-width: 480px) {
+  .container { padding: 70px 16px 60px; }
+  
+  /* Hero Section */
+  .hero { margin-bottom: 24px; }
+  .hero h1 { font-size: 24px; margin-bottom: 10px; }
+  .hero p { font-size: 14px; line-height: 1.6; }
+  .hero-badge { font-size: 11px; padding: 4px 12px; margin-bottom: 16px; }
+  
+  /* Stats Bar - 2 columns on mobile */
+  .stats-bar { grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px; }
+  .stat-card { padding: 16px 12px; border-radius: 12px; }
+  .stat-value { font-size: 22px; }
+  .stat-label { font-size: 11px; }
+  
+  /* Search Box */
+  .search-section { margin-bottom: 20px; }
+  .search-box { max-width: 100%; }
+  .search-input { padding: 12px 16px 12px 42px; font-size: 15px; min-height: 48px; }
+  .search-icon { left: 14px; font-size: 16px; }
+  
+  /* User Cards Grid - single column on mobile */
+  .user-grid { 
+    grid-template-columns: 1fr; 
+    gap: 12px; 
+    margin-bottom: 32px; 
+  }
+  
+  /* User Card */
+  .user-card { padding: 16px; border-radius: 14px; }
+  .user-avatar { width: 40px; height: 40px; font-size: 14px; }
+  .user-name { font-size: 15px; }
+  .user-stats { font-size: 12px; gap: 8px; }
+  
+  /* Book Item */
+  .book-item { padding: 12px; }
+  .book-item-title { font-size: 14px; }
+  .link-label { font-size: 11px; width: 45px; }
+  .link-value { font-size: 11px; }
+  
+  /* Copy buttons */
+  .copy-btn, .copy-promo-btn { 
+    padding: 8px 10px; 
+    font-size: 12px; 
+    min-height: 36px;
+    min-width: 36px;
+  }
+  
+  /* Section Title */
+  .section-title { font-size: 16px; margin-bottom: 14px; }
+  .section-title .count-badge { font-size: 11px; padding: 3px 8px; }
+  
+  /* Hot Books Section */
+  .hot-books-section { margin-bottom: 24px; }
+  .hot-book-item { padding: 10px 12px; font-size: 12px; }
+  .hot-book-icon { font-size: 14px; }
+  .hot-book-count { font-size: 11px; }
+  
+  /* Show more button */
+  .show-more-btn { padding: 10px 16px; font-size: 13px; min-height: 44px; }
+  
+  /* Pending Alert */
+  .pending-alert { padding: 12px 14px; margin-bottom: 16px; }
+  .pending-alert p { font-size: 12px; }
+  
+  /* Empty State */
+  .empty-state { padding: 40px 20px; }
+  .empty-icon { font-size: 40px; }
+  .empty-state h3 { font-size: 18px; }
+  .empty-state p { font-size: 14px; }
+  
+  /* Navigation buttons at bottom */
+  .bottom-nav { padding: 12px 16px; gap: 10px; flex-direction: column; }
+  .nav-link { padding: 12px 16px; font-size: 13px; min-height: 48px; width: 100%; justify-content: center; }
+  
+  /* Last Updated */
+  .last-updated { font-size: 11px; padding: 8px 16px; }
+}
+</style>
 </head>
 <body>
   <div class="container">

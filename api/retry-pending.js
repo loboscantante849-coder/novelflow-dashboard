@@ -57,8 +57,12 @@ module.exports = async (req, res) => {
     console.log(`Retrying: ${toRetry.id} - ${toRetry.bookName}`);
 
     try {
+      // Get language from submission, default to 'en'
+      const lang = toRetry.language && ['en', 'es'].includes(toRetry.language) ? toRetry.language : 'en';
+      const languageCode = lang === 'es' ? 'es' : 'en';
+      
       // Search book
-      const book = await searchBook(toRetry.bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
+      const book = await searchBook(toRetry.bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, lang, languageCode);
       if (!book) {
         await updateSubmission(toRetry.id, { status: 'failed', error: 'Book not found during retry' }, apiBase, GITHUB_TOKEN);
         return res.status(200).json({ 
@@ -88,7 +92,7 @@ module.exports = async (req, res) => {
       }
 
       // Create link
-      const shortUrl = await createLink(book.bookId, book.title, finalCode, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
+      const shortUrl = await createLink(book.bookId, book.title, finalCode, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode);
 
       // Update submission
       const fields = { code: String(finalCode), bookId: book.bookId, matchedBookName: book.title, status: 'completed' };
@@ -133,37 +137,39 @@ function countPending(submissions, excludeId) {
 
 // ============ Fuzzy Book Search ============
 
-async function searchBook(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID) {
+async function searchBook(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, lang = 'en', languageCode = 'en') {
   // Strategy 1: Full book name as-is
-  let result = await doSearch(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
+  let result = await doSearch(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode);
   if (result) return result;
 
-  // Strategy 2: Without leading "The", "A", "An"
-  const withoutArticle = bookName.replace(/^(The|A|An)\s+/i, '').trim();
+  // Strategy 2: Without leading articles (The/A/An for English, El/La/Los/Las/Un/Una for Spanish)
+  const articlePatterns = lang === 'es' ? /^(El|La|Los|Las|Un|Una|Unos|Unas)\s+/i : /^(The|A|An)\s+/i;
+  const withoutArticle = bookName.replace(articlePatterns, '').trim();
   if (withoutArticle !== bookName && withoutArticle.length > 2) {
-    result = await doSearch(withoutArticle, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
+    result = await doSearch(withoutArticle, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode);
     if (result) return result;
   }
 
   // Strategy 3: First + last significant word
-  const words = bookName.split(/\s+/).filter(w => !/^(the|a|an)$/i.test(w) && w.length > 2);
+  const stopWords = lang === 'es' ? ['el', 'la', 'los', 'las', 'un', 'una', 'de', 'del', 'en', 'y', 'o', 'por', 'para', 'con', 'que', 'no'] : ['the', 'a', 'an', 'of', 'in', 'on', 'at', 'to', 'for', 'with'];
+  const words = bookName.split(/\s+/).filter(w => !stopWords.includes(w.toLowerCase()) && w.length > 2);
   if (words.length >= 3) {
     const firstLast = words[0] + ' ' + words[words.length - 1];
-    result = await doSearch(firstLast, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
+    result = await doSearch(firstLast, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode);
     if (result) return result;
   }
 
   // Strategy 4: First significant word only
   if (words.length >= 1) {
-    result = await doSearch(words[0], BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
+    result = await doSearch(words[0], BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode);
     if (result) return result;
   }
 
   return null;
 }
 
-async function doSearch(query, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID) {
-  const url = `${BOOKSTORE_API_BASE}/book/booklist?current=1&pageSize=10&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&languageCode=en&bookStatus=1&title=${encodeURIComponent(query)}&bookName=${encodeURIComponent(query)}`;
+async function doSearch(query, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode = 'en') {
+  const url = `${BOOKSTORE_API_BASE}/book/booklist?current=1&pageSize=10&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&languageCode=${languageCode}&bookStatus=1&title=${encodeURIComponent(query)}&bookName=${encodeURIComponent(query)}`;
   
   const resp = await fetch(url, {
     headers: { 'Authorization': `Bearer ${BOOKSTORE_TOKEN}`, 'Content-Type': 'application/json' }
@@ -206,7 +212,7 @@ async function createCode(bookId, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE
 
 // ============ Create Short Link (no channelCode) ============
 
-async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID) {
+async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode = 'en') {
   const linkName = `${code}${bookTitle}-书籍详情页-FB`;
 
   const linkResp = await fetch(`${BOOKSTORE_API_BASE}/SocialMediaLinkConfig`, {
@@ -228,7 +234,7 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
       contentType: 1,
       contentTypeName: '小说',
       contentNameOrSku: `${bookTitle} (${bookId})`,
-      languageCode: 'en',
+      languageCode: languageCode,
       redirectPosition: '书籍详情页',
       contentRedirectSequence: 1,
       operatorName: '徐敬涛',

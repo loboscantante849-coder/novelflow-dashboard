@@ -31,6 +31,18 @@
     "api/confirm.js": {
       "memory": 512,
       "maxDuration": 30
+    },
+    "api/auth/callback.js": {
+      "memory": 256,
+      "maxDuration": 10
+    },
+    "api/auth/me.js": {
+      "memory": 128,
+      "maxDuration": 5
+    },
+    "api/auth/logout.js": {
+      "memory": 128,
+      "maxDuration": 5
     }
   }
 }
