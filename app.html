@@ -734,7 +734,7 @@
         async function quickPromote(bookId) {
             const book = AppState.featuredBooks.find(b => b.bookId === bookId);
             if (!book) {
-                showToast('Book info loading...', 'success');
+                showToast('Book not found', 'error');
                 return;
             }
             
@@ -744,6 +744,7 @@
                 return;
             }
             
+            // 检查是否已有链接
             const existingBook = AppState.myBooks.find(b => b.bookId === bookId);
             if (existingBook) {
                 showPromoteResult(existingBook);
@@ -756,53 +757,45 @@
                 const res = await fetch('/api/confirm-secure', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bookId: bookId, title: book.title })
+                    credentials: 'include',
+                    body: JSON.stringify({ 
+                        bookId: bookId, 
+                        bookTitle: book.title,
+                        bookAuthor: book.author || '',
+                        lang: book.languageCode || 'en'
+                    })
                 });
                 
                 if (res.ok) {
                     const data = await res.json();
                     if (data.success) {
+                        const promo = generatePromoText(book.title, data.link);
                         const newBook = {
                             bookId: bookId,
                             title: book.title,
                             cover: book.cover,
-                            link: data.link || '',
-                            code: data.code || '',
-                            promo: data.promo || generatePromoText(book.title, data.link)
+                            link: data.link,
+                            code: String(data.code),
+                            promo: promo
                         };
                         AppState.myBooks.push(newBook);
                         localStorage.setItem('novelflow_mybooks', JSON.stringify(AppState.myBooks));
                         showPromoteResult(newBook);
+                        return;
                     } else {
-                        generateLocalPromote(book);
+                        showToast(data.error || 'Failed to create link', 'error');
                     }
+                } else if (res.status === 401) {
+                    showToast('Please sign up again', 'error');
+                    switchTab('profile');
                 } else {
-                    generateLocalPromote(book);
+                    showToast('Server error, try again later', 'error');
                 }
             } catch (e) {
-                generateLocalPromote(book);
+                console.error('quickPromote error:', e);
+                showToast('Network error, try again', 'error');
             }
-        }
-        
-        function generateLocalPromote(book) {
-            const code = generateCode(book.title);
-            const link = `https://social.novelplatform.vip/s/${code}`;
-            const promo = generatePromoText(book.title, link);
-            
-            const newBook = {
-                bookId: book.bookId,
-                title: book.title,
-                cover: book.cover,
-                link: link,
-                code: code,
-                promo: promo
-            };
-            AppState.myBooks.push(newBook);
-            localStorage.setItem('novelflow_mybooks', JSON.stringify(AppState.myBooks));
-            showPromoteResult(newBook);
-        }
-        
-        function generatePromoText(title, link) {
+        }function generatePromoText(title, link) {
             const templates = [
                 `I couldn't put "${title}" down! 🔥 Read it now: ${link}`,
                 `"${title}" is absolutely addictive! Check it out: ${link}`,
@@ -810,18 +803,7 @@
                 `Just discovered "${title}" and I'm obsessed! ${link}`
             ];
             return templates[Math.floor(Math.random() * templates.length)];
-        }
-        
-        function generateCode(title) {
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-            let code = '';
-            for (let i = 0; i < 6; i++) {
-                code += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            return code;
-        }
-        
-        function showPromoteResult(book) {
+        }function showPromoteResult(book) {
             document.getElementById('resultBookTitle').textContent = book.title;
             document.getElementById('resultLink').textContent = book.link;
             document.getElementById('resultCode').textContent = book.code;
