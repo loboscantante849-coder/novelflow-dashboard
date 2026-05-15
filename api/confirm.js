@@ -41,11 +41,8 @@ module.exports = async (req, res) => {
   const filePath = 'submissions.json';
   const apiBase = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`;
   const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage';
-  // English App - NovelFlow
-  const ENGLISH_APP_ID = '642fc1ace309494378a774a6';
-  // Spanish App - PLACEHOLDER: replace with actual Spanish applicationId from admin.novelspa.app
-  const SPANISH_APP_ID = process.env.BOOKSTORE_SPANISH_APP_ID || 'YOUR_SPANISH_APP_ID_HERE';
-  const BOOKSTORE_APP_ID = lang === 'es' ? SPANISH_APP_ID : ENGLISH_APP_ID;
+  // NovelFlow - same appId for both English and Spanish, just different languageCode
+  const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
   const languageCode = lang === 'es' ? 'es' : 'en';
   const BOOKSTORE_TOKEN = process.env.BOOKSTORE_TOKEN;
 
