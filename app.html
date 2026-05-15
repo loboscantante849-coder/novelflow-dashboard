@@ -649,18 +649,17 @@
         
         async function fetchBookDetails(bookId) {
             try {
-                const response = await fetch('https://admin.novelspa.app/api/v1/novelmanage/book/booklist?bookId=' + bookId, {
-                    headers: {
-                        'Authorization': 'Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IkU4QzAzQjVGMzhENjQzRTE3OTQ4MEU1NkE2REI4QkQ5IiwidHlwIjoiYXQrand0In0.eyJuYmYiOjE3NzgyOTI3NjUsImV4cCI6MTc3OTU4ODc2NSwiaXNzIjoiaHR0cHM6Ly9zdHMuYW55c3Rvcmllcy5hcHAiLCJjbGllbnRfaWQiOiJBdXRoQ2xpZW50Iiwic3ViIjoiMTE2NCIsImF1dGhfdGltZSI6MTc3NzM0MDY2NCwiaWRwIjoibG9jYWwiLCJuaWNrbmFtZSI6IuW-kOaVrOa2myIsIm5hbWUiOiJ4dWp0Iiwic2lkIjoiRUU0MzJGRjNGRjMxOUZBOTZENUQzRUMxRkU4MTVFOTMiLCJpYXQiOjE3NzgyOTI3NjUsInNjb3BlIjpbIm9wZW5pZCIsInByb2ZpbGUiLCJyb2xlcyIsImVtYWlsIl0sImFtciI6WyJwd2QiXX0.ZZ31UyfAdexg5ShQEmdvvS4AkyXZt-3Sze7X779iIgduiW2eiFuVRkxOeUPenPccdQqa0kTJNWVOMY3jMJgdXsxME41eOZnolV4Fl-NvHkCVYJKgIb1BeI6I35_Dc9rFfIO809EpPQ7Ncu__6fTmzfvQFS-LaBPUH4ZsPFLouoLjfZw1pbUSYXA1fB5LRIFe0CmeqCBMkTRVh-GMOK9fz4sDLZnAYz-LftyeqdU8X-GSKJzNBCBLzO9XcTW8y9CQK9hMChmqhBzYWXOiX-u7Dn2GrMEXaiY5vZtp2_tQE9FqOm1NX05AF6DQqQh-yOFfQBUhyZeXr4SlU4gTZ_LpKw'
-                    }
-                });
+                const response = await fetch('/api/books/detail?bookId=' + bookId);
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.data && data.data.length > 0) {
-                        const bookData = data.data[0];
+                    if (data.success && data.data) {
+                        const bookData = data.data;
                         document.getElementById('modalBookDesc').textContent = bookData.description || 'No description available.';
-                        document.getElementById('modalBookWords').textContent = bookData.wordCount ? (bookData.wordCount / 1000).toFixed(0) + 'K' : '-';
-                        document.getElementById('modalBookChapters').textContent = bookData.chapterCount || '-';
+                        // 删除章节数和字数显示
+                        document.getElementById('modalBookWords').textContent = '-';
+                        document.getElementById('modalBookChapters').textContent = '-';
+                    } else {
+                        document.getElementById('modalBookDesc').textContent = 'Description not available.';
                     }
                 }
             } catch (e) {
@@ -668,7 +667,6 @@
                 document.getElementById('modalBookDesc').textContent = 'Description not available.';
             }
         }
-        
         function closeBookModal() {
             document.getElementById('bookDetailModal').classList.remove('show');
             document.body.style.overflow = '';
