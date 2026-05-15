@@ -78,12 +78,15 @@ module.exports = async (req, res) => {
     
     const book = data.data[0];
     
+    // Fallback logic: try description, intro, or synopsis
+    const description = book.description || book.intro || book.synopsis || '';
+    
     const result = {
       bookId: book.bookId || book.id,
       title: book.title,
       cover: book.cover || book.coverImage,
       author: book.author,
-      description: book.description,
+      description: description,
       rating: book.rating || book.star || 4.0,
       tags: book.tags || book.genre || [],
       languageCode: book.languageCode || lang
