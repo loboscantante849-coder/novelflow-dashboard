@@ -1,11 +1,14 @@
 /**
  * 确认推广API - 安全版
  * 需要登录鉴权
- * 频率限制：每IP每分钟3次
+ * 频率限制：每IP每分钟10次
  */
 
+const crypto = require('crypto');
+const JWT_SECRET = process.env.JWT_SECRET || 'novelflow-secret-2026';
+
 // 频率限制配置
-const RATE_LIMIT = 3;
+const RATE_LIMIT = 10;
 const RATE_WINDOW = 60 * 1000;
 const rateLimits = new Map();
 
@@ -26,48 +29,56 @@ function checkRateLimit(ip) {
   return { allowed: true, remaining: RATE_LIMIT - record.count };
 }
 
-// 简单的用户验证函数
-function verifyAuth(req) {
-  // 检查Cookie中的nf_token
-  const cookies = req.headers.cookie || '';
-  const tokenMatch = cookies.match(/nf_token=([^;]+)/);
-  
-  if (!tokenMatch) {
-    // 也支持Authorization header
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      return verifyToken(token);
-    }
-    return null;
-  }
-  
-  return verifyToken(tokenMatch[1]);
-}
-
-function verifyToken(token) {
-  // 简单的token验证（实际应该用JWT或session）
-  // 这里用base64编码的用户信息: base64(username|novelFlowId|timestamp)
+// Verify JWT token (same format as register.js)
+function verifyJWT(token) {
   try {
-    const decoded = Buffer.from(token, 'base64').toString('utf-8');
-    const [username, novelFlowId, timestamp] = decoded.split('|');
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
     
-    // 检查是否过期（24小时）
-    const expires = parseInt(timestamp) + 24 * 60 * 60 * 1000;
-    if (Date.now() > expires) {
+    const [encodedHeader, encodedPayload, signature] = parts;
+    
+    // Verify signature
+    const expectedSignature = crypto
+      .createHmac('sha256', JWT_SECRET)
+      .update(`${encodedHeader}.${encodedPayload}`)
+      .digest('base64url');
+    
+    if (signature !== expectedSignature) return null;
+    
+    // Decode payload
+    const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString());
+    
+    // Check expiration (30 days max)
+    const maxAge = 2592000;
+    if (payload.iat && (Date.now() / 1000 - payload.iat) > maxAge) {
       return null;
     }
     
-    return { username, novelFlowId };
+    return { username: payload.username, novelFlowId: payload.novelFlowId };
   } catch (e) {
     return null;
   }
 }
 
-// 生成token
-function generateToken(username, novelFlowId) {
-  const data = `${username}|${novelFlowId}|${Date.now()}`;
-  return Buffer.from(data).toString('base64');
+// 验证用户认证
+function verifyAuth(req) {
+  // 1. Check nf_token cookie (JWT)
+  const cookies = req.headers.cookie || '';
+  const tokenMatch = cookies.match(/nf_token=([^;]+)/);
+  if (tokenMatch) {
+    const result = verifyJWT(tokenMatch[1]);
+    if (result) return result;
+  }
+  
+  // 2. Check Authorization header
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    const result = verifyJWT(token);
+    if (result) return result;
+  }
+  
+  return null;
 }
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
@@ -76,7 +87,8 @@ const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
 const BOOKSTORE_TOKEN = process.env.NOVELSPA_TOKEN;
 
 module.exports = async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   
@@ -193,7 +205,6 @@ module.exports = async (req, res) => {
   } catch (error) {
     console.error('Confirm API error:', error.message);
     
-    // 即使失败也返回submissionId
     return res.status(500).json({
       success: false,
       submissionId,
