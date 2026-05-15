@@ -112,7 +112,7 @@ a:hover { color: #a89cff; }
 </head>
 <body>
 <div class="lang-toggle">
-  <button id="langToggle" onclick="toggleLanguage()">Español</button>
+  <button id="langToggle" onclick="toggleLanguage()">🌐 English ▾</button>
 </div>
 <div class="container">
   <div class="hero">
@@ -465,11 +465,11 @@ function toggleLanguage() {
   currentLang = currentLang === 'en' ? 'es' : 'en';
   const btn = document.getElementById('langToggle');
   if (currentLang === 'es') {
-    btn.textContent = 'English';
+    btn.textContent = '🌐 Español ▾';
     btn.classList.add('es');
     document.documentElement.lang = 'es';
   } else {
-    btn.textContent = 'Español';
+    btn.textContent = '🌐 English ▾';
     btn.classList.remove('es');
     document.documentElement.lang = 'en';
   }
