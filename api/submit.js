@@ -23,7 +23,7 @@ module.exports = async (req, res) => {
       candidates = await searchBooks(bookName.trim(), BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode, lang);
     }
 
-    console.log(`[${lang}] Search for "${bookName}" found ${candidates.length} candidates`);
+    console.log(`[v20250515] [${lang}] Search for "${bookName}" found ${candidates.length} candidates, token=${BOOKSTORE_TOKEN ? 'yes' : 'NO'}`);
 
     // Return candidates to frontend for user confirmation
     // Data will only be persisted when user confirms in /api/confirm
