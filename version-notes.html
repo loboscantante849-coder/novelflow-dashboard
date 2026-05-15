@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S2赛季更新公告 - NovelFlow</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-dark: #050714;
+            --bg-secondary: #0d1230;
+            --bg-card: rgba(20, 28, 68, 0.7);
+            --gold-primary: #FFD700;
+            --gold-secondary: #FFA500;
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+        }
+        body {
+            font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .bg-effects {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 0;
+        }
+        .bg-effects::before {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%; width: 200%; height: 200%;
+            background: radial-gradient(ellipse at center, rgba(255, 170, 0, 0.05) 0%, transparent 50%);
+            animation: rotate 30s linear infinite;
+        }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; position: relative; z-index: 1; }
+        .season-banner { text-align: center; padding: 60px 20px; margin-bottom: 40px; }
+        .season-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--gold-primary), var(--gold-secondary));
+            color: #1a1a1a; padding: 8px 24px; border-radius: 20px;
+            font-size: 14px; font-weight: 700; letter-spacing: 3px; margin-bottom: 20px;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.4);
+        }
+        .season-title {
+            font-size: clamp(36px, 8vw, 72px);
+            font-weight: 900;
+            background: linear-gradient(180deg, #FFD700 0%, #FFA500 50%, #FF6B00 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.2;
+            animation: titleGlow 2s ease-in-out infinite alternate;
+        }
+        @keyframes titleGlow {
+            from { filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.3)); }
+            to { filter: drop-shadow(0 0 40px rgba(255, 215, 0, 0.6)); }
+        }
+        .season-subtitle { font-size: 18px; color: var(--text-secondary); margin-top: 15px; letter-spacing: 8px; }
+        .divider { height: 2px; background: linear-gradient(90deg, transparent, var(--gold-secondary), transparent); margin: 40px 0; }
+        .content-section {
+            background: var(--bg-card); border-radius: 16px; padding: 30px; margin-bottom: 24px;
+            border: 1px solid rgba(255, 170, 0, 0.2); position: relative; overflow: hidden;
+        }
+        .content-section::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, transparent, var(--gold-primary), transparent);
+        }
+        .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+        .section-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+        .section-title { font-size: 24px; font-weight: 700; }
+        .enhance .section-icon { background: linear-gradient(135deg, #10B981, #059669); box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4); }
+        .enhance .section-title { color: #10B981; }
+        .nerf .section-icon { background: linear-gradient(135deg, #EF4444, #DC2626); box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4); }
+        .nerf .section-title { color: #EF4444; }
+        .mechanic .section-icon { background: linear-gradient(135deg, #3B82F6, #2563EB); box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4); }
+        .mechanic .section-title { color: #3B82F6; }
+        .battlefield .section-icon { background: linear-gradient(135deg, #F59E0B, #D97706); box-shadow: 0 4px 20px rgba(245, 158, 11, 0.4); }
+        .battlefield .section-title { color: #F59E0B; }
+        .preview .section-icon { background: linear-gradient(135deg, #A855F7, #9333EA); box-shadow: 0 4px 20px rgba(168, 85, 247, 0.4); }
+        .preview .section-title { color: #A855F7; }
+        .update-list { list-style: none; }
+        .update-list li {
+            padding: 14px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex; align-items: flex-start; gap: 12px;
+            font-size: 15px; line-height: 1.6; color: var(--text-secondary); transition: all 0.2s;
+        }
+        .update-list li:last-child { border-bottom: none; }
+        .update-list li:hover { color: var(--text-primary); padding-left: 8px; }
+        .bullet { width: 8px; height: 8px; border-radius: 50%; background: var(--gold-secondary); margin-top: 8px; flex-shrink: 0; }
+        .footer { text-align: center; padding: 40px 20px; color: var(--text-secondary); font-size: 14px; }
+        .footer-brand { font-size: 18px; font-weight: 600; color: var(--gold-primary); margin-bottom: 10px; }
+        @media (max-width: 768px) {
+            .container { padding: 16px; }
+            .season-banner { padding: 40px 16px; }
+            .content-section { padding: 20px; }
+            .section-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .update-list li { font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-effects"></div>
+    <div class="container">
+        <div class="season-banner">
+            <div class="season-badge">📜 版本更新</div>
+            <h1 class="season-title">S2赛季更新公告</h1>
+            <p class="season-subtitle">2026.01 · 重大版本更新</p>
+        </div>
+        <div class="divider"></div>
+        
+        <div class="content-section enhance">
+            <div class="section-header">
+                <div class="section-icon">⚔️</div>
+                <h2 class="section-title">🟢 英雄增强</h2>
+            </div>
+            <ul class="update-list">
+                <li><span class="bullet"></span><span>西语全面支持：界面一键切换Español，搜索、创建link全流程西语化</span></li>
+                <li><span class="bullet"></span><span>西语推广文案模板：自动匹配西语文案</span></li>
+                <li><span class="bullet"></span><span>网站专属图标favicon</span></li>
+                <li><span class="bullet"></span><span>语言按钮显示当前语言</span></li>
+            </ul>
+        </div>
+        
+        <div class="content-section nerf">
+            <div class="section-header">
+                <div class="section-icon">🛡️</div>
+                <h2 class="section-title">🔴 英雄削弱</h2>
+            </div>
+            <ul class="update-list">
+                <li><span class="bullet"></span><span>"零成本获客"措辞删除</span></li>
+                <li><span class="bullet"></span><span>vs上次汇报对比数据删除</span></li>
+                <li><span class="bullet"></span><span>"0广告费"描述统一替换</span></li>
+            </ul>
+        </div>
+        
+        <div class="content-section mechanic">
+            <div class="section-header">
+                <div class="section-icon">🔧</div>
+                <h2 class="section-title">🔵 机制调整</h2>
+            </div>
+            <ul class="update-list">
+                <li><span class="bullet"></span><span>搜索逻辑优化：西语停用词/冠词自动处理</span></li>
+                <li><span class="bullet"></span><span>Token硬编码fallback，搜索不再失败</span></li>
+                <li><span class="bullet"></span><span>返回按钮修复</span></li>
+                <li><span class="bullet"></span><span>retryBtn null报错清除</span></li>
+                <li><span class="bullet"></span><span>手机端UI全面适配（提交书单/推荐墙/数据面板）</span></li>
+            </ul>
+        </div>
+        
+        <div class="content-section battlefield">
+            <div class="section-header">
+                <div class="section-icon">🎮</div>
+                <h2 class="section-title">🟡 战场调整</h2>
+            </div>
+            <ul class="update-list">
+                <li><span class="bullet"></span><span>开场slide重做：CPS价值逻辑+付费投放对比+截图展示</span></li>
+                <li><span class="bullet"></span><span>PPT粉色主题增强：卡片动效、渐变装饰、彩色边条</span></li>
+                <li><span class="bullet"></span><span>数据卡片hover、数字光晕、月度变色</span></li>
+                <li><span class="bullet"></span><span>演讲稿手机提词器版</span></li>
+            </ul>
+        </div>
+        
+        <div class="content-section preview">
+            <div class="section-header">
+                <div class="section-icon">🚀</div>
+                <h2 class="section-title">🟣 下赛季预告</h2>
+            </div>
+            <ul class="update-list">
+                <li><span class="bullet"></span><span>Discord一键登录</span></li>
+                <li><span class="bullet"></span><span>精选书推荐墙：20本热门书，一键生成link+code+推荐语</span></li>
+                <li><span class="bullet"></span><span>"我的"页面：专属推广书单、个人数据、像App一样</span></li>
+                <li><span class="bullet"></span><span>精选书后台管理</span></li>
+            </ul>
+        </div>
+        
+        <div class="divider"></div>
+        <div class="footer">
+            <div class="footer-brand">🎯 NovelFlow</div>
+            <p>让推广更简单，让收益更透明</p>
+        </div>
+    </div>
+</body>
+</html>
