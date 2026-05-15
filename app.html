@@ -79,6 +79,20 @@
         .book-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; min-height: 40px; }
         .book-lang-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 4px 8px; background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-radius: 6px; font-weight: 600; }
         .book-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .book-promote-btn { width: 100%; padding: 8px; background: linear-gradient(135deg, #f59e0b, #f97316); border: none; border-radius: 8px; color: white; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; transition: all 0.2s; }
+        .book-promote-btn:hover { transform: scale(1.02); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4); }
+        
+        /* Promote Result Modal */
+        .result-book-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; text-align: center; }
+        .result-link-box { background: #f9fafb; border-radius: 12px; padding: 12px 16px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; border: 1px solid #e5e7eb; }
+        .result-link-box:hover { background: #fff5e6; border-color: #f59e0b; }
+        .result-link-box:active { transform: scale(0.98); }
+        .result-label { font-size: 11px; font-weight: 600; color: #f59e0b; margin-bottom: 4px; text-transform: uppercase; }
+        .result-value { font-size: 13px; color: #1a1a1a; word-break: break-all; line-height: 1.4; }
+        .result-copy-hint { font-size: 10px; color: #9ca3af; margin-top: 4px; text-align: right; }
+        .result-tips { margin-top: 16px; padding: 12px; background: linear-gradient(135deg, #fff9f0, #fff5e6); border-radius: 12px; }
+        .result-tip { font-size: 12px; color: #6b7280; margin-bottom: 6px; line-height: 1.4; }
+        .result-tip:last-child { margin-bottom: 0; }
         
         /* Hot Ranking */
         .rank-list { padding: 0 20px; margin-bottom: 24px; }
@@ -93,6 +107,8 @@
         .rank-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .rank-meta { font-size: 12px; color: var(--text-muted); }
         .rank-views { font-size: 12px; color: var(--accent-gold); font-weight: 600; }
+        .rank-promote-btn { padding: 6px 12px; background: linear-gradient(135deg, #f59e0b, #f97316); border: none; border-radius: 6px; color: white; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .rank-promote-btn:hover { transform: scale(1.05); box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4); }
         
         /* Submit Tab - Redesigned */
         .submit-hero { padding: 28px 20px 0; text-align: center; }
@@ -534,6 +550,43 @@
             </div>
         </div>
         
+        <!-- Quick Promote Result Modal -->
+        <div class="modal-overlay" id="promoteResultModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <div></div>
+                    <div class="modal-title">🎉 Your Link is Ready!</div>
+                    <div class="modal-close" onclick="closePromoteResult()">✕</div>
+                </div>
+                <div class="modal-body">
+                    <div class="result-book-title" id="resultBookTitle"></div>
+                    
+                    <div class="result-link-box" onclick="copyResultLink()">
+                        <div class="result-label">📤 Referral Link</div>
+                        <div class="result-value" id="resultLink"></div>
+                        <div class="result-copy-hint">Tap to copy</div>
+                    </div>
+                    
+                    <div class="result-link-box" onclick="copyResultCode()">
+                        <div class="result-label">🔑 Search Code</div>
+                        <div class="result-value" id="resultCode"></div>
+                        <div class="result-copy-hint">Tap to copy</div>
+                    </div>
+                    
+                    <div class="result-link-box" onclick="copyResultPromo()">
+                        <div class="result-label">📝 Promo Copy</div>
+                        <div class="result-value" id="resultPromo"></div>
+                        <div class="result-copy-hint">Tap to copy</div>
+                    </div>
+                    
+                    <div class="result-tips">
+                        <div class="result-tip">💡 Share the link on Facebook Groups, Discord, or anywhere readers gather</div>
+                        <div class="result-tip">💰 You earn when readers click and sign up</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <div class="toast-container" id="toastContainer"></div>
     </div>
     
@@ -594,6 +647,7 @@
                         <div class="book-title">${book.title}</div>
                         ${desc}
                         <span class="book-lang-badge">🇺🇸 EN</span>
+                        <button class="book-promote-btn" onclick="event.stopPropagation(); quickPromote('${book.bookId}')">💰 Earn Money</button>
                     </div>
                 </div>`;
             }).join('');
@@ -611,7 +665,7 @@
                         <div class="rank-title">${book.title}</div>
                         <div class="rank-meta">🔥 ${Math.floor(Math.random() * 500 + 100)} reads today</div>
                     </div>
-                    <div class="rank-views">$5</div>
+                    <button class="rank-promote-btn" onclick="event.stopPropagation(); quickPromote('${book.bookId}')">Earn $</button>
                 </div>
             `).join('');
         }
@@ -676,6 +730,115 @@
         }
         
         function promoteBook() {
+        // Quick Promote Functions
+        async function quickPromote(bookId) {
+            const book = AppState.featuredBooks.find(b => b.bookId === bookId);
+            if (!book) {
+                showToast('Book info loading...', 'success');
+                return;
+            }
+            
+            if (!AppState.isLoggedIn) {
+                showToast('Please sign up first!', 'error');
+                switchTab('profile');
+                return;
+            }
+            
+            const existingBook = AppState.myBooks.find(b => b.bookId === bookId);
+            if (existingBook) {
+                showPromoteResult(existingBook);
+                return;
+            }
+            
+            showToast('Creating your link...', 'success');
+            
+            try {
+                const res = await fetch('/api/confirm-secure', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bookId: bookId, title: book.title })
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.success) {
+                        const newBook = {
+                            bookId: bookId,
+                            title: book.title,
+                            cover: book.cover,
+                            link: data.link || '',
+                            code: data.code || '',
+                            promo: data.promo || generatePromoText(book.title, data.link)
+                        };
+                        AppState.myBooks.push(newBook);
+                        localStorage.setItem('novelflow_mybooks', JSON.stringify(AppState.myBooks));
+                        showPromoteResult(newBook);
+                    } else {
+                        generateLocalPromote(book);
+                    }
+                } else {
+                    generateLocalPromote(book);
+                }
+            } catch (e) {
+                generateLocalPromote(book);
+            }
+        }
+        
+        function generateLocalPromote(book) {
+            const code = generateCode(book.title);
+            const link = `https://social.novelplatform.vip/s/${code}`;
+            const promo = generatePromoText(book.title, link);
+            
+            const newBook = {
+                bookId: book.bookId,
+                title: book.title,
+                cover: book.cover,
+                link: link,
+                code: code,
+                promo: promo
+            };
+            AppState.myBooks.push(newBook);
+            localStorage.setItem('novelflow_mybooks', JSON.stringify(AppState.myBooks));
+            showPromoteResult(newBook);
+        }
+        
+        function generatePromoText(title, link) {
+            const templates = [
+                `I couldn't put "${title}" down! 🔥 Read it now: ${link}`,
+                `"${title}" is absolutely addictive! Check it out: ${link}`,
+                `You NEED to read "${title}"! Start here: ${link}`,
+                `Just discovered "${title}" and I'm obsessed! ${link}`
+            ];
+            return templates[Math.floor(Math.random() * templates.length)];
+        }
+        
+        function generateCode(title) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let code = '';
+            for (let i = 0; i < 6; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        }
+        
+        function showPromoteResult(book) {
+            document.getElementById('resultBookTitle').textContent = book.title;
+            document.getElementById('resultLink').textContent = book.link;
+            document.getElementById('resultCode').textContent = book.code;
+            document.getElementById('resultPromo').textContent = book.promo;
+            document.getElementById('promoteResultModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closePromoteResult() {
+            document.getElementById('promoteResultModal').classList.remove('show');
+            document.body.style.overflow = '';
+        }
+        
+        function copyResultLink() { navigator.clipboard.writeText(document.getElementById('resultLink').textContent); showToast('Link copied!', 'success'); }
+        function copyResultCode() { navigator.clipboard.writeText(document.getElementById('resultCode').textContent); showToast('Code copied!', 'success'); }
+        function copyResultPromo() { navigator.clipboard.writeText(document.getElementById('resultPromo').textContent); showToast('Promo copy copied!', 'success'); }
+
             if (!currentModalBook) return;
             closeBookModal();
             switchTab('submit');
@@ -1206,6 +1369,9 @@
             // Modal close on overlay click
             document.getElementById('bookDetailModal').addEventListener('click', e => {
                 if (e.target.classList.contains('modal-overlay')) closeBookModal();
+            });
+            document.getElementById('promoteResultModal').addEventListener('click', e => {
+                if (e.target.classList.contains('modal-overlay')) closePromoteResult();
             });
         });
     </script>
