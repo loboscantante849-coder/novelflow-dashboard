@@ -96,7 +96,8 @@ module.exports = async (req, res) => {
     }
 
     // Update SHA for subsequent updates
-    const newSha = sha ? sha : (await putResponse.json()).content.sha;
+    const putResult = await putResponse.json();
+    const newSha = putResult.content ? putResult.content.sha : sha;
 
     console.log(`Confirmed: "${bookTitle || bookName}" (${bookId}) for submission ${submissionId}`);
 
@@ -276,33 +277,37 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
 
 async function updateSubmission(submissionId, fields, apiBase, GITHUB_TOKEN, currentSha) {
   try {
-    let sha = currentSha;
-    
-    // If no SHA provided, fetch it
-    if (!sha) {
-      const getResp = await fetch(apiBase, {
-        headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'NovelFlow-API' }
-      });
-      if (!getResp.ok) return;
-      const data = await getResp.json();
-      sha = data.sha;
-    }
-
-    const latest = JSON.parse(Buffer.from((await (await fetch(apiBase, {
+    // Always re-fetch to get the latest SHA and content in one request
+    const getResp = await fetch(apiBase, {
       headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'NovelFlow-API' }
-    })).json()).content, 'base64').toString('utf-8'));
+    });
+    if (!getResp.ok) {
+      console.error('Update: failed to fetch submissions, status', getResp.status);
+      return;
+    }
+    const data = await getResp.json();
+    const latestSha = data.sha;
+    const latest = JSON.parse(Buffer.from(data.content, 'base64').toString('utf-8'));
     
     const idx = latest.findIndex(s => s.id === submissionId);
-    if (idx === -1) return;
+    if (idx === -1) {
+      console.error('Update: submission not found', submissionId);
+      return;
+    }
 
     Object.assign(latest[idx], fields);
     const updateContent = Buffer.from(JSON.stringify(latest, null, 2)).toString('base64');
 
-    await fetch(apiBase, {
+    const updateResp = await fetch(apiBase, {
       method: 'PUT',
       headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json', 'User-Agent': 'NovelFlow-API' },
-      body: JSON.stringify({ message: `Update ${submissionId}: ${fields.status || 'updated'}`, content: updateContent, sha: sha })
+      body: JSON.stringify({ message: `Update ${submissionId}: ${fields.status || 'updated'}`, content: updateContent, sha: latestSha })
     });
+    
+    if (!updateResp.ok) {
+      const errText = await updateResp.text().catch(() => '');
+      console.error('Update: PUT failed', updateResp.status, errText);
+    }
   } catch (err) {
     console.error('Update failed:', err.message);
   }
