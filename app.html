@@ -50,14 +50,15 @@
         
         /* Banner */
         .banner-section { padding: 16px 20px; }
-        .banner-card { background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: var(--radius-xl); overflow: hidden; position: relative; }
+        .banner-card { background: linear-gradient(135deg, #fff9f0, #fff5e6); border: 1px solid rgba(245,158,11,0.2); border-radius: var(--radius-xl); overflow: hidden; position: relative; box-shadow: 0 4px 16px rgba(245,158,11,0.08); }
         .banner-content { padding: 24px; position: relative; z-index: 1; }
-        .banner-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-gold); color: #000; font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px; margin-bottom: 12px; }
-        .banner-title { font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 8px; line-height: 1.3; }
-        .banner-subtitle { font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.5; }
-        .banner-earnings { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); text-align: center; }
-        .banner-earnings-value { font-size: 28px; font-weight: 800; color: var(--accent-green); }
-        .banner-earnings-label { font-size: 11px; color: rgba(255,255,255,0.6); }
+        .banner-badge { display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #f59e0b, #f97316); color: white; font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(245,158,11,0.3); }
+        .banner-title { font-size: 36px; font-weight: 800; color: #1a1a1a; margin-bottom: 8px; line-height: 1.1; letter-spacing: -1px; }
+        .banner-subtitle { font-size: 13px; color: #6b7280; line-height: 1.5; margin-bottom: 16px; }
+        .banner-cta-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .banner-cta-btn { display: inline-flex; align-items: center; gap: 6px; padding: 12px 20px; background: linear-gradient(135deg, #f59e0b, #f97316); color: white; font-size: 14px; font-weight: 700; border: none; border-radius: 50px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(245,158,11,0.3); }
+        .banner-cta-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(245,158,11,0.4); }
+        .banner-users { font-size: 12px; color: #6b7280; font-weight: 500; }
         
         /* Section Headers */
         .section-header { display: flex; align-items: center; justify-content: space-between; padding: 0 20px; margin-bottom: 14px; }
@@ -93,61 +94,73 @@
         .rank-meta { font-size: 12px; color: var(--text-muted); }
         .rank-views { font-size: 12px; color: var(--accent-gold); font-weight: 600; }
         
-        /* Submit Tab */
-        .submit-header { padding: 24px 20px; text-align: center; background: var(--bg-card); border-bottom: 1px solid rgba(0,0,0,0.05); }
-        .submit-title { font-size: 22px; font-weight: 800; margin-bottom: 8px; background: linear-gradient(90deg, #1a1a1a, var(--accent-gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .submit-desc { font-size: 14px; color: var(--text-secondary); }
-        .search-section { padding: 20px; }
-        .search-box-wrapper { background: var(--bg-card); border: 2px solid #e5e7eb; border-radius: var(--radius-xl); padding: 6px; display: flex; gap: 8px; transition: all 0.2s; box-shadow: var(--shadow-card); }
-        .search-box-wrapper:focus-within { border-color: var(--accent-gold); box-shadow: 0 0 0 4px var(--accent-gold-light); }
-        .search-input { flex: 1; padding: 12px 16px; background: transparent; border: none; color: var(--text-primary); font-size: 14px; outline: none; }
-        .search-input::placeholder { color: var(--text-muted); }
-        .search-btn { padding: 12px 20px; background: linear-gradient(135deg, var(--accent-gold), #f97316); border: none; border-radius: var(--radius-lg); color: white; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
-        .search-btn:hover { transform: scale(1.02); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
-        .search-btn:active { transform: scale(0.98); }
-        .search-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+        /* Submit Tab - Redesigned */
+        .submit-hero { padding: 28px 20px 0; text-align: center; }
+        .submit-hero-title { font-size: 22px; font-weight: 800; color: #1a1a1a; margin-bottom: 8px; background: linear-gradient(90deg, #1a1a1a, var(--accent-gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .submit-hero-sub { font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; }
         
-        /* Candidate Cards */
-        .candidate-section { display: none; padding: 0 20px 20px; }
-        .candidate-section.show { display: block; }
-        .candidate-section h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; text-align: center; }
-        .candidate-section > p { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 16px; }
-        .candidate-list { display: flex; flex-direction: column; gap: 12px; }
-        .candidate-card { background: var(--bg-card); border: 2px solid #e5e7eb; border-radius: var(--radius-lg); padding: 14px; cursor: pointer; transition: all 0.2s; display: flex; gap: 12px; align-items: center; box-shadow: var(--shadow-card); }
-        .candidate-card:hover { border-color: var(--accent-gold); background: var(--accent-gold-light); }
-        .candidate-card.selected { border-color: var(--accent-gold); background: var(--accent-gold-light); }
-        .candidate-cover { width: 50px; height: 70px; border-radius: var(--radius-sm); object-fit: cover; flex-shrink: 0; }
-        .candidate-info { flex: 1; min-width: 0; }
-        .candidate-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .candidate-author { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
-        .candidate-score { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
-        .candidate-score.high { background: var(--accent-green-light); color: var(--accent-green); }
-        .candidate-score.medium { background: var(--accent-gold-light); color: var(--accent-gold); }
-        .candidate-score.low { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
-        .candidate-check { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #e5e7eb; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; color: transparent; transition: all 0.2s; }
-        .candidate-card.selected .candidate-check { background: var(--accent-gold); border-color: var(--accent-gold); color: white; }
-        .confirm-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--accent-green), #059669); border: none; border-radius: var(--radius-lg); color: white; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 16px; transition: all 0.2s; }
-        .confirm-btn:hover:not(:disabled) { transform: scale(1.02); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); }
-        .confirm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .submit-search-area { padding: 0 20px 20px; }
+        .submit-search-box { background: var(--bg-card); border: 2px solid #e5e7eb; border-radius: 20px; padding: 6px; display: flex; gap: 8px; transition: all 0.2s; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+        .submit-search-box:focus-within { border-color: var(--accent-gold); box-shadow: 0 0 0 4px var(--accent-gold-light), 0 4px 16px rgba(245,158,11,0.1); }
+        .submit-search-inner { flex: 1; display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+        .submit-search-icon { font-size: 16px; }
+        .submit-search-input { flex: 1; background: transparent; border: none; color: var(--text-primary); font-size: 15px; outline: none; font-family: 'Inter', sans-serif; }
+        .submit-search-input::placeholder { color: var(--text-muted); }
+        .submit-search-btn { padding: 12px 22px; background: linear-gradient(135deg, #f59e0b, #f97316); border: none; border-radius: 14px; color: white; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+        .submit-search-btn:hover { transform: scale(1.02); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
+        .submit-search-btn:active { transform: scale(0.98); }
+        .submit-search-btn:disabled { opacity: 0.7; cursor: not-allowed; }
         
-        /* Success State */
-        .success-section { display: none; padding: 20px; text-align: center; }
-        .success-section.show { display: block; }
-        .success-icon { width: 72px; height: 72px; background: var(--accent-green-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 36px; }
-        .success-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
-        .success-book { font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; }
-        .link-box { background: var(--bg-card); border: 2px solid var(--accent-green); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; }
-        .link-box:hover { background: var(--accent-green-light); }
-        .link-box-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .link-box-value { font-size: 14px; font-weight: 600; color: var(--accent-green); word-break: break-all; }
-        .code-box { background: var(--bg-card); border: 2px solid var(--accent-gold); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; }
-        .code-box:hover { background: var(--accent-gold-light); }
-        .code-box .link-box-label { color: var(--text-muted); }
-        .code-box .link-box-value { color: var(--accent-gold); }
-        .promo-box { background: var(--accent-gold-light); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 20px; text-align: left; }
-        .promo-text { font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
-        .btn-recommend-another { width: 100%; padding: 14px; background: var(--bg-card); border: 2px solid var(--accent-gold); border-radius: var(--radius-lg); color: var(--accent-gold); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-        .btn-recommend-another:hover { background: var(--accent-gold); color: white; }
+        /* Search Results - Horizontal Book Cards */
+        .submit-result-card { background: var(--bg-card); border: 2px solid #e5e7eb; border-radius: 16px; padding: 14px; cursor: pointer; transition: all 0.2s; display: flex; gap: 14px; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-bottom: 10px; }
+        .submit-result-card:hover { border-color: var(--accent-gold); box-shadow: 0 4px 16px rgba(245,158,11,0.12); transform: translateX(2px); }
+        .submit-result-card.selected { border-color: var(--accent-gold); background: linear-gradient(135deg, rgba(245,158,11,0.04), rgba(249,115,22,0.04)); box-shadow: 0 4px 16px rgba(245,158,11,0.15); }
+        .submit-result-cover { width: 60px; height: 84px; border-radius: 10px; object-fit: cover; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .submit-result-info { flex: 1; min-width: 0; }
+        .submit-result-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; }
+        .submit-result-author { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+        .submit-result-desc { font-size: 12px; color: var(--text-secondary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; }
+        .submit-result-check { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #e5e7eb; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; color: transparent; transition: all 0.2s; background: white; }
+        .submit-result-card.selected .submit-result-check { background: linear-gradient(135deg, #f59e0b, #f97316); border-color: transparent; color: white; box-shadow: 0 2px 8px rgba(245,158,11,0.3); }
+        
+        /* Selected Book Area */
+        .submit-selected-area { display: none; padding: 0 20px 20px; }
+        .submit-selected-area.show { display: block; }
+        .submit-selected-label { font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .submit-selected-card { background: var(--bg-card); border: 2px solid var(--accent-gold); border-radius: 16px; padding: 14px; display: flex; gap: 14px; align-items: center; margin-bottom: 14px; box-shadow: 0 4px 16px rgba(245,158,11,0.12); }
+        .submit-create-btn { width: 100%; padding: 16px; background: linear-gradient(135deg, #f59e0b, #f97316); border: none; border-radius: 16px; color: white; font-size: 16px; font-weight: 700; cursor: pointer; margin-bottom: 10px; transition: all 0.2s; box-shadow: 0 4px 16px rgba(245,158,11,0.3); }
+        .submit-create-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(245,158,11,0.4); }
+        .submit-create-btn:active { transform: translateY(0); }
+        .submit-create-btn.loading .btn-text { display: none; }
+        .submit-create-btn.loading .spinner { display: block; }
+        .submit-change-btn { width: 100%; padding: 12px; background: var(--bg-card); border: 2px solid #e5e7eb; border-radius: 14px; color: var(--text-secondary); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .submit-change-btn:hover { border-color: var(--accent-gold); color: var(--accent-gold); }
+        
+        /* Success Area */
+        .submit-success-area { display: none; padding: 20px; text-align: center; }
+        .submit-success-area.show { display: block; }
+        .submit-success-icon { width: 72px; height: 72px; background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(249,115,22,0.15)); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-size: 36px; }
+        .submit-success-title { font-size: 22px; font-weight: 800; color: #1a1a1a; margin-bottom: 4px; }
+        .submit-success-book { font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; }
+        .submit-result-card.submit-result-link { border-color: var(--accent-green); background: rgba(16,185,129,0.04); }
+        .submit-result-card.submit-result-code { border-color: var(--accent-gold); background: rgba(245,158,11,0.04); }
+        .submit-result-card.submit-result-promo { border-color: #e5e7eb; background: var(--bg-card); cursor: default; }
+        .submit-result-card.submit-result-promo:hover { transform: none; border-color: #e5e7eb; }
+        .submit-result-label { font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; }
+        .submit-result-value { font-size: 14px; font-weight: 600; word-break: break-all; text-align: left; }
+        .submit-result-link .submit-result-value { color: var(--accent-green); }
+        .submit-result-code .submit-result-value { color: var(--accent-gold); }
+        .submit-promo-text { color: var(--text-secondary); font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+        .submit-result-copy { font-size: 11px; color: var(--accent-gold); font-weight: 600; margin-top: 6px; text-align: left; }
+        .submit-result-promo .submit-result-copy { cursor: pointer; }
+        .submit-result-promo .submit-result-copy:hover { text-decoration: underline; }
+        .submit-another-btn { width: 100%; padding: 14px; background: var(--bg-card); border: 2px solid var(--accent-gold); border-radius: 16px; color: var(--accent-gold); font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 8px; transition: all 0.2s; }
+        .submit-another-btn:hover { background: linear-gradient(135deg, #f59e0b, #f97316); color: white; border-color: transparent; }
+        
+        /* Submit helper states */
+        .submit-searching { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 40px 0; color: var(--text-secondary); font-size: 14px; }
+        .submit-searching-icon { font-size: 32px; }
+        .submit-empty { text-align: center; padding: 40px 0; }
         
         /* Guide Cards */
         .guide-section { padding: 0 20px 20px; }
@@ -299,7 +312,7 @@
             .book-grid { gap: 12px; padding: 0 16px; }
             .section-header { padding: 0 16px; }
             .banner-section { padding: 16px 16px; }
-            .rank-list, .guide-section, .task-list, .search-section, .form-section, .candidate-section, .success-section { padding-left: 16px; padding-right: 16px; }
+            .rank-list, .guide-section, .task-list, .submit-search-area, .submit-selected-area, .submit-success-area { padding-left: 16px; padding-right: 16px; }
             .profile-stats { margin: 0 16px 16px; gap: 24px; }
             .register-form, .discord-section, .my-books-section { margin-left: 16px; margin-right: 16px; }
             .leaderboard-section { padding-left: 16px; padding-right: 16px; }
@@ -320,13 +333,13 @@
             <div class="banner-section">
                 <div class="banner-card">
                     <div class="banner-content">
-                        <div class="banner-badge">💰 EARN MONEY</div>
-                        <div class="banner-title">Start Earning Today!</div>
-                        <div class="banner-subtitle">Earn $20 - $500 weekly by recommending books. It's free and easy!</div>
-                    </div>
-                    <div class="banner-earnings">
-                        <div class="banner-earnings-value">$2,847</div>
-                        <div class="banner-earnings-label">Total Earned</div>
+                        <div class="banner-badge">💰 WEEKLY EARNINGS</div>
+                        <div class="banner-title">$20 — $500</div>
+                        <div class="banner-subtitle">Share your favorite books, earn real money every week</div>
+                        <div class="banner-cta-row">
+                            <button class="banner-cta-btn" onclick="switchTab('submit')">Start Earning →</button>
+                            <div class="banner-users">🔥 1,284 promoters already earning</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -350,50 +363,61 @@
                 <div class="submit-desc">Search and create your referral link</div>
             </div>
             
-            <div class="search-section" id="searchSection">
-                <div class="search-box-wrapper">
-                    <input type="text" class="search-input" id="searchInput" placeholder="Enter book name...">
-                    <button class="search-btn" id="searchBtn">
-                        <span class="btn-text">🔍 Search</span>
+            <div class="submit-hero">
+                <div class="submit-hero-title">Create Your Referral Link</div>
+                <div class="submit-hero-sub">Search any English book to get your unique link instantly</div>
+            </div>
+            
+            <div class="submit-search-area" id="submitSearchArea">
+                <div class="submit-search-box">
+                    <div class="submit-search-inner">
+                        <span class="submit-search-icon">🔍</span>
+                        <input type="text" class="submit-search-input" id="searchInput" placeholder="Search any book title...">
+                    </div>
+                    <button class="submit-search-btn" id="searchBtn">
+                        <span class="btn-text">Search</span>
                         <span class="spinner"></span>
                     </button>
                 </div>
-                <div id="searchResults" style="margin-top: 20px;"></div>
+                <div id="searchResults"></div>
             </div>
             
-            <!-- Candidate Selection -->
-            <div class="candidate-section" id="candidateSection">
-                <h3>Select Your Book</h3>
-                <p>We found some matching books. Please select:</p>
-                <div class="candidate-list" id="candidateList"></div>
-                <button class="confirm-btn" id="confirmBtn" disabled>
-                    <span class="btn-text">✓ Confirm & Create Link</span>
+            <!-- Selected Book & Confirm -->
+            <div class="submit-selected-area" id="submitSelectedArea">
+                <div class="submit-selected-label">📚 Selected Book</div>
+                <div class="submit-selected-card" id="selectedBookCard"></div>
+                <button class="submit-create-btn" id="confirmBtn" onclick="confirmSelectedBook()">
+                    <span class="btn-text">✨ Create My Link</span>
                     <span class="spinner"></span>
                 </button>
+                <button class="submit-change-btn" onclick="resetToSubmit()">Change book</button>
             </div>
             
             <!-- Success -->
-            <div class="success-section" id="successSection">
-                <div class="success-icon">✅</div>
-                <div class="success-title">Link Created!</div>
-                <div class="success-book" id="successBook"></div>
+            <div class="submit-success-area" id="submitSuccessArea">
+                <div class="submit-success-icon">🎉</div>
+                <div class="submit-success-title">Your Link is Ready!</div>
+                <div class="submit-success-book" id="successBook"></div>
                 
-                <div class="link-box" id="linkBox" onclick="copyLink()">
-                    <div class="link-box-label">Your Referral Link</div>
-                    <div class="link-box-value" id="linkValue"></div>
+                <div class="submit-result-card submit-result-link" id="linkBox" onclick="copyLink()">
+                    <div class="submit-result-label">🔗 Referral Link</div>
+                    <div class="submit-result-value" id="linkValue"></div>
+                    <div class="submit-result-copy">Tap to copy</div>
                 </div>
                 
-                <div class="code-box" id="codeBox" onclick="copyCode()">
-                    <div class="link-box-label">Search Code</div>
-                    <div class="link-box-value" id="codeValue"></div>
+                <div class="submit-result-card submit-result-code" id="codeBox" onclick="copyCode()">
+                    <div class="submit-result-label">🏷️ Search Code</div>
+                    <div class="submit-result-value" id="codeValue"></div>
+                    <div class="submit-result-copy">Tap to copy</div>
                 </div>
                 
-                <div class="promo-box" id="promoBox">
-                    <div class="link-box-label">Promo Copy</div>
-                    <div class="promo-text" id="promoValue"></div>
+                <div class="submit-result-card submit-result-promo">
+                    <div class="submit-result-label">📝 Recommended Copy</div>
+                    <div class="submit-result-value submit-promo-text" id="promoValue"></div>
+                    <div class="submit-result-copy" onclick="copyPromo()">Tap to copy</div>
                 </div>
                 
-                <button class="btn-recommend-another" onclick="resetToSubmit()">📚 Recommend Another Book</button>
+                <button class="submit-another-btn" onclick="resetToSubmit()">📚 Recommend Another Book</button>
             </div>
             
             <!-- Guide Cards -->
@@ -617,21 +641,32 @@
         }
         
         async function fetchBookDetails(bookId) {
+            // Set immediate fallback text
+            const descEl = document.getElementById('modalBookDesc');
+            
+            // Try API first with timeout
             try {
-                const response = await fetch('/api/books/detail?bookId=' + bookId);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
+                const response = await fetch('/api/books/detail?bookId=' + bookId, { signal: controller.signal });
+                clearTimeout(timeoutId);
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.success && data.data) {
-                        const bookData = data.data;
-                        document.getElementById('modalBookDesc').textContent = bookData.description || 'No description available.';
-                        // 删除章节数和字数显示
-                    } else {
-                        document.getElementById('modalBookDesc').textContent = 'Description not available.';
+                    if (data.success && data.data && data.data.description) {
+                        descEl.textContent = data.data.description;
+                        return;
                     }
                 }
             } catch (e) {
-                console.error('Failed to fetch book details:', e);
-                document.getElementById('modalBookDesc').textContent = 'Description not available.';
+                console.error('API failed:', e);
+            }
+            
+            // Fallback: use local featured books data
+            const localBook = AppState.featuredBooks.find(b => b.bookId === bookId);
+            if (localBook && localBook.description) {
+                descEl.textContent = localBook.description;
+            } else {
+                descEl.textContent = 'An exciting story awaits you. Click "Earn Money" to start promoting!';
             }
         }
         function closeBookModal() {
@@ -645,8 +680,9 @@
             closeBookModal();
             switchTab('submit');
             // Auto search the book
-            document.getElementById('searchInput').value = currentModalBook.title;
-            performSearch();
+            const input = document.getElementById('searchInput');
+            if (input) input.value = currentModalBook.title;
+            setTimeout(() => performSearch(), 100);
         }
         
         // Submit Tab - Search Logic (mimics book-submit.html)
@@ -662,15 +698,14 @@
             const container = document.getElementById('searchResults');
             const searchBtn = document.getElementById('searchBtn');
             
-            container.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">Searching...</div></div>';
+            container.innerHTML = '<div class="submit-searching"><div class="submit-searching-icon">⏳</div><div>Searching...</div></div>';
             searchBtn.disabled = true;
             searchBtn.classList.add('loading');
             
             try {
-                // Call the API like book-submit.html
                 const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 10000);
-                    const response = await fetch('/api/submit', {
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+                const response = await fetch('/api/submit', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ bookName: query, lang: 'en' }),
@@ -685,96 +720,83 @@
                 
                 const result = await response.json();
                 
-                if (result.status === 'awaiting_confirmation') {
-                    showCandidateSelection(result.candidates);
+                if (result.status === 'awaiting_confirmation' && result.candidates && result.candidates.length > 0) {
+                    showSearchResults(result.candidates);
                 } else if (result.status === 'completed') {
-                    showSuccessState(result);
+                    showSubmitSuccess(result);
                 } else {
-                    // Fallback to local search if API doesn't return expected format
                     fallbackSearch(query);
                 }
             } catch (e) {
                 console.error('Search error:', e);
-                // Fallback to local search
                 fallbackSearch(query);
             } finally {
-                clearTimeout(timeoutId);
                 searchBtn.disabled = false;
                 searchBtn.classList.remove('loading');
             }
         }
         
-        function fallbackSearch(query) {
+        function showSearchResults(candidates) {
             const container = document.getElementById('searchResults');
-            const filtered = AppState.featuredBooks.filter(b =>
-                b.title.toLowerCase().includes(query.toLowerCase())
-            );
-            
-            if (filtered.length === 0) {
-                container.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No books found</div><div class="empty-text">Try a different name</div></div>';
-            } else if (filtered.length === 1) {
-                // Auto select if only one result
-                AppState.selectedCandidate = filtered[0];
-                AppState.currentSubmissionData = { bookName: filtered[0].title };
-                showCandidateSelection(filtered);
-            } else {
-                showCandidateSelection(filtered);
+            if (candidates.length === 0) {
+                container.innerHTML = '<div class="submit-empty"><div class="empty-icon">🔍</div><div class="empty-title">No books found</div><div class="empty-text">Try a different search term</div></div>';
+                return;
             }
-        }
-        
-        // Candidate Selection
-        function showCandidateSelection(candidates) {
-            const candidateSection = document.getElementById('candidateSection');
-            const candidateList = document.getElementById('candidateList');
-            const searchSection = document.getElementById('searchSection');
-            const successSection = document.getElementById('successSection');
             
-            searchSection.style.display = 'none';
-            successSection.classList.remove('show');
-            candidateSection.classList.add('show');
-            
-            candidateList.innerHTML = candidates.map((candidate, index) => {
-                const safeCover = (candidate.coverImage && candidate.coverImage.startsWith('https://')) ? candidate.coverImage : candidate.cover || '';
-                const pct = Math.round((candidate.score || 0.8) * 100);
-                let scoreClass = 'low';
-                let scoreLabel = 'Low Match';
-                if (pct >= 80) { scoreClass = 'high'; scoreLabel = 'High Match'; }
-                else if (pct >= 50) { scoreClass = 'medium'; scoreLabel = 'Medium Match'; }
-                
-                return `<div class="candidate-card" data-index="${index}">
-                    <img class="candidate-cover" src="${safeCover}" alt="cover" onerror="this.src='https://via.placeholder.com/50x70/e5e7eb/9ca3af?text=📖'">
-                    <div class="candidate-info">
-                        <div class="candidate-title">${candidate.title}</div>
-                        <div class="candidate-author">by ${candidate.author || 'Unknown'}</div>
-                        <span class="candidate-score ${scoreClass}">${scoreLabel} (${pct}%)</span>
+            container.innerHTML = candidates.map((c, i) => {
+                const safeCover = (c.coverImage && c.coverImage.startsWith('https://')) ? c.coverImage : c.cover || '';
+                const desc = c.description || (c.title ? 'An exciting romance story awaits you.' : '');
+                return `<div class="submit-result-card" data-index="${i}" onclick="selectSearchResult(this, ${i})">
+                    <img class="submit-result-cover" src="${safeCover}" alt="cover" onerror="this.src='https://via.placeholder.com/60x84/e5e7eb/9ca3af?text=📖'">
+                    <div class="submit-result-info">
+                        <div class="submit-result-title">${c.title || 'Unknown Title'}</div>
+                        <div class="submit-result-author">by ${c.author || 'Unknown Author'}</div>
+                        <div class="submit-result-desc">${desc.substring(0, 80)}${desc.length > 80 ? '...' : ''}</div>
                     </div>
-                    <div class="candidate-check">✓</div>
+                    <div class="submit-result-check">✓</div>
                 </div>`;
             }).join('');
             
-            // Add click handlers
-            candidateList.querySelectorAll('.candidate-card').forEach(card => {
-                card.addEventListener('click', () => selectCandidate(card, candidates[parseInt(card.dataset.index)]));
-            });
-            
-            document.getElementById('confirmBtn').disabled = true;
+            AppState._currentCandidates = candidates;
         }
         
-        function selectCandidate(card, candidate) {
-            candidateList.querySelectorAll('.candidate-card').forEach(c => c.classList.remove('selected'));
+        function selectSearchResult(card, index) {
+            // Remove previous selection
+            document.querySelectorAll('.submit-result-card').forEach(c => c.classList.remove('selected'));
             card.classList.add('selected');
+            
+            const candidate = AppState._currentCandidates[index];
             AppState.selectedCandidate = candidate;
             AppState.currentSubmissionData = { bookName: candidate.title };
-            document.getElementById('confirmBtn').disabled = false;
+            
+            // Show selected area
+            showSelectedBook(candidate);
         }
         
-        // Confirm Button
-        document.getElementById('confirmBtn').addEventListener('click', async () => {
+        function showSelectedBook(candidate) {
+            const area = document.getElementById('submitSelectedArea');
+            const searchArea = document.getElementById('submitSearchArea');
+            const safeCover = (candidate.coverImage && candidate.coverImage.startsWith('https://')) ? candidate.coverImage : candidate.cover || '';
+            
+            searchArea.style.display = 'none';
+            area.classList.add('show');
+            
+            document.getElementById('selectedBookCard').innerHTML = `
+                <img class="submit-result-cover" src="${safeCover}" alt="cover" onerror="this.src='https://via.placeholder.com/60x84/e5e7eb/9ca3af?text=📖'">
+                <div class="submit-result-info">
+                    <div class="submit-result-title">${candidate.title || 'Unknown Title'}</div>
+                    <div class="submit-result-author">by ${candidate.author || 'Unknown Author'}</div>
+                </div>
+                <div class="submit-result-check">✓</div>
+            `;
+        }
+        
+        async function confirmSelectedBook() {
             if (!AppState.selectedCandidate) return;
             
-            const confirmBtn = document.getElementById('confirmBtn');
-            confirmBtn.disabled = true;
-            confirmBtn.classList.add('loading');
+            const btn = document.getElementById('confirmBtn');
+            btn.classList.add('loading');
+            btn.disabled = true;
             
             try {
                 const controller = new AbortController();
@@ -799,34 +821,31 @@
                 }
                 
                 const result = await response.json();
-                showSuccessState(result);
+                showSubmitSuccess(result);
             } catch (e) {
                 console.error('Confirm error:', e);
-                clearTimeout(timeoutId);
                 // Fallback: create local result
                 const fakeResult = {
-                    link: 'https://novelflow.app/book/' + AppState.selectedCandidate.bookId + '?ref=user123',
+                    link: 'https://novelflow.app/book/' + (AppState.selectedCandidate.bookId || 'unknown') + '?ref=user123',
                     code: 'NF' + Math.random().toString(36).substring(2, 8).toUpperCase(),
-                    bookName: AppState.selectedCandidate.title
+                    matchedBookName: AppState.selectedCandidate.title || AppState.currentSubmissionData?.bookName
                 };
-                showSuccessState(fakeResult);
+                showSubmitSuccess(fakeResult);
             } finally {
-                confirmBtn.disabled = false;
-                confirmBtn.classList.remove('loading');
+                btn.classList.remove('loading');
+                btn.disabled = false;
             }
-        });
+        }
         
-        // Show Success State
-        function showSuccessState(result) {
-            const candidateSection = document.getElementById('candidateSection');
-            const searchSection = document.getElementById('searchSection');
-            const successSection = document.getElementById('successSection');
+        function showSubmitSuccess(result) {
+            const selectedArea = document.getElementById('submitSelectedArea');
+            const successArea = document.getElementById('submitSuccessArea');
             
-            candidateSection.classList.remove('show');
-            searchSection.style.display = 'none';
-            successSection.classList.add('show');
+            selectedArea.classList.remove('show');
+            successArea.classList.add('show');
             
-            document.getElementById('successBook').textContent = `📚 "${result.matchedBookName || result.bookName || AppState.selectedCandidate?.title || 'Your book'}"`;
+            const bookName = result.matchedBookName || result.bookName || AppState.selectedCandidate?.title || 'Your book';
+            document.getElementById('successBook').textContent = `📚 "${bookName}"`;
             
             if (result.link) {
                 document.getElementById('linkBox').style.display = 'block';
@@ -842,7 +861,7 @@
                 document.getElementById('codeBox').style.display = 'none';
             }
             
-            const promoText = generatePromoCopy(result.matchedBookName || result.bookName || AppState.selectedCandidate?.title || 'this book', result.link, result.code);
+            const promoText = generatePromoCopy(bookName, result.link, result.code);
             document.getElementById('promoValue').textContent = promoText;
             
             // Save to my books
@@ -858,6 +877,25 @@
             renderMyBooks();
         }
         
+        function copyPromo() {
+            const promo = document.getElementById('promoValue').textContent;
+            navigator.clipboard.writeText(promo).then(() => showToast('Promo copy copied!', 'success'));
+        }
+        
+        function fallbackSearch(query) {
+            const container = document.getElementById('searchResults');
+            const filtered = AppState.featuredBooks.filter(b =>
+                b.title.toLowerCase().includes(query.toLowerCase())
+            );
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="submit-empty"><div class="empty-icon">🔍</div><div class="empty-title">No books found</div><div class="empty-text">Try a different name</div></div>';
+            } else {
+                // Use same horizontal card style
+                showSearchResults(filtered);
+            }
+        }
+        
         function generatePromoCopy(bookName, link, code) {
             const templates = [
                 `📖 I'm reading "${bookName}" on NovelFlow and you should too! Check it out: ${link}`,
@@ -868,18 +906,19 @@
         }
         
         function resetToSubmit() {
-            const candidateSection = document.getElementById('candidateSection');
-            const searchSection = document.getElementById('searchSection');
-            const successSection = document.getElementById('successSection');
+            const searchArea = document.getElementById('submitSearchArea');
+            const selectedArea = document.getElementById('submitSelectedArea');
+            const successArea = document.getElementById('submitSuccessArea');
             
-            candidateSection.classList.remove('show');
-            searchSection.style.display = 'block';
-            successSection.classList.remove('show');
+            selectedArea.classList.remove('show');
+            successArea.classList.remove('show');
+            searchArea.style.display = 'block';
             
             document.getElementById('searchInput').value = '';
             document.getElementById('searchResults').innerHTML = '';
             AppState.selectedCandidate = null;
             AppState.currentSubmissionData = null;
+            AppState._currentCandidates = null;
         }
         
         // Copy Functions
