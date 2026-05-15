@@ -838,10 +838,12 @@ confirmBtn.addEventListener('click', async () => {
   }
 });
 
-// Retry button - reset form
-retryBtn.addEventListener('click', () => {
-  resetToForm();
-});
+// Retry button - reset form (safety check in case element doesn't exist)
+if (retryBtn) {
+  retryBtn.addEventListener('click', () => {
+    resetToForm();
+  });
+}
 
 // Back button - reset form
 backBtn.addEventListener('click', () => {
