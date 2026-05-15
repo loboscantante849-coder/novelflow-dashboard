@@ -31,7 +31,7 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'GITHUB_TOKEN not set' });
   }
 
-  const { bookName, discordUsername, promotionMethod, notes, bookId, bookTitle, bookAuthor } = req.body || {};
+  const { bookName, discordUsername, promotionMethod, notes, bookId, bookTitle, bookAuthor, lang = 'en' } = req.body || {};
   if (!bookName || !bookId) {
     return res.status(400).json({ error: 'bookName and bookId are required' });
   }
@@ -41,7 +41,12 @@ module.exports = async (req, res) => {
   const filePath = 'submissions.json';
   const apiBase = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`;
   const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage';
-  const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
+  // English App - NovelFlow
+  const ENGLISH_APP_ID = '642fc1ace309494378a774a6';
+  // Spanish App - PLACEHOLDER: replace with actual Spanish applicationId from admin.novelspa.app
+  const SPANISH_APP_ID = process.env.BOOKSTORE_SPANISH_APP_ID || 'YOUR_SPANISH_APP_ID_HERE';
+  const BOOKSTORE_APP_ID = lang === 'es' ? SPANISH_APP_ID : ENGLISH_APP_ID;
+  const languageCode = lang === 'es' ? 'es' : 'en';
   const BOOKSTORE_TOKEN = process.env.BOOKSTORE_TOKEN;
 
   // Generate submission ID locally
@@ -72,6 +77,7 @@ module.exports = async (req, res) => {
       bookId: bookId,
       matchedBookName: bookTitle || bookName,
       author: bookAuthor || '',
+      lang: lang,
       submittedAt: new Date().toISOString(),
       confirmedAt: new Date().toISOString(),
       status: 'processing'
@@ -126,7 +132,7 @@ module.exports = async (req, res) => {
     console.log(`Created code: ${finalCode} for ${bookId}`);
 
     // Step 5: Create short link
-    const shortUrl = await createLink(bookId, bookTitle, finalCode, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
+    const shortUrl = await createLink(bookId, bookTitle, finalCode, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode);
 
     // Step 6: Update submission to completed
     const fields = {
@@ -205,7 +211,7 @@ async function createCode(bookId, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE
 
 // ============ Create Short Link ============
 
-async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID) {
+async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode) {
   const linkName = `${code}${bookTitle}-书籍详情页-FB`;
 
   const linkResp = await fetch(`${BOOKSTORE_API_BASE}/SocialMediaLinkConfig`, {
@@ -227,7 +233,7 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
       contentType: 1,
       contentNameOrSku: bookId,
       contentName: bookTitle,
-      languageCode: 'en',
+      languageCode: languageCode,
       redirectConfigId: '68fecf8b3a29f6eff435fd3b',
       redirectPosition: '书籍详情页',
       redirectProtocol: 'novelflow:///book',

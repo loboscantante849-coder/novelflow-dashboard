@@ -15,6 +15,14 @@ a:hover { color: #a89cff; }
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: #0a0d1f; }
 ::-webkit-scrollbar-thumb { background: #2a2d45; border-radius: 3px; }
+
+/* Language Toggle */
+.lang-toggle { position: fixed; top: 16px; right: 16px; z-index: 100; }
+.lang-toggle button { padding: 6px 14px; border-radius: 8px; background: rgba(124, 108, 255, 0.1); border: 1px solid rgba(124, 108, 255, 0.2); color: #a89cff; font-size: 12px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; transition: all .2s; letter-spacing: 0.3px; }
+.lang-toggle button:hover { background: rgba(124, 108, 255, 0.2); border-color: rgba(124, 108, 255, 0.4); color: #c8b8ff; }
+.lang-toggle button.es { background: rgba(0, 212, 170, 0.1); border-color: rgba(0, 212, 170, 0.25); color: #00d4aa; }
+.lang-toggle button.es:hover { background: rgba(0, 212, 170, 0.18); border-color: rgba(0, 212, 170, 0.4); }
+
 .container { max-width: 640px; margin: 0 auto; padding: 48px 24px 80px; }
 .hero { text-align: center; margin-bottom: 40px; }
 .hero-badge { display: inline-block; padding: 6px 16px; border-radius: 20px; background: rgba(124, 108, 255, 0.12); border: 1px solid rgba(124, 108, 255, 0.25); color: #a89cff; font-size: 12px; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 20px; }
@@ -103,15 +111,18 @@ a:hover { color: #a89cff; }
 </style>
 </head>
 <body>
+<div class="lang-toggle">
+  <button id="langToggle" onclick="toggleLanguage()">Español</button>
+</div>
 <div class="container">
   <div class="hero">
-    <div class="hero-badge">📚 KOC Dashboard</div>
-    <h1>Submit Your <span class="gradient-text">Book Recommendation</span></h1>
-    <p>Help fellow readers discover amazing stories. Share a book you love and get a unique referral link!</p>
+    <div class="hero-badge" data-i18n="hero-badge">📚 KOC Dashboard</div>
+    <h1 data-i18n="hero-title">Submit Your <span class="gradient-text">Book Recommendation</span></h1>
+    <p data-i18n="hero-subtitle">Help fellow readers discover amazing stories. Share a book you love and get a unique referral link!</p>
   </div>
   
   <div class="info-box">
-    <p>🎯 <strong>How it works:</strong> Enter your Discord username, provide the book name, and we'll create a personalized referral link for you. Share it in your Discord group to earn rewards!</p>
+    <p data-i18n="info-box">🎯 <strong>How it works:</strong> Enter your Discord username, provide the book name, and we'll create a personalized referral link for you. Share it in your Discord group to earn rewards!</p>
   </div>
   
   <div id="errorMessage" class="error-message"></div>
@@ -120,38 +131,38 @@ a:hover { color: #a89cff; }
   <div class="card form-container" id="formContainer">
     <form id="bookForm">
       <div class="form-group">
-        <label>Discord Username <span class="required">*</span></label>
-        <input type="text" id="discordUsername" class="form-input" placeholder="yourname#1234" maxlength="50">
+        <label data-i18n="label-discord">Discord Username <span class="required">*</span></label>
+        <input type="text" id="discordUsername" class="form-input" data-i18n-placeholder="placeholder-discord" placeholder="yourname#1234" maxlength="50">
       </div>
       
       <div class="form-group">
-        <label>Book Name <span class="required">*</span></label>
-        <input type="text" id="bookName" class="form-input" placeholder="Enter the book title..." required>
+        <label data-i18n="label-book">Book Name <span class="required">*</span></label>
+        <input type="text" id="bookName" class="form-input" data-i18n-placeholder="placeholder-book" placeholder="Enter the book title..." required>
       </div>
       
       <div class="form-group">
-        <label>Promotion Method</label>
+        <label data-i18n="label-promo">Promotion Method</label>
         <select id="promotionMethod" class="form-select">
-          <option value="All Channels" selected>All Channels</option>
-          <option value="Facebook Groups">Facebook Groups</option>
-          <option value="Facebook Pages">Facebook Pages</option>
-          <option value="Discord">Discord</option>
-          <option value="TikTok">TikTok</option>
-          <option value="Reels">Reels (Instagram/Facebook)</option>
-          <option value="Other">Other</option>
+          <option value="All Channels" data-i18n-opt="opt-all">All Channels</option>
+          <option value="Facebook Groups" data-i18n-opt="opt-fb-groups">Facebook Groups</option>
+          <option value="Facebook Pages" data-i18n-opt="opt-fb-pages">Facebook Pages</option>
+          <option value="Discord" data-i18n-opt="opt-discord">Discord</option>
+          <option value="TikTok" data-i18n-opt="opt-tiktok">TikTok</option>
+          <option value="Reels" data-i18n-opt="opt-reels">Reels (Instagram/Facebook)</option>
+          <option value="Other" data-i18n-opt="opt-other">Other</option>
         </select>
         <div class="promo-tags">
-          <span class="promo-tag">All Channels</span>
-          <span class="promo-tag">Facebook Groups</span>
-          <span class="promo-tag">Facebook Pages</span>
-          <span class="promo-tag">Discord</span>
-          <span class="promo-tag">TikTok</span>
-          <span class="promo-tag">Reels</span>
+          <span class="promo-tag" data-i18n="tag-all">All Channels</span>
+          <span class="promo-tag" data-i18n="tag-fb-groups">Facebook Groups</span>
+          <span class="promo-tag" data-i18n="tag-fb-pages">Facebook Pages</span>
+          <span class="promo-tag" data-i18n="tag-discord">Discord</span>
+          <span class="promo-tag" data-i18n="tag-tiktok">TikTok</span>
+          <span class="promo-tag" data-i18n="tag-reels">Reels</span>
         </div>
       </div>
       
       <button type="submit" id="submitBtn" class="btn-submit">
-        <span class="btn-text">🔍 Submit Book Recommendation</span>
+        <span class="btn-text" data-i18n="btn-submit">🔍 Submit Book Recommendation</span>
         <span class="spinner"></span>
       </button>
     </form>
@@ -159,72 +170,312 @@ a:hover { color: #a89cff; }
   
   <!-- Candidate Selection Section -->
   <div class="card candidate-section" id="candidateSection">
-    <h3>Select Your Book</h3>
-    <p>We found some matching books. Please select the correct one:</p>
+    <h3 data-i18n="cand-title">Select Your Book</h3>
+    <p data-i18n="cand-subtitle">We found some matching books. Please select the correct one:</p>
     <div class="candidate-list" id="candidateList"></div>
     <button type="button" id="confirmBtn" class="btn-submit btn-confirm" disabled>
-      <span class="btn-text">✓ Confirm & Create Link</span>
+      <span class="btn-text" data-i18n="btn-confirm">✓ Confirm & Create Link</span>
       <span class="spinner"></span>
     </button>
     <div class="no-candidates" id="noCandidatesSection" style="display: none;">
-      <p style="text-align: center; color: #8a8faa; margin: 20px 0;">No matching books found. Please try a different book name.</p>
+      <p data-i18n="no-cand" style="text-align: center; color: #8a8faa; margin: 20px 0;">No matching books found. Please try a different book name.</p>
     </div>
-    <button type="button" id="backBtn" class="btn-recommend-another" style="background: rgba(124, 108, 255, 0.15);">← Back to Form</button>
+    <button type="button" id="backBtn" class="btn-recommend-another" data-i18n="btn-back" style="background: rgba(124, 108, 255, 0.15);">← Back to Form</button>
   </div>
   
   <!-- Processing Status -->
   <div class="processing-status" id="processingStatus">
     <div class="processing-icon">⚡</div>
-    <h2>Creating Your Link...</h2>
-    <p>Please wait while we set everything up.</p>
+    <h2 data-i18n="proc-title">Creating Your Link...</h2>
+    <p data-i18n="proc-subtitle">Please wait while we set everything up.</p>
     <div class="processing-steps">
-      <div class="processing-step" id="stepSave"><div class="step-icon"></div> Saving submission</div>
-      <div class="processing-step" id="stepSelect"><div class="step-icon"></div> Verifying book selection</div>
-      <div class="processing-step" id="stepCode"><div class="step-icon"></div> Creating search code</div>
-      <div class="processing-step" id="stepLink"><div class="step-icon"></div> Generating referral link</div>
+      <div class="processing-step" id="stepSave"><div class="step-icon"></div> <span data-i18n="step-save">Saving submission</span></div>
+      <div class="processing-step" id="stepSelect"><div class="step-icon"></div> <span data-i18n="step-select">Verifying book selection</span></div>
+      <div class="processing-step" id="stepCode"><div class="step-icon"></div> <span data-i18n="step-code">Creating search code</span></div>
+      <div class="processing-step" id="stepLink"><div class="step-icon"></div> <span data-i18n="step-link">Generating referral link</span></div>
     </div>
   </div>
   
   <!-- Success Message -->
   <div class="success-message" id="successMessage">
     <div class="success-icon" id="successIcon">✅</div>
-    <h2 id="successTitle">Link Created!</h2>
+    <h2 id="successTitle" data-i18n="success-title">Link Created!</h2>
     <p id="submittedBook">📚 "Your Book"</p>
     
     <div class="book-link" id="linkContainer" style="display: none;">
-      <p style="font-size: 12px; color: #8a8faa; margin-bottom: 6px;">Your Referral Link:</p>
+      <p data-i18n="link-label" style="font-size: 12px; color: #8a8faa; margin-bottom: 6px;">Your Referral Link:</p>
       <a href="#" id="linkValue" onclick="copyLink(); return false;"></a>
     </div>
     
     <div class="book-link" id="codeContainer" style="display: none;">
-      <p style="font-size: 12px; color: #8a8faa; margin-bottom: 6px;">Search Code:</p>
+      <p data-i18n="code-label" style="font-size: 12px; color: #8a8faa; margin-bottom: 6px;">Search Code:</p>
       <span id="codeValue" style="color: #00d4aa; font-weight: 600; cursor: pointer;" onclick="copyCode()"></span>
     </div>
     
     <div class="book-link" id="promoContainer" style="display: none;">
-      <p style="font-size: 12px; color: #8a8faa; margin-bottom: 6px;">Promo Copy:</p>
+      <p data-i18n="promo-label" style="font-size: 12px; color: #8a8faa; margin-bottom: 6px;">Promo Copy:</p>
       <span id="promoValue" style="color: #e0e3ec; white-space: pre-wrap;"></span>
     </div>
     
     <div class="next-step" id="nextStep">
-      <p>📌 <strong>All done!</strong></p>
-      <p>Your referral link, code and promo copy are ready! Click any of them to copy.</p>
+      <p data-i18n="next-step-p1">📌 <strong>All done!</strong></p>
+      <p data-i18n="next-step-p2">Your referral link, code and promo copy are ready! Click any of them to copy.</p>
     </div>
     
-    <button type="button" id="recommendAnotherBtn" class="btn-recommend-another" onclick="resetToForm()">📚 Recommend Another Book</button>
+    <button type="button" id="recommendAnotherBtn" class="btn-recommend-another" onclick="resetToForm()" data-i18n="btn-another">📚 Recommend Another Book</button>
     
     <div class="nav-links" id="formNavLinks">
-      <a href="https://tinyurl.com/ypbru28w">📖 View Book Wall</a>
+      <a href="https://tinyurl.com/ypbru28w" data-i18n="nav-wall">📖 View Book Wall</a>
     </div>
   </div>
   
   <div class="nav-links" id="mainNavLinks">
-    <a href="https://tinyurl.com/ypbru28w">📖 View Book Wall</a>
-    <a href="/">🏠 Dashboard</a>
+    <a href="https://tinyurl.com/ypbru28w" data-i18n="nav-wall2">📖 View Book Wall</a>
+    <a href="/" data-i18n="nav-home">🏠 Dashboard</a>
   </div>
 </div>
 
 <script>
+// ============ i18n ============
+let currentLang = 'en';
+
+const i18n = {
+  en: {
+    // Hero
+    'hero-badge': '📚 KOC Dashboard',
+    'hero-title': 'Submit Your <span class="gradient-text">Book Recommendation</span>',
+    'hero-subtitle': 'Help fellow readers discover amazing stories. Share a book you love and get a unique referral link!',
+    'info-box': '🎯 <strong>How it works:</strong> Enter your Discord username, provide the book name, and we\'ll create a personalized referral link for you. Share it in your Discord group to earn rewards!',
+    // Labels
+    'label-discord': 'Discord Username <span class="required">*</span>',
+    'placeholder-discord': 'yourname#1234',
+    'label-book': 'Book Name <span class="required">*</span>',
+    'placeholder-book': 'Enter the book title...',
+    'label-promo': 'Promotion Method',
+    // Options
+    'opt-all': 'All Channels',
+    'opt-fb-groups': 'Facebook Groups',
+    'opt-fb-pages': 'Facebook Pages',
+    'opt-discord': 'Discord',
+    'opt-tiktok': 'TikTok',
+    'opt-reels': 'Reels (Instagram/Facebook)',
+    'opt-other': 'Other',
+    // Tags
+    'tag-all': 'All Channels',
+    'tag-fb-groups': 'Facebook Groups',
+    'tag-fb-pages': 'Facebook Pages',
+    'tag-discord': 'Discord',
+    'tag-tiktok': 'TikTok',
+    'tag-reels': 'Reels',
+    // Buttons
+    'btn-submit': '🔍 Submit Book Recommendation',
+    'btn-confirm': '✓ Confirm & Create Link',
+    'btn-back': '← Back to Form',
+    'btn-another': '📚 Recommend Another Book',
+    // Candidate
+    'cand-title': 'Select Your Book',
+    'cand-subtitle': 'We found some matching books. Please select the correct one:',
+    'no-cand': 'No matching books found. Please try a different book name.',
+    // Processing
+    'proc-title': 'Creating Your Link...',
+    'proc-subtitle': 'Please wait while we set everything up.',
+    'step-save': 'Saving submission',
+    'step-select': 'Verifying book selection',
+    'step-code': 'Creating search code',
+    'step-link': 'Generating referral link',
+    // Success
+    'success-title': 'Link Created!',
+    'link-label': 'Your Referral Link:',
+    'code-label': 'Search Code:',
+    'promo-label': 'Promo Copy:',
+    'next-step-p1': '📌 <strong>All done!</strong>',
+    'next-step-p2': 'Your referral link, code and promo copy are ready! Click any of them to copy.',
+    'success-title-alt': 'Submission Saved!',
+    'next-step-p1-alt': '📌 <strong>What happens next?</strong>',
+    'next-step-p2-alt': 'Your referral link will be created shortly. Check the Book Wall in a few minutes.',
+    // Nav
+    'nav-wall': '📖 View Book Wall',
+    'nav-wall2': '📖 View Book Wall',
+    'nav-home': '🏠 Dashboard',
+    // Errors
+    'err-book': 'Please enter the book name',
+    'err-submit': 'Submission failed. Please try again.',
+    'err-confirm': 'Failed to create link. Please try again.',
+    // Score labels
+    'score-high': '🎯 High Match',
+    'score-medium': '⚡ Medium Match',
+    'score-low': '🔍 Low Match',
+    // by
+    'by-author': 'by',
+  },
+  es: {
+    // Hero
+    'hero-badge': '📚 Panel KOC',
+    'hero-title': 'Envía tu <span class="gradient-text">Recomendación de Libro</span>',
+    'hero-subtitle': 'Ayuda a otros lectores a descubrir historias increíbles. ¡Comparte un libro que te encanta y obtén un enlace único de referido!',
+    'info-box': '🎯 <strong>Cómo funciona:</strong> Ingresa tu nombre de usuario de Discord, proporciona el nombre del libro y crearemos un enlace de referido personalizado para ti. ¡Compártelo en tu grupo de Discord para ganar recompensas!',
+    // Labels
+    'label-discord': 'Nombre de usuario de Discord <span class="required">*</span>',
+    'placeholder-discord': 'tunombre#1234',
+    'label-book': 'Nombre del Libro <span class="required">*</span>',
+    'placeholder-book': 'Ingresa el título del libro...',
+    'label-promo': 'Método de Promoción',
+    // Options
+    'opt-all': 'Todos los Canales',
+    'opt-fb-groups': 'Grupos de Facebook',
+    'opt-fb-pages': 'Páginas de Facebook',
+    'opt-discord': 'Discord',
+    'opt-tiktok': 'TikTok',
+    'opt-reels': 'Reels (Instagram/Facebook)',
+    'opt-other': 'Otro',
+    // Tags
+    'tag-all': 'Todos los Canales',
+    'tag-fb-groups': 'Grupos de Facebook',
+    'tag-fb-pages': 'Páginas de Facebook',
+    'tag-discord': 'Discord',
+    'tag-tiktok': 'TikTok',
+    'tag-reels': 'Reels',
+    // Buttons
+    'btn-submit': '🔍 Enviar Recomendación',
+    'btn-confirm': '✓ Confirmar y Crear Enlace',
+    'btn-back': '← Volver al Formulario',
+    'btn-another': '📚 Recomendar Otro Libro',
+    // Candidate
+    'cand-title': 'Selecciona tu Libro',
+    'cand-subtitle': 'Encontramos algunos libros coincidentes. Por favor selecciona el correcto:',
+    'no-cand': 'No se encontraron libros coincidentes. Por favor intenta con otro nombre.',
+    // Processing
+    'proc-title': 'Creando tu Enlace...',
+    'proc-subtitle': 'Por favor espera mientras preparamos todo.',
+    'step-save': 'Guardando envío',
+    'step-select': 'Verificando selección del libro',
+    'step-code': 'Creando código de búsqueda',
+    'step-link': 'Generando enlace de referido',
+    // Success
+    'success-title': '¡Enlace Creado!',
+    'link-label': 'Tu Enlace de Referido:',
+    'code-label': 'Código de Búsqueda:',
+    'promo-label': 'Texto Promocional:',
+    'next-step-p1': '📌 <strong>¡Todo listo!</strong>',
+    'next-step-p2': '¡Tu enlace de referido, código y texto promocional están listos! Haz clic en cualquiera de ellos para copiar.',
+    'success-title-alt': '¡Envío Guardado!',
+    'next-step-p1-alt': '📌 <strong>¿Qué pasa ahora?</strong>',
+    'next-step-p2-alt': 'Tu enlace de referido se creará en breve. Revisa el Muro de Libros en unos minutos.',
+    // Nav
+    'nav-wall': '📖 Ver Muro de Libros',
+    'nav-wall2': '📖 Ver Muro de Libros',
+    'nav-home': '🏠 Panel',
+    // Errors
+    'err-book': 'Por favor ingresa el nombre del libro',
+    'err-submit': 'El envío falló. Por favor intenta de nuevo.',
+    'err-confirm': 'Error al crear el enlace. Por favor intenta de nuevo.',
+    // Score labels
+    'score-high': '🎯 Alta Coincidencia',
+    'score-medium': '⚡ Coincidencia Media',
+    'score-low': '🔍 Baja Coincidencia',
+    // by
+    'by-author': 'por',
+  }
+};
+
+function applyTranslations() {
+  const t = i18n[currentLang];
+  if (!t) return;
+
+  // Update elements with data-i18n attribute
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (t[key] !== undefined) {
+      el.innerHTML = t[key];
+    }
+  });
+
+  // Update placeholders
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (t[key] !== undefined) {
+      el.placeholder = t[key];
+    }
+  });
+
+  // Update select options
+  document.querySelectorAll('[data-i18n-opt]').forEach(el => {
+    const key = el.getAttribute('data-i18n-opt');
+    if (t[key] !== undefined) {
+      el.textContent = t[key];
+    }
+  });
+
+  // Update hero title (contains HTML)
+  const heroTitle = document.querySelector('h1[data-i18n="hero-title"]');
+  if (heroTitle && t['hero-title']) {
+    heroTitle.innerHTML = t['hero-title'];
+  }
+
+  // Update hero subtitle (contains HTML)
+  const heroSubtitle = document.querySelector('p[data-i18n="hero-subtitle"]');
+  if (heroSubtitle && t['hero-subtitle']) {
+    heroSubtitle.innerHTML = t['hero-subtitle'];
+  }
+
+  // Update info-box paragraph (contains HTML)
+  const infoBox = document.querySelector('p[data-i18n="info-box"]');
+  if (infoBox && t['info-box']) {
+    infoBox.innerHTML = t['info-box'];
+  }
+
+  // Update next-step HTML dynamically
+  updateNextStep();
+
+  // Update candidate score labels if candidates are rendered
+  updateCandidateLabels();
+}
+
+function updateNextStep() {
+  const t = i18n[currentLang];
+  const nextStep = document.getElementById('nextStep');
+  if (!nextStep || !nextStep.dataset.type) return;
+
+  if (nextStep.dataset.type === 'success') {
+    nextStep.innerHTML = `<p>${t['next-step-p1']}</p><p>${t['next-step-p2']}</p>`;
+  } else {
+    nextStep.innerHTML = `<p>${t['next-step-p1-alt']}</p><p>${t['next-step-p2-alt']}</p>`;
+  }
+}
+
+function updateCandidateLabels() {
+  const t = i18n[currentLang];
+  document.querySelectorAll('.candidate-score').forEach(el => {
+    const cls = el.className.replace('candidate-score', '').trim();
+    if (cls === 'high') el.textContent = `${t['score-high']} (${el.dataset.pct}%)`;
+    else if (cls === 'medium') el.textContent = `${t['score-medium']} (${el.dataset.pct}%)`;
+    else el.textContent = `${t['score-low']} (${el.dataset.pct}%)`;
+  });
+
+  // Update "by" in author
+  document.querySelectorAll('.candidate-author').forEach(el => {
+    const authorName = el.dataset.author || '';
+    if (authorName) {
+      el.textContent = `${t['by-author']} ${authorName}`;
+    }
+  });
+}
+
+function toggleLanguage() {
+  currentLang = currentLang === 'en' ? 'es' : 'en';
+  const btn = document.getElementById('langToggle');
+  if (currentLang === 'es') {
+    btn.textContent = 'English';
+    btn.classList.add('es');
+    document.documentElement.lang = 'es';
+  } else {
+    btn.textContent = 'Español';
+    btn.classList.remove('es');
+    document.documentElement.lang = 'en';
+  }
+  applyTranslations();
+}
+
 // Elements
 const form = document.getElementById('bookForm');
 const submitBtn = document.getElementById('submitBtn');
@@ -250,7 +501,12 @@ let currentSubmissionData = null;
 let selectedCandidate = null;
 
 // Functions
-function showError(message) { errorMessage.textContent = message; errorMessage.classList.add('show'); }
+function showError(message) { 
+  const t = i18n[currentLang];
+  const translatedMsg = message === t['err-book'] ? t['err-book'] : (message || t['err-submit']);
+  errorMessage.textContent = translatedMsg; 
+  errorMessage.classList.add('show'); 
+}
 function hideError() { errorMessage.classList.remove('show'); }
 function setLoading(loading, btn) { 
   if (btn) {
@@ -323,6 +579,7 @@ function copyPromo() {
 }
 
 function showSuccess(result) {
+  const t = i18n[currentLang];
   formContainer.classList.add('hidden');
   candidateSection.classList.remove('show');
   processingStatus.classList.remove('show');
@@ -343,7 +600,8 @@ function showSuccess(result) {
   
   if (result.link) {
     successIcon.textContent = '✅';
-    successTitle.textContent = 'Link Created!';
+    successTitle.textContent = t['success-title'];
+    successTitle.setAttribute('data-i18n', 'success-title');
     linkContainer.style.display = 'block';
     linkValue.textContent = result.link;
     
@@ -360,14 +618,17 @@ function showSuccess(result) {
     promoContainer.style.display = 'block';
     promoValue.textContent = promoCopy;
     
-    nextStep.innerHTML = '<p>📌 <strong>All done!</strong></p><p>Your referral link, code and promo copy are ready! Click any of them to copy.</p>';
+    nextStep.dataset.type = 'success';
+    nextStep.innerHTML = `<p>${t['next-step-p1']}</p><p>${t['next-step-p2']}</p>`;
   } else {
     successIcon.textContent = '✅';
-    successTitle.textContent = 'Submission Saved!';
+    successTitle.textContent = t['success-title-alt'];
+    successTitle.removeAttribute('data-i18n');
     linkContainer.style.display = 'none';
     codeContainer.style.display = 'none';
     promoContainer.style.display = 'none';
-    nextStep.innerHTML = '<p>📌 <strong>What happens next?</strong></p><p>Your referral link will be created shortly. Check the Book Wall in a few minutes.</p>';
+    nextStep.dataset.type = 'pending';
+    nextStep.innerHTML = `<p>${t['next-step-p1-alt']}</p><p>${t['next-step-p2-alt']}</p>`;
   }
 }
 
@@ -386,6 +647,7 @@ function getScoreLabel(score) {
 
 function renderCandidates(candidates) {
   candidateList.innerHTML = '';
+  const t = i18n[currentLang];
   candidates.forEach((candidate, index) => {
     const card = document.createElement('div');
     card.className = 'candidate-card';
@@ -399,13 +661,21 @@ function renderCandidates(candidates) {
       ? `<img src="${safeCover}" class="candidate-cover" alt="cover" onerror="this.style.display='none';this.nextSibling.style.display='flex'"><span style="display:none">📖</span>`
       : `<span class="candidate-cover">📖</span>`;
     
+    const pct = Math.round(candidate.score * 100);
+    let scoreLabel = t['score-low'];
+    let scoreClass = 'low';
+    if (candidate.score >= 0.8) { scoreLabel = t['score-high']; scoreClass = 'high'; }
+    else if (candidate.score >= 0.5) { scoreLabel = t['score-medium']; scoreClass = 'medium'; }
+    
+    const authorHtml = candidate.author ? `<div class="candidate-author" data-author="${escapeHtml(candidate.author)}">${t['by-author']} ${escapeHtml(candidate.author)}</div>` : '';
+    
     card.innerHTML = `
       ${coverHtml}
       <div class="candidate-info">
         <div class="candidate-title">${escapeHtml(candidate.title)}</div>
-        ${candidate.author ? `<div class="candidate-author">by ${escapeHtml(candidate.author)}</div>` : ''}
+        ${authorHtml}
         <div class="candidate-meta">
-          <span class="candidate-score ${getScoreClass(candidate.score)}">${getScoreLabel(candidate.score)} (${Math.round(candidate.score * 100)}%)</span>
+          <span class="candidate-score ${scoreClass}" data-pct="${pct}">${scoreLabel} (${pct}%)</span>
         </div>
       </div>
       <div class="candidate-check">✓</div>
@@ -476,7 +746,7 @@ form.addEventListener('submit', async (e) => {
   const bookName = document.getElementById('bookName').value.trim();
   const promotionMethod = document.getElementById('promotionMethod').value;
 
-  if (!bookName) { showError('Please enter the book name'); return; }
+  if (!bookName) { showError(i18n[currentLang]['err-book']); return; }
   
   setLoading(true, submitBtn);
   
@@ -491,7 +761,7 @@ form.addEventListener('submit', async (e) => {
     const response = await fetch('/api/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookName })
+      body: JSON.stringify({ bookName, lang: currentLang })
     });
     
     if (!response.ok) {
@@ -512,7 +782,7 @@ form.addEventListener('submit', async (e) => {
     // Note: We no longer reset the form here - it's hidden instead
   } catch (error) {
     console.error('Submission error:', error);
-    showError(error.message || 'Submission failed. Please try again.');
+    showError(error.message || i18n[currentLang]['err-submit']);
   } finally {
     setLoading(false, submitBtn);
   }
@@ -533,7 +803,8 @@ confirmBtn.addEventListener('click', async () => {
         ...currentSubmissionData,
         bookId: selectedCandidate.bookId,
         bookTitle: selectedCandidate.title,
-        bookAuthor: selectedCandidate.author || ''
+        bookAuthor: selectedCandidate.author || '',
+        lang: currentLang
       })
     });
     
@@ -554,7 +825,7 @@ confirmBtn.addEventListener('click', async () => {
     }
   } catch (error) {
     console.error('Confirm error:', error);
-    showError(error.message || 'Failed to create link. Please try again.');
+    showError(error.message || i18n[currentLang]['err-confirm']);
     resetToForm();
   } finally {
     setLoading(false, confirmBtn);

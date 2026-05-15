@@ -3,23 +3,29 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { bookName } = req.body || {};
+  const { bookName, lang = 'en' } = req.body || {};
   if (!bookName) {
     return res.status(400).json({ error: 'bookName is required' });
   }
 
   const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage';
-  const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
+  // English App - NovelFlow
+  const ENGLISH_APP_ID = '642fc1ace309494378a774a6';
+  // Spanish App - PLACEHOLDER: replace with actual Spanish applicationId from admin.novelspa.app
+  const SPANISH_APP_ID = process.env.BOOKSTORE_SPANISH_APP_ID || 'YOUR_SPANISH_APP_ID_HERE';
   const BOOKSTORE_TOKEN = process.env.BOOKSTORE_TOKEN;
+
+  const BOOKSTORE_APP_ID = lang === 'es' ? SPANISH_APP_ID : ENGLISH_APP_ID;
+  const languageCode = lang === 'es' ? 'es' : 'en';
 
   try {
     // Only search for candidates - no data persistence here
     let candidates = [];
     if (BOOKSTORE_TOKEN) {
-      candidates = await searchBooks(bookName.trim(), BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
+      candidates = await searchBooks(bookName.trim(), BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode);
     }
 
-    console.log(`Search for "${bookName}" found ${candidates.length} candidates`);
+    console.log(`[${lang}] Search for "${bookName}" found ${candidates.length} candidates`);
 
     // Return candidates to frontend for user confirmation
     // Data will only be persisted when user confirms in /api/confirm
@@ -27,6 +33,7 @@ module.exports = async (req, res) => {
       success: true,
       status: 'awaiting_confirmation',
       candidates: candidates,
+      lang: lang,
       message: candidates.length > 0 
         ? `Found ${candidates.length} book(s). Please confirm the correct one.`
         : 'No matching books found. Please check the book name and try again.'
@@ -54,17 +61,17 @@ function similarity(query, title) {
 }
 
 // Search for multiple candidate books (returns array)
-async function searchBooks(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID) {
+async function searchBooks(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode) {
   const allCandidates = new Map(); // Use Map to deduplicate by bookId
 
   // Strategy 1: Full book name as-is
-  const candidates1 = await doSearch(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, bookName);
+  const candidates1 = await doSearch(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, bookName, languageCode);
   candidates1.forEach(c => allCandidates.set(c.bookId, c));
 
   // Strategy 2: Without leading "The", "A", "An"
   const withoutArticle = bookName.replace(/^(The|A|An)\s+/i, '').trim();
   if (withoutArticle !== bookName && withoutArticle.length > 2) {
-    const candidates2 = await doSearch(withoutArticle, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, bookName);
+    const candidates2 = await doSearch(withoutArticle, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, bookName, languageCode);
     candidates2.forEach(c => {
       if (!allCandidates.has(c.bookId)) allCandidates.set(c.bookId, c);
     });
@@ -74,7 +81,7 @@ async function searchBooks(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKST
   const words = bookName.split(/\s+/).filter(w => !/^(the|a|an)$/i.test(w) && w.length > 2);
   if (words.length >= 3) {
     const firstLast = words[0] + ' ' + words[words.length - 1];
-    const candidates3 = await doSearch(firstLast, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, bookName);
+    const candidates3 = await doSearch(firstLast, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, bookName, languageCode);
     candidates3.forEach(c => {
       if (!allCandidates.has(c.bookId)) allCandidates.set(c.bookId, c);
     });
@@ -82,7 +89,7 @@ async function searchBooks(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKST
 
   // Strategy 4: First significant word only
   if (words.length >= 1) {
-    const candidates4 = await doSearch(words[0], BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, bookName);
+    const candidates4 = await doSearch(words[0], BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, bookName, languageCode);
     candidates4.forEach(c => {
       if (!allCandidates.has(c.bookId)) allCandidates.set(c.bookId, c);
     });
@@ -97,8 +104,8 @@ async function searchBooks(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKST
 }
 
 // Single search query - returns all matches above threshold as candidates
-async function doSearch(query, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, originalQuery) {
-  const url = `${BOOKSTORE_API_BASE}/book/booklist?current=1&pageSize=10&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&languageCode=en&bookStatus=1&title=${encodeURIComponent(query)}&bookName=${encodeURIComponent(query)}`;
+async function doSearch(query, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, originalQuery, languageCode) {
+  const url = `${BOOKSTORE_API_BASE}/book/booklist?current=1&pageSize=10&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&languageCode=${languageCode}&bookStatus=1&title=${encodeURIComponent(query)}&bookName=${encodeURIComponent(query)}`;
 
   const resp = await fetch(url, {
     headers: { 'Authorization': `Bearer ${BOOKSTORE_TOKEN}`, 'Content-Type': 'application/json' }
