@@ -11,7 +11,8 @@ module.exports = async (req, res) => {
   const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage';
   // NovelFlow - same appId for both English and Spanish, just different languageCode
   const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
-  const BOOKSTORE_TOKEN = process.env.BOOKSTORE_TOKEN;
+  // OIDC token for novelspa API (env var preferred, fallback to hardcoded)
+  const BOOKSTORE_TOKEN = process.env.BOOKSTORE_TOKEN || 'eyJhbGciOiJSUzI1NiIsImtpZCI6IkU4QzAzQjVGMzhENjQzRTE3OTQ4MEU1NkE2REI4QkQ5IiwidHlwIjoiYXQrand0In0.eyJuYmYiOjE3NzgyOTI3NjUsImV4cCI6MTc3OTU4ODc2NSwiaXNzIjoiaHR0cHM6Ly9zdHMuYW55c3Rvcmllcy5hcHAiLCJjbGllbnRfaWQiOiJBdXRoQ2xpZW50Iiwic3ViIjoiMTE2NCIsImF1dGhfdGltZSI6MTc3NzM0MDY2NCwiaWRwIjoibG9jYWwiLCJuaWNrbmFtZSI6IuW-kOaVrOa2myIsIm5hbWUiOiJ4dWp0Iiwic2lkIjoiRUU0MzJGRjNGRjMxOUZBOTZENUQzRUMxRkU4MTVFOTMiLCJpYXQiOjE3NzgyOTI3NjUsInNjb3BlIjpbIm9wZW5pZCIsInByb2ZpbGUiLCJyb2xlcyIsImVtYWlsIl0sImFtciI6WyJwd2QiXX0.ZZ31UyfAdexg5ShQEmdvvS4AkyXZt-3Sze7X779iIgduiW2eiFuVRkxOeUPenPccdQqa0kTJNWVOMY3jMJgdXsxME41eOZnolV4Fl-NvHkCVYJKgIb1BeI6I35_Dc9rFfIO809EpPQ7Ncu__6fTmzfvQFS-LaBPUH4ZsPFLouoLjfZw1pbUSYXA1fB5LRIFe0CmeqCBMkTRVh-GMOK9fz4sDLZnAYz-LftyeqdU8X-GSKJzNBCBLzO9XcTW8y9CQK9hMChmqhBzYWXOiX-u7Dn2GrMEXaiY5vZtp2_tQE9FqOm1NX05AF6DQqQh-yOFfQBUhyZeXr4SlU4gTZ_LpLw';
 
   const languageCode = lang === 'es' ? 'es' : 'en';
 
