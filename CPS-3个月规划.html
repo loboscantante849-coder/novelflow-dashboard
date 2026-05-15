@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NovelFlow CPS 3个月规划</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a1a; color: #e0e0e0; }
+.slide { min-height: 100vh; padding: 60px 80px; display: flex; flex-direction: column; justify-content: center; border-bottom: 1px solid rgba(255,255,255,0.06); }
+h1 { font-size: 42px; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+h2 { font-size: 28px; color: #fff; margin-bottom: 32px; font-weight: 600; }
+.subtitle { font-size: 18px; color: #888; margin-bottom: 48px; }
+.hero-num { font-size: 72px; font-weight: 800; background: linear-gradient(135deg, #f093fb, #f5576c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1; }
+.hero-label { font-size: 16px; color: #999; margin-top: 8px; }
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; margin-top: 40px; }
+.metric { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 28px 24px; }
+.metric .num { font-size: 36px; font-weight: 700; color: #fff; }
+.metric .label { font-size: 14px; color: #888; margin-top: 6px; }
+.metric .sub { font-size: 13px; color: #666; margin-top: 4px; }
+.timeline { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 32px; }
+.month-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 32px 24px; position: relative; }
+.month-card .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; }
+.month-card:nth-child(1) .tag { background: rgba(102,126,234,0.2); color: #667eea; }
+.month-card:nth-child(2) .tag { background: rgba(240,147,251,0.2); color: #f093fb; }
+.month-card:nth-child(3) .tag { background: rgba(245,87,108,0.2); color: #f5576c; }
+.month-card .title { font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+.month-card .revenue { font-size: 32px; font-weight: 800; color: #fff; margin-bottom: 20px; }
+.month-card .koc { font-size: 14px; color: #888; margin-bottom: 20px; }
+.month-card ul { list-style: none; }
+.month-card li { font-size: 14px; color: #bbb; padding: 6px 0; padding-left: 18px; position: relative; line-height: 1.5; }
+.month-card li::before { content: '→'; position: absolute; left: 0; color: #667eea; }
+.site-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 32px; }
+.site-item { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+.site-item .name { font-size: 15px; color: #fff; font-weight: 500; }
+.site-item .desc { font-size: 13px; color: #888; }
+.site-item .status { font-size: 12px; padding: 4px 10px; border-radius: 12px; background: rgba(46,204,113,0.15); color: #2ecc71; }
+.growth-table { width: 100%; border-collapse: collapse; margin-top: 32px; }
+.growth-table th { text-align: left; font-size: 13px; color: #666; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); font-weight: 500; }
+.growth-table td { padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.growth-table td:first-child { color: #888; font-size: 14px; }
+.growth-table td:not(:first-child) { color: #fff; font-size: 18px; font-weight: 600; text-align: center; }
+.growth-table tr.highlight td { color: #f5576c; }
+.logic-list { margin-top: 32px; }
+.logic-item { display: flex; align-items: flex-start; gap: 16px; padding: 18px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.logic-num { font-size: 24px; font-weight: 800; color: #667eea; min-width: 36px; }
+.logic-text { font-size: 16px; color: #ccc; line-height: 1.6; }
+.logic-text strong { color: #fff; }
+.window-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 32px; }
+.window-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 20px; text-align: center; }
+.window-card.active { border-color: #667eea; background: rgba(102,126,234,0.08); }
+.window-card .days { font-size: 28px; font-weight: 800; color: #fff; }
+.window-card .rev { font-size: 22px; font-weight: 700; margin-top: 8px; }
+.window-card .change { font-size: 13px; margin-top: 6px; }
+.window-card .change.up { color: #2ecc71; }
+.window-card .change.down { color: #f5576c; }
+.window-card .change.same { color: #667eea; }
+</style>
+</head>
+<body>
+
+<!-- Slide 1: 业绩 -->
+<div class="slide">
+  <h1>5个月，0广告费</h1>
+  <div class="subtitle">NovelFlow 社媒CPS — 1.1至5.10（14天归因）</div>
+  <div style="display:flex;align-items:flex-end;gap:12px;">
+    <div class="hero-num">$36,768</div>
+    <div style="font-size:24px;color:#888;padding-bottom:14px;">总收入</div>
+  </div>
+  <div class="metrics">
+    <div class="metric"><div class="num">83,717</div><div class="label">总拉起</div></div>
+    <div class="metric"><div class="num">10,296</div><div class="label">激活用户</div></div>
+    <div class="metric"><div class="num">$22,993</div><div class="label">会员收入</div><div class="sub">占比62.6%</div></div>
+    <div class="metric"><div class="num">$13,775</div><div class="label">广告收入</div><div class="sub">占比37.4%</div></div>
+  </div>
+</div>
+
+<!-- Slide 2: 归因窗口 -->
+<div class="slide">
+  <h2>归因窗口 = 直接影响收入</h2>
+  <div class="window-grid">
+    <div class="window-card"><div class="days">8天</div><div class="rev">$49,085</div><div class="change up">+33%</div></div>
+    <div class="window-card active"><div class="days">14天</div><div class="rev">$36,768</div><div class="change same">当前基准</div></div>
+    <div class="window-card"><div class="days">30天</div><div class="rev">$24,350</div><div class="change down">-34%</div></div>
+    <div class="window-card"><div class="days">90天</div><div class="rev">$16,839</div><div class="change down">-54%</div></div>
+  </div>
+  <div style="margin-top:32px;padding:20px;background:rgba(102,126,234,0.08);border-radius:10px;border-left:3px solid #667eea;">
+    <div style="font-size:16px;color:#ccc;">争取14天归因 + 30天再归因 → 收入可提升34%</div>
+  </div>
+</div>
+
+<!-- Slide 3: 网站已上线 -->
+<div class="slide">
+  <h2>已上线工具链</h2>
+  <div class="site-list">
+    <div class="site-item"><div><div class="name">书单提交工具</div><div class="desc">KOC自助提交，自动创建code+link</div></div><div class="status">已上线</div></div>
+    <div class="site-item"><div><div class="name">推荐墙</div><div class="desc">按KOC分组展示，搜索筛选，一键复制</div></div><div class="status">已上线</div></div>
+    <div class="site-item"><div><div class="name">数据看板</div><div class="desc">KOC数据实时更新，排行榜</div></div><div class="status">已上线</div></div>
+    <div class="site-item"><div><div class="name">推广指南</div><div class="desc">KOC发帖模板+规则</div></div><div class="status">已上线</div></div>
+    <div class="site-item"><div><div class="name">管理后台</div><div class="desc">提交审核、书籍管理</div></div><div class="status">已上线</div></div>
+    <div class="site-item"><div><div class="name">推广Playbook</div><div class="desc">完整推广策略文档</div></div><div class="status">已上线</div></div>
+  </div>
+  <div style="margin-top:24px;font-size:14px;color:#888;">网站是杠杆：书单工具上线后KOC自助提交 → 我不用手动建链接 → 省出时间扩人</div>
+</div>
+
+<!-- Slide 4: 3个月规划 -->
+<div class="slide">
+  <h2>3个月规划</h2>
+  <div class="timeline">
+    <div class="month-card">
+      <div class="tag">6月</div>
+      <div class="title">扩量</div>
+      <div class="revenue">$12,000</div>
+      <div class="koc">活跃KOC 10 → 20</div>
+      <ul>
+        <li>书单工具全量推广，前10奖励VIP</li>
+        <li>每周Discord排行榜</li>
+        <li>1v1激活沉默KOC</li>
+        <li>网站：KOC个人页+排行榜</li>
+      </ul>
+    </div>
+    <div class="month-card">
+      <div class="tag">7月</div>
+      <div class="title">结算</div>
+      <div class="revenue">$15,000</div>
+      <div class="koc">活跃KOC 20 → 30</div>
+      <ul>
+        <li>CPS结算方案落地</li>
+        <li>统一内容模板降门槛</li>
+        <li>每月结算公示</li>
+        <li>网站：CPS结算模块</li>
+      </ul>
+    </div>
+    <div class="month-card">
+      <div class="tag">8月</div>
+      <div class="title">裂变</div>
+      <div class="revenue">$20,000</div>
+      <div class="koc">活跃KOC 30 → 50</div>
+      <ul>
+        <li>KOC邀KOC，裂变扩人</li>
+        <li>扩展TikTok/Instagram</li>
+        <li>结算+追踪全自动</li>
+        <li>网站：裂变系统+多平台适配</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Slide 5: 增长路径 -->
+<div class="slide">
+  <h2>增长路径</h2>
+  <table class="growth-table">
+    <tr><th></th><th>现在(月均)</th><th>6月</th><th>7月</th><th>8月</th></tr>
+    <tr><td>收入</td><td>$9,200</td><td>$12,000</td><td>$15,000</td><td>$20,000</td></tr>
+    <tr><td>活跃KOC</td><td>10</td><td>20</td><td>30</td><td>50</td></tr>
+    <tr><td>广告费</td><td>$0</td><td>$0</td><td>$0</td><td>$0</td></tr>
+  </table>
+  <div class="logic-list">
+    <div class="logic-item"><div class="logic-num">1</div><div class="logic-text"><strong>5个月$36,768已验证</strong>，0广告费纯自然流量</div></div>
+    <div class="logic-item"><div class="logic-num">2</div><div class="logic-text">归因窗口拉长 = <strong>白捡34%</strong></div></div>
+    <div class="logic-item"><div class="logic-num">3</div><div class="logic-text">网站省人力 → <strong>时间花在扩人上</strong></div></div>
+    <div class="logic-item"><div class="logic-num">4</div><div class="logic-text">CPS结算 → KOC从帮忙变赚钱 → <strong>产出3-5x</strong></div></div>
+    <div class="logic-item"><div class="logic-num">5</div><div class="logic-text">人越多越滚 → 内容↑ 流量↑ 收入↑</div></div>
+  </div>
+</div>
+
+</body>
+</html>
