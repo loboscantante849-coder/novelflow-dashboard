@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <meta name="theme-color" content="#0a0a1a">
-    <title>NovelFlow - 推广助手</title>
+    <title>NovelFlow - Discord Activity</title>
     <script src="https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@0.1.9/dist/discord-sdk-embedded.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -711,7 +711,18 @@
         function renderTasks() { const tasks = [ { id: 1, name: '每日登录', reward: '+10积分', progress: 100, status: 'claimed', type: 'daily', icon: '📅' }, { id: 2, name: '推荐一本好书', reward: '+50积分', progress: 60, status: 'pending', type: 'daily', icon: '📚' }, { id: 3, name: '分享到社交平台', reward: '+30积分', progress: 0, status: 'locked', type: 'daily', icon: '📤' }, { id: 4, name: '本周推荐5本书', reward: '+200积分', progress: 40, status: 'pending', type: 'weekly', icon: '🏆' }, { id: 5, name: '邀请好友加入', reward: '+500积分', progress: 0, status: 'locked', type: 'special', icon: '👥' } ]; const filtered = AppState.currentTaskFilter === 'all' ? tasks : tasks.filter(t => t.type === AppState.currentTaskFilter); const container = document.getElementById('taskList'); container.innerHTML = filtered.map(task => { const statusClass = task.status === 'claimed' ? 'completed' : ''; const btnDisabled = task.status === 'locked' ? 'disabled' : ''; const btnClass = task.status === 'claimed' ? 'claimed' : ''; const btnText = task.status === 'claimed' ? '✓ 已领取' : task.progress === 100 ? '领取奖励' : task.progress > 0 ? '继续任务' : '去完成'; const statusText = task.progress === 100 ? '已完成' : task.progress === 0 ? '未开始' : '进行中'; return '<div class="task-card ' + task.type + ' ' + statusClass + '"><div class="task-top"><div class="task-icon">' + task.icon + '</div><div class="task-info"><div class="task-name">' + task.name + '</div><div class="task-reward">⭐ ' + task.reward + '</div></div></div><div class="task-progress"><div class="progress-bar"><div class="progress-fill" style="width:' + task.progress + '%"></div></div><div class="progress-text"><span>' + task.progress + '%</span><span>' + statusText + '</span></div></div><button class="task-claim-btn ' + btnClass + '" ' + btnDisabled + '>' + btnText + '</button></div>'; }).join(''); }
         document.querySelectorAll('.filter-btn').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); AppState.currentTaskFilter = btn.textContent === '全部' ? 'all' : 'all'; renderTasks(); }); });
         
-        document.addEventListener('DOMContentLoaded', async () => {
+        // ========== 强制 Discord Activity 模式 ==========
+(function() {
+    // 强制启用 Discord 模式
+    document.body.classList.add('discord-embedded');
+    const statusBar = document.getElementById('discordStatusBar');
+    if (statusBar) statusBar.classList.add('show');
+    
+    // 覆盖 isInDiscord 函数，使其始终返回 true
+    window.isInDiscord = function() { return true; };
+})();
+
+document.addEventListener('DOMContentLoaded', async () => {
             // 检测Discord嵌入模式
             const inDiscord = isInDiscord();
             applyDiscordMode(inDiscord);
