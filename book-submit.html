@@ -543,11 +543,17 @@ function showProcessingStatus() {
 }
 
 function generatePromoCopy(bookName, link, code) {
-  const templates = [
+  const enTemplates = [
     `POV: You just discovered your next obsession. ${bookName} is the kind of story that keeps you up at 3am — and you'll thank it for that. 🐺🔥\nRead now → ${link}`,
     `Just found a book that hits DIFFERENT. ${bookName} — every chapter pulls you in deeper. If you love enemies-to-lovers tension, this one's for you. ✨\nRead now → ${link}`,
     `That moment when you start a book and cancel all your plans... ${bookName} is THAT book. Trust me on this one. 🔥\nRead now → ${link}`
   ];
+  const esTemplates = [
+    `POV: Acabas de encontrar tu nueva obsesión. ${bookName} es el tipo de historia que te mantiene despierto/a hasta las 3am — y se lo agradecerás. 🐺🔥\n¡Lee ahora → ${link}`,
+    `Acabo de encontrar un libro que es INCREÍBLE. ${bookName} — cada capítulo te atrapa más. Si te gusta la tensión de enemigos a amantes, este es para ti. ✨\n¡Lee ahora → ${link}`,
+    `Ese momento cuando empiezas un libro y cancelas todos tus planes... ${bookName} es ESE libro. Confía en mí. 🔥\n¡Lee ahora → ${link}`
+  ];
+  const templates = currentLang === 'es' ? esTemplates : enTemplates;
   return templates[Math.floor(Math.random() * templates.length)];
 }
 
