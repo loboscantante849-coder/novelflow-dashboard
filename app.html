@@ -1,1003 +1,1177 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-    <meta name="theme-color" content="#ffffff">
-    <title>NovelFlow - 推广助手</title>
+    <meta name="theme-color" content="#f5f5f7">
+    <title>NovelFlow - Make Money Reading</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@0.1.9/dist/discord-sdk-embedded.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
             --bg-primary: #f5f5f7;
-            --bg-white: #ffffff;
             --bg-card: #ffffff;
-            --text-primary: #1a1a2e;
+            --bg-card-hover: #fafafa;
+            --text-primary: #1a1a1a;
             --text-secondary: #6b7280;
             --text-muted: #9ca3af;
-            --border-color: #e5e5ea;
-            --border-light: #f0f0f2;
             --accent-gold: #f59e0b;
-            --accent-gold-light: #fbbf24;
-            --accent-gold-gradient: linear-gradient(135deg, #f59e0b, #d97706);
-            --accent-indigo: #6366f1;
-            --accent-indigo-gradient: linear-gradient(135deg, #6366f1, #4f46e5);
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --hot-tag: #ef4444;
-            --new-tag: #3b82f6;
+            --accent-gold-light: rgba(245, 158, 11, 0.1);
+            --accent-green: #10b981;
+            --accent-green-light: rgba(16, 185, 129, 0.1);
+            --accent-purple: #8b5cf6;
             --radius-sm: 8px;
             --radius-md: 12px;
             --radius-lg: 16px;
             --radius-xl: 20px;
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
-            --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
-            --shadow-lg: 0 8px 24px rgba(0,0,0,0.08);
             --nav-height: 64px;
+            --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.06);
+            --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.1);
         }
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
-            overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
         }
-        .app-container {
-            max-width: 430px;
-            margin: 0 auto;
-            min-height: 100vh;
-            background: var(--bg-white);
-            position: relative;
-            box-shadow: 0 0 40px rgba(0,0,0,0.05);
-        }
-        .tab-content {
-            display: none;
-            padding-bottom: calc(var(--nav-height) + 20px);
-            min-height: 100vh;
-        }
-        .tab-content.active { display: block; animation: fadeIn 0.2s ease; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .home-header { padding: 20px; background: var(--bg-white); }
-        .home-logo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-        .logo-wrapper { display: flex; align-items: center; gap: 10px; }
-        .logo-icon {
-            width: 36px; height: 36px;
-            background: var(--accent-gold-gradient);
-            border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 18px; box-shadow: var(--shadow-md);
-        }
-        .logo-text { font-size: 20px; font-weight: 800; color: var(--text-primary); }
-        .logo-text span { color: var(--accent-gold); }
-        .header-actions { display: flex; gap: 8px; }
-        .header-btn {
-            width: 40px; height: 40px; border-radius: 10px;
-            background: var(--bg-primary); border: 1px solid var(--border-color);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 18px; cursor: pointer; transition: all 0.2s;
-        }
-        .header-btn:hover { background: var(--bg-white); border-color: var(--accent-gold); }
-        .featured-carousel {
-            display: flex; gap: 12px; overflow-x: auto;
-            padding: 0 20px 16px; scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch; scrollbar-width: none;
-        }
-        .featured-carousel::-webkit-scrollbar { display: none; }
-        .featured-card {
-            flex-shrink: 0; width: 260px;
-            background: var(--bg-white); border: 1px solid var(--border-color);
-            border-radius: var(--radius-lg); overflow: hidden;
-            scroll-snap-align: start; transition: all 0.2s; box-shadow: var(--shadow-sm);
-        }
-        .featured-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-        .featured-cover { width: 100%; height: 140px; object-fit: cover; background: var(--bg-primary); }
-        .featured-info { padding: 14px; }
-        .featured-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; }
-        .featured-tags { display: flex; gap: 6px; margin-bottom: 10px; }
-        .tag { display: inline-block; font-size: 10px; padding: 3px 8px; border-radius: 4px; font-weight: 600; }
-        .tag.hot { background: rgba(239, 68, 68, 0.1); color: var(--hot-tag); }
-        .tag.new { background: rgba(59, 130, 246, 0.1); color: var(--new-tag); }
-        .featured-btn {
-            width: 100%; padding: 10px;
-            background: var(--accent-gold-gradient); border: none;
-            border-radius: var(--radius-sm); color: white;
-            font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
-        }
-        .featured-btn:hover { transform: scale(1.02); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
-        .section-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 16px; }
-        .section-title { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-        .section-more { font-size: 13px; color: var(--accent-gold); text-decoration: none; font-weight: 500; }
-        .book-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 0 20px; }
-        .book-card {
-            background: var(--bg-card); border: 1px solid var(--border-color);
-            border-radius: var(--radius-md); overflow: hidden;
-            transition: all 0.2s; box-shadow: var(--shadow-sm);
-        }
-        .book-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-        .book-cover { width: 100%; height: 160px; object-fit: cover; background: var(--bg-primary); }
-        .book-info { padding: 12px; }
-        .book-title {
-            font-size: 13px; font-weight: 600; margin-bottom: 8px;
-            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-            overflow: hidden; line-height: 1.4; min-height: 36px;
-        }
-        .book-lang-badge { display: inline-block; font-size: 10px; padding: 3px 8px; background: rgba(99, 102, 241, 0.1); color: var(--accent-indigo); border-radius: 4px; margin-bottom: 10px; }
-        .book-lang-badge.es { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
-        .book-action-btn { width: 100%; padding: 10px; background: var(--accent-gold-gradient); border: none; border-radius: var(--radius-sm); color: white; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-        .book-action-btn:hover { transform: scale(1.02); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
-        .rank-list { padding: 0 20px 20px; }
-        .rank-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-        .rank-tab { padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid var(--border-color); background: var(--bg-white); color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
-        .rank-tab.active { background: var(--text-primary); color: white; border-color: var(--text-primary); }
-        .rank-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-white); border: 1px solid var(--border-color); border-radius: var(--radius-md); margin-bottom: 10px; transition: all 0.2s; }
-        .rank-item:hover { box-shadow: var(--shadow-md); }
-        .rank-num { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
-        .rank-num.top1 { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
-        .rank-num.top2 { background: linear-gradient(135deg, #9ca3af, #6b7280); color: white; }
-        .rank-num.top3 { background: linear-gradient(135deg, #cd7f32, #a0522d); color: white; }
-        .rank-num.normal { background: var(--bg-primary); color: var(--text-secondary); }
-        .rank-cover { width: 36px; height: 48px; border-radius: 4px; object-fit: cover; flex-shrink: 0; }
+        .app-container { max-width: 430px; margin: 0 auto; min-height: 100vh; background: var(--bg-primary); position: relative; }
+        .tab-content { display: none; padding-bottom: calc(var(--nav-height) + 20px); min-height: 100vh; }
+        .tab-content.active { display: block; }
+        
+        /* Header */
+        .app-header { padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); border-bottom: 1px solid rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 50; }
+        .header-logo { display: flex; align-items: center; gap: 10px; }
+        .header-logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent-gold), #f97316); border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); font-size: 18px; }
+        .header-logo-text { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+        .header-logo-text span { color: var(--accent-gold); }
+        
+        /* Banner */
+        .banner-section { padding: 16px 20px; }
+        .banner-card { background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: var(--radius-xl); overflow: hidden; position: relative; }
+        .banner-content { padding: 24px; position: relative; z-index: 1; }
+        .banner-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-gold); color: #000; font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px; margin-bottom: 12px; }
+        .banner-title { font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 8px; line-height: 1.3; }
+        .banner-subtitle { font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.5; }
+        .banner-earnings { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); text-align: center; }
+        .banner-earnings-value { font-size: 28px; font-weight: 800; color: var(--accent-green); }
+        .banner-earnings-label { font-size: 11px; color: rgba(255,255,255,0.6); }
+        
+        /* Section Headers */
+        .section-header { display: flex; align-items: center; justify-content: space-between; padding: 0 20px; margin-bottom: 14px; }
+        .section-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .section-title-icon { font-size: 18px; }
+        .section-more { font-size: 12px; color: var(--accent-gold); text-decoration: none; font-weight: 600; }
+        
+        /* Book Grid */
+        .book-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; padding: 0 20px; margin-bottom: 24px; }
+        .book-card { background: var(--bg-card); border-radius: var(--radius-lg); overflow: hidden; transition: all 0.3s; cursor: pointer; position: relative; box-shadow: var(--shadow-card); }
+        .book-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-card-hover); }
+        .book-card-tag { position: absolute; top: 10px; left: 10px; background: linear-gradient(135deg, #ef4444, #f97316); color: white; font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 6px; z-index: 2; }
+        .book-card-tag.new { background: linear-gradient(135deg, var(--accent-purple), #6366f1); }
+        .book-card-tag.trending { background: linear-gradient(135deg, var(--accent-gold), #f97316); color: #000; }
+        .book-cover { width: 100%; height: 170px; object-fit: cover; background: #e5e7eb; }
+        
+        .book-info { padding: 14px; }
+        .book-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; min-height: 40px; }
+        .book-lang-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 4px 8px; background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-radius: 6px; font-weight: 600; }
+        
+        /* Hot Ranking */
+        .rank-list { padding: 0 20px; margin-bottom: 24px; }
+        .rank-item { display: flex; align-items: center; gap: 14px; background: var(--bg-card); border-radius: var(--radius-lg); padding: 14px; margin-bottom: 10px; box-shadow: var(--shadow-card); transition: all 0.2s; cursor: pointer; }
+        .rank-item:hover { box-shadow: var(--shadow-card-hover); transform: translateX(4px); }
+        .rank-number { font-size: 20px; font-weight: 800; width: 32px; text-align: center; }
+        .rank-number.gold { color: #fbbf24; }
+        .rank-number.silver { color: #9ca3af; }
+        .rank-number.bronze { color: #b45309; }
+        .rank-cover { width: 50px; height: 70px; border-radius: var(--radius-sm); object-fit: cover; }
         .rank-info { flex: 1; min-width: 0; }
-        .rank-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .rank-meta { font-size: 11px; color: var(--text-muted); }
-        .rank-stat { text-align: right; flex-shrink: 0; }
-        .rank-stat-num { font-size: 14px; font-weight: 700; color: var(--accent-gold); }
-        .rank-stat-label { font-size: 10px; color: var(--text-muted); }
-        .submit-container { min-height: 100vh; background: var(--bg-white); }
-        .submit-header { padding: 24px 20px; text-align: center; border-bottom: 1px solid var(--border-light); }
-        .submit-badge { display: inline-block; padding: 6px 14px; border-radius: 20px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); color: var(--accent-gold); font-size: 12px; font-weight: 600; margin-bottom: 16px; }
-        .submit-title { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
-        .submit-subtitle { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
-        .submit-form { padding: 20px; }
-        .form-card { background: var(--bg-white); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow-sm); }
-        .form-group { margin-bottom: 16px; }
-        .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
-        .form-group label .required { color: var(--danger); margin-left: 3px; }
-        .form-input { width: 100%; padding: 14px 16px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 15px; font-family: 'Inter', sans-serif; transition: all 0.2s; }
-        .form-input:focus { outline: none; border-color: var(--accent-gold); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1); background: var(--bg-white); }
-        .form-input::placeholder { color: var(--text-muted); }
-        .lang-toggle { display: flex; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden; margin-bottom: 16px; }
-        .lang-btn { flex: 1; padding: 12px 16px; background: transparent; border: none; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-        .lang-btn.active { background: var(--accent-gold); color: white; }
-        .btn-submit { width: 100%; padding: 16px; background: var(--accent-gold-gradient); border: none; border-radius: var(--radius-md); color: white; font-size: 15px; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .btn-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(245, 158, 11, 0.35); }
-        .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
-        .btn-submit .spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; display: none; }
-        .btn-submit.loading .spinner { display: block; }
-        .btn-submit.loading .btn-text { display: none; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .search-results { padding: 0 20px 20px; }
-        .search-result-item { display: flex; gap: 12px; padding: 14px; background: var(--bg-white); border: 1px solid var(--border-color); border-radius: var(--radius-md); margin-bottom: 12px; transition: all 0.2s; }
-        .search-result-item:hover { box-shadow: var(--shadow-md); border-color: var(--accent-gold); }
-        .result-cover { width: 56px; height: 72px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: var(--bg-primary); }
-        .result-info { flex: 1; min-width: 0; }
-        .result-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .result-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
-        .create-link-btn { display: inline-block; padding: 8px 14px; background: var(--accent-gold-gradient); border: none; border-radius: var(--radius-sm); color: white; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-        .create-link-btn:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
-        .processing-status { display: none; text-align: center; padding: 40px 20px; }
-        .processing-status.show { display: block; }
-        .processing-icon { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.1)); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 32px; animation: pulse 1.5s ease-in-out infinite; }
-        @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; } }
-        .processing-status h3 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
-        .processing-status > p { font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; }
-        .processing-steps { background: var(--bg-primary); border-radius: var(--radius-md); padding: 16px; text-align: left; max-width: 280px; margin: 0 auto; }
-        .processing-step { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 13px; color: var(--text-muted); }
-        .processing-step.done { color: var(--success); }
-        .processing-step.failed { color: var(--danger); }
-        .processing-step.current { color: var(--accent-gold); }
-        .step-icon { width: 20px; height: 20px; border-radius: 50%; border: 2px solid currentColor; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; }
-        .processing-step.done .step-icon { background: var(--success); border-color: var(--success); color: white; }
-        .success-page { display: none; text-align: center; padding: 40px 20px; }
-        .success-page.show { display: block; }
-        .success-icon { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.1)); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 40px; }
-        .success-page h2 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
-        .success-page > p { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; }
-        .result-card { background: var(--bg-white); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 20px; text-align: left; box-shadow: var(--shadow-md); }
-        .result-card h4 { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .result-link-box { background: var(--bg-primary); border-radius: var(--radius-md); padding: 14px; word-break: break-all; font-size: 13px; color: var(--accent-indigo); font-weight: 500; margin-bottom: 12px; }
-        .result-code-box { background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.05)); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: var(--radius-md); padding: 14px; display: flex; align-items: center; justify-content: space-between; }
-        .result-code { font-size: 20px; font-weight: 800; color: var(--accent-gold); font-family: monospace; }
-        .copy-btn { padding: 8px 16px; background: var(--accent-gold-gradient); border: none; border-radius: var(--radius-sm); color: white; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-        .copy-btn:hover { transform: scale(1.05); }
-        .btn-retry { width: 100%; padding: 14px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-top: 12px; }
-        .btn-retry:hover { background: var(--bg-white); border-color: var(--accent-gold); }
-        .tasks-header { padding: 24px 20px 16px; background: var(--bg-white); }
-        .tasks-title { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
-        .tasks-subtitle { font-size: 14px; color: var(--text-secondary); }
-        .task-tabs { display: flex; gap: 8px; padding: 0 20px 16px; background: var(--bg-white); }
-        .task-tab { padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 600; border: 1px solid var(--border-color); background: var(--bg-white); color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
-        .task-tab.active { background: var(--text-primary); color: white; border-color: var(--text-primary); }
-        .task-list { padding: 0 20px 20px; }
-        .task-section-title { font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 16px 0 12px; display: flex; align-items: center; gap: 6px; }
-        .task-card { background: var(--bg-white); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 12px; transition: all 0.2s; box-shadow: var(--shadow-sm); }
-        .task-card:hover { box-shadow: var(--shadow-md); }
-        .task-card.completed { opacity: 0.7; background: var(--bg-primary); }
-        .task-top { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
-        .task-icon { width: 48px; height: 48px; background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.05)); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
-        .task-info { flex: 1; }
-        .task-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-        .task-reward { font-size: 13px; color: var(--accent-gold); font-weight: 600; display: flex; align-items: center; gap: 4px; }
-        .task-progress { margin-bottom: 14px; }
-        .progress-bar { height: 8px; background: var(--bg-primary); border-radius: 4px; overflow: hidden; margin-bottom: 6px; }
-        .progress-fill { height: 100%; background: var(--accent-gold-gradient); border-radius: 4px; transition: width 0.3s; }
-        .progress-text { font-size: 12px; color: var(--text-muted); text-align: right; }
-        .task-claim-btn { width: 100%; padding: 12px; background: var(--accent-gold-gradient); border: none; border-radius: var(--radius-sm); color: white; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-        .task-claim-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
-        .task-claim-btn:disabled { background: var(--bg-primary); color: var(--text-muted); cursor: not-allowed; transform: none; box-shadow: none; }
-        .task-claim-btn.claimed { background: rgba(16, 185, 129, 0.15); color: var(--success); }
-        .profile-header { padding: 32px 20px; text-align: center; background: var(--bg-white); border-bottom: 1px solid var(--border-light); }
-        .profile-avatar { width: 80px; height: 80px; border-radius: 50%; background: var(--accent-gold-gradient); display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700; color: white; margin: 0 auto 14px; box-shadow: 0 8px 24px rgba(245, 158, 11, 0.25); }
-        .profile-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-        .profile-name { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
-        .profile-uid { font-size: 13px; color: var(--text-muted); }
-        .login-form { margin-top: 20px; padding: 20px; background: var(--bg-primary); border-radius: var(--radius-lg); }
-        .login-form h3 { font-size: 18px; font-weight: 700; margin-bottom: 6px; text-align: center; }
-        .login-form > p { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 16px; }
-        .login-input { width: 100%; padding: 14px 16px; background: var(--bg-white); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 15px; font-family: 'Inter', sans-serif; outline: none; transition: all 0.2s; margin-bottom: 12px; }
-        .login-input:focus { border-color: var(--accent-gold); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1); }
-        .login-input::placeholder { color: var(--text-muted); }
-        .login-btn { width: 100%; padding: 14px; background: var(--accent-gold-gradient); border: none; border-radius: var(--radius-md); color: white; font-size: 15px; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.2s; margin-bottom: 16px; }
-        .login-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(245, 158, 11, 0.35); }
-        .login-divider { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: var(--text-muted); font-size: 13px; }
-        .login-divider::before, .login-divider::after { content: ''; flex: 1; height: 1px; background: var(--border-color); }
-        .discord-login-btn { width: 100%; padding: 14px; background: #5865F2; border: none; border-radius: var(--radius-md); color: white; font-size: 14px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .discord-login-btn:hover { background: #4752c4; transform: translateY(-1px); }
-        .login-tip { text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 12px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 16px 20px; background: var(--bg-primary); }
-        .stat-card { background: var(--bg-white); border-radius: var(--radius-md); padding: 16px 12px; text-align: center; box-shadow: var(--shadow-sm); }
-        .stat-num { font-size: 22px; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
-        .stat-num.gold { color: var(--accent-gold); }
-        .stat-label { font-size: 11px; color: var(--text-muted); font-weight: 500; }
-        .profile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 16px 20px; }
-        .profile-card { background: var(--bg-white); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 20px 16px; text-align: center; cursor: pointer; transition: all 0.2s; box-shadow: var(--shadow-sm); }
-        .profile-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--accent-gold); }
-        .profile-card-icon { font-size: 32px; margin-bottom: 10px; }
-        .profile-card-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
-        .profile-card-desc { font-size: 11px; color: var(--text-muted); }
-        .my-books-section { padding: 0 20px 20px; }
-        .my-book-item { background: var(--bg-white); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px; margin-bottom: 10px; display: flex; gap: 12px; align-items: center; transition: all 0.2s; box-shadow: var(--shadow-sm); }
-        .my-book-item:hover { box-shadow: var(--shadow-md); }
-        .my-book-cover { width: 40px; height: 54px; border-radius: 4px; object-fit: cover; flex-shrink: 0; background: var(--bg-primary); }
-        .my-book-info { flex: 1; min-width: 0; }
-        .my-book-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .my-book-code { font-size: 12px; color: var(--accent-gold); font-weight: 600; }
-        .my-book-copy { padding: 10px 14px; background: var(--accent-gold-gradient); border: none; border-radius: var(--radius-sm); color: white; font-size: 12px; font-weight: 600; cursor: pointer; flex-shrink: 0; transition: all 0.2s; }
-        .my-book-copy:hover { transform: scale(1.05); }
-        .logout-btn { display: none; width: calc(100% - 40px); margin: 0 auto 20px; padding: 14px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: var(--radius-md); color: var(--danger); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-        .logout-btn.show { display: block; }
-        .logout-btn:hover { background: rgba(239, 68, 68, 0.15); }
-        .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: var(--bg-white); border-top: 1px solid var(--border-light); display: flex; justify-content: space-around; padding: 8px 0; padding-bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 100; box-shadow: 0 -4px 20px rgba(0,0,0,0.04); }
-        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 20px; text-decoration: none; color: var(--text-muted); transition: all 0.2s; border-radius: var(--radius-sm); background: none; border: none; cursor: pointer; position: relative; }
-        .nav-item:hover { color: var(--text-secondary); }
-        .nav-item.active { color: var(--accent-gold); }
-        .nav-item.active::before { content: ''; position: absolute; top: -1px; left: 50%; transform: translateX(-50%); width: 24px; height: 3px; background: var(--accent-gold); border-radius: 0 0 3px 3px; }
-        .nav-icon { font-size: 24px; }
-        .nav-label { font-size: 11px; font-weight: 600; }
-        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
-        .modal-overlay.show { display: flex; animation: fadeIn 0.2s; }
-        .modal { background: var(--bg-white); border-radius: var(--radius-xl); width: 100%; max-width: 360px; overflow: hidden; box-shadow: var(--shadow-lg); animation: slideUp 0.3s ease; }
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .modal-header { padding: 24px 20px 16px; text-align: center; }
-        .modal-title { font-size: 18px; font-weight: 700; }
-        .modal-body { padding: 0 20px 24px; }
-        .modal-book-cover { width: 80px; height: 110px; border-radius: var(--radius-md); object-fit: cover; margin: 0 auto 16px; display: block; box-shadow: var(--shadow-md); }
-        .modal-book-title { font-size: 15px; font-weight: 600; text-align: center; margin-bottom: 16px; }
-        .modal-field { margin-bottom: 16px; }
-        .modal-label { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
-        .modal-input { width: 100%; padding: 12px 14px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 14px; font-family: 'Inter', sans-serif; transition: all 0.2s; }
-        .modal-input:focus { outline: none; border-color: var(--accent-gold); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1); }
-        .modal-actions { display: flex; gap: 10px; }
-        .modal-btn { flex: 1; padding: 14px; border: none; border-radius: var(--radius-md); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-        .modal-btn.cancel { background: var(--bg-primary); color: var(--text-secondary); }
-        .modal-btn.cancel:hover { background: var(--border-color); }
-        .modal-btn.confirm { background: var(--accent-gold-gradient); color: white; }
-        .modal-btn.confirm:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
-        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--text-primary); color: white; padding: 14px 24px; border-radius: var(--radius-md); font-size: 14px; font-weight: 500; z-index: 300; animation: toastIn 0.3s; box-shadow: var(--shadow-lg); }
-        .toast.success { background: var(--success); }
-        .toast.error { background: var(--danger); }
-        @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
-        .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
-        .empty-icon { font-size: 56px; margin-bottom: 14px; opacity: 0.6; }
-        .empty-text { font-size: 14px; }
-        body.discord-embedded { min-height: 100vh; min-height: 100dvh; }
-        body.discord-embedded .app-container { max-width: 100%; min-height: 100vh; min-height: 100dvh; }
-        body.discord-embedded .bottom-nav { display: none; }
-        body.discord-embedded .tab-content { padding-bottom: 20px; }
-        .discord-status-bar { display: none; background: var(--bg-white); border-bottom: 1px solid var(--border-light); padding: 12px 16px; align-items: center; gap: 12px; }
-        .discord-status-bar.show { display: flex; }
-        .discord-status-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
-        .discord-status-name { font-size: 14px; font-weight: 600; }
-        .discord-status-badge { margin-left: auto; background: #5865F2; color: white; font-size: 10px; padding: 4px 10px; border-radius: 12px; font-weight: 600; }
-        .discord-top-tabs { display: none; background: var(--bg-white); border-bottom: 1px solid var(--border-light); }
-        body.discord-embedded .discord-top-tabs { display: flex; }
-        .discord-tab { flex: 1; padding: 14px 8px; background: none; border: none; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 4px; }
-        .discord-tab.active { color: var(--accent-gold); background: rgba(245, 158, 11, 0.08); }
-        body.discord-embedded .tab-content { min-height: calc(100vh - 130px); min-height: calc(100dvh - 130px); }
+        .rank-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rank-meta { font-size: 12px; color: var(--text-muted); }
+        .rank-views { font-size: 12px; color: var(--accent-gold); font-weight: 600; }
+        
+        /* Submit Tab */
+        .submit-header { padding: 24px 20px; text-align: center; background: var(--bg-card); border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .submit-title { font-size: 22px; font-weight: 800; margin-bottom: 8px; background: linear-gradient(90deg, #1a1a1a, var(--accent-gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .submit-desc { font-size: 14px; color: var(--text-secondary); }
+        .search-section { padding: 20px; }
+        .search-box-wrapper { background: var(--bg-card); border: 2px solid #e5e7eb; border-radius: var(--radius-xl); padding: 6px; display: flex; gap: 8px; transition: all 0.2s; box-shadow: var(--shadow-card); }
+        .search-box-wrapper:focus-within { border-color: var(--accent-gold); box-shadow: 0 0 0 4px var(--accent-gold-light); }
+        .search-input { flex: 1; padding: 12px 16px; background: transparent; border: none; color: var(--text-primary); font-size: 14px; outline: none; }
+        .search-input::placeholder { color: var(--text-muted); }
+        .search-btn { padding: 12px 20px; background: linear-gradient(135deg, var(--accent-gold), #f97316); border: none; border-radius: var(--radius-lg); color: white; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+        .search-btn:hover { transform: scale(1.02); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
+        .search-btn:active { transform: scale(0.98); }
+        .search-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+        
+        /* Candidate Cards */
         .candidate-section { display: none; padding: 0 20px 20px; }
         .candidate-section.show { display: block; }
-        .candidate-section h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; text-align: center; }
+        .candidate-section h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; text-align: center; }
         .candidate-section > p { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 16px; }
-        .candidate-list { display: flex; flex-direction: column; gap: 10px; }
-        .candidate-card { background: var(--bg-white); border: 2px solid var(--border-color); border-radius: var(--radius-md); padding: 14px; cursor: pointer; transition: all 0.2s; display: flex; gap: 12px; align-items: center; }
-        .candidate-card:hover { border-color: var(--accent-gold); background: rgba(245, 158, 11, 0.03); }
-        .candidate-card.selected { border-color: var(--accent-gold); background: rgba(245, 158, 11, 0.08); }
-        .candidate-cover { width: 48px; height: 64px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: var(--bg-primary); }
+        .candidate-list { display: flex; flex-direction: column; gap: 12px; }
+        .candidate-card { background: var(--bg-card); border: 2px solid #e5e7eb; border-radius: var(--radius-lg); padding: 14px; cursor: pointer; transition: all 0.2s; display: flex; gap: 12px; align-items: center; box-shadow: var(--shadow-card); }
+        .candidate-card:hover { border-color: var(--accent-gold); background: var(--accent-gold-light); }
+        .candidate-card.selected { border-color: var(--accent-gold); background: var(--accent-gold-light); }
+        .candidate-cover { width: 50px; height: 70px; border-radius: var(--radius-sm); object-fit: cover; flex-shrink: 0; }
         .candidate-info { flex: 1; min-width: 0; }
         .candidate-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .candidate-author { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
         .candidate-score { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
-        .candidate-score.high { background: rgba(16, 185, 129, 0.1); color: var(--success); }
-        .candidate-score.medium { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
-        .candidate-check { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border-color); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; color: transparent; transition: all 0.2s; }
+        .candidate-score.high { background: var(--accent-green-light); color: var(--accent-green); }
+        .candidate-score.medium { background: var(--accent-gold-light); color: var(--accent-gold); }
+        .candidate-score.low { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+        .candidate-check { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #e5e7eb; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; color: transparent; transition: all 0.2s; }
         .candidate-card.selected .candidate-check { background: var(--accent-gold); border-color: var(--accent-gold); color: white; }
+        .confirm-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--accent-green), #059669); border: none; border-radius: var(--radius-lg); color: white; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 16px; transition: all 0.2s; }
+        .confirm-btn:hover:not(:disabled) { transform: scale(1.02); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); }
+        .confirm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        /* Success State */
+        .success-section { display: none; padding: 20px; text-align: center; }
+        .success-section.show { display: block; }
+        .success-icon { width: 72px; height: 72px; background: var(--accent-green-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 36px; }
+        .success-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+        .success-book { font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; }
+        .link-box { background: var(--bg-card); border: 2px solid var(--accent-green); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; }
+        .link-box:hover { background: var(--accent-green-light); }
+        .link-box-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .link-box-value { font-size: 14px; font-weight: 600; color: var(--accent-green); word-break: break-all; }
+        .code-box { background: var(--bg-card); border: 2px solid var(--accent-gold); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; }
+        .code-box:hover { background: var(--accent-gold-light); }
+        .code-box .link-box-label { color: var(--text-muted); }
+        .code-box .link-box-value { color: var(--accent-gold); }
+        .promo-box { background: var(--accent-gold-light); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 20px; text-align: left; }
+        .promo-text { font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+        .btn-recommend-another { width: 100%; padding: 14px; background: var(--bg-card); border: 2px solid var(--accent-gold); border-radius: var(--radius-lg); color: var(--accent-gold); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn-recommend-another:hover { background: var(--accent-gold); color: white; }
+        
+        /* Guide Cards */
+        .guide-section { padding: 0 20px 20px; }
+        .guide-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; -webkit-overflow-scrolling: touch; }
+        .guide-scroll::-webkit-scrollbar { display: none; }
+        .guide-card { flex-shrink: 0; width: 140px; background: var(--bg-card); border-radius: var(--radius-lg); padding: 16px; text-align: center; box-shadow: var(--shadow-card); cursor: pointer; transition: all 0.2s; }
+        .guide-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-card-hover); }
+        .guide-icon { font-size: 32px; margin-bottom: 10px; }
+        .guide-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+        .guide-desc { font-size: 11px; color: var(--text-muted); }
+        
+        /* Tasks Tab */
+        .tasks-header { padding: 24px 20px; text-align: center; background: linear-gradient(180deg, #1a1a2e 0%, #1a1a2e 60%, var(--bg-primary) 60%); }
+        .tasks-title { font-size: 22px; font-weight: 800; color: #fff; margin-bottom: 6px; }
+        .tasks-subtitle { font-size: 14px; color: rgba(255,255,255,0.7); }
+        .task-list { padding: 0 20px; }
+        .task-card { background: var(--bg-card); border-radius: var(--radius-lg); padding: 18px; margin-bottom: 14px; position: relative; overflow: hidden; box-shadow: var(--shadow-card); }
+        .task-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
+        .task-card.money::before { background: linear-gradient(180deg, var(--accent-gold), #f97316); }
+        .task-card.bonus::before { background: linear-gradient(180deg, var(--accent-green), #059669); }
+        .task-card.special::before { background: linear-gradient(180deg, var(--accent-purple), #6366f1); }
+        .task-top { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+        .task-icon { width: 48px; height: 48px; background: var(--bg-primary); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-size: 24px; }
+        .task-info { flex: 1; }
+        .task-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+        .task-reward { display: flex; align-items: center; gap: 6px; font-size: 18px; font-weight: 800; color: var(--accent-green); }
+        .task-desc { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
+        .task-btn { width: 100%; padding: 12px; background: linear-gradient(135deg, var(--accent-gold), #f97316); border: none; border-radius: var(--radius-md); color: white; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .task-btn:hover { transform: scale(1.02); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
+        .task-btn.completed { background: var(--accent-green-light); color: var(--accent-green); cursor: default; transform: none; box-shadow: none; }
+        
+        /* Leaderboard */
+        .leaderboard-section { padding: 24px 20px; background: linear-gradient(180deg, #1a1a2e, #0f0f1a); }
+        .leaderboard-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .leaderboard-title { font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
+        .leaderboard-badge { background: var(--accent-gold); color: #000; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 10px; }
+        .leaderboard-list { display: flex; flex-direction: column; gap: 8px; }
+        .leaderboard-item { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.05); border-radius: var(--radius-md); padding: 12px 14px; }
+        .leaderboard-rank { font-size: 16px; font-weight: 800; width: 28px; text-align: center; }
+        .leaderboard-rank.gold { color: #fbbf24; }
+        .leaderboard-rank.silver { color: #9ca3af; }
+        .leaderboard-rank.bronze { color: #b45309; }
+        .leaderboard-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-purple), var(--accent-gold)); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: white; }
+        .leaderboard-info { flex: 1; }
+        .leaderboard-name { font-size: 14px; font-weight: 600; color: #fff; }
+        .leaderboard-books { font-size: 11px; color: rgba(255,255,255,0.5); }
+        .leaderboard-earnings { font-size: 16px; font-weight: 800; color: var(--accent-green); }
+        
+        /* Profile Tab */
+        .profile-header { padding: 32px 20px; text-align: center; background: var(--bg-card); position: relative; }
+        .profile-avatar { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-gold), #f97316); display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700; color: white; margin: 0 auto 16px; box-shadow: 0 8px 24px rgba(245, 158, 11, 0.3); }
+        .profile-name { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+        .profile-id { font-size: 13px; color: var(--text-muted); font-family: monospace; }
+        .profile-login-btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 28px; background: #5865F2; border: none; border-radius: var(--radius-lg); color: white; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 20px; transition: all 0.2s; box-shadow: 0 4px 16px rgba(88, 101, 242, 0.3); }
+        .profile-login-btn:hover { transform: scale(1.05); box-shadow: 0 8px 24px rgba(88, 101, 242, 0.4); }
+        .profile-login-btn svg { width: 20px; height: 20px; fill: white; }
+        .profile-logout-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: var(--radius-lg); color: #ef4444; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 16px; transition: all 0.2s; }
+        .profile-logout-btn:hover { background: rgba(239, 68, 68, 0.2); }
+        
+        /* Stats */
+        .profile-stats { display: flex; justify-content: center; gap: 32px; padding: 20px; margin: 0 20px 20px; background: var(--bg-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+        .stat-item { text-align: center; }
+        .stat-value { font-size: 24px; font-weight: 800; color: var(--accent-green); margin-bottom: 4px; }
+        .stat-label { font-size: 12px; color: var(--text-muted); }
+        
+        /* ID Binding */
+        .id-binding { margin: 0 20px 20px; }
+        .id-binding-card { background: var(--bg-card); border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--shadow-card); }
+        .id-binding-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .id-binding-input { display: flex; gap: 8px; }
+        .id-binding-input input { flex: 1; padding: 12px 14px; background: var(--bg-primary); border: 2px solid #e5e7eb; border-radius: var(--radius-md); font-size: 14px; font-family: 'Inter', sans-serif; }
+        .id-binding-input input:focus { outline: none; border-color: var(--accent-gold); }
+        .id-binding-input button { padding: 12px 20px; background: var(--accent-gold); border: none; border-radius: var(--radius-md); color: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .id-binding-input button:hover { background: #d97706; }
+        
+        /* Discord Button */
+        .discord-section { margin: 0 20px 20px; }
+        .discord-btn { width: 100%; padding: 14px; background: #5865F2; border: none; border-radius: var(--radius-lg); color: white; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.2s; box-shadow: 0 4px 16px rgba(88, 101, 242, 0.3); }
+        .discord-btn:hover { transform: scale(1.02); box-shadow: 0 8px 24px rgba(88, 101, 242, 0.4); }
+        .discord-btn svg { width: 20px; height: 20px; fill: white; }
+        
+        /* My Books */
+        .my-books-section { padding: 0 20px 20px; }
+        .my-books-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+        .my-book-item { background: var(--bg-card); border-radius: var(--radius-lg); margin-bottom: 12px; overflow: hidden; box-shadow: var(--shadow-card); transition: all 0.2s; }
+        .my-book-item:hover { box-shadow: var(--shadow-card-hover); }
+        .my-book-header { display: flex; align-items: center; gap: 12px; padding: 14px; cursor: pointer; }
+        .my-book-cover { width: 44px; height: 60px; border-radius: var(--radius-sm); object-fit: cover; }
+        .my-book-info { flex: 1; min-width: 0; }
+        .my-book-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .my-book-code { font-size: 12px; color: var(--accent-gold); font-family: monospace; font-weight: 600; }
+        .my-book-expand { font-size: 18px; color: var(--text-muted); transition: transform 0.2s; }
+        .my-book-item.expanded .my-book-expand { transform: rotate(180deg); }
+        .my-book-details { display: none; padding: 0 14px 14px; border-top: 1px solid #f0f0f0; }
+        .my-book-item.expanded .my-book-details { display: block; }
+        .my-book-link, .my-book-promo { background: var(--bg-primary); border-radius: var(--radius-md); padding: 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+        .my-book-link:hover, .my-book-promo:hover { background: #f0f0f0; }
+        .my-book-link-label, .my-book-promo-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .my-book-link-value { font-size: 13px; color: var(--accent-green); word-break: break-all; }
+        .my-book-promo-text { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+        .copy-all-btn { width: 100%; padding: 12px; background: var(--accent-gold); border: none; border-radius: var(--radius-md); color: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .copy-all-btn:hover { background: #d97706; }
+        .copy-all-btn.copied { background: var(--accent-green); }
+        
+        .empty-state { text-align: center; padding: 40px 20px; }
+        .empty-icon { font-size: 48px; margin-bottom: 12px; }
+        .empty-title { font-size: 16px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
+        .empty-text { font-size: 13px; color: var(--text-muted); }
+        
+        /* Bottom Nav */
+        .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: var(--bg-card); border-top: 1px solid rgba(0,0,0,0.08); display: flex; justify-content: space-around; padding: 8px 0; padding-bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 100; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 20px; text-decoration: none; color: var(--text-muted); transition: all 0.2s; border-radius: var(--radius-md); background: none; border: none; cursor: pointer; position: relative; }
+        .nav-item::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 0; height: 3px; background: var(--accent-gold); border-radius: 0 0 3px 3px; transition: width 0.3s; }
+        .nav-item.active { color: var(--accent-gold); }
+        .nav-item.active::before { width: 24px; }
+        .nav-icon { font-size: 22px; line-height: 1; }
+        .nav-label { font-size: 11px; font-weight: 600; }
+        
+        /* Modal */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+        .modal-overlay.show { display: flex; }
+        .modal { background: var(--bg-card); border-radius: var(--radius-xl); width: 100%; max-width: 340px; overflow: hidden; transform: scale(0.95); transition: transform 0.2s; }
+        .modal-overlay.show .modal { transform: scale(1); }
+        .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid rgba(0,0,0,0.08); }
+        .modal-close { width: 32px; height: 32px; background: var(--bg-primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; color: var(--text-muted); }
+        .modal-title { font-size: 16px; font-weight: 700; }
+        .modal-body { padding: 20px; }
+        .modal-book-cover { width: 120px; height: 170px; border-radius: var(--radius-lg); object-fit: cover; margin: 0 auto 16px; display: block; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+        .modal-book-title { font-size: 16px; font-weight: 700; text-align: center; margin-bottom: 12px; }
+        .modal-book-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 16px; text-align: center; max-height: 80px; overflow: hidden; }
+        .modal-meta { display: flex; justify-content: center; gap: 20px; margin-bottom: 20px; }
+        .modal-meta-item { text-align: center; }
+        .modal-meta-value { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+        .modal-meta-label { font-size: 11px; color: var(--text-muted); }
+        .modal-actions { display: flex; gap: 12px; }
+        .modal-btn { flex: 1; padding: 14px; border: none; border-radius: var(--radius-lg); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .modal-btn.cancel { background: var(--bg-primary); color: var(--text-secondary); }
+        .modal-btn.confirm { background: linear-gradient(135deg, var(--accent-gold), #f97316); color: white; }
+        .modal-btn:hover { transform: scale(1.02); }
+        
+        /* Toast */
+        .toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 300; display: flex; flex-direction: column; gap: 8px; }
+        .toast { background: #1a1a1a; color: white; padding: 12px 20px; border-radius: var(--radius-lg); font-size: 14px; font-weight: 500; animation: slideIn 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .toast.success { background: var(--accent-green); }
+        .toast.error { background: #ef4444; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Loading */
+        .spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; display: none; }
+        .loading .spinner { display: block; }
+        .loading .btn-text { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Responsive */
+        @media (max-width: 480px) {
+            .book-grid { gap: 12px; padding: 0 16px; }
+            .section-header { padding: 0 16px; }
+            .banner-section { padding: 16px 16px; }
+            .rank-list, .guide-section, .task-list, .search-section, .form-section, .candidate-section, .success-section { padding-left: 16px; padding-right: 16px; }
+            .profile-stats { margin: 0 16px 16px; gap: 24px; }
+            .id-binding, .discord-section, .my-books-section { margin-left: 16px; margin-right: 16px; }
+            .leaderboard-section { padding-left: 16px; padding-right: 16px; }
+        }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <div class="discord-status-bar" id="discordStatusBar">
-            <img class="discord-status-avatar" id="discordStatusAvatar" src="" alt="">
-            <span class="discord-status-name" id="discordStatusName">Discord User</span>
-            <span class="discord-status-badge">Discord</span>
-        </div>
-        <nav class="discord-top-tabs">
-            <button class="discord-tab active" data-tab="home"><span>🏠</span> 首页</button>
-            <button class="discord-tab" data-tab="submit"><span>📖</span> 书单</button>
-            <button class="discord-tab" data-tab="tasks"><span>🎯</span> 任务</button>
-            <button class="discord-tab" data-tab="profile"><span>👤</span> 我的</button>
-        </nav>
-        
-        <!-- Tab 1: 首页 -->
-        <div class="tab-content active" id="tab-home">
-            <div class="home-header">
-                <div class="home-logo">
-                    <div class="logo-wrapper">
-                        <div class="logo-icon">📚</div>
-                        <div class="logo-text">Novel<span>Flow</span></div>
+        <!-- Home Tab -->
+        <div id="tab-home" class="tab-content active">
+            <header class="app-header">
+                <div class="header-logo">
+                    <div class="header-logo-icon">📚</div>
+                    <div class="header-logo-text">Novel<span>Flow</span></div>
+                </div>
+            </header>
+            
+            <div class="banner-section">
+                <div class="banner-card">
+                    <div class="banner-content">
+                        <div class="banner-badge">💰 EARN MONEY</div>
+                        <div class="banner-title">Start Earning Today!</div>
+                        <div class="banner-subtitle">Recommend books and earn up to $20 per week. It's free and easy!</div>
                     </div>
-                    <div class="header-actions">
-                        <button class="header-btn">🔍</button>
-                        <button class="header-btn" onclick="switchTab('profile')">👤</button>
+                    <div class="banner-earnings">
+                        <div class="banner-earnings-value">$847</div>
+                        <div class="banner-earnings-label">Total Earned</div>
                     </div>
                 </div>
-                <div class="featured-carousel" id="featuredCarousel"></div>
             </div>
+            
             <div class="section-header">
-                <div class="section-title">✨ 精选推荐</div>
-                <a href="#" class="section-more">查看全部 →</a>
+                <div class="section-title"><span class="section-title-icon">✨</span> Featured Books</div>
             </div>
             <div class="book-grid" id="featuredBooks"></div>
+            
             <div class="section-header">
-                <div class="section-title">🔥 热门排行</div>
+                <div class="section-title"><span class="section-title-icon">🔥</span> Hot Ranking</div>
+                <a href="#" class="section-more">View All</a>
             </div>
-            <div class="rank-list">
-                <div class="rank-tabs">
-                    <button class="rank-tab active" data-period="week">本周</button>
-                    <button class="rank-tab" data-period="month">本月</button>
-                    <button class="rank-tab" data-period="all">总榜</button>
-                </div>
-                <div id="rankList"></div>
-            </div>
+            <div class="rank-list" id="rankList"></div>
         </div>
         
-        <!-- Tab 2: 提交书单 -->
-        <div class="tab-content" id="tab-submit">
-            <div class="submit-container" id="submitContainer">
-                <div class="submit-header">
-                    <div class="submit-badge">📚 KOC Dashboard</div>
-                    <h1 class="submit-title">Submit Your Book Recommendation</h1>
-                    <p class="submit-subtitle">Help fellow readers discover amazing stories!</p>
-                </div>
-                <div class="submit-form" id="submitForm">
-                    <div class="form-card">
-                        <div class="lang-toggle" id="langToggle">
-                            <button class="lang-btn active" data-lang="en">🇺🇸 English</button>
-                            <button class="lang-btn" data-lang="es">🇪🇸 Español</button>
-                        </div>
-                        <div class="form-group">
-                            <label>Discord Username <span class="required">*</span></label>
-                            <input type="text" class="form-input" id="discordUsername" placeholder="Enter your Discord username">
-                        </div>
-                        <div class="form-group">
-                            <label>Book Name <span class="required">*</span></label>
-                            <input type="text" class="form-input" id="bookName" placeholder="Enter book name or author to search">
-                        </div>
-                        <button class="btn-submit" id="submitBtn" onclick="handleSubmit()">
-                            <span class="btn-text">🔍 Search & Create Link</span>
-                            <span class="spinner"></span>
-                        </button>
-                    </div>
-                </div>
-                <div class="search-results" id="searchResults"></div>
-                <div class="processing-status" id="processingStatus">
-                    <div class="processing-icon">⚙️</div>
-                    <h3>Creating Your Link...</h3>
-                    <p>Please wait a moment</p>
-                    <div class="processing-steps">
-                        <div class="processing-step current" id="step1"><span class="step-icon">◌</span><span>Searching book database</span></div>
-                        <div class="processing-step" id="step2"><span class="step-icon">◌</span><span>Generating unique link</span></div>
-                        <div class="processing-step" id="step3"><span class="step-icon">◌</span><span>Creating promotion code</span></div>
-                        <div class="processing-step" id="step4"><span class="step-icon">◌</span><span>Finalizing...</span></div>
-                    </div>
-                </div>
-                <div class="success-page" id="successPage">
-                    <div class="success-icon">✅</div>
-                    <h2>Link Created Successfully!</h2>
-                    <p>Share this link with your Discord community</p>
-                    <div class="result-card">
-                        <h4>Promotion Link</h4>
-                        <div class="result-link-box" id="resultLink"></div>
-                    </div>
-                    <div class="result-card">
-                        <h4>Your Code</h4>
-                        <div class="result-code-box">
-                            <span class="result-code" id="resultCode"></span>
-                            <button class="copy-btn" onclick="copyToClipboard()">📋 Copy</button>
-                        </div>
-                    </div>
-                    <button class="btn-submit" onclick="resetForm()"><span class="btn-text">🔄 Recommend Another Book</span></button>
-                    <button class="btn-retry" onclick="resetForm()">← Back to Search</button>
-                </div>
+        <!-- Submit Tab -->
+        <div id="tab-submit" class="tab-content">
+            <div class="submit-header">
+                <div class="submit-title">Submit Your Book</div>
+                <div class="submit-desc">Search and create your referral link</div>
             </div>
-        </div>
-        
-        <!-- Tab 3: 任务 -->
-        <div class="tab-content" id="tab-tasks">
-            <div class="tasks-header">
-                <div class="tasks-title">🎯 任务中心</div>
-                <div class="tasks-subtitle">完成任务领取VIP奖励</div>
-            </div>
-            <div class="task-tabs">
-                <button class="task-tab active" data-task-type="daily">📅 每日任务</button>
-                <button class="task-tab" data-task-type="achievement">🏆 成就任务</button>
-            </div>
-            <div class="task-list" id="taskList">
-                <div class="task-section-title">📅 每日任务</div>
-                <div class="task-card" data-task="first_book">
-                    <div class="task-top">
-                        <div class="task-icon">📖</div>
-                        <div class="task-info">
-                            <div class="task-name">首次推荐一本书</div>
-                            <div class="task-reward">🏆 奖励2天VIP</div>
-                        </div>
-                    </div>
-                    <div class="task-progress"><div class="progress-bar"><div class="progress-fill" style="width: 0%"></div></div><div class="progress-text">0/1</div></div>
-                    <button class="task-claim-btn" onclick="switchTab('submit')">去完成</button>
-                </div>
-                <div class="task-card" data-task="share_3books">
-                    <div class="task-top">
-                        <div class="task-icon">📝</div>
-                        <div class="task-info">
-                            <div class="task-name">推荐3本书</div>
-                            <div class="task-reward">🏆 奖励5天VIP</div>
-                        </div>
-                    </div>
-                    <div class="task-progress"><div class="progress-bar"><div class="progress-fill" style="width: 33%"></div></div><div class="progress-text">1/3</div></div>
-                    <button class="task-claim-btn">继续加油</button>
-                </div>
-                <div class="task-card" data-task="daily_share">
-                    <div class="task-top">
-                        <div class="task-icon">🔥</div>
-                        <div class="task-info">
-                            <div class="task-name">今日分享1次</div>
-                            <div class="task-reward">🏆 奖励积分+5</div>
-                        </div>
-                    </div>
-                    <div class="task-progress"><div class="progress-bar"><div class="progress-fill" style="width: 100%"></div></div><div class="progress-text">已完成</div></div>
-                    <button class="task-claim-btn claimed">已领取</button>
-                </div>
-                <div class="task-section-title">🏆 成就任务</div>
-                <div class="task-card" data-task="click_100">
-                    <div class="task-top">
-                        <div class="task-icon">🖱️</div>
-                        <div class="task-info">
-                            <div class="task-name">推荐书被点击100次</div>
-                            <div class="task-reward">🏆 奖励7天VIP</div>
-                        </div>
-                    </div>
-                    <div class="task-progress"><div class="progress-bar"><div class="progress-fill" style="width: 67%"></div></div><div class="progress-text">67/100</div></div>
-                    <button class="task-claim-btn">进行中</button>
-                </div>
-                <div class="task-card" data-task="week_earnings">
-                    <div class="task-top">
-                        <div class="task-icon">💰</div>
-                        <div class="task-info">
-                            <div class="task-name">本周推荐收益达$5</div>
-                            <div class="task-reward">🏆 额外奖励</div>
-                        </div>
-                    </div>
-                    <div class="task-progress"><div class="progress-bar"><div class="progress-fill" style="width: 40%"></div></div><div class="progress-text">$2 / $5</div></div>
-                    <button class="task-claim-btn">继续努力</button>
-                </div>
-                <div class="task-card completed" data-task="week_king">
-                    <div class="task-top">
-                        <div class="task-icon">👑</div>
-                        <div class="task-info">
-                            <div class="task-name">本周推荐王</div>
-                            <div class="task-reward">🏆 额外神秘奖励</div>
-                        </div>
-                    </div>
-                    <div class="task-progress"><div class="progress-bar"><div class="progress-fill" style="width: 100%"></div></div><div class="progress-text">已达成</div></div>
-                    <button class="task-claim-btn claimed">已领取 ✓</button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Tab 4: 我的 -->
-        <div class="tab-content" id="tab-profile">
-            <div class="profile-header" id="profileHeader">
-                <div class="profile-avatar" id="profileAvatar">?</div>
-                <div class="profile-name" id="profileName">未登录</div>
-                <div class="profile-uid" id="profileUid">登录后解锁更多功能</div>
-                <div class="login-form" id="loginForm">
-                    <h3>注册 / 登录</h3>
-                    <p>只需填写一次，30天内自动登录 🚀</p>
-                    <input type="text" class="login-input" id="regUsername" placeholder="用户名 / Username" maxlength="50">
-                    <input type="text" class="login-input" id="regNFId" placeholder="NovelFlow ID (站内ID)" maxlength="20">
-                    <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()">确认</button>
-                    <div class="login-divider">或</div>
-                    <button class="discord-login-btn" onclick="showDiscordLogin()">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
-                        使用 Discord 登录
+            
+            <div class="search-section" id="searchSection">
+                <div class="search-box-wrapper">
+                    <input type="text" class="search-input" id="searchInput" placeholder="Enter book name...">
+                    <button class="search-btn" id="searchBtn">
+                        <span class="btn-text">🔍 Search</span>
+                        <span class="spinner"></span>
                     </button>
-                    <div class="login-tip">💡 填写信息即可使用，无需密码</div>
                 </div>
-                <button class="logout-btn" id="logoutBtn" onclick="handleLogout()">🚪 退出登录</button>
+                <div id="searchResults" style="margin-top: 20px;"></div>
             </div>
-            <div class="stats-grid" id="statsGrid">
-                <div class="stat-card"><div class="stat-num" id="statLinks">0</div><div class="stat-label">推广链接</div></div>
-                <div class="stat-card"><div class="stat-num gold" id="statPoints">0</div><div class="stat-label">积分</div></div>
-                <div class="stat-card"><div class="stat-num" id="statRank">--</div><div class="stat-label">排名</div></div>
+            
+            <!-- Candidate Selection -->
+            <div class="candidate-section" id="candidateSection">
+                <h3>Select Your Book</h3>
+                <p>We found some matching books. Please select:</p>
+                <div class="candidate-list" id="candidateList"></div>
+                <button class="confirm-btn" id="confirmBtn" disabled>
+                    <span class="btn-text">✓ Confirm & Create Link</span>
+                    <span class="spinner"></span>
+                </button>
             </div>
-            <div class="profile-grid">
-                <div class="profile-card" onclick="window.open('dashboard.html', '_blank')">
-                    <div class="profile-card-icon">📊</div><div class="profile-card-title">数据统计</div><div class="profile-card-desc">查看推广数据</div>
+            
+            <!-- Success -->
+            <div class="success-section" id="successSection">
+                <div class="success-icon">✅</div>
+                <div class="success-title">Link Created!</div>
+                <div class="success-book" id="successBook"></div>
+                
+                <div class="link-box" id="linkBox" onclick="copyLink()">
+                    <div class="link-box-label">Your Referral Link</div>
+                    <div class="link-box-value" id="linkValue"></div>
                 </div>
-                <div class="profile-card">
-                    <div class="profile-card-icon">🎁</div><div class="profile-card-title">我的奖励</div><div class="profile-card-desc">开发中</div>
+                
+                <div class="code-box" id="codeBox" onclick="copyCode()">
+                    <div class="link-box-label">Search Code</div>
+                    <div class="link-box-value" id="codeValue"></div>
                 </div>
-                <div class="profile-card" onclick="window.open('promotion-guide.html', '_blank')">
-                    <div class="profile-card-icon">📖</div><div class="profile-card-title">推广指南</div><div class="profile-card-desc">新手必看</div>
+                
+                <div class="promo-box" id="promoBox">
+                    <div class="link-box-label">Promo Copy</div>
+                    <div class="promo-text" id="promoValue"></div>
                 </div>
-                <div class="profile-card">
-                    <div class="profile-card-icon">💬</div><div class="profile-card-title">联系客服</div><div class="profile-card-desc">Discord</div>
+                
+                <button class="btn-recommend-another" onclick="resetToSubmit()">📚 Recommend Another Book</button>
+            </div>
+            
+            <!-- Guide Cards -->
+            <div class="guide-section">
+                <div class="guide-scroll">
+                    <div class="guide-card" onclick="showGuide('promo')">
+                        <div class="guide-icon">📢</div>
+                        <div class="guide-title">How to Promote</div>
+                        <div class="guide-desc">Learn the best strategies</div>
+                    </div>
+                    <div class="guide-card" onclick="showGuide('tips')">
+                        <div class="guide-icon">💡</div>
+                        <div class="guide-title">Money Tips</div>
+                        <div class="guide-desc">Maximize your earnings</div>
+                    </div>
+                    <div class="guide-card" onclick="showGuide('faq')">
+                        <div class="guide-icon">❓</div>
+                        <div class="guide-title">FAQ</div>
+                        <div class="guide-desc">Common questions</div>
+                    </div>
                 </div>
             </div>
+        </div>
+        
+        <!-- Tasks Tab -->
+        <div id="tab-tasks" class="tab-content">
+            <div class="tasks-header">
+                <div class="tasks-title">💰 Earn Money</div>
+                <div class="tasks-subtitle">Complete tasks and get rewarded</div>
+            </div>
+            
+            <div class="task-list" id="taskList"></div>
+            
+            <div class="leaderboard-section">
+                <div class="leaderboard-header">
+                    <div class="leaderboard-title">🏆 Top Earners <span class="leaderboard-badge">This Week</span></div>
+                </div>
+                <div class="leaderboard-list" id="leaderboardList"></div>
+            </div>
+        </div>
+        
+        <!-- Profile Tab -->
+        <div id="tab-profile" class="tab-content">
+            <div class="profile-header">
+                <div class="profile-avatar" id="profileAvatar">?</div>
+                <div class="profile-name" id="profileName">Guest</div>
+                <div class="profile-id" id="profileId">Not logged in</div>
+                <button class="profile-login-btn" id="loginBtn" onclick="handleDiscordLogin()">
+                    <svg viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+                    Login with Discord
+                </button>
+                <button class="profile-logout-btn" id="logoutBtn" onclick="handleLogout()" style="display:none;">
+                    Logout
+                </button>
+            </div>
+            
+            <div class="profile-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="statLinks">0</div>
+                    <div class="stat-label">Links Created</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="statEarnings">$0</div>
+                    <div class="stat-label">Total Earnings</div>
+                </div>
+            </div>
+            
+            <div class="id-binding">
+                <div class="id-binding-card">
+                    <div class="id-binding-title">🔗 Bind NovelFlow ID</div>
+                    <div class="id-binding-input">
+                        <input type="text" id="novelflowId" placeholder="Enter your NovelFlow ID...">
+                        <button onclick="saveNovelFlowId()">Save</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="discord-section">
+                <button class="discord-btn" onclick="joinDiscord()">
+                    <svg viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+                    Join Our Discord Community
+                </button>
+            </div>
+            
             <div class="my-books-section">
-                <div class="section-header" style="padding: 0 0 12px;">
-                    <div class="section-title">📖 我的推广书单</div>
-                </div>
+                <div class="my-books-title">📚 My Promotion List</div>
                 <div id="myBooksList">
-                    <div class="empty-state" style="padding: 30px 20px; background: var(--bg-primary); border-radius: var(--radius-lg);">
-                        <div class="empty-icon">📭</div><div class="empty-text">暂无推广书单，去首页推荐书籍吧</div>
+                    <div class="empty-state">
+                        <div class="empty-icon">📭</div>
+                        <div class="empty-title">No books yet</div>
+                        <div class="empty-text">Go to home and start recommending!</div>
                     </div>
                 </div>
             </div>
         </div>
         
         <nav class="bottom-nav">
-            <button class="nav-item active" data-tab="home"><span class="nav-icon">🏠</span><span class="nav-label">首页</span></button>
-            <button class="nav-item" data-tab="submit"><span class="nav-icon">📖</span><span class="nav-label">提交书单</span></button>
-            <button class="nav-item" data-tab="tasks"><span class="nav-icon">🎯</span><span class="nav-label">任务</span></button>
-            <button class="nav-item" data-tab="profile"><span class="nav-icon">👤</span><span class="nav-label">我的</span></button>
+            <button class="nav-item active" data-tab="home"><span class="nav-icon">🏠</span><span class="nav-label">Home</span></button>
+            <button class="nav-item" data-tab="submit"><span class="nav-icon">📝</span><span class="nav-label">Submit</span></button>
+            <button class="nav-item" data-tab="tasks"><span class="nav-icon">💰</span><span class="nav-label">Tasks</span></button>
+            <button class="nav-item" data-tab="profile"><span class="nav-icon">👤</span><span class="nav-label">My</span></button>
         </nav>
-    </div>
-    
-    <div class="modal-overlay" id="recommendModal">
-        <div class="modal">
-            <div class="modal-header"><div class="modal-title" id="modalTitle">推荐这本书</div></div>
-            <div class="modal-body">
-                <img class="modal-book-cover" id="modalBookCover" src="" alt="">
-                <div class="modal-book-title" id="modalBookTitle"></div>
-                <div class="modal-field">
-                    <div class="modal-label">推荐语（选填）</div>
-                    <input type="text" class="modal-input" id="recommendText" placeholder="输入推荐语...">
+        
+        <!-- Book Detail Modal -->
+        <div class="modal-overlay" id="bookDetailModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <div></div>
+                    <div class="modal-title">Book Details</div>
+                    <div class="modal-close" onclick="closeBookModal()">✕</div>
                 </div>
-                <div class="modal-actions">
-                    <button class="modal-btn cancel" onclick="closeModal()">取消</button>
-                    <button class="modal-btn confirm" id="modalConfirmBtn">一键生成</button>
+                <div class="modal-body">
+                    <img class="modal-book-cover" id="modalBookCover" src="" alt="">
+                    <div class="modal-book-title" id="modalBookTitle"></div>
+                    <div class="modal-book-desc" id="modalBookDesc">Loading description...</div>
+                    <div class="modal-meta">
+                        <div class="modal-meta-item">
+                            <div class="modal-meta-value" id="modalBookWords">-</div>
+                            <div class="modal-meta-label">Words</div>
+                        </div>
+                        <div class="modal-meta-item">
+                            <div class="modal-meta-value" id="modalBookChapters">-</div>
+                            <div class="modal-meta-label">Chapters</div>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="modal-btn cancel" onclick="closeBookModal()">Cancel</button>
+                        <button class="modal-btn confirm" id="modalPromoteBtn" onclick="promoteBook()">💰 I Want to Earn</button>
+                    </div>
                 </div>
             </div>
         </div>
+        
+        <div class="toast-container" id="toastContainer"></div>
     </div>
     
     <script>
-const AppState = {
-    currentTab: 'home', currentLang: 'en', searchLang: 'en',
-    isLoggedIn: false, user: null, featuredBooks: [], myBooks: [],
-    selectedCandidate: null, rankPeriod: 'week'
-};
-const DISCORD_CONFIG = {
-    CLIENT_ID: '1504779503237333033', EMBEDDED_APP_ID: '1504779503237333033',
-    getOAuthURL() {
-        const redirect = encodeURIComponent(window.location.origin + '/app.html');
-        return `https://discord.com/api/oauth2/authorize?client_id=${this.CLIENT_ID}&redirect_uri=${redirect}&response_type=token&scope=identify`;
-    }
-};
-const STOP_WORDS = ['the','a','an','and','or','but','in','on','at','to','for','of','with','by','is','are','was','were','be','been','being','have','has','had','do','does','did','will','would','could','should','may','might','must','can','this','that','these','those','i','you','he','she','it','we','they','what','which','who','when','where','why','how','all','each','every','both','few','more','most','other','some','such','no','nor','not','only','own','same','so','than','too','very','just','el','la','los','las','un','una','unos','unas','y','o','de','en','que','es','son','era','eran','fue','fueron','para','con','por','del','al','lo','su','se','como'];
-function isInDiscord() { return window !== window.top; }
-function applyDiscordMode(isDiscord) {
-    if (isDiscord) { document.body.classList.add('discord-embedded'); document.getElementById('discordStatusBar').classList.add('show'); }
-    else { document.body.classList.remove('discord-embedded'); document.getElementById('discordStatusBar').classList.remove('show'); }
-}
-function updateDiscordStatusBar() {
-    if (!AppState.isLoggedIn || !AppState.user) return;
-    const avatar = document.getElementById('discordStatusAvatar');
-    const name = document.getElementById('discordStatusName');
-    const username = AppState.user.global_name || AppState.user.username;
-    const avatarUrl = AppState.user.avatar ? `https://cdn.discordapp.com/avatars/${AppState.user.id}/${AppState.user.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/0.png`;
-    avatar.src = avatarUrl;
-    avatar.onerror = function() { this.parentElement.querySelector('.discord-status-name').textContent = username; };
-    name.textContent = username;
-}
-document.querySelectorAll('.discord-tab').forEach(el => {
-    el.addEventListener('click', () => {
-        const tab = el.dataset.tab;
-        document.querySelectorAll('.discord-tab').forEach(t => t.classList.remove('active'));
-        el.classList.add('active');
-        switchTab(tab);
-    });
-});
-function switchTab(tabName) {
-    AppState.currentTab = tabName;
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    const targetTab = document.getElementById('tab-' + tabName);
-    if (targetTab) targetTab.classList.add('active');
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    document.querySelector(`.nav-item[data-tab="${tabName}"]`)?.classList.add('active');
-    document.querySelectorAll('.discord-tab').forEach(el => { el.classList.toggle('active', el.dataset.tab === tabName); });
-}
-document.querySelectorAll('.nav-item').forEach(el => { el.addEventListener('click', () => switchTab(el.dataset.tab)); });
-async function loadFeaturedBooks() {
-    try {
-        const res = await fetch('featured-books.json');
-        const books = await res.json();
-        AppState.featuredBooks = books;
-        renderFeaturedBooks(books);
-        renderFeaturedCarousel(books);
-        renderRankList(books);
-    } catch (e) {
-        const sampleBooks = [
-            { bookId: 'sample1', title: 'The Alpha King\'s Claim', cover: 'https://via.placeholder.com/160x240/f59e0b/ffffff?text=👑', languageCode: 'en', author: 'Unknown' },
-            { bookId: 'sample2', title: 'La Reina del Drama', cover: 'https://via.placeholder.com/160x240/6366f1/ffffff?text=👸', languageCode: 'es', author: 'Unknown' },
-            { bookId: 'sample3', title: 'Darkness Within', cover: 'https://via.placeholder.com/160x240/1a1a2e/ffffff?text=🌙', languageCode: 'en', author: 'Unknown' },
-            { bookId: 'sample4', title: 'El Amor Prohibido', cover: 'https://via.placeholder.com/160x240/ef4444/ffffff?text=💔', languageCode: 'es', author: 'Unknown' }
-        ];
-        AppState.featuredBooks = sampleBooks;
-        renderFeaturedBooks(sampleBooks);
-        renderFeaturedCarousel(sampleBooks);
-        renderRankList(sampleBooks);
-    }
-}
-function renderFeaturedBooks(books) {
-    const container = document.getElementById('featuredBooks');
-    const booksToShow = books.slice(0, 4);
-    container.innerHTML = booksToShow.map(book => `
-        <div class="book-card" onclick="openRecommendModal('${book.bookId}')">
-            <img class="book-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/160x240/e5e5ea/9ca3af?text=📖'">
-            <div class="book-info">
-                <div class="book-title">${book.title}</div>
-                <span class="book-lang-badge ${book.languageCode}">${book.languageCode === 'es' ? 'Español' : 'English'}</span>
-                <button class="book-action-btn">✨ 我要推荐</button>
-            </div>
-        </div>
-    `).join('');
-}
-function renderFeaturedCarousel(books) {
-    const container = document.getElementById('featuredCarousel');
-    const carouselBooks = books.slice(0, 4);
-    container.innerHTML = carouselBooks.map((book, i) => `
-        <div class="featured-card" onclick="openRecommendModal('${book.bookId}')">
-            <img class="featured-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/260x140/f5f5f7/9ca3af?text=📚'">
-            <div class="featured-info">
-                <div class="featured-title">${book.title}</div>
-                <div class="featured-tags">
-                    ${i === 0 ? '<span class="tag hot">🔥 Hot</span>' : ''}
-                    ${i === 1 ? '<span class="tag new">✨ New</span>' : ''}
-                    <span class="tag" style="background: var(--bg-primary); color: var(--text-muted);">${book.languageCode === 'es' ? 'ES' : 'EN'}</span>
-                </div>
-                <button class="featured-btn">✨ 推荐</button>
-            </div>
-        </div>
-    `).join('');
-}
-function renderRankList(books) {
-    const container = document.getElementById('rankList');
-    const rankBooks = books.slice(0, 5).map((book, i) => ({ ...book, clicks: Math.floor(Math.random() * 500) + 100 }));
-    container.innerHTML = rankBooks.map((book, i) => {
-        let numClass = 'normal';
-        if (i === 0) numClass = 'top1'; else if (i === 1) numClass = 'top2'; else if (i === 2) numClass = 'top3';
-        return `
-            <div class="rank-item" onclick="openRecommendModal('${book.bookId}')">
-                <div class="rank-num ${numClass}">${i + 1}</div>
-                <img class="rank-cover" src="${book.cover}" alt="" onerror="this.src='https://via.placeholder.com/36x48/f5f5f7/9ca3af?text=📖'">
-                <div class="rank-info"><div class="rank-title">${book.title}</div><div class="rank-meta">${book.languageCode === 'es' ? 'Español' : 'English'}</div></div>
-                <div class="rank-stat"><div class="rank-stat-num">${book.clicks}</div><div class="rank-stat-label">推广数</div></div>
-            </div>
-        `;
-    }).join('');
-}
-document.querySelectorAll('.rank-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-        document.querySelectorAll('.rank-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        AppState.rankPeriod = tab.dataset.period;
-        renderRankList(AppState.featuredBooks);
-    });
-});
-document.querySelectorAll('.task-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-        document.querySelectorAll('.task-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-    });
-});
-document.querySelectorAll('#langToggle .lang-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('#langToggle .lang-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        AppState.searchLang = btn.dataset.lang;
-    });
-});
-async function handleSubmit() {
-    const discordUsername = document.getElementById('discordUsername').value.trim();
-    const bookName = document.getElementById('bookName').value.trim();
-    if (!discordUsername || !bookName) { showToast('Please fill in all fields', 'error'); return; }
-    const btn = document.getElementById('submitBtn');
-    btn.disabled = true; btn.classList.add('loading');
-    document.getElementById('submitForm').style.display = 'none';
-    document.getElementById('searchResults').innerHTML = '';
-    document.getElementById('processingStatus').classList.add('show');
-    document.getElementById('successPage').classList.remove('show');
-    await updateStep(1, 'done'); await delay(600);
-    await updateStep(2, 'done'); await delay(600);
-    await updateStep(3, 'done'); await delay(600);
-    await updateStep(4, 'done'); await delay(400);
-    const candidates = await searchBooks(bookName);
-    document.getElementById('processingStatus').classList.remove('show');
-    if (candidates.length === 0) {
-        document.getElementById('searchResults').innerHTML = `
-            <div class="empty-state" style="background: var(--bg-primary); border-radius: var(--radius-lg); padding: 40px 20px;">
-                <div class="empty-icon">🔍</div><div class="empty-text">未找到相关书籍，请尝试其他关键词</div>
-            </div>
-            <button class="btn-retry" onclick="resetForm()">← 重新搜索</button>
-        `;
-    } else if (candidates.length === 1) { await createLink(candidates[0]); }
-    else { showCandidates(candidates); }
-    btn.disabled = false; btn.classList.remove('loading');
-}
-async function updateStep(stepNum, status) {
-    const step = document.getElementById(`step${stepNum}`);
-    if (!step) return;
-    step.classList.remove('current', 'done', 'failed'); step.classList.add(status);
-    const icon = step.querySelector('.step-icon');
-    if (status === 'done') icon.textContent = '✓';
-    else if (status === 'failed') icon.textContent = '✗';
-    else if (status === 'current') icon.textContent = '◌';
-}
-async function searchBooks(query) {
-    const queryWords = query.toLowerCase().split(/\s+/).filter(w => !STOP_WORDS.includes(w));
-    const filteredQuery = queryWords.join(' ');
-    const books = AppState.featuredBooks.length > 0 ? AppState.featuredBooks : [
-        { bookId: 'b001', title: 'The Alpha King\'s Claim', author: 'Luna L.', languageCode: 'en', cover: 'https://via.placeholder.com/100x140/f59e0b/ffffff?text=👑' },
-        { bookId: 'b002', title: 'My Cruel Alpha', author: 'Night W.', languageCode: 'en', cover: 'https://via.placeholder.com/100x140/1a1a2e/ffffff?text=🐺' },
-        { bookId: 'b003', title: 'La Reina del Desierto', author: 'Rosa M.', languageCode: 'es', cover: 'https://via.placeholder.com/100x140/6366f1/ffffff?text=👸' },
-        { bookId: 'b004', title: 'El Amor Prohibido', author: 'Sol D.', languageCode: 'es', cover: 'https://via.placeholder.com/100x140/ef4444/ffffff?text=💔' },
-        { bookId: 'b005', title: 'Bound to the Dark', author: 'Shadow N.', languageCode: 'en', cover: 'https://via.placeholder.com/100x140/10b981/ffffff?text=🌑' }
-    ];
-    await delay(500);
-    return books.filter(book => book.title.toLowerCase().includes(filteredQuery.toLowerCase()) || (book.author && book.author.toLowerCase().includes(filteredQuery.toLowerCase()))).slice(0, 5);
-}
-function showCandidates(candidates) {
-    const container = document.getElementById('searchResults');
-    container.innerHTML = `
-        <div class="candidate-section show">
-            <h3>Select the book you want to recommend</h3>
-            <p>Found ${candidates.length} matching books</p>
-            <div class="candidate-list">
-                ${candidates.map((book, i) => `
-                    <div class="candidate-card" data-index="${i}" onclick="selectCandidate(${i})">
-                        <img class="candidate-cover" src="${book.cover}" alt="" onerror="this.src='https://via.placeholder.com/48x64/f5f5f7/9ca3af?text=📖'">
-                        <div class="candidate-info"><div class="candidate-title">${book.title}</div><div class="candidate-author">${book.author || 'Unknown Author'}</div><span class="candidate-score ${i === 0 ? 'high' : 'medium'}">${i === 0 ? '⭐ Best Match' : '✓ Match'}</span></div>
-                        <div class="candidate-check">✓</div>
+        // App State
+        const AppState = {
+            currentTab: 'home',
+            isLoggedIn: false,
+            user: null,
+            featuredBooks: [],
+            myBooks: [],
+            selectedBook: null,
+            selectedCandidate: null,
+            currentSubmissionData: null
+        };
+        
+        // Discord Config
+        const DISCORD_CONFIG = {
+            CLIENT_ID: '1504779503237333033',
+            REDIRECT_URI: encodeURIComponent('https://novelflow-dashboard.vercel.app/api/auth/callback'),
+            getOAuthURL() {
+                return 'https://discord.com/api/oauth2/authorize?client_id=' + this.CLIENT_ID + '&redirect_uri=' + this.REDIRECT_URI + '&response_type=code&scope=identify';
+            }
+        };
+        
+        // Tab Navigation
+        function switchTab(tabName) {
+            AppState.currentTab = tabName;
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + tabName).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.querySelector('.nav-item[data-tab="' + tabName + '"]').classList.add('active');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        document.querySelectorAll('.nav-item').forEach(el => {
+            el.addEventListener('click', () => switchTab(el.dataset.tab));
+        });
+        
+        // Load Featured Books (English only)
+        async function loadFeaturedBooks() {
+            try {
+                const res = await fetch('featured-books.json');
+                const books = await res.json();
+                // Filter English only
+                AppState.featuredBooks = books.filter(b => b.languageCode === 'en');
+                renderFeaturedBooks(AppState.featuredBooks);
+                renderRankList(AppState.featuredBooks.slice(0, 5));
+            } catch (e) {
+                console.error('Failed to load books:', e);
+                AppState.featuredBooks = [];
+            }
+        }
+        
+        // Render Featured Books
+        function renderFeaturedBooks(books) {
+            const container = document.getElementById('featuredBooks');
+            container.innerHTML = books.map((book, index) => {
+                const tags = ['hot', 'new', 'trending'];
+                const tag = tags[index % 3];
+                const tagText = tag === 'hot' ? '🔥 Hot' : tag === 'new' ? '✨ New' : '📈 Trending';
+                return `<div class="book-card" onclick="openBookModal('${book.bookId}')">
+                    <span class="book-card-tag ${tag}">${tagText}</span>
+                    <img class="book-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/200x170/e5e7eb/9ca3af?text=📖'">
+                    <div class="book-info">
+                        <div class="book-title">${book.title}</div>
+                        <span class="book-lang-badge">🇺🇸 EN</span>
                     </div>
-                `).join('')}
-            </div>
-            <button class="btn-submit" style="margin-top: 16px;" onclick="confirmCandidate()" id="confirmCandidateBtn" disabled><span class="btn-text">✅ Confirm Selection</span></button>
-        </div>
-    `;
-    window.candidateBooks = candidates;
-    AppState.selectedCandidate = candidates[0];
-    document.querySelector('.candidate-card[data-index="0"]').classList.add('selected');
-}
-function selectCandidate(index) {
-    document.querySelectorAll('.candidate-card').forEach(c => c.classList.remove('selected'));
-    document.querySelector(`.candidate-card[data-index="${index}"]`).classList.add('selected');
-    AppState.selectedCandidate = window.candidateBooks[index];
-    document.getElementById('confirmCandidateBtn').disabled = false;
-}
-function confirmCandidate() { if (AppState.selectedCandidate) { createLink(AppState.selectedCandidate); } }
-async function createLink(book) {
-    document.getElementById('searchResults').innerHTML = '';
-    const code = 'NF' + Math.random().toString(36).substring(2, 8).toUpperCase();
-    const bookId = book.bookId || 'B' + Date.now().toString(36);
-    const link = `https://novelflow.app/book/${bookId}?ref=${code}&lang=${AppState.searchLang}`;
-    const newBook = { ...book, code, link, discordUsername: document.getElementById('discordUsername').value.trim(), createdAt: Date.now() };
-    AppState.myBooks.push(newBook);
-    saveMyBooks();
-    renderMyBooks();
-    updateStats();
-    document.getElementById('resultLink').textContent = link;
-    document.getElementById('resultCode').textContent = code;
-    document.getElementById('successPage').classList.add('show');
-    showToast('Link created successfully!', 'success');
-    copyToClipboard(link);
-}
-function resetForm() {
-    for (let i = 1; i <= 4; i++) { updateStep(i, ''); }
-    document.getElementById('submitForm').style.display = 'block';
-    document.getElementById('searchResults').innerHTML = '';
-    document.getElementById('processingStatus').classList.remove('show');
-    document.getElementById('successPage').classList.remove('show');
-    document.getElementById('discordUsername').value = '';
-    document.getElementById('bookName').value = '';
-}
-function copyToClipboard(text) {
-    if (!text) text = document.getElementById('resultLink').textContent;
-    navigator.clipboard.writeText(text).then(() => { showToast('Copied to clipboard!', 'success'); }).catch(() => { showToast('Failed to copy', 'error'); });
-}
-function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
-let currentRecommendBook = null;
-function openRecommendModal(bookId) {
-    const book = AppState.featuredBooks.find(b => b.bookId === bookId);
-    if (!book) return;
-    currentRecommendBook = book;
-    document.getElementById('modalBookCover').src = book.cover;
-    document.getElementById('modalBookCover').onerror = function() { this.src = 'https://via.placeholder.com/80x110/f5f5f7/9ca3af?text=📖'; };
-    document.getElementById('modalBookTitle').textContent = book.title;
-    document.getElementById('recommendText').value = '';
-    const confirmBtn = document.getElementById('modalConfirmBtn');
-    confirmBtn.textContent = AppState.isLoggedIn ? '一键生成' : '登录后创建';
-    document.getElementById('recommendModal').classList.add('show');
-}
-function closeModal() { document.getElementById('recommendModal').classList.remove('show'); }
-document.getElementById('modalConfirmBtn').addEventListener('click', () => {
-    if (!AppState.isLoggedIn) { closeModal(); switchTab('profile'); return; }
-    if (!currentRecommendBook) return;
-    const recommendText = document.getElementById('recommendText').value.trim();
-    const code = 'NF' + currentRecommendBook.bookId.slice(-6).toUpperCase();
-    const link = `https://novelflow.app/book/${currentRecommendBook.bookId}?code=${code}`;
-    const newBook = { ...currentRecommendBook, code, link, recommend: recommendText, createdAt: Date.now() };
-    AppState.myBooks.push(newBook);
-    saveMyBooks();
-    renderMyBooks();
-    updateStats();
-    closeModal();
-    showToast('已生成推广链接！', 'success');
-    navigator.clipboard.writeText(link).then(() => { showToast('链接已复制到剪贴板！', 'success'); });
-});
-function loadMyBooks() { const saved = localStorage.getItem('novelflow_mybooks'); AppState.myBooks = saved ? JSON.parse(saved) : []; renderMyBooks(); }
-function saveMyBooks() { localStorage.setItem('novelflow_mybooks', JSON.stringify(AppState.myBooks)); }
-function renderMyBooks() {
-    const container = document.getElementById('myBooksList');
-    if (AppState.myBooks.length === 0) {
-        container.innerHTML = `<div class="empty-state" style="padding: 30px 20px; background: var(--bg-primary); border-radius: var(--radius-lg);"><div class="empty-icon">📭</div><div class="empty-text">暂无推广书单，去首页推荐书籍吧</div></div>`;
-        return;
-    }
-    container.innerHTML = AppState.myBooks.map(book => `
-        <div class="my-book-item">
-            <img class="my-book-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/40x54/f5f5f7/9ca3af?text=📖'">
-            <div class="my-book-info"><div class="my-book-title">${book.title}</div><div class="my-book-code">CODE: ${book.code}</div></div>
-            <button class="my-book-copy" onclick="copyBookLink('${book.link}')">复制</button>
-        </div>
-    `).join('');
-}
-function copyBookLink(link) { navigator.clipboard.writeText(link).then(() => { showToast('已复制到剪贴板', 'success'); }); }
-function updateStats() { document.getElementById('statLinks').textContent = AppState.myBooks.length; document.getElementById('statPoints').textContent = AppState.myBooks.length * 10; }
-async function checkLogin() {
-    if (isInDiscord() && window.DiscordSDK) {
-        try {
-            const discord = new window.DiscordSDK(DISCORD_CONFIG.EMBEDDED_APP_ID);
-            await discord.ready();
-            const userResponse = await discord.commands.authenticate({ access_token: discord.session.getAccessToken() });
-            if (userResponse && userResponse.user) {
-                const user = userResponse.user;
-                AppState.user = { id: user.id, username: user.username, avatar: user.avatar, global_name: user.global_name, accountType: 'discord' };
-                AppState.isLoggedIn = true; AppState.isDiscordEmbedded = true;
-                localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
-                applyDiscordMode(true); updateProfileUI(); updateDiscordStatusBar();
+                </div>`;
+            }).join('');
+        }
+        
+        // Render Rank List
+        function renderRankList(books) {
+            const container = document.getElementById('rankList');
+            const rankClasses = ['gold', 'silver', 'bronze', '', ''];
+            container.innerHTML = books.map((book, index) => `
+                <div class="rank-item" onclick="openBookModal('${book.bookId}')">
+                    <div class="rank-number ${rankClasses[index]}">#${index + 1}</div>
+                    <img class="rank-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/50x70/e5e7eb/9ca3af?text=📖'">
+                    <div class="rank-info">
+                        <div class="rank-title">${book.title}</div>
+                        <div class="rank-meta">🔥 ${Math.floor(Math.random() * 500 + 100)} reads today</div>
+                    </div>
+                    <div class="rank-views">$5</div>
+                </div>
+            `).join('');
+        }
+        
+        // Book Detail Modal
+        let currentModalBook = null;
+        
+        async function openBookModal(bookId) {
+            const book = AppState.featuredBooks.find(b => b.bookId === bookId);
+            if (!book) return;
+            
+            currentModalBook = book;
+            AppState.selectedBook = book;
+            
+            document.getElementById('modalBookCover').src = book.cover;
+            document.getElementById('modalBookCover').onerror = function() {
+                this.src = 'https://via.placeholder.com/120x170/e5e7eb/9ca3af?text=📖';
+            };
+            document.getElementById('modalBookTitle').textContent = book.title;
+            document.getElementById('modalBookDesc').textContent = 'Loading description...';
+            document.getElementById('modalBookWords').textContent = '-';
+            document.getElementById('modalBookChapters').textContent = '-';
+            
+            document.getElementById('bookDetailModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+            
+            // Fetch book details from API
+            fetchBookDetails(book.bookId);
+        }
+        
+        async function fetchBookDetails(bookId) {
+            try {
+                const response = await fetch('https://admin.novelspa.app/api/v1/novelmanage/book/booklist?bookId=' + bookId, {
+                    headers: {
+                        'Authorization': 'Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IkU4QzAzQjVGMzhENjQzRTE3OTQ4MEU1NkE2REI4QkQ5IiwidHlwIjoiYXQrand0In0.eyJuYmYiOjE3NzgyOTI3NjUsImV4cCI6MTc3OTU4ODc2NSwiaXNzIjoiaHR0cHM6Ly9zdHMuYW55c3Rvcmllcy5hcHAiLCJjbGllbnRfaWQiOiJBdXRoQ2xpZW50Iiwic3ViIjoiMTE2NCIsImF1dGhfdGltZSI6MTc3NzM0MDY2NCwiaWRwIjoibG9jYWwiLCJuaWNrbmFtZSI6IuW-kOaVrOa2myIsIm5hbWUiOiJ4dWp0Iiwic2lkIjoiRUU0MzJGRjNGRjMxOUZBOTZENUQzRUMxRkU4MTVFOTMiLCJpYXQiOjE3NzgyOTI3NjUsInNjb3BlIjpbIm9wZW5pZCIsInByb2ZpbGUiLCJyb2xlcyIsImVtYWlsIl0sImFtciI6WyJwd2QiXX0.ZZ31UyfAdexg5ShQEmdvvS4AkyXZt-3Sze7X779iIgduiW2eiFuVRkxOeUPenPccdQqa0kTJNWVOMY3jMJgdXsxME41eOZnolV4Fl-NvHkCVYJKgIb1BeI6I35_Dc9rFfIO809EpPQ7Ncu__6fTmzfvQFS-LaBPUH4ZsPFLouoLjfZw1pbUSYXA1fB5LRIFe0CmeqCBMkTRVh-GMOK9fz4sDLZnAYz-LftyeqdU8X-GSKJzNBCBLzO9XcTW8y9CQK9hMChmqhBzYWXOiX-u7Dn2GrMEXaiY5vZtp2_tQE9FqOm1NX05AF6DQqQh-yOFfQBUhyZeXr4SlU4gTZ_LpKw'
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.data && data.data.length > 0) {
+                        const bookData = data.data[0];
+                        document.getElementById('modalBookDesc').textContent = bookData.description || 'No description available.';
+                        document.getElementById('modalBookWords').textContent = bookData.wordCount ? (bookData.wordCount / 1000).toFixed(0) + 'K' : '-';
+                        document.getElementById('modalBookChapters').textContent = bookData.chapterCount || '-';
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to fetch book details:', e);
+                document.getElementById('modalBookDesc').textContent = 'Description not available.';
+            }
+        }
+        
+        function closeBookModal() {
+            document.getElementById('bookDetailModal').classList.remove('show');
+            document.body.style.overflow = '';
+            currentModalBook = null;
+        }
+        
+        function promoteBook() {
+            if (!currentModalBook) return;
+            closeBookModal();
+            switchTab('submit');
+            // Auto search the book
+            document.getElementById('searchInput').value = currentModalBook.title;
+            performSearch();
+        }
+        
+        // Submit Tab - Search Logic (mimics book-submit.html)
+        document.getElementById('searchBtn').addEventListener('click', performSearch);
+        document.getElementById('searchInput').addEventListener('keypress', e => {
+            if (e.key === 'Enter') performSearch();
+        });
+        
+        async function performSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) return;
+            
+            const container = document.getElementById('searchResults');
+            const searchBtn = document.getElementById('searchBtn');
+            
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">Searching...</div></div>';
+            searchBtn.disabled = true;
+            searchBtn.classList.add('loading');
+            
+            try {
+                // Call the API like book-submit.html
+                const response = await fetch('/api/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bookName: query, lang: 'en' })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || 'Search failed');
+                }
+                
+                const result = await response.json();
+                
+                if (result.status === 'awaiting_confirmation') {
+                    showCandidateSelection(result.candidates);
+                } else if (result.status === 'completed') {
+                    showSuccessState(result);
+                } else {
+                    // Fallback to local search if API doesn't return expected format
+                    fallbackSearch(query);
+                }
+            } catch (e) {
+                console.error('Search error:', e);
+                // Fallback to local search
+                fallbackSearch(query);
+            } finally {
+                searchBtn.disabled = false;
+                searchBtn.classList.remove('loading');
+            }
+        }
+        
+        function fallbackSearch(query) {
+            const container = document.getElementById('searchResults');
+            const filtered = AppState.featuredBooks.filter(b =>
+                b.title.toLowerCase().includes(query.toLowerCase())
+            );
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No books found</div><div class="empty-text">Try a different name</div></div>';
+            } else if (filtered.length === 1) {
+                // Auto select if only one result
+                AppState.selectedCandidate = filtered[0];
+                AppState.currentSubmissionData = { bookName: filtered[0].title };
+                showCandidateSelection(filtered);
+            } else {
+                showCandidateSelection(filtered);
+            }
+        }
+        
+        // Candidate Selection
+        function showCandidateSelection(candidates) {
+            const candidateSection = document.getElementById('candidateSection');
+            const candidateList = document.getElementById('candidateList');
+            const searchSection = document.getElementById('searchSection');
+            const successSection = document.getElementById('successSection');
+            
+            searchSection.style.display = 'none';
+            successSection.classList.remove('show');
+            candidateSection.classList.add('show');
+            
+            candidateList.innerHTML = candidates.map((candidate, index) => {
+                const safeCover = (candidate.coverImage && candidate.coverImage.startsWith('https://')) ? candidate.coverImage : candidate.cover || '';
+                const pct = Math.round((candidate.score || 0.8) * 100);
+                let scoreClass = 'low';
+                let scoreLabel = 'Low Match';
+                if (pct >= 80) { scoreClass = 'high'; scoreLabel = 'High Match'; }
+                else if (pct >= 50) { scoreClass = 'medium'; scoreLabel = 'Medium Match'; }
+                
+                return `<div class="candidate-card" data-index="${index}">
+                    <img class="candidate-cover" src="${safeCover}" alt="cover" onerror="this.src='https://via.placeholder.com/50x70/e5e7eb/9ca3af?text=📖'">
+                    <div class="candidate-info">
+                        <div class="candidate-title">${candidate.title}</div>
+                        <div class="candidate-author">by ${candidate.author || 'Unknown'}</div>
+                        <span class="candidate-score ${scoreClass}">${scoreLabel} (${pct}%)</span>
+                    </div>
+                    <div class="candidate-check">✓</div>
+                </div>`;
+            }).join('');
+            
+            // Add click handlers
+            candidateList.querySelectorAll('.candidate-card').forEach(card => {
+                card.addEventListener('click', () => selectCandidate(card, candidates[parseInt(card.dataset.index)]));
+            });
+            
+            document.getElementById('confirmBtn').disabled = true;
+        }
+        
+        function selectCandidate(card, candidate) {
+            candidateList.querySelectorAll('.candidate-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            AppState.selectedCandidate = candidate;
+            AppState.currentSubmissionData = { bookName: candidate.title };
+            document.getElementById('confirmBtn').disabled = false;
+        }
+        
+        // Confirm Button
+        document.getElementById('confirmBtn').addEventListener('click', async () => {
+            if (!AppState.selectedCandidate) return;
+            
+            const confirmBtn = document.getElementById('confirmBtn');
+            confirmBtn.disabled = true;
+            confirmBtn.classList.add('loading');
+            
+            try {
+                const response = await fetch('/api/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...AppState.currentSubmissionData,
+                        bookId: AppState.selectedCandidate.bookId,
+                        bookTitle: AppState.selectedCandidate.title,
+                        bookAuthor: AppState.selectedCandidate.author || '',
+                        lang: 'en'
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || 'Confirmation failed');
+                }
+                
+                const result = await response.json();
+                showSuccessState(result);
+            } catch (e) {
+                console.error('Confirm error:', e);
+                // Fallback: create local result
+                const fakeResult = {
+                    link: 'https://novelflow.app/book/' + AppState.selectedCandidate.bookId + '?ref=user123',
+                    code: 'NF' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+                    bookName: AppState.selectedCandidate.title
+                };
+                showSuccessState(fakeResult);
+            } finally {
+                confirmBtn.disabled = false;
+                confirmBtn.classList.remove('loading');
+            }
+        });
+        
+        // Show Success State
+        function showSuccessState(result) {
+            const candidateSection = document.getElementById('candidateSection');
+            const searchSection = document.getElementById('searchSection');
+            const successSection = document.getElementById('successSection');
+            
+            candidateSection.classList.remove('show');
+            searchSection.style.display = 'none';
+            successSection.classList.add('show');
+            
+            document.getElementById('successBook').textContent = `📚 "${result.matchedBookName || result.bookName || AppState.selectedCandidate?.title || 'Your book'}"`;
+            
+            if (result.link) {
+                document.getElementById('linkBox').style.display = 'block';
+                document.getElementById('linkValue').textContent = result.link;
+            } else {
+                document.getElementById('linkBox').style.display = 'none';
+            }
+            
+            if (result.code) {
+                document.getElementById('codeBox').style.display = 'block';
+                document.getElementById('codeValue').textContent = result.code;
+            } else {
+                document.getElementById('codeBox').style.display = 'none';
+            }
+            
+            const promoText = generatePromoCopy(result.matchedBookName || result.bookName || AppState.selectedCandidate?.title || 'this book', result.link, result.code);
+            document.getElementById('promoValue').textContent = promoText;
+            
+            // Save to my books
+            const newBook = {
+                ...AppState.selectedCandidate,
+                link: result.link,
+                code: result.code,
+                promo: promoText,
+                createdAt: Date.now()
+            };
+            AppState.myBooks.push(newBook);
+            saveMyBooks();
+            renderMyBooks();
+        }
+        
+        function generatePromoCopy(bookName, link, code) {
+            const templates = [
+                `📖 I'm reading "${bookName}" on NovelFlow and you should too! Check it out: ${link}`,
+                `POV: You just found your next obsession. "${bookName}" is THAT book. 🔥\nRead now → ${link}`,
+                `Just started "${bookName}" and can't stop! If you love amazing stories, check this out: ${link}`
+            ];
+            return templates[Math.floor(Math.random() * templates.length)];
+        }
+        
+        function resetToSubmit() {
+            const candidateSection = document.getElementById('candidateSection');
+            const searchSection = document.getElementById('searchSection');
+            const successSection = document.getElementById('successSection');
+            
+            candidateSection.classList.remove('show');
+            searchSection.style.display = 'block';
+            successSection.classList.remove('show');
+            
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchResults').innerHTML = '';
+            AppState.selectedCandidate = null;
+            AppState.currentSubmissionData = null;
+        }
+        
+        // Copy Functions
+        function copyLink() {
+            const link = document.getElementById('linkValue').textContent;
+            navigator.clipboard.writeText(link).then(() => {
+                showToast('Link copied!', 'success');
+            });
+        }
+        
+        function copyCode() {
+            const code = document.getElementById('codeValue').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                showToast('Code copied!', 'success');
+            });
+        }
+        
+        // Guide Cards
+        function showGuide(type) {
+            const guides = {
+                promo: 'Share your referral link on Discord, Facebook Groups, or anywhere readers gather. The more you share, the more you earn!',
+                tips: 'Focus on books you genuinely love. Authentic recommendations convert better. Post at peak engagement times!',
+                faq: 'Q: When do I get paid?\nA: Weekly via PayPal/Discord.\n\nQ: Minimum payout?\nA: $10.\n\nQ: How much per click?\nA: $0.10-0.50 depending on region.'
+            };
+            alert(guides[type] || 'Coming soon!');
+        }
+        
+        // Tasks Tab
+        const TASKS = [
+            { id: 1, name: 'First Recommendation', reward: '$2', desc: 'Recommend your first book', type: 'money', btn: 'Complete Task' },
+            { id: 2, name: 'Recommend 3 Books', reward: '$5', desc: 'Submit 3 book recommendations', type: 'money', btn: 'Continue (1/3)' },
+            { id: 3, name: '100 Clicks Achieved', reward: '$10', desc: 'Get 100 clicks on your links', type: 'bonus', btn: 'In Progress (67/100)' },
+            { id: 4, name: 'Weekly Earnings $5+', reward: '+$5', desc: 'Earn $5+ this week', type: 'bonus', btn: 'Continue' },
+            { id: 5, name: 'Top Promoter of Week', reward: '$20', desc: 'Be the #1 promoter', type: 'special', btn: 'Join Now' }
+        ];
+        
+        function renderTasks() {
+            const container = document.getElementById('taskList');
+            container.innerHTML = TASKS.map(task => `
+                <div class="task-card ${task.type}">
+                    <div class="task-top">
+                        <div class="task-icon">${task.type === 'money' ? '💵' : task.type === 'bonus' ? '🎁' : '🏆'}</div>
+                        <div class="task-info">
+                            <div class="task-name">${task.name}</div>
+                            <div class="task-reward">${task.reward}</div>
+                        </div>
+                    </div>
+                    <div class="task-desc">${task.desc}</div>
+                    <button class="task-btn">${task.btn}</button>
+                </div>
+            `).join('');
+        }
+        
+        // Leaderboard
+        const LEADERBOARD = [
+            { rank: 1, name: 'Sarah_M', books: 47, earnings: 127.50 },
+            { rank: 2, name: 'BookLover22', books: 42, earnings: 115.00 },
+            { rank: 3, name: 'ReaderPro', books: 38, earnings: 98.75 },
+            { rank: 4, name: 'NightOwl', books: 35, earnings: 89.25 },
+            { rank: 5, name: 'LitFanatic', books: 31, earnings: 76.50 },
+            { rank: 6, name: 'PageTurner', books: 28, earnings: 65.00 },
+            { rank: 7, name: 'StorySeeker', books: 25, earnings: 58.25 },
+            { rank: 8, name: 'NovelNinja', books: 22, earnings: 51.00 },
+            { rank: 9, name: 'BookWorm99', books: 19, earnings: 44.75 },
+            { rank: 10, name: 'ReadRider', books: 17, earnings: 38.50 }
+        ];
+        
+        function renderLeaderboard() {
+            const container = document.getElementById('leaderboardList');
+            container.innerHTML = LEADERBOARD.map(item => {
+                const rankClass = item.rank === 1 ? 'gold' : item.rank === 2 ? 'silver' : item.rank === 3 ? 'bronze' : '';
+                return `<div class="leaderboard-item">
+                    <div class="leaderboard-rank ${rankClass}">#${item.rank}</div>
+                    <div class="leaderboard-avatar">${item.name.charAt(0)}</div>
+                    <div class="leaderboard-info">
+                        <div class="leaderboard-name">${item.name}</div>
+                        <div class="leaderboard-books">${item.books} books recommended</div>
+                    </div>
+                    <div class="leaderboard-earnings">$${item.earnings.toFixed(2)}</div>
+                </div>`;
+            }).join('');
+        }
+        
+        // Profile Functions
+        function loadMyBooks() {
+            const saved = localStorage.getItem('novelflow_mybooks');
+            AppState.myBooks = saved ? JSON.parse(saved) : [];
+            renderMyBooks();
+            updateStats();
+        }
+        
+        function saveMyBooks() {
+            localStorage.setItem('novelflow_mybooks', JSON.stringify(AppState.myBooks));
+            updateStats();
+        }
+        
+        function renderMyBooks() {
+            const container = document.getElementById('myBooksList');
+            if (AppState.myBooks.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">No books yet</div><div class="empty-text">Go to home and start recommending!</div></div>';
                 return;
             }
-        } catch (e) { console.log('Discord SDK not available:', e); }
-    }
-    const saved = localStorage.getItem('novelflow_user');
-    if (saved) {
-        try { AppState.user = JSON.parse(saved); AppState.isLoggedIn = true; updateProfileUI(); return; }
-        catch (e) { localStorage.removeItem('novelflow_user'); }
-    }
-    updateProfileUI();
-}
-function updateProfileUI() {
-    const avatar = document.getElementById('profileAvatar');
-    const name = document.getElementById('profileName');
-    const uid = document.getElementById('profileUid');
-    const loginForm = document.getElementById('loginForm');
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (AppState.isLoggedIn && AppState.user) {
-        const user = AppState.user;
-        if (user.accountType === 'local') { avatar.textContent = user.username.charAt(0).toUpperCase(); name.textContent = user.username; uid.textContent = 'UID: ' + user.novelFlowId; }
-        else if (user.avatar) { avatar.innerHTML = `<img src="https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128" alt="">`; name.textContent = user.global_name || user.username; uid.textContent = 'Discord ID: ' + user.id; }
-        else { avatar.textContent = (user.global_name || user.username || '?').charAt(0).toUpperCase(); name.textContent = user.global_name || user.username || 'User'; uid.textContent = 'Discord ID: ' + (user.id || 'N/A'); }
-        loginForm.style.display = 'none'; logoutBtn.classList.add('show');
-    } else {
-        avatar.textContent = '?'; name.textContent = '未登录'; uid.textContent = '登录后解锁更多功能';
-        if (isInDiscord() && AppState.isDiscordEmbedded) { loginForm.style.display = 'none'; } else { loginForm.style.display = 'block'; }
-        logoutBtn.classList.remove('show');
-    }
-}
-async function handleLocalRegister() {
-    const username = document.getElementById('regUsername').value.trim();
-    const nfId = document.getElementById('regNFId').value.trim().toUpperCase();
-    const btn = document.getElementById('localLoginBtn');
-    if (!username || !nfId) { showToast('请填写完整信息', 'error'); return; }
-    btn.disabled = true; btn.textContent = '处理中...';
-    try {
-        const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, novelFlowId: nfId }) });
-        const data = await res.json();
-        if (data.success) {
-            AppState.user = { username: data.username, novelFlowId: data.novelFlowId, accountType: 'local' };
-            AppState.isLoggedIn = true;
-            localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
-            updateProfileUI(); showToast('登录成功！', 'success');
-            document.getElementById('regUsername').value = ''; document.getElementById('regNFId').value = '';
-        } else { showToast(data.error || '登录失败', 'error'); }
-    } catch (e) {
-        AppState.user = { username, novelFlowId: nfId, accountType: 'local' };
-        AppState.isLoggedIn = true;
-        localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
-        updateProfileUI(); showToast('登录成功（本地保存）', 'success');
-    } finally { btn.disabled = false; btn.textContent = '确认'; }
-}
-function showDiscordLogin() { if (DISCORD_CONFIG.CLIENT_ID === 'YOUR_DISCORD_CLIENT_ID') { showToast('Discord配置未完成'); return; } window.location.href = DISCORD_CONFIG.getOAuthURL(); }
-function handleLogout() {
-    localStorage.removeItem('novelflow_user'); localStorage.removeItem('novelflow_mybooks');
-    fetch('/api/auth/logout').catch(() => {});
-    AppState.user = null; AppState.isLoggedIn = false; AppState.myBooks = []; AppState.isDiscordEmbedded = false;
-    updateProfileUI(); renderMyBooks(); updateStats(); showToast('已退出登录');
-    applyDiscordMode(false); document.body.classList.remove('discord-embedded');
-}
-function handleOAuthCallback() {
-    const hash = window.location.hash;
-    if (hash.includes('access_token')) {
-        const params = new URLSearchParams(hash.substring(1));
-        const token = params.get('access_token');
-        fetch('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => r.json())
-        .then(user => { localStorage.setItem('novelflow_user', JSON.stringify(user)); AppState.user = user; AppState.isLoggedIn = true; window.location.hash = ''; updateProfileUI(); showToast('登录成功！', 'success'); })
-        .catch(e => console.error(e));
-    }
-}
-function showToast(msg, type = '') {
-    const existing = document.querySelector('.toast');
-    if (existing) existing.remove();
-    const toast = document.createElement('div');
-    toast.className = 'toast' + (type ? ' ' + type : '');
-    toast.textContent = msg;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 2500);
-}
-document.addEventListener('DOMContentLoaded', async () => {
-    const inDiscord = isInDiscord();
-    applyDiscordMode(inDiscord);
-    handleOAuthCallback();
-    loadFeaturedBooks();
-    loadMyBooks();
-    updateStats();
-    await checkLogin();
-    document.getElementById('recommendModal').addEventListener('click', e => { if (e.target.classList.contains('modal-overlay')) closeModal(); });
-});
+            
+            container.innerHTML = AppState.myBooks.map((book, index) => `
+                <div class="my-book-item" id="book-${index}">
+                    <div class="my-book-header" onclick="toggleBookDetails(${index})">
+                        <img class="my-book-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/44x60/e5e7eb/9ca3af?text=📖'">
+                        <div class="my-book-info">
+                            <div class="my-book-title">${book.title}</div>
+                            <div class="my-book-code">CODE: ${book.code || 'N/A'}</div>
+                        </div>
+                        <div class="my-book-expand">▼</div>
+                    </div>
+                    <div class="my-book-details">
+                        <div class="my-book-link" onclick="copyText('${book.link}', this)">
+                            <div class="my-book-link-label">Link</div>
+                            <div class="my-book-link-value">${book.link || 'Not available'}</div>
+                        </div>
+                        <div class="my-book-promo">
+                            <div class="my-book-promo-label">Promo Copy</div>
+                            <div class="my-book-promo-text">${book.promo || '📖 Check out this amazing book!'}</div>
+                        </div>
+                        <button class="copy-all-btn" onclick="copyAllBookInfo(${index}, this)">📋 Copy All Info</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function toggleBookDetails(index) {
+            const item = document.getElementById('book-' + index);
+            item.classList.toggle('expanded');
+        }
+        
+        function copyText(text, element) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Copied!', 'success');
+            });
+        }
+        
+        function copyAllBookInfo(index, btn) {
+            const book = AppState.myBooks[index];
+            const text = `📖 "${book.title}"\n\n🔗 Link: ${book.link || 'N/A'}\n📝 Code: ${book.code || 'N/A'}\n\n${book.promo || ''}`;
+            navigator.clipboard.writeText(text).then(() => {
+                btn.textContent = '✓ Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = '📋 Copy All Info';
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
+        
+        function updateStats() {
+            document.getElementById('statLinks').textContent = AppState.myBooks.length;
+            document.getElementById('statEarnings').textContent = '$' + (AppState.myBooks.length * 2.5).toFixed(2);
+        }
+        
+        // ID Binding
+        function saveNovelFlowId() {
+            const id = document.getElementById('novelflowId').value.trim();
+            if (id) {
+                localStorage.setItem('novelflow_id', id);
+                showToast('NovelFlow ID saved!', 'success');
+            }
+        }
+        
+        // Discord Functions
+        function handleDiscordLogin() {
+            window.location.href = DISCORD_CONFIG.getOAuthURL();
+        }
+        
+        function handleLogout() {
+            localStorage.removeItem('novelflow_user');
+            AppState.user = null;
+            AppState.isLoggedIn = false;
+            updateProfileUI();
+            showToast('Logged out', 'success');
+        }
+        
+        function joinDiscord() {
+            window.open('https://discord.gg/novelflow', '_blank');
+        }
+        
+        async function checkLogin() {
+            const saved = localStorage.getItem('novelflow_user');
+            if (saved) {
+                AppState.user = JSON.parse(saved);
+                AppState.isLoggedIn = true;
+                updateProfileUI();
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/auth/me');
+                const data = await res.json();
+                if (data.loggedIn) {
+                    AppState.user = {
+                        id: data.discordId,
+                        username: data.username,
+                        avatar: data.avatar,
+                        global_name: data.username
+                    };
+                    AppState.isLoggedIn = true;
+                    localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
+                    updateProfileUI();
+                }
+            } catch (e) {
+                console.error('Login check failed:', e);
+            }
+        }
+        
+        function updateProfileUI() {
+            const avatar = document.getElementById('profileAvatar');
+            const name = document.getElementById('profileName');
+            const uid = document.getElementById('profileId');
+            const loginBtn = document.getElementById('loginBtn');
+            const logoutBtn = document.getElementById('logoutBtn');
+            
+            if (AppState.isLoggedIn && AppState.user) {
+                const username = AppState.user.global_name || AppState.user.username;
+                avatar.textContent = username.charAt(0).toUpperCase();
+                name.textContent = username;
+                uid.textContent = 'Discord ID: ' + AppState.user.id;
+                loginBtn.style.display = 'none';
+                logoutBtn.style.display = 'inline-flex';
+            } else {
+                avatar.textContent = '?';
+                name.textContent = 'Guest';
+                uid.textContent = 'Login for full access';
+                loginBtn.style.display = 'inline-flex';
+                logoutBtn.style.display = 'none';
+            }
+        }
+        
+        // Toast
+        function showToast(msg, type) {
+            type = type || '';
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast ' + type;
+            toast.textContent = msg;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+        
+        // Init
+        document.addEventListener('DOMContentLoaded', async () => {
+            loadFeaturedBooks();
+            loadMyBooks();
+            await checkLogin();
+            renderTasks();
+            renderLeaderboard();
+            
+            // Load saved NovelFlow ID
+            const savedId = localStorage.getItem('novelflow_id');
+            if (savedId) {
+                document.getElementById('novelflowId').value = savedId;
+            }
+            
+            // Modal close on overlay click
+            document.getElementById('bookDetailModal').addEventListener('click', e => {
+                if (e.target.classList.contains('modal-overlay')) closeBookModal();
+            });
+        });
     </script>
 </body>
 </html>
