@@ -56,7 +56,8 @@ module.exports = async (req, res) => {
   const { keyword = '', lang = 'en', page = 1, pageSize = 20 } = req.query || {};
   
   try {
-    const apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=${page}&pageSize=${pageSize}&pageIndex=${page}&applicationId=${BOOKSTORE_APP_ID}&languageCode=${lang}&bookStatus=1${keyword ? `&keyword=${encodeURIComponent(keyword)}` : ''}`;
+    const { bookClassName = '' } = req.query || {};
+    const apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=${page}&pageSize=${pageSize}&pageIndex=${page}&applicationId=${BOOKSTORE_APP_ID}&languageCode=${lang}&bookStatus=1${keyword ? `&keyword=${encodeURIComponent(keyword)}` : ''}${bookClassName ? `&bookClassName=${encodeURIComponent(bookClassName)}` : ''}`;
     
     const response = await fetch(apiUrl, {
       method: 'GET',
@@ -72,12 +73,13 @@ module.exports = async (req, res) => {
     const books = ((data.data && data.data.data) || data.data || []).map(book => ({
       bookId: book.bookId || book.id,
       title: book.title,
-      cover: book.cover || book.coverImage,
-      author: book.author,
+      cover: book.cover || book.coverImage || '',
+      author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
       description: book.description,
-      rating: book.rating || book.star || 4.0,
-      tags: book.tags || book.genre || [],
-      languageCode: book.languageCode || lang
+      rating: book.rating || book.star || (book.bookScore > 0 ? book.bookScore : 4.5),
+      tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
+      languageCode: book.languageCode || lang,
+      bookClassName: book.bookClassName || ''
     }));
     
     return res.status(200).json({

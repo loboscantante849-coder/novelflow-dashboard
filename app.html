@@ -814,8 +814,10 @@
             <div class="book-list-tabs" id="bookListTabs" style="display: none;">
                 <button class="book-list-tab active" data-genre="all">All</button>
                 <button class="book-list-tab" data-genre="Romance">Romance</button>
+                <button class="book-list-tab" data-genre="Werewolf">Werewolf</button>
+                <button class="book-list-tab" data-genre="Billionaire">Billionaire</button>
                 <button class="book-list-tab" data-genre="Fantasy">Fantasy</button>
-                <button class="book-list-tab" data-genre="Drama">Drama</button>
+                <button class="book-list-tab" data-genre="Mafia">Mafia</button>
             </div>
 
             <!-- Scroll -->
@@ -1159,9 +1161,10 @@
                         title: book.title || 'Untitled',
                         cover: book.cover || book.coverImage || '',
                         description: book.description || '',
-                        rating: book.rating || book.star || 4.0,
-                        tags: book.tags || book.genre || [],
-                        author: book.author || '',
+                        rating: book.rating || book.star || 4.5,
+                        tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
+                        author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
+                        bookClassName: book.bookClassName || '',
                         languageCode: book.languageCode || 'en'
                     }));
                     
@@ -1173,14 +1176,12 @@
                 console.warn('API load failed, using sample data:', e.message);
                 // Fallback sample data with real novelspa cover format
                 AppState.books = [
-                    { bookId: 'b1', title: 'The Alpha King\'s Claim', cover: 'https://cdn.myserver.com/covers/alpha-king.jpg', description: 'She never expected to be claimed by the most powerful Alpha in the territory.', rating: 4.8, tags: ['Romance', 'Fantasy', 'Alpha'], author: 'Luna Silver', languageCode: 'en' },
-                    { bookId: 'b2', title: 'My Cruel Alpha', cover: 'https://cdn.myserver.com/covers/cruel-alpha.jpg', description: 'He is cold, ruthless, and feared by all.', rating: 4.6, tags: ['Romance', 'Dark', 'Werewolf'], author: 'Night Walker', languageCode: 'en' },
-                    { bookId: 'b3', title: 'La Reina del Desierto', cover: 'https://cdn.myserver.com/covers/desert-queen.jpg', description: 'Una princesa guerera debe decidir entre su deber y su corazon.', rating: 4.7, tags: ['Romance', 'Adventure', 'Fantasy'], author: 'Rosa Montana', languageCode: 'es' },
-                    { bookId: 'b4', title: 'El Amor Prohibido', cover: 'https://cdn.myserver.com/covers/forbidden-love.jpg', description: 'Dos familias enfrentadas por una antigua deuda.', rating: 4.5, tags: ['Drama', 'Romance', 'Family'], author: 'Sol Dorado', languageCode: 'es' },
-                    { bookId: 'b5', title: 'Bound to the Dark', cover: 'https://cdn.myserver.com/covers/dark-bound.jpg', description: 'In a world where darkness holds ancient secrets.', rating: 4.4, tags: ['Fantasy', 'Mystery', 'Dark'], author: 'Shadow Noir', languageCode: 'en' },
-                    { bookId: 'b6', title: 'The CEO\'s Forbidden Princess', cover: 'https://cdn.myserver.com/covers/ceo-princess.jpg', description: 'She\'s a princess in hiding. He\'s the billionaire CEO.', rating: 4.3, tags: ['Romance', 'Drama', 'Royalty'], author: 'Crown Jewel', languageCode: 'en' },
-                    { bookId: 'b7', title: 'Suenos de Cristal', cover: 'https://cdn.myserver.com/covers/crystal-dreams.jpg', description: 'Una joven con poderes extraordinarios debe aprender a controlarlos.', rating: 4.6, tags: ['Fantasy', 'Drama', 'Supernatural'], author: 'Cristal Luna', languageCode: 'es' },
-                    { bookId: 'b8', title: 'Midnight Secrets', cover: 'https://cdn.myserver.com/covers/midnight-secrets.jpg', description: 'The small town of Willow Creek hides dark secrets.', rating: 4.2, tags: ['Mystery', 'Thriller', 'Crime'], author: 'Dark Waters', languageCode: 'en' }
+                    { bookId: '658b2f33e3094943780e2c33', title: 'The Alpha King\'s Claim', cover: 'https://oss.novelago.app/prod/img/cover/alpha-king.jpg', description: 'She never expected to be claimed by the most powerful Alpha in the territory.', rating: 4.8, tags: ['Romance', 'Werewolf', 'Alpha'], author: 'Luna Silver', languageCode: 'en' },
+                    { bookId: '658b2f33e3094943780e2c34', title: 'My Cruel Alpha', cover: 'https://oss.novelago.app/prod/img/cover/cruel-alpha.jpg', description: 'He is cold, ruthless, and feared by all.', rating: 4.6, tags: ['Romance', 'Werewolf', 'Dark'], author: 'Night Walker', languageCode: 'en' },
+                    { bookId: '658b2f33e3094943780e2c35', title: 'Bound to the Dark', cover: 'https://oss.novelago.app/prod/img/cover/dark-bound.jpg', description: 'In a world where darkness holds ancient secrets.', rating: 4.5, tags: ['Fantasy', 'Mystery', 'Dark'], author: 'Shadow Noir', languageCode: 'en' },
+                    { bookId: '658b2f33e3094943780e2c36', title: 'The CEO\'s Forbidden Princess', cover: 'https://oss.novelago.app/prod/img/cover/ceo-princess.jpg', description: 'She\'s a princess in hiding. He\'s the billionaire CEO.', rating: 4.5, tags: ['Billionaire', 'Romance', 'Royalty'], author: 'Crown Jewel', languageCode: 'en' },
+                    { bookId: '658b2f33e3094943780e2c37', title: 'Midnight Secrets', cover: 'https://oss.novelago.app/prod/img/cover/midnight-secrets.jpg', description: 'The small town of Willow Creek hides dark secrets.', rating: 4.4, tags: ['Mafia', 'Thriller', 'Crime'], author: 'Dark Waters', languageCode: 'en' },
+                    { bookId: '658b2f33e3094943780e2c38', title: 'The Dark Pack', cover: 'https://oss.novelago.app/prod/img/cover/dark-pack.jpg', description: 'Born to run. Destined to rule.', rating: 4.7, tags: ['Werewolf', 'Fantasy', 'Alpha'], author: 'Moon Howler', languageCode: 'en' }
                 ];
             }
 
@@ -1216,7 +1217,7 @@
 
             container.innerHTML = books.map(book => {
                 const stars = '&#9733;'.repeat(Math.floor(book.rating));
-                const tags = (book.tags || []).slice(0, 3).filter(t => typeof t === 'string').map(t =>
+                const tags = (book.tags || []).slice(0, 4).map(t =>
                     `<span class="book-tag ${book.languageCode === 'es' ? 'lang-es' : ''}">${t}</span>`
                 ).join('');
 
@@ -1247,7 +1248,7 @@
 
             container.innerHTML = books.map(book => {
                 const stars = '&#9733;'.repeat(Math.floor(book.rating));
-                const tags = (book.tags || []).slice(0, 2).filter(t => typeof t === 'string').map(t => `<span class="book-tag">${t}</span>`).join('');
+                const tags = (book.tags || []).slice(0, 3).map(t => `<span class="book-tag">${t}</span>`).join('');
 
                 return `
                     <div class="book-scroll-card" style="position:relative" onclick="openRecommendModal('${book.bookId}')"><span class="earn-badge">$0.8/user</span>
@@ -1305,9 +1306,9 @@
                     AppState.filteredBooks = [...AppState.books];
                     renderBookList();
                 } else {
-                    // Load books by genre from API (different books per category)
+                    // Load books by genre from API using bookClassName filter
                     try {
-                        const resp = await fetch('/api/books/search?keyword=' + encodeURIComponent(genre) + '&lang=en&pageSize=30');
+                        const resp = await fetch('/api/books/search?bookClassName=' + encodeURIComponent(genre) + '&lang=en&pageSize=30');
                         if (resp.ok) {
                             const result = await resp.json();
                             if (result.success && Array.isArray(result.data)) {
@@ -1316,9 +1317,10 @@
                                     title: book.title || 'Untitled',
                                     cover: book.cover || book.coverImage || '',
                                     description: book.description || '',
-                                    rating: book.rating || book.star || 4.0,
-                                    tags: book.tags || book.genre || [],
-                                    author: book.author || '',
+                                    rating: book.rating || book.star || 4.5,
+                                    tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
+                                    author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
+                                    bookClassName: book.bookClassName || '',
                                     languageCode: book.languageCode || 'en'
                                 }));
                             } else { throw new Error('bad data'); }
@@ -1326,6 +1328,7 @@
                     } catch (e) {
                         // Fallback: filter locally
                         AppState.filteredBooks = AppState.books.filter(book => {
+                            if (book.bookClassName && book.bookClassName.toLowerCase() === genre.toLowerCase()) return true;
                             const tags = book.tags || [];
                             return tags.some(t => t.toLowerCase().includes(genre.toLowerCase()));
                         });
@@ -1381,6 +1384,9 @@
         let currentRecommendBook = null;
 
         function openRecommendModal(bookId) {
+            // Reset button state
+            const btn = document.getElementById('modalConfirmBtn');
+            if (btn) { btn.disabled = false; btn.textContent = 'Start Earning'; }
             const book = AppState.books.find(b => b.bookId === bookId);
             if (!book) return;
 
@@ -1433,6 +1439,57 @@
 
         function closeModal() {
             document.getElementById('recommendModal').classList.remove('show');
+            // Reset button state when closing
+            const btn = document.getElementById('modalConfirmBtn');
+            if (btn) { btn.disabled = false; btn.textContent = 'Start Earning'; }
+        }
+        
+        function showResultInModal(book) {
+            // Replace modal content with result display
+            const modalBody = document.querySelector('.modal-body');
+            if (!modalBody) return;
+            
+            const code = book.code || 'N/A';
+            const link = book.link || 'Processing...';
+            const recommendText = AppState.currentRecommendText || '';
+            
+            modalBody.innerHTML = `
+                <div style="text-align:center; padding: 20px 0;">
+                    <div style="font-size:48px; margin-bottom:12px;">🎉</div>
+                    <div style="font-size:18px; font-weight:600; color:var(--ink); margin-bottom:8px;">Link Created!</div>
+                    <div style="font-size:13px; color:var(--ink-mute); margin-bottom:20px;">Your promotion link is ready</div>
+                    
+                    <div style="background:var(--canvas-soft); border-radius:8px; padding:14px; margin-bottom:12px; text-align:left;">
+                        <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Promotion Code</div>
+                        <div style="font-size:18px; font-weight:700; color:var(--primary); letter-spacing:1px;">${code}</div>
+                    </div>
+                    
+                    <div style="background:var(--canvas-soft); border-radius:8px; padding:14px; margin-bottom:12px; text-align:left;">
+                        <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Promotion Link</div>
+                        <div style="font-size:12px; color:var(--primary); word-break:break-all;">${link}</div>
+                    </div>
+                    
+                    <div style="background:var(--canvas-soft); border-radius:8px; padding:14px; margin-bottom:20px; text-align:left;">
+                        <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Recommendation Text</div>
+                        <div style="font-size:12px; color:var(--ink-secondary); line-height:1.5; max-height:100px; overflow-y:auto;">${recommendText.replace(/</g,'&lt;')}</div>
+                    </div>
+                    
+                    <div style="display:flex; gap:8px;">
+                        <button onclick="copyToClipboard(AppState.myBooks[AppState.myBooks.length-1]?.link||'')" style="flex:1; padding:12px; background:var(--primary); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:500; cursor:pointer;">📋 Copy Link</button>
+                        <button onclick="copyToClipboard(AppState.currentRecommendText||'')" style="flex:1; padding:12px; background:var(--canvas); color:var(--primary); border:1px solid var(--primary); border-radius:8px; font-size:14px; font-weight:500; cursor:pointer;">📝 Copy Text</button>
+                    </div>
+                    
+                    <button onclick="closeModal()" style="margin-top:12px; padding:10px 24px; background:none; color:var(--ink-mute); border:none; font-size:13px; cursor:pointer;">Close & Continue</button>
+                </div>
+            `;
+        }
+        
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Copied!', 'success');
+            }).catch(() => {
+                showToast('Copy failed', 'error');
+            });
         }
 
         // ========== Check Login Status ==========
@@ -1507,13 +1564,9 @@
 
                 if (result.success) {
                     currentRecommendBook.code = result.code || '';
-                    currentRecommendBook.link = result.link || 'Link will be ready shortly...';
+                    currentRecommendBook.link = result.link || '';
                     currentRecommendBook.createdAt = Date.now();
                     currentRecommendBook.submissionId = result.submissionId;
-                    if (result.status === 'pending') {
-                        currentRecommendBook.code = 'Processing...';
-                        currentRecommendBook.link = 'Your link is being created. Check back in a minute!';
-                    }
 
                     AppState.currentRecommendText = generateRecommendText(currentRecommendBook);
 
@@ -1522,8 +1575,12 @@
                     renderMyBooks();
                     updateStats();
 
-                    closeModal();
-                    showSuccessPage(currentRecommendBook);
+                    // Reset button
+                    btn.disabled = false;
+                    btn.textContent = '✓ Created!';
+                    
+                    // Show result inline in modal instead of switching tabs
+                    showResultInModal(currentRecommendBook);
                 } else {
                     throw new Error(result.error || 'Failed to create link');
                 }
