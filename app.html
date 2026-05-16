@@ -1207,7 +1207,7 @@
 
             container.innerHTML = books.map(book => {
                 const stars = '&#9733;'.repeat(Math.floor(book.rating));
-                const tags = (book.tags || []).slice(0, 3).map(t =>
+                const tags = (book.tags || []).slice(0, 3).filter(t => typeof t === 'string').map(t =>
                     `<span class="book-tag ${book.languageCode === 'es' ? 'lang-es' : ''}">${t}</span>`
                 ).join('');
 
@@ -1238,7 +1238,7 @@
 
             container.innerHTML = books.map(book => {
                 const stars = '&#9733;'.repeat(Math.floor(book.rating));
-                const tags = (book.tags || []).slice(0, 2).map(t => `<span class="book-tag">${t}</span>`).join('');
+                const tags = (book.tags || []).slice(0, 2).filter(t => typeof t === 'string').map(t => `<span class="book-tag">${t}</span>`).join('');
 
                 return `
                     <div class="book-scroll-card" onclick="openRecommendModal('${book.bookId}')">
@@ -1387,7 +1387,7 @@
             document.getElementById('modalBookStars').innerHTML = stars;
             document.getElementById('modalBookScore').textContent = (book.rating || 4.0).toFixed(1);
 
-            const tagsHtml = (book.tags || []).slice(0, 4).map(t =>
+            const tagsHtml = (book.tags || []).slice(0, 4).filter(t => typeof t === 'string').map(t =>
                 `<span class="book-tag ${book.languageCode === 'es' ? 'lang-es' : ''}">${t}</span>`
             ).join('');
             document.getElementById('modalBookTags').innerHTML = tagsHtml;
@@ -1472,28 +1472,16 @@
         async function confirmRecommend() {
             if (!currentRecommendBook) return;
 
-            // Check login status
-            await checkLoginStatus();
-            
-            if (!AppState.isLoggedIn) {
-                closeModal();
-                showToast('Please login first to create links', 'error');
-                switchTab('profile');
-                return;
-            }
-
             const btn = document.getElementById('modalConfirmBtn');
             btn.disabled = true;
             btn.textContent = 'Creating...';
 
             try {
-                const response = await fetch('/api/confirm-secure', {
+                const response = await fetch('/api/confirm', {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        bookName: currentRecommendBook.title,
                         bookId: currentRecommendBook.bookId,
                         bookTitle: currentRecommendBook.title,
                         bookAuthor: currentRecommendBook.author || '',
@@ -1509,10 +1497,14 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    currentRecommendBook.code = result.code;
-                    currentRecommendBook.link = result.link;
+                    currentRecommendBook.code = result.code || '';
+                    currentRecommendBook.link = result.link || 'Link will be ready shortly...';
                     currentRecommendBook.createdAt = Date.now();
                     currentRecommendBook.submissionId = result.submissionId;
+                    if (result.status === 'pending') {
+                        currentRecommendBook.code = 'Processing...';
+                        currentRecommendBook.link = 'Your link is being created. Check back in a minute!';
+                    }
 
                     AppState.currentRecommendText = generateRecommendText(currentRecommendBook);
 
@@ -1711,16 +1703,6 @@
         async function createLink(book, discordUsername) {
             document.getElementById('searchResults').innerHTML = '';
 
-            // Check login status first
-            await checkLoginStatus();
-            
-            if (!AppState.isLoggedIn) {
-                showToast('Please login first to create links', 'error');
-                resetForm();
-                switchTab('profile');
-                return;
-            }
-
             const processingStatus = document.getElementById('processingStatus');
             processingStatus.classList.add('show');
             
@@ -1729,13 +1711,11 @@
             await delay(500);
 
             try {
-                const response = await fetch('/api/confirm-secure', {
+                const response = await fetch('/api/confirm', {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        bookName: book.title,
                         bookId: book.bookId,
                         bookTitle: book.title,
                         bookAuthor: book.author || '',
@@ -1757,10 +1737,15 @@
                 await updateStep(4, 'done');
 
                 if (result.success) {
+                    const code = result.code || '';
+                    const link = result.link || 'Link will be ready shortly...';
+                    if (result.status === 'pending') {
+                        // Code/link still being created
+                    }
                     const newBook = {
                         ...book,
-                        code: result.code,
-                        link: result.link,
+                        code: code,
+                        link: link,
                         discordUsername: discordUsername,
                         createdAt: Date.now(),
                         submissionId: result.submissionId
