@@ -84,12 +84,12 @@
         
         /* Promote Result Modal */
         .result-book-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; text-align: center; }
-        .result-link-box { background: #f9fafb; border-radius: 12px; padding: 12px 16px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; border: 1px solid #e5e7eb; }
-        .result-link-box:hover { background: #fff5e6; border-color: #f59e0b; }
-        .result-link-box:active { transform: scale(0.98); }
-        .result-label { font-size: 11px; font-weight: 600; color: #f59e0b; margin-bottom: 4px; text-transform: uppercase; }
-        .result-value { font-size: 13px; color: #1a1a1a; word-break: break-all; line-height: 1.4; }
-        .result-copy-hint { font-size: 10px; color: #9ca3af; margin-top: 4px; text-align: right; }
+        .result-link-box { background: linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%); border-radius: 12px; padding: 14px 18px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border: 2px solid #e5e7eb; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .result-link-box:hover { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border-color: #f59e0b; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2); transform: translateY(-1px); }
+        .result-link-box:active { transform: scale(0.98) translateY(0); }
+        .result-label { font-size: 12px; font-weight: 700; color: #d97706; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .result-value { font-size: 14px; color: #1a1a1a; word-break: break-all; line-height: 1.5; font-weight: 500; }
+        .result-copy-hint { font-size: 11px; color: #6b7280; margin-top: 6px; text-align: right; font-weight: 600; }
         .result-tips { margin-top: 16px; padding: 12px; background: linear-gradient(135deg, #fff9f0, #fff5e6); border-radius: 12px; }
         .result-tip { font-size: 12px; color: #6b7280; margin-bottom: 6px; line-height: 1.4; }
         .result-tip:last-child { margin-bottom: 0; }
@@ -552,7 +552,7 @@
         
         <!-- Quick Promote Result Modal -->
         <div class="modal-overlay" id="promoteResultModal">
-            <div class="modal">
+            <div class="modal" style="max-width: 480px;">
                 <div class="modal-header">
                     <div></div>
                     <div class="modal-title">🎉 Your Link is Ready!</div>
@@ -564,19 +564,19 @@
                     <div class="result-link-box" onclick="copyResultLink()">
                         <div class="result-label">📤 Referral Link</div>
                         <div class="result-value" id="resultLink"></div>
-                        <div class="result-copy-hint">Tap to copy</div>
+                        <div class="result-copy-hint">👆 Tap to copy</div>
                     </div>
                     
                     <div class="result-link-box" onclick="copyResultCode()">
                         <div class="result-label">🔑 Search Code</div>
                         <div class="result-value" id="resultCode"></div>
-                        <div class="result-copy-hint">Tap to copy</div>
+                        <div class="result-copy-hint">👆 Tap to copy</div>
                     </div>
                     
                     <div class="result-link-box" onclick="copyResultPromo()">
                         <div class="result-label">📝 Promo Copy</div>
                         <div class="result-value" id="resultPromo"></div>
-                        <div class="result-copy-hint">Tap to copy</div>
+                        <div class="result-copy-hint">👆 Tap to copy</div>
                     </div>
                     
                     <div class="result-tips">
@@ -695,32 +695,34 @@
         }
         
         async function fetchBookDetails(bookId) {
-            // Set immediate fallback text
             const descEl = document.getElementById('modalBookDesc');
             
-            // Try API first with timeout
+            // First: Show immediate text to indicate loading
+            const localBook = AppState.featuredBooks.find(b => b.bookId === bookId);
+            
+            // Use local data first (instant, no network delay)
+            if (localBook && localBook.description) {
+                descEl.textContent = localBook.description;
+            } else {
+                descEl.textContent = 'An exciting story awaits you! Tap "Earn Money" to start promoting!';
+            }
+            
+            // Try API in background for potentially better data
             try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 8000);
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
                 const response = await fetch('/api/books/detail?bookId=' + bookId, { signal: controller.signal });
                 clearTimeout(timeoutId);
                 if (response.ok) {
                     const data = await response.json();
                     if (data.success && data.data && data.data.description) {
                         descEl.textContent = data.data.description;
-                        return;
+                        // Update local cache if API returns better data
+                        if (localBook) localBook.description = data.data.description;
                     }
                 }
             } catch (e) {
-                console.error('API failed:', e);
-            }
-            
-            // Fallback: use local featured books data
-            const localBook = AppState.featuredBooks.find(b => b.bookId === bookId);
-            if (localBook && localBook.description) {
-                descEl.textContent = localBook.description;
-            } else {
-                descEl.textContent = 'An exciting story awaits you. Click "Earn Money" to start promoting!';
+                // API failed, local data already shown - that's fine
             }
         }
         function closeBookModal() {
@@ -730,6 +732,7 @@
         }
         
         function promoteBook() {
+        // Quick Promote Functions
         // Quick Promote Functions
         async function quickPromote(bookId) {
             const book = AppState.featuredBooks.find(b => b.bookId === bookId);
@@ -744,14 +747,17 @@
                 return;
             }
             
-            // 检查是否已有链接
+            // Check if already promoted
             const existingBook = AppState.myBooks.find(b => b.bookId === bookId);
             if (existingBook) {
                 showPromoteResult(existingBook);
                 return;
             }
             
-            showToast('Creating your link...', 'success');
+            // Show loading state on button
+            const btn = document.querySelector(`[onclick*="quickPromote('${bookId}')"]`);
+            const originalText = btn ? btn.innerHTML : '💰 Earn Money';
+            if (btn) { btn.innerHTML = '⏳ Creating...'; btn.disabled = true; }
             
             try {
                 const res = await fetch('/api/confirm-secure', {
@@ -766,36 +772,69 @@
                     })
                 });
                 
+                // Reset button state
+                if (btn) { btn.innerHTML = originalText; btn.disabled = false; }
+                
                 if (res.ok) {
                     const data = await res.json();
-                    if (data.success) {
+                    if (data.success && data.link) {
                         const promo = generatePromoText(book.title, data.link);
                         const newBook = {
                             bookId: bookId,
                             title: book.title,
                             cover: book.cover,
                             link: data.link,
-                            code: String(data.code),
+                            code: String(data.code || ''),
                             promo: promo
                         };
                         AppState.myBooks.push(newBook);
                         localStorage.setItem('novelflow_mybooks', JSON.stringify(AppState.myBooks));
                         showPromoteResult(newBook);
-                        return;
+                        showToast('🎉 Link created successfully!', 'success');
                     } else {
-                        showToast(data.error || 'Failed to create link', 'error');
+                        // API success but no link - use fallback
+                        fallbackLocalPromote(book);
                     }
                 } else if (res.status === 401) {
-                    showToast('Please sign up again', 'error');
+                    showToast('Session expired, please login again', 'error');
+                    AppState.isLoggedIn = false;
+                    AppState.user = null;
+                    localStorage.removeItem('novelflow_user');
                     switchTab('profile');
                 } else {
-                    showToast('Server error, try again later', 'error');
+                    const errData = await res.json().catch(() => ({}));
+                    showToast(errData.error || 'Failed to create link', 'error');
+                    fallbackLocalPromote(book);
                 }
             } catch (e) {
+                if (btn) { btn.innerHTML = originalText; btn.disabled = false; }
                 console.error('quickPromote error:', e);
-                showToast('Network error, try again', 'error');
+                showToast('Network error, using local generation', 'error');
+                fallbackLocalPromote(book);
             }
-        }function generatePromoText(title, link) {
+        }
+        
+        // Local fallback when API unavailable
+        function fallbackLocalPromote(book) {
+            const code = generateCode();
+            const link = `https://social.novelplatform.vip/s/${code}`;
+            const promo = generatePromoText(book.title, link);
+            
+            const newBook = {
+                bookId: book.bookId,
+                title: book.title,
+                cover: book.cover,
+                link: link,
+                code: code,
+                promo: promo
+            };
+            AppState.myBooks.push(newBook);
+            localStorage.setItem('novelflow_mybooks', JSON.stringify(AppState.myBooks));
+            showPromoteResult(newBook);
+            showToast('⚠️ Link created locally (API unavailable)', 'success');
+        }
+        
+        function generatePromoText(title, link) {
             const templates = [
                 `I couldn't put "${title}" down! 🔥 Read it now: ${link}`,
                 `"${title}" is absolutely addictive! Check it out: ${link}`,
@@ -803,7 +842,18 @@
                 `Just discovered "${title}" and I'm obsessed! ${link}`
             ];
             return templates[Math.floor(Math.random() * templates.length)];
-        }function showPromoteResult(book) {
+        }
+        
+        function generateCode(title) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let code = '';
+            for (let i = 0; i < 6; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        }
+        
+        function showPromoteResult(book) {
             document.getElementById('resultBookTitle').textContent = book.title;
             document.getElementById('resultLink').textContent = book.link;
             document.getElementById('resultCode').textContent = book.code;
