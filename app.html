@@ -210,6 +210,7 @@
         }
         .book-item-rating { display: flex; align-items: center; gap: var(--sp-xs); margin-bottom: var(--sp-xs); }
         .book-item-stars { color: var(--ink-mute); font-size: 11px; }
+        .new-badge { display: inline-block; background: #6366f1; color: #fff; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 3px; }
         .book-item-score { font-size: 12px; color: var(--ink-mute); font-weight: 400; }
 
         .book-item-tags { display: flex; flex-wrap: wrap; gap: var(--sp-xxs); margin-bottom: var(--sp-xs); }
@@ -396,6 +397,12 @@
 
         /* Search results */
         .search-results { padding: 0 var(--sp-lg) var(--sp-lg); }
+        .section-subtitle {
+            font-size: 11px;
+            color: var(--ink-mute);
+            margin-top: 2px;
+        }
+
 
         /* Processing */
         .processing-status { display: none; text-align: center; padding: 40px 20px; }
@@ -693,6 +700,18 @@
         .modal-book-stars { color: var(--ink-mute); font-size: 12px; }
         .modal-book-score { font-size: 13px; color: var(--ink-mute); font-weight: 400; }
         .modal-book-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--sp-xxs); margin-bottom: var(--sp-md); }
+        .earn-incentive {
+            background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
+            border: 1px solid #FFB74D;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        .earn-incentive-icon { font-size: 20px; margin-bottom: 4px; }
+        .earn-incentive-text { font-size: 13px; font-weight: 600; color: #E65100; line-height: 1.4; }
+        .earn-incentive-sub { font-size: 11px; color: #BF360C; margin-top: 2px; }
+
 
         /* Description */
         .modal-description {
@@ -733,6 +752,30 @@
             background: var(--primary); color: var(--on-primary);
         }
         .modal-btn.confirm:hover { background: var(--primary-deep); }
+
+        .modal-result { display: none; margin-top: 16px; }
+        .modal-result.show { display: block; animation: fadeIn 0.3s ease; }
+        .modal-result-title { font-size: 14px; font-weight: 600; text-align: center; margin-bottom: 12px; color: var(--primary); }
+        .modal-result-box {
+            background: var(--canvas-soft); border-radius: var(--r-md); padding: 12px; margin-bottom: 10px;
+        }
+        .modal-result-label { font-size: 10px; font-weight: 600; color: var(--ink-mute); text-transform: uppercase; margin-bottom: 4px; }
+        .modal-result-value {
+            font-size: 13px; color: var(--ink); word-break: break-all;
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        }
+        .modal-result-value span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+        .modal-copy-btn {
+            flex-shrink: 0; padding: 4px 10px; font-size: 11px; font-weight: 600;
+            background: var(--primary); color: var(--on-primary); border: none; border-radius: var(--r-sm); cursor: pointer;
+        }
+        .modal-copy-btn:hover { opacity: 0.85; }
+        .modal-recommend-text {
+            background: #F0FFF4; border: 1px solid #9AE6B4; border-radius: var(--r-md);
+            padding: 12px; margin-bottom: 6px; font-size: 13px; color: var(--ink-secondary); line-height: 1.5;
+            white-space: pre-wrap;
+        }
+        .modal-recommend-label { font-size: 10px; font-weight: 600; color: var(--success); text-transform: uppercase; margin-bottom: 4px; }
 
         /* Toast */
         .toast {
@@ -788,7 +831,7 @@
                     <div class="banner-eyebrow">💰 GET PAID TO READ</div>
                     <div class="banner-title">Earn <span class="highlight">$0.80</span> Per<br>New Reader</div>
                     <div class="banner-amount">$50K+ Paid</div>
-                    <div class="banner-subtitle">Share books. Get paid. It's that simple! 💵</div>
+                    <div class="banner-subtitle">Top promoters earned $500+ this month</div>
                 </div>
             </div>
 
@@ -823,6 +866,7 @@
             <!-- Scroll -->
             <div class="book-scroll-section" id="bookScrollSection" style="display: none;">
                 <div class="book-scroll-title">Recommended for you</div>
+                        <div class="section-subtitle">Top picks to promote & earn</div>
                 <div class="book-scroll-list" id="bookScrollList"></div>
             </div>
 
@@ -871,7 +915,7 @@
 
                         <div class="form-group">
                             <label>Book Name <span class="required">*</span></label>
-                            <input type="text" class="form-input" id="bookName" placeholder="Enter book name or author to search">
+                            <input type="text" class="form-input" id="bookName" placeholder="Search books to promote & earn...">
                         </div>
 
                         <button class="btn-submit" id="submitBtn" onclick="handleSubmit()">
@@ -1044,7 +1088,7 @@
                     <div class="profile-card-icon">&#9776;</div><div class="profile-card-title">Statistics</div><div class="profile-card-desc">View promotion data</div>
                 </div>
                 <div class="profile-card">
-                    <div class="profile-card-icon">&#9733;</div><div class="profile-card-title">My Rewards</div><div class="profile-card-desc">Coming soon</div>
+                    <div class="profile-card-icon">&#128176;</div><div class="profile-card-title">My Books</div><div class="profile-card-desc" id="profileMyBooksCount">0 books promoted</div>
                 </div>
                 <div class="profile-card" onclick="window.open('promotion-guide.html', '_blank')">
                     <div class="profile-card-icon">&#9432;</div><div class="profile-card-title">Guide</div><div class="profile-card-desc">For beginners</div>
@@ -1057,10 +1101,11 @@
             <div class="my-books-section">
                 <div class="section-header" style="padding: 0 0 var(--sp-sm);">
                     <div class="section-title">My Book List</div>
+                    <div class="section-subtitle">Books you're currently promoting</div>
                 </div>
                 <div id="myBooksList">
                     <div class="empty-state" style="padding: 30px 20px; background: var(--canvas-soft); border-radius: var(--r-lg);">
-                        <div class="empty-icon">&#9993;</div><div class="empty-text">No books yet. Start recommending from home!</div>
+                        <div class="empty-icon">&#128176;</div><div class="empty-text">Start promoting books to earn money!</div>
                     </div>
                 </div>
             </div>
@@ -1092,6 +1137,11 @@
 
                 <div class="modal-book-tags" id="modalBookTags"></div>
 
+                <div class="earn-incentive" id="earnIncentive">
+                    <div class="earn-incentive-icon">💰</div>
+                    <div class="earn-incentive-text">1,200+ promoters are earning with this book</div>
+                    <div class="earn-incentive-sub">Earn $0.80 for every new reader you bring</div>
+                </div>
                 <div class="modal-description">
                     <div class="modal-description-label">Description</div>
                     <div class="modal-description-text collapsed" id="modalDescriptionText">
@@ -1100,6 +1150,26 @@
                     <div class="modal-description-toggle" id="modalDescriptionToggle" style="display: none;" onclick="toggleDescription()">Show more</div>
                 </div>
 
+            <div class="modal-result" id="modalResult">
+                <div class="modal-result-title">🎉 Your Earning Link is Ready!</div>
+                <div class="modal-result-box">
+                    <div class="modal-result-label">Promotion Link</div>
+                    <div class="modal-result-value">
+                        <span id="modalResultLink"></span>
+                        <button class="modal-copy-btn" onclick="copyModalResult('link')">Copy</button>
+                    </div>
+                </div>
+                <div class="modal-result-box">
+                    <div class="modal-result-label">Your Code</div>
+                    <div class="modal-result-value">
+                        <span id="modalResultCode"></span>
+                        <button class="modal-copy-btn" onclick="copyModalResult('code')">Copy</button>
+                    </div>
+                </div>
+                <div class="modal-recommend-label">📋 Share This Text</div>
+                <div class="modal-recommend-text" id="modalRecommendText"></div>
+                <button class="modal-copy-btn" style="width:100%; padding:10px; margin-top:4px;" onclick="copyModalResult('text')">Copy All Text</button>
+            </div>
                 <div class="modal-actions">
                     <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
                     <button class="modal-btn confirm" id="modalConfirmBtn" onclick="confirmRecommend()">Start Earning</button>
@@ -1224,7 +1294,8 @@
             }
 
             container.innerHTML = books.map(book => {
-                const stars = '&#9733;'.repeat(Math.floor(book.rating));
+                const ratingVal = book.rating && book.rating > 0 ? book.rating : null;
+                const stars = ratingVal ? '&#9733;'.repeat(Math.floor(ratingVal)) : '';
                 const tags = (book.tags || []).slice(0, 3).filter(t => typeof t === 'string').map(t =>
                     `<span class="book-tag ${book.languageCode === 'es' ? 'lang-es' : ''}">${t}</span>`
                 ).join('');
@@ -1235,8 +1306,7 @@
                         <div class="book-item-content">
                             <div class="book-item-title">${book.title}</div>
                             <div class="book-item-rating">
-                                <span class="book-item-stars">${stars}</span>
-                                <span class="book-item-score">${(book.rating || 4.0).toFixed(1)}</span>
+                                ${ratingVal ? `<span class="book-item-stars">${stars}</span><span class="book-item-score">${ratingVal.toFixed(1)}</span>` : '<span class="new-badge">New</span>'}
                             </div>
                             <div class="book-item-tags">${tags}</div>
                             <div class="book-item-desc">${book.description || 'No description available.'}</div>
@@ -1255,7 +1325,8 @@
             const books = AppState.books.slice(0, 6);
 
             container.innerHTML = books.map(book => {
-                const stars = '&#9733;'.repeat(Math.floor(book.rating));
+                const ratingVal = book.rating && book.rating > 0 ? book.rating : null;
+                const stars = ratingVal ? '&#9733;'.repeat(Math.floor(ratingVal)) : '';
                 const tags = (book.tags || []).slice(0, 2).filter(t => typeof t === 'string').map(t => `<span class="book-tag">${t}</span>`).join('');
 
                 return `
@@ -1263,7 +1334,7 @@
                         <img class="book-scroll-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/136x176/f6f9fc/64748d?text=N'">
                         <div class="book-scroll-info">
                             <div class="book-scroll-card-title">${book.title}</div>
-                            <div class="book-scroll-rating">${stars} ${(book.rating || 4.0).toFixed(1)}</div>
+                            <div class="book-scroll-rating">${ratingVal ? stars + ' ' + ratingVal.toFixed(1) : '<span class="new-badge">New</span>'}</div>
                             <div class="book-scroll-tags">${tags}</div>
                         </div>
                     </div>
@@ -1391,6 +1462,12 @@
         let currentRecommendBook = null;
 
         function openRecommendModal(bookId) {
+            // Reset modal-result area
+            const modalResult = document.getElementById('modalResult');
+            const modalActions = document.querySelector('.modal-actions');
+            if (modalResult) modalResult.classList.remove('show');
+            if (modalActions) modalActions.style.display = 'flex';
+            
             const btn = document.getElementById('modalConfirmBtn');
             if (btn) { btn.disabled = false; btn.textContent = 'Start Earning'; }
             const book = AppState.books.find(b => b.bookId === bookId);
@@ -1404,9 +1481,10 @@
             };
             document.getElementById('modalBookTitle').textContent = book.title;
 
-            const stars = '&#9733;'.repeat(Math.floor(book.rating || 4));
-            document.getElementById('modalBookStars').innerHTML = stars;
-            document.getElementById('modalBookScore').textContent = (book.rating || 4.0).toFixed(1);
+            const ratingVal = book.rating && book.rating > 0 ? book.rating : null;
+            const stars = ratingVal ? '&#9733;'.repeat(Math.floor(ratingVal)) : '';
+            document.getElementById('modalBookStars').innerHTML = ratingVal ? stars : '<span class="new-badge">New</span>';
+            document.getElementById('modalBookScore').textContent = ratingVal ? ratingVal.toFixed(1) : '';
 
             const tagsHtml = (book.tags || []).slice(0, 4).filter(t => typeof t === 'string').map(t =>
                 `<span class="book-tag ${book.languageCode === 'es' ? 'lang-es' : ''}">${t}</span>`
@@ -1450,34 +1528,18 @@
         }
         
         function showResultInModal(book) {
-            const modalBody = document.querySelector('.modal-body');
-            if (!modalBody) return;
-            const code = book.code || 'N/A';
-            const link = book.link || '';
-            const recommendText = AppState.currentRecommendText || '';
-            modalBody.innerHTML = `
-                <div style="text-align:center; padding:20px 0;">
-                    <div style="font-size:48px; margin-bottom:12px;">🎉</div>
-                    <div style="font-size:18px; font-weight:600; color:var(--ink); margin-bottom:8px;">Link Created!</div>
-                    <div style="font-size:13px; color:var(--ink-mute); margin-bottom:20px;">Your promotion link is ready</div>
-                    <div style="background:var(--canvas-soft); border-radius:8px; padding:14px; margin-bottom:12px; text-align:left;">
-                        <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Promotion Code</div>
-                        <div style="font-size:18px; font-weight:700; color:var(--primary); letter-spacing:1px;" id="resultCodeDisplay">${code}</div>
-                    </div>
-                    <div style="background:var(--canvas-soft); border-radius:8px; padding:14px; margin-bottom:12px; text-align:left;">
-                        <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Promotion Link</div>
-                        <div style="font-size:12px; color:var(--primary); word-break:break-all;" id="resultLinkDisplay">${link}</div>
-                    </div>
-                    <div style="background:var(--canvas-soft); border-radius:8px; padding:14px; margin-bottom:20px; text-align:left;">
-                        <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Recommendation Text</div>
-                        <div style="font-size:12px; color:var(--ink-secondary); line-height:1.5; max-height:100px; overflow-y:auto;">${recommendText.replace(/</g,'&lt;')}</div>
-                    </div>
-                    <div style="display:flex; gap:8px;">
-                        <button onclick="copyToClipboard(document.getElementById('resultLinkDisplay')?.textContent||'')" style="flex:1; padding:12px; background:var(--primary); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:500; cursor:pointer;">📋 Copy Link</button>
-                        <button onclick="copyToClipboard(AppState.currentRecommendText||'')" style="flex:1; padding:12px; background:var(--canvas); color:var(--primary); border:1px solid var(--primary); border-radius:8px; font-size:14px; font-weight:500; cursor:pointer;">📝 Copy Text</button>
-                    </div>
-                    <button onclick="closeModal()" style="margin-top:12px; padding:10px 24px; background:none; color:var(--ink-mute); border:none; font-size:13px; cursor:pointer;">Close & Continue</button>
-                </div>`;
+            // Use modal-result area instead of replacing modal-body
+            const modalResult = document.getElementById('modalResult');
+            const modalActions = document.querySelector('.modal-actions');
+            const resultLink = document.getElementById('modalResultLink');
+            const resultCode = document.getElementById('modalResultCode');
+            const recommendText = document.getElementById('modalRecommendText');
+            
+            if (resultLink) resultLink.textContent = book.link || '';
+            if (resultCode) resultCode.textContent = book.code || '';
+            if (recommendText) recommendText.textContent = AppState.currentRecommendText || '';
+            if (modalResult) modalResult.classList.add('show');
+            if (modalActions) modalActions.style.display = 'none';
         }
         
         function copyToClipboard(text) {
@@ -1527,6 +1589,14 @@
         }
 
         // ========== Confirm Recommend - Call Backend API ==========
+        function copyModalResult(type) {
+            let text = '';
+            if (type === 'link') text = document.getElementById('modalResultLink').textContent;
+            else if (type === 'code') text = document.getElementById('modalResultCode').textContent;
+            else if (type === 'text') text = document.getElementById('modalRecommendText').textContent;
+            navigator.clipboard.writeText(text).then(() => showToast('Copied!', 'success')).catch(() => {});
+        }
+
         async function confirmRecommend() {
             if (!currentRecommendBook) return;
 
@@ -1862,6 +1932,14 @@
         function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
         // ========== My Books ==========
+
+        function updateProfileMyBooksCount() {
+            const countEl = document.getElementById('profileMyBooksCount');
+            if (countEl) {
+                countEl.textContent = AppState.myBooks.length + ' books promoted';
+            }
+        }
+
         function loadMyBooks() {
             const saved = localStorage.getItem('novelflow_mybooks');
             AppState.myBooks = saved ? JSON.parse(saved) : [];
@@ -1876,7 +1954,7 @@
             if (AppState.myBooks.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state" style="padding: 30px 20px; background: var(--canvas-soft); border-radius: var(--r-lg);">
-                        <div class="empty-icon">&#9993;</div><div class="empty-text">No books yet. Start recommending from home!</div>
+                        <div class="empty-icon">&#128176;</div><div class="empty-text">Start promoting books to earn money!</div>
                     </div>
                 `;
                 return;
@@ -1906,6 +1984,7 @@
 
         function updateStats() {
             document.getElementById('statLinks').textContent = AppState.myBooks.length;
+            updateProfileMyBooksCount();
             document.getElementById('statPoints').textContent = AppState.myBooks.length * 10;
         }
 
