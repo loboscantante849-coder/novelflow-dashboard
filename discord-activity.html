@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="theme-color" content="#0a0a1a">
+    <title>NovelFlow - Discord Activity</title>
+    <script src="https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@0.1.9/dist/discord-sdk-embedded.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-primary: #0a0a1a;
+            --bg-secondary: #0d0d24;
+            --bg-card: rgba(20, 20, 45, 0.8);
+            --bg-card-hover: rgba(30, 30, 60, 0.9);
+            --bg-glass-border: rgba(255, 255, 255, 0.06);
+            --bg-glass-border-hover: rgba(255, 255, 255, 0.12);
+            --text-primary: #ffffff;
+            --text-secondary: #a0a8c0;
+            --text-muted: #6b7280;
+            --accent-blue: #4f6ef7;
+            --accent-purple: #8b5cf6;
+            --accent-gold: #fbbf24;
+            --accent-cyan: #22d3ee;
+            --accent-pink: #f472b6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --nav-height: 64px;
+            --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.3);
+            --shadow-glow: 0 0 30px rgba(79, 110, 247, 0.15);
+        }
+        body {
+            font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+        .app-container { max-width: 430px; margin: 0 auto; min-height: 100vh; background: var(--bg-primary); position: relative; }
+        .tab-content { display: none; padding-bottom: calc(var(--nav-height) + 20px); min-height: 100vh; opacity: 0; transform: translateY(10px); transition: opacity 0.3s ease, transform 0.3s ease; }
+        .tab-content.active { display: block; opacity: 1; transform: translateY(0); }
+        
+        .app-header { padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(180deg, var(--bg-secondary) 0%, transparent 100%); position: sticky; top: 0; z-index: 50; }
+        .header-logo { display: flex; align-items: center; gap: 10px; }
+        .header-logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(79, 110, 247, 0.3); }
+        .header-logo-icon svg { width: 20px; height: 20px; fill: white; }
+        .header-logo-text { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+        .header-logo-text span { color: var(--accent-gold); }
+        .header-actions { display: flex; gap: 12px; }
+        .header-icon-btn { width: 36px; height: 36px; background: var(--bg-card); border: 1px solid var(--bg-glass-border); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
+        .header-icon-btn:hover { background: var(--bg-card-hover); border-color: var(--bg-glass-border-hover); transform: scale(1.05); }
+        .header-icon-btn svg { width: 18px; height: 18px; fill: var(--text-secondary); }
+        
+        .banner-section { padding: 0 20px; margin-bottom: 20px; }
+        .banner-carousel { position: relative; border-radius: var(--radius-xl); overflow: hidden; background: linear-gradient(135deg, #1a1a3e 0%, #0d0d24 50%, #1a1a3e 100%); border: 1px solid var(--bg-glass-border); box-shadow: var(--shadow-card), var(--shadow-glow); }
+        .banner-bg-effect { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+        .banner-bg-effect::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(ellipse at 30% 50%, rgba(79, 110, 247, 0.15) 0%, transparent 50%), radial-gradient(ellipse at 70% 30%, rgba(139, 92, 246, 0.1) 0%, transparent 40%); animation: bannerGlow 8s ease-in-out infinite; }
+        @keyframes bannerGlow { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        .banner-content { position: relative; padding: 24px; min-height: 160px; display: flex; flex-direction: column; justify-content: center; }
+        .banner-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-gold); color: #000; font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px; margin-bottom: 12px; width: fit-content; }
+        .banner-title { font-size: 20px; font-weight: 800; margin-bottom: 8px; line-height: 1.3; background: linear-gradient(90deg, #fff 0%, #e0e7ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .banner-subtitle { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+        .banner-book-cover { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: 100px; height: 140px; border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); object-fit: cover; opacity: 0.9; }
+        .banner-dots { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+        .banner-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, 0.3); transition: all 0.3s; cursor: pointer; }
+        .banner-dot.active { width: 20px; border-radius: 3px; background: var(--accent-gold); }
+        
+        .news-ticker { margin: 0 20px 20px; background: var(--bg-card); border: 1px solid var(--bg-glass-border); border-radius: var(--radius-lg); padding: 12px 16px; display: flex; align-items: center; gap: 12px; overflow: hidden; }
+        .news-label { flex-shrink: 0; background: var(--accent-gold); color: #000; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; }
+        .news-content { flex: 1; overflow: hidden; }
+        .news-scroll { display: flex; flex-direction: column; animation: newsScroll 10s linear infinite; }
+        .news-item { font-size: 13px; color: var(--text-secondary); white-space: nowrap; padding: 2px 0; }
+        @keyframes newsScroll { 0% { transform: translateY(0); } 100% { transform: translateY(-50%); } }
+        
+        .section-header { display: flex; align-items: center; justify-content: space-between; padding: 0 20px; margin-bottom: 14px; }
+        .section-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .section-title-icon { font-size: 18px; }
+        .section-more { font-size: 12px; color: var(--accent-blue); text-decoration: none; font-weight: 500; display: flex; align-items: center; gap: 4px; transition: color 0.2s; }
+        .section-more:hover { color: var(--accent-purple); }
+        .section-more::after { content: '›'; font-size: 16px; }
+        
+        .book-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; padding: 0 20px; margin-bottom: 24px; }
+        .book-card { background: var(--bg-card); border: 1px solid var(--bg-glass-border); border-radius: var(--radius-lg); overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; position: relative; }
+        .book-card:hover { background: var(--bg-card-hover); border-color: var(--bg-glass-border-hover); transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4); }
+        .book-card:active { transform: translateY(-2px) scale(0.98); }
+        .book-card-tag { position: absolute; top: 10px; left: 10px; background: linear-gradient(135deg, #ef4444, #f97316); color: white; font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 6px; z-index: 2; }
+        .book-card-tag.new { background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); }
+        .book-card-tag.trending { background: linear-gradient(135deg, var(--accent-gold), #f97316); color: #000; }
+        .book-cover-wrapper { position: relative; overflow: hidden; }
+        .book-cover { width: 100%; height: 170px; object-fit: cover; background: var(--bg-secondary); transition: transform 0.3s; }
+        .book-card:hover .book-cover { transform: scale(1.05); }
+        .book-info { padding: 14px; }
+        .book-title { font-size: 14px; font-weight: 600; margin-bottom: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; min-height: 40px; }
+        .book-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .book-lang-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 4px 8px; background: rgba(79, 110, 247, 0.15); color: var(--accent-blue); border-radius: 6px; font-weight: 500; }
+        .book-lang-badge.es { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+        .book-action-btn { width: 100%; padding: 10px; background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); border: none; border-radius: var(--radius-md); color: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; }
+        .book-action-btn::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent); opacity: 0; transition: opacity 0.2s; }
+        .book-action-btn:hover::before { opacity: 1; }
+        .book-action-btn:active { transform: scale(0.96); }
+        
+        .submit-header { padding: 20px; text-align: center; border-bottom: 1px solid var(--bg-glass-border); }
+        .submit-title { font-size: 22px; font-weight: 800; margin-bottom: 8px; background: linear-gradient(90deg, #fff, #e0e7ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .submit-desc { font-size: 14px; color: var(--text-secondary); }
+        .search-section { padding: 20px; }
+        .search-box-wrapper { background: var(--bg-card); border: 1px solid var(--bg-glass-border); border-radius: var(--radius-xl); padding: 6px; display: flex; gap: 8px; transition: all 0.2s; }
+        .search-box-wrapper:focus-within { border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(79, 110, 247, 0.15), var(--shadow-glow); }
+        .search-input { flex: 1; padding: 12px 16px; background: transparent; border: none; color: var(--text-primary); font-size: 14px; outline: none; }
+        .search-input::placeholder { color: var(--text-muted); }
+        .search-btn { padding: 12px 20px; background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); border: none; border-radius: var(--radius-lg); color: white; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+        .search-btn:hover { transform: scale(1.02); box-shadow: 0 4px 16px rgba(79, 110, 247, 0.3); }
+        .search-btn:active { transform: scale(0.98); }
+        .lang-toggle-wrapper { display: flex; gap: 8px; margin-top: 16px; }
+        .lang-toggle { display: flex; background: var(--bg-card); border: 1px solid var(--bg-glass-border); border-radius: var(--radius-lg); overflow: hidden; flex: 1; }
+        .lang-btn { flex: 1; padding: 12px 16px; background: transparent; border: none; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .lang-btn.active { background: var(--accent-blue); color: white; }
+        .lang-btn:not(.active):hover { background: var(--bg-card-hover); color: var(--text-secondary); }
+        .search-results { padding: 0 20px 20px; }
+        .result-card { display: flex; gap: 14px; padding: 16px; background: var(--bg-card); border: 1px solid var(--bg-glass-border); border-radius: var(--radius-lg); margin-bottom: 12px; transition: all 0.2s; }
+        .result-card:hover { background: var(--bg-card-hover); border-color: var(--bg-glass-border-hover); }
+        .result-cover { width: 64px; height: 86px; border-radius: var(--radius-md); object-fit: cover; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }
+        .result-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+        .result-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .result-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
+        .create-link-btn { padding: 8px 16px; background: linear-gradient(135deg, var(--accent-gold), #f97316); border: none; border-radius: var(--radius-md); color: #000; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; width: fit-content; }
+        .create-link-btn:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3); }
+        .create-link-btn:active { transform: scale(0.98); }
+        
+        .tasks-header { padding: 24px 20px 20px; text-align: center; }
+        .tasks-title { font-size: 22px; font-weight: 800; margin-bottom: 6px; background: linear-gradient(90deg, #fff, #e0e7ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .tasks-subtitle { font-size: 14px; color: var(--text-secondary); }
+        .task-filters { display: flex; gap: 8px; padding: 0 20px 16px; justify-content: center; }
+        .filter-btn { padding: 8px 16px; background: var(--bg-card); border: 1px solid var(--bg-glass-border); border-radius: 20px; color: var(--text-muted); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+        .filter-btn.active { background: var(--accent-blue); border-color: var(--accent-blue); color: white; }
+        .filter-btn:not(.active):hover { background: var(--bg-card-hover); color: var(--text-secondary); }
+        .task-list { padding: 0 20px; }
+        .task-card { background: var(--bg-card); border: 1px solid var(--bg-glass-border); border-radius: var(--radius-lg); padding: 18px; margin-bottom: 14px; position: relative; overflow: hidden; transition: all 0.3s; }
+        .task-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
+        .task-card.daily::before { background: linear-gradient(180deg, var(--accent-cyan), var(--accent-blue)); }
+        .task-card.weekly::before { background: linear-gradient(180deg, var(--accent-purple), var(--accent-pink)); }
+        .task-card.special::before { background: linear-gradient(180deg, var(--accent-gold), #f97316); }
+        .task-card:hover { background: var(--bg-card-hover); transform: translateY(-2px); box-shadow: var(--shadow-card); }
+        .task-card.completed { opacity: 0.5; }
+        .task-top { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+        .task-icon { width: 48px; height: 48px; background: linear-gradient(135deg, var(--bg-secondary), rgba(79, 110, 247, 0.2)); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-size: 24px; border: 1px solid var(--bg-glass-border); }
+        .task-info { flex: 1; }
+        .task-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+        .task-reward { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--accent-gold); font-weight: 500; }
+        .task-progress { margin-bottom: 14px; }
+        .progress-bar { height: 6px; background: var(--bg-secondary); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); border-radius: 3px; transition: width 0.5s ease; }
+        .progress-text { font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between; }
+        .task-claim-btn { width: 100%; padding: 12px; background: linear-gradient(135deg, var(--success), #059669); border: none; border-radius: var(--radius-md); color: white; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .task-claim-btn:hover { transform: scale(1.02); box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3); }
+        .task-claim-btn:disabled { background: var(--bg-secondary); color: var(--text-muted); cursor: not-allowed; transform: none; box-shadow: none; }
+        .task-claim-btn.claimed { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+        
+        .profile-header { padding: 32px 20px; text-align: center; background: linear-gradient(180deg, var(--bg-secondary) 0%, transparent 100%); position: relative; }
+        .profile-header::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 200px; height: 200px; background: radial-gradient(ellipse, rgba(79, 110, 247, 0.15) 0%, transparent 70%); pointer-events: none; }
+        .profile-avatar-wrapper { position: relative; width: 80px; height: 80px; margin: 0 auto 16px; }
+        .profile-avatar { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700; color: white; border: 3px solid rgba(79, 110, 247, 0.3); box-shadow: 0 8px 24px rgba(79, 110, 247, 0.3); overflow: hidden; }
+        .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .profile-status { position: absolute; bottom: 0; right: 0; width: 24px; height: 24px; background: var(--success); border-radius: 50%; border: 3px solid var(--bg-primary); }
+        .profile-name { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+        .profile-uid { font-size: 13px; color: var(--text-muted); font-family: 'SF Mono', monospace; }
+        .profile-login-btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 28px; background: #5865F2; border: none; border-radius: var(--radius-lg); color: white; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 20px; transition: all 0.2s; box-shadow: 0 4px 16px rgba(88, 101, 242, 0.4); }
+        .profile-login-btn:hover { transform: scale(1.05); box-shadow: 0 8px 24px rgba(88, 101, 242, 0.5); }
+        .profile-login-btn:active { transform: scale(0.98); }
+        .profile-login-btn svg { width: 20px; height: 20px; fill: white; }
+        .profile-logout-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-lg); color: #ef4444; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 16px; transition: all 0.2s; }.profile-logout-btn:hover { background: rgba(239, 68, 68, 0.25); transform: scale(1.02); }
+        .profile-stats { display: flex; justify-content: center; gap: 32px; padding: 20px; margin: 0 20px 20px; background: var(--bg-card); border: 1px solid var(--bg-glass-border); border-radius: var(--radius-lg); }
+        .stat-item { text-align: center; }
+        .stat-value { font-size: 24px; font-weight: 800; color: var(--accent-gold); margin-bottom: 4px; }
+        .stat-label { font-size: 12px; color: var(--text-muted); }
+        .profile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 0 20px; margin-bottom: 24px; }
+        .profile-card { background: var(--bg-card); border: 1px solid var(--bg-glass-border); border-radius: var(--radius-lg); padding: 20px 16px; text-align: center; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; }
+        .profile-card:hover { background: var(--bg-card-hover); transform: translateY(-3px); box-shadow: var(--shadow-card); }
+        .profile-card-icon { font-size: 28px; margin-bottom: 10px; }
+        .profile-card-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+        .profile-card-desc { font-size: 11px; color: var(--text-muted); }
+        .my-books-section { padding: 0 20px 20px; }
+        .my-book-item { background: var(--bg-card); border: 1px solid var(--bg-glass-border); border-radius: var(--radius-lg); padding: 14px; margin-bottom: 10px; display: flex; gap: 14px; align-items: center; transition: all 0.2s; }
+        .my-book-item:hover { background: var(--bg-card-hover); }
+        .my-book-cover { width: 44px; height: 60px; border-radius: var(--radius-sm); object-fit: cover; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }
+        .my-book-info { flex: 1; min-width: 0; }
+        .my-book-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .my-book-code { font-size: 12px; color: var(--accent-gold); font-family: 'SF Mono', monospace; font-weight: 500; }
+        .my-book-copy { padding: 10px 14px; background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); border: none; border-radius: var(--radius-md); color: white; font-size: 12px; font-weight: 600; cursor: pointer; flex-shrink: 0; transition: all 0.2s; }
+        .my-book-copy:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(79, 110, 247, 0.3); }
+        .my-book-copy:active { transform: scale(0.95); }
+        .my-book-copy.copied { background: var(--success); }
+        
+        .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: rgba(13, 13, 36, 0.95); backdrop-filter: blur(20px); border-top: 1px solid var(--bg-glass-border); display: flex; justify-content: space-around; padding: 8px 0; padding-bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 100; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 20px; text-decoration: none; color: var(--text-muted); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border-radius: var(--radius-md); background: none; border: none; cursor: pointer; position: relative; }
+        .nav-item::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 0; height: 3px; background: var(--accent-gold); border-radius: 0 0 3px 3px; transition: width 0.3s; }
+        .nav-item.active { color: var(--accent-gold); }
+        .nav-item.active::before { width: 24px; }
+        .nav-item:not(.active):hover { color: var(--text-secondary); }
+        .nav-icon { font-size: 22px; line-height: 1; }
+        .nav-icon svg { width: 24px; height: 24px; fill: currentColor; }
+        .nav-label { font-size: 11px; font-weight: 600; letter-spacing: 0.3px; }
+        
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+        .modal-overlay.show { display: flex; }
+        .modal { background: var(--bg-secondary); border: 1px solid var(--bg-glass-border); border-radius: var(--radius-xl); width: 100%; max-width: 340px; overflow: hidden; transform: scale(0.9) translateY(20px); opacity: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .modal-overlay.show .modal { transform: scale(1) translateY(0); opacity: 1; }
+        .modal-header { padding: 20px; text-align: center; border-bottom: 1px solid var(--bg-glass-border); position: relative; }
+        .modal-header::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 60px; height: 4px; background: var(--bg-glass-border); border-radius: 0 0 4px 4px; }
+        .modal-title { font-size: 17px; font-weight: 700; margin-top: 8px; }
+        .modal-close { position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; background: var(--bg-card); border: 1px solid var(--bg-glass-border); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
+        .modal-close:hover { background: var(--bg-card-hover); transform: rotate(90deg); }
+        .modal-close::before, .modal-close::after { content: ''; position: absolute; width: 12px; height: 2px; background: var(--text-secondary); }
+        .modal-close::before { transform: rotate(45deg); }
+        .modal-close::after { transform: rotate(-45deg); }
+        .modal-body { padding: 24px 20px; }
+        .modal-book-cover { width: 90px; height: 120px; border-radius: var(--radius-lg); object-fit: cover; margin: 0 auto 16px; display: block; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); }
+        .modal-book-title { font-size: 15px; font-weight: 600; text-align: center; margin-bottom: 20px; }
+        .modal-field { margin-bottom: 16px; }
+        .modal-label { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; font-weight: 500; }
+        .modal-input { width: 100%; padding: 14px 16px; background: var(--bg-card); border: 1px solid var(--bg-glass-border); border-radius: var(--radius-md); color: var(--text-primary); font-size: 14px; transition: all 0.2s; }
+        .modal-input:focus { outline: none; border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(79, 110, 247, 0.15); }
+        .modal-input::placeholder { color: var(--text-muted); }
+        .modal-actions { display: flex; gap: 12px; margin-top: 24px; }
+        .modal-btn { flex: 1; padding: 14px; border: none; border-radius: var(--radius-lg); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .modal-btn.cancel { background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--bg-glass-border); }
+        .modal-btn.cancel:hover { background: var(--bg-card-hover); }
+        .modal-btn.confirm { background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); color: white; box-shadow: 0 4px 16px rgba(79, 110, 247, 0.3); }
+        .modal-btn.confirm:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(79, 110, 247, 0.4); }
+        .modal-btn:active { transform: scale(0.98); }
+        
+        .toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 300; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+        .toast { background: rgba(13, 13, 36, 0.95); backdrop-filter: blur(20px); border: 1px solid var(--bg-glass-border); color: white; padding: 14px 24px; border-radius: var(--radius-lg); font-size: 14px; font-weight: 500; z-index: 300; animation: toastIn 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); display: flex; align-items: center; gap: 10px; }
+        .toast.success { border-color: rgba(16, 185, 129, 0.3); }
+        .toast.success::before { content: '✓'; color: var(--success); font-weight: 700; }
+        .toast.error { border-color: rgba(239, 68, 68, 0.3); }
+        .toast.error::before { content: '✕'; color: #ef4444; font-weight: 700; }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(-20px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes toastOut { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-20px) scale(0.9); } }
+        .toast.hiding { animation: toastOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
+        .empty-icon { width: 80px; height: 80px; margin: 0 auto 16px; background: var(--bg-card); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36px; opacity: 0.6; }
+        .empty-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; color: var(--text-primary); }
+        .empty-text { font-size: 13px; color: var(--text-muted); }
+        
+        /* ========== Discord Activity 嵌入模式 ========== */
+        body.discord-embedded {
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+        
+        body.discord-embedded .app-container {
+            max-width: 100%;
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+        
+        body.discord-embedded .bottom-nav {
+            display: none !important;
+        }
+        
+        body.discord-embedded .tab-content {
+            padding-bottom: 20px;
+        }
+        
+        /* Discord顶部状态栏 */
+        .discord-status-bar {
+            display: none;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--bg-glass-border);
+            padding: 10px 16px;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .discord-status-bar.show {
+            display: flex;
+        }
+        
+        .discord-status-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .discord-status-name {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .discord-status-badge {
+            margin-left: auto;
+            background: var(--accent-blue);
+            color: white;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        
+        /* 顶部Tab导航（Discord模式） */
+        .discord-top-tabs {
+            display: none;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--bg-glass-border);
+        }
+        
+        body.discord-embedded .discord-top-tabs {
+            display: flex;
+        }
+        
+        .discord-tab {
+            flex: 1;
+            padding: 12px 8px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        
+        .discord-tab.active {
+            color: var(--accent-blue);
+            background: rgba(88, 101, 242, 0.1);
+        }
+    </style>
+</head>
+<body>
+        <!-- Discord 嵌入模式状态栏 -->
+        <div class="discord-status-bar" id="discordStatusBar">
+            <img class="discord-status-avatar" id="discordStatusAvatar" src="" alt="">
+            <span class="discord-status-name" id="discordStatusName">Discord User</span>
+            <span class="discord-status-badge">Discord</span>
+        </div>
+        
+        <!-- Discord 嵌入模式顶部Tab -->
+        <nav class="discord-top-tabs">
+            <button class="discord-tab active" data-tab="home">
+                <span>🏠</span> 首页
+            </button>
+            <button class="discord-tab" data-tab="submit">
+                <span>📖</span> 书单
+            </button>
+            <button class="discord-tab" data-tab="tasks">
+                <span>🎯</span> 任务
+            </button>
+            <button class="discord-tab" data-tab="profile">
+                <span>👤</span> 我的
+            </button>
+        </nav>
+    <div class="app-container">
+        <div class="tab-content active" id="tab-home">
+            <header class="app-header">
+                <div class="header-logo">
+                    <div class="header-logo-icon">
+                        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    </div>
+                    <div class="header-logo-text">Novel<span>Flow</span></div>
+                </div>
+                <div class="header-actions">
+                    <button class="header-icon-btn" onclick="showToast('搜索功能开发中')">
+                        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2" fill="none"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                    </button>
+                    <button class="header-icon-btn" onclick="switchTab('profile')">
+                        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </button>
+                </div>
+            </header>
+            
+            <div class="banner-section">
+                <div class="banner-carousel">
+                    <div class="banner-bg-effect"></div>
+                    <div class="banner-content">
+                        <div class="banner-badge">🔥 S2赛季进行中</div>
+                        <div class="banner-title">西语市场新机遇</div>
+                        <div class="banner-subtitle">一键生成Español推广链接</div>
+                    </div>
+                    <img class="banner-book-cover" src="https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=200&h=280&fit=crop" alt="" onerror="this.style.display='none'">
+                    <div class="banner-dots">
+                        <span class="banner-dot active"></span>
+                        <span class="banner-dot"></span>
+                        <span class="banner-dot"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="news-ticker">
+                <div class="news-label">最新资讯</div>
+                <div class="news-content">
+                    <div class="news-scroll" id="newsScroll">
+                        <div class="news-item">📢 新书上架：《星际迷途》现已支持推广</div>
+                        <div class="news-item">🎉 恭喜用户NF12x89获得本周推广冠军</div>
+                        <div class="news-item">📚 S2赛季任务已更新，最高奖励500积分</div>
+                        <div class="news-item">📢 新书上架：《星际迷途》现已支持推广</div>
+                        <div class="news-item">🎉 恭喜用户NF12x89获得本周推广冠军</div>
+                        <div class="news-item">📚 S2赛季任务已更新，最高奖励500积分</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section-header">
+                <div class="section-title"><span class="section-title-icon">✨</span><span>精选推荐</span></div>
+                <a href="#" class="section-more" onclick="showToast('功能开发中'); return false;">查看全部</a>
+            </div>
+            <div class="book-grid" id="featuredBooks"></div>
+        </div>
+        
+        <div class="tab-content" id="tab-submit">
+            <div class="submit-header">
+                <div class="submit-title">提交书单</div>
+                <div class="submit-desc">搜索并创建你的专属推广链接</div>
+            </div>
+            <div class="search-section">
+                <div class="search-box-wrapper">
+                    <input type="text" class="search-input" id="searchInput" placeholder="搜索书籍名称...">
+                    <button class="search-btn" id="searchBtn">
+                        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2" fill="none"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                        <span>搜索</span>
+                    </button>
+                </div>
+                <div class="lang-toggle-wrapper">
+                    <div class="lang-toggle">
+                        <button class="lang-btn active" data-lang="en">English</button>
+                        <button class="lang-btn" data-lang="es">Español</button>
+                    </div>
+                </div>
+            </div>
+            <div class="search-results" id="searchResults">
+                <div class="empty-state">
+                    <div class="empty-icon">🔍</div>
+                    <div class="empty-title">搜索书籍</div>
+                    <div class="empty-text">输入书名开始搜索</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="tab-tasks">
+            <div class="tasks-header">
+                <div class="tasks-title">任务中心</div>
+                <div class="tasks-subtitle">完成任务获取丰厚奖励</div>
+            </div>
+            <div class="task-filters">
+                <button class="filter-btn active">全部</button>
+                <button class="filter-btn">每日</button>
+                <button class="filter-btn">每周</button>
+                <button class="filter-btn">特殊</button>
+            </div>
+            <div class="task-list" id="taskList"></div>
+        </div>
+        
+        <div class="tab-content" id="tab-profile">
+            <div class="profile-header">
+                <div class="profile-avatar-wrapper">
+                    <div class="profile-avatar" id="profileAvatar">?</div>
+                    <div class="profile-status" id="profileStatus" style="display:none;"></div>
+                </div>
+                <div class="profile-name" id="profileName">未登录</div>
+                <div class="profile-uid" id="profileUid">登录后解锁更多功能</div>
+                <button class="profile-login-btn" id="loginBtn">
+                    <svg viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+                    Login with Discord
+                </button>
+                <button class="profile-logout-btn" id="logoutBtn" style="display:none;">
+                    <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                    退出登录
+                </button>
+            </div>
+            <div class="profile-stats" id="profileStats">
+                <div class="stat-item"><div class="stat-value" id="statLinks">0</div><div class="stat-label">推广链接</div></div>
+                <div class="stat-item"><div class="stat-value" id="statPoints">0</div><div class="stat-label">积分</div></div>
+                <div class="stat-item"><div class="stat-value" id="statRank">-</div><div class="stat-label">排名</div></div>
+            </div>
+            <div class="section-header">
+                <div class="section-title"><span class="section-title-icon">⚡</span><span>快捷功能</span></div>
+            </div>
+            <div class="profile-grid">
+                <div class="profile-card" onclick="showToast('功能开发中')"><div class="profile-card-icon">📊</div><div class="profile-card-title">数据统计</div><div class="profile-card-desc">查看推广数据</div></div>
+                <div class="profile-card" onclick="showToast('功能开发中')"><div class="profile-card-icon">🎁</div><div class="profile-card-title">我的奖励</div><div class="profile-card-desc">积分兑换中心</div></div>
+                <div class="profile-card" onclick="showToast('功能开发中')"><div class="profile-card-icon">📖</div><div class="profile-card-title">推广指南</div><div class="profile-card-desc">新手必看教程</div></div>
+                <div class="profile-card" onclick="showToast('功能开发中')"><div class="profile-card-icon">💬</div><div class="profile-card-title">联系客服</div><div class="profile-card-desc">获取帮助支持</div></div>
+            </div>
+            <div class="my-books-section">
+                <div class="section-header" style="padding: 0; margin-bottom: 12px;">
+                    <div class="section-title"><span class="section-title-icon">📖</span><span>我的推广书单</span></div>
+                </div>
+                <div id="myBooksList">
+                    <div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">暂无推广书单</div><div class="empty-text">去首页推荐书籍吧</div></div>
+                </div>
+            </div>
+        </div>
+        
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-tab="home"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span class="nav-label">首页</span></button>
+            <button class="nav-item" data-tab="submit"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/><line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" stroke-width="2"/><line x1="8" y1="12" x2="16" y2="12" stroke="currentColor" stroke-width="2"/></svg></span><span class="nav-label">提交书单</span></button>
+            <button class="nav-item" data-tab="tasks"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg></span><span class="nav-label">任务</span></button>
+            <button class="nav-item" data-tab="profile"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="2"/></svg></span><span class="nav-label">我的</span></button>
+        </nav>
+    </div>
+    
+    <div class="modal-overlay" id="recommendModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-close" onclick="closeModal()"></div>
+                <div class="modal-title">推荐这本书</div>
+            </div>
+            <div class="modal-body">
+                <img class="modal-book-cover" id="modalBookCover" src="" alt="">
+                <div class="modal-book-title" id="modalBookTitle"></div>
+                <div class="modal-field">
+                    <div class="modal-label">推荐语（选填）</div>
+                    <input type="text" class="modal-input" id="recommendText" placeholder="输入推荐语，让更多人看到这本书...">
+                </div>
+                <div class="modal-actions">
+                    <button class="modal-btn cancel" onclick="closeModal()">取消</button>
+                    <button class="modal-btn confirm" id="modalConfirmBtn">一键生成</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="toast-container" id="toastContainer"></div>
+    
+    <script>
+        const AppState = { currentTab: 'home', isLoggedIn: false, user: null, featuredBooks: [], myBooks: [], currentLang: 'en', currentTaskFilter: 'all' };
+        const DISCORD_CONFIG = {
+            CLIENT_ID: '1504779503237333033',
+            EMBEDDED_APP_ID: '1504779503237333033', REDIRECT_URI: encodeURIComponent('https://novelflow-dashboard.vercel.app/api/auth/callback'), getOAuthURL() { return 'https://discord.com/api/oauth2/authorize?client_id=' + this.CLIENT_ID + '&redirect_uri=' + this.REDIRECT_URI + '&response_type=code&scope=identify'; } };
+        
+        function switchTab(tabName) { AppState.currentTab = tabName; document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active')); document.getElementById('tab-' + tabName).classList.add('active'); document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); document.querySelector('.nav-item[data-tab="' + tabName + '"]').classList.add('active'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+        document.querySelectorAll('.nav-item').forEach(el => { el.addEventListener('click', () => switchTab(el.dataset.tab)); });
+        
+        async function loadFeaturedBooks() {
+            try {
+                const res = await fetch('featured-books.json');
+                const books = await res.json();
+                AppState.featuredBooks = books;
+                renderFeaturedBooks(books);
+            } catch (e) {
+                AppState.featuredBooks = [
+                    { bookId: 'bk001', title: 'The Lost Stars', cover: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=400&h=600&fit=crop', languageCode: 'en', author: 'Jane Smith' },
+                    { bookId: 'bk002', title: 'El Camino Secreto', cover: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&h=600&fit=crop', languageCode: 'es', author: 'Carlos Ruiz' },
+                    { bookId: 'bk003', title: 'Midnight Dreams', cover: 'https://images.unsplash.com/photo-1532012197267-da84d127e765?w=400&h=600&fit=crop', languageCode: 'en', author: 'Emily White' },
+                    { bookId: 'bk004', title: 'La Luna de Plata', cover: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=600&fit=crop', languageCode: 'es', author: 'Maria Garcia' }
+                ];
+                renderFeaturedBooks(AppState.featuredBooks);
+            }
+        }
+        
+        function renderFeaturedBooks(books) {
+            const container = document.getElementById('featuredBooks');
+            container.innerHTML = books.map((book, index) => {
+                const tags = ['hot', 'new', 'trending'];
+                const tag = tags[index % 3];
+                const tagText = tag === 'hot' ? '🔥 热门' : tag === 'new' ? '✨ 新书' : '📈 上升';
+                return '<div class="book-card" onclick="openRecommendModal(\'' + book.bookId + '\')">' +
+                    '<span class="book-card-tag ' + tag + '">' + tagText + '</span>' +
+                    '<div class="book-cover-wrapper"><img class="book-cover" src="' + book.cover + '" alt="' + book.title + '" onerror="this.src=\'https://via.placeholder.com/200x170/12122a/5865F2?text=📖\'"></div>' +
+                    '<div class="book-info"><div class="book-title">' + book.title + '</div>' +
+                    '<div class="book-meta"><span class="book-lang-badge ' + book.languageCode + '">' + (book.languageCode === 'es' ? 'ES' : 'EN') + '</span></div>' +
+                    '<button class="book-action-btn">✨ 我要推荐</button></div></div>';
+            }).join('');
+        }
+        
+        document.getElementById('searchBtn').addEventListener('click', performSearch);
+        document.getElementById('searchInput').addEventListener('keypress', e => { if (e.key === 'Enter') performSearch(); });
+        document.querySelectorAll('.lang-btn').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); AppState.currentLang = btn.dataset.lang; if (document.getElementById('searchInput').value.trim()) performSearch(); }); });
+        
+        async function performSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) return;
+            const container = document.getElementById('searchResults');
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">搜索中...</div></div>';
+            setTimeout(() => {
+                const filtered = AppState.featuredBooks.filter(b => b.title.toLowerCase().includes(query.toLowerCase()) && (AppState.currentLang === 'all' || b.languageCode === AppState.currentLang));
+                if (filtered.length === 0) { container.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">未找到相关书籍</div></div>'; }
+                else { container.innerHTML = filtered.map(book => '<div class="result-card"><img class="result-cover" src="' + book.cover + '" alt="' + book.title + '" onerror="this.src=\'https://via.placeholder.com/64x86/12122a/5865F2?text=📖\'"><div class="result-info"><div class="result-title">' + book.title + '</div><div class="result-meta">' + (book.languageCode === 'es' ? 'Español' : 'English') + ' · ' + (book.author || 'Unknown') + '</div><button class="create-link-btn" onclick="openRecommendModal(\'' + book.bookId + '\')">创建链接</button></div></div>').join(''); }
+            }, 500);
+        }
+        
+        let currentRecommendBook = null;
+        function openRecommendModal(bookId) { const book = AppState.featuredBooks.find(b => b.bookId === bookId); if (!book) return; currentRecommendBook = book; document.getElementById('modalBookCover').src = book.cover; document.getElementById('modalBookCover').onerror = function() { this.src = 'https://via.placeholder.com/90x120/12122a/5865F2?text=📖'; }; document.getElementById('modalBookTitle').textContent = book.title; document.getElementById('recommendText').value = ''; document.getElementById('modalConfirmBtn').textContent = AppState.isLoggedIn ? '✨ 一键生成' : '登录后创建'; document.getElementById('recommendModal').classList.add('show'); document.body.style.overflow = 'hidden'; }
+        function closeModal() { document.getElementById('recommendModal').classList.remove('show'); document.body.style.overflow = ''; }
+        document.getElementById('modalConfirmBtn').addEventListener('click', () => { if (!AppState.isLoggedIn) { closeModal(); switchTab('profile'); showToast('请先登录', 'error'); return; } if (!currentRecommendBook) return; const recommendText = document.getElementById('recommendText').value.trim(); const code = 'NF' + currentRecommendBook.bookId.slice(-6).toUpperCase(); const link = 'https://novelflow.app/book/' + currentRecommendBook.bookId + '?code=' + code; const newBook = { ...currentRecommendBook, code, link, recommend: recommendText, createdAt: Date.now() }; AppState.myBooks.push(newBook); saveMyBooks(); renderMyBooks(); updateStats(); closeModal(); showToast('已生成推广链接！', 'success'); navigator.clipboard.writeText(link).then(() => showToast('链接已复制到剪贴板', 'success')); });
+        
+        function loadMyBooks() { const saved = localStorage.getItem('novelflow_mybooks'); AppState.myBooks = saved ? JSON.parse(saved) : []; renderMyBooks(); updateStats(); }
+        function saveMyBooks() { localStorage.setItem('novelflow_mybooks', JSON.stringify(AppState.myBooks)); }
+        function renderMyBooks() { const container = document.getElementById('myBooksList'); if (AppState.myBooks.length === 0) { container.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">暂无推广书单</div><div class="empty-text">去首页推荐书籍吧</div></div>'; return; } container.innerHTML = AppState.myBooks.map(book => '<div class="my-book-item"><img class="my-book-cover" src="' + book.cover + '" alt="' + book.title + '" onerror="this.src=\'https://via.placeholder.com/44x60/12122a/5865F2?text=📖\'"><div class="my-book-info"><div class="my-book-title">' + book.title + '</div><div class="my-book-code">CODE: ' + book.code + '</div></div><button class="my-book-copy" onclick="copyBookLink(\'' + book.link + '\', this)">复制</button></div>').join(''); }
+        function copyBookLink(link, btn) { navigator.clipboard.writeText(link).then(() => { if (btn) { btn.textContent = '已复制'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000); } showToast('已复制', 'success'); }); }
+        function updateStats() { document.getElementById('statLinks').textContent = AppState.myBooks.length; document.getElementById('statPoints').textContent = AppState.myBooks.length * 10; }
+        
+        async function checkLogin() {
+            // 1. 检测是否在Discord嵌入模式
+            if (isInDiscord() && window.DiscordSDK) {
+                try {
+                    console.log('Initializing Discord Embedded SDK...');
+                    const discord = new window.DiscordSDK(DISCORD_CONFIG.EMBEDDED_APP_ID);
+                    await discord.ready();
+                    const user = discord.commands.getUser();
+                    if (user) {
+                        AppState.user = {
+                            id: user.id,
+                            username: user.username,
+                            avatar: user.avatar,
+                            global_name: user.global_name
+                        };
+                        AppState.isLoggedIn = true;
+                        AppState.isDiscordEmbedded = true;
+                        localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
+                        applyDiscordMode(true);
+                        updateProfileUI();
+                        updateDiscordStatusBar();
+                        console.log('Discord Embedded login success:', AppState.user);
+                        return;
+                    }
+                } catch (e) {
+                    console.log('Discord Embedded SDK not available, fallback to OAuth:', e);
+                }
+            }
+            
+            // 2. 检查localStorage中的用户数据
+            const saved = localStorage.getItem('novelflow_user');
+            if (saved) {
+                AppState.user = JSON.parse(saved);
+                AppState.isLoggedIn = true;
+                updateProfileUI();
+                updateDiscordStatusBar();
+                return;
+            }
+            
+            // 3. 调用后端API验证登录状态
+            try {
+                const res = await fetch('/api/auth/me');
+                const data = await res.json();
+                if (data.loggedIn) {
+                    AppState.user = {
+                        id: data.discordId,
+                        username: data.username,
+                        avatar: data.avatar,
+                        global_name: data.username
+                    };
+                    AppState.isLoggedIn = true;
+                    localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
+                    updateProfileUI();
+                    updateDiscordStatusBar();
+                } else {
+                    updateProfileUI();
+                }
+            } catch (e) {
+                console.error('Login check failed:', e);
+                updateProfileUI();
+            }
+        }; AppState.isLoggedIn = true; } updateProfileUI(); } catch (e) { console.error('Login check failed:', e); updateProfileUI(); } }
+        function updateProfileUI() { const avatar = document.getElementById('profileAvatar'); const name = document.getElementById('profileName'); const uid = document.getElementById('profileUid'); const loginBtn = document.getElementById('loginBtn'); const logoutBtn = document.getElementById('logoutBtn'); const status = document.getElementById('profileStatus'); if (AppState.isLoggedIn && AppState.user) { const username = AppState.user.global_name || AppState.user.username; const avatarUrl = AppState.user.avatar ? 'https://cdn.discordapp.com/avatars/' + AppState.user.id + '/' + AppState.user.avatar + '.png?size=128' : 'https://cdn.discordapp.com/embed/avatars/0.png'; avatar.innerHTML = '<img src="' + avatarUrl + '" alt="" onerror="this.parentElement.textContent=\'' + (username.charAt(0).toUpperCase()) + '\'">'; name.textContent = username; uid.textContent = 'Discord ID: ' + AppState.user.id; loginBtn.style.display = 'none'; logoutBtn.style.display = 'inline-flex'; status.style.display = 'block'; } else { avatar.textContent = '?'; name.textContent = '未登录'; uid.textContent = '登录后解锁更多功能'; loginBtn.style.display = 'inline-flex'; logoutBtn.style.display = 'none'; status.style.display = 'none'; } }
+        
+        // ========== Discord 检测 ==========
+        function isInDiscord() {
+            return window !== window.top;
+        }
+        
+        function applyDiscordMode(isDiscord) {
+            if (isDiscord) {
+                document.body.classList.add('discord-embedded');
+                document.getElementById('discordStatusBar').classList.add('show');
+            } else {
+                document.body.classList.remove('discord-embedded');
+                document.getElementById('discordStatusBar').classList.remove('show');
+            }
+        }
+        
+        function updateDiscordStatusBar() {
+            if (!AppState.isLoggedIn || !AppState.user) return;
+            const avatar = document.getElementById('discordStatusAvatar');
+            const name = document.getElementById('discordStatusName');
+            const username = AppState.user.global_name || AppState.user.username;
+            const avatarUrl = AppState.user.avatar 
+                ? `https://cdn.discordapp.com/avatars/${AppState.user.id}/${AppState.user.avatar}.png?size=64`
+                : `https://cdn.discordapp.com/embed/avatars/0.png`;
+            avatar.src = avatarUrl;
+            avatar.onerror = function() { this.parentElement.querySelector('.discord-status-name').textContent = username; };
+            name.textContent = username;
+        }
+        function handleDiscordLogin() { window.location.href = DISCORD_CONFIG.getOAuthURL(); }
+        function handleOAuthCallback() { const params = new URLSearchParams(window.location.search); const loginStatus = params.get('login'); if (loginStatus === 'success') { checkLogin(); showToast('登录成功！', 'success'); } else if (loginStatus === 'cancelled') { showToast('登录已取消', 'error'); } else if (loginStatus === 'error') { showToast('登录失败，请重试', 'error'); } }
+        function handleLogout() {
+            fetch('/api/auth/logout').then(() => {
+                AppState.user = null;
+                AppState.isLoggedIn = false;
+                updateProfileUI();
+                showToast('已退出登录', 'success');
+            }).catch(e => {
+                console.error('Logout failed:', e);
+                showToast('退出失败', 'error');
+            });
+        }
+
+        
+        function showToast(msg, type) { type = type || ''; const container = document.getElementById('toastContainer'); const toast = document.createElement('div'); toast.className = 'toast ' + type; toast.textContent = msg; container.appendChild(toast); setTimeout(() => { toast.classList.add('hiding'); setTimeout(() => toast.remove(), 300); }, 2500); }
+        
+        function renderTasks() { const tasks = [ { id: 1, name: '每日登录', reward: '+10积分', progress: 100, status: 'claimed', type: 'daily', icon: '📅' }, { id: 2, name: '推荐一本好书', reward: '+50积分', progress: 60, status: 'pending', type: 'daily', icon: '📚' }, { id: 3, name: '分享到社交平台', reward: '+30积分', progress: 0, status: 'locked', type: 'daily', icon: '📤' }, { id: 4, name: '本周推荐5本书', reward: '+200积分', progress: 40, status: 'pending', type: 'weekly', icon: '🏆' }, { id: 5, name: '邀请好友加入', reward: '+500积分', progress: 0, status: 'locked', type: 'special', icon: '👥' } ]; const filtered = AppState.currentTaskFilter === 'all' ? tasks : tasks.filter(t => t.type === AppState.currentTaskFilter); const container = document.getElementById('taskList'); container.innerHTML = filtered.map(task => { const statusClass = task.status === 'claimed' ? 'completed' : ''; const btnDisabled = task.status === 'locked' ? 'disabled' : ''; const btnClass = task.status === 'claimed' ? 'claimed' : ''; const btnText = task.status === 'claimed' ? '✓ 已领取' : task.progress === 100 ? '领取奖励' : task.progress > 0 ? '继续任务' : '去完成'; const statusText = task.progress === 100 ? '已完成' : task.progress === 0 ? '未开始' : '进行中'; return '<div class="task-card ' + task.type + ' ' + statusClass + '"><div class="task-top"><div class="task-icon">' + task.icon + '</div><div class="task-info"><div class="task-name">' + task.name + '</div><div class="task-reward">⭐ ' + task.reward + '</div></div></div><div class="task-progress"><div class="progress-bar"><div class="progress-fill" style="width:' + task.progress + '%"></div></div><div class="progress-text"><span>' + task.progress + '%</span><span>' + statusText + '</span></div></div><button class="task-claim-btn ' + btnClass + '" ' + btnDisabled + '>' + btnText + '</button></div>'; }).join(''); }
+        document.querySelectorAll('.filter-btn').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); AppState.currentTaskFilter = btn.textContent === '全部' ? 'all' : 'all'; renderTasks(); }); });
+        
+        // ========== 强制 Discord Activity 模式 ==========
+(function() {
+    // 强制启用 Discord 模式
+    document.body.classList.add('discord-embedded');
+    const statusBar = document.getElementById('discordStatusBar');
+    if (statusBar) statusBar.classList.add('show');
+    
+    // 覆盖 isInDiscord 函数，使其始终返回 true
+    window.isInDiscord = function() { return true; };
+})();
+
+document.addEventListener('DOMContentLoaded', async () => {
+            // 检测Discord嵌入模式
+            const inDiscord = isInDiscord();
+            applyDiscordMode(inDiscord);
+            
+            // 初始化
+            handleOAuthCallback();
+            loadFeaturedBooks();
+            loadMyBooks();
+            await checkLogin();
+            renderTasks();
+            
+            // 绑定Discord顶部Tab点击
+            document.querySelectorAll('.discord-tab').forEach(el => {
+                el.addEventListener('click', () => {
+                    const tab = el.dataset.tab;
+                    document.querySelectorAll('.discord-tab').forEach(t => t.classList.remove('active'));
+                    el.classList.add('active');
+                    switchTab(tab);
+                });
+            });
+            
+            document.getElementById('loginBtn').addEventListener('click', handleDiscordLogin);
+            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+            document.getElementById('recommendModal').addEventListener('click', e => {
+                if (e.target.classList.contains('modal-overlay')) closeModal();
+            });
+        });
+    </script>
+</body>
+</html>
