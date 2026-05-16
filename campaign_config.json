@@ -1,0 +1,81 @@
+{
+  "description": "KOC广告系列ID配置文件，用于投放报表API数据抓取",
+  "updated_at": "2026-05-09",
+  "campaign_ids": [
+    {
+      "id": "69f42260362028a0ac10b770",
+      "koc_username": "ConsEspher",
+      "campaign_name": "NovelFlow_SocialMedia_KOC_ConsEspher",
+      "is_active": true
+    },
+    {
+      "id": "69f94be3e71c030eb9032000",
+      "koc_username": "DRAS",
+      "campaign_name": "NovelFlow_SocialMedia_KOC_DRAS",
+      "is_active": true
+    }
+  ],
+  "historical_campaign_ids": [
+    {
+      "id": "699ef7b8194eb218db3c2270",
+      "koc_username": "xujt",
+      "campaign_name": "NovelFlow_SocialMedia_Facebook-grounp_Facebook_xujt",
+      "is_active": false,
+      "note": "旧广告系列，可能已停用"
+    },
+    {
+      "id": "690dc4d8f12f26c746c245b3",
+      "koc_username": "zhangth",
+      "campaign_name": "NovelFlow_SocialMedia_Facebook-romance_zhangth",
+      "is_active": false,
+      "note": "旧广告系列"
+    },
+    {
+      "id": "690afae3f12f26c746c24553",
+      "koc_username": "jiangjx",
+      "campaign_name": "NovelFlow_SocialMedia_Facebook_Facebook_jiangjx",
+      "is_active": false,
+      "note": "旧广告系列"
+    },
+    {
+      "id": "694ca8495351adbc02818388",
+      "koc_username": "zhangshang",
+      "campaign_name": "NovelFlow_SocialMedia_Facebook-romance_Facebook_zhangshang",
+      "is_active": false,
+      "note": "旧广告系列"
+    },
+    {
+      "id": "690dc4b4b56236e8c8efbc9f",
+      "koc_username": "unknown",
+      "campaign_name": "Unknown_690dc4b4b56236e8c8efbc9f",
+      "is_active": false,
+      "note": "未知广告系列"
+    },
+    {
+      "id": "692fa0b7c56782cca5c2d162",
+      "koc_username": "unknown",
+      "campaign_name": "Unknown_692fa0b7c56782cca5c2d162",
+      "is_active": false,
+      "note": "未知广告系列"
+    }
+  ],
+  "api_settings": {
+    "endpoint": "https://ad.anystories.app/api/v1/novelflowmiddlegroundmanage/putreport/putreport",
+    "date_format": "YYYY-MM-DD",
+    "groupings": ["date"],
+    "required_headers": [
+      "Authorization: Bearer <token>",
+      "X-OS: web",
+      "X-AppName: web-admin",
+      "X-AppIdentifier: web",
+      "X-AppVersion: 1.0.0,1",
+      "Content-Type: application/json;charset=UTF-8",
+      "Accept: application/json"
+    ]
+  },
+  "field_mapping": {
+    "unique": "h5landingpageclickusernum",
+    "new_users": "newusernum",
+    "date": "date"
+  }
+}
