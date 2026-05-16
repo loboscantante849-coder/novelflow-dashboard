@@ -1540,6 +1540,10 @@
             if (recommendText) recommendText.textContent = AppState.currentRecommendText || '';
             if (modalResult) modalResult.classList.add('show');
             if (modalActions) modalActions.style.display = 'none';
+            
+            // Copy link to clipboard
+            navigator.clipboard.writeText(book.link || '').catch(() => {});
+            showToast('Link created! Share it to earn $0.8 per user.', 'success');
         }
         
         function copyToClipboard(text) {
