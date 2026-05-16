@@ -1286,7 +1286,7 @@
 
         // ========== Genre Tabs ==========
         document.querySelectorAll('.book-list-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
+            tab.addEventListener('click', async () => {
                 document.querySelectorAll('.book-list-tab').forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
                 const genre = tab.dataset.genre;
@@ -1294,16 +1294,35 @@
 
                 if (genre === 'all') {
                     AppState.filteredBooks = [...AppState.books];
+                    renderBookList();
                 } else {
-                    // Filter books by genre tag (case-insensitive match)
-                    AppState.filteredBooks = AppState.books.filter(book => {
-                        const tags = book.tags || [];
-                        return tags.some(t => t.toLowerCase().includes(genre.toLowerCase()));
-                    });
+                    // Load books by genre from API (different books per category)
+                    try {
+                        const resp = await fetch('/api/books/search?keyword=' + encodeURIComponent(genre) + '&lang=en&pageSize=30');
+                        if (resp.ok) {
+                            const result = await resp.json();
+                            if (result.success && Array.isArray(result.data)) {
+                                AppState.filteredBooks = result.data.map(book => ({
+                                    bookId: book.bookId || book.id || '',
+                                    title: book.title || 'Untitled',
+                                    cover: book.cover || book.coverImage || '',
+                                    description: book.description || '',
+                                    rating: book.rating || book.star || 4.0,
+                                    tags: book.tags || book.genre || [],
+                                    author: book.author || '',
+                                    languageCode: book.languageCode || 'en'
+                                }));
+                            } else { throw new Error('bad data'); }
+                        } else { throw new Error('API error'); }
+                    } catch (e) {
+                        // Fallback: filter locally
+                        AppState.filteredBooks = AppState.books.filter(book => {
+                            const tags = book.tags || [];
+                            return tags.some(t => t.toLowerCase().includes(genre.toLowerCase()));
+                        });
+                    }
+                    renderBookList();
                 }
-                
-                console.log('Genre filter:', genre, '->', AppState.filteredBooks.length, 'books');
-                renderBookList();
             });
         });
 
@@ -1410,7 +1429,7 @@
         // ========== Check Login Status ==========
         async function checkLoginStatus() {
             try {
-                const response = await fetch('/api/auth/check', {
+                const response = await fetch('/api/auth/me', {
                     method: 'GET',
                     credentials: 'include'
                 });
@@ -1423,15 +1442,29 @@
                         novelFlowId: data.novelFlowId || data.discordId || '',
                         accountType: data.accountType || 'unknown'
                     };
-                } else {
-                    AppState.isLoggedIn = false;
-                    AppState.user = null;
+                    localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
+                    return;
                 }
             } catch (e) {
-                console.warn('Login check failed:', e.message);
-                AppState.isLoggedIn = false;
-                AppState.user = null;
+                console.warn('Login check API failed:', e.message);
             }
+            
+            // Fallback: check localStorage for cached login
+            const saved = localStorage.getItem('novelflow_user');
+            if (saved) {
+                try {
+                    const user = JSON.parse(saved);
+                    if (user.username) {
+                        AppState.isLoggedIn = true;
+                        AppState.user = user;
+                        updateProfileUI();
+                        return;
+                    }
+                } catch (e2) {}
+            }
+            
+            AppState.isLoggedIn = false;
+            AppState.user = null;
             updateProfileUI();
         }
 

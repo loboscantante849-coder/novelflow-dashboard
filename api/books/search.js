@@ -69,7 +69,7 @@ module.exports = async (req, res) => {
     
     const data = await response.json();
     
-    const books = (data.data || []).map(book => ({
+    const books = ((data.data && data.data.data) || data.data || []).map(book => ({
       bookId: book.bookId || book.id,
       title: book.title,
       cover: book.cover || book.coverImage,
@@ -83,7 +83,7 @@ module.exports = async (req, res) => {
     return res.status(200).json({
       success: true,
       data: books,
-      total: data.total || books.length,
+      total: (data.data && data.data.total) || data.total || books.length,
       page: parseInt(page),
       pageSize: parseInt(pageSize)
     });
