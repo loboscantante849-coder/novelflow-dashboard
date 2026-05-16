@@ -93,10 +93,10 @@
             color: rgba(255,255,255,0.7); margin-bottom: var(--sp-md);
         }
         .banner-title {
-            font-size: 26px; font-weight: 300; line-height: 1.12; letter-spacing: -0.52px;
+            font-size: 26px; font-weight: 600; line-height: 1.12; letter-spacing: -0.52px;
             color: var(--on-primary); margin-bottom: var(--sp-sm);
         }
-        .banner-title .highlight { color: #c4b5fd; }
+        .banner-title .highlight { color: #fbbf24; font-weight: 700; }
         .banner-amount {
             font-size: 40px; font-weight: 300; line-height: 1.03; letter-spacing: -1px;
             font-feature-settings: "tnum";
@@ -785,10 +785,10 @@
             <!-- Banner — Gradient Mesh -->
             <div class="home-banner">
                 <div class="banner-content">
-                    <div class="banner-eyebrow">KOC Program</div>
-                    <div class="banner-title">Start Earning with <span class="highlight">NovelFlow</span></div>
-                    <div class="banner-amount">$20 – $500</div>
-                    <div class="banner-subtitle">Weekly earnings for book promoters</div>
+                    <div class="banner-eyebrow">💰 GET PAID TO READ</div>
+                    <div class="banner-title">Earn <span class="highlight">$0.80</span> Per<br>New Reader</div>
+                    <div class="banner-amount">$50K+ Paid</div>
+                    <div class="banner-subtitle">Share books. Get paid. It's that simple! 💵</div>
                 </div>
             </div>
 
@@ -1159,7 +1159,7 @@
                         title: book.title || 'Untitled',
                         cover: book.cover || book.coverImage || '',
                         description: book.description || '',
-                        rating: book.rating || book.star || 4.0,
+                        rating: book.rating || book.star || 4.5,
                         tags: book.tags || book.genre || [],
                         author: book.author || '',
                         languageCode: book.languageCode || 'en'
@@ -1184,7 +1184,12 @@
                 ];
             }
 
-            AppState.filteredBooks = [...AppState.books];
+            // Filter to show only high-rated books (4.5+)
+            AppState.filteredBooks = AppState.books.filter(b => (b.rating || 4.5) >= 4.5);
+            if (AppState.filteredBooks.length < 6) {
+                // Fallback to 4.0 if not enough high-rated books
+                AppState.filteredBooks = AppState.books.filter(b => (b.rating || 4.0) >= 4.0);
+            }
             hideLoadingAndShowContent();
             renderBookList();
             renderBookScroll();
@@ -1316,7 +1321,7 @@
                                     title: book.title || 'Untitled',
                                     cover: book.cover || book.coverImage || '',
                                     description: book.description || '',
-                                    rating: book.rating || book.star || 4.0,
+                                    rating: book.rating || book.star || 4.5,
                                     tags: book.tags || book.genre || [],
                                     author: book.author || '',
                                     languageCode: book.languageCode || 'en'
@@ -1522,6 +1527,10 @@
                     renderMyBooks();
                     updateStats();
 
+                    // Reset button state on success
+                    btn.disabled = false;
+                    btn.textContent = '✓ Created';
+                    
                     closeModal();
                     showSuccessPage(currentRecommendBook);
                 } else {
@@ -1659,7 +1668,7 @@
                         title: book.title || 'Untitled',
                         cover: book.cover || book.coverImage || '',
                         description: book.description || '',
-                        rating: book.rating || book.star || 4.0,
+                        rating: book.rating || book.star || 4.5,
                         tags: book.tags || book.genre || [],
                         author: book.author || '',
                         languageCode: book.languageCode || AppState.searchLang
@@ -1968,8 +1977,29 @@
 
         // ========== Init ==========
         document.addEventListener('DOMContentLoaded', async () => {
-            loadBooks();
-            loadMyBooks();
+            // Add loading timeout - force show content after 5 seconds
+            const loadingTimeout = setTimeout(() => {
+                console.log('Loading timeout - forcing content display');
+                const loadingEl = document.getElementById('homeLoading');
+                if (loadingEl) loadingEl.style.display = 'none';
+                hideLoadingAndShowContent();
+            }, 5000);
+            
+            try {
+                // Run async operations with race condition
+                await Promise.race([
+                    Promise.all([loadBooks(), loadMyBooks()]),
+                    new Promise(resolve => setTimeout(resolve, 4000)) // Max wait 4s
+                ]);
+            } catch (e) {
+                console.error('Init error:', e);
+            } finally {
+                clearTimeout(loadingTimeout);
+                const loadingEl = document.getElementById('homeLoading');
+                if (loadingEl) loadingEl.style.display = 'none';
+                hideLoadingAndShowContent();
+            }
+            
             updateStats();
             checkLocalLogin();
             
