@@ -814,8 +814,10 @@
             <div class="book-list-tabs" id="bookListTabs" style="display: none;">
                 <button class="book-list-tab active" data-genre="all">All</button>
                 <button class="book-list-tab" data-genre="Romance">Romance</button>
+                <button class="book-list-tab" data-genre="Werewolf">Werewolf</button>
+                <button class="book-list-tab" data-genre="Billionaire">Billionaire</button>
                 <button class="book-list-tab" data-genre="Fantasy">Fantasy</button>
-                <button class="book-list-tab" data-genre="Drama">Drama</button>
+                <button class="book-list-tab" data-genre="Mafia">Mafia</button>
             </div>
 
             <!-- Scroll -->
@@ -1160,9 +1162,11 @@
                         cover: book.cover || book.coverImage || '',
                         description: book.description || '',
                         rating: book.rating || book.star || 4.5,
-                        tags: book.tags || book.genre || [],
-                        author: book.author || '',
-                        languageCode: book.languageCode || 'en'
+                        tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
+                        author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
+                        languageCode: book.languageCode || 'en',
+                        bookClassName: book.bookClassName || '',
+                        bookClassName: book.bookClassName || ''
                     }));
                     
                     console.log('Loaded ' + AppState.books.length + ' books from API');
@@ -1312,7 +1316,7 @@
                 } else {
                     // Load books by genre from API (different books per category)
                     try {
-                        const resp = await fetch('/api/books/search?keyword=' + encodeURIComponent(genre) + '&lang=en&pageSize=30');
+                        const resp = await fetch('/api/books/search?bookClassName=' + encodeURIComponent(genre) + '&lang=en&pageSize=30');
                         if (resp.ok) {
                             const result = await resp.json();
                             if (result.success && Array.isArray(result.data)) {
@@ -1322,8 +1326,8 @@
                                     cover: book.cover || book.coverImage || '',
                                     description: book.description || '',
                                     rating: book.rating || book.star || 4.5,
-                                    tags: book.tags || book.genre || [],
-                                    author: book.author || '',
+                                    tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
+                                    author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
                                     languageCode: book.languageCode || 'en'
                                 }));
                             } else { throw new Error('bad data'); }
@@ -1331,6 +1335,7 @@
                     } catch (e) {
                         // Fallback: filter locally
                         AppState.filteredBooks = AppState.books.filter(book => {
+                            if (book.bookClassName && book.bookClassName.toLowerCase() === genre.toLowerCase()) return true;
                             const tags = book.tags || [];
                             return tags.some(t => t.toLowerCase().includes(genre.toLowerCase()));
                         });
@@ -1386,6 +1391,8 @@
         let currentRecommendBook = null;
 
         function openRecommendModal(bookId) {
+            const btn = document.getElementById('modalConfirmBtn');
+            if (btn) { btn.disabled = false; btn.textContent = 'Start Earning'; }
             const book = AppState.books.find(b => b.bookId === bookId);
             if (!book) return;
 
@@ -1438,6 +1445,43 @@
 
         function closeModal() {
             document.getElementById('recommendModal').classList.remove('show');
+            const btn = document.getElementById('modalConfirmBtn');
+            if (btn) { btn.disabled = false; btn.textContent = 'Start Earning'; }
+        }
+        
+        function showResultInModal(book) {
+            const modalBody = document.querySelector('.modal-body');
+            if (!modalBody) return;
+            const code = book.code || 'N/A';
+            const link = book.link || '';
+            const recommendText = AppState.currentRecommendText || '';
+            modalBody.innerHTML = `
+                <div style="text-align:center; padding:20px 0;">
+                    <div style="font-size:48px; margin-bottom:12px;">🎉</div>
+                    <div style="font-size:18px; font-weight:600; color:var(--ink); margin-bottom:8px;">Link Created!</div>
+                    <div style="font-size:13px; color:var(--ink-mute); margin-bottom:20px;">Your promotion link is ready</div>
+                    <div style="background:var(--canvas-soft); border-radius:8px; padding:14px; margin-bottom:12px; text-align:left;">
+                        <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Promotion Code</div>
+                        <div style="font-size:18px; font-weight:700; color:var(--primary); letter-spacing:1px;" id="resultCodeDisplay">${code}</div>
+                    </div>
+                    <div style="background:var(--canvas-soft); border-radius:8px; padding:14px; margin-bottom:12px; text-align:left;">
+                        <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Promotion Link</div>
+                        <div style="font-size:12px; color:var(--primary); word-break:break-all;" id="resultLinkDisplay">${link}</div>
+                    </div>
+                    <div style="background:var(--canvas-soft); border-radius:8px; padding:14px; margin-bottom:20px; text-align:left;">
+                        <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Recommendation Text</div>
+                        <div style="font-size:12px; color:var(--ink-secondary); line-height:1.5; max-height:100px; overflow-y:auto;">${recommendText.replace(/</g,'&lt;')}</div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button onclick="copyToClipboard(document.getElementById('resultLinkDisplay')?.textContent||'')" style="flex:1; padding:12px; background:var(--primary); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:500; cursor:pointer;">📋 Copy Link</button>
+                        <button onclick="copyToClipboard(AppState.currentRecommendText||'')" style="flex:1; padding:12px; background:var(--canvas); color:var(--primary); border:1px solid var(--primary); border-radius:8px; font-size:14px; font-weight:500; cursor:pointer;">📝 Copy Text</button>
+                    </div>
+                    <button onclick="closeModal()" style="margin-top:12px; padding:10px 24px; background:none; color:var(--ink-mute); border:none; font-size:13px; cursor:pointer;">Close & Continue</button>
+                </div>`;
+        }
+        
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => showToast('Copied!', 'success')).catch(() => showToast('Copy failed', 'error'));
         }
 
         // ========== Check Login Status ==========
@@ -1512,13 +1556,10 @@
 
                 if (result.success) {
                     currentRecommendBook.code = result.code || '';
-                    currentRecommendBook.link = result.link || 'Link will be ready shortly...';
+                    currentRecommendBook.link = result.link || '';
                     currentRecommendBook.createdAt = Date.now();
                     currentRecommendBook.submissionId = result.submissionId;
-                    if (result.status === 'pending') {
-                        currentRecommendBook.code = 'Processing...';
-                        currentRecommendBook.link = 'Your link is being created. Check back in a minute!';
-                    }
+
 
                     AppState.currentRecommendText = generateRecommendText(currentRecommendBook);
 
@@ -1527,12 +1568,9 @@
                     renderMyBooks();
                     updateStats();
 
-                    // Reset button state on success
                     btn.disabled = false;
-                    btn.textContent = '✓ Created';
-                    
-                    closeModal();
-                    showSuccessPage(currentRecommendBook);
+                    btn.textContent = '✓ Created!';
+                    showResultInModal(currentRecommendBook);
                 } else {
                     throw new Error(result.error || 'Failed to create link');
                 }
@@ -1669,7 +1707,7 @@
                         cover: book.cover || book.coverImage || '',
                         description: book.description || '',
                         rating: book.rating || book.star || 4.5,
-                        tags: book.tags || book.genre || [],
+                        tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
                         author: book.author || '',
                         languageCode: book.languageCode || AppState.searchLang
                     }));
@@ -1977,35 +2015,11 @@
 
         // ========== Init ==========
         document.addEventListener('DOMContentLoaded', async () => {
-            // Add loading timeout - force show content after 5 seconds
-            const loadingTimeout = setTimeout(() => {
-                console.log('Loading timeout - forcing content display');
-                const loadingEl = document.getElementById('homeLoading');
-                if (loadingEl) loadingEl.style.display = 'none';
-                hideLoadingAndShowContent();
-            }, 5000);
-            
-            try {
-                // Run async operations with race condition
-                await Promise.race([
-                    Promise.all([loadBooks(), loadMyBooks()]),
-                    new Promise(resolve => setTimeout(resolve, 4000)) // Max wait 4s
-                ]);
-            } catch (e) {
-                console.error('Init error:', e);
-            } finally {
-                clearTimeout(loadingTimeout);
-                const loadingEl = document.getElementById('homeLoading');
-                if (loadingEl) loadingEl.style.display = 'none';
-                hideLoadingAndShowContent();
-            }
-            
-            updateStats();
-            checkLocalLogin();
-            
-            // Also check server-side login status
-            checkLoginStatus();
-
+            setTimeout(() => {
+                const el = document.getElementById('homeLoading');
+                if (el && el.style.display !== 'none') { el.style.display = 'none'; hideLoadingAndShowContent(); }
+            }, 3000);
+            loadBooks(); loadMyBooks(); updateStats(); checkLocalLogin(); checkLoginStatus();
             document.getElementById('recommendModal').addEventListener('click', e => {
                 if (e.target.classList.contains('modal-overlay')) closeModal();
             });
