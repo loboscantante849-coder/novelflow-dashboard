@@ -1,61 +1,79 @@
-// API route for searching books with rating filter
-// Proxies novelspa API to fetch high-rated books
+/**
+ * Book search API - proxies novelspa API
+ * Supports: keyword, bookClassName, lang, pageSize, page
+ */
 
-export default async function handler(req, res) {
-  const { keyword = '', languageCode = 'en', minRating = 4.5 } = req.query;
+const RATE_LIMIT = 10;
+const RATE_WINDOW = 60 * 1000;
+const rateLimits = new Map();
 
-  try {
-    // Use server-side token for novelspa API
-    const token = process.env.NOVELSPA_ACCESS_TOKEN || '';
-    
-    if (!token) {
-      // Fallback: return empty (frontend will use local JSON)
-      return res.status(200).json({ data: { data: [] } });
-    }
-
-    // Try to get books from novelspa API
-    const response = await fetch(
-      `https://admin.novelspa.app/api/v1/novelmanage/book/booklist?languageCode=${languageCode}&pageSize=50&keyword=${encodeURIComponent(keyword)}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    if (!response.ok) {
-      console.error('novelspa API error:', response.status);
-      return res.status(200).json({ data: { data: [] } });
-    }
-
-    const result = await response.json();
-    
-    // Add ratings based on book properties
-    let books = result?.data?.data || [];
-    books = books.map((book, index) => {
-      const hash = (book.bookId || '').split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-      const rating = 4.0 + (hash % 10) * 0.1;
-      return {
-        ...book,
-        rating: parseFloat(rating.toFixed(1))
-      };
-    });
-
-    // Filter by rating >= minRating (or lower threshold if not enough)
-    const filtered = books.filter(b => b.rating >= parseFloat(minRating));
-    const finalBooks = filtered.length >= 8 ? filtered : books.filter(b => b.rating >= 4.0);
-
-    return res.status(200).json({
-      data: {
-        data: finalBooks.slice(0, 20),
-        total: finalBooks.length
-      }
-    });
-
-  } catch (error) {
-    console.error('Search API error:', error);
-    return res.status(500).json({ error: 'Search failed', message: error.message });
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const record = rateLimits.get(ip);
+  if (!record || now - record.start > RATE_WINDOW) {
+    rateLimits.set(ip, { start: now, count: 1 });
+    return { allowed: true, remaining: RATE_LIMIT - 1 };
   }
+  if (record.count >= RATE_LIMIT) return { allowed: false, remaining: 0 };
+  record.count++;
+  return { allowed: true, remaining: RATE_LIMIT - record.count };
 }
+
+const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage/book';
+const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
+
+module.exports = async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  
+  const clientIp = req.headers['x-forwarded-for']?.split(',')[0] || req.connection?.remoteAddress || 'unknown';
+  const rateCheck = checkRateLimit(clientIp);
+  res.setHeader('X-RateLimit-Limit', String(RATE_LIMIT));
+  res.setHeader('X-RateLimit-Remaining', String(rateCheck.remaining));
+  if (!rateCheck.allowed) return res.status(429).json({ error: 'Rate limit exceeded.' });
+  
+  const BOOKSTORE_TOKEN = process.env.NOVELSPA_TOKEN;
+  const { keyword = '', lang = 'en', page = 1, pageSize = 20, bookClassName = '' } = req.query || {};
+  
+  try {
+    const apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=${page}&pageSize=${pageSize}&pageIndex=${page}&applicationId=${BOOKSTORE_APP_ID}&languageCode=${lang}&bookStatus=1${keyword ? `&keyword=${encodeURIComponent(keyword)}` : ''}${bookClassName ? `&bookClassName=${encodeURIComponent(bookClassName)}` : ''}`;
+    
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${BOOKSTORE_TOKEN}`, 'Content-Type': 'application/json' }
+    });
+    
+    if (!response.ok) return res.status(502).json({ error: 'Upstream API error' });
+    
+    const data = await response.json();
+    const rawBooks = ((data.data && data.data.data) || data.data || []);
+    
+    const books = rawBooks.map(book => ({
+      bookId: book.bookId || book.id,
+      title: book.title,
+      cover: book.cover || book.coverImage || '',
+      author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
+      description: book.description,
+      rating: book.rating || book.star || (book.bookScore > 0 ? book.bookScore : 4.5),
+      tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
+      languageCode: book.languageCode || lang,
+      bookClassName: book.bookClassName || ''
+    }));
+    
+    return res.status(200).json({
+      success: true,
+      data: books,
+      total: (data.data && data.data.total) || data.total || books.length,
+      page: parseInt(page),
+      pageSize: parseInt(pageSize)
+    });
+    
+  } catch (error) {
+    console.error('Search API error:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
