@@ -184,6 +184,15 @@
             cursor: pointer;
         }
         .book-item:hover { box-shadow: var(--shadow-l1); }
+        .book-item { position: relative; }
+        .earn-badge {
+            position: absolute; top: 6px; right: 6px;
+            background: linear-gradient(135deg, #0d9460, #059669);
+            color: #fff; font-size: 9px; font-weight: 600;
+            padding: 2px 5px; border-radius: 4px;
+            white-space: nowrap; z-index: 2;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
 
         .book-item-cover {
             width: 68px; height: 92px;
@@ -1212,7 +1221,7 @@
                 ).join('');
 
                 return `
-                    <div class="book-item" onclick="openRecommendModal('${book.bookId}')">
+                    <div class="book-item" onclick="openRecommendModal('${book.bookId}')"><span class="earn-badge">$0.8/user</span>
                         <img class="book-item-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/68x92/f6f9fc/64748d?text=N'">
                         <div class="book-item-content">
                             <div class="book-item-title">${book.title}</div>
@@ -1241,7 +1250,7 @@
                 const tags = (book.tags || []).slice(0, 2).filter(t => typeof t === 'string').map(t => `<span class="book-tag">${t}</span>`).join('');
 
                 return `
-                    <div class="book-scroll-card" onclick="openRecommendModal('${book.bookId}')">
+                    <div class="book-scroll-card" style="position:relative" onclick="openRecommendModal('${book.bookId}')"><span class="earn-badge">$0.8/user</span>
                         <img class="book-scroll-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/136x176/f6f9fc/64748d?text=N'">
                         <div class="book-scroll-info">
                             <div class="book-scroll-card-title">${book.title}</div>
