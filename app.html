@@ -31,6 +31,8 @@
             --magenta: #f96bee;
             --success: #0d9460;
             --danger: #ea2261;
+            --gold: #FFD700;
+            --gold-soft: #FEF3C7;
             --shadow-l1: rgba(0,55,112,0.08) 0 1px 3px;
             --shadow-l2: rgba(0,55,112,0.08) 0 8px 24px, rgba(0,55,112,0.04) 0 2px 6px;
             /* Radius */
@@ -44,7 +46,7 @@
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             font-weight: 300;
             font-feature-settings: "ss01";
-            background: var(--canvas-soft);
+            background: #FFFFFF;
             color: var(--ink);
             min-height: 100vh;
             overflow-x: hidden;
@@ -55,7 +57,7 @@
             max-width: 430px;
             margin: 0 auto;
             min-height: 100vh;
-            background: var(--canvas);
+            background: #FFFFFF;
             position: relative;
         }
 
@@ -72,18 +74,16 @@
             position: relative;
             padding: 36px 24px 32px;
             overflow: hidden;
-            background: var(--brand-dark);
+            background: linear-gradient(135deg, #FF6B9D 0%, #C084FC 40%, #FFD700 100%);
         }
         .home-banner::before {
             content: '';
             position: absolute;
             top: -40%; left: -20%; right: -20%; bottom: -20%;
             background: 
-                radial-gradient(ellipse 50% 80% at 15% 50%, rgba(245,233,212,0.45) 0%, transparent 70%),
-                radial-gradient(ellipse 40% 70% at 40% 40%, rgba(249,187,130,0.35) 0%, transparent 70%),
-                radial-gradient(ellipse 45% 60% at 65% 55%, rgba(183,162,249,0.4) 0%, transparent 70%),
-                radial-gradient(ellipse 40% 50% at 85% 50%, rgba(83,58,253,0.35) 0%, transparent 70%),
-                radial-gradient(ellipse 30% 40% at 95% 60%, rgba(234,34,97,0.25) 0%, transparent 70%);
+                radial-gradient(ellipse 50% 80% at 15% 50%, rgba(255,255,255,0.3) 0%, transparent 70%),
+                radial-gradient(ellipse 40% 70% at 40% 40%, rgba(192,132,252,0.3) 0%, transparent 70%),
+                radial-gradient(ellipse 45% 60% at 65% 55%, rgba(255,215,0,0.3) 0%, transparent 70%);
             filter: blur(30px);
             z-index: 0;
         }
@@ -164,9 +164,19 @@
             white-space: nowrap;
         }
         .book-list-tab.active {
-            background: var(--primary);
-            color: var(--on-primary);
-            border-color: var(--primary);
+            background: transparent;
+            color: var(--ink);
+            border-color: transparent;
+            font-weight: 700;
+            position: relative;
+        }
+        .book-list-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px; left: 50%; transform: translateX(-50%);
+            width: 20px; height: 2px;
+            background: var(--gold);
+            border-radius: 1px;
         }
 
         /* ========== Book List — 1px Hairline Cards ========== */
@@ -183,7 +193,10 @@
             transition: box-shadow 0.15s;
             cursor: pointer;
         }
-        .book-item:hover { box-shadow: var(--shadow-l1); }
+        .book-item:hover { 
+            box-shadow: var(--shadow-l1); 
+            border-color: var(--gold);
+        }
         .book-item { position: relative; }
         .earn-badge {
             position: absolute; top: 6px; right: 6px;
@@ -675,20 +688,46 @@
         .modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(13,37,61,0.4); display: none;
-            align-items: center; justify-content: center;
+            align-items: flex-end; justify-content: center;
             z-index: 200; padding: 20px;
         }
         .modal-overlay.show { display: flex; animation: fadeIn 0.2s; }
         .modal {
-            background: var(--canvas); border-radius: var(--r-xl);
-            width: 100%; max-width: 360px; overflow: hidden;
+            background: var(--canvas); border-radius: var(--r-xl) var(--r-xl) 0 0;
+            width: 100%; max-width: 430px; max-height: 90vh;
             box-shadow: var(--shadow-l2); animation: slideUp 0.25s ease;
+            display: flex; flex-direction: column;
+            overflow: hidden;
         }
         @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-        .modal-header { padding: var(--sp-lg) var(--sp-lg) var(--sp-sm); text-align: center; }
-        .modal-title { font-size: 16px; font-weight: 300; letter-spacing: -0.16px; color: var(--ink); }
-        .modal-body { padding: 0 var(--sp-lg) var(--sp-lg); }
+        .modal-header { 
+            padding: var(--sp-md) var(--sp-lg); 
+            text-align: center; 
+            position: sticky; top: 0; 
+            background: var(--canvas);
+            z-index: 10;
+            border-bottom: 1px solid var(--hairline);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .modal-close-btn {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: var(--canvas-soft); border: none;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 18px; color: var(--ink-mute);
+            transition: all 0.15s;
+        }
+        .modal-close-btn:hover { background: var(--hairline); color: var(--ink); }
+        .modal-title { font-size: 16px; font-weight: 600; letter-spacing: -0.16px; color: var(--ink); flex: 1; }
+        .modal-body { 
+            padding: var(--sp-md) var(--sp-lg) var(--sp-lg); 
+            overflow-y: auto; 
+            flex: 1;
+            max-height: calc(90vh - 60px);
+        }
 
         .modal-book-cover {
             width: 96px; height: 134px; border-radius: var(--r-md);
@@ -701,16 +740,16 @@
         .modal-book-score { font-size: 13px; color: var(--ink-mute); font-weight: 400; }
         .modal-book-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--sp-xxs); margin-bottom: var(--sp-md); }
         .earn-incentive {
-            background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
-            border: 1px solid #FFB74D;
+            background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%);
+            border: 1px solid #FDBA74;
             border-radius: 10px;
             padding: 12px;
             margin-bottom: 16px;
             text-align: center;
         }
         .earn-incentive-icon { font-size: 20px; margin-bottom: 4px; }
-        .earn-incentive-text { font-size: 13px; font-weight: 600; color: #E65100; line-height: 1.4; }
-        .earn-incentive-sub { font-size: 11px; color: #BF360C; margin-top: 2px; }
+        .earn-incentive-text { font-size: 13px; font-weight: 600; color: #C2410C; line-height: 1.4; }
+        .earn-incentive-sub { font-size: 11px; color: #9A3412; margin-top: 2px; }
 
 
         /* Description */
@@ -749,33 +788,84 @@
         }
         .modal-btn.cancel:hover { border-color: var(--ink-mute); }
         .modal-btn.confirm {
-            background: var(--primary); color: var(--on-primary);
+            background: linear-gradient(135deg, #FF6B9D, #FFD700); color: var(--on-primary);
         }
-        .modal-btn.confirm:hover { background: var(--primary-deep); }
+        .modal-btn.confirm:hover { opacity: 0.9; }
+        .modal-btn.confirm:disabled {
+            background: var(--hairline);
+            color: var(--ink-mute);
+            cursor: not-allowed;
+        }
 
-        .modal-result { display: none; margin-top: 16px; }
-        .modal-result.show { display: block; animation: fadeIn 0.3s ease; }
-        .modal-result-title { font-size: 14px; font-weight: 600; text-align: center; margin-bottom: 12px; color: var(--primary); }
-        .modal-result-box {
-            background: var(--canvas-soft); border-radius: var(--r-md); padding: 12px; margin-bottom: 10px;
+        .modal-result { 
+            display: none; 
+            margin-top: 12px; 
+            padding: 12px;
+            background: #F0F4FF;
+            border-radius: var(--r-lg);
+            border: 1px solid #E0E7FF;
         }
-        .modal-result-label { font-size: 10px; font-weight: 600; color: var(--ink-mute); text-transform: uppercase; margin-bottom: 4px; }
+        .modal-result.show { display: block; animation: fadeIn 0.3s ease; }
+        .modal-result-title { font-size: 14px; font-weight: 700; text-align: center; margin-bottom: 10px; color: var(--ink); }
+        .modal-result-box {
+            background: var(--canvas); border-radius: var(--r-md); padding: 10px; margin-bottom: 8px;
+            border: 1px solid var(--hairline);
+        }
+        .modal-result-label { font-size: 10px; font-weight: 600; color: var(--ink-mute); text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.5px; }
         .modal-result-value {
             font-size: 13px; color: var(--ink); word-break: break-all;
             display: flex; align-items: center; justify-content: space-between; gap: 8px;
         }
         .modal-result-value span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
         .modal-copy-btn {
-            flex-shrink: 0; padding: 4px 10px; font-size: 11px; font-weight: 600;
-            background: var(--primary); color: var(--on-primary); border: none; border-radius: var(--r-sm); cursor: pointer;
+            flex-shrink: 0; padding: 6px 12px; font-size: 11px; font-weight: 600;
+            background: #1E40AF; color: #fff; border: none; border-radius: var(--r-sm); cursor: pointer;
+            transition: all 0.15s;
         }
-        .modal-copy-btn:hover { opacity: 0.85; }
+        .modal-copy-btn:hover { background: #1E3A8A; }
+        
+        /* Modal Done Button */
+        .modal-done-btn {
+            width: 100%; padding: 12px; margin-top: 12px;
+            background: #10B981; color: #fff;
+            border: none; border-radius: var(--r-pill);
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: all 0.15s;
+        }
+        .modal-done-btn:hover { background: #059669; }
+        
+        /* Modal Error State */
+        .modal-error {
+            background: #FEF2F2;
+            border: 1px solid #FECACA;
+            text-align: center;
+            padding: 20px 16px;
+        }
+        .modal-error-icon { font-size: 32px; margin-bottom: 8px; }
+        .modal-error-title { font-size: 16px; font-weight: 700; color: #DC2626; margin-bottom: 6px; }
+        .modal-error-text { font-size: 13px; color: #991B1B; line-height: 1.4; margin-bottom: 12px; }
+        
+        /* Modal Loading State */
+        .modal-loading {
+            display: flex; flex-direction: column; align-items: center;
+            padding: 24px; text-align: center;
+        }
+        .modal-loading-spinner {
+            width: 40px; height: 40px;
+            border: 3px solid var(--hairline);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            margin-bottom: 16px;
+        }
+        .modal-loading-text { font-size: 14px; font-weight: 600; color: var(--ink); }
+        .modal-loading-sub { font-size: 12px; color: var(--ink-mute); margin-top: 4px; }
         .modal-recommend-text {
-            background: #F0FFF4; border: 1px solid #9AE6B4; border-radius: var(--r-md);
-            padding: 12px; margin-bottom: 6px; font-size: 13px; color: var(--ink-secondary); line-height: 1.5;
-            white-space: pre-wrap;
+            background: #F0FFF4; border: 1px solid #BBF7D0; border-radius: var(--r-md);
+            padding: 10px; margin-bottom: 6px; font-size: 12px; color: var(--ink-secondary); line-height: 1.5;
+            white-space: pre-wrap; max-height: 80px; overflow-y: auto;
         }
-        .modal-recommend-label { font-size: 10px; font-weight: 600; color: var(--success); text-transform: uppercase; margin-bottom: 4px; }
+        .modal-recommend-label { font-size: 10px; font-weight: 600; color: #059669; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.5px; }
 
         /* Toast */
         .toast {
@@ -853,6 +943,13 @@
                 <div>Loading books...</div>
             </div>
 
+            <!-- Scroll -->
+            <div class="book-scroll-section" id="bookScrollSection" style="display: none;">
+                <div class="book-scroll-title">Recommended for you</div>
+                <div class="section-subtitle">Top picks to promote & earn</div>
+                <div class="book-scroll-list" id="bookScrollList"></div>
+            </div>
+
             <!-- Genre Tabs -->
             <div class="book-list-tabs" id="bookListTabs" style="display: none;">
                 <button class="book-list-tab active" data-genre="all">All</button>
@@ -861,13 +958,6 @@
                 <button class="book-list-tab" data-genre="Billionaire">Billionaire</button>
                 <button class="book-list-tab" data-genre="Fantasy">Fantasy</button>
                 <button class="book-list-tab" data-genre="Mafia">Mafia</button>
-            </div>
-
-            <!-- Scroll -->
-            <div class="book-scroll-section" id="bookScrollSection" style="display: none;">
-                <div class="book-scroll-title">Recommended for you</div>
-                        <div class="section-subtitle">Top picks to promote & earn</div>
-                <div class="book-scroll-list" id="bookScrollList"></div>
             </div>
 
             <!-- Book List -->
@@ -1124,7 +1214,9 @@
     <div class="modal-overlay" id="recommendModal">
         <div class="modal">
             <div class="modal-header">
+                <button class="modal-close-btn" onclick="closeModal()" aria-label="Close">×</button>
                 <div class="modal-title" id="modalTitle">Book Details</div>
+                <div style="width:32px;"></div>
             </div>
             <div class="modal-body">
                 <img class="modal-book-cover" id="modalBookCover" src="" alt="">
@@ -1169,6 +1261,20 @@
                 <div class="modal-recommend-label">📋 Share This Text</div>
                 <div class="modal-recommend-text" id="modalRecommendText"></div>
                 <button class="modal-copy-btn" style="width:100%; padding:10px; margin-top:4px;" onclick="copyModalResult('text')">Copy All Text</button>
+                <button class="modal-done-btn" onclick="closeModal()">Done</button>
+            </div>
+            
+            <div class="modal-result modal-error" id="modalError" style="display:none;">
+                <div class="modal-error-icon">⚠️</div>
+                <div class="modal-error-title">Unable to create link</div>
+                <div class="modal-error-text">This book is not available for promotion yet. Try another one!</div>
+                <button class="modal-done-btn" onclick="closeModal()">Try Another Book</button>
+            </div>
+            
+            <div class="modal-loading" id="modalLoading" style="display:none;">
+                <div class="modal-loading-spinner"></div>
+                <div class="modal-loading-text" id="modalLoadingText">Creating your link...</div>
+                <div class="modal-loading-sub" id="modalLoadingSub"></div>
             </div>
                 <div class="modal-actions">
                     <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
@@ -1195,6 +1301,28 @@
             currentBook: null,
             currentRecommendText: ''
         };
+        
+        // ========== Earn Badge Text Generator ==========
+        const earnBadgeTexts = [
+            '💰 Earn Per Reader',
+            '🔥 Hot Earner',
+            '⭐ Top Promoter',
+            '💎 Premium Pick',
+            '🚀 High Reward',
+            '👑 Best Seller'
+        ];
+        
+        function getEarnBadgeText(bookId) {
+            // Simple hash based on bookId to ensure consistent text per book
+            let hash = 0;
+            const str = String(bookId || '');
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return earnBadgeTexts[Math.abs(hash) % earnBadgeTexts.length];
+        }
 
         // ========== Tab Switch ==========
         function switchTab(tabName) {
@@ -1301,7 +1429,7 @@
                 ).join('');
 
                 return `
-                    <div class="book-item" onclick="openRecommendModal('${book.bookId}')"><span class="earn-badge">$0.8/user</span>
+                    <div class="book-item" onclick="openRecommendModal('${book.bookId}')"><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
                         <img class="book-item-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/68x92/f6f9fc/64748d?text=N'">
                         <div class="book-item-content">
                             <div class="book-item-title">${book.title}</div>
@@ -1330,7 +1458,7 @@
                 const tags = (book.tags || []).slice(0, 2).filter(t => typeof t === 'string').map(t => `<span class="book-tag">${t}</span>`).join('');
 
                 return `
-                    <div class="book-scroll-card" style="position:relative" onclick="openRecommendModal('${book.bookId}')"><span class="earn-badge">$0.8/user</span>
+                    <div class="book-scroll-card" style="position:relative" onclick="openRecommendModal('${book.bookId}')"><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
                         <img class="book-scroll-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/136x176/f6f9fc/64748d?text=N'">
                         <div class="book-scroll-info">
                             <div class="book-scroll-card-title">${book.title}</div>
@@ -1605,8 +1733,36 @@
             if (!currentRecommendBook) return;
 
             const btn = document.getElementById('modalConfirmBtn');
+            const modalActions = document.querySelector('.modal-actions');
+            const modalLoading = document.getElementById('modalLoading');
+            const modalLoadingText = document.getElementById('modalLoadingText');
+            const modalLoadingSub = document.getElementById('modalLoadingSub');
+            const modalError = document.getElementById('modalError');
+            
             btn.disabled = true;
             btn.textContent = 'Creating...';
+            if (modalActions) modalActions.style.display = 'none';
+            if (modalLoading) modalLoading.style.display = 'flex';
+            if (modalError) modalError.style.display = 'none';
+            
+            // Show countdown text
+            let seconds = 3;
+            modalLoadingText.textContent = `Creating your link... (~${seconds}s)`;
+            modalLoadingSub.textContent = '';
+            
+            const countdownInterval = setInterval(() => {
+                seconds--;
+                if (seconds > 0) {
+                    modalLoadingText.textContent = `Creating your link... (~${seconds}s)`;
+                }
+            }, 1000);
+            
+            // Timeout warning after 5 seconds
+            const timeoutWarning = setTimeout(() => {
+                if (modalLoadingSub) {
+                    modalLoadingSub.textContent = 'Taking longer than usual...';
+                }
+            }, 5000);
 
             try {
                 const response = await fetch('/api/confirm', {
@@ -1620,6 +1776,9 @@
                         lang: currentRecommendBook.languageCode || 'en'
                     })
                 });
+
+                clearInterval(countdownInterval);
+                clearTimeout(timeoutWarning);
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
@@ -1642,6 +1801,7 @@
                     renderMyBooks();
                     updateStats();
 
+                    if (modalLoading) modalLoading.style.display = 'none';
                     btn.disabled = false;
                     btn.textContent = '✓ Created!';
                     showResultInModal(currentRecommendBook);
@@ -1650,9 +1810,20 @@
                 }
             } catch (e) {
                 console.error('Confirm recommend error:', e);
-                showToast(e.message || 'Failed to create link', 'error');
+                clearInterval(countdownInterval);
+                clearTimeout(timeoutWarning);
+                
+                if (modalLoading) modalLoading.style.display = 'none';
+                if (modalError) {
+                    modalError.style.display = 'block';
+                }
+                if (modalActions) {
+                    modalActions.style.display = 'flex';
+                }
                 btn.disabled = false;
                 btn.textContent = 'Start Earning';
+                
+                showToast(e.message || 'Failed to create link', 'error');
             }
         }
 
