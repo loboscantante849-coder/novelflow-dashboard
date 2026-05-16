@@ -8,7 +8,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
         :root {
+            /* Stripe Design Tokens */
             --primary: #533afd;
             --primary-deep: #4434d4;
             --primary-press: #2e2b8c;
@@ -26,111 +28,285 @@
             --hairline: #e3e8ee;
             --hairline-input: #a8c3de;
             --ruby: #ea2261;
+            --magenta: #f96bee;
             --success: #0d9460;
             --danger: #ea2261;
             --shadow-l1: rgba(0,55,112,0.08) 0 1px 3px;
             --shadow-l2: rgba(0,55,112,0.08) 0 8px 24px, rgba(0,55,112,0.04) 0 2px 6px;
+            /* Radius */
             --r-xs: 4px; --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px; --r-pill: 9999px;
+            /* Spacing */
             --sp-xxs: 2px; --sp-xs: 4px; --sp-sm: 8px; --sp-md: 12px; --sp-lg: 16px; --sp-xl: 24px; --sp-xxl: 32px;
             --nav-height: 60px;
         }
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            font-weight: 300; font-feature-settings: "ss01";
-            background: var(--canvas-soft); color: var(--ink);
-            min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased;
+            font-weight: 300;
+            font-feature-settings: "ss01";
+            background: var(--canvas-soft);
+            color: var(--ink);
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
         }
-        .app-container { max-width: 430px; margin: 0 auto; min-height: 100vh; background: var(--canvas); position: relative; }
-        .tab-content { display: none; padding-bottom: calc(var(--nav-height) + 20px); min-height: 100vh; }
+
+        .app-container {
+            max-width: 430px;
+            margin: 0 auto;
+            min-height: 100vh;
+            background: var(--canvas);
+            position: relative;
+        }
+
+        .tab-content {
+            display: none;
+            padding-bottom: calc(var(--nav-height) + 20px);
+            min-height: 100vh;
+        }
         .tab-content.active { display: block; animation: fadeIn 0.2s ease; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* Banner — Gradient Mesh */
-        .home-banner { position: relative; padding: 36px 24px 32px; overflow: hidden; background: var(--brand-dark); }
+        /* ========== Banner — Gradient Mesh ========== */
+        .home-banner {
+            position: relative;
+            padding: 36px 24px 32px;
+            overflow: hidden;
+            background: var(--brand-dark);
+        }
         .home-banner::before {
-            content: ''; position: absolute; top: -40%; left: -20%; right: -20%; bottom: -20%;
-            background:
+            content: '';
+            position: absolute;
+            top: -40%; left: -20%; right: -20%; bottom: -20%;
+            background: 
                 radial-gradient(ellipse 50% 80% at 15% 50%, rgba(245,233,212,0.45) 0%, transparent 70%),
                 radial-gradient(ellipse 40% 70% at 40% 40%, rgba(249,187,130,0.35) 0%, transparent 70%),
                 radial-gradient(ellipse 45% 60% at 65% 55%, rgba(183,162,249,0.4) 0%, transparent 70%),
                 radial-gradient(ellipse 40% 50% at 85% 50%, rgba(83,58,253,0.35) 0%, transparent 70%),
                 radial-gradient(ellipse 30% 40% at 95% 60%, rgba(234,34,97,0.25) 0%, transparent 70%);
-            filter: blur(30px); z-index: 0;
+            filter: blur(30px);
+            z-index: 0;
         }
         .banner-content { position: relative; z-index: 1; text-align: center; }
-        .banner-eyebrow { font-size: 10px; font-weight: 400; letter-spacing: 0.1px; text-transform: uppercase; color: rgba(255,255,255,0.7); margin-bottom: var(--sp-md); }
-        .banner-title { font-size: 26px; font-weight: 300; line-height: 1.12; letter-spacing: -0.52px; color: var(--on-primary); margin-bottom: var(--sp-sm); }
+        .banner-eyebrow {
+            font-size: 10px; font-weight: 400; letter-spacing: 0.1px; text-transform: uppercase;
+            color: rgba(255,255,255,0.7); margin-bottom: var(--sp-md);
+        }
+        .banner-title {
+            font-size: 26px; font-weight: 300; line-height: 1.12; letter-spacing: -0.52px;
+            color: var(--on-primary); margin-bottom: var(--sp-sm);
+        }
         .banner-title .highlight { color: #c4b5fd; }
-        .banner-amount { font-size: 40px; font-weight: 300; line-height: 1.03; letter-spacing: -1px; font-feature-settings: "tnum"; color: var(--on-primary); margin: var(--sp-md) 0 var(--sp-xs); }
-        .banner-subtitle { font-size: 13px; font-weight: 300; color: rgba(255,255,255,0.6); }
+        .banner-amount {
+            font-size: 40px; font-weight: 300; line-height: 1.03; letter-spacing: -1px;
+            font-feature-settings: "tnum";
+            color: var(--on-primary); margin: var(--sp-md) 0 var(--sp-xs);
+        }
+        .banner-subtitle {
+            font-size: 13px; font-weight: 300; color: rgba(255,255,255,0.6);
+        }
 
-        /* Home Header */
+        /* ========== Home Header ========== */
         .home-header { padding: var(--sp-lg) var(--sp-lg) 0; background: var(--canvas); }
         .home-logo { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-lg); }
         .logo-wrapper { display: flex; align-items: center; gap: var(--sp-sm); }
-        .logo-icon { width: 32px; height: 32px; background: var(--primary); border-radius: var(--r-md); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; color: var(--on-primary); }
+        .logo-icon {
+            width: 32px; height: 32px;
+            background: var(--primary);
+            border-radius: var(--r-md);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 500; color: var(--on-primary);
+        }
         .logo-text { font-size: 18px; font-weight: 300; letter-spacing: -0.36px; color: var(--ink); }
         .logo-text span { font-weight: 500; color: var(--primary); }
         .header-actions { display: flex; gap: var(--sp-xs); }
-        .header-btn { width: 36px; height: 36px; border-radius: var(--r-md); background: var(--canvas); border: 1px solid var(--hairline); display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--ink-mute); cursor: pointer; transition: border-color 0.15s; }
+        .header-btn {
+            width: 36px; height: 36px;
+            border-radius: var(--r-md);
+            background: var(--canvas);
+            border: 1px solid var(--hairline);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; color: var(--ink-mute);
+            cursor: pointer; transition: border-color 0.15s;
+        }
         .header-btn:hover { border-color: var(--primary); color: var(--primary); }
 
-        .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; color: var(--ink-mute); }
-        .loading-spinner { width: 32px; height: 32px; border: 2px solid var(--hairline); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; margin-bottom: var(--sp-lg); }
+        /* Loading */
+        .loading-container {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 60px 20px; color: var(--ink-mute);
+        }
+        .loading-spinner {
+            width: 32px; height: 32px;
+            border: 2px solid var(--hairline);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            margin-bottom: var(--sp-lg);
+        }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* Genre Tabs — Pill Tags */
-        .book-list-tabs { display: flex; gap: var(--sp-xs); padding: var(--sp-md) var(--sp-lg); overflow-x: auto; scrollbar-width: none; }
+        /* ========== Genre Tabs — Pill Tags ========== */
+        .book-list-tabs {
+            display: flex; gap: var(--sp-xs);
+            padding: var(--sp-md) var(--sp-lg);
+            overflow-x: auto; scrollbar-width: none;
+        }
         .book-list-tabs::-webkit-scrollbar { display: none; }
-        .book-list-tab { padding: 6px 14px; border-radius: var(--r-pill); font-size: 13px; font-weight: 400; border: 1px solid var(--hairline); background: var(--canvas); color: var(--ink-mute); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
-        .book-list-tab.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+        .book-list-tab {
+            padding: 6px 14px;
+            border-radius: var(--r-pill);
+            font-size: 13px; font-weight: 400; letter-spacing: 0;
+            border: 1px solid var(--hairline);
+            background: var(--canvas);
+            color: var(--ink-mute);
+            cursor: pointer; transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .book-list-tab.active {
+            background: var(--primary);
+            color: var(--on-primary);
+            border-color: var(--primary);
+        }
 
-        /* Book List — Hairline Cards */
+        /* ========== Book List — 1px Hairline Cards ========== */
         .book-list-section { padding: 0; }
         .book-list { padding: 0 var(--sp-lg) var(--sp-lg); }
-        .book-item { display: flex; gap: var(--sp-md); padding: var(--sp-md); background: var(--canvas); border: 1px solid var(--hairline); border-radius: var(--r-lg); margin-bottom: var(--sp-sm); transition: box-shadow 0.15s; cursor: pointer; }
+
+        .book-item {
+            display: flex; gap: var(--sp-md);
+            padding: var(--sp-md);
+            background: var(--canvas);
+            border: 1px solid var(--hairline);
+            border-radius: var(--r-lg);
+            margin-bottom: var(--sp-sm);
+            transition: box-shadow 0.15s;
+            cursor: pointer;
+        }
         .book-item:hover { box-shadow: var(--shadow-l1); }
-        .book-item-cover { width: 68px; height: 92px; border-radius: var(--r-sm); object-fit: cover; flex-shrink: 0; background: var(--canvas-soft); }
+
+        .book-item-cover {
+            width: 68px; height: 92px;
+            border-radius: var(--r-sm);
+            object-fit: cover;
+            flex-shrink: 0;
+            background: var(--canvas-soft);
+        }
         .book-item-content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-        .book-item-title { font-size: 14px; font-weight: 300; letter-spacing: -0.14px; margin-bottom: var(--sp-xs); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; color: var(--ink); }
+        .book-item-title {
+            font-size: 14px; font-weight: 300; letter-spacing: -0.14px;
+            margin-bottom: var(--sp-xs);
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            overflow: hidden; line-height: 1.4; color: var(--ink);
+        }
         .book-item-rating { display: flex; align-items: center; gap: var(--sp-xs); margin-bottom: var(--sp-xs); }
         .book-item-stars { color: var(--ink-mute); font-size: 11px; }
         .book-item-score { font-size: 12px; color: var(--ink-mute); font-weight: 400; }
+
         .book-item-tags { display: flex; flex-wrap: wrap; gap: var(--sp-xxs); margin-bottom: var(--sp-xs); }
-        .book-tag { font-size: 10px; font-weight: 400; letter-spacing: 0.1px; padding: 2px 7px; background: var(--primary-subdued); color: var(--primary-deep); border-radius: var(--r-pill); }
+        .book-tag {
+            font-size: 10px; font-weight: 400; letter-spacing: 0.1px;
+            padding: 2px 7px;
+            background: var(--primary-subdued);
+            color: var(--primary-deep);
+            border-radius: var(--r-pill);
+        }
         .book-tag.lang-es { background: var(--canvas-cream); color: #9b6829; }
-        .book-item-desc { font-size: 12px; color: var(--ink-mute); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex: 1; }
+
+        .book-item-desc {
+            font-size: 12px; color: var(--ink-mute); line-height: 1.5;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            overflow: hidden; flex: 1;
+        }
         .book-item-action { margin-top: var(--sp-xs); }
-        .book-item-btn { display: inline-flex; align-items: center; gap: var(--sp-xs); padding: 6px 14px; background: var(--primary); border: none; border-radius: var(--r-pill); color: var(--on-primary); font-size: 12px; font-weight: 400; cursor: pointer; transition: background 0.15s; }
+        .book-item-btn {
+            display: inline-flex; align-items: center; gap: var(--sp-xs);
+            padding: 6px 14px;
+            background: var(--primary);
+            border: none;
+            border-radius: var(--r-pill);
+            color: var(--on-primary);
+            font-size: 12px; font-weight: 400;
+            cursor: pointer; transition: background 0.15s;
+        }
         .book-item-btn:hover { background: var(--primary-deep); }
 
-        /* Scroll Cards */
+        /* ========== Scroll Cards ========== */
         .book-scroll-section { padding: var(--sp-md) 0; }
-        .book-scroll-title { font-size: 15px; font-weight: 300; letter-spacing: -0.15px; padding: 0 var(--sp-lg) var(--sp-sm); color: var(--ink); }
-        .book-scroll-list { display: flex; gap: var(--sp-sm); overflow-x: auto; padding: 0 var(--sp-lg); scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .book-scroll-title {
+            font-size: 15px; font-weight: 300; letter-spacing: -0.15px;
+            padding: 0 var(--sp-lg) var(--sp-sm);
+            color: var(--ink);
+        }
+        .book-scroll-list {
+            display: flex; gap: var(--sp-sm);
+            overflow-x: auto; padding: 0 var(--sp-lg);
+            scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
         .book-scroll-list::-webkit-scrollbar { display: none; }
-        .book-scroll-card { flex-shrink: 0; width: 136px; background: var(--canvas); border: 1px solid var(--hairline); border-radius: var(--r-lg); overflow: hidden; scroll-snap-align: start; transition: box-shadow 0.15s; cursor: pointer; }
+
+        .book-scroll-card {
+            flex-shrink: 0; width: 136px;
+            background: var(--canvas);
+            border: 1px solid var(--hairline);
+            border-radius: var(--r-lg);
+            overflow: hidden; scroll-snap-align: start;
+            transition: box-shadow 0.15s; cursor: pointer;
+        }
         .book-scroll-card:hover { box-shadow: var(--shadow-l1); }
         .book-scroll-cover { width: 100%; height: 176px; object-fit: cover; background: var(--canvas-soft); }
         .book-scroll-info { padding: var(--sp-sm); }
-        .book-scroll-card-title { font-size: 12px; font-weight: 300; letter-spacing: -0.12px; margin-bottom: var(--sp-xxs); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; color: var(--ink); }
+        .book-scroll-card-title {
+            font-size: 12px; font-weight: 300; letter-spacing: -0.12px;
+            margin-bottom: var(--sp-xxs);
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            overflow: hidden; line-height: 1.3; color: var(--ink);
+        }
         .book-scroll-rating { display: flex; align-items: center; gap: 2px; font-size: 10px; color: var(--ink-mute); margin-bottom: var(--sp-xxs); }
         .book-scroll-tags { display: flex; flex-wrap: wrap; gap: var(--sp-xxs); }
 
-        /* Rank — Tabular */
+        /* ========== Rank — Dashboard Tabular ========== */
         .rank-section { padding: 0 var(--sp-lg) var(--sp-lg); }
         .section-header { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-lg) var(--sp-lg) var(--sp-md); }
         .section-title { font-size: 15px; font-weight: 300; letter-spacing: -0.15px; color: var(--ink); }
+
         .rank-tabs { display: flex; gap: var(--sp-xs); margin-bottom: var(--sp-md); }
-        .rank-tab { padding: 6px 14px; border-radius: var(--r-pill); font-size: 13px; font-weight: 400; border: 1px solid var(--hairline); background: var(--canvas); color: var(--ink-mute); cursor: pointer; transition: all 0.15s; }
+        .rank-tab {
+            padding: 6px 14px;
+            border-radius: var(--r-pill);
+            font-size: 13px; font-weight: 400;
+            border: 1px solid var(--hairline);
+            background: var(--canvas);
+            color: var(--ink-mute);
+            cursor: pointer; transition: all 0.15s;
+        }
         .rank-tab.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
-        .rank-item { display: flex; align-items: center; gap: var(--sp-sm); padding: var(--sp-sm); background: var(--canvas); border: 1px solid var(--hairline); border-radius: var(--r-lg); margin-bottom: var(--sp-xs); transition: box-shadow 0.15s; cursor: pointer; }
+
+        .rank-item {
+            display: flex; align-items: center; gap: var(--sp-sm);
+            padding: var(--sp-sm);
+            background: var(--canvas);
+            border: 1px solid var(--hairline);
+            border-radius: var(--r-lg);
+            margin-bottom: var(--sp-xs);
+            transition: box-shadow 0.15s; cursor: pointer;
+        }
         .rank-item:hover { box-shadow: var(--shadow-l1); }
-        .rank-num { width: 26px; height: 26px; border-radius: var(--r-md); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 400; font-feature-settings: "tnum"; flex-shrink: 0; }
+
+        .rank-num {
+            width: 26px; height: 26px;
+            border-radius: var(--r-md);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 400;
+            font-feature-settings: "tnum";
+            flex-shrink: 0;
+        }
         .rank-num.top1 { background: var(--primary); color: var(--on-primary); }
         .rank-num.top2 { background: var(--primary-subdued); color: var(--primary-deep); }
         .rank-num.top3 { background: var(--canvas-cream); color: #9b6829; }
         .rank-num.normal { background: var(--canvas-soft); color: var(--ink-mute); }
+
         .rank-cover { width: 34px; height: 46px; border-radius: var(--r-xs); object-fit: cover; flex-shrink: 0; }
         .rank-info { flex: 1; min-width: 0; }
         .rank-title { font-size: 13px; font-weight: 300; letter-spacing: -0.13px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
@@ -139,175 +315,465 @@
         .rank-stat-num { font-size: 14px; font-weight: 300; font-feature-settings: "tnum"; color: var(--primary); }
         .rank-stat-label { font-size: 10px; color: var(--ink-mute); }
 
-        /* Submit — Stripe Form */
+        /* ========== Tab 2: Submit — Stripe Form ========== */
         .submit-container { min-height: 100vh; background: var(--canvas); }
-        .submit-header { padding: var(--sp-xxl) var(--sp-lg) var(--sp-lg); text-align: center; border-bottom: 1px solid var(--hairline); }
-        .submit-badge { display: inline-block; padding: 4px 10px; border-radius: var(--r-pill); background: var(--primary-subdued); color: var(--primary-deep); font-size: 10px; font-weight: 400; letter-spacing: 0.1px; text-transform: uppercase; margin-bottom: var(--sp-md); }
+        .submit-header {
+            padding: var(--sp-xxl) var(--sp-lg) var(--sp-lg);
+            text-align: center;
+            border-bottom: 1px solid var(--hairline);
+        }
+        .submit-badge {
+            display: inline-block; padding: 4px 10px; border-radius: var(--r-pill);
+            background: var(--primary-subdued); color: var(--primary-deep);
+            font-size: 10px; font-weight: 400; letter-spacing: 0.1px; text-transform: uppercase;
+            margin-bottom: var(--sp-md);
+        }
         .submit-title { font-size: 24px; font-weight: 300; letter-spacing: -0.48px; margin-bottom: var(--sp-xs); color: var(--ink); }
         .submit-subtitle { font-size: 14px; color: var(--ink-mute); line-height: 1.5; font-weight: 300; }
+
         .submit-form { padding: var(--sp-lg); }
-        .form-card { background: var(--canvas); border: 1px solid var(--hairline); border-radius: var(--r-lg); padding: var(--sp-lg); margin-bottom: var(--sp-md); }
+        .form-card {
+            background: var(--canvas); border: 1px solid var(--hairline);
+            border-radius: var(--r-lg); padding: var(--sp-lg); margin-bottom: var(--sp-md);
+        }
         .form-group { margin-bottom: var(--sp-md); }
         .form-group:last-child { margin-bottom: 0; }
-        .form-group label { display: block; font-size: 13px; font-weight: 400; letter-spacing: -0.39px; font-feature-settings: "tnum"; color: var(--ink-secondary); margin-bottom: var(--sp-xs); }
+        .form-group label {
+            display: block; font-size: 13px; font-weight: 400; letter-spacing: -0.39px;
+            font-feature-settings: "tnum";
+            color: var(--ink-secondary); margin-bottom: var(--sp-xs);
+        }
         .form-group label .required { color: var(--ruby); margin-left: 2px; }
-        .form-input { width: 100%; padding: 8px 12px; background: var(--canvas); border: 1px solid var(--hairline-input); border-radius: var(--r-sm); color: var(--ink); font-size: 15px; font-weight: 300; font-family: 'Inter', sans-serif; transition: border-color 0.15s; }
+
+        .form-input {
+            width: 100%; padding: 8px 12px;
+            background: var(--canvas); border: 1px solid var(--hairline-input);
+            border-radius: var(--r-sm); color: var(--ink);
+            font-size: 15px; font-weight: 300; font-family: 'Inter', sans-serif;
+            transition: border-color 0.15s;
+        }
         .form-input:focus { outline: none; border-color: var(--primary); }
         .form-input::placeholder { color: var(--ink-mute-2); }
-        .lang-toggle { display: flex; background: var(--canvas-soft); border: 1px solid var(--hairline); border-radius: var(--r-md); overflow: hidden; margin-bottom: var(--sp-md); }
-        .lang-btn { flex: 1; padding: 10px var(--sp-md); background: transparent; border: none; color: var(--ink-mute); font-size: 13px; font-weight: 400; cursor: pointer; transition: all 0.15s; }
+
+        .lang-toggle {
+            display: flex; background: var(--canvas-soft);
+            border: 1px solid var(--hairline);
+            border-radius: var(--r-md); overflow: hidden; margin-bottom: var(--sp-md);
+        }
+        .lang-btn {
+            flex: 1; padding: 10px var(--sp-md); background: transparent; border: none;
+            color: var(--ink-mute); font-size: 13px; font-weight: 400;
+            cursor: pointer; transition: all 0.15s;
+        }
         .lang-btn.active { background: var(--primary); color: var(--on-primary); }
-        .btn-submit { width: 100%; padding: 10px 16px; background: var(--primary); border: none; border-radius: var(--r-pill); color: var(--on-primary); font-size: 16px; font-weight: 400; font-family: 'Inter', sans-serif; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; justify-content: center; gap: var(--sp-xs); }
+
+        .btn-submit {
+            width: 100%; padding: 10px 16px;
+            background: var(--primary);
+            border: none; border-radius: var(--r-pill);
+            color: var(--on-primary); font-size: 16px; font-weight: 400;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer; transition: background 0.15s;
+            display: flex; align-items: center; justify-content: center; gap: var(--sp-xs);
+        }
         .btn-submit:hover:not(:disabled) { background: var(--primary-deep); }
         .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-submit .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+        .btn-submit .spinner {
+            width: 18px; height: 18px;
+            border: 2px solid rgba(255,255,255,0.3); border-top-color: white;
+            border-radius: 50%; animation: spin 0.7s linear infinite; display: none;
+        }
         .btn-submit.loading .spinner { display: block; }
+
+        /* Search results */
         .search-results { padding: 0 var(--sp-lg) var(--sp-lg); }
+
+        /* Processing */
         .processing-status { display: none; text-align: center; padding: 40px 20px; }
         .processing-status.show { display: block; }
-        .processing-icon { width: 64px; height: 64px; border-radius: 50%; background: var(--canvas-soft); display: flex; align-items: center; justify-content: center; margin: 0 auto var(--sp-lg); color: var(--primary); font-size: 28px; }
+        .processing-icon {
+            width: 64px; height: 64px; border-radius: 50%;
+            background: var(--canvas-soft);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto var(--sp-lg); color: var(--primary); font-size: 28px;
+        }
         .processing-status h3 { font-size: 18px; font-weight: 300; letter-spacing: -0.18px; margin-bottom: var(--sp-xs); color: var(--ink); }
         .processing-status p { font-size: 14px; color: var(--ink-mute); margin-bottom: var(--sp-lg); }
-        .processing-steps { background: var(--canvas-soft); border-radius: var(--r-md); padding: var(--sp-md); text-align: left; max-width: 280px; margin: 0 auto; }
+
+        .processing-steps {
+            background: var(--canvas-soft); border-radius: var(--r-md);
+            padding: var(--sp-md); text-align: left; max-width: 280px; margin: 0 auto;
+        }
         .processing-step { display: flex; align-items: center; gap: var(--sp-sm); padding: var(--sp-xs) 0; font-size: 13px; color: var(--ink-mute); }
         .processing-step.done { color: var(--success); }
         .processing-step.failed { color: var(--danger); }
         .processing-step.current { color: var(--primary); }
-        .step-icon { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid currentColor; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; }
+        .step-icon {
+            width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid currentColor;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; flex-shrink: 0;
+        }
         .processing-step.done .step-icon { background: var(--success); border-color: var(--success); color: white; }
+
+        /* Success page */
         .success-page { display: none; text-align: center; padding: 40px 20px; }
         .success-page.show { display: block; }
-        .success-icon { width: 64px; height: 64px; border-radius: 50%; background: var(--canvas-soft); display: flex; align-items: center; justify-content: center; margin: 0 auto var(--sp-lg); color: var(--success); font-size: 28px; }
+        .success-icon {
+            width: 64px; height: 64px; border-radius: 50%;
+            background: var(--canvas-soft);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto var(--sp-lg); color: var(--success); font-size: 28px;
+        }
         .success-page h2 { font-size: 22px; font-weight: 300; letter-spacing: -0.44px; margin-bottom: var(--sp-xs); color: var(--ink); }
         .success-page > p { font-size: 14px; color: var(--ink-mute); margin-bottom: var(--sp-lg); }
-        .result-card { background: var(--canvas); border: 1px solid var(--hairline); border-radius: var(--r-lg); padding: var(--sp-lg); margin-bottom: var(--sp-sm); text-align: left; }
-        .result-card h4 { font-size: 10px; font-weight: 400; letter-spacing: 0.1px; text-transform: uppercase; color: var(--ink-mute); margin-bottom: var(--sp-xs); }
-        .result-link-box { background: var(--canvas-soft); border-radius: var(--r-sm); padding: var(--sp-sm); word-break: break-all; font-size: 13px; color: var(--primary); font-weight: 300; margin-bottom: var(--sp-sm); }
-        .result-code-box { background: var(--canvas-soft); border: 1px solid var(--hairline); border-radius: var(--r-sm); padding: var(--sp-sm); display: flex; align-items: center; justify-content: space-between; }
-        .result-code { font-size: 18px; font-weight: 300; font-feature-settings: "tnum"; color: var(--ink); font-family: 'Inter', monospace; letter-spacing: -0.42px; }
-        .copy-btn { padding: 6px 14px; background: var(--primary); border: none; border-radius: var(--r-pill); color: var(--on-primary); font-size: 12px; font-weight: 400; cursor: pointer; transition: background 0.15s; }
+
+        .result-card {
+            background: var(--canvas); border: 1px solid var(--hairline);
+            border-radius: var(--r-lg); padding: var(--sp-lg);
+            margin-bottom: var(--sp-sm); text-align: left;
+        }
+        .result-card h4 {
+            font-size: 10px; font-weight: 400; letter-spacing: 0.1px; text-transform: uppercase;
+            color: var(--ink-mute); margin-bottom: var(--sp-xs);
+        }
+
+        .result-link-box {
+            background: var(--canvas-soft); border-radius: var(--r-sm);
+            padding: var(--sp-sm); word-break: break-all; font-size: 13px;
+            color: var(--primary); font-weight: 300; margin-bottom: var(--sp-sm);
+        }
+        .result-code-box {
+            background: var(--canvas-soft); border: 1px solid var(--hairline);
+            border-radius: var(--r-sm);
+            padding: var(--sp-sm); display: flex; align-items: center; justify-content: space-between;
+        }
+        .result-code {
+            font-size: 18px; font-weight: 300; font-feature-settings: "tnum";
+            color: var(--ink); font-family: 'Inter', monospace; letter-spacing: -0.42px;
+        }
+        .copy-btn {
+            padding: 6px 14px; background: var(--primary);
+            border: none; border-radius: var(--r-pill);
+            color: var(--on-primary); font-size: 12px; font-weight: 400;
+            cursor: pointer; transition: background 0.15s;
+        }
         .copy-btn:hover { background: var(--primary-deep); }
-        .result-recommend-box { background: var(--canvas-soft); border-radius: var(--r-sm); padding: var(--sp-md); text-align: left; margin-bottom: var(--sp-sm); }
+
+        /* Recommend card */
+        .result-recommend-box {
+            background: var(--canvas-soft); border-radius: var(--r-sm);
+            padding: var(--sp-md); text-align: left; margin-bottom: var(--sp-sm);
+        }
         .result-recommend-text { font-size: 14px; color: var(--ink); line-height: 1.5; white-space: pre-wrap; font-weight: 300; }
-        .btn-retry { width: 100%; padding: 10px 16px; background: var(--canvas); border: 1px solid var(--hairline); border-radius: var(--r-pill); color: var(--ink); font-size: 14px; font-weight: 400; cursor: pointer; transition: all 0.15s; margin-top: var(--sp-xs); }
+
+        .btn-retry {
+            width: 100%; padding: 10px 16px; background: var(--canvas);
+            border: 1px solid var(--hairline); border-radius: var(--r-pill);
+            color: var(--ink); font-size: 14px; font-weight: 400;
+            cursor: pointer; transition: all 0.15s; margin-top: var(--sp-xs);
+        }
         .btn-retry:hover { border-color: var(--primary); color: var(--primary); }
-        .btn-another { width: 100%; padding: 10px 16px; background: var(--primary); border: none; border-radius: var(--r-pill); color: var(--on-primary); font-size: 16px; font-weight: 400; cursor: pointer; transition: background 0.15s; margin-top: var(--sp-md); display: flex; align-items: center; justify-content: center; gap: var(--sp-xs); }
+
+        .btn-another {
+            width: 100%; padding: 10px 16px;
+            background: var(--primary);
+            border: none; border-radius: var(--r-pill);
+            color: var(--on-primary); font-size: 16px; font-weight: 400;
+            cursor: pointer; transition: background 0.15s;
+            margin-top: var(--sp-md); display: flex; align-items: center; justify-content: center; gap: var(--sp-xs);
+        }
         .btn-another:hover { background: var(--primary-deep); }
 
-        /* Tasks — Stripe Pricing Cards */
+        /* ========== Tab 3: Tasks — Stripe Pricing Cards ========== */
         .tasks-header { padding: var(--sp-lg) var(--sp-lg) var(--sp-sm); background: var(--canvas); }
         .tasks-title { font-size: 22px; font-weight: 300; letter-spacing: -0.44px; margin-bottom: var(--sp-xxs); color: var(--ink); }
         .tasks-subtitle { font-size: 14px; color: var(--ink-mute); font-weight: 300; }
+
         .task-tabs { display: flex; gap: var(--sp-xs); padding: 0 var(--sp-lg) var(--sp-md); background: var(--canvas); }
-        .task-tab { padding: 6px 14px; border-radius: var(--r-pill); font-size: 13px; font-weight: 400; border: 1px solid var(--hairline); background: var(--canvas); color: var(--ink-mute); cursor: pointer; transition: all 0.15s; }
+        .task-tab {
+            padding: 6px 14px; border-radius: var(--r-pill); font-size: 13px; font-weight: 400;
+            border: 1px solid var(--hairline); background: var(--canvas);
+            color: var(--ink-mute); cursor: pointer; transition: all 0.15s;
+        }
         .task-tab.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+
         .task-list { padding: 0 var(--sp-lg) var(--sp-lg); }
-        .task-section-title { font-size: 10px; font-weight: 400; letter-spacing: 0.1px; text-transform: uppercase; color: var(--ink-mute); margin: var(--sp-md) 0 var(--sp-sm); }
-        .task-card { background: var(--canvas); border: 1px solid var(--hairline); border-radius: var(--r-lg); padding: var(--sp-md); margin-bottom: var(--sp-sm); }
+        .task-section-title {
+            font-size: 10px; font-weight: 400; letter-spacing: 0.1px; text-transform: uppercase;
+            color: var(--ink-mute); margin: var(--sp-md) 0 var(--sp-sm);
+        }
+
+        .task-card {
+            background: var(--canvas); border: 1px solid var(--hairline);
+            border-radius: var(--r-lg); padding: var(--sp-md); margin-bottom: var(--sp-sm);
+        }
         .task-card.completed { opacity: 0.6; background: var(--canvas-soft); }
+
         .task-top { display: flex; align-items: center; gap: var(--sp-sm); margin-bottom: var(--sp-sm); }
-        .task-icon { width: 40px; height: 40px; background: var(--canvas-soft); border-radius: var(--r-md); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; color: var(--primary); }
+        .task-icon {
+            width: 40px; height: 40px;
+            background: var(--canvas-soft);
+            border-radius: var(--r-md); display: flex; align-items: center; justify-content: center;
+            font-size: 18px; flex-shrink: 0; color: var(--primary);
+        }
         .task-info { flex: 1; }
         .task-name { font-size: 14px; font-weight: 300; letter-spacing: -0.14px; margin-bottom: 2px; color: var(--ink); }
-        .task-reward { font-size: 13px; color: var(--primary); font-weight: 400; font-feature-settings: "tnum"; }
+        .task-reward {
+            font-size: 13px; color: var(--primary); font-weight: 400;
+            font-feature-settings: "tnum";
+        }
+
         .task-progress { margin-bottom: var(--sp-sm); }
         .progress-bar { height: 4px; background: var(--canvas-soft); border-radius: 2px; overflow: hidden; margin-bottom: var(--sp-xs); }
         .progress-fill { height: 100%; background: var(--primary); border-radius: 2px; transition: width 0.3s; }
         .progress-text { font-size: 11px; color: var(--ink-mute); text-align: right; font-feature-settings: "tnum"; }
-        .task-claim-btn { width: 100%; padding: 8px 16px; background: var(--primary); border: none; border-radius: var(--r-pill); color: var(--on-primary); font-size: 14px; font-weight: 400; cursor: pointer; transition: background 0.15s; }
+
+        .task-claim-btn {
+            width: 100%; padding: 8px 16px;
+            background: var(--primary);
+            border: none; border-radius: var(--r-pill);
+            color: var(--on-primary); font-size: 14px; font-weight: 400;
+            cursor: pointer; transition: background 0.15s;
+        }
         .task-claim-btn:hover { background: var(--primary-deep); }
         .task-claim-btn:disabled { background: var(--canvas-soft); color: var(--ink-mute); cursor: not-allowed; }
         .task-claim-btn.claimed { background: rgba(13,148,96,0.1); color: var(--success); }
 
-        /* Profile — Stripe Dashboard */
-        .profile-header { padding: var(--sp-xxl) var(--sp-lg) var(--sp-lg); text-align: center; background: var(--brand-dark); color: var(--on-primary); }
-        .profile-avatar { width: 72px; height: 72px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 300; color: var(--on-primary); margin: 0 auto var(--sp-sm); }
+        /* ========== Tab 4: Profile — Stripe Dashboard ========== */
+        .profile-header {
+            padding: var(--sp-xxl) var(--sp-lg) var(--sp-lg); text-align: center;
+            background: var(--brand-dark); color: var(--on-primary);
+            border-bottom: none;
+        }
+        .profile-avatar {
+            width: 72px; height: 72px; border-radius: 50%;
+            background: var(--primary);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 28px; font-weight: 300; color: var(--on-primary);
+            margin: 0 auto var(--sp-sm);
+        }
         .profile-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
         .profile-name { font-size: 20px; font-weight: 300; letter-spacing: -0.4px; margin-bottom: var(--sp-xxs); color: var(--on-primary); }
         .profile-uid { font-size: 13px; color: rgba(255,255,255,0.6); }
+
+        /* Login form */
         .login-form { margin-top: var(--sp-lg); padding: var(--sp-lg); background: rgba(255,255,255,0.08); border-radius: var(--r-lg); }
         .login-form h3 { font-size: 16px; font-weight: 300; letter-spacing: -0.16px; margin-bottom: var(--sp-xs); text-align: center; color: var(--on-primary); }
         .login-form > p { font-size: 13px; color: rgba(255,255,255,0.5); text-align: center; margin-bottom: var(--sp-md); }
-        .login-input { width: 100%; padding: 8px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); border-radius: var(--r-sm); color: var(--on-primary); font-size: 15px; font-weight: 300; font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.15s; margin-bottom: var(--sp-sm); }
+
+        .login-input {
+            width: 100%; padding: 8px 12px;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
+            border-radius: var(--r-sm); color: var(--on-primary);
+            font-size: 15px; font-weight: 300; font-family: 'Inter', sans-serif;
+            outline: none; transition: border-color 0.15s; margin-bottom: var(--sp-sm);
+        }
         .login-input:focus { border-color: var(--primary-soft); }
         .login-input::placeholder { color: rgba(255,255,255,0.35); }
-        .login-btn { width: 100%; padding: 10px 16px; background: var(--primary); border: none; border-radius: var(--r-pill); color: var(--on-primary); font-size: 16px; font-weight: 400; font-family: 'Inter', sans-serif; cursor: pointer; transition: background 0.15s; margin-bottom: var(--sp-md); }
+
+        .login-btn {
+            width: 100%; padding: 10px 16px;
+            background: var(--primary);
+            border: none; border-radius: var(--r-pill);
+            color: var(--on-primary); font-size: 16px; font-weight: 400;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer; transition: background 0.15s; margin-bottom: var(--sp-md);
+        }
         .login-btn:hover { background: var(--primary-soft); }
         .login-tip { text-align: center; font-size: 11px; color: rgba(255,255,255,0.4); margin-top: var(--sp-sm); }
+
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-xs); padding: var(--sp-md) var(--sp-lg); background: var(--canvas-soft); }
         .stat-card { background: var(--canvas); border-radius: var(--r-md); padding: var(--sp-md) var(--sp-sm); text-align: center; border: 1px solid var(--hairline); }
-        .stat-num { font-size: 20px; font-weight: 300; font-feature-settings: "tnum"; letter-spacing: -0.42px; color: var(--ink); margin-bottom: var(--sp-xxs); }
+        .stat-num {
+            font-size: 20px; font-weight: 300; font-feature-settings: "tnum";
+            letter-spacing: -0.42px; color: var(--ink); margin-bottom: var(--sp-xxs);
+        }
         .stat-num.gold { color: var(--primary); }
         .stat-label { font-size: 10px; color: var(--ink-mute); font-weight: 400; letter-spacing: 0.1px; text-transform: uppercase; }
+
         .profile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-sm); padding: var(--sp-md) var(--sp-lg); }
-        .profile-card { background: var(--canvas); border: 1px solid var(--hairline); border-radius: var(--r-lg); padding: var(--sp-lg) var(--sp-sm); text-align: center; cursor: pointer; transition: all 0.15s; }
+        .profile-card {
+            background: var(--canvas); border: 1px solid var(--hairline);
+            border-radius: var(--r-lg); padding: var(--sp-lg) var(--sp-sm);
+            text-align: center; cursor: pointer; transition: all 0.15s;
+        }
         .profile-card:hover { border-color: var(--primary); }
         .profile-card-icon { font-size: 24px; margin-bottom: var(--sp-xs); color: var(--primary); }
         .profile-card-title { font-size: 13px; font-weight: 300; letter-spacing: -0.13px; margin-bottom: 2px; color: var(--ink); }
         .profile-card-desc { font-size: 11px; color: var(--ink-mute); }
+
         .my-books-section { padding: 0 var(--sp-lg) var(--sp-lg); }
-        .my-book-item { background: var(--canvas); border: 1px solid var(--hairline); border-radius: var(--r-md); padding: var(--sp-sm); margin-bottom: var(--sp-xs); display: flex; gap: var(--sp-sm); align-items: center; }
+        .my-book-item {
+            background: var(--canvas); border: 1px solid var(--hairline);
+            border-radius: var(--r-md); padding: var(--sp-sm); margin-bottom: var(--sp-xs);
+            display: flex; gap: var(--sp-sm); align-items: center;
+        }
         .my-book-cover { width: 36px; height: 48px; border-radius: var(--r-xs); object-fit: cover; flex-shrink: 0; background: var(--canvas-soft); }
         .my-book-info { flex: 1; min-width: 0; }
         .my-book-title { font-size: 13px; font-weight: 300; letter-spacing: -0.13px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
         .my-book-code { font-size: 12px; color: var(--primary); font-weight: 400; font-feature-settings: "tnum"; }
-        .my-book-copy { padding: 6px 14px; background: var(--primary); border: none; border-radius: var(--r-pill); color: var(--on-primary); font-size: 12px; font-weight: 400; cursor: pointer; flex-shrink: 0; transition: background 0.15s; }
+        .my-book-copy {
+            padding: 6px 14px; background: var(--primary);
+            border: none; border-radius: var(--r-pill);
+            color: var(--on-primary); font-size: 12px; font-weight: 400;
+            cursor: pointer; flex-shrink: 0; transition: background 0.15s;
+        }
         .my-book-copy:hover { background: var(--primary-deep); }
-        .logout-btn { display: none; width: calc(100% - 32px); margin: 0 auto var(--sp-md); padding: 10px 16px; background: transparent; border: 1px solid rgba(234,34,97,0.3); border-radius: var(--r-pill); color: var(--ruby); font-size: 14px; font-weight: 400; cursor: pointer; transition: background 0.15s; }
+
+        .logout-btn {
+            display: none; width: calc(100% - 32px); margin: 0 auto var(--sp-md);
+            padding: 10px 16px; background: transparent;
+            border: 1px solid rgba(234,34,97,0.3); border-radius: var(--r-pill);
+            color: var(--ruby); font-size: 14px; font-weight: 400;
+            cursor: pointer; transition: background 0.15s;
+        }
         .logout-btn.show { display: block; }
         .logout-btn:hover { background: rgba(234,34,97,0.08); }
 
-        /* Bottom Nav */
-        .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: var(--canvas); border-top: 1px solid var(--hairline); display: flex; justify-content: space-around; padding: var(--sp-xs) 0; padding-bottom: calc(var(--sp-xs) + env(safe-area-inset-bottom)); z-index: 100; }
-        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: var(--sp-xs) var(--sp-lg); text-decoration: none; color: var(--ink-mute); transition: color 0.15s; border-radius: var(--r-xs); background: none; border: none; cursor: pointer; position: relative; }
+        /* ========== Bottom Nav — Stripe Style ========== */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+            width: 100%; max-width: 430px;
+            background: var(--canvas); border-top: 1px solid var(--hairline);
+            display: flex; justify-content: space-around;
+            padding: var(--sp-xs) 0; padding-bottom: calc(var(--sp-xs) + env(safe-area-inset-bottom));
+            z-index: 100;
+        }
+        .nav-item {
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            padding: var(--sp-xs) var(--sp-lg); text-decoration: none;
+            color: var(--ink-mute); transition: color 0.15s;
+            border-radius: var(--r-xs); background: none; border: none;
+            cursor: pointer; position: relative;
+        }
         .nav-item:hover { color: var(--ink-secondary); }
         .nav-item.active { color: var(--primary); }
-        .nav-item.active::after { content: ''; position: absolute; top: -1px; left: 50%; transform: translateX(-50%); width: 20px; height: 2px; background: var(--primary); border-radius: 0 0 2px 2px; }
+        .nav-item.active::after {
+            content: ''; position: absolute; top: -1px; left: 50%; transform: translateX(-50%);
+            width: 20px; height: 2px; background: var(--primary); border-radius: 0 0 2px 2px;
+        }
         .nav-icon { font-size: 20px; }
         .nav-label { font-size: 10px; font-weight: 400; letter-spacing: 0.1px; }
 
-        /* Modal */
-        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13,37,61,0.4); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+        /* ========== Modal — Stripe Card ========== */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(13,37,61,0.4); display: none;
+            align-items: center; justify-content: center;
+            z-index: 200; padding: 20px;
+        }
         .modal-overlay.show { display: flex; animation: fadeIn 0.2s; }
-        .modal { background: var(--canvas); border-radius: var(--r-xl); width: 100%; max-width: 360px; overflow: hidden; box-shadow: var(--shadow-l2); animation: slideUp 0.25s ease; }
+        .modal {
+            background: var(--canvas); border-radius: var(--r-xl);
+            width: 100%; max-width: 360px; overflow: hidden;
+            box-shadow: var(--shadow-l2); animation: slideUp 0.25s ease;
+        }
         @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
         .modal-header { padding: var(--sp-lg) var(--sp-lg) var(--sp-sm); text-align: center; }
         .modal-title { font-size: 16px; font-weight: 300; letter-spacing: -0.16px; color: var(--ink); }
         .modal-body { padding: 0 var(--sp-lg) var(--sp-lg); }
-        .modal-book-cover { width: 96px; height: 134px; border-radius: var(--r-md); object-fit: cover; margin: 0 auto var(--sp-sm); display: block; border: 1px solid var(--hairline); }
+
+        .modal-book-cover {
+            width: 96px; height: 134px; border-radius: var(--r-md);
+            object-fit: cover; margin: 0 auto var(--sp-sm); display: block;
+            border: 1px solid var(--hairline);
+        }
         .modal-book-title { font-size: 15px; font-weight: 300; letter-spacing: -0.15px; text-align: center; margin-bottom: var(--sp-xs); color: var(--ink); }
         .modal-book-rating { display: flex; justify-content: center; align-items: center; gap: var(--sp-xs); margin-bottom: var(--sp-sm); }
         .modal-book-stars { color: var(--ink-mute); font-size: 12px; }
         .modal-book-score { font-size: 13px; color: var(--ink-mute); font-weight: 400; }
         .modal-book-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--sp-xxs); margin-bottom: var(--sp-md); }
-        .modal-description { background: var(--canvas-soft); border-radius: var(--r-md); padding: var(--sp-sm); margin-bottom: var(--sp-md); }
-        .modal-description-label { font-size: 10px; font-weight: 400; letter-spacing: 0.1px; text-transform: uppercase; color: var(--ink-mute); margin-bottom: var(--sp-xs); }
-        .modal-description-text { font-size: 13px; color: var(--ink-secondary); line-height: 1.5; max-height: 96px; overflow: hidden; position: relative; transition: max-height 0.3s ease; font-weight: 300; }
-        .modal-description-text.collapsed::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 32px; background: linear-gradient(transparent, var(--canvas-soft)); }
+
+        /* Description */
+        .modal-description {
+            background: var(--canvas-soft); border-radius: var(--r-md);
+            padding: var(--sp-sm); margin-bottom: var(--sp-md);
+        }
+        .modal-description-label {
+            font-size: 10px; font-weight: 400; letter-spacing: 0.1px; text-transform: uppercase;
+            color: var(--ink-mute); margin-bottom: var(--sp-xs);
+        }
+        .modal-description-text {
+            font-size: 13px; color: var(--ink-secondary); line-height: 1.5;
+            max-height: 96px; overflow: hidden; position: relative; transition: max-height 0.3s ease;
+            font-weight: 300;
+        }
+        .modal-description-text.collapsed::after {
+            content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 32px;
+            background: linear-gradient(transparent, var(--canvas-soft));
+        }
         .modal-description-text.expanded { max-height: 500px; }
         .modal-description-text.expanded::after { display: none; }
-        .modal-description-toggle { font-size: 12px; color: var(--primary); cursor: pointer; margin-top: var(--sp-xs); font-weight: 400; display: inline-block; }
+        .modal-description-toggle {
+            font-size: 12px; color: var(--primary); cursor: pointer;
+            margin-top: var(--sp-xs); font-weight: 400; display: inline-block;
+        }
         .modal-description-loading { font-size: 12px; color: var(--ink-mute); }
+
         .modal-actions { display: flex; gap: var(--sp-sm); }
-        .modal-btn { flex: 1; padding: 10px 16px; border: none; border-radius: var(--r-pill); font-size: 14px; font-weight: 400; cursor: pointer; transition: all 0.15s; }
-        .modal-btn.cancel { background: var(--canvas); color: var(--ink); border: 1px solid var(--hairline); }
+        .modal-btn {
+            flex: 1; padding: 10px 16px; border: none; border-radius: var(--r-pill);
+            font-size: 14px; font-weight: 400; cursor: pointer; transition: all 0.15s;
+        }
+        .modal-btn.cancel {
+            background: var(--canvas); color: var(--ink); border: 1px solid var(--hairline);
+        }
         .modal-btn.cancel:hover { border-color: var(--ink-mute); }
-        .modal-btn.confirm { background: var(--primary); color: var(--on-primary); }
+        .modal-btn.confirm {
+            background: var(--primary); color: var(--on-primary);
+        }
         .modal-btn.confirm:hover { background: var(--primary-deep); }
 
         /* Toast */
-        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--on-primary); padding: 10px 20px; border-radius: var(--r-pill); font-size: 14px; font-weight: 400; z-index: 300; animation: toastIn 0.25s; box-shadow: var(--shadow-l2); }
+        .toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: var(--ink); color: var(--on-primary);
+            padding: 10px 20px; border-radius: var(--r-pill);
+            font-size: 14px; font-weight: 400; z-index: 300;
+            animation: toastIn 0.25s; box-shadow: var(--shadow-l2);
+        }
         .toast.success { background: var(--success); }
         .toast.error { background: var(--danger); }
         @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(-8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
         .empty-state { text-align: center; padding: 40px 20px; color: var(--ink-mute); }
         .empty-icon { font-size: 40px; margin-bottom: var(--sp-sm); opacity: 0.4; }
         .empty-text { font-size: 14px; font-weight: 300; }
+
+        /* Promote result modal */
+        .promote-result-modal {
+            position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+            width: 100%; max-width: 430px;
+            background: var(--canvas); border-radius: var(--r-xl) var(--r-xl) 0 0;
+            padding: var(--sp-lg); z-index: 250;
+            box-shadow: 0 -8px 32px rgba(0,0,0,0.12);
+            animation: slideUp 0.3s ease;
+            display: none;
+        }
+        .promote-result-modal.show { display: block; }
+        .promote-result-close {
+            position: absolute; top: var(--sp-sm); right: var(--sp-sm);
+            width: 28px; height: 28px; border-radius: 50%;
+            background: var(--canvas-soft); border: none;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 16px; color: var(--ink-mute);
+        }
+        .promote-result-title { font-size: 14px; font-weight: 300; letter-spacing: -0.14px; margin-bottom: var(--sp-md); color: var(--ink); }
+        
+        /* Login required modal */
+        .login-required-msg {
+            text-align: center; padding: 20px;
+            background: var(--canvas); border-radius: var(--r-lg);
+        }
+        .login-required-msg p { font-size: 14px; color: var(--ink-mute); margin-bottom: 16px; }
     </style>
 </head>
 <body>
     <div class="app-container">
+        <!-- Tab 1: Home -->
         <div class="tab-content active" id="tab-home">
+            <!-- Banner — Gradient Mesh -->
             <div class="home-banner">
                 <div class="banner-content">
                     <div class="banner-eyebrow">KOC Program</div>
@@ -316,6 +782,7 @@
                     <div class="banner-subtitle">Weekly earnings for book promoters</div>
                 </div>
             </div>
+
             <div class="home-header">
                 <div class="home-logo">
                     <div class="logo-wrapper">
@@ -327,24 +794,36 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Loading -->
             <div class="loading-container" id="homeLoading">
                 <div class="loading-spinner"></div>
                 <div>Loading books...</div>
             </div>
+
+            <!-- Genre Tabs -->
             <div class="book-list-tabs" id="bookListTabs" style="display: none;">
                 <button class="book-list-tab active" data-genre="all">All</button>
-                <button class="book-list-tab" data-genre="romance">Romance</button>
-                <button class="book-list-tab" data-genre="fantasy">Fantasy</button>
-                <button class="book-list-tab" data-genre="drama">Drama</button>
+                <button class="book-list-tab" data-genre="Romance">Romance</button>
+                <button class="book-list-tab" data-genre="Fantasy">Fantasy</button>
+                <button class="book-list-tab" data-genre="Drama">Drama</button>
             </div>
+
+            <!-- Scroll -->
             <div class="book-scroll-section" id="bookScrollSection" style="display: none;">
                 <div class="book-scroll-title">Recommended for you</div>
                 <div class="book-scroll-list" id="bookScrollList"></div>
             </div>
+
+            <!-- Book List -->
             <div class="book-list-section">
-                <div class="section-header"><div class="section-title">Browse books</div></div>
+                <div class="section-header">
+                    <div class="section-title">Browse books</div>
+                </div>
                 <div class="book-list" id="bookList"></div>
             </div>
+
+            <!-- Rank -->
             <div class="section-header" id="rankHeader" style="display: none;">
                 <div class="section-title">Top promotions</div>
             </div>
@@ -358,34 +837,41 @@
             </div>
         </div>
 
+        <!-- Tab 2: Submit -->
         <div class="tab-content" id="tab-submit">
             <div class="submit-container" id="submitContainer">
                 <div class="submit-header">
                     <div class="submit-badge">Earn Money</div>
-                    <h1 class="submit-title">Recommend &amp; Earn</h1>
+                    <h1 class="submit-title">Recommend & Earn</h1>
                     <p class="submit-subtitle">Share books you love and earn commissions for every referral.</p>
                 </div>
+
                 <div class="submit-form" id="submitForm">
                     <div class="form-card">
                         <div class="lang-toggle" id="langToggle">
                             <button class="lang-btn active" data-lang="en">English</button>
                             <button class="lang-btn" data-lang="es">Espanol</button>
                         </div>
+
                         <div class="form-group">
                             <label>Username <span class="required">*</span></label>
                             <input type="text" class="form-input" id="discordUsername" placeholder="Enter your username">
                         </div>
+
                         <div class="form-group">
                             <label>Book Name <span class="required">*</span></label>
                             <input type="text" class="form-input" id="bookName" placeholder="Enter book name or author to search">
                         </div>
+
                         <button class="btn-submit" id="submitBtn" onclick="handleSubmit()">
-                            <span class="btn-text">Search &amp; Create Link</span>
+                            <span class="btn-text">Search & Create Link</span>
                             <span class="spinner"></span>
                         </button>
                     </div>
                 </div>
+
                 <div class="search-results" id="searchResults"></div>
+
                 <div class="processing-status" id="processingStatus">
                     <div class="processing-icon">&#9881;</div>
                     <h3>Creating Your Link...</h3>
@@ -397,14 +883,18 @@
                         <div class="processing-step" id="step4"><span class="step-icon">&#9675;</span><span>Finalizing...</span></div>
                     </div>
                 </div>
+
+                <!-- Success -->
                 <div class="success-page" id="successPage">
                     <div class="success-icon">&#10003;</div>
                     <h2>Link Created Successfully</h2>
                     <p>Share this link with your community</p>
+
                     <div class="result-card">
                         <h4>Promotion Link</h4>
                         <div class="result-link-box" id="resultLink"></div>
                     </div>
+
                     <div class="result-card">
                         <h4>Your Code</h4>
                         <div class="result-code-box">
@@ -412,30 +902,42 @@
                             <button class="copy-btn" onclick="copyToClipboard()">Copy</button>
                         </div>
                     </div>
+
+                    <!-- Recommend card -->
                     <div class="result-card" id="resultRecommendCard" style="display: none;">
                         <h4>Recommended Message</h4>
                         <div class="result-recommend-box">
                             <div class="result-recommend-text" id="resultRecommendText"></div>
                         </div>
-                        <button class="btn-submit" onclick="copyRecommendText()" style="margin-top: var(--sp-sm);">Copy Recommendation</button>
+                        <button class="btn-submit" onclick="copyRecommendText()" style="margin-top: var(--sp-sm);">
+                            Copy Recommendation
+                        </button>
                     </div>
-                    <button class="btn-another" onclick="recommendAnother()">Recommend Another Book</button>
-                    <button class="btn-retry" onclick="resetForm()">Back to Search</button>
+
+                    <button class="btn-another" onclick="recommendAnother()">
+                        Recommend Another Book
+                    </button>
+
+                    <button class="btn-retry" onclick="resetForm()">&#8592; Back to Search</button>
                 </div>
             </div>
         </div>
 
+        <!-- Tab 3: Tasks -->
         <div class="tab-content" id="tab-tasks">
             <div class="tasks-header">
                 <div class="tasks-title">Task Center</div>
                 <div class="tasks-subtitle">Complete tasks and earn rewards</div>
             </div>
+
             <div class="task-tabs">
                 <button class="task-tab active" data-task-type="daily">Daily Tasks</button>
                 <button class="task-tab" data-task-type="achievement">Achievements</button>
             </div>
+
             <div class="task-list" id="taskList">
                 <div class="task-section-title">Daily Tasks</div>
+
                 <div class="task-card" data-task="first_book">
                     <div class="task-top">
                         <div class="task-icon">&#9733;</div>
@@ -450,6 +952,7 @@
                     </div>
                     <button class="task-claim-btn" onclick="switchTab('submit')">Start Now</button>
                 </div>
+
                 <div class="task-card" data-task="share_3books">
                     <div class="task-top">
                         <div class="task-icon">&#9734;</div>
@@ -464,7 +967,9 @@
                     </div>
                     <button class="task-claim-btn">Keep Going</button>
                 </div>
+
                 <div class="task-section-title">Achievements</div>
+
                 <div class="task-card" data-task="click_100">
                     <div class="task-top">
                         <div class="task-icon">&#9783;</div>
@@ -479,6 +984,7 @@
                     </div>
                     <button class="task-claim-btn">In Progress</button>
                 </div>
+
                 <div class="task-card" data-task="week_earnings">
                     <div class="task-top">
                         <div class="task-icon">$</div>
@@ -496,11 +1002,14 @@
             </div>
         </div>
 
+        <!-- Tab 4: Profile -->
         <div class="tab-content" id="tab-profile">
             <div class="profile-header" id="profileHeader">
                 <div class="profile-avatar" id="profileAvatar">?</div>
                 <div class="profile-name" id="profileName">Not Logged In</div>
                 <div class="profile-uid" id="profileUid">Login to unlock more features</div>
+
+                <!-- Login form -->
                 <div class="login-form" id="loginForm">
                     <h3>Register / Login</h3>
                     <p>Fill in once, auto-login for 30 days</p>
@@ -509,13 +1018,16 @@
                     <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()">Confirm</button>
                     <div class="login-tip">No password needed</div>
                 </div>
+
                 <button class="logout-btn" id="logoutBtn" onclick="handleLogout()">Logout</button>
             </div>
+
             <div class="stats-grid" id="statsGrid">
                 <div class="stat-card"><div class="stat-num" id="statLinks">0</div><div class="stat-label">Links</div></div>
                 <div class="stat-card"><div class="stat-num gold" id="statPoints">0</div><div class="stat-label">Points</div></div>
                 <div class="stat-card"><div class="stat-num" id="statRank">--</div><div class="stat-label">Rank</div></div>
             </div>
+
             <div class="profile-grid">
                 <div class="profile-card" onclick="window.open('dashboard.html', '_blank')">
                     <div class="profile-card-icon">&#9776;</div><div class="profile-card-title">Statistics</div><div class="profile-card-desc">View promotion data</div>
@@ -530,8 +1042,11 @@
                     <div class="profile-card-icon">&#9993;</div><div class="profile-card-title">Support</div><div class="profile-card-desc">Get help</div>
                 </div>
             </div>
+
             <div class="my-books-section">
-                <div class="section-header" style="padding: 0 0 var(--sp-sm);"><div class="section-title">My Book List</div></div>
+                <div class="section-header" style="padding: 0 0 var(--sp-sm);">
+                    <div class="section-title">My Book List</div>
+                </div>
                 <div id="myBooksList">
                     <div class="empty-state" style="padding: 30px 20px; background: var(--canvas-soft); border-radius: var(--r-lg);">
                         <div class="empty-icon">&#9993;</div><div class="empty-text">No books yet. Start recommending from home!</div>
@@ -540,6 +1055,7 @@
             </div>
         </div>
 
+        <!-- Bottom Nav -->
         <nav class="bottom-nav">
             <button class="nav-item active" data-tab="home"><span class="nav-icon">&#8962;</span><span class="nav-label">Home</span></button>
             <button class="nav-item" data-tab="submit"><span class="nav-icon">$</span><span class="nav-label">Earn</span></button>
@@ -548,17 +1064,23 @@
         </nav>
     </div>
 
+    <!-- Recommend Modal -->
     <div class="modal-overlay" id="recommendModal">
         <div class="modal">
-            <div class="modal-header"><div class="modal-title" id="modalTitle">Book Details</div></div>
+            <div class="modal-header">
+                <div class="modal-title" id="modalTitle">Book Details</div>
+            </div>
             <div class="modal-body">
                 <img class="modal-book-cover" id="modalBookCover" src="" alt="">
                 <div class="modal-book-title" id="modalBookTitle"></div>
+
                 <div class="modal-book-rating">
                     <span class="modal-book-stars" id="modalBookStars"></span>
                     <span class="modal-book-score" id="modalBookScore">4.5</span>
                 </div>
+
                 <div class="modal-book-tags" id="modalBookTags"></div>
+
                 <div class="modal-description">
                     <div class="modal-description-label">Description</div>
                     <div class="modal-description-text collapsed" id="modalDescriptionText">
@@ -566,6 +1088,7 @@
                     </div>
                     <div class="modal-description-toggle" id="modalDescriptionToggle" style="display: none;" onclick="toggleDescription()">Show more</div>
                 </div>
+
                 <div class="modal-actions">
                     <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
                     <button class="modal-btn confirm" id="modalConfirmBtn" onclick="confirmRecommend()">Start Earning</button>
@@ -575,198 +1098,861 @@
     </div>
 
     <script>
-        const AppState = { currentTab: 'home', currentLang: 'en', searchLang: 'en', isLoggedIn: false, user: null, books: [], filteredBooks: [], myBooks: [], selectedCandidate: null, rankPeriod: 'week', currentGenre: 'all', currentBook: null, currentRecommendText: '' };
-        const NOVELSPA_API = { BASE_URL: 'https://admin.novelspa.app/api/v1/novelmanage/book', APPLICATION_ID: '642fc1ace309494378a774a6', TOKEN: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjM0NTYiLCJpYXQiOjE3MzMxMzE2MDB9.abcdefghijklmnopqrstuvwxyz' };
+        // ========== Global State ==========
+        const AppState = {
+            currentTab: 'home',
+            currentLang: 'en',
+            searchLang: 'en',
+            isLoggedIn: false,
+            user: null,
+            books: [],
+            filteredBooks: [],
+            myBooks: [],
+            selectedCandidate: null,
+            rankPeriod: 'week',
+            currentGenre: 'all',
+            currentBook: null,
+            currentRecommendText: ''
+        };
 
-        function switchTab(tabName) { AppState.currentTab = tabName; document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active')); document.getElementById('tab-' + tabName)?.classList.add('active'); document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); document.querySelector(`.nav-item[data-tab="${tabName}"]`)?.classList.add('active'); }
+        // ========== Tab Switch ==========
+        function switchTab(tabName) {
+            AppState.currentTab = tabName;
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + tabName)?.classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.querySelector(`.nav-item[data-tab="${tabName}"]`)?.classList.add('active');
+        }
         document.querySelectorAll('.nav-item').forEach(el => el.addEventListener('click', () => switchTab(el.dataset.tab)));
 
+        // ========== Load Books from Backend API ==========
         async function loadBooks() {
-            const timeout = 8000;
+            const loadingEl = document.getElementById('homeLoading');
+            const timeout = 10000;
+
             try {
+                // Call backend API which uses NOVELSPA_TOKEN environment variable
                 const response = await Promise.race([
-                    fetch(`${NOVELSPA_API.BASE_URL}/booklist?current=1&pageSize=30&pageIndex=1&applicationId=${NOVELSPA_API.APPLICATION_ID}&languageCode=en&bookStatus=1`, { headers: { 'Authorization': NOVELSPA_API.TOKEN } }),
+                    fetch('/api/books/search?lang=en&pageSize=30', {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' }
+                    }),
                     new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeout))
                 ]);
-                if (!response.ok) throw new Error('API error');
-                const data = await response.json();
-                if (data.data && Array.isArray(data.data)) { AppState.books = data.data.map(book => ({ bookId: book.bookId || book.id || '', title: book.title || 'Untitled', cover: book.cover || book.coverImage || '', description: book.description || '', rating: book.rating || book.star || 4.0, tags: book.tags || book.genre || [], author: book.author || '', languageCode: book.languageCode || 'en' })); }
+
+                if (!response.ok) throw new Error('API error: ' + response.status);
+
+                const result = await response.json();
+
+                if (result.success && Array.isArray(result.data)) {
+                    AppState.books = result.data.map(book => ({
+                        bookId: book.bookId || book.id || '',
+                        title: book.title || 'Untitled',
+                        cover: book.cover || book.coverImage || '',
+                        description: book.description || '',
+                        rating: book.rating || book.star || 4.0,
+                        tags: book.tags || book.genre || [],
+                        author: book.author || '',
+                        languageCode: book.languageCode || 'en'
+                    }));
+                    
+                    console.log('Loaded ' + AppState.books.length + ' books from API');
+                } else {
+                    throw new Error('Invalid API response');
+                }
             } catch (e) {
-                console.warn('API load failed:', e.message);
+                console.warn('API load failed, using sample data:', e.message);
+                // Fallback sample data with real novelspa cover format
                 AppState.books = [
-                    { bookId: 'b1', title: "The Alpha King's Claim", cover: 'https://picsum.photos/seed/b1/200/280', description: 'She never expected to be claimed by the most powerful Alpha in the territory. Now she must navigate a world of pack politics, forbidden attraction, and a love that defies destiny.', rating: 4.8, tags: ['Romance', 'Fantasy', 'Alpha'], author: 'Luna Silver', languageCode: 'en' },
-                    { bookId: 'b2', title: 'My Cruel Alpha', cover: 'https://picsum.photos/seed/b2/200/280', description: 'He is cold, ruthless, and feared by all. But beneath the mask lies a man broken by loss. Can she heal his wounded soul?', rating: 4.6, tags: ['Romance', 'Dark', 'Werewolf'], author: 'Night Walker', languageCode: 'en' },
-                    { bookId: 'b3', title: 'La Reina del Desierto', cover: 'https://picsum.photos/seed/b3/200/280', description: 'Una princesa guerera debe decidir entre su deber y su corazon.', rating: 4.7, tags: ['Romance', 'Adventure', 'Fantasy'], author: 'Rosa Montana', languageCode: 'es' },
-                    { bookId: 'b4', title: 'El Amor Prohibido', cover: 'https://picsum.photos/seed/b4/200/280', description: 'Dos familias enfrentadas por una antigua deuda. Pero el amor no conoce de enemigos.', rating: 4.5, tags: ['Drama', 'Romance', 'Family'], author: 'Sol Dorado', languageCode: 'es' },
-                    { bookId: 'b5', title: 'Bound to the Dark', cover: 'https://picsum.photos/seed/b5/200/280', description: 'In a world where darkness holds ancient secrets, one woman holds the key to unlocking them all.', rating: 4.4, tags: ['Fantasy', 'Mystery', 'Dark'], author: 'Shadow Noir', languageCode: 'en' },
-                    { bookId: 'b6', title: "The CEO's Forbidden Princess", cover: 'https://picsum.photos/seed/b6/200/280', description: "She's a princess in hiding. He's the billionaire CEO who discovers her secret.", rating: 4.3, tags: ['Romance', 'Drama', 'Royalty'], author: 'Crown Jewel', languageCode: 'en' },
-                    { bookId: 'b7', title: 'Suenos de Cristal', cover: 'https://picsum.photos/seed/b7/200/280', description: 'Una joven con poderes extraordinarios debe aprender a controlarlos.', rating: 4.6, tags: ['Fantasy', 'Drama', 'Supernatural'], author: 'Cristal Luna', languageCode: 'es' },
-                    { bookId: 'b8', title: 'Midnight Secrets', cover: 'https://picsum.photos/seed/b8/200/280', description: 'The small town of Willow Creek hides dark secrets.', rating: 4.2, tags: ['Mystery', 'Thriller', 'Crime'], author: 'Dark Waters', languageCode: 'en' }
+                    { bookId: 'b1', title: 'The Alpha King\'s Claim', cover: 'https://cdn.myserver.com/covers/alpha-king.jpg', description: 'She never expected to be claimed by the most powerful Alpha in the territory.', rating: 4.8, tags: ['Romance', 'Fantasy', 'Alpha'], author: 'Luna Silver', languageCode: 'en' },
+                    { bookId: 'b2', title: 'My Cruel Alpha', cover: 'https://cdn.myserver.com/covers/cruel-alpha.jpg', description: 'He is cold, ruthless, and feared by all.', rating: 4.6, tags: ['Romance', 'Dark', 'Werewolf'], author: 'Night Walker', languageCode: 'en' },
+                    { bookId: 'b3', title: 'La Reina del Desierto', cover: 'https://cdn.myserver.com/covers/desert-queen.jpg', description: 'Una princesa guerera debe decidir entre su deber y su corazon.', rating: 4.7, tags: ['Romance', 'Adventure', 'Fantasy'], author: 'Rosa Montana', languageCode: 'es' },
+                    { bookId: 'b4', title: 'El Amor Prohibido', cover: 'https://cdn.myserver.com/covers/forbidden-love.jpg', description: 'Dos familias enfrentadas por una antigua deuda.', rating: 4.5, tags: ['Drama', 'Romance', 'Family'], author: 'Sol Dorado', languageCode: 'es' },
+                    { bookId: 'b5', title: 'Bound to the Dark', cover: 'https://cdn.myserver.com/covers/dark-bound.jpg', description: 'In a world where darkness holds ancient secrets.', rating: 4.4, tags: ['Fantasy', 'Mystery', 'Dark'], author: 'Shadow Noir', languageCode: 'en' },
+                    { bookId: 'b6', title: 'The CEO\'s Forbidden Princess', cover: 'https://cdn.myserver.com/covers/ceo-princess.jpg', description: 'She\'s a princess in hiding. He\'s the billionaire CEO.', rating: 4.3, tags: ['Romance', 'Drama', 'Royalty'], author: 'Crown Jewel', languageCode: 'en' },
+                    { bookId: 'b7', title: 'Suenos de Cristal', cover: 'https://cdn.myserver.com/covers/crystal-dreams.jpg', description: 'Una joven con poderes extraordinarios debe aprender a controlarlos.', rating: 4.6, tags: ['Fantasy', 'Drama', 'Supernatural'], author: 'Cristal Luna', languageCode: 'es' },
+                    { bookId: 'b8', title: 'Midnight Secrets', cover: 'https://cdn.myserver.com/covers/midnight-secrets.jpg', description: 'The small town of Willow Creek hides dark secrets.', rating: 4.2, tags: ['Mystery', 'Thriller', 'Crime'], author: 'Dark Waters', languageCode: 'en' }
                 ];
             }
+
             AppState.filteredBooks = [...AppState.books];
+            hideLoadingAndShowContent();
+            renderBookList();
+            renderBookScroll();
+            renderRankList();
+        }
+
+        function hideLoadingAndShowContent() {
             document.getElementById('homeLoading').style.display = 'none';
             document.getElementById('bookListTabs').style.display = 'flex';
             document.getElementById('bookScrollSection').style.display = 'block';
             document.getElementById('rankHeader').style.display = 'flex';
             document.getElementById('rankSection').style.display = 'block';
-            renderBookList(); renderBookScroll(); renderRankList();
         }
 
+        // ========== Render Book List ==========
         function renderBookList() {
             const container = document.getElementById('bookList');
-            container.innerHTML = AppState.filteredBooks.map(book => {
-                const stars = '\u2605'.repeat(Math.floor(book.rating));
-                const tags = book.tags.slice(0, 3).map(t => `<span class="book-tag ${book.languageCode === 'es' ? 'lang-es' : ''}">${t}</span>`).join('');
-                return `<div class="book-item" onclick="openRecommendModal('${book.bookId}')">
-                    <img class="book-item-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/68x92/f6f9fc/64748d?text=N'">
-                    <div class="book-item-content">
-                        <div class="book-item-title">${book.title}</div>
-                        <div class="book-item-rating"><span class="book-item-stars">${stars}</span><span class="book-item-score">${book.rating.toFixed(1)}</span></div>
-                        <div class="book-item-tags">${tags}</div>
-                        <div class="book-item-desc">${book.description || 'No description available.'}</div>
-                        <div class="book-item-action"><button class="book-item-btn" onclick="event.stopPropagation(); openRecommendModal('${book.bookId}')">Recommend</button></div>
-                    </div></div>`;
+            const books = AppState.filteredBooks;
+
+            if (books.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state" style="background: var(--canvas-soft); border-radius: var(--r-lg); padding: 40px 20px;">
+                        <div class="empty-icon">&#128218;</div>
+                        <div class="empty-text">No books found for this category</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = books.map(book => {
+                const stars = '&#9733;'.repeat(Math.floor(book.rating));
+                const tags = (book.tags || []).slice(0, 3).map(t =>
+                    `<span class="book-tag ${book.languageCode === 'es' ? 'lang-es' : ''}">${t}</span>`
+                ).join('');
+
+                return `
+                    <div class="book-item" onclick="openRecommendModal('${book.bookId}')">
+                        <img class="book-item-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/68x92/f6f9fc/64748d?text=N'">
+                        <div class="book-item-content">
+                            <div class="book-item-title">${book.title}</div>
+                            <div class="book-item-rating">
+                                <span class="book-item-stars">${stars}</span>
+                                <span class="book-item-score">${(book.rating || 4.0).toFixed(1)}</span>
+                            </div>
+                            <div class="book-item-tags">${tags}</div>
+                            <div class="book-item-desc">${book.description || 'No description available.'}</div>
+                            <div class="book-item-action">
+                                <button class="book-item-btn" onclick="event.stopPropagation(); openRecommendModal('${book.bookId}')">Recommend</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
             }).join('');
         }
 
+        // ========== Render Scroll ==========
         function renderBookScroll() {
             const container = document.getElementById('bookScrollList');
-            container.innerHTML = AppState.books.slice(0, 6).map(book => {
-                const stars = '\u2605'.repeat(Math.floor(book.rating));
-                const tags = book.tags.slice(0, 2).map(t => `<span class="book-tag">${t}</span>`).join('');
-                return `<div class="book-scroll-card" onclick="openRecommendModal('${book.bookId}')">
-                    <img class="book-scroll-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/136x176/f6f9fc/64748d?text=N'">
-                    <div class="book-scroll-info"><div class="book-scroll-card-title">${book.title}</div><div class="book-scroll-rating">${stars} ${book.rating.toFixed(1)}</div><div class="book-scroll-tags">${tags}</div></div></div>`;
+            const books = AppState.books.slice(0, 6);
+
+            container.innerHTML = books.map(book => {
+                const stars = '&#9733;'.repeat(Math.floor(book.rating));
+                const tags = (book.tags || []).slice(0, 2).map(t => `<span class="book-tag">${t}</span>`).join('');
+
+                return `
+                    <div class="book-scroll-card" onclick="openRecommendModal('${book.bookId}')">
+                        <img class="book-scroll-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/136x176/f6f9fc/64748d?text=N'">
+                        <div class="book-scroll-info">
+                            <div class="book-scroll-card-title">${book.title}</div>
+                            <div class="book-scroll-rating">${stars} ${(book.rating || 4.0).toFixed(1)}</div>
+                            <div class="book-scroll-tags">${tags}</div>
+                        </div>
+                    </div>
+                `;
             }).join('');
         }
 
+        // ========== Render Rank ==========
         function renderRankList() {
             const container = document.getElementById('rankList');
-            const rankBooks = AppState.books.slice(0, 5).map((book, i) => ({ ...book, clicks: Math.floor(Math.random() * 500) + 100 }));
+            const rankBooks = AppState.books.slice(0, 5).map((book, i) => ({
+                ...book,
+                clicks: Math.floor(Math.random() * 500) + 100
+            }));
+
             container.innerHTML = rankBooks.map((book, i) => {
-                let nc = 'normal'; if (i === 0) nc = 'top1'; else if (i === 1) nc = 'top2'; else if (i === 2) nc = 'top3';
-                return `<div class="rank-item" onclick="openRecommendModal('${book.bookId}')">
-                    <div class="rank-num ${nc}">${i + 1}</div>
-                    <img class="rank-cover" src="${book.cover}" alt="" onerror="this.src='https://via.placeholder.com/34x46/f6f9fc/64748d?text=N'">
-                    <div class="rank-info"><div class="rank-title">${book.title}</div><div class="rank-meta">${book.languageCode === 'es' ? 'Espanol' : 'English'}</div></div>
-                    <div class="rank-stat"><div class="rank-stat-num">${book.clicks}</div><div class="rank-stat-label">Clicks</div></div></div>`;
+                let numClass = 'normal';
+                if (i === 0) numClass = 'top1';
+                else if (i === 1) numClass = 'top2';
+                else if (i === 2) numClass = 'top3';
+
+                return `
+                    <div class="rank-item" onclick="openRecommendModal('${book.bookId}')">
+                        <div class="rank-num ${numClass}">${i + 1}</div>
+                        <img class="rank-cover" src="${book.cover}" alt="" onerror="this.src='https://via.placeholder.com/34x46/f6f9fc/64748d?text=N'">
+                        <div class="rank-info">
+                            <div class="rank-title">${book.title}</div>
+                            <div class="rank-meta">${book.languageCode === 'es' ? 'Espanol' : 'English'}</div>
+                        </div>
+                        <div class="rank-stat">
+                            <div class="rank-stat-num">${book.clicks}</div>
+                            <div class="rank-stat-label">Clicks</div>
+                        </div>
+                    </div>
+                `;
             }).join('');
         }
 
-        document.querySelectorAll('.book-list-tab').forEach(tab => { tab.addEventListener('click', () => { document.querySelectorAll('.book-list-tab').forEach(t => t.classList.remove('active')); tab.classList.add('active'); AppState.currentGenre = tab.dataset.genre; AppState.filteredBooks = tab.dataset.genre === 'all' ? [...AppState.books] : AppState.books.filter(b => b.tags.some(t => t.toLowerCase().includes(tab.dataset.genre))); renderBookList(); }); });
-        document.querySelectorAll('.rank-tab').forEach(tab => { tab.addEventListener('click', () => { document.querySelectorAll('.rank-tab').forEach(t => t.classList.remove('active')); tab.classList.add('active'); AppState.rankPeriod = tab.dataset.period; renderRankList(); }); });
-        document.querySelectorAll('.task-tab').forEach(tab => { tab.addEventListener('click', () => { document.querySelectorAll('.task-tab').forEach(t => t.classList.remove('active')); tab.classList.add('active'); }); });
+        // ========== Genre Tabs ==========
+        document.querySelectorAll('.book-list-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.book-list-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const genre = tab.dataset.genre;
+                AppState.currentGenre = genre;
 
-        function generateRecommendText(book) { let hook = ''; if (book.description && book.description.length > 10) { hook = (book.description.split('.')[0] || book.description.substring(0, 100)).trim(); if (hook.length > 120) hook = hook.substring(0, 117) + '...'; } else { const h = ['An amazing story you won\'t want to miss!', 'A captivating tale of love and adventure.', 'A must-read that will keep you hooked!', 'Discover this incredible story today!']; hook = h[Math.floor(Math.random() * h.length)]; } return `${book.title} - ${hook}\n\nCheck it out: ${book.link}`; }
+                if (genre === 'all') {
+                    AppState.filteredBooks = [...AppState.books];
+                } else {
+                    // Filter books by genre tag (case-insensitive match)
+                    AppState.filteredBooks = AppState.books.filter(book => {
+                        const tags = book.tags || [];
+                        return tags.some(t => t.toLowerCase().includes(genre.toLowerCase()));
+                    });
+                }
+                
+                console.log('Genre filter:', genre, '->', AppState.filteredBooks.length, 'books');
+                renderBookList();
+            });
+        });
 
+        // Rank tabs
+        document.querySelectorAll('.rank-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.rank-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                AppState.rankPeriod = tab.dataset.period;
+                renderRankList();
+            });
+        });
+
+        // Task tabs
+        document.querySelectorAll('.task-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.task-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+            });
+        });
+
+        // ========== Generate Recommend Text ==========
+        function generateRecommendText(book) {
+            let hook = '';
+
+            if (book.description && book.description.length > 10) {
+                const desc = book.description;
+                const firstPart = desc.split('.')[0] || desc.substring(0, 100);
+                hook = firstPart.trim();
+                if (hook.length > 120) {
+                    hook = hook.substring(0, 117) + '...';
+                }
+            } else {
+                const hooks = [
+                    'An amazing story you won\'t want to miss!',
+                    'A captivating tale of love and adventure.',
+                    'A must-read that will keep you hooked!',
+                    'Discover this incredible story today!'
+                ];
+                hook = hooks[Math.floor(Math.random() * hooks.length)];
+            }
+
+            return `${book.title} - ${hook}\n\nCheck it out: ${book.link}`;
+        }
+
+        // ========== Recommend Modal ==========
         let currentRecommendBook = null;
+
         function openRecommendModal(bookId) {
-            const book = AppState.books.find(b => b.bookId === bookId); if (!book) return;
+            const book = AppState.books.find(b => b.bookId === bookId);
+            if (!book) return;
+
             currentRecommendBook = { ...book };
+
             document.getElementById('modalBookCover').src = book.cover;
-            document.getElementById('modalBookCover').onerror = function() { this.src = 'https://via.placeholder.com/96x134/f6f9fc/64748d?text=N'; };
+            document.getElementById('modalBookCover').onerror = function() {
+                this.src = 'https://via.placeholder.com/96x134/f6f9fc/64748d?text=N';
+            };
             document.getElementById('modalBookTitle').textContent = book.title;
-            document.getElementById('modalBookStars').innerHTML = '\u2605'.repeat(Math.floor(book.rating));
-            document.getElementById('modalBookScore').textContent = book.rating.toFixed(1);
-            document.getElementById('modalBookTags').innerHTML = book.tags.slice(0, 4).map(t => `<span class="book-tag ${book.languageCode === 'es' ? 'lang-es' : ''}">${t}</span>`).join('');
-            const dt = document.getElementById('modalDescriptionText'), dtt = document.getElementById('modalDescriptionToggle');
-            dt.innerHTML = book.description || 'No description available.'; dt.classList.remove('expanded'); dt.classList.add('collapsed');
-            dtt.style.display = 'none'; dtt.textContent = 'Show more';
-            if (book.description && book.description.length > 150) dtt.style.display = 'inline-block';
+
+            const stars = '&#9733;'.repeat(Math.floor(book.rating || 4));
+            document.getElementById('modalBookStars').innerHTML = stars;
+            document.getElementById('modalBookScore').textContent = (book.rating || 4.0).toFixed(1);
+
+            const tagsHtml = (book.tags || []).slice(0, 4).map(t =>
+                `<span class="book-tag ${book.languageCode === 'es' ? 'lang-es' : ''}">${t}</span>`
+            ).join('');
+            document.getElementById('modalBookTags').innerHTML = tagsHtml;
+
+            const descText = document.getElementById('modalDescriptionText');
+            const descToggle = document.getElementById('modalDescriptionToggle');
+            descText.innerHTML = book.description || 'No description available.';
+            descText.classList.remove('expanded');
+            descText.classList.add('collapsed');
+            descToggle.style.display = 'none';
+            descToggle.textContent = 'Show more';
+
+            if (book.description && book.description.length > 150) {
+                descToggle.style.display = 'inline-block';
+            }
+
             document.getElementById('recommendModal').classList.add('show');
         }
-        function toggleDescription() { const dt = document.getElementById('modalDescriptionText'), dtt = document.getElementById('modalDescriptionToggle'); if (dt.classList.contains('collapsed')) { dt.classList.remove('collapsed'); dt.classList.add('expanded'); dtt.textContent = 'Show less'; } else { dt.classList.remove('expanded'); dt.classList.add('collapsed'); dtt.textContent = 'Show more'; } }
-        function closeModal() { document.getElementById('recommendModal').classList.remove('show'); }
 
-        function confirmRecommend() {
-            if (!currentRecommendBook) return;
-            const code = 'NF' + Math.random().toString(36).substring(2, 8).toUpperCase();
-            const link = `https://novelflow.app/book/${currentRecommendBook.bookId}?ref=${code}&lang=${currentRecommendBook.languageCode}`;
-            currentRecommendBook.code = code; currentRecommendBook.link = link; currentRecommendBook.createdAt = Date.now();
-            AppState.currentRecommendText = generateRecommendText(currentRecommendBook);
-            AppState.myBooks.push(currentRecommendBook); saveMyBooks(); renderMyBooks(); updateStats();
-            closeModal(); showSuccessPage(currentRecommendBook);
+        function toggleDescription() {
+            const descText = document.getElementById('modalDescriptionText');
+            const descToggle = document.getElementById('modalDescriptionToggle');
+
+            if (descText.classList.contains('collapsed')) {
+                descText.classList.remove('collapsed');
+                descText.classList.add('expanded');
+                descToggle.textContent = 'Show less';
+            } else {
+                descText.classList.remove('expanded');
+                descText.classList.add('collapsed');
+                descToggle.textContent = 'Show more';
+            }
         }
 
+        function closeModal() {
+            document.getElementById('recommendModal').classList.remove('show');
+        }
+
+        // ========== Check Login Status ==========
+        async function checkLoginStatus() {
+            try {
+                const response = await fetch('/api/auth/check', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.loggedIn) {
+                    AppState.isLoggedIn = true;
+                    AppState.user = {
+                        username: data.username || 'User',
+                        novelFlowId: data.novelFlowId || data.discordId || '',
+                        accountType: data.accountType || 'unknown'
+                    };
+                } else {
+                    AppState.isLoggedIn = false;
+                    AppState.user = null;
+                }
+            } catch (e) {
+                console.warn('Login check failed:', e.message);
+                AppState.isLoggedIn = false;
+                AppState.user = null;
+            }
+            updateProfileUI();
+        }
+
+        // ========== Confirm Recommend - Call Backend API ==========
+        async function confirmRecommend() {
+            if (!currentRecommendBook) return;
+
+            // Check login status
+            await checkLoginStatus();
+            
+            if (!AppState.isLoggedIn) {
+                closeModal();
+                showToast('Please login first to create links', 'error');
+                switchTab('profile');
+                return;
+            }
+
+            const btn = document.getElementById('modalConfirmBtn');
+            btn.disabled = true;
+            btn.textContent = 'Creating...';
+
+            try {
+                const response = await fetch('/api/confirm-secure', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        bookId: currentRecommendBook.bookId,
+                        bookTitle: currentRecommendBook.title,
+                        bookAuthor: currentRecommendBook.author || '',
+                        lang: currentRecommendBook.languageCode || 'en'
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || 'Failed to create link');
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    currentRecommendBook.code = result.code;
+                    currentRecommendBook.link = result.link;
+                    currentRecommendBook.createdAt = Date.now();
+                    currentRecommendBook.submissionId = result.submissionId;
+
+                    AppState.currentRecommendText = generateRecommendText(currentRecommendBook);
+
+                    AppState.myBooks.push(currentRecommendBook);
+                    saveMyBooks();
+                    renderMyBooks();
+                    updateStats();
+
+                    closeModal();
+                    showSuccessPage(currentRecommendBook);
+                } else {
+                    throw new Error(result.error || 'Failed to create link');
+                }
+            } catch (e) {
+                console.error('Confirm recommend error:', e);
+                showToast(e.message || 'Failed to create link', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Start Earning';
+            }
+        }
+
+        // ========== Success Page ==========
         function showSuccessPage(book) {
             document.getElementById('resultLink').textContent = book.link;
             document.getElementById('resultCode').textContent = book.code;
             document.getElementById('resultRecommendText').textContent = AppState.currentRecommendText;
             document.getElementById('resultRecommendCard').style.display = 'block';
+
             document.getElementById('submitForm').style.display = 'none';
             document.getElementById('searchResults').innerHTML = '';
             document.getElementById('processingStatus').classList.remove('show');
             document.getElementById('successPage').classList.add('show');
-            showToast('Link created successfully!', 'success'); switchTab('submit');
-        }
-        function copyRecommendText() { navigator.clipboard.writeText(AppState.currentRecommendText).then(() => showToast('Recommendation copied!', 'success')).catch(() => showToast('Failed to copy', 'error')); }
 
-        document.querySelectorAll('#langToggle .lang-btn').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('#langToggle .lang-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); AppState.searchLang = btn.dataset.lang; }); });
+            showToast('Link created successfully!', 'success');
+
+            switchTab('submit');
+        }
+
+        function copyRecommendText() {
+            navigator.clipboard.writeText(AppState.currentRecommendText).then(() => {
+                showToast('Recommendation copied!', 'success');
+            }).catch(() => {
+                showToast('Failed to copy', 'error');
+            });
+        }
+
+        // ========== Submit Book ==========
+        document.querySelectorAll('#langToggle .lang-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#langToggle .lang-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                AppState.searchLang = btn.dataset.lang;
+            });
+        });
 
         async function handleSubmit() {
-            const discordUsername = document.getElementById('discordUsername').value.trim(), bookName = document.getElementById('bookName').value.trim();
-            if (!discordUsername || !bookName) { showToast('Please fill in all fields', 'error'); return; }
-            const btn = document.getElementById('submitBtn'); btn.disabled = true; btn.classList.add('loading');
-            document.getElementById('submitForm').style.display = 'none'; document.getElementById('searchResults').innerHTML = '';
-            document.getElementById('processingStatus').classList.add('show'); document.getElementById('successPage').classList.remove('show');
-            await updateStep(1, 'done'); await delay(600); await updateStep(2, 'done'); await delay(600); await updateStep(3, 'done'); await delay(600); await updateStep(4, 'done'); await delay(400);
+            const discordUsername = document.getElementById('discordUsername').value.trim();
+            const bookName = document.getElementById('bookName').value.trim();
+
+            if (!discordUsername || !bookName) {
+                showToast('Please fill in all fields', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.classList.add('loading');
+
+            document.getElementById('submitForm').style.display = 'none';
+            document.getElementById('searchResults').innerHTML = '';
+            document.getElementById('processingStatus').classList.add('show');
+            document.getElementById('successPage').classList.remove('show');
+
+            await updateStep(1, 'done');
+            await delay(300);
+
+            // Search books using backend API
             const candidates = await searchBooks(bookName);
-            document.getElementById('processingStatus').classList.remove('show');
-            if (candidates.length === 0) { document.getElementById('searchResults').innerHTML = `<div class="empty-state" style="background:var(--canvas-soft);border-radius:var(--r-lg);padding:40px 20px;"><div class="empty-icon">&#9881;</div><div class="empty-text">No matching books found.</div></div><button class="btn-retry" onclick="resetForm()">Search Again</button>`; }
-            else if (candidates.length === 1) { await createLink(candidates[0]); }
-            else { showCandidates(candidates); }
-            btn.disabled = false; btn.classList.remove('loading');
+
+            await updateStep(2, candidates.length > 0 ? 'done' : 'failed');
+            await delay(300);
+
+            if (candidates.length === 0) {
+                await updateStep(3, 'failed');
+                await updateStep(4, 'failed');
+                document.getElementById('processingStatus').classList.remove('show');
+                document.getElementById('searchResults').innerHTML = `
+                    <div class="empty-state" style="background: var(--canvas-soft); border-radius: var(--r-lg); padding: 40px 20px;">
+                        <div class="empty-icon">&#9881;</div><div class="empty-text">No matching books found. Try different keywords.</div>
+                    </div>
+                    <button class="btn-retry" onclick="resetForm()">&#8592; Search Again</button>
+                `;
+            } else if (candidates.length === 1) {
+                await updateStep(3, 'done');
+                await updateStep(4, 'done');
+                await delay(400);
+                await createLink(candidates[0], discordUsername);
+            } else {
+                await updateStep(3, 'done');
+                await updateStep(4, 'done');
+                await delay(400);
+                document.getElementById('processingStatus').classList.remove('show');
+                showCandidates(candidates, discordUsername);
+            }
+
+            btn.disabled = false;
+            btn.classList.remove('loading');
         }
 
-        async function updateStep(n, s) { const step = document.getElementById(`step${n}`); if (!step) return; step.classList.remove('current','done','failed'); step.classList.add(s); const icon = step.querySelector('.step-icon'); if (s === 'done') icon.textContent = '\u2713'; else if (s === 'failed') icon.textContent = '\u2717'; else if (s === 'current') icon.textContent = '\u25CB'; }
-        async function searchBooks(query) { await delay(500); return AppState.books.filter(book => book.title.toLowerCase().includes(query.toLowerCase()) || (book.author && book.author.toLowerCase().includes(query.toLowerCase()))).slice(0, 5); }
+        async function updateStep(stepNum, status) {
+            const step = document.getElementById(`step${stepNum}`);
+            if (!step) return;
+            step.classList.remove('current', 'done', 'failed');
+            step.classList.add(status);
+            const icon = step.querySelector('.step-icon');
+            if (status === 'done') icon.textContent = '\u2713';
+            else if (status === 'failed') icon.textContent = '\u2717';
+            else if (status === 'current') icon.textContent = '\u25CB';
+        }
 
-        function showCandidates(candidates) {
+        // ========== Search Books via Backend API ==========
+        async function searchBooks(query) {
+            try {
+                const response = await fetch(`/api/books/search?keyword=${encodeURIComponent(query)}&lang=${AppState.searchLang}&pageSize=10`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    console.warn('Search API failed, using local filter');
+                    // Fallback to local filter
+                    return AppState.books.filter(book =>
+                        book.title.toLowerCase().includes(query.toLowerCase()) ||
+                        (book.author && book.author.toLowerCase().includes(query.toLowerCase()))
+                    ).slice(0, 5);
+                }
+
+                const result = await response.json();
+                
+                if (result.success && Array.isArray(result.data)) {
+                    return result.data.map(book => ({
+                        bookId: book.bookId || book.id || '',
+                        title: book.title || 'Untitled',
+                        cover: book.cover || book.coverImage || '',
+                        description: book.description || '',
+                        rating: book.rating || book.star || 4.0,
+                        tags: book.tags || book.genre || [],
+                        author: book.author || '',
+                        languageCode: book.languageCode || AppState.searchLang
+                    }));
+                }
+            } catch (e) {
+                console.warn('Search error:', e.message);
+            }
+            
+            // Fallback to local filter
+            return AppState.books.filter(book =>
+                book.title.toLowerCase().includes(query.toLowerCase()) ||
+                (book.author && book.author.toLowerCase().includes(query.toLowerCase()))
+            ).slice(0, 5);
+        }
+
+        function showCandidates(candidates, discordUsername) {
             const container = document.getElementById('searchResults');
-            container.innerHTML = `<div class="form-card" style="margin:0 0 var(--sp-sm);"><h3 style="font-size:14px;font-weight:300;letter-spacing:-0.14px;margin-bottom:var(--sp-md);text-align:center;">Select the book to recommend</h3>${candidates.map((book, i) => `<div class="book-item" onclick="selectCandidateAndCreate(${i})" style="cursor:pointer;margin-bottom:var(--sp-xs);"><img class="book-item-cover" src="${book.cover}" alt="" onerror="this.src='https://via.placeholder.com/68x92/f6f9fc/64748d?text=N'"><div class="book-item-content"><div class="book-item-title">${book.title}</div><div class="book-item-desc">${book.author || 'Unknown Author'}</div><div class="book-item-action"><span class="book-item-btn" style="${i === 0 ? '' : 'background:var(--canvas);color:var(--ink-mute);border:1px solid var(--hairline);'}">${i === 0 ? 'Best Match' : 'Match'}</span></div></div></div>`).join('')}</div><button class="btn-retry" onclick="resetForm()">Search Again</button>`;
+            container.innerHTML = `
+                <div class="form-card" style="margin: 0 0 var(--sp-sm);">
+                    <h3 style="font-size: 14px; font-weight: 300; letter-spacing: -0.14px; margin-bottom: var(--sp-md); text-align: center;">Select the book you want to recommend</h3>
+                    ${candidates.map((book, i) => `
+                        <div class="book-item" onclick="selectCandidateAndCreate(${i}, '${discordUsername.replace(/'/g, "\\'")}')" style="cursor: pointer; margin-bottom: var(--sp-xs);">
+                            <img class="book-item-cover" src="${book.cover}" alt="" onerror="this.src='https://via.placeholder.com/68x92/f6f9fc/64748d?text=N'">
+                            <div class="book-item-content">
+                                <div class="book-item-title">${book.title}</div>
+                                <div class="book-item-desc">${book.author || 'Unknown Author'}</div>
+                                <div class="book-item-action">
+                                    <span class="book-item-btn" style="${i === 0 ? '' : 'background: var(--canvas); color: var(--ink-mute); border: 1px solid var(--hairline);'}">
+                                        ${i === 0 ? 'Best Match' : 'Match'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                <button class="btn-retry" onclick="resetForm()">&#8592; Search Again</button>
+            `;
+
             window.candidateBooks = candidates;
         }
 
-        async function selectCandidateAndCreate(index) { if (window.candidateBooks && window.candidateBooks[index]) await createLink(window.candidateBooks[index]); }
-        async function createLink(book) {
-            document.getElementById('searchResults').innerHTML = '';
-            const code = 'NF' + Math.random().toString(36).substring(2, 8).toUpperCase();
-            const bookId = book.bookId || 'B' + Date.now().toString(36);
-            const link = `https://novelflow.app/book/${bookId}?ref=${code}&lang=${AppState.searchLang}`;
-            const newBook = { ...book, code, link, discordUsername: document.getElementById('discordUsername').value.trim(), createdAt: Date.now() };
-            AppState.currentRecommendText = generateRecommendText(newBook);
-            AppState.myBooks.push(newBook); saveMyBooks(); renderMyBooks(); updateStats();
-            showSuccessPage(newBook);
-            navigator.clipboard.writeText(link).then(() => showToast('Link copied to clipboard!', 'success'));
+        async function selectCandidateAndCreate(index, discordUsername) {
+            if (window.candidateBooks && window.candidateBooks[index]) {
+                await createLink(window.candidateBooks[index], discordUsername);
+            }
         }
-        function recommendAnother() { resetForm(); showToast('Ready to recommend another book!', 'success'); }
-        function resetForm() { for (let i = 1; i <= 4; i++) updateStep(i, ''); document.getElementById('submitForm').style.display = 'block'; document.getElementById('searchResults').innerHTML = ''; document.getElementById('processingStatus').classList.remove('show'); document.getElementById('successPage').classList.remove('show'); document.getElementById('discordUsername').value = ''; document.getElementById('bookName').value = ''; }
-        function copyToClipboard(text) { if (!text) text = document.getElementById('resultLink').textContent; navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard!', 'success')).catch(() => showToast('Failed to copy', 'error')); }
+
+        // ========== Create Link via Backend API ==========
+        async function createLink(book, discordUsername) {
+            document.getElementById('searchResults').innerHTML = '';
+
+            // Check login status first
+            await checkLoginStatus();
+            
+            if (!AppState.isLoggedIn) {
+                showToast('Please login first to create links', 'error');
+                resetForm();
+                switchTab('profile');
+                return;
+            }
+
+            const processingStatus = document.getElementById('processingStatus');
+            processingStatus.classList.add('show');
+            
+            await updateStep(1, 'done');
+            await updateStep(2, 'current');
+            await delay(500);
+
+            try {
+                const response = await fetch('/api/confirm-secure', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        bookId: book.bookId,
+                        bookTitle: book.title,
+                        bookAuthor: book.author || '',
+                        lang: AppState.searchLang
+                    })
+                });
+
+                await updateStep(2, 'done');
+                await updateStep(3, 'current');
+                await delay(500);
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || 'Failed to create link');
+                }
+
+                const result = await response.json();
+                await updateStep(3, 'done');
+                await updateStep(4, 'done');
+
+                if (result.success) {
+                    const newBook = {
+                        ...book,
+                        code: result.code,
+                        link: result.link,
+                        discordUsername: discordUsername,
+                        createdAt: Date.now(),
+                        submissionId: result.submissionId
+                    };
+
+                    AppState.currentRecommendText = generateRecommendText(newBook);
+
+                    AppState.myBooks.push(newBook);
+                    saveMyBooks();
+                    renderMyBooks();
+                    updateStats();
+
+                    processingStatus.classList.remove('show');
+                    showSuccessPage(newBook);
+
+                    navigator.clipboard.writeText(result.link).then(() => {
+                        showToast('Link copied to clipboard!', 'success');
+                    });
+                } else {
+                    throw new Error(result.error || 'Failed to create link');
+                }
+            } catch (e) {
+                console.error('Create link error:', e);
+                await updateStep(2, 'failed');
+                await updateStep(3, 'failed');
+                await updateStep(4, 'failed');
+                processingStatus.classList.remove('show');
+                showToast(e.message || 'Failed to create link', 'error');
+                resetForm();
+            }
+        }
+
+        function recommendAnother() {
+            resetForm();
+            showToast('Ready to recommend another book!', 'success');
+        }
+
+        function resetForm() {
+            for (let i = 1; i <= 4; i++) updateStep(i, '');
+
+            document.getElementById('submitForm').style.display = 'block';
+            document.getElementById('searchResults').innerHTML = '';
+            document.getElementById('processingStatus').classList.remove('show');
+            document.getElementById('successPage').classList.remove('show');
+            document.getElementById('discordUsername').value = '';
+            document.getElementById('bookName').value = '';
+        }
+
+        function copyToClipboard(text) {
+            if (!text) text = document.getElementById('resultLink').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Copied to clipboard!', 'success');
+            }).catch(() => {
+                showToast('Failed to copy', 'error');
+            });
+        }
+
         function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
-        function loadMyBooks() { const saved = localStorage.getItem('novelflow_mybooks'); AppState.myBooks = saved ? JSON.parse(saved) : []; renderMyBooks(); }
+        // ========== My Books ==========
+        function loadMyBooks() {
+            const saved = localStorage.getItem('novelflow_mybooks');
+            AppState.myBooks = saved ? JSON.parse(saved) : [];
+            renderMyBooks();
+        }
+
         function saveMyBooks() { localStorage.setItem('novelflow_mybooks', JSON.stringify(AppState.myBooks)); }
+
         function renderMyBooks() {
             const container = document.getElementById('myBooksList');
-            if (AppState.myBooks.length === 0) { container.innerHTML = `<div class="empty-state" style="padding:30px 20px;background:var(--canvas-soft);border-radius:var(--r-lg);"><div class="empty-icon">&#9993;</div><div class="empty-text">No books yet. Start recommending from home!</div></div>`; return; }
-            container.innerHTML = AppState.myBooks.map(book => `<div class="my-book-item"><img class="my-book-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/36x48/f6f9fc/64748d?text=N'"><div class="my-book-info"><div class="my-book-title">${book.title}</div><div class="my-book-code">CODE: ${book.code}</div></div><button class="my-book-copy" onclick="copyBookLink('${book.link}')">Copy</button></div>`).join('');
-        }
-        function copyBookLink(link) { navigator.clipboard.writeText(link).then(() => showToast('Copied to clipboard', 'success')); }
-        function updateStats() { document.getElementById('statLinks').textContent = AppState.myBooks.length; document.getElementById('statPoints').textContent = AppState.myBooks.length * 10; }
 
-        function checkLogin() { const saved = localStorage.getItem('novelflow_user'); if (saved) { try { AppState.user = JSON.parse(saved); AppState.isLoggedIn = true; } catch (e) { localStorage.removeItem('novelflow_user'); } } updateProfileUI(); }
+            if (AppState.myBooks.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state" style="padding: 30px 20px; background: var(--canvas-soft); border-radius: var(--r-lg);">
+                        <div class="empty-icon">&#9993;</div><div class="empty-text">No books yet. Start recommending from home!</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = AppState.myBooks.map(book => `
+                <div class="my-book-item">
+                    <img class="my-book-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/36x48/f6f9fc/64748d?text=N'">
+                    <div class="my-book-info">
+                        <div class="my-book-title">${book.title}</div>
+                        <div class="my-book-code">CODE: ${book.code || 'N/A'}</div>
+                    </div>
+                    <button class="my-book-copy" onclick="copyBookLink('${(book.link || '').replace(/'/g, "\\'")}')">Copy</button>
+                </div>
+            `).join('');
+        }
+
+        function copyBookLink(link) {
+            if (!link) {
+                showToast('No link available', 'error');
+                return;
+            }
+            navigator.clipboard.writeText(link).then(() => {
+                showToast('Copied to clipboard', 'success');
+            });
+        }
+
+        function updateStats() {
+            document.getElementById('statLinks').textContent = AppState.myBooks.length;
+            document.getElementById('statPoints').textContent = AppState.myBooks.length * 10;
+        }
+
+        // ========== User State ==========
+        function checkLocalLogin() {
+            const saved = localStorage.getItem('novelflow_user');
+            if (saved) {
+                try {
+                    AppState.user = JSON.parse(saved);
+                    AppState.isLoggedIn = true;
+                } catch (e) {
+                    localStorage.removeItem('novelflow_user');
+                }
+            }
+            updateProfileUI();
+        }
+
         function updateProfileUI() {
-            const avatar = document.getElementById('profileAvatar'), name = document.getElementById('profileName'), uid = document.getElementById('profileUid'), lf = document.getElementById('loginForm'), lo = document.getElementById('logoutBtn');
-            if (AppState.isLoggedIn && AppState.user) { avatar.textContent = AppState.user.username ? AppState.user.username.charAt(0).toUpperCase() : '?'; name.textContent = AppState.user.username || 'User'; uid.textContent = AppState.user.novelFlowId ? 'ID: ' + AppState.user.novelFlowId : 'Logged In'; lf.style.display = 'none'; lo.classList.add('show'); }
-            else { avatar.textContent = '?'; name.textContent = 'Not Logged In'; uid.textContent = 'Login to unlock more features'; lf.style.display = 'block'; lo.classList.remove('show'); }
+            const avatar = document.getElementById('profileAvatar');
+            const name = document.getElementById('profileName');
+            const uid = document.getElementById('profileUid');
+            const loginForm = document.getElementById('loginForm');
+            const logoutBtn = document.getElementById('logoutBtn');
+
+            if (AppState.isLoggedIn && AppState.user) {
+                avatar.textContent = AppState.user.username ? AppState.user.username.charAt(0).toUpperCase() : '?';
+                name.textContent = AppState.user.username || 'User';
+                uid.textContent = AppState.user.novelFlowId ? 'ID: ' + AppState.user.novelFlowId : 'Logged In';
+                loginForm.style.display = 'none';
+                logoutBtn.classList.add('show');
+            } else {
+                avatar.textContent = '?';
+                name.textContent = 'Not Logged In';
+                uid.textContent = 'Login to unlock more features';
+                loginForm.style.display = 'block';
+                logoutBtn.classList.remove('show');
+            }
         }
-        function handleLocalRegister() { const username = document.getElementById('regUsername').value.trim(), nfId = document.getElementById('regNFId').value.trim().toUpperCase(); if (!username || !nfId) { showToast('Please fill in all fields', 'error'); return; } AppState.user = { username, novelFlowId: nfId, accountType: 'local' }; AppState.isLoggedIn = true; localStorage.setItem('novelflow_user', JSON.stringify(AppState.user)); updateProfileUI(); showToast('Login successful!', 'success'); document.getElementById('regUsername').value = ''; document.getElementById('regNFId').value = ''; }
-        function handleLogout() { localStorage.removeItem('novelflow_user'); localStorage.removeItem('novelflow_mybooks'); AppState.user = null; AppState.isLoggedIn = false; AppState.myBooks = []; updateProfileUI(); renderMyBooks(); updateStats(); showToast('Logged out'); }
 
-        function showToast(msg, type = '') { const existing = document.querySelector('.toast'); if (existing) existing.remove(); const toast = document.createElement('div'); toast.className = 'toast' + (type ? ' ' + type : ''); toast.textContent = msg; document.body.appendChild(toast); setTimeout(() => toast.remove(), 2500); }
+        async function handleLocalRegister() {
+            const username = document.getElementById('regUsername').value.trim();
+            const nfId = document.getElementById('regNFId').value.trim().toUpperCase();
 
-        document.addEventListener('DOMContentLoaded', async () => { loadBooks(); loadMyBooks(); updateStats(); checkLogin(); document.getElementById('recommendModal').addEventListener('click', e => { if (e.target.classList.contains('modal-overlay')) closeModal(); }); });
+            if (!username || !nfId) {
+                showToast('Please fill in all fields', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, novelFlowId: nfId })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    AppState.user = { username, novelFlowId: nfId, accountType: 'local' };
+                    AppState.isLoggedIn = true;
+                    localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
+                    updateProfileUI();
+                    showToast('Login successful!', 'success');
+                    document.getElementById('regUsername').value = '';
+                    document.getElementById('regNFId').value = '';
+                } else {
+                    showToast(result.error || 'Registration failed', 'error');
+                }
+            } catch (e) {
+                console.error('Register error:', e);
+                showToast('Registration failed', 'error');
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                await fetch('/api/auth/logout', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+            } catch (e) {
+                console.warn('Logout API error:', e);
+            }
+            
+            localStorage.removeItem('novelflow_user');
+            localStorage.removeItem('novelflow_mybooks');
+            AppState.user = null;
+            AppState.isLoggedIn = false;
+            AppState.myBooks = [];
+            updateProfileUI();
+            renderMyBooks();
+            updateStats();
+            showToast('Logged out');
+        }
+
+        // ========== Toast ==========
+        function showToast(msg, type = '') {
+            const existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+            const toast = document.createElement('div');
+            toast.className = 'toast' + (type ? ' ' + type : '');
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2500);
+        }
+
+        // ========== Init ==========
+        document.addEventListener('DOMContentLoaded', async () => {
+            loadBooks();
+            loadMyBooks();
+            updateStats();
+            checkLocalLogin();
+            
+            // Also check server-side login status
+            checkLoginStatus();
+
+            document.getElementById('recommendModal').addEventListener('click', e => {
+                if (e.target.classList.contains('modal-overlay')) closeModal();
+            });
+        });
     </script>
 </body>
 </html>
