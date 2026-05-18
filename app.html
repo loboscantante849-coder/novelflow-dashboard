@@ -734,6 +734,319 @@
         .task-claim-btn:disabled { background: var(--canvas-soft); color: var(--ink-mute); cursor: not-allowed; }
         .task-claim-btn.claimed { background: rgba(13,148,96,0.1); color: var(--success); }
 
+        /* ========== Gaming Task Styles ========== */
+        .gaming-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 24px 20px;
+            border-radius: 0;
+        }
+        .gaming-header .tasks-title {
+            color: white;
+            font-size: 24px;
+            font-weight: 700;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .gaming-header .tasks-subtitle {
+            color: rgba(255,255,255,0.8);
+            font-size: 14px;
+        }
+
+        /* Check-in Card */
+        .checkin-card {
+            background: linear-gradient(135deg, #FF6B9D 0%, #C084FC 50%, #FFD700 100%);
+            border-radius: 20px;
+            padding: 20px;
+            margin: 16px;
+            box-shadow: 0 8px 32px rgba(255,107,157,0.3);
+        }
+        .checkin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .checkin-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        }
+        .checkin-streak {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(255,255,255,0.2);
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+        .streak-flame {
+            font-size: 18px;
+            animation: flicker 1s ease-in-out infinite alternate;
+        }
+        @keyframes flicker {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.1); }
+        }
+        .streak-count {
+            font-size: 20px;
+            font-weight: 800;
+            color: white;
+        }
+        .streak-label {
+            font-size: 10px;
+            color: rgba(255,255,255,0.9);
+        }
+        .checkin-calendar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .calendar-day {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.7);
+        }
+        .calendar-day.checked {
+            background: rgba(255,255,255,0.9);
+            color: #FF6B9D;
+        }
+        .calendar-day.today {
+            background: white;
+            color: #FF6B9D;
+            box-shadow: 0 0 0 3px rgba(255,255,255,0.5);
+        }
+        .checkin-btn {
+            width: 100%;
+            padding: 14px 24px;
+            background: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #FF6B9D;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .checkin-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        .checkin-btn:active {
+            transform: translateY(0);
+        }
+        .checkin-btn.done {
+            background: rgba(255,255,255,0.5);
+            color: white;
+            cursor: default;
+        }
+        .checkin-btn.done:hover {
+            transform: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .checkin-btn.animating {
+            animation: checkinPulse 0.5s ease;
+        }
+        @keyframes checkinPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.95); }
+            100% { transform: scale(1); }
+        }
+
+        /* Gaming Task Cards */
+        .gaming-task-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, rgba(102,126,234,0.1), rgba(118,75,162,0.05));
+            border: 1px solid rgba(102,126,234,0.2);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+        .gaming-task-card:hover {
+            border-color: rgba(102,126,234,0.4);
+            box-shadow: 0 4px 20px rgba(102,126,234,0.15);
+            transform: translateY(-2px);
+        }
+        .gaming-task-left {
+            flex-shrink: 0;
+        }
+        .gaming-task-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 4px 12px rgba(102,126,234,0.3);
+        }
+        .gaming-task-content {
+            flex: 1;
+            min-width: 0;
+        }
+        .gaming-task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .gaming-task-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--ink);
+        }
+        .gaming-task-reward {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--success);
+            background: rgba(13,148,96,0.1);
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+        .gaming-task-desc {
+            font-size: 12px;
+            color: var(--ink-mute);
+            margin-bottom: 8px;
+        }
+        .gaming-task-progress {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .gaming-progress-bar {
+            flex: 1;
+            height: 6px;
+            background: rgba(102,126,234,0.2);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .gaming-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        .gaming-progress-text {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--ink-mute);
+            min-width: 30px;
+        }
+        .gaming-task-btn {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+        .gaming-task-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(102,126,234,0.4);
+        }
+        .gaming-task-btn.locked {
+            background: var(--canvas-soft);
+            color: var(--ink-mute);
+            cursor: not-allowed;
+        }
+        .gaming-task-btn.locked:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Gaming Achievement Cards */
+        .gaming-achievement-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,107,157,0.05));
+            border: 1px solid rgba(255,215,0,0.2);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+        .gaming-achievement-card:hover {
+            border-color: rgba(255,215,0,0.4);
+            box-shadow: 0 4px 20px rgba(255,215,0,0.15);
+        }
+        .gaming-achievement-card.locked {
+            opacity: 0.6;
+            filter: grayscale(0.5);
+        }
+        .achievement-badge {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #FFD700, #FF6B9D);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 4px 12px rgba(255,215,0,0.3);
+            flex-shrink: 0;
+        }
+        .achievement-content {
+            flex: 1;
+            min-width: 0;
+        }
+        .achievement-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--ink);
+            margin-bottom: 2px;
+        }
+        .achievement-desc {
+            font-size: 11px;
+            color: var(--ink-mute);
+            margin-bottom: 6px;
+        }
+        .achievement-progress {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .achievement-bar {
+            flex: 1;
+            height: 4px;
+            background: rgba(255,215,0,0.2);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .achievement-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #FFD700, #FF6B9D);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+        .achievement-text {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--ink-mute);
+        }
+        .achievement-reward {
+            font-size: 14px;
+            font-weight: 700;
+            color: #FFD700;
+            text-shadow: 0 1px 4px rgba(255,215,0,0.3);
+            flex-shrink: 0;
+        }
+
         /* ========== Tab 4: Profile — Stripe Dashboard ========== */
         .profile-header {
             padding: var(--sp-xxl) var(--sp-lg) var(--sp-lg); text-align: center;
@@ -796,6 +1109,8 @@
         .profile-card-icon { font-size: 24px; margin-bottom: var(--sp-xs); color: var(--primary); }
         .profile-card-title { font-size: 13px; font-weight: 300; letter-spacing: -0.13px; margin-bottom: 2px; color: var(--ink); }
         .profile-card-desc { font-size: 11px; color: var(--ink-mute); }
+        .profile-card-arrow { font-size: 10px; color: var(--ink-mute); margin-top: 4px; transition: transform 0.3s ease; }
+        .profile-card.expanded .profile-card-arrow { transform: rotate(180deg); }
 
         .my-books-section { padding: 0 var(--sp-lg) var(--sp-lg); }
         .my-book-item {
@@ -814,6 +1129,90 @@
             cursor: pointer; flex-shrink: 0; transition: background 0.15s;
         }
         .my-book-copy:hover { background: var(--primary-deep); }
+
+        /* Expanded My Book Item */
+        .my-book-expanded-item {
+            background: var(--canvas);
+            border: 1px solid var(--hairline);
+            border-radius: var(--r-lg);
+            padding: var(--sp-md);
+            margin-bottom: var(--sp-sm);
+        }
+        .my-book-expanded-header {
+            display: flex;
+            gap: var(--sp-md);
+            margin-bottom: var(--sp-sm);
+        }
+        .my-book-expanded-cover {
+            width: 48px;
+            height: 64px;
+            border-radius: var(--r-sm);
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+        .my-book-expanded-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .my-book-expanded-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--ink);
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .my-book-expanded-code {
+            font-size: 12px;
+            color: var(--primary);
+            font-weight: 500;
+            font-feature-settings: "tnum";
+            margin-bottom: 6px;
+        }
+        .my-book-expanded-copy {
+            padding: 4px 12px;
+            background: var(--primary);
+            border: none;
+            border-radius: var(--r-pill);
+            color: var(--on-primary);
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .my-book-expanded-pending {
+            font-size: 11px;
+            color: var(--ink-mute);
+            font-style: italic;
+        }
+        .my-book-expanded-stats {
+            display: flex;
+            justify-content: space-around;
+            padding-top: var(--sp-sm);
+            border-top: 1px solid var(--hairline);
+        }
+        .my-book-expanded-stat {
+            text-align: center;
+        }
+        .my-book-expanded-stat-icon {
+            font-size: 16px;
+            margin-bottom: 2px;
+        }
+        .my-book-expanded-stat-label {
+            font-size: 10px;
+            color: var(--ink-mute);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .my-book-expanded-stat-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--ink);
+            font-feature-settings: "tnum";
+        }
+        .my-book-expanded-stat.income .my-book-expanded-stat-value {
+            color: var(--success);
+        }
 
         /* Stats Overview Cards */
         .stats-overview {
@@ -1283,79 +1682,132 @@
 
         <!-- Tab 3: Tasks -->
         <div class="tab-content" id="tab-tasks">
-            <div class="tasks-header">
-                <div class="tasks-title">Task Center</div>
-                <div class="tasks-subtitle">Complete tasks and earn rewards</div>
+            <!-- Gaming-style Header -->
+            <div class="tasks-header gaming-header">
+                <div class="tasks-title">&#9733; Mission Center &#9733;</div>
+                <div class="tasks-subtitle">Complete missions to unlock rewards</div>
             </div>
 
+            <!-- Check-in Card -->
+            <div class="checkin-card" id="checkinCard">
+                <div class="checkin-header">
+                    <div class="checkin-title">Daily Check-in</div>
+                    <div class="checkin-streak">
+                        <span class="streak-flame">&#128293;</span>
+                        <span class="streak-count" id="streakCount">0</span>
+                        <span class="streak-label">Day Streak</span>
+                    </div>
+                </div>
+                <div class="checkin-calendar" id="checkinCalendar"></div>
+                <button class="checkin-btn" id="checkinBtn" onclick="doCheckin()">
+                    <span class="checkin-btn-text">&#10024; Check In Now</span>
+                    <span class="checkin-btn-done" style="display:none;">&#10004; Done Today!</span>
+                </button>
+            </div>
+
+            <!-- Task Categories -->
             <div class="task-tabs">
-                <button class="task-tab active" data-task-type="daily">Daily Tasks</button>
+                <button class="task-tab active" data-task-type="daily">Daily Missions</button>
                 <button class="task-tab" data-task-type="achievement">Achievements</button>
             </div>
 
+            <!-- Daily Missions -->
             <div class="task-list" id="taskList">
-                <div class="task-section-title">Daily Tasks</div>
+                <div class="task-section-title">Daily Missions</div>
 
-                <div class="task-card" data-task="first_book">
-                    <div class="task-top">
-                        <div class="task-icon">&#9733;</div>
-                        <div class="task-info">
-                            <div class="task-name">Recommend your first book</div>
-                            <div class="task-reward">$2 Reward</div>
+                <div class="gaming-task-card" data-task="first_book">
+                    <div class="gaming-task-left">
+                        <div class="gaming-task-icon">&#128218;</div>
+                    </div>
+                    <div class="gaming-task-content">
+                        <div class="gaming-task-header">
+                            <div class="gaming-task-name">Recommend First Book</div>
+                            <div class="gaming-task-reward">+$2</div>
+                        </div>
+                        <div class="gaming-task-desc">Submit your first book recommendation</div>
+                        <div class="gaming-task-progress">
+                            <div class="gaming-progress-bar"><div class="gaming-progress-fill" id="task_first_book_progress" style="width: 0%"></div></div>
+                            <div class="gaming-progress-text" id="task_first_book_text">0/1</div>
                         </div>
                     </div>
-                    <div class="task-progress">
-                        <div class="progress-bar"><div class="progress-fill" style="width: 0%"></div></div>
-                        <div class="progress-text">0 / 1</div>
-                    </div>
-                    <button class="task-claim-btn" onclick="switchTab('submit')">Start Now</button>
+                    <button class="gaming-task-btn" onclick="switchTab('submit')">Start</button>
                 </div>
 
-                <div class="task-card" data-task="share_3books">
-                    <div class="task-top">
-                        <div class="task-icon">&#9734;</div>
-                        <div class="task-info">
-                            <div class="task-name">Recommend 3 books</div>
-                            <div class="task-reward">$5 Reward</div>
+                <div class="gaming-task-card" data-task="share_3books">
+                    <div class="gaming-task-left">
+                        <div class="gaming-task-icon">&#128230;</div>
+                    </div>
+                    <div class="gaming-task-content">
+                        <div class="gaming-task-header">
+                            <div class="gaming-task-name">Book Collector</div>
+                            <div class="gaming-task-reward">+$5</div>
+                        </div>
+                        <div class="gaming-task-desc">Recommend 3 different books</div>
+                        <div class="gaming-task-progress">
+                            <div class="gaming-progress-bar"><div class="gaming-progress-fill" id="task_share_3books_progress" style="width: 33%"></div></div>
+                            <div class="gaming-progress-text" id="task_share_3books_text">1/3</div>
                         </div>
                     </div>
-                    <div class="task-progress">
-                        <div class="progress-bar"><div class="progress-fill" style="width: 33%"></div></div>
-                        <div class="progress-text">1 / 3</div>
-                    </div>
-                    <button class="task-claim-btn">Keep Going</button>
+                    <button class="gaming-task-btn" onclick="switchTab('submit')">Continue</button>
                 </div>
 
-                <div class="task-section-title">Achievements</div>
-
-                <div class="task-card" data-task="click_100">
-                    <div class="task-top">
-                        <div class="task-icon">&#9783;</div>
-                        <div class="task-info">
-                            <div class="task-name">Get 100 clicks on recommendations</div>
-                            <div class="task-reward">$10 Reward</div>
+                <div class="gaming-task-card" data-task="refer_friend">
+                    <div class="gaming-task-left">
+                        <div class="gaming-task-icon">&#128101;</div>
+                    </div>
+                    <div class="gaming-task-content">
+                        <div class="gaming-task-header">
+                            <div class="gaming-task-name">Social Butterfly</div>
+                            <div class="gaming-task-reward">+$10</div>
+                        </div>
+                        <div class="gaming-task-desc">Share with a friend who joins</div>
+                        <div class="gaming-task-progress">
+                            <div class="gaming-progress-bar"><div class="gaming-progress-fill" style="width: 0%"></div></div>
+                            <div class="gaming-progress-text">0/1</div>
                         </div>
                     </div>
-                    <div class="task-progress">
-                        <div class="progress-bar"><div class="progress-fill" style="width: 67%"></div></div>
-                        <div class="progress-text">67 / 100</div>
-                    </div>
-                    <button class="task-claim-btn">In Progress</button>
+                    <button class="gaming-task-btn locked">Locked</button>
                 </div>
 
-                <div class="task-card" data-task="week_earnings">
-                    <div class="task-top">
-                        <div class="task-icon">$</div>
-                        <div class="task-info">
-                            <div class="task-name">Earn $5 this week</div>
-                            <div class="task-reward">Bonus Reward</div>
+                <div class="task-section-title" style="margin-top: 24px;">Achievements</div>
+
+                <div class="gaming-achievement-card" data-achievement="click_100">
+                    <div class="achievement-badge">&#128081;</div>
+                    <div class="achievement-content">
+                        <div class="achievement-name">Traffic Master</div>
+                        <div class="achievement-desc">Get 100 clicks on your recommendations</div>
+                        <div class="achievement-progress">
+                            <div class="achievement-bar"><div class="achievement-fill" style="width: 67%"></div></div>
+                            <div class="achievement-text">67/100</div>
                         </div>
                     </div>
-                    <div class="task-progress">
-                        <div class="progress-bar"><div class="progress-fill" style="width: 40%"></div></div>
-                        <div class="progress-text">$2 / $5</div>
+                    <div class="achievement-reward">$10</div>
+                </div>
+
+                <div class="gaming-achievement-card locked" data-achievement="week_streak">
+                    <div class="achievement-badge">&#127942;</div>
+                    <div class="achievement-content">
+                        <div class="achievement-name">Week Warrior</div>
+                        <div class="achievement-desc">Check in for 7 days in a row</div>
+                        <div class="achievement-progress">
+                            <div class="achievement-bar"><div class="achievement-fill" style="width: 0%"></div></div>
+                            <div class="achievement-text">0/7</div>
+                        </div>
                     </div>
-                    <button class="task-claim-btn">Keep Trying</button>
+                    <div class="achievement-reward">$20</div>
+                </div>
+
+                <div class="gaming-achievement-card locked" data-achievement="top_10">
+                    <div class="achievement-badge">&#128081;</div>
+                    <div class="achievement-content">
+                        <div class="achievement-name">Top 10 Promoter</div>
+                        <div class="achievement-desc">Reach the weekly top 10 rankings</div>
+                        <div class="achievement-progress">
+                            <div class="achievement-bar"><div class="achievement-fill" style="width: 0%"></div></div>
+                            <div class="achievement-text">--</div>
+                        </div>
+                    </div>
+                    <div class="achievement-reward">$50</div>
                 </div>
             </div>
         </div>
@@ -1410,8 +1862,9 @@
                 <div class="profile-card" onclick="window.open('dashboard.html', '_blank')">
                     <div class="profile-card-icon">&#9776;</div><div class="profile-card-title">Statistics</div><div class="profile-card-desc">View promotion data</div>
                 </div>
-                <div class="profile-card">
+                <div class="profile-card" id="myBooksCard" onclick="toggleMyBooksExpand()">
                     <div class="profile-card-icon">&#128176;</div><div class="profile-card-title">My Books</div><div class="profile-card-desc" id="profileMyBooksCount">0 books promoted</div>
+                    <div class="profile-card-arrow" id="myBooksArrow">▼</div>
                 </div>
                 <div class="profile-card" onclick="window.open('promotion-guide.html', '_blank')">
                     <div class="profile-card-icon">&#9432;</div><div class="profile-card-title">Guide</div><div class="profile-card-desc">For beginners</div>
@@ -1421,7 +1874,7 @@
                 </div>
             </div>
 
-            <div class="my-books-section">
+            <div class="my-books-section" id="myBooksSection">
                 <div class="section-header" style="padding: 0 0 var(--sp-sm); display: flex; align-items: center; justify-content: space-between;">
                     <div>
                         <div class="section-title">My Book List</div>
@@ -1435,6 +1888,7 @@
                     </div>
                 </div>
             </div>
+            <div id="myBooksExpandedSection" style="display: none; padding: var(--sp-md) var(--sp-lg);"></div>
         </div>
 
         <!-- Bottom Nav -->
@@ -1468,7 +1922,7 @@
                 <div class="earn-incentive" id="earnIncentive">
                     <div class="earn-incentive-icon">💰</div>
                     <div class="earn-incentive-text">1,200+ promoters are earning with this book</div>
-                    <div class="earn-incentive-sub">Earn $0.80 for every new reader you bring</div>
+                    <div class="earn-incentive-sub">Earn commission for every reader you bring</div>
                 </div>
                 <div class="modal-description">
                     <div class="modal-description-label">Description</div>
@@ -1797,6 +2251,124 @@
                 tab.classList.add('active');
             });
         });
+
+        // ========== Check-in System ==========
+        const CheckinData = {
+            streak: 0,
+            lastCheckin: null,
+            history: []
+        };
+
+        function loadCheckinData() {
+            const saved = localStorage.getItem('novelflow_checkin');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    CheckinData.streak = data.streak || 0;
+                    CheckinData.lastCheckin = data.lastCheckin || null;
+                    CheckinData.history = data.history || [];
+                } catch (e) {}
+            }
+        }
+
+        function saveCheckinData() {
+            localStorage.setItem('novelflow_checkin', JSON.stringify(CheckinData));
+        }
+
+        function getToday() {
+            const now = new Date();
+            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        }
+
+        function isCheckedInToday() {
+            return CheckinData.lastCheckin === getToday();
+        }
+
+        function renderCheckinCalendar() {
+            const calendar = document.getElementById('checkinCalendar');
+            const today = new Date();
+            const todayStr = getToday();
+            
+            // Get last 7 days
+            const days = [];
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                const dayStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                const dayName = ['S', 'M', 'T', 'W', 'T', 'F', 'S'][date.getDay()];
+                days.push({
+                    date: dayStr,
+                    dayName: dayName,
+                    isChecked: CheckinData.history.includes(dayStr),
+                    isToday: dayStr === todayStr
+                });
+            }
+
+            calendar.innerHTML = days.map(day => {
+                let className = 'calendar-day';
+                if (day.isChecked) className += ' checked';
+                if (day.isToday) className += ' today';
+                return `<div class="${className}">${day.dayName}</div>`;
+            }).join('');
+        }
+
+        function updateCheckinUI() {
+            document.getElementById('streakCount').textContent = CheckinData.streak;
+            renderCheckinCalendar();
+            
+            const btn = document.getElementById('checkinBtn');
+            const btnText = btn.querySelector('.checkin-btn-text');
+            const btnDone = btn.querySelector('.checkin-btn-done');
+            
+            if (isCheckedInToday()) {
+                btn.classList.add('done');
+                btnText.style.display = 'none';
+                btnDone.style.display = 'inline';
+            } else {
+                btn.classList.remove('done');
+                btnText.style.display = 'inline';
+                btnDone.style.display = 'none';
+            }
+        }
+
+        function doCheckin() {
+            if (isCheckedInToday()) {
+                showToast('Already checked in today!', 'success');
+                return;
+            }
+
+            const btn = document.getElementById('checkinBtn');
+            btn.classList.add('animating');
+            
+            setTimeout(() => {
+                const today = getToday();
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+                
+                // Check if streak continues
+                if (CheckinData.lastCheckin === yesterdayStr) {
+                    CheckinData.streak++;
+                } else if (CheckinData.lastCheckin !== today) {
+                    CheckinData.streak = 1;
+                }
+                
+                CheckinData.lastCheckin = today;
+                if (!CheckinData.history.includes(today)) {
+                    CheckinData.history.push(today);
+                }
+                
+                saveCheckinData();
+                updateCheckinUI();
+                
+                btn.classList.remove('animating');
+                showToast(`&#128293; ${CheckinData.streak} Day Streak!`, 'success');
+            }, 500);
+        }
+
+        // Initialize checkin on load
+        loadCheckinData();
+        document.addEventListener('DOMContentLoaded', updateCheckinUI);
 
         // ========== Generate Recommend Text ==========
         function generateRecommendText(book) {
@@ -2515,7 +3087,7 @@
                 
                 const visits = stats.visits || 0;
                 const unique = stats.unique_users || 0;
-                const newUsers = stats.new_users || 0;
+                /* newUsers hidden from user view */
                 const income = stats.d14_income || 0;
                 const incomeFmt = fmtIncome(income);
                 
@@ -2528,7 +3100,6 @@
                             <div class="my-book-stats">
                                 <span class="my-book-stat">&#128065; ${fmtNum(visits)}</span>
                                 <span class="my-book-stat">&#128101; ${fmtNum(unique)}</span>
-                                <span class="my-book-stat">&#127942; ${fmtNum(newUsers)}</span>
                                 <span class="my-book-stat income ${incomeFmt.isZero ? 'zero' : ''}">${incomeFmt.text}</span>
                             </div>
                         </div>
@@ -2546,6 +3117,80 @@
             navigator.clipboard.writeText(link).then(() => {
                 showToast('Copied to clipboard', 'success');
             });
+        }
+
+        // ========== My Books Expand/Collapse ==========
+        function toggleMyBooksExpand() {
+            const card = document.getElementById('myBooksCard');
+            const expandedSection = document.getElementById('myBooksExpandedSection');
+            const isExpanded = card.classList.contains('expanded');
+            
+            if (isExpanded) {
+                card.classList.remove('expanded');
+                expandedSection.style.display = 'none';
+            } else {
+                card.classList.add('expanded');
+                expandedSection.style.display = 'block';
+                renderExpandedMyBooks();
+            }
+        }
+
+        function renderExpandedMyBooks() {
+            const container = document.getElementById('myBooksExpandedSection');
+            
+            if (AppState.myBooks.length === 0) {
+                container.innerHTML = '<div class="empty-state" style="padding: 20px; background: var(--canvas-soft); border-radius: var(--r-lg);"><div class="empty-icon">&#128218;</div><div class="empty-text">No books yet. Start promoting!</div></div>';
+                return;
+            }
+
+            // Build stats map
+            const statsMap = {};
+            if (UserStats.data && UserStats.data.books) {
+                UserStats.data.books.forEach(book => {
+                    const key = book.link || book.bookName;
+                    if (key) statsMap[key] = book;
+                });
+            }
+
+            container.innerHTML = AppState.myBooks.map(book => {
+                const key = book.link || book.title;
+                const stats = statsMap[key] || {};
+                const visits = stats.visits || 0;
+                const unique = stats.unique_users || 0;
+                const income = stats.d14_income || 0;
+                const incomeFmt = fmtIncome(income);
+                const hasData = book.code && book.link;
+                
+                return `
+                    <div class="my-book-expanded-item">
+                        <div class="my-book-expanded-header">
+                            <img class="my-book-expanded-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/48x64/f6f9fc/64748d?text=N'">
+                            <div class="my-book-expanded-info">
+                                <div class="my-book-expanded-title">${book.title}</div>
+                                <div class="my-book-expanded-code">CODE: ${book.code || 'Pending...'}</div>
+                                ${hasData ? `<button class="my-book-expanded-copy" onclick="copyBookLink('${(book.link || '').replace(/'/g, "\\'")}')">Copy Link</button>` : '<span class="my-book-expanded-pending">Link being created...</span>'}
+                            </div>
+                        </div>
+                        <div class="my-book-expanded-stats">
+                            <div class="my-book-expanded-stat">
+                                <div class="my-book-expanded-stat-icon">&#128065;</div>
+                                <div class="my-book-expanded-stat-label">Visits</div>
+                                <div class="my-book-expanded-stat-value">${fmtNum(visits)}</div>
+                            </div>
+                            <div class="my-book-expanded-stat">
+                                <div class="my-book-expanded-stat-icon">&#128101;</div>
+                                <div class="my-book-expanded-stat-label">Unique</div>
+                                <div class="my-book-expanded-stat-value">${fmtNum(unique)}</div>
+                            </div>
+                            <div class="my-book-expanded-stat income">
+                                <div class="my-book-expanded-stat-icon">&#128176;</div>
+                                <div class="my-book-expanded-stat-label">Income</div>
+                                <div class="my-book-expanded-stat-value">${incomeFmt.text}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
         function updateStats() {
