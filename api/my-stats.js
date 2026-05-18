@@ -1,20 +1,15 @@
 module.exports = async (req, res) => {
-  // Support both GET and POST
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Get username from query params or body
   const username = req.query.username || (req.body && req.body.username);
-  
   if (!username) {
     return res.status(400).json({ error: 'username is required' });
   }
 
   const owner = 'loboscantante849-coder';
   const repo = 'novelflow-dashboard';
-  const submissionsPath = 'submissions.json';
-  const linkStatsPath = 'link-stats.json';
   const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
   if (!GITHUB_TOKEN) {
@@ -22,46 +17,49 @@ module.exports = async (req, res) => {
   }
 
   const apiBase = `https://api.github.com/repos/${owner}/${repo}/contents`;
+  const headers = {
+    'Authorization': `token ${GITHUB_TOKEN}`,
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'NovelFlow-API'
+  };
 
   try {
     // Step 1: Fetch submissions.json
-    const submissionsResp = await fetch(`${apiBase}/${submissionsPath}`, {
-      headers: { 
-        'Authorization': `token ${GITHUB_TOKEN}`, 
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'NovelFlow-API'
-      }
-    });
-
+    const submissionsResp = await fetch(`${apiBase}/submissions.json`, { headers });
     if (!submissionsResp.ok) {
-      console.error('Failed to fetch submissions:', submissionsResp.status);
       return res.status(500).json({ error: 'Failed to fetch submissions' });
     }
-
     const submissionsData = await submissionsResp.json();
     const submissions = JSON.parse(Buffer.from(submissionsData.content, 'base64').toString('utf-8'));
 
-    // Step 2: Fetch link-stats.json (if exists)
-    let linkStats = {};
-    const statsResp = await fetch(`${apiBase}/${linkStatsPath}`, {
-      headers: { 
-        'Authorization': `token ${GITHUB_TOKEN}`, 
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'NovelFlow-API'
+    // Step 2: Fetch data.json (per-user aggregated stats)
+    let userData = null;
+    const dataResp = await fetch(`${apiBase}/data.json`, { headers });
+    if (dataResp.ok) {
+      const dataContent = await dataResp.json();
+      const allData = JSON.parse(Buffer.from(dataContent.content, 'base64').toString('utf-8'));
+      const users = allData.users || {};
+      // Match by username (case-insensitive)
+      const key = Object.keys(users).find(k => k.toLowerCase() === username.toLowerCase());
+      if (key) {
+        userData = users[key];
       }
-    });
+    }
 
+    // Step 3: Fetch link-stats.json for per-link detail
+    let linkStats = {};
+    const statsResp = await fetch(`${apiBase}/link-stats.json`, { headers });
     if (statsResp.ok) {
       const statsData = await statsResp.json();
       linkStats = JSON.parse(Buffer.from(statsData.content, 'base64').toString('utf-8'));
     }
 
-    // Step 3: Filter user's completed submissions
-    const userSubmissions = submissions.filter(sub => 
-      sub.discordUsername === username && sub.status === 'completed'
+    // Step 4: Filter user's completed submissions
+    const userSubmissions = submissions.filter(sub =>
+      (sub.discordUsername || '').toLowerCase() === username.toLowerCase() && sub.status === 'completed'
     );
 
-    if (userSubmissions.length === 0) {
+    if (userSubmissions.length === 0 && !userData) {
       return res.status(200).json({
         username,
         total_visits: 0,
@@ -74,38 +72,69 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Step 4: Build response with stats for each book
-    const books = userSubmissions.map(sub => {
+    // Step 5: Calculate totals from data.json (primary source)
+    const totalVisits = userData?.link_visits || 0;
+    const totalUnique = userData?.link_unique || userData?.unique_visitors || 0;
+    const totalNew = userData?.new_users || 0;
+    const totalIncome = userData?.d14income || 0;
+
+    // Step 6: Build books list - distribute stats across books
+    const numBooks = userSubmissions.length || 1;
+    const books = userSubmissions.map((sub, idx) => {
       const linkId = sub.linkId;
-      const stats = linkStats?.links?.[linkId] || {};
+      const linkStat = linkId ? (linkStats?.links?.[linkId] || {}) : {};
+
+      // Per-link stats from link-stats.json if available, otherwise distribute evenly
+      let bookVisits, bookUnique, bookNew, bookIncome;
+
+      if (linkStat.visits > 0 || linkStat.unique_users > 0) {
+        // Has per-link data
+        bookVisits = linkStat.visits || 0;
+        bookUnique = linkStat.unique_users || 0;
+        bookNew = linkStat.new_users || 0;
+        bookIncome = linkStat.d14_income || 0;
+      } else if (numBooks === 1) {
+        // Single book - give all stats
+        bookVisits = totalVisits;
+        bookUnique = totalUnique;
+        bookNew = totalNew;
+        bookIncome = totalIncome;
+      } else {
+        // Multiple books - distribute evenly, last book gets remainder
+        bookVisits = Math.floor(totalVisits / numBooks);
+        bookUnique = Math.floor(totalUnique / numBooks);
+        bookNew = Math.floor(totalNew / numBooks);
+        bookIncome = Math.floor(totalIncome / numBooks * 100) / 100;
+
+        // Last book gets the remainder
+        if (idx === userSubmissions.length - 1) {
+          bookVisits = totalVisits - bookVisits * (numBooks - 1);
+          bookUnique = totalUnique - bookUnique * (numBooks - 1);
+          bookNew = totalNew - bookNew * (numBooks - 1);
+          bookIncome = Math.round((totalIncome - bookIncome * (numBooks - 1)) * 100) / 100;
+        }
+      }
 
       return {
         bookName: sub.matchedBookName || sub.bookName,
         code: sub.code || 'N/A',
         link: sub.link || null,
-        linkId: linkId || null,
         bookId: sub.bookId || null,
         submittedAt: sub.submittedAt,
-        visits: stats.visits || 0,
-        unique_users: stats.unique_users || 0,
-        new_users: stats.new_users || 0,
-        d14_income: stats.d14_income || 0
+        visits: bookVisits,
+        unique_users: bookUnique,
+        new_users: bookNew,
+        d14_income: Math.max(0, bookIncome)
       };
     });
 
-    // Step 5: Calculate totals
-    const total_visits = books.reduce((sum, b) => sum + (b.visits || 0), 0);
-    const total_unique = books.reduce((sum, b) => sum + (b.unique_users || 0), 0);
-    const total_new = books.reduce((sum, b) => sum + (b.new_users || 0), 0);
-    const total_income = books.reduce((sum, b) => sum + (b.d14_income || 0), 0);
-
     return res.status(200).json({
       username,
-      total_visits,
-      total_unique,
-      total_new,
-      total_income: Math.round(total_income * 100) / 100,
-      last_updated: linkStats?.last_updated || null,
+      total_visits: totalVisits,
+      total_unique: totalUnique,
+      total_new: totalNew,
+      total_income: Math.round(totalIncome * 100) / 100,
+      last_updated: userData?.unique_last_success || null,
       books
     });
 
