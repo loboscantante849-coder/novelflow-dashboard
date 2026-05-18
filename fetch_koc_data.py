@@ -26,6 +26,9 @@ PUTREPORT_HEADERS = {
     "Cache-Control": "no-cache"
 }
 
+# === 书城后台API配置 ===
+BOOKSTORE_API_BASE = "https://admin.novelspa.app/api/v1/novelmanage"
+
 
 def get_beidou_token():
     """获取北斗API Token"""
@@ -258,6 +261,130 @@ def fetch_putreport_data(campaignid, date_from, date_to, token):
         return None
 
 
+def fetch_putreport_by_adid(campaignid, date_from, date_to, token):
+    """
+    调用投放报表API，按adid分组获取每个推广链接的独立数据
+    
+    Args:
+        campaignid: 广告系列ID
+        date_from: 开始日期 (YYYY-MM-DD)
+        date_to: 结束日期 (YYYY-MM-DD)
+        token: Bearer Token
+    
+    Returns:
+        dict: {
+            'campaignid': str,
+            'ad_data': {
+                'adid1': {
+                    'unique_users': int,
+                    'new_users': int,
+                    'd14_income': float
+                },
+                ...
+            }
+        }
+    """
+    payload = {
+        "filters": {
+            "productline": ["NovelFlow"],
+            "mediasource": [],
+            "mediasource2": ["SocialMedia"],
+            "date": {
+                "from": date_from,
+                "to": date_to,
+                "datesLabel": ""
+            },
+            "campaignid": [campaignid],
+            "adsetid": [],
+            "adid": [],  # 空数组表示获取所有adid
+            "copywritingid": []
+        },
+        "groupings": ["adid"]  # 按adid分组
+    }
+    
+    headers = {**PUTREPORT_HEADERS, "Authorization": f"Bearer {token}"}
+    
+    try:
+        resp = requests.post(PUTREPORT_API, json=payload, headers=headers, timeout=180)
+        resp.raise_for_status()
+        result = resp.json()
+        
+        if result.get("code") != 200:
+            print(f"    [adid] API error: code={result.get('code')}, msg={result.get('msg', 'unknown')}")
+            return None
+        
+        data_list = result.get("data", [])
+        if not data_list:
+            print(f"    [adid] No data returned for campaign {campaignid}")
+            return {"campaignid": campaignid, "ad_data": {}}
+        
+        # 解析adid分组数据
+        ad_data = {}
+        for item in data_list:
+            adid = item.get("adid", "")
+            if not adid:
+                continue
+            
+            unique = item.get("h5landingpageclickusernum", 0) or 0
+            new_users = item.get("newusernum", 0) or 0
+            d14_income = item.get("d14income", 0.0) or 0.0
+            
+            ad_data[adid] = {
+                "unique_users": unique,
+                "new_users": new_users,
+                "d14_income": round(d14_income, 2)
+            }
+        
+        print(f"    [adid] Found {len(ad_data)} adids for campaign {campaignid}")
+        return {"campaignid": campaignid, "ad_data": ad_data}
+        
+    except requests.exceptions.Timeout:
+        print(f"    [adid] Timeout for campaign {campaignid}")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"    [adid] Request error for campaign {campaignid}: {e}")
+        return None
+    except Exception as e:
+        print(f"    [adid] Error for campaign {campaignid}: {e}")
+        return None
+
+
+def fetch_bookstore_link_by_adid(adid, token):
+    """
+    通过书城后台API查询adid对应的链接信息（shortUrl）
+    
+    Args:
+        adid: 推广链接ID (SocialMediaLinkConfig ID)
+        token: Bearer Token
+    
+    Returns:
+        dict or None: {
+            'shortUrl': str,
+            'id': str,
+            ...
+        }
+    """
+    url = f"{BOOKSTORE_API_BASE}/SocialMediaLinkConfig/{adid}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.exceptions.Timeout:
+        print(f"      [bookstore] Timeout for adid {adid}")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"      [bookstore] Error for adid {adid}: {e}")
+        return None
+    except Exception as e:
+        print(f"      [bookstore] Error for adid {adid}: {e}")
+        return None
+
+
 def fetch_all_putreport_data(campaign_ids, date_from, date_to):
     """
     批量获取所有广告系列的投放报表数据
@@ -292,6 +419,128 @@ def fetch_all_putreport_data(campaign_ids, date_from, date_to):
     
     print(f"\n  Successfully fetched: {len(results)}/{len(campaign_ids)} campaigns")
     return results
+
+
+def fetch_all_putreport_by_adid(campaign_ids, date_from, date_to):
+    """
+    批量获取所有广告系列按adid分组的数据
+    
+    Args:
+        campaign_ids: 广告系列ID列表
+        date_from: 开始日期
+        date_to: 结束日期
+    
+    Returns:
+        dict: {campaignid: {adid: ad_stats}}
+    """
+    print("\n--- Fetching Putreport Data by AdID ---")
+    token = get_putreport_token()
+    print(f"Token: {token[:20]}...")
+    print(f"Date range: {date_from} ~ {date_to}")
+    print(f"Campaigns: {len(campaign_ids)}")
+    
+    results = {}
+    for i, cid in enumerate(campaign_ids):
+        print(f"\n  [{i+1}/{len(campaign_ids)}] Fetching adid data for campaign: {cid}")
+        data = fetch_putreport_by_adid(cid, date_from, date_to, token)
+        if data:
+            ad_count = len(data.get("ad_data", {}))
+            print(f"    Found {ad_count} adids")
+            if ad_count > 0:
+                for adid, stats in list(data["ad_data"].items())[:3]:
+                    print(f"      {adid}: unique={stats['unique_users']}, new={stats['new_users']}, d14=${stats['d14_income']:.2f}")
+                if ad_count > 3:
+                    print(f"      ... and {ad_count - 3} more")
+            results[cid] = data
+        else:
+            print(f"    Failed to fetch adid data")
+        # 避免请求过快
+        time.sleep(0.5)
+    
+    print(f"\n  Successfully fetched adid data: {len(results)}/{len(campaign_ids)} campaigns")
+    return results
+
+
+def backfill_submissions_linkid(putreport_adid_data, submissions):
+    """
+    Backfill submissions.json 中缺失的 linkId 和 campaignId
+    
+    流程:
+    1. 收集所有 adid
+    2. 对每个 adid 调用书城API获取 shortUrl
+    3. 匹配到 submissions 中 link 包含该 shortUrl 的记录
+    4. 写入 linkId 和 campaignId
+    
+    Args:
+        putreport_adid_data: 按campaign分组的adid数据
+        submissions: submissions列表
+    
+    Returns:
+        tuple: (updated_submissions, adid_to_url_mapping)
+    """
+    print("\n--- Backfilling Submissions LinkID ---")
+    token = get_putreport_token()
+    
+    # 收集所有 adid
+    all_adids = set()
+    for cid, data in putreport_adid_data.items():
+        for adid in data.get("ad_data", {}).keys():
+            all_adids.add(adid)
+    
+    print(f"  Total adids to query: {len(all_adids)}")
+    
+    # 查询每个adid的shortUrl
+    adid_to_url = {}
+    for i, adid in enumerate(all_adids):
+        print(f"  [{i+1}/{len(all_adids)}] Querying adid: {adid}")
+        link_info = fetch_bookstore_link_by_adid(adid, token)
+        if link_info:
+            short_url = link_info.get("shortUrl", "")
+            if short_url:
+                adid_to_url[adid] = short_url
+                print(f"      shortUrl: {short_url}")
+        # 避免请求过快，timeout=10s
+        time.sleep(0.2)
+    
+    print(f"  Successfully mapped {len(adid_to_url)} adids to shortUrls")
+    
+    # 匹配 submissions
+    updated_submissions = []
+    matched_count = 0
+    
+    for sub in submissions:
+        sub_copy = dict(sub)
+        link = sub_copy.get("link", "")
+        short_url = sub_copy.get("shortUrl", "")
+        current_link_id = sub_copy.get("linkId", "")
+        current_campaign_id = sub_copy.get("campaignId", "")
+        
+        # 如果已经有 linkId，跳过
+        if current_link_id:
+            updated_submissions.append(sub_copy)
+            continue
+        
+        # 尝试通过 shortUrl 匹配
+        matched_adid = None
+        for adid, su in adid_to_url.items():
+            if su and (short_url == su or (link and su in link)):
+                matched_adid = adid
+                break
+        
+        if matched_adid:
+            # 找到该 adid 属于哪个 campaign
+            for cid, data in putreport_adid_data.items():
+                if matched_adid in data.get("ad_data", {}):
+                    sub_copy["linkId"] = matched_adid
+                    sub_copy["campaignId"] = cid
+                    matched_count += 1
+                    print(f"    Matched: {sub_copy.get('bookName', 'unknown')} -> {matched_adid}")
+                    break
+        
+        updated_submissions.append(sub_copy)
+    
+    print(f"  Matched {matched_count} submissions")
+    return updated_submissions, adid_to_url
 
 
 def extract_koc_username(campaign_name):
@@ -472,11 +721,18 @@ def main():
             existing_new_users_daily[name] = dict(u["new_users_daily"])
 
     # ================================================
-    # STEP 1: 获取投放报表数据 (Unique + New Users)
+    # STEP 1: 获取投放报表数据 (Unique + New Users) - 按campaign汇总
     # ================================================
     putreport_results = {}
     if active_campaigns:
         putreport_results = fetch_all_putreport_data(active_campaigns, date_from, date_to)
+    
+    # ================================================
+    # STEP 1.5: 获取投放报表数据 (按adid分组)
+    # ================================================
+    putreport_by_adid = {}
+    if active_campaigns:
+        putreport_by_adid = fetch_all_putreport_by_adid(active_campaigns, date_from, date_to)
     
     # ================================================
     # STEP 2: 获取北斗API数据 (Visits)
@@ -648,21 +904,40 @@ def main():
     update_fallback_data(data)
 
     # ================================================
-    # STEP 4: 生成 link-stats.json (按 linkId 索引的统计数据)
+    # STEP 4: Backfill submissions.json 并生成 link-stats.json
     # ================================================
-    print("\n--- Generating link-stats.json ---")
+    print("\n--- Processing Submissions & Link Stats ---")
+    
+    submissions_path = os.path.join(REPO_DIR, "submissions.json")
+    link_stats_path = os.path.join(REPO_DIR, "link-stats.json")
+    
+    # 读取 submissions.json
+    with open(submissions_path, "r") as f:
+        submissions = json.load(f)
+    
+    # Backfill submissions 中缺失的 linkId
+    updated_submissions, adid_to_url = backfill_submissions_linkid(putreport_by_adid, submissions)
+    
+    # 保存 backfill 后的 submissions.json
+    with open(submissions_path, "w") as f:
+        json.dump(updated_submissions, f, indent=2, ensure_ascii=False)
+    print(f"submissions.json saved with backfilled linkIds")
+    
+    # 生成 link-stats.json
     try:
-        generate_link_stats(putreport_results, date_from, date_to)
+        generate_link_stats(putreport_by_adid, updated_submissions, date_from, date_to)
     except Exception as e:
         print(f"  WARN: Failed to generate link-stats.json: {e}")
+        import traceback
+        traceback.print_exc()
     
     # Git push
     print("\n--- Git Push ---")
     import subprocess
-    subprocess.run(["git", "add", "data.json", "dashboard.html", "fetch_koc_data.py", "campaign_config.json", "link-stats.json"], 
+    subprocess.run(["git", "add", "data.json", "dashboard.html", "fetch_koc_data.py", "campaign_config.json", "link-stats.json", "submissions.json"], 
                    cwd=REPO_DIR, capture_output=True)
     result = subprocess.run(["git", "commit", "-m", 
-                           f"Update KOC data with Putreport API (Unique/New Users) {data['last_updated']}"], 
+                           f"Update KOC data with per-link Putreport data {data['last_updated']}"], 
                           cwd=REPO_DIR, capture_output=True, text=True)
     if "nothing to commit" in result.stdout or "nothing to commit" in result.stderr:
         print("No changes")
@@ -678,50 +953,18 @@ def main():
     print("\n=== Done ===")
 
 
-def generate_link_stats(putreport_results, date_from, date_to):
+def generate_link_stats(putreport_by_adid, submissions, date_from, date_to):
     """
     生成 link-stats.json 文件，按 linkId 索引统计数据
     
     流程:
     1. 读取 submissions.json 获取所有 completed 记录的 linkId 和 campaignId
-    2. 对每个 campaignId，从 putreport_results 获取数据
-    3. 按 linkId 数量平均分配 campaign 级别的数据
+    2. 使用 putreport_by_adid 获取每个 adid 的真实数据
+    3. 生成按 linkId 索引的统计数据
     4. 保存到 link-stats.json
     """
     submissions_path = os.path.join(REPO_DIR, "submissions.json")
     link_stats_path = os.path.join(REPO_DIR, "link-stats.json")
-    
-    # 读取 submissions.json
-    with open(submissions_path, "r") as f:
-        submissions = json.load(f)
-    
-    # 过滤 completed 记录，收集 linkId -> campaignId 映射
-    link_to_campaign = {}  # linkId -> campaignId
-    campaign_to_links = {}  # campaignId -> [linkId, ...]
-    link_to_submission = {}  # linkId -> submission record (用于获取其他信息)
-    
-    for sub in submissions:
-        if sub.get("status") != "completed":
-            continue
-        link_id = sub.get("linkId")
-        campaign_id = sub.get("campaignId")
-        
-        if not link_id:
-            continue
-        
-        # 如果没有 campaignId，使用默认的 NovelFlow campaign
-        if not campaign_id:
-            campaign_id = "699ef7b8194eb218db3c2270"  # NovelFlow default campaign
-        
-        link_to_campaign[link_id] = campaign_id
-        
-        if campaign_id not in campaign_to_links:
-            campaign_to_links[campaign_id] = []
-        campaign_to_links[campaign_id].append(link_id)
-        
-        link_to_submission[link_id] = sub
-    
-    print(f"  Found {len(link_to_campaign)} links across {len(campaign_to_links)} campaigns")
     
     # 获取已有 link-stats.json 的数据（用于保护旧值）
     existing_stats = {}
@@ -738,79 +981,97 @@ def generate_link_stats(putreport_results, date_from, date_to):
     now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     link_stats = {
         "last_updated": now_utc,
+        "date_range": {"from": date_from, "to": date_to},
         "links": {}
     }
     
-    # 对每个 campaign，分配数据到其 linkId
-    for campaign_id, link_ids in campaign_to_links.items():
-        # 获取该 campaign 的 putreport 数据
-        campaign_data = putreport_results.get(campaign_id)
+    # 统计信息
+    total_links = 0
+    links_with_data = 0
+    total_unique = 0
+    total_new_users = 0
+    total_d14_income = 0.0
+    
+    # 处理每个 campaign 的 adid 数据
+    for campaign_id, campaign_data in putreport_by_adid.items():
+        ad_data = campaign_data.get("ad_data", {})
         
-        if campaign_data:
-            # 使用 putreport 的数据
-            total_unique = campaign_data.get("total_h5landingpageclickusernum", 0)
-            total_new = campaign_data.get("total_newusernum", 0)
-            total_income = campaign_data.get("total_d14income", 0.0)
-            source = "putreport"
-        else:
-            # 使用旧数据或默认值
-            total_unique = 0
-            total_new = 0
-            total_income = 0.0
-            source = "no_data"
-        
-        # 平均分配到每个 linkId
-        num_links = len(link_ids)
-        if num_links > 0:
-            avg_unique = total_unique / num_links
-            avg_new = total_new / num_links
-            avg_income = total_income / num_links
-        
-        # 分配数据到每个 linkId
-        for i, link_id in enumerate(link_ids):
-            existing = existing_stats.get(link_id, {})
+        for adid, stats in ad_data.items():
+            existing = existing_stats.get(adid, {})
             
-            # 如果 putreport 返回0但旧值>0，保留旧值
-            final_unique = total_unique
-            final_new = total_new
-            final_income = total_income
+            # 数据保护：如果API返回0但旧值>0，保留旧值
+            unique = stats.get("unique_users", 0)
+            new_users = stats.get("new_users", 0)
+            d14_income = stats.get("d14_income", 0.0)
             
-            if total_unique == 0 and existing.get("unique_users", 0) > 0:
-                final_unique = existing["unique_users"]
-            if total_new == 0 and existing.get("new_users", 0) > 0:
-                final_new = existing["new_users"]
-            if total_income == 0 and existing.get("d14_income", 0) > 0:
-                final_income = existing["d14_income"]
+            if unique == 0 and existing.get("unique_users", 0) > 0:
+                unique = existing["unique_users"]
+            if new_users == 0 and existing.get("new_users", 0) > 0:
+                new_users = existing["new_users"]
+            if d14_income == 0 and existing.get("d14_income", 0) > 0:
+                d14_income = existing["d14_income"]
             
-            # 计算该 link 的份额
-            link_unique = final_unique / num_links if num_links > 0 else 0
-            link_new = final_new / num_links if num_links > 0 else 0
-            link_income = final_income / num_links if num_links > 0 else 0
+            # 获取该 link 对应的 submission 信息
+            sub_info = None
+            for sub in submissions:
+                if sub.get("linkId") == adid:
+                    sub_info = sub
+                    break
             
-            # 使用 visits 作为加权因子重新分配（如果有数据）
-            existing_visits = existing.get("visits", 0)
-            if existing_visits > 0:
-                # 按 visits 比例分配
-                total_visits_in_campaign = existing_visits * num_links  # 估算
-                if total_visits_in_campaign > 0:
-                    weight = existing_visits / total_visits_in_campaign
-                    link_unique = max(1, round(final_unique * weight))
-                    link_new = max(1, round(final_new * weight)) if final_new > 0 else 0
-                    link_income = round(final_income * weight, 2)
+            # visits 保留旧值（目前没有 per-link visits 数据）
+            visits = existing.get("visits", 0)
             
-            link_stats["links"][link_id] = {
-                "visits": max(0, int(existing_visits)),  # 保留旧 visits
-                "unique_users": max(0, round(link_unique)),
-                "new_users": max(0, round(link_new)),
-                "d14_income": max(0, round(link_income, 2)),
+            link_stats["links"][adid] = {
+                "visits": max(0, visits),
+                "unique_users": max(0, unique),
+                "new_users": max(0, new_users),
+                "d14_income": max(0, round(d14_income, 2)),
                 "campaign_id": campaign_id,
-                "source": source
+                "source": "putreport_adid"
             }
+            
+            # 如果有 submission 信息，添加更多字段
+            if sub_info:
+                link_stats["links"][adid]["book_name"] = sub_info.get("matchedBookName") or sub_info.get("bookName", "")
+                link_stats["links"][adid]["koc_username"] = sub_info.get("discordUsername", "")
+                link_stats["links"][adid]["status"] = sub_info.get("status", "")
+            
+            total_links += 1
+            if unique > 0 or new_users > 0 or d14_income > 0:
+                links_with_data += 1
+            total_unique += unique
+            total_new_users += new_users
+            total_d14_income += d14_income
+    
+    # 添加统计摘要
+    link_stats["summary"] = {
+        "total_links": total_links,
+        "links_with_data": links_with_data,
+        "total_unique_users": total_unique,
+        "total_new_users": total_new_users,
+        "total_d14_income": round(total_d14_income, 2)
+    }
     
     # 保存 link-stats.json
     with open(link_stats_path, "w") as f:
         json.dump(link_stats, f, indent=2, ensure_ascii=False)
-    print(f"  link-stats.json saved with {len(link_stats['links'])} links")
+    
+    print(f"  link-stats.json saved:")
+    print(f"    Total links: {total_links}")
+    print(f"    Links with data: {links_with_data}")
+    print(f"    Total unique users: {total_unique}")
+    print(f"    Total new users: {total_new_users}")
+    print(f"    Total d14 income: ${total_d14_income:.2f}")
+    
+    # 打印有数据的 link 详情
+    if links_with_data > 0:
+        print(f"\n  Links with data:")
+        for link_id, stats in link_stats["links"].items():
+            if stats["unique_users"] > 0 or stats["new_users"] > 0 or stats["d14_income"] > 0:
+                book_name = stats.get("book_name", "unknown")
+                print(f"    {link_id}:")
+                print(f"      Book: {book_name}")
+                print(f"      Unique: {stats['unique_users']}, New: {stats['new_users']}, D14: ${stats['d14_income']:.2f}")
 
 
 if __name__ == "__main__":
