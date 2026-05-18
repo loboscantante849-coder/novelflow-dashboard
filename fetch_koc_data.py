@@ -373,7 +373,21 @@ def fetch_bookstore_link_by_adid(adid, token):
     try:
         resp = requests.get(url, headers=headers, timeout=10)
         resp.raise_for_status()
-        return resp.json()
+        result = resp.json()
+        
+        # 从 data 字段中提取信息
+        data = result.get("data", {})
+        if not data:
+            return None
+        
+        # 返回包含关键字段的字典
+        return {
+            "id": data.get("id"),
+            "shortUrl": data.get("shortUrl"),
+            "linkName": data.get("linkName"),
+            "contentName": data.get("contentName"),
+            "channelNameId": data.get("channelNameId")
+        }
     except requests.exceptions.Timeout:
         print(f"      [bookstore] Timeout for adid {adid}")
         return None
