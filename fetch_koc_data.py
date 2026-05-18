@@ -969,13 +969,14 @@ def main():
 
 def generate_link_stats(putreport_by_adid, submissions, date_from, date_to):
     """
-    生成 link-stats.json 文件，按 linkId 索引统计数据
+    生成 link-stats.json 文件，按 adid 索引统计数据
     
     流程:
-    1. 读取 submissions.json 获取所有 completed 记录的 linkId 和 campaignId
-    2. 使用 putreport_by_adid 获取每个 adid 的真实数据
-    3. 生成按 linkId 索引的统计数据
-    4. 保存到 link-stats.json
+    1. 收集所有 adid
+    2. 对每个 adid 调用书城API获取 book 信息
+    3. 使用 putreport_by_adid 获取每个 adid 的真实数据
+    4. 生成按 adid 索引的统计数据（包含book_name）
+    5. 保存到 link-stats.json
     """
     submissions_path = os.path.join(REPO_DIR, "submissions.json")
     link_stats_path = os.path.join(REPO_DIR, "link-stats.json")
@@ -990,6 +991,25 @@ def generate_link_stats(putreport_by_adid, submissions, date_from, date_to):
                     existing_stats = existing_data["links"]
         except:
             pass
+    
+    # 获取token
+    token = get_putreport_token()
+    
+    # 构建 adid -> shortUrl 映射（从书城API）
+    print("\n  Fetching book info for each adid...")
+    adid_book_info = {}
+    all_adids = set()
+    for campaign_id, campaign_data in putreport_by_adid.items():
+        for adid in campaign_data.get("ad_data", {}).keys():
+            all_adids.add(adid)
+    
+    for i, adid in enumerate(all_adids):
+        print(f"    [{i+1}/{len(all_adids)}] Querying book info for {adid[:20]}...")
+        book_info = fetch_bookstore_link_by_adid(adid, token)
+        if book_info:
+            adid_book_info[adid] = book_info
+            print(f"      Book: {book_info.get('contentName', 'N/A')}")
+        time.sleep(0.2)  # 避免请求过快
     
     # 构建新的 link-stats
     now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -1025,6 +1045,11 @@ def generate_link_stats(putreport_by_adid, submissions, date_from, date_to):
             if d14_income == 0 and existing.get("d14_income", 0) > 0:
                 d14_income = existing["d14_income"]
             
+            # 获取该 link 的 book 信息
+            book_info = adid_book_info.get(adid, {})
+            book_name = book_info.get("contentName", existing.get("book_name", ""))
+            short_url = book_info.get("shortUrl", "")
+            
             # 获取该 link 对应的 submission 信息
             sub_info = None
             for sub in submissions:
@@ -1041,12 +1066,13 @@ def generate_link_stats(putreport_by_adid, submissions, date_from, date_to):
                 "new_users": max(0, new_users),
                 "d14_income": max(0, round(d14_income, 2)),
                 "campaign_id": campaign_id,
-                "source": "putreport_adid"
+                "source": "putreport_adid",
+                "book_name": book_name,
+                "short_url": short_url
             }
             
-            # 如果有 submission 信息，添加更多字段
+            # 如果有 submission 信息，覆盖/补充字段
             if sub_info:
-                link_stats["links"][adid]["book_name"] = sub_info.get("matchedBookName") or sub_info.get("bookName", "")
                 link_stats["links"][adid]["koc_username"] = sub_info.get("discordUsername", "")
                 link_stats["links"][adid]["status"] = sub_info.get("status", "")
             
