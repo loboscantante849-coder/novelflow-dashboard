@@ -815,6 +815,53 @@
         }
         .my-book-copy:hover { background: var(--primary-deep); }
 
+        /* Stats Overview Cards */
+        .stats-overview {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-sm);
+            padding: var(--sp-md) var(--sp-lg);
+            background: linear-gradient(135deg, #FF6B9D 0%, #C084FC 40%, #FFD700 100%);
+            margin: 0 calc(-1 * var(--sp-lg));
+            border-radius: 0;
+        }
+        .stats-overview-card { text-align: center; }
+        .stats-overview-icon { font-size: 16px; margin-bottom: 2px; }
+        .stats-overview-value { font-size: 20px; font-weight: 600; color: white; font-feature-settings: "tnum"; }
+        .stats-overview-label { font-size: 10px; color: rgba(255,255,255,0.7); }
+        .stats-overview-card.gold .stats-overview-value { color: #FFD700; }
+
+        /* Book Stats Row */
+        .my-book-stats {
+            display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;
+        }
+        .my-book-stat {
+            font-size: 10px; color: var(--ink-mute);
+            display: flex; align-items: center; gap: 2px;
+        }
+        .my-book-stat.income { color: var(--success); font-weight: 600; }
+        .my-book-stat.income.zero { color: var(--ink-mute); }
+
+        /* Stats Loading */
+        .stats-loading {
+            display: flex; align-items: center; justify-content: center;
+            padding: var(--sp-lg); color: var(--ink-mute);
+        }
+        .stats-loading-spinner {
+            width: 16px; height: 16px; border: 2px solid var(--hairline);
+            border-top-color: var(--primary); border-radius: 50%;
+            animation: spin 0.7s linear infinite; margin-right: var(--sp-sm);
+        }
+        .stats-refresh-btn {
+            padding: 4px 10px; background: var(--canvas); border: 1px solid var(--hairline);
+            border-radius: var(--r-pill); font-size: 11px; color: var(--ink-mute);
+            cursor: pointer; transition: all 0.15s;
+        }
+        .stats-refresh-btn:hover { border-color: var(--primary); color: var(--primary); }
+        .stats-refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .stats-coming-soon {
+            text-align: center; padding: var(--sp-lg); color: var(--ink-mute);
+            font-size: 12px;
+        }
+
         .logout-btn {
             display: none; width: calc(100% - 32px); margin: 0 auto var(--sp-md);
             padding: 10px 16px; background: transparent;
@@ -1333,6 +1380,26 @@
                 <button class="logout-btn" id="logoutBtn" onclick="handleLogout()">Logout</button>
             </div>
 
+            <!-- Stats Overview (Earnings/Users/Visits) -->
+            <div class="stats-overview" id="statsOverview" style="display: none;">
+                <div class="stats-overview-card gold">
+                    <div class="stats-overview-icon">&#128176;</div>
+                    <div class="stats-overview-value" id="totalIncome">$0.00</div>
+                    <div class="stats-overview-label">Total Earnings</div>
+                </div>
+                <div class="stats-overview-card">
+                    <div class="stats-overview-icon">&#128101;</div>
+                    <div class="stats-overview-value" id="totalUsers">0</div>
+                    <div class="stats-overview-label">Total Users</div>
+                </div>
+                <div class="stats-overview-card">
+                    <div class="stats-overview-icon">&#128065;</div>
+                    <div class="stats-overview-value" id="totalVisits">0</div>
+                    <div class="stats-overview-label">Total Visits</div>
+                </div>
+            </div>
+            <div id="statsLoadingArea"></div>
+
             <div class="stats-grid" id="statsGrid">
                 <div class="stat-card"><div class="stat-num" id="statLinks">0</div><div class="stat-label">Links</div></div>
                 <div class="stat-card"><div class="stat-num gold" id="statPoints">0</div><div class="stat-label">Points</div></div>
@@ -1355,9 +1422,12 @@
             </div>
 
             <div class="my-books-section">
-                <div class="section-header" style="padding: 0 0 var(--sp-sm);">
-                    <div class="section-title">My Book List</div>
-                    <div class="section-subtitle">Books you're currently promoting</div>
+                <div class="section-header" style="padding: 0 0 var(--sp-sm); display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <div class="section-title">My Book List</div>
+                        <div class="section-subtitle">Books you're currently promoting</div>
+                    </div>
+                    <button class="stats-refresh-btn" id="refreshStatsBtn" onclick="refreshUserStats()">&#8635; Refresh</button>
                 </div>
                 <div id="myBooksList">
                     <div class="empty-state" style="padding: 30px 20px; background: var(--canvas-soft); border-radius: var(--r-lg);">
@@ -2292,7 +2362,13 @@
 
         function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
-        // ========== My Books ==========
+        // ========== My Books & User Stats ==========
+
+        // User stats state
+        const UserStats = {
+            data: null,
+            loading: false
+        };
 
         function updateProfileMyBooksCount() {
             const countEl = document.getElementById('profileMyBooksCount');
@@ -2305,9 +2381,111 @@
             const saved = localStorage.getItem('novelflow_mybooks');
             AppState.myBooks = saved ? JSON.parse(saved) : [];
             renderMyBooks();
+            // Load user stats if logged in
+            if (AppState.isLoggedIn && AppState.user && AppState.user.username) {
+                loadUserStats(AppState.user.username);
+            }
         }
 
         function saveMyBooks() { localStorage.setItem('novelflow_mybooks', JSON.stringify(AppState.myBooks)); }
+
+        // Format number or return dash
+        function fmtNum(n, prefix = '') {
+            if (n === 0 || n === null || n === undefined) return '—';
+            return prefix + n.toLocaleString();
+        }
+
+        // Format income
+        function fmtIncome(n) {
+            if (n === 0 || n === null || n === undefined) return { text: '—', isZero: true };
+            return { text: '$' + n.toFixed(2), isZero: false };
+        }
+
+        // Fetch and display user stats
+        async function loadUserStats(username) {
+            if (UserStats.loading) return;
+            UserStats.loading = true;
+            
+            // Show loading
+            const loadingArea = document.getElementById('statsLoadingArea');
+            if (loadingArea) {
+                loadingArea.innerHTML = `
+                    <div class="stats-loading">
+                        <div class="stats-loading-spinner"></div>
+                        <span>Loading stats...</span>
+                    </div>
+                `;
+            }
+
+            try {
+                const response = await fetch(`/api/my-stats?username=${encodeURIComponent(username)}`);
+                if (!response.ok) throw new Error('Failed to fetch stats');
+                
+                const data = await response.json();
+                UserStats.data = data;
+                
+                // Update overview
+                updateStatsOverview(data);
+                
+                // Re-render books with stats
+                renderMyBooks();
+                
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                UserStats.data = null;
+                // Show coming soon message
+                const loadingArea = document.getElementById('statsLoadingArea');
+                if (loadingArea) {
+                    loadingArea.innerHTML = `
+                        <div class="stats-coming-soon">Stats coming soon...</div>
+                    `;
+                }
+            } finally {
+                UserStats.loading = false;
+            }
+        }
+
+        function updateStatsOverview(data) {
+            const overview = document.getElementById('statsOverview');
+            const loadingArea = document.getElementById('statsLoadingArea');
+            
+            if (!data || data.total_income === 0) {
+                if (overview) overview.style.display = 'none';
+                if (loadingArea) loadingArea.innerHTML = `
+                    <div class="stats-coming-soon">Stats coming soon... Keep promoting books!</div>
+                `;
+                return;
+            }
+            
+            // Show overview
+            if (overview) overview.style.display = 'grid';
+            if (loadingArea) loadingArea.innerHTML = '';
+            
+            // Update values
+            const incomeEl = document.getElementById('totalIncome');
+            const usersEl = document.getElementById('totalUsers');
+            const visitsEl = document.getElementById('totalVisits');
+            
+            if (incomeEl) incomeEl.textContent = '$' + (data.total_income || 0).toFixed(2);
+            if (usersEl) usersEl.textContent = fmtNum(data.total_unique || data.total_new || 0);
+            if (visitsEl) visitsEl.textContent = fmtNum(data.total_visits || 0);
+        }
+
+        function refreshUserStats() {
+            const btn = document.getElementById('refreshStatsBtn');
+            if (btn) btn.disabled = true;
+            
+            if (AppState.isLoggedIn && AppState.user && AppState.user.username) {
+                UserStats.data = null;  // Clear cache
+                loadUserStats(AppState.user.username);
+            } else {
+                showToast('Please login first', 'error');
+            }
+            
+            setTimeout(() => {
+                if (btn) btn.disabled = false;
+            }, 2000);
+        }
 
         function renderMyBooks() {
             const container = document.getElementById('myBooksList');
@@ -2321,16 +2499,43 @@
                 return;
             }
 
-            container.innerHTML = AppState.myBooks.map(book => `
-                <div class="my-book-item">
-                    <img class="my-book-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/36x48/f6f9fc/64748d?text=N'">
-                    <div class="my-book-info">
-                        <div class="my-book-title">${book.title}</div>
-                        <div class="my-book-code">CODE: ${book.code || 'N/A'}</div>
+            // Build stats map from UserStats.data
+            const statsMap = {};
+            if (UserStats.data && UserStats.data.books) {
+                UserStats.data.books.forEach(book => {
+                    // Match by link or bookName
+                    const key = book.link || book.bookName;
+                    if (key) statsMap[key] = book;
+                });
+            }
+
+            container.innerHTML = AppState.myBooks.map(book => {
+                const key = book.link || book.title;
+                const stats = statsMap[key] || {};
+                
+                const visits = stats.visits || 0;
+                const unique = stats.unique_users || 0;
+                const newUsers = stats.new_users || 0;
+                const income = stats.d14_income || 0;
+                const incomeFmt = fmtIncome(income);
+                
+                return `
+                    <div class="my-book-item">
+                        <img class="my-book-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/36x48/f6f9fc/64748d?text=N'">
+                        <div class="my-book-info">
+                            <div class="my-book-title">${book.title}</div>
+                            <div class="my-book-code">CODE: ${book.code || 'N/A'}</div>
+                            <div class="my-book-stats">
+                                <span class="my-book-stat">&#128065; ${fmtNum(visits)}</span>
+                                <span class="my-book-stat">&#128101; ${fmtNum(unique)}</span>
+                                <span class="my-book-stat">&#127942; ${fmtNum(newUsers)}</span>
+                                <span class="my-book-stat income ${incomeFmt.isZero ? 'zero' : ''}">${incomeFmt.text}</span>
+                            </div>
+                        </div>
+                        <button class="my-book-copy" onclick="copyBookLink('${(book.link || '').replace(/'/g, "\\'")}')">Copy</button>
                     </div>
-                    <button class="my-book-copy" onclick="copyBookLink('${(book.link || '').replace(/'/g, "\\'")}')">Copy</button>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         function copyBookLink(link) {

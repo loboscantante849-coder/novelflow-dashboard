@@ -128,8 +128,8 @@ module.exports = async (req, res) => {
 
     console.log(`Created code: ${finalCode} for ${bookId}`);
 
-    // Step 5: Create short link
-    const shortUrl = await createLink(bookId, bookTitle, finalCode, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode);
+    // Step 5: Create short link (returns {shortUrl, linkId})
+    const linkResult = await createLink(bookId, bookTitle, finalCode, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode);
 
     // Step 6: Update submission to completed
     const fields = {
@@ -138,21 +138,31 @@ module.exports = async (req, res) => {
       completedAt: new Date().toISOString()
     };
 
-    if (shortUrl) {
-      fields.link = `https://${shortUrl}`;
-      fields.shortUrl = shortUrl;
+    if (linkResult) {
+      if (linkResult.shortUrl) {
+        fields.link = `https://${linkResult.shortUrl}`;
+        fields.shortUrl = linkResult.shortUrl;
+      }
+      // Save linkId and campaign_id for stats tracking
+      if (linkResult.linkId) {
+        fields.linkId = linkResult.linkId;
+      }
+      if (linkResult.campaignId) {
+        fields.campaignId = linkResult.campaignId;
+      }
     }
 
     await updateSubmission(submissionId, fields, apiBase, GITHUB_TOKEN, newSha);
 
-    console.log(`Completed: ${submissionId} - code=${finalCode}, link=${shortUrl}`);
+    console.log(`Completed: ${submissionId} - code=${finalCode}, link=${linkResult?.shortUrl || 'none'}, linkId=${linkResult?.linkId || 'none'}`);
 
     return res.status(200).json({
       success: true,
       submissionId,
       status: 'completed',
       code: finalCode,
-      link: shortUrl ? `https://${shortUrl}` : null,
+      link: linkResult?.shortUrl ? `https://${linkResult.shortUrl}` : null,
+      linkId: linkResult?.linkId || null,
       matchedBookName: bookTitle || bookName,
       message: 'Link and code created successfully!'
     });
@@ -208,8 +218,14 @@ async function createCode(bookId, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE
 
 // ============ Create Short Link ============
 
+// NovelFlow campaign ID for social media links
+const NOVELFLOW_CAMPAIGN_ID = '699ef7b8194eb218db3c2270';
+
 async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode) {
   const linkName = `${code}${bookTitle}-书籍详情页-FB`;
+
+  let linkId = null;
+  let shortUrl = null;
 
   const linkResp = await fetch(`${BOOKSTORE_API_BASE}/SocialMediaLinkConfig`, {
     method: 'POST',
@@ -250,8 +266,9 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
   if (linkResp.ok) {
     const linkData = await linkResp.json();
     if (linkData.code === 200 && linkData.data) {
-      const linkId = linkData.data;
-      if (typeof linkId === 'string' && linkId.length > 10) {
+      const responseLinkId = linkData.data;
+      if (typeof responseLinkId === 'string' && responseLinkId.length > 10) {
+        linkId = responseLinkId;
         try {
           const detailResp = await fetch(`${BOOKSTORE_API_BASE}/SocialMediaLinkConfig/${linkId}`, {
             headers: { 'Authorization': `Bearer ${BOOKSTORE_TOKEN}`, 'Content-Type': 'application/json' }
@@ -259,14 +276,16 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
           if (detailResp.ok) {
             const detailData = await detailResp.json();
             if (detailData.code === 200 && detailData.data && detailData.data.shortUrl) {
-              return detailData.data.shortUrl;
+              shortUrl = detailData.data.shortUrl;
+              return { shortUrl, linkId, campaignId: NOVELFLOW_CAMPAIGN_ID };
             }
           }
         } catch (e) { console.error('Failed to fetch link details:', e.message); }
-        return null;
+        // Return with linkId even if shortUrl fetch failed
+        return { shortUrl: null, linkId, campaignId: NOVELFLOW_CAMPAIGN_ID };
       }
       if (typeof linkData.data === 'object' && linkData.data.shortUrl) {
-        return linkData.data.shortUrl;
+        return { shortUrl: linkData.data.shortUrl, linkId: null, campaignId: NOVELFLOW_CAMPAIGN_ID };
       }
     }
   }

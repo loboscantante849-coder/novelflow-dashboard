@@ -647,10 +647,19 @@ def main():
     print("\n--- Updating FALLBACK_DATA ---")
     update_fallback_data(data)
 
+    # ================================================
+    # STEP 4: 生成 link-stats.json (按 linkId 索引的统计数据)
+    # ================================================
+    print("\n--- Generating link-stats.json ---")
+    try:
+        generate_link_stats(putreport_results, date_from, date_to)
+    except Exception as e:
+        print(f"  WARN: Failed to generate link-stats.json: {e}")
+    
     # Git push
     print("\n--- Git Push ---")
     import subprocess
-    subprocess.run(["git", "add", "data.json", "dashboard.html", "fetch_koc_data.py", "campaign_config.json"], 
+    subprocess.run(["git", "add", "data.json", "dashboard.html", "fetch_koc_data.py", "campaign_config.json", "link-stats.json"], 
                    cwd=REPO_DIR, capture_output=True)
     result = subprocess.run(["git", "commit", "-m", 
                            f"Update KOC data with Putreport API (Unique/New Users) {data['last_updated']}"], 
@@ -667,6 +676,141 @@ def main():
         else:
             print(f"Push failed: {result.stderr}")
     print("\n=== Done ===")
+
+
+def generate_link_stats(putreport_results, date_from, date_to):
+    """
+    生成 link-stats.json 文件，按 linkId 索引统计数据
+    
+    流程:
+    1. 读取 submissions.json 获取所有 completed 记录的 linkId 和 campaignId
+    2. 对每个 campaignId，从 putreport_results 获取数据
+    3. 按 linkId 数量平均分配 campaign 级别的数据
+    4. 保存到 link-stats.json
+    """
+    submissions_path = os.path.join(REPO_DIR, "submissions.json")
+    link_stats_path = os.path.join(REPO_DIR, "link-stats.json")
+    
+    # 读取 submissions.json
+    with open(submissions_path, "r") as f:
+        submissions = json.load(f)
+    
+    # 过滤 completed 记录，收集 linkId -> campaignId 映射
+    link_to_campaign = {}  # linkId -> campaignId
+    campaign_to_links = {}  # campaignId -> [linkId, ...]
+    link_to_submission = {}  # linkId -> submission record (用于获取其他信息)
+    
+    for sub in submissions:
+        if sub.get("status") != "completed":
+            continue
+        link_id = sub.get("linkId")
+        campaign_id = sub.get("campaignId")
+        
+        if not link_id:
+            continue
+        
+        # 如果没有 campaignId，使用默认的 NovelFlow campaign
+        if not campaign_id:
+            campaign_id = "699ef7b8194eb218db3c2270"  # NovelFlow default campaign
+        
+        link_to_campaign[link_id] = campaign_id
+        
+        if campaign_id not in campaign_to_links:
+            campaign_to_links[campaign_id] = []
+        campaign_to_links[campaign_id].append(link_id)
+        
+        link_to_submission[link_id] = sub
+    
+    print(f"  Found {len(link_to_campaign)} links across {len(campaign_to_links)} campaigns")
+    
+    # 获取已有 link-stats.json 的数据（用于保护旧值）
+    existing_stats = {}
+    if os.path.exists(link_stats_path):
+        try:
+            with open(link_stats_path, "r") as f:
+                existing_data = json.load(f)
+                if "links" in existing_data:
+                    existing_stats = existing_data["links"]
+        except:
+            pass
+    
+    # 构建新的 link-stats
+    now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    link_stats = {
+        "last_updated": now_utc,
+        "links": {}
+    }
+    
+    # 对每个 campaign，分配数据到其 linkId
+    for campaign_id, link_ids in campaign_to_links.items():
+        # 获取该 campaign 的 putreport 数据
+        campaign_data = putreport_results.get(campaign_id)
+        
+        if campaign_data:
+            # 使用 putreport 的数据
+            total_unique = campaign_data.get("total_h5landingpageclickusernum", 0)
+            total_new = campaign_data.get("total_newusernum", 0)
+            total_income = campaign_data.get("total_d14income", 0.0)
+            source = "putreport"
+        else:
+            # 使用旧数据或默认值
+            total_unique = 0
+            total_new = 0
+            total_income = 0.0
+            source = "no_data"
+        
+        # 平均分配到每个 linkId
+        num_links = len(link_ids)
+        if num_links > 0:
+            avg_unique = total_unique / num_links
+            avg_new = total_new / num_links
+            avg_income = total_income / num_links
+        
+        # 分配数据到每个 linkId
+        for i, link_id in enumerate(link_ids):
+            existing = existing_stats.get(link_id, {})
+            
+            # 如果 putreport 返回0但旧值>0，保留旧值
+            final_unique = total_unique
+            final_new = total_new
+            final_income = total_income
+            
+            if total_unique == 0 and existing.get("unique_users", 0) > 0:
+                final_unique = existing["unique_users"]
+            if total_new == 0 and existing.get("new_users", 0) > 0:
+                final_new = existing["new_users"]
+            if total_income == 0 and existing.get("d14_income", 0) > 0:
+                final_income = existing["d14_income"]
+            
+            # 计算该 link 的份额
+            link_unique = final_unique / num_links if num_links > 0 else 0
+            link_new = final_new / num_links if num_links > 0 else 0
+            link_income = final_income / num_links if num_links > 0 else 0
+            
+            # 使用 visits 作为加权因子重新分配（如果有数据）
+            existing_visits = existing.get("visits", 0)
+            if existing_visits > 0:
+                # 按 visits 比例分配
+                total_visits_in_campaign = existing_visits * num_links  # 估算
+                if total_visits_in_campaign > 0:
+                    weight = existing_visits / total_visits_in_campaign
+                    link_unique = max(1, round(final_unique * weight))
+                    link_new = max(1, round(final_new * weight)) if final_new > 0 else 0
+                    link_income = round(final_income * weight, 2)
+            
+            link_stats["links"][link_id] = {
+                "visits": max(0, int(existing_visits)),  # 保留旧 visits
+                "unique_users": max(0, round(link_unique)),
+                "new_users": max(0, round(link_new)),
+                "d14_income": max(0, round(link_income, 2)),
+                "campaign_id": campaign_id,
+                "source": source
+            }
+    
+    # 保存 link-stats.json
+    with open(link_stats_path, "w") as f:
+        json.dump(link_stats, f, indent=2, ensure_ascii=False)
+    print(f"  link-stats.json saved with {len(link_stats['links'])} links")
 
 
 if __name__ == "__main__":
