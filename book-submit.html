@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+<title>NovelFlow KOC — Submit Book Recommendation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #050714; color: #c8cdd5; line-height: 1.7; font-size: 15px; min-height: 100vh; }
+a { color: #7c6cff; text-decoration: none; transition: color .2s; }
+a:hover { color: #a89cff; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0a0d1f; }
+::-webkit-scrollbar-thumb { background: #2a2d45; border-radius: 3px; }
+
+/* Language Toggle */
+.lang-toggle { position: fixed; top: 16px; right: 16px; z-index: 100; }
+.lang-toggle button { padding: 6px 14px; border-radius: 8px; background: rgba(124, 108, 255, 0.1); border: 1px solid rgba(124, 108, 255, 0.2); color: #a89cff; font-size: 12px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; transition: all .2s; letter-spacing: 0.3px; }
+.lang-toggle button:hover { background: rgba(124, 108, 255, 0.2); border-color: rgba(124, 108, 255, 0.4); color: #c8b8ff; }
+.lang-toggle button.es { background: rgba(0, 212, 170, 0.1); border-color: rgba(0, 212, 170, 0.25); color: #00d4aa; }
+.lang-toggle button.es:hover { background: rgba(0, 212, 170, 0.18); border-color: rgba(0, 212, 170, 0.4); }
+
+.container { max-width: 640px; margin: 0 auto; padding: 48px 24px 80px; }
+.hero { text-align: center; margin-bottom: 40px; }
+.hero-badge { display: inline-block; padding: 6px 16px; border-radius: 20px; background: rgba(124, 108, 255, 0.12); border: 1px solid rgba(124, 108, 255, 0.25); color: #a89cff; font-size: 12px; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 20px; }
+.hero h1 { font-size: 36px; font-weight: 800; line-height: 1.15; margin-bottom: 14px; letter-spacing: -0.5px; }
+.hero h1 .gradient-text { background: linear-gradient(135deg, #7c6cff 0%, #00d4ff 50%, #7c6cff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; background-size: 200% auto; animation: shimmer 3s ease-in-out infinite; }
+@keyframes shimmer { 0%, 100% { background-position: 0% center; } 50% { background-position: 200% center; } }
+.hero p { font-size: 16px; color: #8a8faa; max-width: 480px; margin: 0 auto; line-height: 1.7; }
+.card { background: linear-gradient(135deg, rgba(14, 17, 38, 0.9), rgba(10, 13, 31, 0.95)); border: 1px solid rgba(124, 108, 255, 0.08); border-radius: 20px; padding: 36px; margin-bottom: 24px; }
+.form-group { margin-bottom: 24px; }
+.form-group label { display: block; font-size: 13px; font-weight: 600; color: #a0a4c0; margin-bottom: 8px; letter-spacing: 0.3px; }
+.form-group label .required { color: #ff6b6b; margin-left: 3px; }
+.form-input, .form-select, .form-textarea { width: 100%; padding: 14px 18px; font-size: 16px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(124, 108, 255, 0.15); border-radius: 12px; color: #e0e3ec; font-size: 15px; font-family: 'Inter', sans-serif; transition: border-color .2s, box-shadow .2s; }
+.form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: #7c6cff; box-shadow: 0 0 0 3px rgba(124, 108, 255, 0.15); }
+.form-input::placeholder, .form-textarea::placeholder { color: #5a5f7a; }
+.form-select { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%237a7f9a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; }
+.form-select option { background: #0a0d1f; color: #e0e3ec; }
+.form-textarea { resize: vertical; min-height: 100px; }
+.btn-submit { width: 100%; padding: 16px 36px; min-height: 52px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; border: none; border-radius: 14px; background: linear-gradient(135deg, #7c6cff, #5a4ce0); color: white; font-size: 16px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; transition: transform .2s, box-shadow .2s, opacity .2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.btn-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(124, 108, 255, 0.4); }
+.btn-submit:disabled { opacity: 0.7; cursor: not-allowed; }
+.btn-submit .spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; display: none; }
+.btn-submit.loading .spinner { display: block; }
+.btn-submit.loading .btn-text { display: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.processing-status { display: none; text-align: center; padding: 40px 20px; }
+.processing-status.show { display: block; }
+.processing-icon { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, rgba(124, 108, 255, 0.2), rgba(0, 212, 255, 0.15)); display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-size: 36px; animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; } }
+.processing-status h2 { font-size: 24px; font-weight: 700; color: #e0e3ec; margin-bottom: 12px; }
+.processing-status p { font-size: 15px; color: #8a8faa; margin-bottom: 8px; }
+.processing-steps { background: rgba(124, 108, 255, 0.08); border: 1px solid rgba(124, 108, 255, 0.15); border-radius: 12px; padding: 16px 20px; margin-top: 24px; text-align: left; }
+.processing-step { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 14px; color: #6a6f8a; }
+.processing-step.done { color: #00d4aa; }
+.processing-step.failed { color: #ff6b6b; }
+.processing-step .step-icon { width: 20px; height: 20px; border-radius: 50%; border: 2px solid currentColor; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+.processing-step.done .step-icon { background: #00d4aa; border-color: #00d4aa; color: white; }
+.processing-step.failed .step-icon { background: #ff6b6b; border-color: #ff6b6b; color: white; }
+.processing-step.current { color: #a89cff; }
+.processing-step.current .step-icon { border-color: #a89cff; animation: spin 1s linear infinite; }
+.success-message { display: none; text-align: center; padding: 40px 20px; }
+.success-message.show { display: block; }
+.success-icon { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, rgba(0, 212, 130, 0.2), rgba(0, 212, 255, 0.15)); display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-size: 36px; }
+.success-message h2 { font-size: 24px; font-weight: 700; color: #e0e3ec; margin-bottom: 12px; }
+.success-message p { font-size: 15px; color: #8a8faa; margin-bottom: 8px; }
+.book-link { background: rgba(0, 212, 130, 0.1); border: 1px solid rgba(0, 212, 130, 0.25); border-radius: 12px; padding: 16px 20px; margin: 20px 0; word-break: break-all; }
+.book-link a { color: #00d4aa; font-weight: 500; }
+.success-message .next-step { background: rgba(124, 108, 255, 0.08); border: 1px solid rgba(124, 108, 255, 0.15); border-radius: 12px; padding: 16px 20px; margin-top: 24px; text-align: left; }
+.success-message .next-step p { font-size: 14px; color: #a0a4c0; margin: 0; line-height: 1.6; }
+.error-message { display: none; background: rgba(255, 100, 100, 0.1); border: 1px solid rgba(255, 100, 100, 0.25); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; color: #ff8888; font-size: 14px; }
+.error-message.show { display: block; }
+.info-box { background: rgba(0, 212, 255, 0.05); border: 1px solid rgba(0, 212, 255, 0.12); border-radius: 14px; padding: 18px 22px; margin-bottom: 28px; }
+.info-box p { font-size: 13px; color: #8a8faa; line-height: 1.6; }
+.info-box strong { color: #00d4ff; }
+.nav-links { text-align: center; margin-top: 32px; display: flex; gap: 24px; justify-content: center; }
+.nav-links a { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 10px; background: rgba(124, 108, 255, 0.08); border: 1px solid rgba(124, 108, 255, 0.15); font-size: 13px; font-weight: 500; transition: all .2s; }
+.nav-links a:hover { background: rgba(124, 108, 255, 0.15); border-color: rgba(124, 108, 255, 0.3); color: #a89cff; }
+.promo-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.promo-tag { padding: 4px 10px; border-radius: 6px; background: rgba(124, 108, 255, 0.08); border: 1px solid rgba(124, 108, 255, 0.12); color: #8a8faa; font-size: 11px; font-weight: 500; }
+.form-container { transition: opacity .3s; }
+.form-container.hidden { display: none; }
+
+/* Candidate Selection Styles */
+.candidate-section { display: none; margin-top: 24px; }
+.candidate-section.show { display: block; }
+.candidate-section h3 { font-size: 18px; font-weight: 600; color: #e0e3ec; margin-bottom: 8px; text-align: center; }
+.candidate-section > p { font-size: 14px; color: #8a8faa; text-align: center; margin-bottom: 20px; }
+.candidate-list { display: flex; flex-direction: column; gap: 12px; }
+.candidate-card { background: rgba(0, 0, 0, 0.25); border: 2px solid rgba(124, 108, 255, 0.15); border-radius: 14px; padding: 16px; cursor: pointer; transition: all .2s; display: flex; gap: 14px; align-items: center; }
+.candidate-card:hover { border-color: rgba(124, 108, 255, 0.4); background: rgba(124, 108, 255, 0.08); }
+.candidate-card.selected { border-color: #7c6cff; background: rgba(124, 108, 255, 0.15); }
+.candidate-cover { width: 50px; height: 70px; border-radius: 6px; background: rgba(124, 108, 255, 0.15); object-fit: cover; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.candidate-info { flex: 1; min-width: 0; }
+.candidate-title { font-size: 15px; font-weight: 600; color: #e0e3ec; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.candidate-author { font-size: 13px; color: #8a8faa; margin-bottom: 6px; }
+.candidate-meta { display: flex; align-items: center; gap: 10px; }
+.candidate-score { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+.candidate-score.high { background: rgba(0, 212, 130, 0.15); color: #00d4aa; }
+.candidate-score.medium { background: rgba(255, 193, 7, 0.15); color: #ffc107; }
+.candidate-score.low { background: rgba(255, 107, 107, 0.15); color: #ff6b6b; }
+.candidate-check { width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(124, 108, 255, 0.3); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; color: transparent; transition: all .2s; }
+.candidate-card.selected .candidate-check { background: #7c6cff; border-color: #7c6cff; color: white; }
+.btn-confirm { width: 100%; padding: 16px; margin-top: 20px; background: linear-gradient(135deg, #00d4aa, #00b894); }
+.btn-confirm:hover:not(:disabled) { box-shadow: 0 8px 30px rgba(0, 212, 170, 0.4); }
+.btn-recommend-another { width: 100%; padding: 14px 24px; margin-top: 16px; background: linear-gradient(135deg, #7c6cff, #5a4ce0); color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; transition: transform .2s, box-shadow .2s; }
+.btn-recommend-another:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(124, 108, 255, 0.4); }
+
+/* ===========================================
+   Mobile Responsive (max-width: 480px)
+   =========================================== */
+@media (max-width: 480px) {
+  .container { padding: 70px 16px 60px; }
+  
+  /* Language Toggle - ensure it doesn't cover content */
+  .lang-toggle { top: 12px; right: 12px; }
+  .lang-toggle button { padding: 8px 12px; font-size: 11px; }
+  
+  /* Hero Section */
+  .hero { margin-bottom: 24px; }
+  .hero h1 { font-size: 26px; margin-bottom: 10px; }
+  .hero p { font-size: 14px; line-height: 1.6; }
+  .hero-badge { font-size: 11px; padding: 4px 12px; margin-bottom: 16px; }
+  
+  /* Card & Form */
+  .card { padding: 20px 16px; border-radius: 16px; }
+  .form-group { margin-bottom: 18px; }
+  .form-group label { font-size: 12px; }
+  .form-input, .form-select, .form-textarea { 
+    padding: 12px 14px; 
+    font-size: 16px; /* Prevent iOS zoom */
+    min-height: 48px;
+  }
+  
+  /* Promotion method tags */
+  .promo-tags { flex-wrap: wrap; gap: 8px; }
+  .promo-tag { padding: 8px 12px; font-size: 12px; min-height: 36px; }
+  
+  /* Buttons */
+  .btn-submit { min-height: 48px; font-size: 15px; padding: 14px 24px; }
+  .btn-confirm { min-height: 48px; }
+  .btn-recommend-another { min-height: 48px; font-size: 14px; }
+  
+  /* Success Page - link/code area */
+  .book-link { padding: 14px 16px; font-size: 13px; }
+  .book-link a { word-break: break-all; font-size: 13px; }
+  .success-message h2 { font-size: 20px; }
+  .success-message .next-step { padding: 14px 16px; }
+  .success-message .next-step p { font-size: 13px; line-height: 1.5; }
+  
+  /* Success Page - action buttons row */
+  .success-actions { flex-direction: column; gap: 12px; }
+  .success-actions .btn-secondary { min-height: 48px; }
+  
+  /* Candidate Cards - single column on mobile */
+  .candidate-list { grid-template-columns: 1fr; gap: 12px; }
+  .candidate-card { padding: 14px; }
+  .candidate-cover { width: 50px; height: 70px; font-size: 20px; }
+  .candidate-title { font-size: 14px; }
+  .candidate-author { font-size: 12px; }
+  .candidate-score { font-size: 10px; padding: 2px 6px; }
+  .candidate-check { width: 20px; height: 20px; font-size: 12px; }
+  
+  /* Processing Status */
+  .processing-status { padding: 24px 16px; }
+  .processing-icon { width: 56px; height: 56px; font-size: 28px; }
+  .processing-status h2 { font-size: 20px; }
+  .processing-steps { padding: 12px 14px; }
+  .processing-step { font-size: 13px; }
+  
+  /* Navigation buttons at bottom */
+  .bottom-nav { padding: 12px 16px; gap: 12px; }
+  .nav-link { padding: 12px 16px; font-size: 13px; min-height: 44px; }
+  
+  /* Error message */
+  .error-message { padding: 12px 16px; font-size: 13px; }
+  
+  /* Info box */
+  .info-box { padding: 14px 16px; font-size: 13px; }
+}
+</style>
+</head>
+<body>
+<div class="lang-toggle">
+  <button id="langToggle" onclick="toggleLanguage()">🌐 English ▾</button>
+</div>
+<div class="container">
+  <div class="hero">
+    <div class="hero-badge" data-i18n="hero-badge">📚 KOC Dashboard</div>
+    <h1 data-i18n="hero-title">Submit Your <span class="gradient-text">Book Recommendation</span></h1>
+    <p data-i18n="hero-subtitle">Help fellow readers discover amazing stories. Share a book you love and get a unique referral link!</p>
+  </div>
+  
+  <div class="info-box">
+    <p data-i18n="info-box">🎯 <strong>How it works:</strong> Enter your Discord username, provide the book name, and we'll create a personalized referral link for you. Share it in your Discord group to earn rewards!</p>
+  </div>
+  
+  <div id="errorMessage" class="error-message"></div>
+  
+  <!-- Form Container -->
+  <div class="card form-container" id="formContainer">
+    <form id="bookForm">
+      <div class="form-group">
+        <label data-i18n="label-discord">Discord Username <span class="required">*</span></label>
+        <input type="text" id="discordUsername" class="form-input" data-i18n-placeholder="placeholder-discord" placeholder="yourname#1234" maxlength="50">
+      </div>
+      
+      <div class="form-group">
+        <label data-i18n="label-book">Book Name <span class="required">*</span></label>
+        <input type="text" id="bookName" class="form-input" data-i18n-placeholder="placeholder-book" placeholder="Enter the book title..." required>
+      </div>
+      
+      <div class="form-group">
+        <label data-i18n="label-promo">Promotion Method</label>
+        <select id="promotionMethod" class="form-select">
+          <option value="All Channels" data-i18n-opt="opt-all">All Channels</option>
+          <option value="Facebook Groups" data-i18n-opt="opt-fb-groups">Facebook Groups</option>
+          <option value="Facebook Pages" data-i18n-opt="opt-fb-pages">Facebook Pages</option>
+          <option value="Discord" data-i18n-opt="opt-discord">Discord</option>
+          <option value="TikTok" data-i18n-opt="opt-tiktok">TikTok</option>
+          <option value="Reels" data-i18n-opt="opt-reels">Reels (Instagram/Facebook)</option>
+          <option value="Other" data-i18n-opt="opt-other">Other</option>
+        </select>
+        <div class="promo-tags">
+          <span class="promo-tag" data-i18n="tag-all">All Channels</span>
+          <span class="promo-tag" data-i18n="tag-fb-groups">Facebook Groups</span>
+          <span class="promo-tag" data-i18n="tag-fb-pages">Facebook Pages</span>
+          <span class="promo-tag" data-i18n="tag-discord">Discord</span>
+          <span class="promo-tag" data-i18n="tag-tiktok">TikTok</span>
+          <span class="promo-tag" data-i18n="tag-reels">Reels</span>
+        </div>
+      </div>
+      
+      <button type="submit" id="submitBtn" class="btn-submit">
+        <span class="btn-text" data-i18n="btn-submit">🔍 Submit Book Recommendation</span>
+        <span class="spinner"></span>
+      </button>
+    </form>
+  </div>
+  
+  <!-- Candidate Selection Section -->
+  <div class="card candidate-section" id="candidateSection">
+    <h3 data-i18n="cand-title">Select Your Book</h3>
+    <p data-i18n="cand-subtitle">We found some matching books. Please select the correct one:</p>
+    <div class="candidate-list" id="candidateList"></div>
+    <button type="button" id="confirmBtn" class="btn-submit btn-confirm" disabled>
+      <span class="btn-text" data-i18n="btn-confirm">✓ Confirm & Create Link</span>
+      <span class="spinner"></span>
+    </button>
+    <div class="no-candidates" id="noCandidatesSection" style="display: none;">
+      <p data-i18n="no-cand" style="text-align: center; color: #8a8faa; margin: 20px 0;">No matching books found. Please try a different book name.</p>
+    </div>
+    <button type="button" id="backBtn" class="btn-recommend-another" data-i18n="btn-back" style="background: rgba(124, 108, 255, 0.15);">← Back to Form</button>
+  </div>
+  
+  <!-- Processing Status -->
+  <div class="processing-status" id="processingStatus">
+    <div class="processing-icon">⚡</div>
+    <h2 data-i18n="proc-title">Creating Your Link...</h2>
+    <p data-i18n="proc-subtitle">Please wait while we set everything up.</p>
+    <div class="processing-steps">
+      <div class="processing-step" id="stepSave"><div class="step-icon"></div> <span data-i18n="step-save">Saving submission</span></div>
+      <div class="processing-step" id="stepSelect"><div class="step-icon"></div> <span data-i18n="step-select">Verifying book selection</span></div>
+      <div class="processing-step" id="stepCode"><div class="step-icon"></div> <span data-i18n="step-code">Creating search code</span></div>
+      <div class="processing-step" id="stepLink"><div class="step-icon"></div> <span data-i18n="step-link">Generating referral link</span></div>
+    </div>
+  </div>
+  
+  <!-- Success Message -->
+  <div class="success-message" id="successMessage">
+    <div class="success-icon" id="successIcon">✅</div>
+    <h2 id="successTitle" data-i18n="success-title">Link Created!</h2>
+    <p id="submittedBook">📚 "Your Book"</p>
+    
+    <div class="book-link" id="linkContainer" style="display: none;">
+      <p data-i18n="link-label" style="font-size: 12px; color: #8a8faa; margin-bottom: 6px;">Your Referral Link:</p>
+      <a href="#" id="linkValue" onclick="copyLink(); return false;"></a>
+    </div>
+    
+    <div class="book-link" id="codeContainer" style="display: none;">
+      <p data-i18n="code-label" style="font-size: 12px; color: #8a8faa; margin-bottom: 6px;">Search Code:</p>
+      <span id="codeValue" style="color: #00d4aa; font-weight: 600; cursor: pointer;" onclick="copyCode()"></span>
+    </div>
+    
+    <div class="book-link" id="promoContainer" style="display: none;">
+      <p data-i18n="promo-label" style="font-size: 12px; color: #8a8faa; margin-bottom: 6px;">Promo Copy:</p>
+      <span id="promoValue" style="color: #e0e3ec; white-space: pre-wrap;"></span>
+    </div>
+    
+    <div class="next-step" id="nextStep">
+      <p data-i18n="next-step-p1">📌 <strong>All done!</strong></p>
+      <p data-i18n="next-step-p2">Your referral link, code and promo copy are ready! Click any of them to copy.</p>
+    </div>
+    
+    <button type="button" id="recommendAnotherBtn" class="btn-recommend-another" onclick="resetToForm()" data-i18n="btn-another">📚 Recommend Another Book</button>
+    
+    <div class="nav-links" id="formNavLinks">
+      <a href="https://tinyurl.com/ypbru28w" data-i18n="nav-wall">📖 View Book Wall</a>
+    </div>
+  </div>
+  
+  <div class="nav-links" id="mainNavLinks">
+    <a href="https://tinyurl.com/ypbru28w" data-i18n="nav-wall2">📖 View Book Wall</a>
+    <a href="/" data-i18n="nav-home">🏠 Dashboard</a>
+  </div>
+</div>
+
+<script>
+// ============ i18n ============
+let currentLang = 'en';
+
+const i18n = {
+  en: {
+    // Hero
+    'hero-badge': '📚 KOC Dashboard',
+    'hero-title': 'Submit Your <span class="gradient-text">Book Recommendation</span>',
+    'hero-subtitle': 'Help fellow readers discover amazing stories. Share a book you love and get a unique referral link!',
+    'info-box': '🎯 <strong>How it works:</strong> Enter your Discord username, provide the book name, and we\'ll create a personalized referral link for you. Share it in your Discord group to earn rewards!',
+    // Labels
+    'label-discord': 'Discord Username <span class="required">*</span>',
+    'placeholder-discord': 'yourname#1234',
+    'label-book': 'Book Name <span class="required">*</span>',
+    'placeholder-book': 'Enter the book title...',
+    'label-promo': 'Promotion Method',
+    // Options
+    'opt-all': 'All Channels',
+    'opt-fb-groups': 'Facebook Groups',
+    'opt-fb-pages': 'Facebook Pages',
+    'opt-discord': 'Discord',
+    'opt-tiktok': 'TikTok',
+    'opt-reels': 'Reels (Instagram/Facebook)',
+    'opt-other': 'Other',
+    // Tags
+    'tag-all': 'All Channels',
+    'tag-fb-groups': 'Facebook Groups',
+    'tag-fb-pages': 'Facebook Pages',
+    'tag-discord': 'Discord',
+    'tag-tiktok': 'TikTok',
+    'tag-reels': 'Reels',
+    // Buttons
+    'btn-submit': '🔍 Submit Book Recommendation',
+    'btn-confirm': '✓ Confirm & Create Link',
+    'btn-back': '← Back to Form',
+    'btn-another': '📚 Recommend Another Book',
+    // Candidate
+    'cand-title': 'Select Your Book',
+    'cand-subtitle': 'We found some matching books. Please select the correct one:',
+    'no-cand': 'No matching books found. Please try a different book name.',
+    // Processing
+    'proc-title': 'Creating Your Link...',
+    'proc-subtitle': 'Please wait while we set everything up.',
+    'step-save': 'Saving submission',
+    'step-select': 'Verifying book selection',
+    'step-code': 'Creating search code',
+    'step-link': 'Generating referral link',
+    // Success
+    'success-title': 'Link Created!',
+    'link-label': 'Your Referral Link:',
+    'code-label': 'Search Code:',
+    'promo-label': 'Promo Copy:',
+    'next-step-p1': '📌 <strong>All done!</strong>',
+    'next-step-p2': 'Your referral link, code and promo copy are ready! Click any of them to copy.',
+    'success-title-alt': 'Submission Saved!',
+    'next-step-p1-alt': '📌 <strong>What happens next?</strong>',
+    'next-step-p2-alt': 'Your referral link will be created shortly. Check the Book Wall in a few minutes.',
+    // Nav
+    'nav-wall': '📖 View Book Wall',
+    'nav-wall2': '📖 View Book Wall',
+    'nav-home': '🏠 Dashboard',
+    // Errors
+    'err-book': 'Please enter the book name',
+    'err-submit': 'Submission failed. Please try again.',
+    'err-confirm': 'Failed to create link. Please try again.',
+    // Score labels
+    'score-high': '🎯 High Match',
+    'score-medium': '⚡ Medium Match',
+    'score-low': '🔍 Low Match',
+    // by
+    'by-author': 'by',
+  },
+  es: {
+    // Hero
+    'hero-badge': '📚 Panel KOC',
+    'hero-title': 'Envía tu <span class="gradient-text">Recomendación de Libro</span>',
+    'hero-subtitle': 'Ayuda a otros lectores a descubrir historias increíbles. ¡Comparte un libro que te encanta y obtén un enlace único de referido!',
+    'info-box': '🎯 <strong>Cómo funciona:</strong> Ingresa tu nombre de usuario de Discord, proporciona el nombre del libro y crearemos un enlace de referido personalizado para ti. ¡Compártelo en tu grupo de Discord para ganar recompensas!',
+    // Labels
+    'label-discord': 'Nombre de usuario de Discord <span class="required">*</span>',
+    'placeholder-discord': 'tunombre#1234',
+    'label-book': 'Nombre del Libro <span class="required">*</span>',
+    'placeholder-book': 'Ingresa el título del libro...',
+    'label-promo': 'Método de Promoción',
+    // Options
+    'opt-all': 'Todos los Canales',
+    'opt-fb-groups': 'Grupos de Facebook',
+    'opt-fb-pages': 'Páginas de Facebook',
+    'opt-discord': 'Discord',
+    'opt-tiktok': 'TikTok',
+    'opt-reels': 'Reels (Instagram/Facebook)',
+    'opt-other': 'Otro',
+    // Tags
+    'tag-all': 'Todos los Canales',
+    'tag-fb-groups': 'Grupos de Facebook',
+    'tag-fb-pages': 'Páginas de Facebook',
+    'tag-discord': 'Discord',
+    'tag-tiktok': 'TikTok',
+    'tag-reels': 'Reels',
+    // Buttons
+    'btn-submit': '🔍 Enviar Recomendación',
+    'btn-confirm': '✓ Confirmar y Crear Enlace',
+    'btn-back': '← Volver al Formulario',
+    'btn-another': '📚 Recomendar Otro Libro',
+    // Candidate
+    'cand-title': 'Selecciona tu Libro',
+    'cand-subtitle': 'Encontramos algunos libros coincidentes. Por favor selecciona el correcto:',
+    'no-cand': 'No se encontraron libros coincidentes. Por favor intenta con otro nombre.',
+    // Processing
+    'proc-title': 'Creando tu Enlace...',
+    'proc-subtitle': 'Por favor espera mientras preparamos todo.',
+    'step-save': 'Guardando envío',
+    'step-select': 'Verificando selección del libro',
+    'step-code': 'Creando código de búsqueda',
+    'step-link': 'Generando enlace de referido',
+    // Success
+    'success-title': '¡Enlace Creado!',
+    'link-label': 'Tu Enlace de Referido:',
+    'code-label': 'Código de Búsqueda:',
+    'promo-label': 'Texto Promocional:',
+    'next-step-p1': '📌 <strong>¡Todo listo!</strong>',
+    'next-step-p2': '¡Tu enlace de referido, código y texto promocional están listos! Haz clic en cualquiera de ellos para copiar.',
+    'success-title-alt': '¡Envío Guardado!',
+    'next-step-p1-alt': '📌 <strong>¿Qué pasa ahora?</strong>',
+    'next-step-p2-alt': 'Tu enlace de referido se creará en breve. Revisa el Muro de Libros en unos minutos.',
+    // Nav
+    'nav-wall': '📖 Ver Muro de Libros',
+    'nav-wall2': '📖 Ver Muro de Libros',
+    'nav-home': '🏠 Panel',
+    // Errors
+    'err-book': 'Por favor ingresa el nombre del libro',
+    'err-submit': 'El envío falló. Por favor intenta de nuevo.',
+    'err-confirm': 'Error al crear el enlace. Por favor intenta de nuevo.',
+    // Score labels
+    'score-high': '🎯 Alta Coincidencia',
+    'score-medium': '⚡ Coincidencia Media',
+    'score-low': '🔍 Baja Coincidencia',
+    // by
+    'by-author': 'por',
+  }
+};
+
+function applyTranslations() {
+  const t = i18n[currentLang];
+  if (!t) return;
+
+  // Update elements with data-i18n attribute
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (t[key] !== undefined) {
+      el.innerHTML = t[key];
+    }
+  });
+
+  // Update placeholders
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (t[key] !== undefined) {
+      el.placeholder = t[key];
+    }
+  });
+
+  // Update select options
+  document.querySelectorAll('[data-i18n-opt]').forEach(el => {
+    const key = el.getAttribute('data-i18n-opt');
+    if (t[key] !== undefined) {
+      el.textContent = t[key];
+    }
+  });
+
+  // Update hero title (contains HTML)
+  const heroTitle = document.querySelector('h1[data-i18n="hero-title"]');
+  if (heroTitle && t['hero-title']) {
+    heroTitle.innerHTML = t['hero-title'];
+  }
+
+  // Update hero subtitle (contains HTML)
+  const heroSubtitle = document.querySelector('p[data-i18n="hero-subtitle"]');
+  if (heroSubtitle && t['hero-subtitle']) {
+    heroSubtitle.innerHTML = t['hero-subtitle'];
+  }
+
+  // Update info-box paragraph (contains HTML)
+  const infoBox = document.querySelector('p[data-i18n="info-box"]');
+  if (infoBox && t['info-box']) {
+    infoBox.innerHTML = t['info-box'];
+  }
+
+  // Update next-step HTML dynamically
+  updateNextStep();
+
+  // Update candidate score labels if candidates are rendered
+  updateCandidateLabels();
+}
+
+function updateNextStep() {
+  const t = i18n[currentLang];
+  const nextStep = document.getElementById('nextStep');
+  if (!nextStep || !nextStep.dataset.type) return;
+
+  if (nextStep.dataset.type === 'success') {
+    nextStep.innerHTML = `<p>${t['next-step-p1']}</p><p>${t['next-step-p2']}</p>`;
+  } else {
+    nextStep.innerHTML = `<p>${t['next-step-p1-alt']}</p><p>${t['next-step-p2-alt']}</p>`;
+  }
+}
+
+function updateCandidateLabels() {
+  const t = i18n[currentLang];
+  document.querySelectorAll('.candidate-score').forEach(el => {
+    const cls = el.className.replace('candidate-score', '').trim();
+    if (cls === 'high') el.textContent = `${t['score-high']} (${el.dataset.pct}%)`;
+    else if (cls === 'medium') el.textContent = `${t['score-medium']} (${el.dataset.pct}%)`;
+    else el.textContent = `${t['score-low']} (${el.dataset.pct}%)`;
+  });
+
+  // Update "by" in author
+  document.querySelectorAll('.candidate-author').forEach(el => {
+    const authorName = el.dataset.author || '';
+    if (authorName) {
+      el.textContent = `${t['by-author']} ${authorName}`;
+    }
+  });
+}
+
+function toggleLanguage() {
+  currentLang = currentLang === 'en' ? 'es' : 'en';
+  const btn = document.getElementById('langToggle');
+  if (currentLang === 'es') {
+    btn.textContent = '🌐 Español ▾';
+    btn.classList.add('es');
+    document.documentElement.lang = 'es';
+  } else {
+    btn.textContent = '🌐 English ▾';
+    btn.classList.remove('es');
+    document.documentElement.lang = 'en';
+  }
+  applyTranslations();
+}
+
+// Elements
+const form = document.getElementById('bookForm');
+const submitBtn = document.getElementById('submitBtn');
+const errorMessage = document.getElementById('errorMessage');
+const formContainer = document.getElementById('formContainer');
+const processingStatus = document.getElementById('processingStatus');
+const successMessage = document.getElementById('successMessage');
+const submittedBook = document.getElementById('submittedBook');
+
+// Candidate selection elements
+const candidateSection = document.getElementById('candidateSection');
+const candidateList = document.getElementById('candidateList');
+const confirmBtn = document.getElementById('confirmBtn');
+const retryBtn = document.getElementById('retryBtn') || document.getElementById('recommendAnotherBtn');
+const noCandidatesSection = document.getElementById('noCandidatesSection');
+const backBtn = document.getElementById('backBtn');
+const formNavLinks = document.getElementById('formNavLinks');
+const mainNavLinks = document.getElementById('mainNavLinks');
+const recommendAnotherBtn = document.getElementById('recommendAnotherBtn');
+
+// State
+let currentSubmissionData = null;
+let selectedCandidate = null;
+
+// Functions
+function showError(message) { 
+  const t = i18n[currentLang];
+  const translatedMsg = message === t['err-book'] ? t['err-book'] : (message || t['err-submit']);
+  errorMessage.textContent = translatedMsg; 
+  errorMessage.classList.add('show'); 
+}
+function hideError() { errorMessage.classList.remove('show'); }
+function setLoading(loading, btn) { 
+  if (btn) {
+    btn.disabled = loading; 
+    if (loading) { btn.classList.add('loading'); } else { btn.classList.remove('loading'); }
+  }
+}
+
+function updateStep(stepId, status) {
+  const step = document.getElementById(stepId);
+  if (!step) return;
+  step.classList.remove('current', 'done', 'failed');
+  if (status) step.classList.add(status);
+  const icon = step.querySelector('.step-icon');
+  if (status === 'done') { icon.textContent = '✓'; }
+  else if (status === 'failed') { icon.textContent = '✗'; }
+  else if (status === 'current') { icon.textContent = ''; }
+}
+
+function showProcessingStatus() {
+  formContainer.classList.add('hidden');
+  candidateSection.classList.remove('show');
+  mainNavLinks.style.display = 'none';
+  formNavLinks.style.display = 'none';
+  processingStatus.classList.add('show');
+  successMessage.classList.remove('show');
+  ['stepSave', 'stepSelect', 'stepCode', 'stepLink'].forEach(id => {
+    const step = document.getElementById(id);
+    if (step) { step.classList.remove('current', 'done', 'failed'); step.querySelector('.step-icon').textContent = ''; }
+  });
+  updateStep('stepSave', 'done');
+  updateStep('stepSelect', 'done');
+  updateStep('stepCode', 'current');
+}
+
+function generatePromoCopy(bookName, link, code) {
+  const enTemplates = [
+    `POV: You just discovered your next obsession. ${bookName} is the kind of story that keeps you up at 3am — and you'll thank it for that. 🐺🔥\nRead now → ${link}`,
+    `Just found a book that hits DIFFERENT. ${bookName} — every chapter pulls you in deeper. If you love enemies-to-lovers tension, this one's for you. ✨\nRead now → ${link}`,
+    `That moment when you start a book and cancel all your plans... ${bookName} is THAT book. Trust me on this one. 🔥\nRead now → ${link}`
+  ];
+  const esTemplates = [
+    `POV: Acabas de encontrar tu nueva obsesión. ${bookName} es el tipo de historia que te mantiene despierto/a hasta las 3am — y se lo agradecerás. 🐺🔥\n¡Lee ahora → ${link}`,
+    `Acabo de encontrar un libro que es INCREÍBLE. ${bookName} — cada capítulo te atrapa más. Si te gusta la tensión de enemigos a amantes, este es para ti. ✨\n¡Lee ahora → ${link}`,
+    `Ese momento cuando empiezas un libro y cancelas todos tus planes... ${bookName} es ESE libro. Confía en mí. 🔥\n¡Lee ahora → ${link}`
+  ];
+  const templates = currentLang === 'es' ? esTemplates : enTemplates;
+  return templates[Math.floor(Math.random() * templates.length)];
+}
+
+function copyLink() {
+  const link = document.getElementById('linkValue').textContent;
+  navigator.clipboard.writeText(link).then(() => {
+    const el = document.getElementById('linkValue');
+    el.style.borderColor = '#22d3ee';
+    setTimeout(() => el.style.borderColor = 'rgba(255,255,255,0.06)', 1500);
+  });
+}
+
+function copyCode() {
+  const code = document.getElementById('codeValue').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    const el = document.getElementById('codeValue');
+    el.style.borderColor = '#22d3ee';
+    setTimeout(() => el.style.borderColor = 'rgba(255,255,255,0.06)', 1500);
+  });
+}
+
+function copyPromo() {
+  const promo = document.getElementById('promoValue').textContent;
+  navigator.clipboard.writeText(promo).then(() => {
+    const el = document.getElementById('promoValue');
+    el.style.borderColor = '#22d3ee';
+    setTimeout(() => el.style.borderColor = 'rgba(255,255,255,0.06)', 1500);
+  });
+}
+
+function showSuccess(result) {
+  const t = i18n[currentLang];
+  formContainer.classList.add('hidden');
+  candidateSection.classList.remove('show');
+  processingStatus.classList.remove('show');
+  successMessage.classList.add('show');
+  mainNavLinks.style.display = 'none';
+  formNavLinks.style.display = 'flex';
+  submittedBook.textContent = `📚 "${result.matchedBookName || result.bookName || 'Your book'}"`;
+  
+  const successIcon = document.getElementById('successIcon');
+  const successTitle = document.getElementById('successTitle');
+  const linkContainer = document.getElementById('linkContainer');
+  const linkValue = document.getElementById('linkValue');
+  const codeContainer = document.getElementById('codeContainer');
+  const codeValue = document.getElementById('codeValue');
+  const promoContainer = document.getElementById('promoContainer');
+  const promoValue = document.getElementById('promoValue');
+  const nextStep = document.getElementById('nextStep');
+  
+  if (result.link) {
+    successIcon.textContent = '✅';
+    successTitle.textContent = t['success-title'];
+    successTitle.setAttribute('data-i18n', 'success-title');
+    linkContainer.style.display = 'block';
+    linkValue.textContent = result.link;
+    
+    if (result.code) {
+      codeContainer.style.display = 'block';
+      codeValue.textContent = result.code;
+    }
+    
+    const promoCopy = generatePromoCopy(
+      result.matchedBookName || result.bookName || 'this book',
+      result.link,
+      result.code || ''
+    );
+    promoContainer.style.display = 'block';
+    promoValue.textContent = promoCopy;
+    
+    nextStep.dataset.type = 'success';
+    nextStep.innerHTML = `<p>${t['next-step-p1']}</p><p>${t['next-step-p2']}</p>`;
+  } else {
+    successIcon.textContent = '✅';
+    successTitle.textContent = t['success-title-alt'];
+    successTitle.removeAttribute('data-i18n');
+    linkContainer.style.display = 'none';
+    codeContainer.style.display = 'none';
+    promoContainer.style.display = 'none';
+    nextStep.dataset.type = 'pending';
+    nextStep.innerHTML = `<p>${t['next-step-p1-alt']}</p><p>${t['next-step-p2-alt']}</p>`;
+  }
+}
+
+// Candidate rendering
+function getScoreClass(score) {
+  if (score >= 0.8) return 'high';
+  if (score >= 0.5) return 'medium';
+  return 'low';
+}
+
+function getScoreLabel(score) {
+  if (score >= 0.8) return '🎯 High Match';
+  if (score >= 0.5) return '⚡ Medium Match';
+  return '🔍 Low Match';
+}
+
+function renderCandidates(candidates) {
+  candidateList.innerHTML = '';
+  const t = i18n[currentLang];
+  candidates.forEach((candidate, index) => {
+    const card = document.createElement('div');
+    card.className = 'candidate-card';
+    card.dataset.index = index;
+    card.dataset.bookId = candidate.bookId;
+    card.dataset.title = candidate.title;
+    card.dataset.author = candidate.author || '';
+    
+    const safeCover = (candidate.coverImage && candidate.coverImage.startsWith('https://')) ? candidate.coverImage : '';
+    const coverHtml = safeCover
+      ? `<img src="${safeCover}" class="candidate-cover" alt="cover" onerror="this.style.display='none';this.nextSibling.style.display='flex'"><span style="display:none">📖</span>`
+      : `<span class="candidate-cover">📖</span>`;
+    
+    const pct = Math.round(candidate.score * 100);
+    let scoreLabel = t['score-low'];
+    let scoreClass = 'low';
+    if (candidate.score >= 0.8) { scoreLabel = t['score-high']; scoreClass = 'high'; }
+    else if (candidate.score >= 0.5) { scoreLabel = t['score-medium']; scoreClass = 'medium'; }
+    
+    const authorHtml = candidate.author ? `<div class="candidate-author" data-author="${escapeHtml(candidate.author)}">${t['by-author']} ${escapeHtml(candidate.author)}</div>` : '';
+    
+    card.innerHTML = `
+      ${coverHtml}
+      <div class="candidate-info">
+        <div class="candidate-title">${escapeHtml(candidate.title)}</div>
+        ${authorHtml}
+        <div class="candidate-meta">
+          <span class="candidate-score ${scoreClass}" data-pct="${pct}">${scoreLabel} (${pct}%)</span>
+        </div>
+      </div>
+      <div class="candidate-check">✓</div>
+    `;
+    
+    card.addEventListener('click', () => selectCandidate(card, candidate));
+    candidateList.appendChild(card);
+  });
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function selectCandidate(card, candidate) {
+  // Remove previous selection
+  document.querySelectorAll('.candidate-card.selected').forEach(c => c.classList.remove('selected'));
+  
+  // Select this one
+  card.classList.add('selected');
+  selectedCandidate = candidate;
+  confirmBtn.disabled = false;
+}
+
+function showCandidateSelection(submissionData, candidates) {
+  // Store the form data for later use in confirm
+  currentSubmissionData = submissionData;
+  selectedCandidate = null;
+  confirmBtn.disabled = true;
+  
+  // Hide form, show candidate selection
+  formContainer.classList.add('hidden');
+  mainNavLinks.style.display = 'none';
+  formNavLinks.style.display = 'none';
+  
+  if (candidates && candidates.length > 0) {
+    renderCandidates(candidates);
+    candidateSection.classList.add('show');
+    noCandidatesSection.style.display = 'none';
+  } else {
+    candidateSection.classList.add('show');
+    noCandidatesSection.style.display = 'block';
+  }
+}
+
+function resetToForm() {
+  currentSubmissionData = null;
+  selectedCandidate = null;
+  form.reset();
+  formContainer.classList.remove('hidden');
+  mainNavLinks.style.display = 'flex';
+  formNavLinks.style.display = 'flex';
+  candidateSection.classList.remove('show');
+  noCandidatesSection.style.display = 'none';
+  processingStatus.classList.remove('show');
+  successMessage.classList.remove('show');
+  errorMessage.classList.remove('show');
+}
+
+// Form submission
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideError();
+  
+  const discordUsername = document.getElementById('discordUsername').value.trim();
+  const bookName = document.getElementById('bookName').value.trim();
+  const promotionMethod = document.getElementById('promotionMethod').value;
+
+  if (!bookName) { showError(i18n[currentLang]['err-book']); return; }
+  
+  setLoading(true, submitBtn);
+  
+  // Store form data for later use in confirm
+  const submissionData = { 
+    bookName, 
+    discordUsername: discordUsername || 'Anonymous', 
+    promotionMethod: promotionMethod || 'All Channels',
+  };
+  
+  try {
+    const response = await fetch('/api/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookName, lang: currentLang })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Submission failed');
+    }
+    
+    const result = await response.json();
+    
+    if (result.status === 'awaiting_confirmation') {
+      showCandidateSelection(submissionData, result.candidates);
+    } else if (result.status === 'completed') {
+      showSuccess(result);
+    } else {
+      throw new Error('Unexpected response status');
+    }
+    
+    // Note: We no longer reset the form here - it's hidden instead
+  } catch (error) {
+    console.error('Submission error:', error);
+    showError(error.message || i18n[currentLang]['err-submit']);
+  } finally {
+    setLoading(false, submitBtn);
+  }
+});
+
+// Confirm button - create link for selected candidate
+confirmBtn.addEventListener('click', async () => {
+  if (!selectedCandidate || !currentSubmissionData) return;
+  
+  setLoading(true, confirmBtn);
+  showProcessingStatus();
+  
+  try {
+    const response = await fetch('/api/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...currentSubmissionData,
+        bookId: selectedCandidate.bookId,
+        bookTitle: selectedCandidate.title,
+        bookAuthor: selectedCandidate.author || '',
+        lang: currentLang
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Confirmation failed');
+    }
+    
+    const result = await response.json();
+    
+    if (result.status === 'completed' || result.status === 'pending') {
+      updateStep('stepCode', result.status === 'completed' ? 'done' : 'failed');
+      updateStep('stepLink', result.status === 'completed' ? 'done' : 'failed');
+      showSuccess(result);
+    } else {
+      updateStep('stepCode', 'failed');
+      throw new Error(result.message || 'Failed to create link');
+    }
+  } catch (error) {
+    console.error('Confirm error:', error);
+    showError(error.message || i18n[currentLang]['err-confirm']);
+    resetToForm();
+  } finally {
+    setLoading(false, confirmBtn);
+  }
+});
+
+// Retry button - reset form (safety check in case element doesn't exist)
+if (retryBtn) {
+  retryBtn.addEventListener('click', () => {
+    resetToForm();
+  });
+}
+
+// Back button - reset form
+backBtn.addEventListener('click', () => {
+  resetToForm();
+});
+
+// Recommend Another Book button
+recommendAnotherBtn.addEventListener('click', () => {
+  resetToForm();
+});
+</script>
+</body>
+</html>

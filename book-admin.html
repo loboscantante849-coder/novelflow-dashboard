@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NovelFlow KOC — Admin Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #050714;
+  color: #c8cdd5;
+  line-height: 1.7;
+  font-size: 15px;
+  min-height: 100vh;
+}
+a { color: #7c6cff; text-decoration: none; transition: color .2s; }
+a:hover { color: #a89cff; }
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0a0d1f; }
+::-webkit-scrollbar-thumb { background: #2a2d45; border-radius: 3px; }
+
+/* ===== Main Container ===== */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+/* ===== Login Screen ===== */
+.login-screen {
+  max-width: 420px;
+  margin: 0 auto;
+  padding-top: 100px;
+}
+.login-card {
+  background: linear-gradient(135deg, rgba(14, 17, 38, 0.9), rgba(10, 13, 31, 0.95));
+  border: 1px solid rgba(124, 108, 255, 0.08);
+  border-radius: 20px;
+  padding: 40px;
+  text-align: center;
+}
+.login-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(124, 108, 255, 0.2), rgba(0, 212, 255, 0.15));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  font-size: 36px;
+}
+.login-card h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #eef0f6;
+  margin-bottom: 8px;
+}
+.login-card p {
+  font-size: 14px;
+  color: #6a6f8a;
+  margin-bottom: 28px;
+}
+.login-form {
+  text-align: left;
+}
+.form-group {
+  margin-bottom: 20px;
+}
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #a0a4c0;
+  margin-bottom: 8px;
+}
+.form-input {
+  width: 100%;
+  padding: 14px 18px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(124, 108, 255, 0.15);
+  border-radius: 12px;
+  color: #e0e3ec;
+  font-size: 15px;
+  font-family: 'Inter', sans-serif;
+  transition: border-color .2s, box-shadow .2s;
+}
+.form-input:focus {
+  outline: none;
+  border-color: #7c6cff;
+  box-shadow: 0 0 0 3px rgba(124, 108, 255, 0.15);
+}
+.btn-login {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #7c6cff, #5a4ce0);
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: transform .2s, box-shadow .2s;
+}
+.btn-login:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(124, 108, 255, 0.4);
+}
+.login-error {
+  background: rgba(255, 100, 100, 0.1);
+  border: 1px solid rgba(255, 100, 100, 0.25);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  color: #ff8888;
+  font-size: 13px;
+  display: none;
+}
+.login-error.show {
+  display: block;
+}
+
+/* ===== Token Status Banner ===== */
+.token-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: rgba(0, 212, 130, 0.08);
+  border: 1px solid rgba(0, 212, 130, 0.2);
+  border-radius: 12px;
+  margin-bottom: 24px;
+  font-size: 13px;
+  color: #00d482;
+}
+.token-icon {
+  font-size: 16px;
+}
+.token-action {
+  margin-left: auto;
+  padding: 6px 12px;
+  background: rgba(0, 212, 130, 0.1);
+  border: 1px solid rgba(0, 212, 130, 0.2);
+  border-radius: 6px;
+  color: #00d482;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all .2s;
+}
+.token-action:hover {
+  background: rgba(0, 212, 130, 0.2);
+}
+
+/* ===== Token Modal ===== */
+.token-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.token-modal-overlay.show {
+  display: flex;
+}
+.token-modal {
+  background: linear-gradient(135deg, #141729, #0d1020);
+  border: 1px solid rgba(124, 108, 255, 0.15);
+  border-radius: 20px;
+  padding: 32px;
+  max-width: 420px;
+  width: 90%;
+}
+.token-modal h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #eef0f6;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* ===== Dashboard Screen ===== */
+.dashboard-screen {
+  display: none;
+}
+.dashboard-screen.show {
+  display: block;
+}
+
+/* ===== Header ===== */
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+}
+.dashboard-title h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #eef0f6;
+  margin-bottom: 4px;
+}
+.dashboard-title p {
+  font-size: 14px;
+  color: #6a6f8a;
+}
+.dashboard-actions {
+  display: flex;
+  gap: 12px;
+}
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  background: rgba(124, 108, 255, 0.08);
+  border: 1px solid rgba(124, 108, 255, 0.15);
+  color: #a89cff;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all .2s;
+  text-decoration: none;
+}
+.btn-secondary:hover {
+  background: rgba(124, 108, 255, 0.15);
+  border-color: rgba(124, 108, 255, 0.3);
+  color: #a89cff;
+}
+.btn-danger {
+  background: rgba(255, 100, 100, 0.08);
+  border-color: rgba(255, 100, 100, 0.15);
+  color: #ff8888;
+}
+.btn-danger:hover {
+  background: rgba(255, 100, 100, 0.15);
+  border-color: rgba(255, 100, 100, 0.3);
+  color: #ff8888;
+}
+
+/* ===== Stats Cards ===== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.stat-card {
+  background: linear-gradient(135deg, rgba(14, 17, 38, 0.8), rgba(10, 13, 31, 0.9));
+  border: 1px solid rgba(124, 108, 255, 0.08);
+  border-radius: 14px;
+  padding: 20px;
+  text-align: center;
+}
+.stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #7c6cff, #00d4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 4px;
+}
+.stat-label {
+  font-size: 12px;
+  color: #6a6f8a;
+  font-weight: 500;
+}
+
+/* ===== Filter Bar ===== */
+.filter-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.filter-select {
+  padding: 10px 36px 10px 14px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(124, 108, 255, 0.12);
+  border-radius: 10px;
+  color: #c8cdd5;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237a7f9a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+.filter-select:focus {
+  outline: none;
+  border-color: #7c6cff;
+}
+.filter-select option {
+  background: #0a0d1f;
+}
+.filter-info {
+  font-size: 13px;
+  color: #6a6f8a;
+  margin-left: auto;
+}
+
+/* ===== Table ===== */
+.table-container {
+  background: linear-gradient(135deg, rgba(14, 17, 38, 0.8), rgba(10, 13, 31, 0.9));
+  border: 1px solid rgba(124, 108, 255, 0.08);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+}
+thead th {
+  background: rgba(124, 108, 255, 0.1);
+  color: #a89cff;
+  font-weight: 600;
+  padding: 14px 16px;
+  text-align: left;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(124, 108, 255, 0.15);
+  white-space: nowrap;
+}
+tbody td {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 14px;
+  color: #b0b4cc;
+  vertical-align: middle;
+}
+tbody tr:hover td {
+  background: rgba(124, 108, 255, 0.03);
+}
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ===== Status Badges ===== */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: transform .15s;
+}
+.status-badge:hover {
+  transform: scale(1.05);
+}
+.status-badge.pending {
+  background: rgba(255, 170, 50, 0.12);
+  color: #ffaa32;
+}
+.status-badge.link-created {
+  background: rgba(0, 212, 255, 0.12);
+  color: #00d4ff;
+}
+.status-badge.sent {
+  background: rgba(0, 212, 130, 0.12);
+  color: #00d482;
+}
+.status-dropdown {
+  position: relative;
+  display: inline-block;
+}
+.status-dropdown-content {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #1a1d35;
+  border: 1px solid rgba(124, 108, 255, 0.2);
+  border-radius: 8px;
+  padding: 6px;
+  z-index: 100;
+  min-width: 140px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+.status-dropdown:hover .status-dropdown-content {
+  display: block;
+}
+.status-dropdown-content button {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: #c8cdd5;
+  font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: background .15s;
+}
+.status-dropdown-content button:hover {
+  background: rgba(124, 108, 255, 0.15);
+}
+
+/* ===== Method Badge ===== */
+.method-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.12);
+  color: #5cc8e8;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* ===== Action Buttons ===== */
+.action-btns {
+  display: flex;
+  gap: 8px;
+}
+.btn-delete {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 100, 100, 0.08);
+  border: 1px solid rgba(255, 100, 100, 0.15);
+  color: #ff8888;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s;
+}
+.btn-delete:hover {
+  background: rgba(255, 100, 100, 0.2);
+  border-color: rgba(255, 100, 100, 0.3);
+}
+
+/* ===== Loading State ===== */
+.loading {
+  text-align: center;
+  padding: 60px 20px;
+}
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(124, 108, 255, 0.2);
+  border-top-color: #7c6cff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.loading p {
+  color: #6a6f8a;
+  font-size: 14px;
+}
+
+/* ===== Empty State ===== */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+}
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+.empty-state h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #a0a4c0;
+  margin-bottom: 8px;
+}
+.empty-state p {
+  font-size: 14px;
+  color: #6a6f8a;
+}
+
+/* ===== Modal ===== */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.show {
+  display: flex;
+}
+.modal {
+  background: linear-gradient(135deg, #141729, #0d1020);
+  border: 1px solid rgba(124, 108, 255, 0.15);
+  border-radius: 20px;
+  padding: 32px;
+  max-width: 500px;
+  width: 90%;
+  text-align: center;
+}
+.modal h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #eef0f6;
+  margin-bottom: 12px;
+}
+.modal p {
+  font-size: 14px;
+  color: #8a8faa;
+  margin-bottom: 24px;
+}
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.modal-actions .btn-secondary {
+  padding: 12px 24px;
+}
+.modal-actions .btn-danger {
+  padding: 12px 24px;
+}
+
+/* ===== Toast ===== */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 1001;
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all .3s;
+}
+.toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+.toast.success {
+  background: rgba(0, 212, 130, 0.15);
+  border: 1px solid rgba(0, 212, 130, 0.3);
+  color: #00d482;
+}
+.toast.error {
+  background: rgba(255, 100, 100, 0.15);
+  border: 1px solid rgba(255, 100, 100, 0.3);
+  color: #ff8888;
+}
+
+/* ===== Mobile Responsive ===== */
+@media (max-width: 768px) {
+  .container {
+    padding: 24px 16px 60px;
+  }
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .filter-info {
+    margin-left: 0;
+  }
+  .dashboard-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .dashboard-actions {
+    width: 100%;
+  }
+  .dashboard-actions .btn-secondary {
+    flex: 1;
+    justify-content: center;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Login Screen - Step 1: Password -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-card" id="step1Password">
+      <div class="login-icon">🔐</div>
+      <h1>Admin Dashboard</h1>
+      <p>Enter password to access admin features</p>
+      
+      <div class="login-error" id="loginError">Incorrect password, please try again</div>
+      
+      <form class="login-form" id="loginForm">
+        <div class="form-group">
+          <label for="password">Access Password</label>
+          <input type="password" id="password" class="form-input" placeholder="Enter admin password" required>
+        </div>
+        <button type="submit" class="btn-login">Verify Password</button>
+      </form>
+    </div>
+
+    <!-- Step 2: GitHub Token -->
+    <div class="login-card" id="step2Token" style="display: none;">
+      <div class="login-icon">🔑</div>
+      <h1>Configure GitHub Token</h1>
+      <p>GitHub Personal Access Token is required to manage data<br><small style="color: #8a8faa;">Token is only valid for current session, cleared after closing page</small></p>
+      
+      <div class="login-error" id="tokenError">Invalid token, please check and try again</div>
+      
+      <form class="login-form" id="tokenForm">
+        <div class="form-group">
+          <label for="githubToken">GitHub PAT Token</label>
+          <input type="password" id="githubToken" class="form-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" required>
+        </div>
+        <button type="submit" class="btn-login">Confirm & Enter Dashboard</button>
+        <button type="button" class="btn-back" onclick="goBackToStep1()" style="
+          width: 100%;
+          padding: 12px;
+          margin-top: 12px;
+          background: transparent;
+          border: 1px solid rgba(124, 108, 255, 0.15);
+          border-radius: 12px;
+          color: #8a8faa;
+          font-size: 14px;
+          font-family: 'Inter', sans-serif;
+          cursor: pointer;
+          transition: all .2s;
+        ">← Back to Previous Step</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Token Status Banner -->
+  <div class="token-status" id="tokenStatus" style="display: none;">
+    <span class="token-icon">🔑</span>
+    <span>GitHub Token Configured</span>
+    <button onclick="showTokenModal()" class="token-action">Modify</button>
+  </div>
+
+  <!-- Dashboard Screen -->
+  <div class="dashboard-screen" id="dashboardScreen">
+    <div class="dashboard-header">
+      <div class="dashboard-title">
+        <h1>📊 KOC Book Management</h1>
+        <p>Manage all book recommendation submissions</p>
+      </div>
+      <div class="dashboard-actions">
+        <a href="https://tinyurl.com/ypbru28w" target="_blank" class="btn-secondary">📖 View Book Wall</a>
+        <a href="https://tinyurl.com/4ajvzsec" target="_blank" class="btn-secondary">➕ Submit Book</a>
+        <button class="btn-secondary btn-danger" onclick="logout()">🚪 Logout</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="statTotal">0</div>
+        <div class="stat-label">Total Submissions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statPending">0</div>
+        <div class="stat-label">Pending</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statLinkCreated">0</div>
+        <div class="stat-label">Link Created</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statSent">0</div>
+        <div class="stat-label">Sent</div>
+      </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="filter-bar">
+      <select class="filter-select" id="filterStatus">
+        <option value="">All Status</option>
+        <option value="pending">Pending</option>
+        <option value="link-created">Link Created</option>
+        <option value="sent">Sent</option>
+      </select>
+      <select class="filter-select" id="filterMethod">
+        <option value="">All Methods</option>
+        <option value="Facebook Groups">Facebook Groups</option>
+        <option value="Facebook Pages">Facebook Pages</option>
+        <option value="Discord">Discord</option>
+        <option value="TikTok">TikTok</option>
+        <option value="Reels">Reels</option>
+        <option value="Other">Other</option>
+      </select>
+      <button class="btn-secondary" onclick="exportData()">📥 Export CSV</button>
+      <span class="filter-info" id="filterInfo">Showing 0 of 0 records</span>
+    </div>
+
+    <!-- Table -->
+    <div class="table-container">
+      <div class="loading" id="loadingState">
+        <div class="loading-spinner"></div>
+        <p>Loading data...</p>
+      </div>
+      <div class="empty-state" id="emptyState" style="display: none;">
+        <div class="empty-icon">📭</div>
+        <h3>No Submissions Yet</h3>
+        <p>Be the first to recommend a book!</p>
+      </div>
+      <div class="table-scroll" id="tableContainer" style="display: none;">
+        <table>
+          <thead>
+            <tr>
+              <th>Discord</th>
+              <th>Book Name</th>
+              <th>Method</th>
+              <th>Submitted</th>
+              <th>Notes</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <h2>Confirm Delete</h2>
+    <p id="deleteMessage">Are you sure you want to delete this submission? This action cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn-secondary btn-danger" id="confirmDeleteBtn">Confirm Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Token Update Modal -->
+<div class="token-modal-overlay" id="tokenModal">
+  <div class="token-modal">
+    <h2>🔑 Update GitHub Token</h2>
+    <form id="tokenUpdateForm">
+      <div class="form-group">
+        <label for="newGithubToken">New GitHub PAT Token</label>
+        <input type="password" id="newGithubToken" class="form-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" required>
+      </div>
+      <div style="display: flex; gap: 12px;">
+        <button type="button" onclick="closeTokenModal()" class="btn-secondary" style="flex: 1; justify-content: center;">Cancel</button>
+        <button type="submit" class="btn-login" style="flex: 1;">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// Config
+// SHA-256 hash of 'novelflow2026' - more secure than plain text
+const ADMIN_PASSWORD_HASH = 'a36ef0c5a1dd9c4212a13ea9564d9cb2fe49e87cbb99aaaa9feb7226714f4842';
+const REPO_OWNER = 'loboscantante849-coder';
+const REPO_NAME = 'novelflow-dashboard';
+const FILE_PATH = 'submissions.json';
+// Simple SHA-256 implementation for browser compatibility
+async function sha256(message) {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+
+// Token will be loaded from sessionStorage at runtime
+let GITHUB_TOKEN = sessionStorage.getItem('githubToken') || '';
+
+let allSubmissions = [];
+let currentFilterStatus = '';
+let currentFilterMethod = '';
+let deleteTargetId = null;
+let fileSha = null;
+
+// ===== Two-Step Login Flow =====
+
+// Step 1: Password verification
+document.getElementById('loginForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const password = document.getElementById('password').value;
+  const inputHash = await sha256(password);
+    if (inputHash === ADMIN_PASSWORD_HASH) {
+    sessionStorage.setItem('adminLoggedIn', 'true');
+    // Go to Step 2: Token input
+    document.getElementById('step1Password').style.display = 'none';
+    document.getElementById('step2Token').style.display = 'block';
+    document.getElementById('password').value = '';
+    document.getElementById('loginError').classList.remove('show');
+    // Auto-focus on token input
+    setTimeout(() => document.getElementById('githubToken').focus(), 100);
+  } else {
+    document.getElementById('loginError').classList.add('show');
+    document.getElementById('password').value = '';
+  }
+});
+
+// Step 2: Token verification and setup
+document.getElementById('tokenForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const token = document.getElementById('githubToken').value.trim();
+  
+  if (!token) {
+    document.getElementById('tokenError').textContent = 'Please enter GitHub Token';
+    document.getElementById('tokenError').classList.add('show');
+    return;
+  }
+  
+  // Validate token by making a test API call
+  const isValid = await validateToken(token);
+  
+  if (isValid) {
+    // Store token in sessionStorage
+    sessionStorage.setItem('githubToken', token);
+    GITHUB_TOKEN = token;
+    
+    // Enter dashboard
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('tokenStatus').style.display = 'flex';
+    document.getElementById('dashboardScreen').classList.add('show');
+    document.getElementById('githubToken').value = '';
+    document.getElementById('tokenError').classList.remove('show');
+    
+    loadData();
+  } else {
+    document.getElementById('tokenError').textContent = 'Invalid token, please check and try again';
+    document.getElementById('tokenError').classList.add('show');
+    document.getElementById('githubToken').value = '';
+  }
+});
+
+function goBackToStep1() {
+  document.getElementById('step2Token').style.display = 'none';
+  document.getElementById('step1Password').style.display = 'block';
+  document.getElementById('tokenError').classList.remove('show');
+}
+
+async function validateToken(token) {
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,
+      {
+        headers: {
+          'Authorization': `token ${token}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      }
+    );
+    // 200 or 404 are both acceptable - means token has repo access
+    return response.ok || response.status === 404;
+  } catch (e) {
+    console.error('Token validation failed:', e);
+    return false;
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem('adminLoggedIn');
+  sessionStorage.removeItem('githubToken');
+  GITHUB_TOKEN = '';
+  location.reload();
+}
+
+// ===== Token Modal Functions =====
+function showTokenModal() {
+  document.getElementById('tokenModal').classList.add('show');
+  document.getElementById('newGithubToken').focus();
+}
+
+function closeTokenModal() {
+  document.getElementById('tokenModal').classList.remove('show');
+  document.getElementById('newGithubToken').value = '';
+}
+
+document.getElementById('tokenUpdateForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const newToken = document.getElementById('newGithubToken').value.trim();
+  
+  if (!newToken) {
+    return;
+  }
+  
+  const isValid = await validateToken(newToken);
+  
+  if (isValid) {
+    sessionStorage.setItem('githubToken', newToken);
+    GITHUB_TOKEN = newToken;
+    closeTokenModal();
+    showToast('Token updated', 'success');
+    // Refresh SHA
+    await getFileSha();
+  } else {
+    showToast('Invalid token, please check and try again', 'error');
+  }
+});
+
+// Close modal on outside click
+document.getElementById('tokenModal').addEventListener('click', (e) => {
+  if (e.target.id === 'tokenModal') {
+    closeTokenModal();
+  }
+});
+
+// ===== Check Login Status on Load =====
+function checkLoginStatus() {
+  const isLoggedIn = sessionStorage.getItem('adminLoggedIn') === 'true';
+  const hasToken = !!sessionStorage.getItem('githubToken');
+  
+  if (isLoggedIn && hasToken) {
+    GITHUB_TOKEN = sessionStorage.getItem('githubToken');
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('tokenStatus').style.display = 'flex';
+    document.getElementById('dashboardScreen').classList.add('show');
+    loadData();
+  } else if (isLoggedIn) {
+    // Password verified, but need token
+    document.getElementById('loginScreen').style.display = 'block';
+    document.getElementById('step1Password').style.display = 'none';
+    document.getElementById('step2Token').style.display = 'block';
+  }
+}
+
+checkLoginStatus();
+
+async function loadData() {
+  // Check if token is available
+  if (!GITHUB_TOKEN) {
+    showToast('Please configure GitHub Token first', 'error');
+    logout();
+    return;
+  }
+  
+  try {
+    const response = await fetch(FILE_PATH + '?t=' + Date.now());
+    if (!response.ok) throw new Error('Failed to load data');
+    
+    allSubmissions = await response.json();
+    
+    // Get SHA for updates
+    await getFileSha();
+    
+    renderTable();
+    updateStats();
+  } catch (error) {
+    console.error('Error loading data:', error);
+    showToast('Failed to load data', 'error');
+  } finally {
+    document.getElementById('loadingState').style.display = 'none';
+  }
+}
+
+async function getFileSha() {
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,
+      {
+        headers: {
+          'Authorization': `token ${GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      }
+    );
+    if (response.ok) {
+      const data = await response.json();
+      fileSha = data.sha;
+    }
+  } catch (e) {
+    console.error('Failed to get SHA:', e);
+  }
+}
+
+function getMethodIcon(method) {
+  const icons = {
+    'Facebook Groups': '👥',
+    'Facebook Pages': '📄',
+    'Discord': '💬',
+    'TikTok': '🎵',
+    'Reels': '🎬',
+    'Other': '🔗'
+  };
+  return icons[method] || '📢';
+}
+
+function getStatusLabel(status) {
+  const labels = {
+    'pending': '⏳ Pending',
+    'link-created': '🔗 Link Created',
+    'sent': '✅ Sent'
+  };
+  return labels[status] || status;
+}
+
+function formatDate(isoString) {
+  const date = new Date(isoString);
+  return date.toLocaleString('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function escapeHtml(text) {
+  if (!text) return '-';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function updateStats() {
+  const total = allSubmissions.length;
+  const pending = allSubmissions.filter(s => s.status === 'pending').length;
+  const linkCreated = allSubmissions.filter(s => s.status === 'link-created').length;
+  const sent = allSubmissions.filter(s => s.status === 'sent').length;
+  
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statPending').textContent = pending;
+  document.getElementById('statLinkCreated').textContent = linkCreated;
+  document.getElementById('statSent').textContent = sent;
+}
+
+function getFilteredData() {
+  return allSubmissions.filter(sub => {
+    if (currentFilterStatus && sub.status !== currentFilterStatus) return false;
+    if (currentFilterMethod && sub.promotionMethod !== currentFilterMethod) return false;
+    return true;
+  });
+}
+
+function renderTable() {
+  const filtered = getFilteredData();
+  
+  document.getElementById('filterInfo').textContent = 
+    `Showing ${filtered.length} of ${filtered.length} records`;
+  
+  if (allSubmissions.length === 0) {
+    document.getElementById('emptyState').style.display = 'block';
+    document.getElementById('tableContainer').style.display = 'none';
+    return;
+  }
+  
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('tableContainer').style.display = 'block';
+  
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = filtered.map(sub => `
+    <tr data-id="${sub.id}">
+      <td>${escapeHtml(sub.discordUsername)}</td>
+      <td>${escapeHtml(sub.bookName)}</td>
+      <td><span class="method-badge">${getMethodIcon(sub.promotionMethod)} ${escapeHtml(sub.promotionMethod)}</span></td>
+      <td>${formatDate(sub.submittedAt)}</td>
+      <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(sub.notes)}</td>
+      <td>
+        <div class="status-dropdown">
+          <span class="status-badge ${sub.status}">${getStatusLabel(sub.status)}</span>
+          <div class="status-dropdown-content">
+            <button onclick="updateStatus('${sub.id}', 'pending')">⏳ Pending</button>
+            <button onclick="updateStatus('${sub.id}', 'link-created')">🔗 Link Created</button>
+            <button onclick="updateStatus('${sub.id}', 'sent')">✅ Sent</button>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div class="action-btns">
+          <button class="btn-delete" onclick="confirmDelete('${sub.id}')" title="Delete">🗑️</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// Filter listeners
+document.getElementById('filterStatus').addEventListener('change', (e) => {
+  currentFilterStatus = e.target.value;
+  renderTable();
+});
+
+document.getElementById('filterMethod').addEventListener('change', (e) => {
+  currentFilterMethod = e.target.value;
+  renderTable();
+});
+
+async function updateStatus(id, newStatus) {
+  const sub = allSubmissions.find(s => s.id === id);
+  if (!sub) return;
+  
+  sub.status = newStatus;
+  
+  try {
+    await saveToGitHub();
+    renderTable();
+    updateStats();
+    showToast('Status updated', 'success');
+  } catch (error) {
+    console.error('Error updating status:', error);
+    showToast('Update failed', 'error');
+  }
+}
+
+function confirmDelete(id) {
+  deleteTargetId = id;
+  const sub = allSubmissions.find(s => s.id === id);
+  document.getElementById('deleteMessage').textContent = 
+    `Are you sure you want to delete the submission for "${sub.bookName}"? This action cannot be undone.`;
+  document.getElementById('deleteModal').classList.add('show');
+}
+
+function closeDeleteModal() {
+  document.getElementById('deleteModal').classList.remove('show');
+  deleteTargetId = null;
+}
+
+document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+  if (!deleteTargetId) return;
+  
+  const index = allSubmissions.findIndex(s => s.id === deleteTargetId);
+  if (index === -1) return;
+  
+  allSubmissions.splice(index, 1);
+  
+  try {
+    await saveToGitHub();
+    closeDeleteModal();
+    renderTable();
+    updateStats();
+    showToast('Record deleted', 'success');
+  } catch (error) {
+    console.error('Error deleting:', error);
+    showToast('Delete failed', 'error');
+  }
+});
+
+async function saveToGitHub() {
+  const content = btoa(JSON.stringify(allSubmissions, null, 2));
+  
+  const body = {
+    message: 'Update submissions via admin panel',
+    content: content
+  };
+  
+  if (fileSha) {
+    body.sha = fileSha;
+  }
+  
+  const response = await fetch(
+    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,
+    {
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${GITHUB_TOKEN}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    }
+  );
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Save failed');
+  }
+  
+  const data = await response.json();
+  fileSha = data.content.sha;
+}
+
+function exportData() {
+  const data = getFilteredData();
+  if (data.length === 0) {
+    showToast('No data to export', 'error');
+    return;
+  }
+  
+  const headers = ['Discord Username', 'Book Name', 'Promotion Method', 'Status', 'Notes', 'Submitted At'];
+  const rows = data.map(sub => [
+    sub.discordUsername,
+    sub.bookName,
+    sub.promotionMethod,
+    sub.status,
+    (sub.notes || '').replace(/"/g, '""'),
+    sub.submittedAt
+  ]);
+  
+  const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
+  
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `koc-submissions-${new Date().toISOString().split('T')[0]}.csv`;
+  link.click();
+  
+  showToast('CSV exported', 'success');
+}
+
+function showToast(message, type = 'success') {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = `toast ${type} show`;
+  setTimeout(() => {
+    toast.classList.remove('show');
+  }, 3000);
+}
+</script>
+
+</body>
+</html>
