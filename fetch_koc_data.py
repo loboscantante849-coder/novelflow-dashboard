@@ -1083,6 +1083,57 @@ def generate_link_stats(putreport_by_adid, submissions, date_from, date_to):
             total_new_users += new_users
             total_d14_income += d14_income
     
+
+    # ================================================
+    # 同步新创建的链接（来自submissions但不在投放报表中）
+    # ================================================
+    print("\n  Syncing new submissions to link-stats...")
+    synced_from_submission = 0
+    
+    for sub in submissions:
+        # 只处理status=completed且有link的提交
+        if sub.get("status") != "completed":
+            continue
+        if not sub.get("link"):
+            continue
+        
+        # 确定链接的key
+        link_key = sub.get("linkId")  # 优先使用linkId
+        if not link_key:
+            # 如果没有linkId，使用code作为key
+            code = sub.get("code")
+            if code:
+                link_key = f"code_{code}"
+            else:
+                # 如果连code都没有，跳过
+                continue
+        
+        # 如果已存在，跳过
+        if link_key in link_stats["links"]:
+            continue
+        
+        # 新增条目
+        link_stats["links"][link_key] = {
+            "visits": 0,
+            "unique_users": 0,
+            "new_users": 0,
+            "d14_income": 0.0,
+            "campaign_id": sub.get("campaignId", ""),
+            "source": "submission_sync",
+            "book_name": sub.get("matchedBookName", sub.get("bookName", "")),
+            "short_url": sub.get("shortUrl", ""),
+            "koc_username": sub.get("discordUsername", ""),
+            "status": sub.get("status", ""),
+            "submission_id": sub.get("id", ""),
+            "code": sub.get("code", "")
+        }
+        total_links += 1
+        synced_from_submission += 1
+        print(f"    Added: {link_key} ({sub.get('bookName', 'N/A')})")
+    
+    if synced_from_submission > 0:
+        print(f"  Synced {synced_from_submission} new submissions to link-stats")
+
     # 添加统计摘要
     link_stats["summary"] = {
         "total_links": total_links,
