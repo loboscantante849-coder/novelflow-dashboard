@@ -731,9 +731,11 @@
     async function retryPendingLoop() {
       if (isRetrying) return;
       isRetrying = true;
+      let retryAttempts = 0;
+      const MAX_RETRY_ATTEMPTS = 3;
       
       try {
-        while (pendingCount > 0) {
+        while (pendingCount > 0 && retryAttempts < MAX_RETRY_ATTEMPTS) {
           try {
             const response = await fetch('/api/retry-pending', {
               method: 'POST',
@@ -743,16 +745,27 @@
             if (!response.ok) break;
             
             const result = await response.json();
+            retryAttempts++;
             
             if (result.remaining === 0) {
               pendingCount = 0;
-              document.getElementById('pendingText').textContent = 'All done! Refreshing...';
-              setTimeout(() => window.location.reload(), 1500);
+              document.getElementById('pendingText').textContent = 'All done! Refreshing data...';
+              // Reload data without full page refresh
+              setTimeout(() => {
+                loadData();
+                pendingAlert.classList.remove('show');
+              }, 1500);
               break;
             }
             
             pendingCount = result.remaining;
-            document.getElementById('pendingText').textContent = pendingCount + ' remaining - retrying...';
+            document.getElementById('pendingText').textContent = pendingCount + ' remaining - retry attempt ' + retryAttempts + '/' + MAX_RETRY_ATTEMPTS + '...';
+            
+            if (retryAttempts >= MAX_RETRY_ATTEMPTS) {
+              document.getElementById('pendingText').textContent = pendingCount + ' pending submission(s) - will retry next time you visit';
+              break;
+            }
+            
             await new Promise(resolve => setTimeout(resolve, 5000));
           } catch (err) {
             console.error('Retry error:', err);

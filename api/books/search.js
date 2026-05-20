@@ -1,11 +1,13 @@
 /**
- * Book search API - proxies novelspa API
- * Supports: keyword, bookClassName, lang, pageSize, page
+ * Book search API - supports featured-books.json and novelspa API
+ * When no keyword/class specified, returns featured books
  */
 
 const RATE_LIMIT = 10;
 const RATE_WINDOW = 60 * 1000;
 const rateLimits = new Map();
+const fs = require('fs');
+const path = require('path');
 
 function checkRateLimit(ip) {
   const now = Date.now();
@@ -21,6 +23,18 @@ function checkRateLimit(ip) {
 
 const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage/book';
 const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
+
+// Load featured books from JSON file
+function loadFeaturedBooks() {
+  try {
+    const filePath = path.join(__dirname, '..', '..', 'featured-books.json');
+    const data = fs.readFileSync(filePath, 'utf-8');
+    return JSON.parse(data);
+  } catch (e) {
+    console.warn('Failed to load featured-books.json:', e.message);
+    return null;
+  }
+}
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -40,6 +54,44 @@ module.exports = async (req, res) => {
   const { keyword = '', lang = 'en', page = 1, pageSize = 20, bookClassName = '' } = req.query || {};
   
   try {
+    // If no keyword and no bookClassName, return featured books
+    if (!keyword && !bookClassName) {
+      const featured = loadFeaturedBooks();
+      if (featured) {
+        const books = featured.recommended || [];
+        const start = (parseInt(page) - 1) * parseInt(pageSize);
+        const end = start + parseInt(pageSize);
+        return res.status(200).json({
+          success: true,
+          data: books.slice(start, end),
+          total: books.length,
+          page: parseInt(page),
+          pageSize: parseInt(pageSize),
+          source: 'featured'
+        });
+      }
+    }
+    
+    // If bookClassName specified, return featured books for that category
+    if (bookClassName && !keyword) {
+      const featured = loadFeaturedBooks();
+      if (featured && featured.categories && featured.categories[bookClassName]) {
+        const books = featured.categories[bookClassName];
+        const start = (parseInt(page) - 1) * parseInt(pageSize);
+        const end = start + parseInt(pageSize);
+        return res.status(200).json({
+          success: true,
+          data: books.slice(start, end),
+          total: books.length,
+          page: parseInt(page),
+          pageSize: parseInt(pageSize),
+          source: 'featured',
+          bookClassName: bookClassName
+        });
+      }
+    }
+    
+    // Otherwise, call novelspa API
     const apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=${page}&pageSize=${pageSize}&pageIndex=${page}&applicationId=${BOOKSTORE_APP_ID}&languageCode=${lang}&bookStatus=1${keyword ? `&keyword=${encodeURIComponent(keyword)}` : ''}${bookClassName ? `&bookClassName=${encodeURIComponent(bookClassName)}` : ''}`;
     
     const response = await fetch(apiUrl, {
@@ -69,7 +121,8 @@ module.exports = async (req, res) => {
       data: books,
       total: (data.data && data.data.total) || data.total || books.length,
       page: parseInt(page),
-      pageSize: parseInt(pageSize)
+      pageSize: parseInt(pageSize),
+      source: 'api'
     });
     
   } catch (error) {

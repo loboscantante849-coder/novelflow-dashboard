@@ -1,35 +1,29 @@
 {
-  "last_updated": "2026-05-17 13:35 (ET)",
+  "last_updated": "2026-05-18 05:34 (ET)",
   "users": {
     "573918": {
-      "link_visits": 0,
-      "unique_visitors": 0,
-      "new_users": 0,
-      "subscription_revenue": 0,
-      "ad_revenue": 0,
-      "link_unique": 0,
-      "link_visits_daily": {},
-      "link_unique_daily": {},
-      "new_users_daily": {},
-      "subscription_revenue_daily": {},
-      "ad_revenue_daily": {}
+      "name": "Cons Espher",
+      "campaign_id": "69f42260362028a0ac10b770",
+      "unique_users": 32,
+      "new_users": 13,
+      "visits": 76,
+      "d14income": 0.95,
+      "last_updated": "2026-05-18 05:34 (ET)"
     },
     "943640": {
+      "name": "DRAS",
+      "campaign_id": "69f94be3e71c030eb9032000",
+      "unique_users": 18,
+      "new_users": 6,
+      "visits": 35,
+      "d14income": 0.03,
+      "last_updated": "2026-05-17 15:34 (ET)",
       "link_visits": 3,
-      "unique_visitors": 0,
-      "new_users": 0,
-      "subscription_revenue": 0,
-      "ad_revenue": 0,
-      "link_unique": 0,
       "link_visits_daily": {
         "2026-05-15": 1,
         "2026-05-14": 1,
         "2026-05-12": 1
-      },
-      "link_unique_daily": {},
-      "new_users_daily": {},
-      "subscription_revenue_daily": {},
-      "ad_revenue_daily": {}
+      }
     },
     "LelouchAlleah": {
       "link_visits": 2,
@@ -53,7 +47,12 @@
       "ad_revenue_daily": {},
       "unique_last_success": "2026-05-16 11:33 (ET)",
       "d7income": 0.0,
-      "d7income_daily": {}
+      "d7income_daily": {},
+      "name": "LelouchAlleah",
+      "unique_users": 2,
+      "visits": 2,
+      "d14income": 0,
+      "last_updated": "2026-05-17 15:34 (ET)"
     },
     "AE XYLIA": {
       "link_visits": 0,
@@ -225,13 +224,14 @@
       "ad_revenue_daily": {}
     },
     "Cons Espher": {
-      "link_visits": 74,
+      "link_visits": 76,
       "unique_visitors": 32,
       "new_users": 13,
       "subscription_revenue": 0.0,
       "ad_revenue": 0.01,
       "link_unique": 32,
       "link_visits_daily": {
+        "2026-05-18": 2,
         "2026-05-17": 2,
         "2026-05-16": 4,
         "2026-05-15": 5,
@@ -282,7 +282,7 @@
         "2026-05-05": 0.0,
         "2026-05-02": 0.0
       },
-      "unique_last_success": "2026-05-17 13:35 (ET)",
+      "unique_last_success": "2026-05-18 04:58 (ET)",
       "d7income": 0.78,
       "d7income_daily": {
         "2026-05-12": 0.35,
@@ -293,16 +293,18 @@
         "2026-05-05": 0.0,
         "2026-05-02": 0.09
       },
-      "d14income": 0.94,
+      "d14income": 1.0,
       "d14income_daily": {
-        "2026-05-12": 0.66,
+        "2026-05-12": 0.72,
         "2026-05-09": 0.0,
         "2026-05-08": 0.02,
         "2026-05-07": 0.04,
         "2026-05-06": 0.05,
         "2026-05-05": 0.0,
         "2026-05-02": 0.17
-      }
+      },
+      "unique": 32,
+      "visits": 74
     },
     "Diana": {
       "link_visits": 0,
@@ -361,7 +363,7 @@
         "2026-05-06": 0.0,
         "2026-05-05": 0.0
       },
-      "unique_last_success": "2026-05-17 13:35 (ET)",
+      "unique_last_success": "2026-05-18 04:58 (ET)",
       "d7income": 0.0,
       "d7income_daily": {},
       "d14income": 0.03,
@@ -370,7 +372,9 @@
         "2026-05-08": 0.0,
         "2026-05-06": 0.0,
         "2026-05-05": 0.03
-      }
+      },
+      "unique": 18,
+      "visits": 35
     },
     "Harriet 335": {
       "link_visits": 0,
@@ -516,19 +520,21 @@
       "ad_revenue_daily": {}
     },
     "Mimi/Tigress/Casside": {
-      "link_visits": 3,
+      "link_visits": 4,
       "unique_visitors": 0,
       "new_users": 0,
       "subscription_revenue": 0,
       "ad_revenue": 0,
       "link_unique": 1,
       "link_visits_daily": {
+        "2026-05-18": 1,
         "2026-05-14": 1,
         "2026-05-12": 1,
         "2026-05-07": 1
       },
       "link_unique_daily": {
-        "2026-05-14": 1,
+        "2026-05-18": 1,
+        "2026-05-14": 0,
         "2026-05-12": 0,
         "2026-05-07": 0
       },
@@ -795,6 +801,14 @@
       "new_users_daily": {},
       "subscription_revenue_daily": {},
       "ad_revenue_daily": {}
+    },
+    "LelouchAlleah_Boochick5": {
+      "name": "Boochick5",
+      "unique_users": 1,
+      "new_users": 0,
+      "visits": 12,
+      "d14income": 0,
+      "last_updated": "2026-05-17 15:34 (ET)"
     }
   },
   "data_source_note": "Unique/New Users from Putreport API; Visits from Beidou API"

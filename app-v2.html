@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <meta name="theme-color" content="#ffffff">
@@ -69,10 +72,123 @@
         .tab-content.active { display: block; animation: fadeIn 0.2s ease; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+        /* Floating Coins Animation */
+        .floating-coins {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 1;
+        }
+        .floating-coin {
+            position: absolute;
+            font-size: 12px;
+            animation: floatUp 3s ease-in-out infinite;
+            opacity: 0.6;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(100px) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.6; }
+            90% { opacity: 0.6; }
+            100% { transform: translateY(-50px) rotate(360deg); opacity: 0; }
+        }
+        
+        /* Top Earners Card */
+        .top-earners-card {
+            background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 50%, #FEF3C7 100%);
+            border: 1px solid #FED7AA;
+            border-radius: var(--r-lg);
+            padding: var(--sp-md);
+            margin: var(--sp-md) var(--sp-lg);
+        }
+        .top-earners-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--sp-sm);
+        }
+        .top-earners-title {
+            display: flex;
+            align-items: center;
+            gap: var(--sp-xs);
+            font-size: 14px;
+            font-weight: 600;
+            color: #9a3412;
+        }
+        .top-earners-badge {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #1a1a2e;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .top-earners-more {
+            font-size: 12px;
+            color: #c2410c;
+            cursor: pointer;
+        }
+        .top-earner-item {
+            display: flex;
+            align-items: center;
+            gap: var(--sp-sm);
+            padding: var(--sp-xs) 0;
+            border-bottom: 1px dashed #FED7AA;
+        }
+        .top-earner-item:last-child { border-bottom: none; }
+        .top-earner-rank {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .top-earner-rank.gold { background: linear-gradient(135deg, #FFD700, #FFA500); color: white; }
+        .top-earner-rank.silver { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: white; }
+        .top-earner-rank.bronze { background: linear-gradient(135deg, #CD7F32, #B87333); color: white; }
+        .top-earner-rank.normal { background: #FEE2E2; color: #DC2626; }
+        .top-earner-name { flex: 1; font-size: 13px; color: #78350f; font-weight: 500; }
+        .top-earner-amount { font-size: 13px; font-weight: 700; color: #15803d; }
+        
+        /* Quick Stats Row */
+        .quick-stats-row {
+            display: flex;
+            gap: var(--sp-sm);
+            padding: 0 var(--sp-lg);
+            margin-bottom: var(--sp-md);
+        }
+        .quick-stat-card {
+            flex: 1;
+            background: linear-gradient(135deg, rgba(13,148,96,0.1), rgba(5,150,105,0.05));
+            border: 1px solid rgba(13,148,96,0.2);
+            border-radius: var(--r-md);
+            padding: var(--sp-sm);
+            text-align: center;
+        }
+        .quick-stat-card.secondary {
+            background: linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,165,0,0.05));
+            border-color: rgba(255,215,0,0.2);
+        }
+        .quick-stat-icon { font-size: 16px; margin-bottom: 2px; }
+        .quick-stat-value { font-size: 14px; font-weight: 700; color: var(--ink); }
+        .quick-stat-card.secondary .quick-stat-value { color: #B45309; }
+        .quick-stat-label { font-size: 10px; color: var(--ink-mute); }
+        
+        /* Money Glow Effect */
+        .money-glow {
+            text-shadow: 0 0 10px rgba(255,215,0,0.5);
+        }
+
         /* ========== Banner — Gradient Mesh ========== */
         .home-banner {
             position: relative;
-            padding: 36px 24px 32px;
+            padding: 24px 24px 20px;
             overflow: hidden;
             background: linear-gradient(135deg, #FF6B9D 0%, #C084FC 40%, #FFD700 100%);
         }
@@ -93,18 +209,29 @@
             color: rgba(255,255,255,0.7); margin-bottom: var(--sp-md);
         }
         .banner-title {
-            font-size: 26px; font-weight: 600; line-height: 1.12; letter-spacing: -0.52px;
-            color: var(--on-primary); margin-bottom: var(--sp-sm);
+            font-size: 22px; font-weight: 600; line-height: 1.15; letter-spacing: -0.44px;
+            color: var(--on-primary); margin-bottom: var(--sp-xs);
         }
         .banner-title .highlight { color: #fbbf24; font-weight: 700; }
         .banner-amount {
-            font-size: 40px; font-weight: 300; line-height: 1.03; letter-spacing: -1px;
+            font-size: 38px; font-weight: 700; line-height: 1.1; letter-spacing: -1px;
             font-feature-settings: "tnum";
-            color: var(--on-primary); margin: var(--sp-md) 0 var(--sp-xs);
+            color: var(--on-primary); margin: var(--sp-sm) 0 var(--sp-xxs);
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .banner-amount-prefix {
+            font-size: 24px; font-weight: 400; vertical-align: top; margin-right: 4px;
         }
         .banner-subtitle {
-            font-size: 13px; font-weight: 300; color: rgba(255,255,255,0.6);
+            font-size: 14px; font-weight: 400; color: rgba(255,255,255,0.85);
+            display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;
         }
+        .banner-subtitle .coin {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: rgba(255,255,255,0.2); padding: 3px 10px; border-radius: 20px;
+        }
+        .banner-subtitle .coin-icon { font-size: 14px; }
+        .banner-subtitle .coin-text { font-weight: 600; color: #FFD700; }
 
         /* ========== Home Header ========== */
         .home-header { padding: var(--sp-lg) var(--sp-lg) 0; background: var(--canvas); }
@@ -1261,6 +1388,80 @@
             font-size: 12px;
         }
 
+
+        /* ========== Splash / Login Screen ========== */
+        .splash-screen {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, #1c1e54 0%, #533afd 50%, #C084FC 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 24px;
+        }
+        .splash-screen.hidden {
+            display: none;
+        }
+        .splash-logo {
+            width: 80px; height: 80px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 36px; font-weight: 700; color: white;
+            margin-bottom: 24px;
+            backdrop-filter: blur(10px);
+        }
+        .splash-title {
+            font-size: 28px; font-weight: 700; color: white;
+            margin-bottom: 8px; text-align: center;
+        }
+        .splash-subtitle {
+            font-size: 14px; color: rgba(255,255,255,0.7);
+            margin-bottom: 40px; text-align: center;
+        }
+        .splash-form {
+            width: 100%; max-width: 320px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 16px; padding: 24px;
+            backdrop-filter: blur(10px);
+        }
+        .splash-input {
+            width: 100%; padding: 14px 16px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 12px; color: white;
+            font-size: 15px; font-family: 'Inter', sans-serif;
+            margin-bottom: 12px;
+        }
+        .splash-input:focus {
+            outline: none; border-color: rgba(255,255,255,0.5);
+        }
+        .splash-input::placeholder { color: rgba(255,255,255,0.5); }
+        .splash-btn {
+            width: 100%; padding: 14px;
+            background: linear-gradient(135deg, #FFD700, #FF6B9D);
+            border: none; border-radius: 12px;
+            color: #1c1e54; font-size: 16px; font-weight: 700;
+            cursor: pointer; transition: transform 0.2s;
+        }
+        .splash-btn:hover { transform: scale(1.02); }
+        .splash-btn:active { transform: scale(0.98); }
+        .splash-tip {
+            text-align: center; font-size: 12px;
+            color: rgba(255,255,255,0.5); margin-top: 12px;
+        }
+        .splash-skip {
+            margin-top: 16px;
+            background: transparent; border: none;
+            color: rgba(255,255,255,0.6); font-size: 13px;
+            cursor: pointer; text-decoration: underline;
+        }
+        .splash-error {
+            color: #ff6b6b; font-size: 12px; margin-top: 8px;
+            text-align: center;
+        }
         .logout-btn {
             display: none; width: calc(100% - 32px); margin: 0 auto var(--sp-md);
             padding: 10px 16px; background: transparent;
@@ -1270,6 +1471,396 @@
         }
         .logout-btn.show { display: block; }
         .logout-btn:hover { background: rgba(234,34,97,0.08); }
+
+        /* ========== Leaderboard / Tasks Page - Taobao-style ========== */
+        .leaderboard-banner {
+            background: linear-gradient(135deg, #FF8C00 0%, #FF6B00 50%, #FF4500 100%);
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+        .leaderboard-banner::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at 30% 50%, rgba(255,215,0,0.3) 0%, transparent 50%);
+        }
+        .leaderboard-title {
+            font-size: 22px; font-weight: 700; color: white;
+            position: relative; z-index: 1;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .leaderboard-subtitle {
+            font-size: 13px; color: rgba(255,255,255,0.85);
+            margin-top: 4px; position: relative; z-index: 1;
+        }
+
+        .leaderboard-tabs {
+            display: flex;
+            background: var(--canvas);
+            padding: 12px 16px;
+            gap: 8px;
+        }
+        .leaderboard-tab {
+            flex: 1;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            padding: 10px 8px;
+            background: var(--canvas-soft);
+            border: none; border-radius: 10px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .leaderboard-tab.active {
+            background: linear-gradient(135deg, #FF8C00, #FF6B00);
+            color: white;
+        }
+        .leaderboard-tab .tab-icon { font-size: 20px; }
+        .leaderboard-tab .tab-text { font-size: 12px; font-weight: 600; }
+
+        .time-filter {
+            display: flex;
+            padding: 12px 16px;
+            gap: 8px;
+            background: var(--canvas);
+        }
+        .time-btn {
+            flex: 1;
+            padding: 8px;
+            background: var(--canvas-soft);
+            border: 1px solid var(--hairline);
+            border-radius: 8px;
+            font-size: 13px; font-weight: 500;
+            color: var(--ink-mute);
+            cursor: pointer; transition: all 0.2s;
+        }
+        .time-btn.active {
+            background: var(--gold-soft);
+            border-color: var(--gold);
+            color: #9a6800;
+        }
+
+        .leaderboard-list {
+            padding: 12px 16px;
+        }
+        .leaderboard-item {
+            display: flex; align-items: center; gap: 12px;
+            background: var(--canvas);
+            border: 1px solid var(--hairline);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+        }
+        .leaderboard-item:hover {
+            border-color: var(--gold);
+            box-shadow: 0 2px 8px rgba(255,165,0,0.15);
+        }
+        .leaderboard-rank {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 14px;
+            flex-shrink: 0;
+        }
+        .leaderboard-rank.top1 { background: linear-gradient(135deg, #FFD700, #FFA500); color: white; }
+        .leaderboard-rank.top2 { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: white; }
+        .leaderboard-rank.top3 { background: linear-gradient(135deg, #CD7F32, #B87333); color: white; }
+        .leaderboard-rank.normal { background: var(--canvas-soft); color: var(--ink-mute); }
+        
+        .leaderboard-cover {
+            width: 45px; height: 60px;
+            border-radius: 6px;
+            object-fit: cover;
+            background: var(--canvas-soft);
+            flex-shrink: 0;
+        }
+        .leaderboard-info { flex: 1; min-width: 0; }
+        .leaderboard-title-text {
+            font-size: 14px; font-weight: 600; color: var(--ink);
+            margin-bottom: 4px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .leaderboard-meta {
+            font-size: 12px; color: var(--ink-mute);
+        }
+        .leaderboard-earnings {
+            text-align: right; flex-shrink: 0;
+        }
+        .leaderboard-commission {
+            font-size: 16px; font-weight: 700; color: #FF6B00;
+        }
+        .leaderboard-label {
+            font-size: 11px; color: var(--ink-mute);
+        }
+        .leaderboard-share-btn {
+            padding: 6px 12px;
+            background: linear-gradient(135deg, #FF8C00, #FF6B00);
+            border: none; border-radius: 16px;
+            color: white; font-size: 12px; font-weight: 600;
+            cursor: pointer; margin-top: 6px;
+        }
+
+        /* Quick Tasks */
+        .quick-tasks-section {
+            padding: 16px;
+            background: var(--canvas-soft);
+            margin-top: 8px;
+        }
+        .quick-tasks-header {
+            font-size: 15px; font-weight: 600; color: var(--ink);
+            margin-bottom: 12px;
+        }
+        .checkin-card-v2 {
+            display: flex; align-items: center; justify-content: space-between;
+            background: linear-gradient(135deg, #FF8C00, #FF6B00);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+        }
+        .checkin-v2-left { display: flex; align-items: center; gap: 12px; }
+        .checkin-v2-icon { font-size: 28px; }
+        .checkin-v2-title { font-size: 14px; font-weight: 600; color: white; }
+        .checkin-v2-reward { font-size: 12px; color: rgba(255,255,255,0.85); }
+        .checkin-v2-btn {
+            padding: 8px 16px;
+            background: white; border: none; border-radius: 20px;
+            font-size: 13px; font-weight: 600; color: #FF6B00;
+            cursor: pointer;
+        }
+        .checkin-v2-btn.done {
+            background: rgba(255,255,255,0.3); color: white;
+        }
+        .quick-task-item {
+            display: flex; align-items: center; gap: 12px;
+            background: var(--canvas);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .quick-task-item:hover { transform: translateX(4px); }
+        .quick-task-icon { font-size: 24px; }
+        .quick-task-info { flex: 1; }
+        .quick-task-name { font-size: 14px; font-weight: 500; color: var(--ink); }
+        .quick-task-reward { font-size: 12px; color: var(--success); font-weight: 600; }
+        .quick-task-btn {
+            padding: 6px 12px;
+            background: var(--primary); border: none; border-radius: 16px;
+            color: white; font-size: 12px; font-weight: 600;
+        }
+        .quick-task-btn.secondary { background: var(--canvas-soft); color: var(--ink-mute); }
+        
+        /* Task Progress Bar */
+        .task-progress-bar {
+            height: 4px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 2px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+        .task-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--gold));
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+        
+        /* Streak Reward Preview */
+        .streak-reward-preview {
+            text-align: right;
+        }
+        
+        /* Leaderboard Mini Section */
+        .leaderboard-mini-section {
+            padding: 0 var(--sp-lg) var(--sp-lg);
+        }
+        .leaderboard-mini-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--sp-sm);
+        }
+        .leaderboard-mini-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--ink);
+        }
+        .leaderboard-mini-more {
+            font-size: 12px;
+            color: var(--primary);
+            cursor: pointer;
+        }
+        .leaderboard-mini-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-xs);
+        }
+        .leaderboard-mini-item {
+            display: flex;
+            align-items: center;
+            gap: var(--sp-sm);
+            padding: var(--sp-sm);
+            background: var(--canvas);
+            border: 1px solid var(--hairline);
+            border-radius: var(--r-md);
+        }
+        .leaderboard-mini-rank {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .leaderboard-mini-rank.gold { background: linear-gradient(135deg, #FFD700, #FFA500); color: white; }
+        .leaderboard-mini-rank.silver { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: white; }
+        .leaderboard-mini-rank.bronze { background: linear-gradient(135deg, #CD7F32, #B87333); color: white; }
+        .leaderboard-mini-rank.normal { background: var(--canvas-soft); color: var(--ink-mute); }
+        .leaderboard-mini-name { flex: 1; font-size: 13px; color: var(--ink); }
+        .leaderboard-mini-earning { font-size: 13px; font-weight: 600; color: var(--success); }
+
+        /* ========== Profile Page - Miyuan-style ========== */
+        .profile-vip-header {
+            position: relative;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            overflow: hidden;
+        }
+        .profile-vip-bg {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at 80% 20%, rgba(255,215,0,0.2) 0%, transparent 50%);
+        }
+        .profile-vip-content {
+            position: relative; z-index: 1;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .profile-vip-info { display: flex; align-items: center; gap: 14px; }
+        .profile-vip-avatar {
+            width: 60px; height: 60px; border-radius: 50%;
+            background: linear-gradient(135deg, #FF8C00, #FF6B00);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; font-weight: 700; color: white;
+            border: 3px solid rgba(255,255,255,0.3);
+        }
+        .profile-vip-name { font-size: 18px; font-weight: 600; color: white; margin-bottom: 4px; }
+        .profile-vip-id {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; color: rgba(255,255,255,0.7);
+        }
+        .profile-copy-btn {
+            padding: 2px 8px; background: rgba(255,255,255,0.2);
+            border: none; border-radius: 4px; color: white;
+            font-size: 11px; cursor: pointer;
+        }
+        .profile-vip-badge {
+            padding: 6px 14px;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            border-radius: 20px;
+            font-size: 12px; font-weight: 700; color: #1a1a2e;
+        }
+
+        .profile-income-section { padding: 0 16px; margin-top: -20px; }
+        .income-card {
+            background: var(--canvas);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .income-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .income-title { font-size: 16px; font-weight: 600; color: var(--ink); }
+        .income-withdraw-btn {
+            padding: 6px 14px;
+            background: linear-gradient(135deg, #FF8C00, #FF6B00);
+            border: none; border-radius: 20px;
+            color: white; font-size: 13px; font-weight: 600;
+            cursor: pointer;
+        }
+        .income-stats { display: flex; justify-content: space-around; margin-bottom: 12px; }
+        .income-stat { text-align: center; }
+        .income-stat-value { font-size: 20px; font-weight: 700; color: #FF6B00; }
+        .income-stat-label { font-size: 12px; color: var(--ink-mute); margin-top: 4px; }
+        .income-note {
+            text-align: center; font-size: 12px; color: var(--ink-mute);
+            padding-top: 12px; border-top: 1px solid var(--hairline);
+        }
+
+        .profile-upgrade-section { padding: 16px; }
+        .upgrade-card {
+            background: var(--canvas);
+            border-radius: 12px;
+            padding: 14px;
+            border: 1px solid var(--hairline);
+        }
+        .upgrade-header {
+            display: flex; justify-content: space-between; margin-bottom: 8px;
+        }
+        .upgrade-title { font-size: 14px; font-weight: 600; color: var(--ink); }
+        .upgrade-progress-text { font-size: 13px; font-weight: 600; color: var(--primary); }
+        .upgrade-bar {
+            height: 8px; background: var(--canvas-soft); border-radius: 4px; overflow: hidden;
+        }
+        .upgrade-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--gold));
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+        .upgrade-hint { font-size: 12px; color: var(--ink-mute); margin-top: 8px; }
+
+        .profile-functions-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+            background: var(--hairline);
+            padding: 1px;
+            margin: 0 16px;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .profile-func-item {
+            background: var(--canvas);
+            padding: 16px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .profile-func-item:hover { background: var(--canvas-soft); }
+        .profile-func-icon { font-size: 24px; margin-bottom: 6px; }
+        .profile-func-name { font-size: 12px; color: var(--ink); }
+
+        .profile-my-books-section { margin-top: 16px; }
+
+        .profile-bottom-actions {
+            display: flex; gap: 12px; padding: 16px;
+        }
+        .profile-action-btn {
+            flex: 1; padding: 12px;
+            border-radius: 10px; font-size: 14px; font-weight: 500;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .profile-action-btn.secondary {
+            background: var(--canvas-soft);
+            border: 1px solid var(--hairline);
+            color: var(--ink);
+        }
+        .profile-action-btn.secondary:hover {
+            background: var(--hairline);
+        }
+
+        .logout-btn {
+            display: none; width: calc(100% - 32px); margin: 0 auto;
+            padding: 12px; background: transparent;
+            border: 1px solid var(--danger); border-radius: 10px;
+            color: var(--danger); font-size: 14px; font-weight: 500;
+            cursor: pointer;
+        }
+        .logout-btn.show { display: block; }
+        .logout-btn:hover { background: rgba(234,34,97,0.1); }
 
         /* ========== Bottom Nav — Stripe Style ========== */
         .bottom-nav {
@@ -1522,18 +2113,97 @@
         }
         .login-required-msg p { font-size: 14px; color: var(--ink-mute); margin-bottom: 16px; }
     </style>
-</head>
-<body>
+
+<!-- VERSION: 20260518-204300 --></head>
+<body><!-- VERSION: 20260518-2108 -->
+    <!-- Splash / Login Screen -->
+    <div class="splash-screen" id="splashScreen">
+        <div class="splash-logo">N</div>
+        <div class="splash-title">NovelFlow</div>
+        <div class="splash-subtitle">Earn money promoting books</div>
+        
+        <div class="splash-form">
+            <input type="text" class="splash-input" id="splashUsername" placeholder="Username">
+            <input type="text" class="splash-input" id="splashNFId" placeholder="NovelFlow ID">
+            <button class="splash-btn" onclick="handleSplashLogin()">Start Earning</button>
+            <div class="splash-tip">Enter any username to start. No password needed.</div>
+            <div class="splash-error" id="splashError"></div>
+        </div>
+        
+        <button class="splash-skip" onclick="skipLogin()">Skip for now →</button>
+    </div>
+
     <div class="app-container">
         <!-- Tab 1: Home -->
         <div class="tab-content active" id="tab-home">
-            <!-- Banner — Gradient Mesh -->
+            <!-- Banner — Gradient Mesh with Floating Coins -->
             <div class="home-banner">
+                <div class="floating-coins" id="floatingCoins">
+                    <span class="floating-coin" style="left:10%;animation-delay:0s;">🪙</span>
+                    <span class="floating-coin" style="left:25%;animation-delay:0.5s;">💰</span>
+                    <span class="floating-coin" style="left:40%;animation-delay:1s;">🪙</span>
+                    <span class="floating-coin" style="left:55%;animation-delay:1.5s;">💵</span>
+                    <span class="floating-coin" style="left:70%;animation-delay:2s;">🪙</span>
+                    <span class="floating-coin" style="left:85%;animation-delay:2.5s;">💰</span>
+                </div>
                 <div class="banner-content">
-                    <div class="banner-eyebrow">💰 GET PAID TO READ</div>
-                    <div class="banner-title">Earn <span class="highlight">$0.80</span> Per<br>New Reader</div>
-                    <div class="banner-amount">$50K+ Paid</div>
-                    <div class="banner-subtitle">Top promoters earned $500+ this month</div>
+                    <div class="banner-eyebrow">💰 UP TO 80% COMMISSION</div>
+                    <div class="banner-title">Earn Up to <span class="highlight">80%</span><br>Commission!</div>
+                    <div class="banner-amount"><span class="banner-amount-prefix money-glow">$</span><span class="money-glow">50K+</span></div>
+                    <div class="banner-subtitle">
+                        <span class="coin"><span class="coin-icon">🪙</span><span class="coin-text">+500 today</span></span>
+                        paid to promoters
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Stats Row -->
+            <div class="quick-stats-row">
+                <div class="quick-stat-card" onclick="switchTab('submit')">
+                    <div class="quick-stat-icon">💵</div>
+                    <div class="quick-stat-value">80%</div>
+                    <div class="quick-stat-label">Earnings</div>
+                </div>
+                <div class="quick-stat-card" onclick="switchTab('tasks')">
+                    <div class="quick-stat-icon">🎁</div>
+                    <div class="quick-stat-value">+50</div>
+                    <div class="quick-stat-label">Daily Coins</div>
+                </div>
+                <div class="quick-stat-card secondary" onclick="switchTab('tasks')">
+                    <div class="quick-stat-icon">🔥</div>
+                    <div class="quick-stat-value">500+</div>
+                    <div class="quick-stat-label">Earners</div>
+                </div>
+            </div>
+
+            <!-- Top Earners Card -->
+            <div class="top-earners-card">
+                <div class="top-earners-header">
+                    <div class="top-earners-title">
+                        🏆 Top Earners Today
+                        <span class="top-earners-badge">LIVE</span>
+                    </div>
+                    <span class="top-earners-more" onclick="switchTab('tasks')">View All →</span>
+                </div>
+                <div class="top-earner-item">
+                    <div class="top-earner-rank gold">1</div>
+                    <div class="top-earner-name">Sarah M.</div>
+                    <div class="top-earner-amount">80%</div>
+                </div>
+                <div class="top-earner-item">
+                    <div class="top-earner-rank silver">2</div>
+                    <div class="top-earner-name">Mike T.</div>
+                    <div class="top-earner-amount">75%</div>
+                </div>
+                <div class="top-earner-item">
+                    <div class="top-earner-rank bronze">3</div>
+                    <div class="top-earner-name">Emma W.</div>
+                    <div class="top-earner-amount">72%</div>
+                </div>
+                <div class="top-earner-item">
+                    <div class="top-earner-rank normal">4</div>
+                    <div class="top-earner-name">John D.</div>
+                    <div class="top-earner-amount">68%</div>
                 </div>
             </div>
 
@@ -1557,8 +2227,8 @@
 
             <!-- Scroll -->
             <div class="book-scroll-section" id="bookScrollSection" style="display: none;">
-                <div class="book-scroll-title">Recommended for you</div>
-                <div class="section-subtitle">Top picks to promote & earn</div>
+                <div class="book-scroll-title">🔥 Trending Now</div>
+                <div class="section-subtitle">Join 500+ promoters earning daily</div>
                 <div class="book-scroll-list" id="bookScrollList"></div>
             </div>
 
@@ -1600,7 +2270,7 @@
                 <div class="submit-header">
                     <div class="submit-badge">Earn Money</div>
                     <h1 class="submit-title">Recommend & <span class="highlight">Earn</span></h1>
-                    <p class="submit-subtitle">Share books you love and earn commissions for every referral.</p>
+                    <p class="submit-subtitle">Share books you love and earn up to 80% commission on every referral.</p>
                 </div>
 
                 <div class="submit-form" id="submitForm">
@@ -1680,134 +2350,121 @@
             </div>
         </div>
 
-        <!-- Tab 3: Tasks -->
+        <!-- Tab 3: Tasks / Leaderboard - Taobao-style -->
         <div class="tab-content" id="tab-tasks">
-            <!-- Gaming-style Header -->
-            <div class="tasks-header gaming-header">
-                <div class="tasks-title">&#9733; Mission Center &#9733;</div>
-                <div class="tasks-subtitle">Complete missions to unlock rewards</div>
+            <!-- Top Banner -->
+            <div class="leaderboard-banner">
+                <div class="leaderboard-title">&#127941; Earnings Leaderboard</div>
+                <div class="leaderboard-subtitle">Top promoters earning daily</div>
             </div>
 
-            <!-- Check-in Card -->
-            <div class="checkin-card" id="checkinCard">
-                <div class="checkin-header">
-                    <div class="checkin-title">Daily Check-in</div>
-                    <div class="checkin-streak">
-                        <span class="streak-flame">&#128293;</span>
-                        <span class="streak-count" id="streakCount">0</span>
-                        <span class="streak-label">Day Streak</span>
-                    </div>
-                </div>
-                <div class="checkin-calendar" id="checkinCalendar"></div>
-                <button class="checkin-btn" id="checkinBtn" onclick="doCheckin()">
-                    <span class="checkin-btn-text">&#10024; Check In Now</span>
-                    <span class="checkin-btn-done" style="display:none;">&#10004; Done Today!</span>
+            <!-- Tab Switcher -->
+            <div class="leaderboard-tabs">
+                <button class="leaderboard-tab active" data-rank-type="commission">
+                    <span class="tab-icon">💰</span>
+                    <span class="tab-text">80%</span>
+                </button>
+                <button class="leaderboard-tab" data-rank-type="heat">
+                    <span class="tab-icon">🔥</span>
+                    <span class="tab-text">Heat</span>
+                </button>
+                <button class="leaderboard-tab" data-rank-type="new">
+                    <span class="tab-icon">✨</span>
+                    <span class="tab-text">New</span>
                 </button>
             </div>
 
-            <!-- Task Categories -->
-            <div class="task-tabs">
-                <button class="task-tab active" data-task-type="daily">Daily Missions</button>
-                <button class="task-tab" data-task-type="achievement">Achievements</button>
+            <!-- Time Filter -->
+            <div class="time-filter">
+                <button class="time-btn active" data-period="today">Today</button>
+                <button class="time-btn" data-period="week">This Week</button>
+                <button class="time-btn" data-period="month">This Month</button>
             </div>
 
-            <!-- Daily Missions -->
-            <div class="task-list" id="taskList">
-                <div class="task-section-title">Daily Missions</div>
+            <!-- Leaderboard List -->
+            <div class="leaderboard-list" id="leaderboardList">
+                <!-- Dynamic content -->
+            </div>
 
-                <div class="gaming-task-card" data-task="first_book">
-                    <div class="gaming-task-left">
-                        <div class="gaming-task-icon">&#128218;</div>
-                    </div>
-                    <div class="gaming-task-content">
-                        <div class="gaming-task-header">
-                            <div class="gaming-task-name">Recommend First Book</div>
-                            <div class="gaming-task-reward">+$2</div>
-                        </div>
-                        <div class="gaming-task-desc">Submit your first book recommendation</div>
-                        <div class="gaming-task-progress">
-                            <div class="gaming-progress-bar"><div class="gaming-progress-fill" id="task_first_book_progress" style="width: 0%"></div></div>
-                            <div class="gaming-progress-text" id="task_first_book_text">0/1</div>
+            <!-- Quick Tasks Section -->
+            <div class="quick-tasks-section">
+                <div class="quick-tasks-header">🎯 Daily Missions</div>
+                
+                <!-- Check-in Card - Enhanced Taobao Style -->
+                <div class="checkin-card-v2" id="checkinCardV2">
+                    <div class="checkin-v2-left">
+                        <div class="checkin-v2-icon">🎁</div>
+                        <div class="checkin-v2-info">
+                            <div class="checkin-v2-title">Daily Check-in</div>
+                            <div class="checkin-v2-reward">+10 Coins</div>
                         </div>
                     </div>
-                    <button class="gaming-task-btn" onclick="switchTab('submit')">Start</button>
+                    <button class="checkin-v2-btn" id="checkinBtnV2" onclick="doCheckinV2()">
+                        <span class="checkin-v2-btn-text">Check In</span>
+                        <span class="checkin-v2-btn-done" style="display:none;">✓ Done</span>
+                    </button>
+                </div>
+                
+                <!-- Streak Bonus Card -->
+                <div class="checkin-card-v2" style="background: linear-gradient(135deg, #667eea, #764ba2); margin-bottom: 10px;">
+                    <div class="checkin-v2-left">
+                        <div class="checkin-v2-icon">🔥</div>
+                        <div class="checkin-v2-info">
+                            <div class="checkin-v2-title">Streak Bonus</div>
+                            <div class="checkin-v2-reward" id="streakDisplay">0 days</div>
+                        </div>
+                    </div>
+                    <div class="streak-reward-preview">
+                        <div style="font-size: 11px; color: rgba(255,255,255,0.8);">7 days = +50 Coins</div>
+                    </div>
                 </div>
 
-                <div class="gaming-task-card" data-task="share_3books">
-                    <div class="gaming-task-left">
-                        <div class="gaming-task-icon">&#128230;</div>
-                    </div>
-                    <div class="gaming-task-content">
-                        <div class="gaming-task-header">
-                            <div class="gaming-task-name">Book Collector</div>
-                            <div class="gaming-task-reward">+$5</div>
-                        </div>
-                        <div class="gaming-task-desc">Recommend 3 different books</div>
-                        <div class="gaming-task-progress">
-                            <div class="gaming-progress-bar"><div class="gaming-progress-fill" id="task_share_3books_progress" style="width: 33%"></div></div>
-                            <div class="gaming-progress-text" id="task_share_3books_text">1/3</div>
+                <!-- Mission Progress Cards -->
+                <div class="quick-task-item" onclick="switchTab('submit')">
+                    <div class="quick-task-icon">📚</div>
+                    <div class="quick-task-info">
+                        <div class="quick-task-name">Share First Book</div>
+                        <div class="quick-task-reward">+20 Coins</div>
+                        <div class="task-progress-bar">
+                            <div class="task-progress-fill" id="task1Progress" style="width: 0%"></div>
                         </div>
                     </div>
-                    <button class="gaming-task-btn" onclick="switchTab('submit')">Continue</button>
+                    <div class="quick-task-btn" id="task1Btn">Start →</div>
                 </div>
 
-                <div class="gaming-task-card" data-task="refer_friend">
-                    <div class="gaming-task-left">
-                        <div class="gaming-task-icon">&#128101;</div>
-                    </div>
-                    <div class="gaming-task-content">
-                        <div class="gaming-task-header">
-                            <div class="gaming-task-name">Social Butterfly</div>
-                            <div class="gaming-task-reward">+$10</div>
-                        </div>
-                        <div class="gaming-task-desc">Share with a friend who joins</div>
-                        <div class="gaming-task-progress">
-                            <div class="gaming-progress-bar"><div class="gaming-progress-fill" style="width: 0%"></div></div>
-                            <div class="gaming-progress-text">0/1</div>
+                <div class="quick-task-item" onclick="switchTab('submit')">
+                    <div class="quick-task-icon">📖</div>
+                    <div class="quick-task-info">
+                        <div class="quick-task-name">Share 3 Books</div>
+                        <div class="quick-task-reward">+50 Coins</div>
+                        <div class="task-progress-bar">
+                            <div class="task-progress-fill" id="task2Progress" style="width: 33%"></div>
                         </div>
                     </div>
-                    <button class="gaming-task-btn locked">Locked</button>
+                    <div class="quick-task-btn secondary" id="task2Btn">1/3 →</div>
                 </div>
-
-                <div class="task-section-title" style="margin-top: 24px;">Achievements</div>
-
-                <div class="gaming-achievement-card" data-achievement="click_100">
-                    <div class="achievement-badge">&#128081;</div>
-                    <div class="achievement-content">
-                        <div class="achievement-name">Traffic Master</div>
-                        <div class="achievement-desc">Get 100 clicks on your recommendations</div>
-                        <div class="achievement-progress">
-                            <div class="achievement-bar"><div class="achievement-fill" style="width: 67%"></div></div>
-                            <div class="achievement-text">67/100</div>
+                
+                <div class="quick-task-item" onclick="switchTab('home')">
+                    <div class="quick-task-icon">👥</div>
+                    <div class="quick-task-info">
+                        <div class="quick-task-name">Invite 3 Friends</div>
+                        <div class="quick-task-reward">+100 Coins</div>
+                        <div class="task-progress-bar">
+                            <div class="task-progress-fill" style="width: 0%"></div>
                         </div>
                     </div>
-                    <div class="achievement-reward">$10</div>
+                    <div class="quick-task-btn secondary">0/3 →</div>
                 </div>
-
-                <div class="gaming-achievement-card locked" data-achievement="week_streak">
-                    <div class="achievement-badge">&#127942;</div>
-                    <div class="achievement-content">
-                        <div class="achievement-name">Week Warrior</div>
-                        <div class="achievement-desc">Check in for 7 days in a row</div>
-                        <div class="achievement-progress">
-                            <div class="achievement-bar"><div class="achievement-fill" style="width: 0%"></div></div>
-                            <div class="achievement-text">0/7</div>
-                        </div>
-                    </div>
-                    <div class="achievement-reward">$20</div>
+            </div>
+            
+            <!-- Leaderboard Mini Section -->
+            <div class="leaderboard-mini-section">
+                <div class="leaderboard-mini-header">
+                    <span class="leaderboard-mini-title">🏆 Top Earners Today</span>
+                    <span class="leaderboard-mini-more" onclick="switchTab('tasks')">More →</span>
                 </div>
-
-                <div class="gaming-achievement-card locked" data-achievement="top_10">
-                    <div class="achievement-badge">&#128081;</div>
-                    <div class="achievement-content">
-                        <div class="achievement-name">Top 10 Promoter</div>
-                        <div class="achievement-desc">Reach the weekly top 10 rankings</div>
-                        <div class="achievement-progress">
-                            <div class="achievement-bar"><div class="achievement-fill" style="width: 0%"></div></div>
-                            <div class="achievement-text">--</div>
-                        </div>
-                    </div>
-                    <div class="achievement-reward">$50</div>
+                <div class="leaderboard-mini-list" id="leaderboardMiniList">
+                    <!-- Dynamic content -->
                 </div>
             </div>
         </div>
@@ -1859,17 +2516,17 @@
             </div>
 
             <div class="profile-grid">
-                <div class="profile-card" onclick="window.open('dashboard.html', '_blank')">
+                <div class="profile-card" onclick="showStatsDetail()">
                     <div class="profile-card-icon">&#9776;</div><div class="profile-card-title">Statistics</div><div class="profile-card-desc">View promotion data</div>
                 </div>
                 <div class="profile-card" id="myBooksCard" onclick="toggleMyBooksExpand()">
                     <div class="profile-card-icon">&#128176;</div><div class="profile-card-title">My Books</div><div class="profile-card-desc" id="profileMyBooksCount">0 books promoted</div>
                     <div class="profile-card-arrow" id="myBooksArrow">▼</div>
                 </div>
-                <div class="profile-card" onclick="window.open('promotion-guide.html', '_blank')">
+                <div class="profile-card" onclick="showGuideModal()">
                     <div class="profile-card-icon">&#9432;</div><div class="profile-card-title">Guide</div><div class="profile-card-desc">For beginners</div>
                 </div>
-                <div class="profile-card">
+                <div class="profile-card" onclick="showSupportModal()">
                     <div class="profile-card-icon">&#9993;</div><div class="profile-card-title">Support</div><div class="profile-card-desc">Get help</div>
                 </div>
             </div>
@@ -1922,7 +2579,7 @@
                 <div class="earn-incentive" id="earnIncentive">
                     <div class="earn-incentive-icon">💰</div>
                     <div class="earn-incentive-text">1,200+ promoters are earning with this book</div>
-                    <div class="earn-incentive-sub">Earn commission for every reader you bring</div>
+                    <div class="earn-incentive-sub">Earn up to 80% commission for every reader you bring</div>
                 </div>
                 <div class="modal-description">
                     <div class="modal-description-label">Description</div>
@@ -2023,6 +2680,51 @@
             document.querySelector(`.nav-item[data-tab="${tabName}"]`)?.classList.add('active');
         }
         document.querySelectorAll('.nav-item').forEach(el => el.addEventListener('click', () => switchTab(el.dataset.tab)));
+
+        // ========== Update Share Tasks Progress ==========
+        function updateShareTasksProgress() {
+            const booksShared = AppState.myBooks.length;
+            
+            // Task 1: Share First Book (1 book)
+            const task1Progress = document.getElementById('task1Progress');
+            const task1Btn = document.getElementById('task1Btn');
+            if (task1Progress && task1Btn) {
+                if (booksShared >= 1) {
+                    task1Progress.style.width = '100%';
+                    task1Btn.className = 'quick-task-btn';
+                    task1Btn.textContent = '✓ Done';
+                    task1Btn.style.background = 'linear-gradient(135deg, #0d9460, #059669)';
+                    task1Btn.style.color = 'white';
+                } else {
+                    task1Progress.style.width = '0%';
+                    task1Btn.className = 'quick-task-btn';
+                    task1Btn.textContent = 'Start →';
+                    task1Btn.style.background = '';
+                    task1Btn.style.color = '';
+                }
+            }
+            
+            // Task 2: Share 3 Books
+            const task2Progress = document.getElementById('task2Progress');
+            const task2Btn = document.getElementById('task2Btn');
+            if (task2Progress && task2Btn) {
+                const task2Target = 3;
+                const progressPercent = Math.min((booksShared / task2Target) * 100, 100);
+                task2Progress.style.width = progressPercent + '%';
+                
+                if (booksShared >= task2Target) {
+                    task2Btn.className = 'quick-task-btn';
+                    task2Btn.textContent = '✓ Done';
+                    task2Btn.style.background = 'linear-gradient(135deg, #0d9460, #059669)';
+                    task2Btn.style.color = 'white';
+                } else {
+                    task2Btn.className = 'quick-task-btn secondary';
+                    task2Btn.textContent = booksShared + '/' + task2Target + ' →';
+                    task2Btn.style.background = '';
+                    task2Btn.style.color = '';
+                }
+            }
+        }
 
         // ========== Load Books from Backend API ==========
         async function loadBooks() {
@@ -2313,21 +3015,22 @@
         }
 
         function updateCheckinUI() {
-            document.getElementById('streakCount').textContent = CheckinData.streak;
+            const sc = document.getElementById('streakCount'); if (sc) sc.textContent = CheckinData.streak;
             renderCheckinCalendar();
             
             const btn = document.getElementById('checkinBtn');
+            if (!btn) return;
             const btnText = btn.querySelector('.checkin-btn-text');
             const btnDone = btn.querySelector('.checkin-btn-done');
             
             if (isCheckedInToday()) {
                 btn.classList.add('done');
-                btnText.style.display = 'none';
-                btnDone.style.display = 'inline';
+                if (btnText) btnText.style.display = 'none';
+                if (btnDone) btnDone.style.display = 'inline';
             } else {
                 btn.classList.remove('done');
-                btnText.style.display = 'inline';
-                btnDone.style.display = 'none';
+                if (btnText) btnText.style.display = 'inline';
+                if (btnDone) btnDone.style.display = 'none';
             }
         }
 
@@ -2369,6 +3072,85 @@
         // Initialize checkin on load
         loadCheckinData();
         document.addEventListener('DOMContentLoaded', updateCheckinUI);
+        
+        // ========== V2 Check-in (for Tasks Tab) ==========
+        function doCheckinV2() {
+            if (isCheckedInToday()) {
+                showToast('Already checked in today!', 'success');
+                return;
+            }
+
+            const btn = document.getElementById('checkinBtnV2');
+            const btnText = btn.querySelector('.checkin-v2-btn-text');
+            const btnDone = btn.querySelector('.checkin-v2-btn-done');
+            
+            btn.disabled = true;
+            btnText.textContent = 'Checking in...';
+            
+            setTimeout(() => {
+                const today = getToday();
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+                
+                // Check if streak continues
+                if (CheckinData.lastCheckin === yesterdayStr) {
+                    CheckinData.streak++;
+                } else if (CheckinData.lastCheckin !== today) {
+                    CheckinData.streak = 1;
+                }
+                
+                CheckinData.lastCheckin = today;
+                if (!CheckinData.history.includes(today)) {
+                    CheckinData.history.push(today);
+                }
+                
+                saveCheckinData();
+                
+                // Update v2 button
+                btn.classList.add('done');
+                btnText.style.display = 'none';
+                btnDone.style.display = 'inline';
+                btn.disabled = false;
+                
+                // Update streak display
+                const streakDisplay = document.getElementById('streakDisplay');
+                if (streakDisplay) {
+                    streakDisplay.textContent = CheckinData.streak + ' days';
+                }
+                
+                showToast(`🎉 ${CheckinData.streak} Day Streak! +10 Coins earned!`, 'success');
+            }, 800);
+        }
+        
+        function updateCheckinV2UI() {
+            const btn = document.getElementById('checkinBtnV2');
+            const btnText = btn?.querySelector('.checkin-v2-btn-text');
+            const btnDone = btn?.querySelector('.checkin-v2-btn-done');
+            const streakDisplay = document.getElementById('streakDisplay');
+            
+            if (streakDisplay) {
+                streakDisplay.textContent = CheckinData.streak + ' days';
+            }
+            
+            if (btn && btnText && btnDone) {
+                if (isCheckedInToday()) {
+                    btn.classList.add('done');
+                    btnText.style.display = 'none';
+                    btnDone.style.display = 'inline';
+                } else {
+                    btn.classList.remove('done');
+                    btnText.style.display = 'inline';
+                    btnDone.style.display = 'none';
+                }
+            }
+        }
+        
+        // Initialize v2 checkin UI on load
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(updateCheckinV2UI, 100);
+            renderLeaderboardMini();
+        });
 
         // ========== Generate Recommend Text ==========
         function generateRecommendText(book) {
@@ -2479,7 +3261,7 @@
             
             // Copy link to clipboard
             navigator.clipboard.writeText(book.link || '').catch(() => {});
-            showToast('Link created! Share it to earn $0.8 per user.', 'success');
+            showToast('Link created! Share it to earn up to 80% commission.', 'success');
         }
         
         function copyToClipboard(text) {
@@ -2553,23 +3335,17 @@
             if (modalLoading) modalLoading.style.display = 'flex';
             if (modalError) modalError.style.display = 'none';
             
-            // Show countdown text
             let seconds = 3;
-            modalLoadingText.textContent = `Creating your link... (~${seconds}s)`;
-            modalLoadingSub.textContent = '';
+            if (modalLoadingText) modalLoadingText.textContent = 'Creating your link... (~' + seconds + 's)';
+            if (modalLoadingSub) modalLoadingSub.textContent = '';
             
-            const countdownInterval = setInterval(() => {
+            const countdownInterval = setInterval(function() {
                 seconds--;
-                if (seconds > 0) {
-                    modalLoadingText.textContent = `Creating your link... (~${seconds}s)`;
-                }
+                if (seconds > 0 && modalLoadingText) modalLoadingText.textContent = 'Creating your link... (~' + seconds + 's)';
             }, 1000);
             
-            // Timeout warning after 5 seconds
-            const timeoutWarning = setTimeout(() => {
-                if (modalLoadingSub) {
-                    modalLoadingSub.textContent = 'Taking longer than usual...';
-                }
+            const timeoutWarning = setTimeout(function() {
+                if (modalLoadingSub) modalLoadingSub.textContent = 'Taking longer than usual...';
             }, 5000);
 
             try {
@@ -2589,18 +3365,19 @@
                 clearTimeout(timeoutWarning);
 
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || 'Failed to create link');
+                    throw new Error('Server error: ' + response.status);
                 }
 
                 const result = await response.json();
 
-                if (result.success) {
-                    currentRecommendBook.code = result.code || '';
-                    currentRecommendBook.link = result.link || '';
-                    currentRecommendBook.createdAt = Date.now();
+                // STRICT CHECK: must have success=true AND real code (numeric) AND real link
+                if (result.success && result.code && result.link && typeof result.code === 'number' || (typeof result.code === 'string' && /^[0-9]+$/.test(result.code))) {
+                    // REAL data from API - code is always a number from bookstore
+                    currentRecommendBook.code = String(result.code);
+                    currentRecommendBook.link = result.link;
+                    currentRecommendBook.status = 'completed';
                     currentRecommendBook.submissionId = result.submissionId;
-
+                    currentRecommendBook.createdAt = Date.now();
 
                     AppState.currentRecommendText = generateRecommendText(currentRecommendBook);
 
@@ -2608,44 +3385,42 @@
                     saveMyBooks();
                     renderMyBooks();
                     updateStats();
+                    if (typeof updateShareTasksProgress === 'function') updateShareTasksProgress();
 
                     if (modalLoading) modalLoading.style.display = 'none';
                     btn.disabled = false;
                     btn.textContent = '✓ Created!';
                     showResultInModal(currentRecommendBook);
                 } else {
-                    throw new Error(result.error || 'Failed to create link');
+                    // API failed or returned no real data - show error, NEVER fake data
+                    if (modalLoading) modalLoading.style.display = 'none';
+                    if (modalError) modalError.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Start Earning';
+                    showToast('Link creation failed. API did not return valid data.', 'error');
                 }
             } catch (e) {
-                console.error('Confirm recommend error:', e);
                 clearInterval(countdownInterval);
                 clearTimeout(timeoutWarning);
-                
                 if (modalLoading) modalLoading.style.display = 'none';
-                if (modalError) {
-                    modalError.style.display = 'block';
-                }
-                if (modalActions) {
-                    modalActions.style.display = 'flex';
-                }
+                if (modalError) modalError.style.display = 'block';
                 btn.disabled = false;
                 btn.textContent = 'Start Earning';
-                
-                showToast(e.message || 'Failed to create link', 'error');
+                showToast('Failed: ' + e.message, 'error');
             }
         }
 
         // ========== Success Page ==========
         function showSuccessPage(book) {
-            document.getElementById('resultLink').textContent = book.link;
-            document.getElementById('resultCode').textContent = book.code;
-            document.getElementById('resultRecommendText').textContent = AppState.currentRecommendText;
-            document.getElementById('resultRecommendCard').style.display = 'block';
+            const el1 = document.getElementById('resultLink'); if (el1) el1.textContent = book.link;
+            const el2 = document.getElementById('resultCode'); if (el2) el2.textContent = book.code;
+            const el3 = document.getElementById('resultRecommendText'); if (el3) el3.textContent = AppState.currentRecommendText;
+            const el4 = document.getElementById('resultRecommendCard'); if (el4) el4.style.display = 'block';
 
-            document.getElementById('submitForm').style.display = 'none';
+            const sf = document.getElementById('submitForm'); if (sf) sf.style.display = 'none';
             document.getElementById('searchResults').innerHTML = '';
-            document.getElementById('processingStatus').classList.remove('show');
-            document.getElementById('successPage').classList.add('show');
+            const ps = document.getElementById('processingStatus'); if (ps) ps.classList.remove('show');
+            const sp = document.getElementById('successPage'); if (sp) sp.classList.add('show');
 
             showToast('Link created successfully!', 'success');
 
@@ -2729,7 +3504,7 @@
             const step = document.getElementById(`step${stepNum}`);
             if (!step) return;
             step.classList.remove('current', 'done', 'failed');
-            step.classList.add(status);
+            if (status) step.classList.add(status);
             const icon = step.querySelector('.step-icon');
             if (status === 'done') icon.textContent = '\u2713';
             else if (status === 'failed') icon.textContent = '\u2717';
@@ -2745,9 +3520,14 @@
             const searchLang = AppState.searchLang || 'en';
             
             try {
-                const response = await fetch(`/api/books/search?keyword=${encodeURIComponent(query.trim())}&lang=${searchLang}&pageSize=20`, {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' }
+                // Use the same API as book-submit.html - /api/submit returns candidates
+                const response = await fetch('/api/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        bookName: query.trim(),
+                        lang: searchLang
+                    })
                 });
 
                 if (!response.ok) {
@@ -2762,17 +3542,17 @@
 
                 const result = await response.json();
                 
-                if (result.success && Array.isArray(result.data) && result.data.length > 0) {
-                    console.log(`Found ${result.data.length} books for query: ${query}`);
-                    return result.data.map(book => ({
-                        bookId: book.bookId || book.id || '',
+                if (result.candidates && Array.isArray(result.candidates) && result.candidates.length > 0) {
+                    console.log(`Found ${result.candidates.length} candidates for query: ${query}`);
+                    return result.candidates.map(book => ({
+                        bookId: book.bookId || '',
                         title: book.title || 'Untitled',
-                        cover: book.cover || book.coverImage || '',
-                        description: book.description || '',
-                        rating: book.rating || book.star || 4.5,
-                        tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
+                        cover: book.coverImage || book.cover || '',
+                        description: '',
+                        rating: 4.5,
+                        tags: [],
                         author: book.author || '',
-                        languageCode: book.languageCode || searchLang
+                        languageCode: searchLang
                     }));
                 } else {
                     console.log('No results from API, trying local filter');
@@ -2857,27 +3637,24 @@
                 await delay(500);
 
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || 'Failed to create link');
+                    throw new Error('Server error: ' + response.status);
                 }
 
                 const result = await response.json();
-                await updateStep(3, 'done');
-                await updateStep(4, 'done');
 
-                if (result.success) {
-                    const code = result.code || '';
-                    const link = result.link || 'Link will be ready shortly...';
-                    if (result.status === 'pending') {
-                        // Code/link still being created
-                    }
+                // STRICT CHECK: must have success=true AND numeric code AND real link
+                if (result.success && result.code && result.link && (typeof result.code === 'number' || /^[0-9]+$/.test(String(result.code)))) {
+                    await updateStep(3, 'done');
+                    await updateStep(4, 'done');
+
                     const newBook = {
                         ...book,
-                        code: code,
-                        link: link,
+                        code: String(result.code),
+                        link: result.link,
                         discordUsername: discordUsername,
                         createdAt: Date.now(),
-                        submissionId: result.submissionId
+                        submissionId: result.submissionId,
+                        status: 'completed'
                     };
 
                     AppState.currentRecommendText = generateRecommendText(newBook);
@@ -2886,24 +3663,26 @@
                     saveMyBooks();
                     renderMyBooks();
                     updateStats();
+                    if (typeof updateShareTasksProgress === 'function') updateShareTasksProgress();
 
                     processingStatus.classList.remove('show');
                     showSuccessPage(newBook);
 
-                    navigator.clipboard.writeText(result.link).then(() => {
+                    navigator.clipboard.writeText(result.link).then(function() {
                         showToast('Link copied to clipboard!', 'success');
                     });
                 } else {
-                    throw new Error(result.error || 'Failed to create link');
+                    // API failed - show error, NEVER fake data
+                    await updateStep(3, 'failed');
+                    await updateStep(4, 'failed');
+                    processingStatus.classList.remove('show');
+                    showToast('Link creation failed. API did not return valid data.', 'error');
                 }
             } catch (e) {
-                console.error('Create link error:', e);
-                await updateStep(2, 'failed');
                 await updateStep(3, 'failed');
                 await updateStep(4, 'failed');
                 processingStatus.classList.remove('show');
-                showToast(e.message || 'Failed to create link', 'error');
-                resetForm();
+                showToast('Failed: ' + e.message, 'error');
             }
         }
 
@@ -3118,6 +3897,56 @@
                 showToast('Copied to clipboard', 'success');
             });
         }
+        
+        // ========== Re-create Link for Pending Books ==========
+        async function recreateLink(bookId) {
+            const book = AppState.myBooks.find(b => b.bookId === bookId);
+            if (!book) {
+                showToast('Book not found', 'error');
+                return;
+            }
+            
+            showToast('Re-creating link...', 'loading');
+            
+            try {
+                const response = await fetch('/api/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        bookName: book.title,
+                        bookId: book.bookId,
+                        bookTitle: book.title,
+                        bookAuthor: book.author || '',
+                        lang: book.languageCode || 'en'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to create link');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Update the book in myBooks
+                    const index = AppState.myBooks.findIndex(b => b.bookId === bookId);
+                    if (index !== -1) {
+                        AppState.myBooks[index].code = result.code || '';
+                        AppState.myBooks[index].link = result.link || '';
+                        saveMyBooks();
+                    }
+                    
+                    showToast('Link created successfully!', 'success');
+                    renderExpandedMyBooks();
+                    renderMyBooks();
+                } else {
+                    throw new Error(result.error || 'Failed to create link');
+                }
+            } catch (e) {
+                console.error('Re-create link error:', e);
+                showToast('Failed to create link: ' + (e.message || 'Please try again'), 'error');
+            }
+        }
 
         // ========== My Books Expand/Collapse ==========
         function toggleMyBooksExpand() {
@@ -3131,7 +3960,14 @@
             } else {
                 card.classList.add('expanded');
                 expandedSection.style.display = 'block';
-                renderExpandedMyBooks();
+                // Trigger stats load if not loaded
+                if (!UserStats.data && AppState.isLoggedIn && AppState.user && AppState.user.username) {
+                    loadUserStats(AppState.user.username).then(() => {
+                        renderExpandedMyBooks();
+                    });
+                } else {
+                    renderExpandedMyBooks();
+                }
             }
         }
 
@@ -3160,6 +3996,7 @@
                 const income = stats.d14_income || 0;
                 const incomeFmt = fmtIncome(income);
                 const hasData = book.code && book.link;
+                const isPending = !book.code && !book.link;
                 
                 return `
                     <div class="my-book-expanded-item">
@@ -3167,8 +4004,13 @@
                             <img class="my-book-expanded-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/48x64/f6f9fc/64748d?text=N'">
                             <div class="my-book-expanded-info">
                                 <div class="my-book-expanded-title">${book.title}</div>
-                                <div class="my-book-expanded-code">CODE: ${book.code || 'Pending...'}</div>
-                                ${hasData ? `<button class="my-book-expanded-copy" onclick="copyBookLink('${(book.link || '').replace(/'/g, "\\'")}')">Copy Link</button>` : '<span class="my-book-expanded-pending">Link being created...</span>'}
+                                ${isPending ? `
+                                    <div class="my-book-expanded-code" style="color: var(--ink-mute);">CODE: Pending</div>
+                                    <button class="my-book-expanded-copy" onclick="recreateLink('${book.bookId}')" style="background: var(--ruby); margin-top: 4px;">Try Again ↻</button>
+                                ` : `
+                                    <div class="my-book-expanded-code">CODE: ${book.code || 'Pending'}</div>
+                                    ${hasData ? `<button class="my-book-expanded-copy" onclick="copyBookLink('${(book.link || '').replace(/'/g, "\\'")}')">Copy Link</button>` : ''}
+                                `}
                             </div>
                         </div>
                         <div class="my-book-expanded-stats">
@@ -3292,6 +4134,105 @@
             showToast('Logged out');
         }
 
+        
+        // ========== Splash Screen Login ==========
+        function handleSplashLogin() {
+            const username = document.getElementById('splashUsername').value.trim();
+            const nfId = document.getElementById('splashNFId').value.trim().toUpperCase();
+            
+            if (!username) {
+                document.getElementById('splashError').textContent = 'Please enter a username';
+                return;
+            }
+            
+            // Quick local login
+            AppState.user = { username: username, novelFlowId: nfId || 'NF' + Math.random().toString(36).substr(2, 6).toUpperCase(), accountType: 'local' };
+            AppState.isLoggedIn = true;
+            localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
+            localStorage.setItem('novelflow_splash_done', 'true');
+            
+            document.getElementById('splashScreen').classList.add('hidden');
+            updateProfileUI();
+            showToast('Welcome, ' + username + '!', 'success');
+        }
+        
+        function skipLogin() {
+            localStorage.setItem('novelflow_splash_done', 'true');
+            document.getElementById('splashScreen').classList.add('hidden');
+        }
+        
+        function checkSplashStatus() {
+            const splashDone = localStorage.getItem('novelflow_splash_done');
+            if (splashDone === 'true') {
+                document.getElementById('splashScreen').classList.add('hidden');
+            } else {
+                document.getElementById('splashScreen').classList.remove('hidden');
+            }
+        }
+
+        
+        function showStatsDetail() {
+            // Navigate to My Books expanded view
+            switchTab('profile');
+            setTimeout(() => {
+                const card = document.getElementById('myBooksCard');
+                if (card && !card.classList.contains('expanded')) {
+                    toggleMyBooksExpand();
+                }
+            }, 100);
+            showToast('Your promotion statistics', 'success');
+        }
+        
+        function showSupportModal() {
+            const modal = document.getElementById('supportModal');
+            if (modal) modal.classList.add('show');
+        }
+        
+        function closeSupportModal() {
+            const modal = document.getElementById('supportModal');
+            if (modal) modal.classList.remove('show');
+        }
+        
+        function showGuideModal() {
+            const modal = document.getElementById('guideModal');
+            if (modal) modal.classList.add('show');
+        }
+        
+        function closeGuideModal() {
+            const modal = document.getElementById('guideModal');
+            if (modal) modal.classList.remove('show');
+        }
+
+        
+        function showInviteModal() {
+            showToast('Invite link: novelflow.app/invite/' + (AppState.user?.username || 'guest'), 'success');
+        }
+        
+        function copyUserId() {
+            const uid = document.getElementById('profileUid').textContent;
+            if (uid && uid !== '------') {
+                navigator.clipboard.writeText(uid).then(() => {
+                    showToast('User ID copied!', 'success');
+                });
+            }
+        }
+
+        
+        function updateIncomeDisplay() {
+            const today = document.getElementById('incomeToday');
+            const month = document.getElementById('incomeMonth');
+            const last = document.getElementById('incomeLast');
+            
+            // Simulated income data
+            const mockToday = (Math.random() * 10).toFixed(2);
+            const mockMonth = (Math.random() * 100 + 50).toFixed(2);
+            const mockLast = (Math.random() * 200 + 100).toFixed(2);
+            
+            if (today) today.textContent = '$' + mockToday;
+            if (month) month.textContent = '$' + mockMonth;
+            if (last) last.textContent = '$' + mockLast;
+        }
+
         // ========== Toast ==========
         function showToast(msg, type = '') {
             const existing = document.querySelector('.toast');
@@ -3303,8 +4244,91 @@
             setTimeout(() => toast.remove(), 2500);
         }
 
+        
+        // ========== Leaderboard Functions ==========
+        function renderLeaderboard(type = 'commission', period = 'today') {
+            const container = document.getElementById('leaderboardList');
+            const books = AppState.books.slice(0, 8);
+            
+            // 80% rates based on book popularity - 50-85% range
+            const commissionRates = [80, 78, 75, 72, 70, 68, 65, 60];
+            
+            // Simulated data with commission rates
+            const earnings = books.map((book, i) => ({
+                ...book,
+                commission: commissionRates[i] || 60,
+                orders: Math.floor(Math.random() * 50) + 10
+            }));
+            
+            // Sort by type
+            if (type === 'commission') {
+                earnings.sort((a, b) => b.commission - a.commission);
+            } else if (type === 'heat') {
+                earnings.sort((a, b) => b.orders - a.orders);
+            } else {
+                // Shuffle for "new"
+                earnings.sort(() => Math.random() - 0.5);
+            }
+            
+            container.innerHTML = earnings.map((book, i) => {
+                const rankClass = i === 0 ? 'top1' : (i === 1 ? 'top2' : (i === 2 ? 'top3' : 'normal'));
+                const commissionText = type === 'heat' ? book.orders + ' orders' : book.commission + '%';
+                
+                return `
+                    <div class="leaderboard-item" onclick="openRecommendModal('${book.bookId}')">
+                        <div class="leaderboard-rank ${rankClass}">${i + 1}</div>
+                        <img class="leaderboard-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/45x60/f6f9fc/64748d?text=N'">
+                        <div class="leaderboard-info">
+                            <div class="leaderboard-title-text">${book.title}</div>
+                            <div class="leaderboard-meta">Share to earn up to 80%</div>
+                        </div>
+                        <div class="leaderboard-earnings">
+                            <div class="leaderboard-commission">${commissionText}</div>
+                            <div class="leaderboard-label">${type === 'heat' ? '🔥 Hot' : '💰 80%'}</div>
+                            <button class="leaderboard-share-btn" onclick="event.stopPropagation(); openRecommendModal('${book.bookId}')">Share →</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Initialize leaderboard tabs
+        document.querySelectorAll('.leaderboard-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.leaderboard-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const type = tab.dataset.rankType;
+                const period = document.querySelector('.time-btn.active')?.dataset.period || 'today';
+                renderLeaderboard(type, period);
+            });
+        });
+        
+        document.querySelectorAll('.time-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const period = btn.dataset.period;
+                const type = document.querySelector('.leaderboard-tab.active')?.dataset.rankType || 'commission';
+                renderLeaderboard(type, period);
+            });
+        });
+
         // ========== Init ==========
         document.addEventListener('DOMContentLoaded', async () => {
+            // Clean up any old fake data from localStorage
+            try {
+                var saved = localStorage.getItem('novelflow_mybooks');
+                if (saved) {
+                    var arr = JSON.parse(saved);
+                    var cleaned = arr.filter(function(b) {
+                        if (b.code && !/^[0-9]+$/.test(b.code)) return false;
+                        if (b.link && !b.link.includes('social.novelplatform.vip')) return false;
+                        return true;
+                    });
+                    localStorage.setItem('novelflow_mybooks', JSON.stringify(cleaned));
+                }
+            } catch(e) {}
+            checkSplashStatus();
             setTimeout(() => {
                 const el = document.getElementById('homeLoading');
                 if (el && el.style.display !== 'none') { el.style.display = 'none'; hideLoadingAndShowContent(); }
@@ -3313,7 +4337,139 @@
             document.getElementById('recommendModal').addEventListener('click', e => {
                 if (e.target.classList.contains('modal-overlay')) closeModal();
             });
+            // Update v2 checkin UI when switching to tasks tab
+            updateCheckinV2UI();
+            renderLeaderboardMini();
         });
+        
+        // ========== Render Leaderboard Mini ==========
+        function renderLeaderboardMini() {
+            const container = document.getElementById('leaderboardMiniList');
+            if (!container) return;
+            
+            // Sample data for mini leaderboard - using commission percentages
+            const topEarners = [
+                { rank: 1, name: 'Sarah M.', earning: '80%' },
+                { rank: 2, name: 'Mike T.', earning: '75%' },
+                { rank: 3, name: 'Emma W.', earning: '72%' },
+                { rank: 4, name: 'John D.', earning: '68%' },
+                { rank: 5, name: 'Lisa K.', earning: '65%' }
+            ];
+            
+            container.innerHTML = topEarners.map(user => {
+                let rankClass = 'normal';
+                if (user.rank === 1) rankClass = 'gold';
+                else if (user.rank === 2) rankClass = 'silver';
+                else if (user.rank === 3) rankClass = 'bronze';
+                
+                return `
+                    <div class="leaderboard-mini-item">
+                        <div class="leaderboard-mini-rank ${rankClass}">${user.rank}</div>
+                        <div class="leaderboard-mini-name">${user.name}</div>
+                        <div class="leaderboard-mini-earning">${user.earning}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Tab switch listener to update checkin UI
+        const originalSwitchTab = switchTab;
+        switchTab = function(tabName) {
+            originalSwitchTab(tabName);
+            if (tabName === 'tasks') {
+                setTimeout(() => {
+                    updateCheckinV2UI();
+                    updateShareTasksProgress();
+                    renderLeaderboardMini();
+                }, 50);
+            }
+        };
     </script>
+
+    <!-- Guide Modal -->
+    <div class="modal-overlay" id="guideModal">
+        <div class="modal">
+            <div class="modal-header">
+                <button class="modal-close-btn" onclick="closeGuideModal()">×</button>
+                <div class="modal-title">How to Earn Money</div>
+                <div style="width:32px;"></div>
+            </div>
+            <div class="modal-body">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="font-size: 48px; margin-bottom: 12px;">💰</div>
+                    <div style="font-size: 20px; font-weight: 700; color: var(--ink); margin-bottom: 4px;">Start Earning Today!</div>
+                    <div style="font-size: 14px; color: var(--ink-mute);">Follow these simple steps</div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: var(--canvas-soft); border-radius: 12px;">
+                        <div style="width: 28px; height: 28px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 14px; flex-shrink: 0;">1</div>
+                        <div><div style="font-weight: 600; color: var(--ink); margin-bottom: 2px;">Pick a Book</div><div style="font-size: 13px; color: var(--ink-mute);">Go to Home and browse books. Tap any book to see details.</div></div>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: var(--canvas-soft); border-radius: 12px;">
+                        <div style="width: 28px; height: 28px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 14px; flex-shrink: 0;">2</div>
+                        <div><div style="font-weight: 600; color: var(--ink); margin-bottom: 2px;">Create Your Link</div><div style="font-size: 13px; color: var(--ink-mute);">Tap "Start Earning" to get your unique referral link and code.</div></div>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: var(--canvas-soft); border-radius: 12px;">
+                        <div style="width: 28px; height: 28px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 14px; flex-shrink: 0;">3</div>
+                        <div><div style="font-weight: 600; color: var(--ink); margin-bottom: 2px;">Share Everywhere</div><div style="font-size: 13px; color: var(--ink-mute);">Share on Facebook Groups, Discord, TikTok - anywhere readers gather!</div></div>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: var(--canvas-soft); border-radius: 12px;">
+                        <div style="width: 28px; height: 28px; background: linear-gradient(135deg, #0d9460, #059669); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 14px; flex-shrink: 0;">4</div>
+                        <div><div style="font-weight: 600; color: var(--ink); margin-bottom: 2px;">Earn up to 80% commission!</div><div style="font-size: 13px; color: var(--ink-mute);">When someone joins through your link, you earn money!</div></div>
+                    </div>
+                </div>
+                <div style="margin-top: 20px; padding: 16px; background: linear-gradient(135deg, rgba(255,107,157,0.1), rgba(255,215,0,0.1)); border: 1px solid rgba(255,215,0,0.3); border-radius: 12px; text-align: center;">
+                    <div style="font-size: 24px; margin-bottom: 4px;">🏆</div>
+                    <div style="font-weight: 700; color: var(--ink); margin-bottom: 4px;">Top promoters earn up to 80%!</div>
+                    <div style="font-size: 12px; color: var(--ink-mute);">Join thousands earning passive income</div>
+                </div>
+                <button class="modal-btn confirm" style="margin-top: 16px;" onclick="closeGuideModal(); switchTab('home');">Start Now! →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Support Modal -->
+    <div class="modal-overlay" id="supportModal">
+        <div class="modal">
+            <div class="modal-header">
+                <button class="modal-close-btn" onclick="closeSupportModal()">×</button>
+                <div class="modal-title">Contact Support</div>
+                <div style="width:32px;"></div>
+            </div>
+            <div class="modal-body">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="font-size: 48px; margin-bottom: 12px;">💬</div>
+                    <div style="font-size: 20px; font-weight: 700; color: var(--ink); margin-bottom: 4px;">We're Here to Help</div>
+                    <div style="font-size: 14px; color: var(--ink-mute);">Get in touch with our team</div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div style="padding: 16px; background: var(--canvas-soft); border-radius: 12px; text-align: center;">
+                        <div style="font-size: 24px; margin-bottom: 8px;">📧</div>
+                        <div style="font-weight: 600; color: var(--ink); margin-bottom: 4px;">Email Support</div>
+                        <div style="font-size: 13px; color: var(--primary);">support@novelflow.app</div>
+                    </div>
+                    <div style="padding: 16px; background: var(--canvas-soft); border-radius: 12px; text-align: center;">
+                        <div style="font-size: 24px; margin-bottom: 8px;">💬</div>
+                        <div style="font-weight: 600; color: var(--ink); margin-bottom: 4px;">Discord Community</div>
+                        <div style="font-size: 13px; color: var(--ink-mute);">Join our promoter community</div>
+                    </div>
+                    <div style="padding: 16px; background: var(--canvas-soft); border-radius: 12px; text-align: center;">
+                        <div style="font-size: 24px; margin-bottom: 8px;">📖</div>
+                        <div style="font-weight: 600; color: var(--ink); margin-bottom: 4px;">FAQ</div>
+                        <div style="font-size: 13px; color: var(--ink-mute);">Common questions answered</div>
+                    </div>
+                </div>
+                <div style="margin-top: 20px; padding: 16px; background: linear-gradient(135deg, rgba(83,58,253,0.1), rgba(192,132,252,0.1)); border-radius: 12px;">
+                    <div style="font-size: 14px; color: var(--ink); font-weight: 500;">Common Issues:</div>
+                    <ul style="margin-top: 8px; padding-left: 20px; font-size: 13px; color: var(--ink-mute); line-height: 1.6;">
+                        <li>Link not working? Try refreshing the page</li>
+                        <li>Stats not updating? Pull to refresh</li>
+                        <li>Need help with promotion? Read our Guide</li>
+                    </ul>
+                </div>
+                <button class="modal-btn confirm" style="margin-top: 16px;" onclick="closeSupportModal(); showGuideModal();">View Guide →</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
