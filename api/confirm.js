@@ -192,9 +192,9 @@ module.exports = async (req, res) => {
 // ============ Create Promotion Code ============
 
 async function createCode(bookId, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID) {
-  const STARTING_CODE = 4544;
+  const STARTING_CODE = 9000;
 
-  for (let tryCode = STARTING_CODE; tryCode < STARTING_CODE + 100; tryCode++) {
+  for (let tryCode = STARTING_CODE; tryCode < STARTING_CODE + 200; tryCode++) {
     const codeResp = await fetch(`${BOOKSTORE_API_BASE}/book/savebookpromotionkeywords`, {
       method: 'POST',
       headers: {
