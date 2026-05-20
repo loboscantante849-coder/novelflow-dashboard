@@ -91,8 +91,96 @@ module.exports = async (req, res) => {
       }
     }
     
-    // Otherwise, call novelspa API
-    const apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=${page}&pageSize=${pageSize}&pageIndex=${page}&applicationId=${BOOKSTORE_APP_ID}&languageCode=${lang}&bookStatus=1${keyword ? `&keyword=${encodeURIComponent(keyword)}` : ''}${bookClassName ? `&bookClassName=${encodeURIComponent(bookClassName)}` : ''}`;
+    // When keyword is provided, first search featured-books.json for title matches
+    if (keyword) {
+      const featured = loadFeaturedBooks();
+      const keywordLower = keyword.toLowerCase();
+      
+      // Collect all books from featured-books.json
+      let allFeatured = [];
+      if (featured) {
+        if (featured.recommended) allFeatured = allFeatured.concat(featured.recommended);
+        if (featured.trending) allFeatured = allFeatured.concat(featured.trending);
+        if (featured.rising) allFeatured = allFeatured.concat(featured.rising);
+        if (featured.categories) {
+          for (const cat of Object.values(featured.categories)) {
+            allFeatured = allFeatured.concat(cat);
+          }
+        }
+      }
+      
+      // Deduplicate by bookId
+      const seen = new Set();
+      const uniqueFeatured = allFeatured.filter(b => {
+        const id = b.bookId || b.id;
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+      
+      // Filter by keyword matching title or author
+      const matched = uniqueFeatured.filter(b => {
+        const t = (b.title || '').toLowerCase();
+        const a = (b.author || '').toLowerCase();
+        return t.includes(keywordLower) || a.includes(keywordLower);
+      });
+      
+      if (matched.length > 0) {
+        const start = (parseInt(page) - 1) * parseInt(pageSize);
+        const end = start + parseInt(pageSize);
+        return res.status(200).json({
+          success: true,
+          data: matched.slice(start, end),
+          total: matched.length,
+          page: parseInt(page),
+          pageSize: parseInt(pageSize),
+          source: 'featured-search'
+        });
+      }
+      
+      // If no featured match, call API but filter results by title keyword
+      const apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=1&pageSize=50&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&languageCode=${lang}&bookStatus=1&keyword=${encodeURIComponent(keyword)}${bookClassName ? `&bookClassName=${encodeURIComponent(bookClassName)}` : ''}`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${BOOKSTORE_TOKEN}`, 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) return res.status(502).json({ error: 'Upstream API error' });
+      
+      const data = await response.json();
+      const rawBooks = ((data.data && data.data.data) || data.data || []);
+      
+      // Filter API results: only keep books whose title contains the keyword
+      const filtered = rawBooks.filter(book => {
+        const t = (book.title || '').toLowerCase();
+        return t.includes(keywordLower);
+      });
+      
+      const books = (filtered.length > 0 ? filtered : rawBooks.slice(0, 10)).map(book => ({
+        bookId: book.bookId || book.id,
+        title: book.title,
+        cover: book.cover || book.coverImage || '',
+        author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
+        description: book.description,
+        rating: book.rating || book.star || (book.bookScore > 0 ? book.bookScore : 4.5),
+        tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
+        languageCode: book.languageCode || lang,
+        bookClassName: book.bookClassName || ''
+      }));
+      
+      return res.status(200).json({
+        success: true,
+        data: books,
+        total: books.length,
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        source: 'api-filtered'
+      });
+    }
+    
+    // No keyword, no bookClassName — fallback to API
+    const apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=${page}&pageSize=${pageSize}&pageIndex=${page}&applicationId=${BOOKSTORE_APP_ID}&languageCode=${lang}&bookStatus=1${bookClassName ? `&bookClassName=${encodeURIComponent(bookClassName)}` : ''}`;
     
     const response = await fetch(apiUrl, {
       method: 'GET',
@@ -125,7 +213,7 @@ module.exports = async (req, res) => {
       source: 'api'
     });
     
-  } catch (error) {
+   } catch (error) {
     console.error('Search API error:', error.message);
     return res.status(500).json({ error: 'Internal server error' });
   }
