@@ -2823,21 +2823,21 @@
                 const ratingVal = book.rating && book.rating > 0 ? book.rating : null;
                 const stars = ratingVal ? '&#9733;'.repeat(Math.floor(ratingVal)) : '';
                 const tags = (book.tags || []).slice(0, 3).filter(t => typeof t === 'string').map(t =>
-                    `<span class="book-tag ${book.languageCode === 'es' ? 'lang-es' : ''}">${t}</span>`
+                    `<span class="book-tag ${book.languageCode === 'es' ? 'lang-es' : ''}">${escapeHtml(t)}</span>`
                 ).join('');
 
                 return `
-                    <div class="book-item" onclick="openRecommendModal('${book.bookId}')"><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
-                        <img class="book-item-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/68x92/f6f9fc/64748d?text=N'">
+                    <div class="book-item" onclick="openRecommendModal('${escapeHtml(book.bookId)}')"><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
+                        <img class="book-item-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.src='https://via.placeholder.com/68x92/f6f9fc/64748d?text=N'">
                         <div class="book-item-content">
-                            <div class="book-item-title">${book.title}</div>
+                            <div class="book-item-title">${escapeHtml(book.title)}</div>
                             <div class="book-item-rating">
                                 ${ratingVal ? `<span class="book-item-stars">${stars}</span><span class="book-item-score">${ratingVal.toFixed(1)}</span>` : '<span class="new-badge">New</span>'}
                             </div>
                             <div class="book-item-tags">${tags}</div>
-                            <div class="book-item-desc">${book.description || 'No description available.'}</div>
+                            <div class="book-item-desc">${escapeHtml(book.description) || 'No description available.'}</div>
                             <div class="book-item-action">
-                                <button class="book-item-btn" onclick="event.stopPropagation(); openRecommendModal('${book.bookId}')">Recommend</button>
+                                <button class="book-item-btn" onclick="event.stopPropagation(); openRecommendModal('${escapeHtml(book.bookId)}')">Recommend</button>
                             </div>
                         </div>
                     </div>
@@ -2853,13 +2853,13 @@
             container.innerHTML = books.map(book => {
                 const ratingVal = book.rating && book.rating > 0 ? book.rating : null;
                 const stars = ratingVal ? '&#9733;'.repeat(Math.floor(ratingVal)) : '';
-                const tags = (book.tags || []).slice(0, 2).filter(t => typeof t === 'string').map(t => `<span class="book-tag">${t}</span>`).join('');
+                const tags = (book.tags || []).slice(0, 2).filter(t => typeof t === 'string').map(t => `<span class="book-tag">${escapeHtml(t)}</span>`).join('');
 
                 return `
-                    <div class="book-scroll-card" style="position:relative" onclick="openRecommendModal('${book.bookId}')"><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
-                        <img class="book-scroll-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/136x176/f6f9fc/64748d?text=N'">
+                    <div class="book-scroll-card" style="position:relative" onclick="openRecommendModal('${escapeHtml(book.bookId)}')"><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
+                        <img class="book-scroll-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.src='https://via.placeholder.com/136x176/f6f9fc/64748d?text=N'">
                         <div class="book-scroll-info">
-                            <div class="book-scroll-card-title">${book.title}</div>
+                            <div class="book-scroll-card-title">${escapeHtml(book.title)}</div>
                             <div class="book-scroll-rating">${ratingVal ? stars + ' ' + ratingVal.toFixed(1) : '<span class="new-badge">New</span>'}</div>
                             <div class="book-scroll-tags">${tags}</div>
                         </div>
@@ -2883,11 +2883,11 @@
                 else if (i === 2) numClass = 'top3';
 
                 return `
-                    <div class="rank-item" onclick="openRecommendModal('${book.bookId}')">
+                    <div class="rank-item" onclick="openRecommendModal('${escapeHtml(book.bookId)}')">
                         <div class="rank-num ${numClass}">${i + 1}</div>
-                        <img class="rank-cover" src="${book.cover}" alt="" onerror="this.src='https://via.placeholder.com/34x46/f6f9fc/64748d?text=N'">
+                        <img class="rank-cover" src="${escapeHtml(book.cover)}" alt="" onerror="this.src='https://via.placeholder.com/34x46/f6f9fc/64748d?text=N'">
                         <div class="rank-info">
-                            <div class="rank-title">${book.title}</div>
+                            <div class="rank-title">${escapeHtml(book.title)}</div>
                             <div class="rank-meta">${book.languageCode === 'es' ? 'Espanol' : 'English'}</div>
                         </div>
                         <div class="rank-stat">
@@ -3844,7 +3844,13 @@
             }, 2000);
         }
 
-        function renderMyBooks() {
+        // Escape HTML to prevent XSS
+function escapeHtml(text) {
+    if (!text) return '';
+    return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+function renderMyBooks() {
             const container = document.getElementById('myBooksList');
 
             if (AppState.myBooks.length === 0) {
@@ -3878,18 +3884,18 @@
                 
                 return `
                     <div class="my-book-item">
-                        <img class="my-book-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/36x48/f6f9fc/64748d?text=N'">
+                        <img class="my-book-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.src='https://via.placeholder.com/36x48/f6f9fc/64748d?text=N'">
                         <div class="my-book-info">
-                            <div class="my-book-title">${book.title}</div>
-                            <div class="my-book-code">CODE: ${book.code || 'N/A'}</div>
-                            <div class="my-book-link" onclick="copyBookLink('${(book.link || '').replace(/'/g, "\'")}')" title="Click to copy">${book.link || 'No link'}</div>
+                            <div class="my-book-title">${escapeHtml(book.title)}</div>
+                            <div class="my-book-code">CODE: ${escapeHtml(book.code) || 'N/A'}</div>
+                            <div class="my-book-link" onclick="copyBookLink('${escapeHtml(book.link).replace(/'/g, "\'")}')" title="Click to copy">${escapeHtml(book.link) || 'No link'}</div>
                             <div class="my-book-stats">
                                 <span class="my-book-stat">&#128065; ${fmtNum(visits)}</span>
                                 <span class="my-book-stat">&#128101; ${fmtNum(unique)}</span>
                                 <span class="my-book-stat income ${incomeFmt.isZero ? 'zero' : ''}">${incomeFmt.text}</span>
                             </div>
                         </div>
-                        <button class="my-book-copy" onclick="copyBookLink('${(book.link || '').replace(/'/g, "\\'")}')">Copy</button>
+                        <button class="my-book-copy" onclick="copyBookLink('${escapeHtml(book.link).replace(/'/g, "\'")}')">Copy</button>
                     </div>
                 `;
             }).join('');
