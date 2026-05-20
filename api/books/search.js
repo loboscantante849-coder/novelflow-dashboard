@@ -91,54 +91,9 @@ module.exports = async (req, res) => {
       }
     }
     
-    // When keyword is provided, first search featured-books.json for title matches
+    // When keyword is provided, call API and filter by title
     if (keyword) {
-      const featured = loadFeaturedBooks();
       const keywordLower = keyword.toLowerCase();
-      
-      // Collect all books from featured-books.json
-      let allFeatured = [];
-      if (featured) {
-        if (featured.recommended) allFeatured = allFeatured.concat(featured.recommended);
-        if (featured.trending) allFeatured = allFeatured.concat(featured.trending);
-        if (featured.rising) allFeatured = allFeatured.concat(featured.rising);
-        if (featured.categories) {
-          for (const cat of Object.values(featured.categories)) {
-            allFeatured = allFeatured.concat(cat);
-          }
-        }
-      }
-      
-      // Deduplicate by bookId
-      const seen = new Set();
-      const uniqueFeatured = allFeatured.filter(b => {
-        const id = b.bookId || b.id;
-        if (seen.has(id)) return false;
-        seen.add(id);
-        return true;
-      });
-      
-      // Filter by keyword matching title or author
-      const matched = uniqueFeatured.filter(b => {
-        const t = (b.title || '').toLowerCase();
-        const a = (b.author || '').toLowerCase();
-        return t.includes(keywordLower) || a.includes(keywordLower);
-      });
-      
-      if (matched.length > 0) {
-        const start = (parseInt(page) - 1) * parseInt(pageSize);
-        const end = start + parseInt(pageSize);
-        return res.status(200).json({
-          success: true,
-          data: matched.slice(start, end),
-          total: matched.length,
-          page: parseInt(page),
-          pageSize: parseInt(pageSize),
-          source: 'featured-search'
-        });
-      }
-      
-      // If no featured match, call API but filter results by title keyword
       const apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=1&pageSize=50&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&languageCode=${lang}&bookStatus=1&keyword=${encodeURIComponent(keyword)}${bookClassName ? `&bookClassName=${encodeURIComponent(bookClassName)}` : ''}`;
       
       const response = await fetch(apiUrl, {
@@ -151,7 +106,7 @@ module.exports = async (req, res) => {
       const data = await response.json();
       const rawBooks = ((data.data && data.data.data) || data.data || []);
       
-      // Filter API results: only keep books whose title contains the keyword
+      // Filter: only keep books whose title contains the keyword
       const filtered = rawBooks.filter(book => {
         const t = (book.title || '').toLowerCase();
         return t.includes(keywordLower);
