@@ -3371,7 +3371,7 @@
                 const result = await response.json();
 
                 // STRICT CHECK: must have success=true AND real code (numeric) AND real link
-                if (result.success && result.code && result.link && typeof result.code === 'number' || (typeof result.code === 'string' && /^[0-9]+$/.test(result.code))) {
+                if (result.success && result.code && result.link && (typeof result.code === 'number' || (typeof result.code === 'string' && /^[0-9]+$/.test(result.code)))) {
                     // REAL data from API - code is always a number from bookstore
                     currentRecommendBook.code = String(result.code);
                     currentRecommendBook.link = result.link;
