@@ -4,21 +4,50 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-        { "key": "Pragma", "value": "no-cache" },
-        { "key": "Expires", "value": "0" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "Pragma",
+          "value": "no-cache"
+        },
+        {
+          "key": "Expires",
+          "value": "0"
+        }
       ]
     }
   ],
   "functions": {
-    "api/submit.js": { "memory": 256, "maxDuration": 10 },
-    "api/submissions.js": { "memory": 256, "maxDuration": 10 },
-    "api/confirm.js": { "memory": 512, "maxDuration": 30 },
-    "api/test-create.js": { "memory": 512, "maxDuration": 30 },
-    "api/my-stats.js": { "memory": 256, "maxDuration": 15 },
-    "api/auth/callback.js": { "memory": 256, "maxDuration": 10 },
-    "api/auth/me.js": { "memory": 128, "maxDuration": 5 },
-    "api/auth/logout.js": { "memory": 128, "maxDuration": 5 }
+    "api/submit.js": {
+      "memory": 256,
+      "maxDuration": 10
+    },
+    "api/submissions.js": {
+      "memory": 256,
+      "maxDuration": 10
+    },
+    "api/confirm.js": {
+      "memory": 512,
+      "maxDuration": 30
+    },
+    "api/my-stats.js": {
+      "memory": 256,
+      "maxDuration": 15
+    },
+    "api/auth/callback.js": {
+      "memory": 256,
+      "maxDuration": 10
+    },
+    "api/auth/me.js": {
+      "memory": 128,
+      "maxDuration": 5
+    },
+    "api/auth/logout.js": {
+      "memory": 128,
+      "maxDuration": 5
+    }
   },
   "framework": null
 }

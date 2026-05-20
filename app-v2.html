@@ -1365,6 +1365,12 @@
         }
         .my-book-stat.income { color: var(--success); font-weight: 600; }
         .my-book-stat.income.zero { color: var(--ink-mute); }
+        .my-book-link {
+            font-size: 11px; color: var(--primary); word-break: break-all;
+            margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            cursor: pointer; max-width: 100%;
+        }
+        .my-book-link:hover { text-decoration: underline; }
 
         /* Stats Loading */
         .stats-loading {
@@ -3876,6 +3882,7 @@
                         <div class="my-book-info">
                             <div class="my-book-title">${book.title}</div>
                             <div class="my-book-code">CODE: ${book.code || 'N/A'}</div>
+                            <div class="my-book-link" onclick="copyBookLink('${(book.link || '').replace(/'/g, "\'")}')" title="Click to copy">${book.link || 'No link'}</div>
                             <div class="my-book-stats">
                                 <span class="my-book-stat">&#128065; ${fmtNum(visits)}</span>
                                 <span class="my-book-stat">&#128101; ${fmtNum(unique)}</span>
