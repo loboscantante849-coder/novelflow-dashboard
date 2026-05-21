@@ -47,6 +47,34 @@
     "api/auth/logout.js": {
       "memory": 128,
       "maxDuration": 5
+    },
+    "api/ac-refresh.js": {
+      "memory": 256,
+      "maxDuration": 15
+    },
+    "api/ac-create.js": {
+      "memory": 512,
+      "maxDuration": 30
+    },
+    "api/ac-list.js": {
+      "memory": 256,
+      "maxDuration": 10
+    },
+    "api/ac-result.js": {
+      "memory": 256,
+      "maxDuration": 10
+    },
+    "api/ac-interrupt.js": {
+      "memory": 256,
+      "maxDuration": 10
+    },
+    "api/ac-retry.js": {
+      "memory": 256,
+      "maxDuration": 10
+    },
+    "api/ac-health.js": {
+      "memory": 128,
+      "maxDuration": 5
     }
   },
   "framework": null
