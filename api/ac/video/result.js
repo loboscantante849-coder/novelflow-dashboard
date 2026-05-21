@@ -1,31 +1,38 @@
 /**
  * GET /api/ac/video/result?threadId=xxx
- * 查询AC视频任务结果（视频URL、封面等）
+ * 查询AC视频任务结果
  */
-const { proxyRequest, buildResponse, extractToken } = require('../_lib');
+const AC_BASE = 'https://ac.beidou.win/api/v1';
 
-module.exports = async function handler(req, res) {
+function getToken(req) {
+  return req.headers['x-ac-token'] ||
+    (req.headers['authorization'] && req.headers['authorization'].replace('Bearer ', '')) ||
+    null;
+}
+
+export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-ac-token, Authorization');
     return res.status(200).end();
   }
-  if (req.method !== 'GET') {
-    return res.status(405).json({ success: false, error: 'Method not allowed' });
-  }
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const token = extractToken(req);
-  if (!token) {
-    return res.status(401).json({ success: false, error: 'Token required (x-ac-token header)' });
-  }
+  const token = getToken(req);
+  if (!token) return res.status(401).json({ error: 'Token required' });
 
-  const threadId = req.query.threadId;
-  if (!threadId) {
-    return res.status(400).json({ success: false, error: 'threadId required' });
-  }
+  const tid = req.query.threadId;
+  if (!tid) return res.status(400).json({ error: 'threadId required' });
 
-  const path = `/creative/${threadId}/result`;
-  const result = await proxyRequest(path, { method: 'GET' }, token);
-  const resp = buildResponse(result.status, result.data, result.newToken);
-  res.status(resp.status);
-  Object.entries(resp.headers).forEach(([k, v]) => res.setHeader(k, v));
-  res.end(resp.body);
-};
+  const r = await fetch(AC_BASE + `/creative/${tid}/result`, {
+    headers: { 'Authorization': 'Bearer ' + token, 'x-client': 'beidou-web', 'X-Project-Id': '1006' }
+  });
+  const newToken = r.headers.get('accesstoken') || null;
+  const data = await r.json().catch(() => null);
+
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('x-ac-token', newToken || '');
+  res.status(r.status).json({ success: r.status >= 200 && r.status < 300, data, newToken: newToken || undefined });
+}
