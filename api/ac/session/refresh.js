@@ -1,42 +1,41 @@
 /**
  * POST /api/ac/session/refresh
- * 注入/刷新AC token
- * 
- * Body: { "token": "从浏览器Console获取的实时JWT token" }
- * 
- * 验证token有效性：用token调一个轻量API（任务列表PageSize=1）
+ * 验证/注入AC token
  */
-const { proxyRequest, buildResponse, extractToken } = require('../_lib');
+const AC_BASE = 'https://ac.beidou.win/api/v1';
 
-module.exports = async function handler(req, res) {
+async function proxyGet(path, token) {
+  const res = await fetch(AC_BASE + path, {
+    headers: { 'Authorization': 'Bearer ' + token, 'x-client': 'beidou-web', 'X-Project-Id': '1006' }
+  });
+  const newToken = res.headers.get('accesstoken') || null;
+  const data = await res.json().catch(() => null);
+  return { status: res.status, data, newToken };
+}
+
+function getToken(req) {
+  return req.headers['x-ac-token'] ||
+    (req.headers['authorization'] && req.headers['authorization'].replace('Bearer ', '')) ||
+    (req.body && req.body.token) || null;
+}
+
+export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-ac-token, Authorization');
     return res.status(200).end();
   }
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const token = req.body?.token || extractToken(req);
-  if (!token) {
-    return res.status(400).json({ success: false, error: 'Token required in body.token or x-ac-token header' });
-  }
+  const token = req.body?.token || getToken(req);
+  if (!token) return res.status(400).json({ error: 'Token required' });
 
-  // 验证token：调任务列表API（最轻量）
-  const result = await proxyRequest('/creative/paged-list?PageSize=1&PageIndex=1', {
-    method: 'GET',
-  }, token);
+  const r = await proxyGet('/creative/paged-list?PageSize=1&PageIndex=1', token);
+  if (r.status !== 200) return res.status(r.status).json({ error: 'Token invalid', detail: r.data });
 
-  if (result.status !== 200) {
-    return res.status(result.status).json({
-      success: false,
-      error: 'Token invalid or expired',
-      detail: result.data,
-    });
-  }
-
-  // 返回验证成功 + 新token
-  const resp = buildResponse(200, { message: 'Token valid', listPreview: result.data }, result.newToken);
-  res.status(resp.status);
-  Object.entries(resp.headers).forEach(([k, v]) => res.setHeader(k, v));
-  res.end(resp.body);
-};
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('x-ac-token', r.newToken || '');
+  res.status(200).json({ success: true, data: { message: 'Token valid' }, newToken: r.newToken || undefined });
+}
