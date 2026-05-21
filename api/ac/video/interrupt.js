@@ -1,34 +1,39 @@
 /**
  * POST /api/ac/video/interrupt
  * 中断AC视频任务
- * 
- * Body: { "threadId": "xxx" }
- * 或 Query: ?threadId=xxx
  */
-const { proxyRequest, buildResponse, extractToken } = require('../_lib');
+const AC_BASE = 'https://ac.beidou.win/api/v1';
 
-module.exports = async function handler(req, res) {
+function getToken(req) {
+  return req.headers['x-ac-token'] ||
+    (req.headers['authorization'] && req.headers['authorization'].replace('Bearer ', '')) ||
+    (req.body && req.body.token) || null;
+}
+
+export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-ac-token, Authorization');
     return res.status(200).end();
   }
-  if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, error: 'Method not allowed' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const token = extractToken(req);
-  if (!token) {
-    return res.status(401).json({ success: false, error: 'Token required' });
-  }
+  const token = getToken(req);
+  if (!token) return res.status(401).json({ error: 'Token required' });
 
-  const threadId = req.body?.threadId || req.query?.threadId;
-  if (!threadId) {
-    return res.status(400).json({ success: false, error: 'threadId required' });
-  }
+  const tid = req.body?.threadId || req.query?.threadId;
+  if (!tid) return res.status(400).json({ error: 'threadId required' });
 
-  const path = `/creative/${threadId}/interrupt`;
-  const result = await proxyRequest(path, { method: 'POST' }, token);
-  const resp = buildResponse(result.status, result.data, result.newToken);
-  res.status(resp.status);
-  Object.entries(resp.headers).forEach(([k, v]) => res.setHeader(k, v));
-  res.end(resp.body);
-};
+  const r = await fetch(AC_BASE + `/creative/${tid}/interrupt`, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'x-client': 'beidou-web', 'X-Project-Id': '1006', 'Content-Type': 'application/json' }
+  });
+  const newToken = r.headers.get('accesstoken') || null;
+  const data = await r.json().catch(() => null);
+
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('x-ac-token', newToken || '');
+  res.status(r.status).json({ success: r.status >= 200 && r.status < 300, data, newToken: newToken || undefined });
+}
