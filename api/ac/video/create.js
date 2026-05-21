@@ -1,50 +1,33 @@
 /**
  * POST /api/ac/video/create
  * 创建AC视频任务
- * 
- * Body: {
- *   "token": "JWT token (可选，也可通过x-ac-token header传)",
- *   "template": "PPT_Porn",
- *   "book_id": "68e8ece70c0497c677852304",
- *   "start_chapter": "1",
- *   "end_chapter": "5",
- *   "num": 3,
- *   "language": "English",
- *   "country": "US",
- *   "ad_platform": "Facebook",
- *   "tts_audio_voice": "Female_cur1",
- *   "aspect_ratio": "9:16",
- *   "copy_type": "原创",
- *   "build_requirement": "",
- *   "ad_copy": "",
- *   "word_count": "200词",
- *   "reference_picture_list": [],
- *   "remark": ""
- * }
  */
-const { proxyRequest, buildResponse, extractToken } = require('../_lib');
+const AC_BASE = 'https://ac.beidou.win/api/v1';
 
-module.exports = async function handler(req, res) {
+function getToken(req) {
+  return req.headers['x-ac-token'] ||
+    (req.headers['authorization'] && req.headers['authorization'].replace('Bearer ', '')) ||
+    (req.body && req.body.token) || null;
+}
+
+export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-ac-token, Authorization');
     return res.status(200).end();
   }
-  if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, error: 'Method not allowed' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const token = extractToken(req);
-  if (!token) {
-    return res.status(401).json({ success: false, error: 'Token required' });
-  }
+  const token = getToken(req);
+  if (!token) return res.status(401).json({ error: 'Token required' });
 
   const body = req.body || {};
-  
-  // 构建AC API请求体
-  const acPayload = {
+  if (!body.book_id) return res.status(400).json({ error: 'book_id required' });
+
+  const payload = {
     template: body.template || 'PPT_Porn',
-    relatedBook: {
-      book_id: body.book_id,
-    },
+    relatedBook: { book_id: body.book_id },
     num: body.num || 3,
     language: body.language || 'English',
     country: body.country || 'US',
@@ -62,17 +45,22 @@ module.exports = async function handler(req, res) {
     remark: body.remark || '',
   };
 
-  if (!acPayload.relatedBook.book_id) {
-    return res.status(400).json({ success: false, error: 'book_id required' });
-  }
-
-  const result = await proxyRequest('/creative/by-user', {
+  const r = await fetch(AC_BASE + '/creative/by-user', {
     method: 'POST',
-    body: JSON.stringify(acPayload),
-  }, token);
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'x-client': 'beidou-web',
+      'X-Project-Id': '1006',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
 
-  const resp = buildResponse(result.status, result.data, result.newToken);
-  res.status(resp.status);
-  Object.entries(resp.headers).forEach(([k, v]) => res.setHeader(k, v));
-  res.end(resp.body);
-};
+  const newToken = r.headers.get('accesstoken') || null;
+  const data = await r.json().catch(() => null);
+
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('x-ac-token', newToken || '');
+  res.status(r.status).json({ success: r.status >= 200 && r.status < 300, data, newToken: newToken || undefined });
+}
