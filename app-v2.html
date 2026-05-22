@@ -2871,7 +2871,7 @@
             <!-- Quick Access: Reels / Text / Links - Collapsible -->
             <div style="padding: 0 var(--sp-lg); margin-top: 8px;">
                 <!-- My Reels Quick Access -->
-                <div style="background:var(--card);border-radius:12px;margin-bottom:8px;overflow:hidden;">
+                <div style="background:var(--canvas-soft);border-radius:12px;margin-bottom:8px;overflow:hidden;">
                     <div onclick="toggleQuickSection('quickReels')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;">
                         <div style="display:flex;align-items:center;gap:8px;">
                             <span style="font-size:16px;">🎬</span>
@@ -2885,7 +2885,7 @@
                 </div>
 
                 <!-- My Copy Text Quick Access -->
-                <div style="background:var(--card);border-radius:12px;margin-bottom:8px;overflow:hidden;">
+                <div style="background:var(--canvas-soft);border-radius:12px;margin-bottom:8px;overflow:hidden;">
                     <div onclick="toggleQuickSection('quickCopyText')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;">
                         <div style="display:flex;align-items:center;gap:8px;">
                             <span style="font-size:16px;">📋</span>
@@ -2899,7 +2899,7 @@
                 </div>
 
                 <!-- My Links Quick Access -->
-                <div style="background:var(--card);border-radius:12px;margin-bottom:8px;overflow:hidden;">
+                <div style="background:var(--canvas-soft);border-radius:12px;margin-bottom:8px;overflow:hidden;">
                     <div onclick="toggleQuickSection('quickLinks')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;">
                         <div style="display:flex;align-items:center;gap:8px;">
                             <span style="font-size:16px;">🔗</span>
@@ -3199,6 +3199,7 @@
                 genre_all: 'All',
                 top_promotions: 'Top Promotions',
                 recommend_btn: 'Recommend',
+                login_to_see: 'Login to see your stats',
                 no_desc: 'No description available.',
                 no_books_cat: 'No books found for this category',
                 daily_missions: '🎯 Daily Missions',
@@ -4184,16 +4185,16 @@
 
             currentRecommendBook = { ...book };
 
-            document.getElementById('modalBookCover').src = book.cover;
-            document.getElementById('modalBookCover').onerror = function() {
+            const coverEl = document.getElementById('modalBookCover');
+            if (coverEl) { coverEl.src = book.cover; coverEl.onerror = function() {
                 this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOTYiIGhlaWdodD0iMTM0IiBmaWxsPSIjZjZmOWZjIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSI5NiIgaGVpZ2h0PSIxMzQiIGZpbGw9IiNmNmY5ZmMiLz48dGV4dCB4PSI0OCIgeT0iNzAiIGZvbnQtc2l6ZT0iMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5NGEzYjgiPuCfjqXwn46lPC90ZXh0Pjwvc3ZnPg==';
-            };
-            document.getElementById('modalBookTitle').textContent = book.title;
+            } }
+            const titleEl = document.getElementById('modalBookTitle'); if (titleEl) titleEl.textContent = book.title;
 
             const ratingVal = book.rating && book.rating > 0 ? book.rating : null;
             const stars = ratingVal ? '&#9733;'.repeat(Math.floor(ratingVal)) : '';
             const starsEl = document.getElementById('modalBookStars'); if (starsEl) starsEl.innerHTML = ratingVal ? stars : '<span class="new-badge">New</span>';
-            document.getElementById('modalBookScore').textContent = ratingVal ? ratingVal.toFixed(1) : '';
+            const scoreEl = document.getElementById('modalBookScore'); if (scoreEl) scoreEl.textContent = ratingVal ? ratingVal.toFixed(1) : '';
 
             const tagsHtml = (book.tags || []).slice(0, 4).filter(t => typeof t === 'string').map(t =>
                 `<span class="book-tag ${book.languageCode === 'es' ? 'lang-es' : ''}">${t}</span>`
@@ -4202,13 +4203,10 @@
 
             const descText = document.getElementById('modalDescriptionText');
             const descToggle = document.getElementById('modalDescriptionToggle');
-            descText.innerHTML = book.description || 'No description available.';
-            descText.classList.remove('expanded');
-            descText.classList.add('collapsed');
-            descToggle.style.display = 'none';
-            descToggle.textContent = 'Show more';
+            if (descText) { descText.innerHTML = book.description || 'No description available.'; descText.classList.remove('expanded'); descText.classList.add('collapsed'); }
+            if (descToggle) { descToggle.style.display = 'none'; descToggle.textContent = 'Show more'; }
 
-            if (book.description && book.description.length > 150) {
+            if (book.description && book.description.length > 150 && descToggle) {
                 descToggle.style.display = 'inline-block';
             }
 
@@ -4218,6 +4216,7 @@
         function toggleDescription() {
             const descText = document.getElementById('modalDescriptionText');
             const descToggle = document.getElementById('modalDescriptionToggle');
+            if (!descText || !descToggle) return;
 
             if (descText.classList.contains('collapsed')) {
                 descText.classList.remove('collapsed');
@@ -4694,8 +4693,8 @@
             document.getElementById('searchResults').innerHTML = '';
             document.getElementById('processingStatus').classList.remove('show');
             document.getElementById('successPage').classList.remove('show');
-            document.getElementById('discordUsername').value = '';
-            document.getElementById('bookName').value = '';
+            const duEl = document.getElementById('discordUsername'); if (duEl) duEl.value = '';
+            const bnEl = document.getElementById('bookName'); if (bnEl) bnEl.value = '';
         }
 
         function copyToClipboard(text) {
@@ -5039,9 +5038,9 @@ function renderMyBooks() {
         }
 
         function updateStats() {
-            document.getElementById('statLinks').textContent = AppState.myBooks.length;
+            const slEl = document.getElementById('statLinks'); if (slEl) slEl.textContent = AppState.myBooks.length;
             updateProfileMyBooksCount();
-            document.getElementById('statPoints').textContent = getUserPoints();
+            const spEl = document.getElementById('statPoints'); if (spEl) spEl.textContent = getUserPoints();
         }
 
         // ========== User State ==========
@@ -5104,7 +5103,7 @@ function renderMyBooks() {
                     localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
                     updateProfileUI();
                     showToast('Login successful!', 'success');
-                    document.getElementById('regUsername').value = '';
+                    (document.getElementById('regUsername') || {}).value = '';
                 } else {
                     showToast(result.error || 'Registration failed', 'error');
                 }
@@ -5141,7 +5140,7 @@ function renderMyBooks() {
             const username = document.getElementById('splashUsername').value.trim();
             
             if (!username) {
-                document.getElementById('splashError').textContent = 'Please enter a username';
+                const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Please enter a username';
                 return;
             }
             

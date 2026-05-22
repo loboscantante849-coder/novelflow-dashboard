@@ -18,7 +18,7 @@ module.exports = async (req, res) => {
   if (!token) return res.status(400).json({ error: 'Token required' });
 
   try {
-    const r = await fetch(AC_BASE + '/creative/paged-list?PageSize=1&PageIndex=1', {
+    const r = await fetch(AC_BASE + '/creative/paged-list?PageSize=5&PageIndex=1', {
       headers: { 'Authorization': 'Bearer ' + token, 'x-client': 'beidou-web', 'X-Project-Id': '1006' }
     });
     const newToken = r.headers.get('accesstoken') || null;

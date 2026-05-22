@@ -26,7 +26,7 @@ module.exports = async (req, res) => {
     (req.headers['authorization'] && req.headers['authorization'].replace('Bearer ', ''));
   if (!token) return res.status(401).json({ error: 'AC Token not configured. Set via /api/ac-kv' });
 
-  const ps = req.query.pageSize || '10';
+  const ps = Math.max(5, parseInt(req.query.pageSize) || 10).toString();
   const pi = req.query.pageIndex || '1';
 
   try {

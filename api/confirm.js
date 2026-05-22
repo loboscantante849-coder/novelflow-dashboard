@@ -207,6 +207,12 @@ async function createCode(bookId, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE
       body: JSON.stringify({ applicationId: BOOKSTORE_APP_ID, keyword: String(tryCode), bookId: bookId, channel: 'FB', isEnable: true })
     });
 
+    // Bail early on auth failure - token expired
+    if (codeResp.status === 401) {
+      console.error('Bookstore API 401 - token expired, stopping retries');
+      return null;
+    }
+
     if (codeResp.ok) {
       const codeData = await codeResp.json();
       if (codeData.data) {
