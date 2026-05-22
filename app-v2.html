@@ -3491,7 +3491,13 @@
         function renderBookScroll() {
             const container = document.getElementById('bookScrollList');
             if (!container) return;
-            const books = AppState.books.slice(0, 6);
+            // Show books starting from #6 (top 5 are in Trending This Week)
+            const books = AppState.books.slice(5, 11);
+            // If not enough, fill from start
+            if (books.length < 6) {
+                const extra = AppState.books.slice(0, 6 - books.length);
+                books.push(...extra);
+            }
 
             container.innerHTML = books.map(book => {
                 const ratingVal = book.rating && book.rating > 0 ? book.rating : null;
@@ -5281,10 +5287,12 @@ function renderMyBooks() {
                             const rResult = await rResp.json();
                             if (rResult.newToken) saveACToken(rResult.newToken);
                             const rData = rResult.data || {};
+                            const finalResults = Array.isArray(rData.final_result) ? rData.final_result : [];
                             const materials = rData.materials || rData.items || rData.results || [];
-                            if (materials.length > 0) {
-                                videoUrl = materials[0].video_url || '';
-                                coverUrl = materials[0].cover_image_url || '';
+                            const allResults = finalResults.length > 0 ? finalResults : materials;
+                            if (allResults.length > 0) {
+                                videoUrl = allResults[0].video_url || '';
+                                coverUrl = allResults[0].cover_image_url || '';
                             }
                         } catch(e) {}
                     }
@@ -5534,7 +5542,7 @@ function renderMyBooks() {
             xmpSelectedBook = { bookId: el.dataset.bookid, title: el.querySelector('div > div').textContent };
             document.getElementById('xmpAssetSection').style.display = 'block';
             document.getElementById('xmpEmptyHint').style.display = 'none';
-            loadXMPMaterials('');  // XMP materials use Chinese names, load all recent videos
+            loadXMPMaterials(xmpSelectedBook.title);  // Search XMP by book name for matching videos
         }
         let xmpCurrentType = '';
         let xmpDebounceTimer = null;
@@ -5672,6 +5680,9 @@ function renderMyBooks() {
 
                 const templateSelect = document.getElementById('reelTemplate');
                 const selectedTemplate = templateSelect ? templateSelect.value : 'Ad_Plot_Video_V3';
+                // Language: EN system = English, ES system = Spanish
+                const reelLang = AppState.currentLang === 'es' ? 'Spanish' : 'English';
+                const reelCountry = AppState.currentLang === 'es' ? 'ES' : 'US';
                 const resp = await fetch('/api/ac-create', {
                     method: 'POST',
                     headers,
@@ -5679,7 +5690,9 @@ function renderMyBooks() {
                         book_id: bookId,
                         username: AppState.user?.username || 'guest',
                         template: selectedTemplate,
-                        num: 1
+                        num: 1,
+                        language: reelLang,
+                        country: reelCountry
                     })
                 });
                 const result = await resp.json();
@@ -5714,6 +5727,13 @@ function renderMyBooks() {
             }
             if (btn) { btn.disabled = false; btn.textContent = '🎬 Create Reel'; }
             if (modalBtn) { modalBtn.disabled = false; modalBtn.textContent = '🎬 Create Reels for This Book'; }
+        }
+
+        // Strip HTML tags from text for display
+        function stripHtml(html) {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = html || '';
+            return tmp.textContent || tmp.innerText || '';
         }
 
         // Play reel video in fullscreen overlay
@@ -5814,7 +5834,7 @@ function renderMyBooks() {
                         
                         let copyTextHtml = '';
                         if (item.isDone && item.creativeText) {
-                            copyTextHtml = '<div class="reels-item-copy">' + escapeHtml(item.creativeText) + '</div>';
+                            copyTextHtml = '<div class="reels-item-copy" data-raw="' + escapeHtml(stripHtml(item.creativeText)) + '">' + escapeHtml(stripHtml(item.creativeText)) + '</div>';
                         }
 
                         return '<div class="reels-item">' +
