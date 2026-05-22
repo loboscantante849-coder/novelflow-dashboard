@@ -34,8 +34,8 @@ module.exports = async (req, res) => {
   let token = null;
   try {
     const { Redis } = require('@upstash/redis');
-    if (process.env.UPSTASH_REDIS_REST_URL) {
-      const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN });
+    if (process.env.KV_REST_API_URL) {
+      const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
       token = await redis.get('ac_token');
     }
   } catch(e) {}
@@ -89,8 +89,8 @@ module.exports = async (req, res) => {
     if (newToken) {
       try {
         const { Redis } = require('@upstash/redis');
-        if (process.env.UPSTASH_REDIS_REST_URL) {
-          const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN });
+        if (process.env.KV_REST_API_URL) {
+          const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
           await redis.set('ac_token', newToken);
           console.log('AC token rotated in Upstash');
         }
