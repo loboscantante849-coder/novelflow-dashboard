@@ -4567,7 +4567,7 @@ function renderMyBooks() {
                         const statusClass = (status === 2 || status === 'done' || status === 'completed') ? 'done' : ((status === -1 || status === 'fail' || status === 'failed') ? 'fail' : '');
                         const statusText = statusClass === 'done' ? '✓ Ready' : (statusClass === 'fail' ? '✗ Failed' : '⏳ Processing');
                         return '<div class="reels-item">' +
-                            '<img class="reels-item-cover" src="' + (item.cover || 'https://via.placeholder.com/40x54/f6f9fc/64748d?text=R') + '" onerror="this.src='https://via.placeholder.com/40x54/f6f9fc/64748d?text=R'">' +
+                            '<img class="reels-item-cover" src="' + (item.cover || 'https://via.placeholder.com/40x54/f6f9fc/64748d?text=R') + '">' +
                             '<div class="reels-item-info"><div class="reels-item-title">' + (item.title || 'Untitled') + '</div><div class="reels-item-status ' + statusClass + '">' + statusText + '</div></div></div>';
                     }).join('');
                 } else {
