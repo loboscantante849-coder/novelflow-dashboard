@@ -2,10 +2,12 @@
  * GET /api/xmp-materials
  * Proxy for XMP (Mobvista) creative library - fetches video/image assets
  * Auth: client_id + timestamp + md5(secret+timestamp)
+ * 
+ * IMPORTANT: XMP_CLIENT_ID and XMP_CLIENT_SECRET must be set as Vercel env vars
  */
 
-const XMP_CLIENT_ID = process.env.XMP_CLIENT_ID || '30964ce4cd910301263f8eb8e7f36bfe';
-const XMP_CLIENT_SECRET = process.env.XMP_CLIENT_SECRET || '66245f769298b8c459cf03f470c13799';
+const XMP_CLIENT_ID = process.env.XMP_CLIENT_ID;
+const XMP_CLIENT_SECRET = process.env.XMP_CLIENT_SECRET;
 const XMP_API_BASE = 'https://xmp-open.mobvista.com';
 
 const crypto = require('crypto');
@@ -14,13 +16,18 @@ function generateSign(secret, timestamp) {
   return crypto.createHash('md5').update(secret + String(timestamp)).digest('hex');
 }
 
+const { setCORSHeaders } = require('../_lib/cors');
+
 module.exports = async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  setCORSHeaders(req, res);
+  // CORS handled by setCORSHeaders;
   
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  if (!XMP_CLIENT_ID || !XMP_CLIENT_SECRET) {
+    return res.status(503).json({ error: 'XMP API not configured. Set XMP_CLIENT_ID and XMP_CLIENT_SECRET env vars.' });
+  }
 
   const { action = 'list', folder_id, keyword, page = 1, page_size = 20, material_type } = req.query || {};
 
@@ -31,7 +38,6 @@ module.exports = async (req, res) => {
     let xmpRes;
 
     if (action === 'folders') {
-      // List folders
       xmpRes = await fetch(XMP_API_BASE + '/v1/media/folder/list', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -39,11 +45,10 @@ module.exports = async (req, res) => {
           client_id: XMP_CLIENT_ID,
           timestamp,
           sign,
-          folder_type: 2, // enterprise library
+          folder_type: 2,
         })
       });
     } else if (action === 'list') {
-      // List materials
       const body = {
         client_id: XMP_CLIENT_ID,
         timestamp,
@@ -55,8 +60,6 @@ module.exports = async (req, res) => {
       if (folder_id) {
         body.folder_id = Array.isArray(folder_id) ? folder_id.map(Number) : [Number(folder_id)];
       }
-      // Need at least one filter besides is_deleted/page/page_size
-      // If no folder_id, use date range (last 30 days)
       if (!folder_id) {
         const now = new Date();
         const thirtyDaysAgo = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000);
@@ -86,7 +89,6 @@ module.exports = async (req, res) => {
       return res.status(200).json({ success: false, error: data.msg, code: data.code });
     }
 
-    // For materials, filter by keyword if provided
     let materials = data.data || [];
     if (action === 'list' && keyword) {
       const kw = keyword.toLowerCase();
@@ -98,7 +100,6 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Filter by material type if specified
     if (action === 'list' && material_type) {
       materials = materials.filter(m => m.material_type === material_type);
     }

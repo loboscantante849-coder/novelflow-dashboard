@@ -18,7 +18,10 @@ function createJWT(payload) {
   return `${encodedHeader}.${encodedPayload}.${signature}`;
 }
 
+const { setCORSHeaders } = require('../../_lib/cors');
+
 module.exports = async (req, res) => {
+  setCORSHeaders(req, res);
   // Only allow GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });

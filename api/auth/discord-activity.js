@@ -18,7 +18,10 @@ function createJWT(payload) {
 }
 
 // Exchange code for user info (for Discord Activity / Embedded App SDK)
+const { setCORSHeaders } = require('../../_lib/cors');
+
 module.exports = async (req, res) => {
+  setCORSHeaders(req, res);
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });

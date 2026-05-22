@@ -1,12 +1,20 @@
+/**
+ * GET /api/submissions
+ * Returns submission list - requires admin key for full data
+ * Without auth: returns only public-safe fields (book names + links, no internal IDs)
+ */
+
+const { setCORSHeaders } = require('../_lib/cors');
+
 module.exports = async (req, res) => {
-  // Only allow GET
+  setCORSHeaders(req, res);
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
   if (!GITHUB_TOKEN) {
-    return res.status(500).json({ error: 'GITHUB_TOKEN not set in Vercel environment variables' });
+    return res.status(500).json({ error: 'GITHUB_TOKEN not set' });
   }
 
   const owner = 'loboscantante849-coder';
@@ -24,7 +32,6 @@ module.exports = async (req, res) => {
     });
 
     if (!response.ok) {
-      // If file doesn't exist on main, try master
       if (response.status === 404) {
         const masterResponse = await fetch(apiBase + '?ref=master', {
           headers: {
@@ -34,10 +41,7 @@ module.exports = async (req, res) => {
           }
         });
         
-        if (!masterResponse.ok) {
-          // File doesn't exist, return empty array
-          return res.status(200).json([]);
-        }
+        if (!masterResponse.ok) return res.status(200).json([]);
         
         const data = await masterResponse.json();
         const content = Buffer.from(data.content, 'base64').toString('utf-8');
@@ -52,7 +56,25 @@ module.exports = async (req, res) => {
     const content = Buffer.from(data.content, 'base64').toString('utf-8');
     const submissions = JSON.parse(content);
     
-    return res.status(200).json(Array.isArray(submissions) ? submissions : []);
+    // Check if request has admin key - if so, return full data
+    const adminKey = process.env.ADMIN_KEY;
+    const providedKey = req.headers['x-admin-key'] || req.query.adminKey;
+    const isAdmin = adminKey && providedKey === adminKey;
+
+    if (isAdmin) {
+      return res.status(200).json(Array.isArray(submissions) ? submissions : []);
+    }
+
+    // Public: return only safe fields
+    const safe = (Array.isArray(submissions) ? submissions : []).map(s => ({
+      bookName: s.bookName,
+      matchedBookName: s.matchedBookName,
+      status: s.status,
+      submittedAt: s.submittedAt,
+      link: s.link,
+      lang: s.lang
+    }));
+    return res.status(200).json(safe);
 
   } catch (error) {
     console.error('Server error:', error);

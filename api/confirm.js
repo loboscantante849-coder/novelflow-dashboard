@@ -15,7 +15,10 @@ function checkRateLimit(ip) {
   return true;
 }
 
+const { setCORSHeaders } = require('../_lib/cors');
+
 module.exports = async (req, res) => {
+  setCORSHeaders(req, res);
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -41,12 +44,10 @@ module.exports = async (req, res) => {
   const filePath = 'submissions.json';
   const apiBase = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`;
   const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage';
-  // NovelFlow - same appId for both English and Spanish, just different languageCode
   const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
   const languageCode = lang === 'es' ? 'es' : 'en';
-  // Fallback: use hardcoded OIDC token if env var is missing (expires 2026-06-22)
-  const _FALLBACK_TOKEN = Buffer.from('ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNklrVTRRekF6UWpWR016aEVOalF6UlRFM09UUTRNRVUxTmtFMlJFSTRRa1E1SWl3aWRIbHdJam9pWVhRcmFuZDBJbjAuZXlKdVltWWlPakUzTnpneU9USTNOalVzSW1WNGNDSTZNVGMzT1RVNE9EYzJOU3dpYVhOeklqb2lhSFIwY0hNNkx5OXpkSE11WVc1NWMzUnZjbWxsY3k1aGNIQWlMQ0pqYkdsbGJuUmZhV1FpT2lKQmRYUm9RMnhwWlc1MElpd2ljM1ZpSWpvaU1URTJOQ0lzSW1GMWRHaGZkR2x0WlNJNk1UYzNOek0wTURZMk5Dd2lhV1J3SWpvaWJHOWpZV3dpTENKdWFXTnJibUZ0WlNJNkl1Vy1rT2FWck9hMm15SXNJbTVoYldVaU9pSjRkV3AwSWl3aWMybGtJam9pUlVVME16SkdSak5HUmpNeE9VWkJPVFpFTlVRelJVTXhSa1U0TVRWRk9UTWlMQ0pwWVhRaU9qRTNOemd5T1RJM05qVXNJbk5qYjNCbElqcGJJbTl3Wlc1cFpDSXNJbkJ5YjJacGJHVWlMQ0p5YjJ4bGN5SXNJbVZ0WVdsc0lsMHNJbUZ0Y2lJNld5SndkMlFpWFgwLlpaMzFVeWZBZGV4ZzVTaFFFbWR2dlM0QWt5WFp0LTNTemU3WDc3OWlJZ2R1aVcyZWlGdVZSa3hPZVVQZW5QY2NkUXFhMGtUSk5XVk9NWTNqTUpnZFhzeE1FNDFlT1pub2xWNEZsLU52SGtDVllKS2dJYjFCZUk2STM1X0RjOXJGZklPODA5RXBQUTdOY3VfXzZmVG16ZnZRRlMtTGFCUFVINFpzUEZMb3VvTGpmWncxcGJVU1lYQTFmQjVMUklGZTBDbWVxQ0JNa1RSVmgtR01PSzlmejRzRExabkFZei1MZnR5ZXFkVThYLUdTS0p6TkJDQkx6TzlYY1RXOHk5Q1FLOWhNQ2htcWhCellXWE9pWC11N0RuMkdyTUVYYWlZNXZadHAyX3RRRTlGcU9tMU5YMDVBRjZEUXFRaC15T0ZmUUJVaHlaZVhyNFNsVTRnVFpfTHBMdw==', 'base64').toString();
-  const BOOKSTORE_TOKEN = process.env.NOVELSPA_TOKEN || _FALLBACK_TOKEN;
+  // Token ONLY from env var - no hardcoded fallbacks
+  const BOOKSTORE_TOKEN = process.env.NOVELSPA_TOKEN;
 
   // Generate submission ID locally
   const submissionId = 'sub_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -116,7 +117,7 @@ module.exports = async (req, res) => {
       // Update status to pending for manual processing
       await updateSubmission(submissionId, {
         status: 'pending',
-        error: BOOKSTORE_TOKEN ? 'Code creation failed' : 'BOOKSTORE_TOKEN not available'
+        error: BOOKSTORE_TOKEN ? 'Code creation failed' : 'NOVELSPA_TOKEN not configured in Vercel env vars'
       }, apiBase, GITHUB_TOKEN, newSha);
 
       return res.status(200).json({
@@ -124,13 +125,13 @@ module.exports = async (req, res) => {
         submissionId,
         status: 'pending',
         matchedBookName: bookTitle || bookName,
-        message: 'Submission saved! Search code will be created shortly.'
+        message: 'Submission saved! Search code will be created when NOVELSPA_TOKEN is configured.'
       });
     }
 
     console.log(`Created code: ${finalCode} for ${bookId}`);
 
-    // Step 5: Create short link (returns {shortUrl, linkId})
+    // Step 5: Create short link
     const linkResult = await createLink(bookId, bookTitle, finalCode, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode);
 
     // Step 6: Update submission to completed
@@ -145,18 +146,13 @@ module.exports = async (req, res) => {
         fields.link = `https://${linkResult.shortUrl}`;
         fields.shortUrl = linkResult.shortUrl;
       }
-      // Save linkId and campaign_id for stats tracking
-      if (linkResult.linkId) {
-        fields.linkId = linkResult.linkId;
-      }
-      if (linkResult.campaignId) {
-        fields.campaignId = linkResult.campaignId;
-      }
+      if (linkResult.linkId) fields.linkId = linkResult.linkId;
+      if (linkResult.campaignId) fields.campaignId = linkResult.campaignId;
     }
 
     await updateSubmission(submissionId, fields, apiBase, GITHUB_TOKEN, newSha);
 
-    console.log(`Completed: ${submissionId} - code=${finalCode}, link=${linkResult?.shortUrl || 'none'}, linkId=${linkResult?.linkId || 'none'}`);
+    console.log(`Completed: ${submissionId} - code=${finalCode}, link=${linkResult?.shortUrl || 'none'}`);
 
     return res.status(200).json({
       success: true,
@@ -171,8 +167,6 @@ module.exports = async (req, res) => {
 
   } catch (error) {
     console.error('Confirm error:', error);
-
-    // Try to update status to failed if possible
     try {
       await updateSubmission(submissionId, {
         status: 'failed',
@@ -226,14 +220,10 @@ async function createCode(bookId, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE
 
 // ============ Create Short Link ============
 
-// NovelFlow campaign ID for social media links
 const NOVELFLOW_CAMPAIGN_ID = '699ef7b8194eb218db3c2270';
 
 async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode) {
   const linkName = `${code}${bookTitle}-书籍详情页-FB`;
-
-  let linkId = null;
-  let shortUrl = null;
 
   const linkResp = await fetch(`${BOOKSTORE_API_BASE}/SocialMediaLinkConfig`, {
     method: 'POST',
@@ -276,21 +266,19 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
     if (linkData.code === 200 && linkData.data) {
       const responseLinkId = linkData.data;
       if (typeof responseLinkId === 'string' && responseLinkId.length > 10) {
-        linkId = responseLinkId;
+        let shortUrl = null;
         try {
-          const detailResp = await fetch(`${BOOKSTORE_API_BASE}/SocialMediaLinkConfig/${linkId}`, {
+          const detailResp = await fetch(`${BOOKSTORE_API_BASE}/SocialMediaLinkConfig/${responseLinkId}`, {
             headers: { 'Authorization': `Bearer ${BOOKSTORE_TOKEN}`, 'Content-Type': 'application/json' }
           });
           if (detailResp.ok) {
             const detailData = await detailResp.json();
             if (detailData.code === 200 && detailData.data && detailData.data.shortUrl) {
               shortUrl = detailData.data.shortUrl;
-              return { shortUrl, linkId, campaignId: NOVELFLOW_CAMPAIGN_ID };
             }
           }
         } catch (e) { console.error('Failed to fetch link details:', e.message); }
-        // Return with linkId even if shortUrl fetch failed
-        return { shortUrl: null, linkId, campaignId: NOVELFLOW_CAMPAIGN_ID };
+        return { shortUrl, linkId: responseLinkId, campaignId: NOVELFLOW_CAMPAIGN_ID };
       }
       if (typeof linkData.data === 'object' && linkData.data.shortUrl) {
         return { shortUrl: linkData.data.shortUrl, linkId: null, campaignId: NOVELFLOW_CAMPAIGN_ID };
@@ -298,8 +286,7 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
     }
   }
 
-  const errorText = await linkResp.text().catch(() => 'unknown');
-  console.error('Link creation failed:', linkResp.status, errorText);
+  console.error('Link creation failed:', linkResp.status);
   return null;
 }
 
@@ -307,37 +294,25 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, BOOKSTORE_AP
 
 async function updateSubmission(submissionId, fields, apiBase, GITHUB_TOKEN, currentSha) {
   try {
-    // Always re-fetch to get the latest SHA and content in one request
     const getResp = await fetch(apiBase, {
       headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'NovelFlow-API' }
     });
-    if (!getResp.ok) {
-      console.error('Update: failed to fetch submissions, status', getResp.status);
-      return;
-    }
+    if (!getResp.ok) return;
     const data = await getResp.json();
     const latestSha = data.sha;
     const latest = JSON.parse(Buffer.from(data.content, 'base64').toString('utf-8'));
     
     const idx = latest.findIndex(s => s.id === submissionId);
-    if (idx === -1) {
-      console.error('Update: submission not found', submissionId);
-      return;
-    }
+    if (idx === -1) return;
 
     Object.assign(latest[idx], fields);
     const updateContent = Buffer.from(JSON.stringify(latest, null, 2)).toString('base64');
 
-    const updateResp = await fetch(apiBase, {
+    await fetch(apiBase, {
       method: 'PUT',
       headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json', 'User-Agent': 'NovelFlow-API' },
       body: JSON.stringify({ message: `Update ${submissionId}: ${fields.status || 'updated'}`, content: updateContent, sha: latestSha })
     });
-    
-    if (!updateResp.ok) {
-      const errText = await updateResp.text().catch(() => '');
-      console.error('Update: PUT failed', updateResp.status, errText);
-    }
   } catch (err) {
     console.error('Update failed:', err.message);
   }
