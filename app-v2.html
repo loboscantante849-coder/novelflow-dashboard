@@ -96,1179 +96,11 @@
             100% { transform: translateY(-50px) rotate(360deg); opacity: 0; }
         }
         
-        /* Top Earners Card */
-        .top-earners-card {
-            background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 50%, #FEF3C7 100%);
-            border: 1px solid #FED7AA;
-            border-radius: var(--r-lg);
-            padding: var(--sp-md);
-            margin: var(--sp-md) var(--sp-lg);
-        }
-        .top-earners-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: var(--sp-sm);
-        }
-        .top-earners-title {
-            display: flex;
-            align-items: center;
-            gap: var(--sp-xs);
-            font-size: 14px;
-            font-weight: 600;
-            color: #9a3412;
-        }
-        .top-earners-badge {
-            background: linear-gradient(135deg, #FFD700, #FFA500);
-            color: #1a1a2e;
-            font-size: 9px;
-            font-weight: 700;
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
-        .top-earners-more {
-            font-size: 12px;
-            color: #c2410c;
-            cursor: pointer;
-        }
-        .top-earner-item {
-            display: flex;
-            align-items: center;
-            gap: var(--sp-sm);
-            padding: var(--sp-xs) 0;
-            border-bottom: 1px dashed #FED7AA;
-        }
-        .top-earner-item:last-child { border-bottom: none; }
-        .top-earner-rank {
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            font-weight: 700;
-        }
-        .top-earner-rank.gold { background: linear-gradient(135deg, #FFD700, #FFA500); color: white; }
-        .top-earner-rank.silver { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: white; }
-        .top-earner-rank.bronze { background: linear-gradient(135deg, #CD7F32, #B87333); color: white; }
-        .top-earner-rank.normal { background: #FEE2E2; color: #DC2626; }
-        .top-earner-name { flex: 1; font-size: 13px; color: #78350f; font-weight: 500; }
-        .top-earner-amount { font-size: 13px; font-weight: 700; color: #15803d; }
-        
-        /* Quick Stats Row */
-        .quick-stats-row {
-            display: flex;
-            gap: var(--sp-sm);
-            padding: 0 var(--sp-lg);
-            margin-bottom: var(--sp-md);
-        }
-        .quick-stat-card {
-            flex: 1;
-            background: linear-gradient(135deg, rgba(13,148,96,0.1), rgba(5,150,105,0.05));
-            border: 1px solid rgba(13,148,96,0.2);
-            border-radius: var(--r-md);
-            padding: var(--sp-sm);
-            text-align: center;
-        }
-        .quick-stat-card.secondary {
-            background: linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,165,0,0.05));
-            border-color: rgba(255,215,0,0.2);
-        }
-        .quick-stat-icon { font-size: 16px; margin-bottom: 2px; }
-        .quick-stat-value { font-size: 14px; font-weight: 700; color: var(--ink); }
-        .quick-stat-card.secondary .quick-stat-value { color: #B45309; }
-        .quick-stat-label { font-size: 10px; color: var(--ink-mute); }
-        
-        /* Money Glow Effect */
-        .money-glow {
-            text-shadow: 0 0 10px rgba(255,215,0,0.5);
-        }
-
-        /* ========== Banner — Gradient Mesh ========== */
-        .home-banner {
-            position: relative;
-            padding: 24px 24px 20px;
-            overflow: hidden;
-            background: linear-gradient(135deg, #FF6B9D 0%, #C084FC 40%, #FFD700 100%);
-        }
-        .home-banner::before {
-            content: '';
-            position: absolute;
-            top: -40%; left: -20%; right: -20%; bottom: -20%;
-            background: 
-                radial-gradient(ellipse 50% 80% at 15% 50%, rgba(255,255,255,0.3) 0%, transparent 70%),
-                radial-gradient(ellipse 40% 70% at 40% 40%, rgba(192,132,252,0.3) 0%, transparent 70%),
-                radial-gradient(ellipse 45% 60% at 65% 55%, rgba(255,215,0,0.3) 0%, transparent 70%);
-            filter: blur(30px);
-            z-index: 0;
-        }
-        .banner-content { position: relative; z-index: 1; text-align: center; }
-        .banner-eyebrow {
-            font-size: 10px; font-weight: 400; letter-spacing: 0.1px; text-transform: uppercase;
-            color: rgba(255,255,255,0.7); margin-bottom: var(--sp-md);
-        }
-        .banner-title {
-            font-size: 22px; font-weight: 600; line-height: 1.15; letter-spacing: -0.44px;
-            color: var(--on-primary); margin-bottom: var(--sp-xs);
-        }
-        .banner-title .highlight { color: #fbbf24; font-weight: 700; }
-        .banner-amount {
-            font-size: 38px; font-weight: 700; line-height: 1.1; letter-spacing: -1px;
-            font-feature-settings: "tnum";
-            color: var(--on-primary); margin: var(--sp-sm) 0 var(--sp-xxs);
-            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        }
-        .banner-amount-prefix {
-            font-size: 24px; font-weight: 400; vertical-align: top; margin-right: 4px;
-        }
-        .banner-subtitle {
-            font-size: 14px; font-weight: 400; color: rgba(255,255,255,0.85);
-            display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;
-        }
-        .banner-subtitle .coin {
-            display: inline-flex; align-items: center; gap: 4px;
-            background: rgba(255,255,255,0.2); padding: 3px 10px; border-radius: 20px;
-        }
-        .banner-subtitle .coin-icon { font-size: 14px; }
-        .banner-subtitle .coin-text { font-weight: 600; color: #FFD700; }
-
-        /* v3: Banner Progress Card */
-        .banner-progress-card {
-            background: rgba(255,255,255,0.18);
-            backdrop-filter: blur(10px);
-            border-radius: 12px;
-            padding: 14px 18px;
-            margin-top: 10px;
-            border: 1px solid rgba(255,255,255,0.25);
-        }
-        .banner-progress-label {
-            font-size: 12px; color: rgba(255,255,255,0.95); font-weight: 400; margin-bottom: 8px; line-height: 1.4;
-        }
-        .banner-progress-label strong { color: #FFD700; font-weight: 700; }
-        .banner-progress-bar-track {
-            height: 6px; background: rgba(255,255,255,0.2); border-radius: 3px; overflow: hidden; margin-bottom: 6px;
-        }
-        .banner-progress-bar-fill {
-            height: 100%; background: linear-gradient(90deg, #FFD700, #fbbf24); border-radius: 3px; transition: width 0.6s ease;
-        }
-        .banner-progress-info {
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .banner-progress-info span {
-            font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.9);
-        }
-        .banner-progress-tier { color: #FFD700 !important; }
-
-        /* ========== Home Header ========== */
-        .home-header { padding: var(--sp-lg) var(--sp-lg) 0; background: var(--canvas); }
-        .home-logo { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-lg); }
-        .logo-wrapper { display: flex; align-items: center; gap: var(--sp-sm); }
-        .logo-icon {
-            width: 32px; height: 32px;
-            background: var(--primary);
-            border-radius: var(--r-md);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 14px; font-weight: 500; color: var(--on-primary);
-        }
-        .logo-text { font-size: 18px; font-weight: 300; letter-spacing: -0.36px; color: var(--ink); }
-        .logo-text span { font-weight: 500; color: var(--primary); }
-        .header-actions { display: flex; gap: var(--sp-xs); }
-        .header-btn {
-            width: 36px; height: 36px;
-            border-radius: var(--r-md);
-            background: var(--canvas);
-            border: 1px solid var(--hairline);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 16px; color: var(--ink-mute);
-            cursor: pointer; transition: border-color 0.15s;
-        }
-        .header-btn:hover { border-color: var(--primary); color: var(--primary); }
-
-        /* Loading */
-        .loading-container {
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            padding: 60px 20px; color: var(--ink-mute);
-        }
-        .loading-spinner {
-            width: 32px; height: 32px;
-            border: 2px solid var(--hairline);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-            margin-bottom: var(--sp-lg);
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* ========== Genre Tabs — Pill Tags ========== */
-        .book-list-tabs {
-            display: flex; gap: var(--sp-xs);
-            padding: var(--sp-md) var(--sp-lg);
-            overflow-x: auto; scrollbar-width: none;
-        }
-        .book-list-tabs::-webkit-scrollbar { display: none; }
-        .book-list-tab {
-            padding: 6px 14px;
-            border-radius: var(--r-pill);
-            font-size: 13px; font-weight: 400; letter-spacing: 0;
-            border: 1px solid var(--hairline);
-            background: var(--canvas);
-            color: var(--ink-mute);
-            cursor: pointer; transition: all 0.15s;
-            white-space: nowrap;
-        }
-        .book-list-tab.active {
-            background: transparent;
-            color: var(--ink);
-            border-color: transparent;
-            font-weight: 700;
-            position: relative;
-        }
-        .book-list-tab.active::after {
-            content: '';
-            position: absolute;
-            bottom: -2px; left: 50%; transform: translateX(-50%);
-            width: 20px; height: 2px;
-            background: var(--gold);
-            border-radius: 1px;
-        }
-
-        /* ========== Book List — 1px Hairline Cards ========== */
-        .book-list-section { padding: 0; }
-        .book-list { padding: 0 var(--sp-lg) var(--sp-lg); }
-
-        .book-item {
-            display: flex; gap: var(--sp-md);
-            padding: var(--sp-md);
-            background: var(--canvas);
-            border: 1px solid var(--hairline);
-            border-radius: var(--r-lg);
-            margin-bottom: var(--sp-sm);
-            transition: box-shadow 0.15s;
-            cursor: pointer;
-        }
-        .book-item:hover { 
-            box-shadow: var(--shadow-l1); 
-            border-color: var(--gold);
-        }
-        .book-item { position: relative; }
-        .earn-badge {
-            position: absolute; top: 6px; right: 6px;
-            background: linear-gradient(135deg, #0d9460, #059669);
-            color: #fff; font-size: 9px; font-weight: 600;
-            padding: 2px 5px; border-radius: 4px;
-            white-space: nowrap; z-index: 2;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-        }
-
-        .book-item-cover {
-            width: 68px; height: 92px;
-            border-radius: var(--r-sm);
-            object-fit: cover;
-            flex-shrink: 0;
-            background: var(--canvas-soft);
-        }
-        .book-item-content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-        .book-item-title {
-            font-size: 14px; font-weight: 300; letter-spacing: -0.14px;
-            margin-bottom: var(--sp-xs);
-            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-            overflow: hidden; line-height: 1.4; color: var(--ink);
-        }
-        .book-item-rating { display: flex; align-items: center; gap: var(--sp-xs); margin-bottom: var(--sp-xs); }
-        .book-item-stars { color: var(--ink-mute); font-size: 11px; }
-        .new-badge { display: inline-block; background: #6366f1; color: #fff; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 3px; }
-        .book-item-score { font-size: 12px; color: var(--ink-mute); font-weight: 400; }
-
-        .book-item-tags { display: flex; flex-wrap: wrap; gap: var(--sp-xxs); margin-bottom: var(--sp-xs); }
-        .book-tag {
-            font-size: 10px; font-weight: 400; letter-spacing: 0.1px;
-            padding: 2px 7px;
-            background: var(--primary-subdued);
-            color: var(--primary-deep);
-            border-radius: var(--r-pill);
-        }
-        .book-tag.lang-es { background: var(--canvas-cream); color: #9b6829; }
-
-        .book-item-desc {
-            font-size: 12px; color: var(--ink-mute); line-height: 1.5;
-            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-            overflow: hidden; flex: 1;
-        }
-        .book-item-action { margin-top: var(--sp-xs); }
-        .book-item-btn {
-            display: inline-flex; align-items: center; gap: var(--sp-xs);
-            padding: 6px 14px;
-            background: var(--primary);
-            border: none;
-            border-radius: var(--r-pill);
-            color: var(--on-primary);
-            font-size: 12px; font-weight: 400;
-            cursor: pointer; transition: background 0.15s;
-        }
-        .book-item-btn:hover { background: var(--primary-deep); }
-
-        /* ========== Scroll Cards ========== */
-        .book-scroll-section { padding: var(--sp-md) 0; }
-        .book-scroll-title {
-            font-size: 15px; font-weight: 300; letter-spacing: -0.15px;
-            padding: 0 var(--sp-lg) var(--sp-sm);
-            color: var(--ink);
-        }
-        .book-scroll-list {
-            display: flex; gap: var(--sp-sm);
-            overflow-x: auto; padding: 0 var(--sp-lg);
-            scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-        }
-        .book-scroll-list::-webkit-scrollbar { display: none; }
-
-        .book-scroll-card {
-            flex-shrink: 0; width: 136px;
-            background: var(--canvas);
-            border: 1px solid var(--hairline);
-            border-radius: var(--r-lg);
-            overflow: hidden; scroll-snap-align: start;
-            transition: box-shadow 0.15s; cursor: pointer;
-        }
-        .book-scroll-card:hover { box-shadow: var(--shadow-l1); }
-        .book-scroll-cover { width: 100%; height: 176px; object-fit: cover; background: var(--canvas-soft); }
-        .book-scroll-info { padding: var(--sp-sm); }
-        .book-scroll-card-title {
-            font-size: 12px; font-weight: 300; letter-spacing: -0.12px;
-            margin-bottom: var(--sp-xxs);
-            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-            overflow: hidden; line-height: 1.3; color: var(--ink);
-        }
-        .book-scroll-rating { display: flex; align-items: center; gap: 2px; font-size: 10px; color: var(--ink-mute); margin-bottom: var(--sp-xxs); }
-        .book-scroll-tags { display: flex; flex-wrap: wrap; gap: var(--sp-xxs); }
-
-        /* ========== Rank — Dashboard Tabular ========== */
-        .rank-section { padding: 0 var(--sp-lg) var(--sp-lg); }
-        .section-header { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-lg) var(--sp-lg) var(--sp-md); }
-        .section-title { font-size: 15px; font-weight: 300; letter-spacing: -0.15px; color: var(--ink); }
-
-        .rank-tabs { display: flex; gap: var(--sp-xs); margin-bottom: var(--sp-md); }
-        .rank-tab {
-            padding: 6px 14px;
-            border-radius: var(--r-pill);
-            font-size: 13px; font-weight: 400;
-            border: 1px solid var(--hairline);
-            background: var(--canvas);
-            color: var(--ink-mute);
-            cursor: pointer; transition: all 0.15s;
-        }
-        .rank-tab.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
-
-        .rank-item {
-            display: flex; align-items: center; gap: var(--sp-sm);
-            padding: var(--sp-sm);
-            background: var(--canvas);
-            border: 1px solid var(--hairline);
-            border-radius: var(--r-lg);
-            margin-bottom: var(--sp-xs);
-            transition: box-shadow 0.15s; cursor: pointer;
-        }
-        .rank-item:hover { box-shadow: var(--shadow-l1); }
-
-        .rank-num {
-            width: 26px; height: 26px;
-            border-radius: var(--r-md);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 13px; font-weight: 400;
-            font-feature-settings: "tnum";
-            flex-shrink: 0;
-        }
-        .rank-num.top1 { background: var(--primary); color: var(--on-primary); }
-        .rank-num.top2 { background: var(--primary-subdued); color: var(--primary-deep); }
-        .rank-num.top3 { background: var(--canvas-cream); color: #9b6829; }
-        .rank-num.normal { background: var(--canvas-soft); color: var(--ink-mute); }
-
-        .rank-cover { width: 34px; height: 46px; border-radius: var(--r-xs); object-fit: cover; flex-shrink: 0; }
-        .rank-info { flex: 1; min-width: 0; }
-        .rank-title { font-size: 13px; font-weight: 300; letter-spacing: -0.13px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
-        .rank-meta { font-size: 11px; color: var(--ink-mute); }
-        .rank-stat { text-align: right; flex-shrink: 0; }
-        .rank-stat-num { font-size: 14px; font-weight: 300; font-feature-settings: "tnum"; color: var(--primary); }
-        .rank-stat-label { font-size: 10px; color: var(--ink-mute); }
-
-        /* ========== Tab 2: Submit — Pink Gold Gradient Style ========== */
-        .submit-container { min-height: 100vh; background: var(--canvas); }
-        .submit-header {
-            position: relative;
-            padding: 36px 24px 32px;
-            text-align: center;
-            overflow: hidden;
-            background: linear-gradient(135deg, #FF6B9D 0%, #C084FC 40%, #FFD700 100%);
-        }
-        .submit-header::before {
-            content: '';
-            position: absolute;
-            top: -40%; left: -20%; right: -20%; bottom: -20%;
-            background: 
-                radial-gradient(ellipse 50% 80% at 15% 50%, rgba(255,255,255,0.3) 0%, transparent 70%),
-                radial-gradient(ellipse 40% 70% at 40% 40%, rgba(192,132,252,0.3) 0%, transparent 70%),
-                radial-gradient(ellipse 45% 60% at 65% 55%, rgba(255,215,0,0.3) 0%, transparent 70%);
-            filter: blur(30px);
-            z-index: 0;
-        }
-        .submit-header > * { position: relative; z-index: 1; }
-        .submit-badge {
-            display: inline-block; padding: 4px 10px; border-radius: var(--r-pill);
-            background: rgba(255,255,255,0.25); color: #ffffff;
-            font-size: 10px; font-weight: 600; letter-spacing: 0.1px; text-transform: uppercase;
-            margin-bottom: var(--sp-md);
-            backdrop-filter: blur(4px);
-        }
-        .submit-title { font-size: 26px; font-weight: 600; letter-spacing: -0.52px; margin-bottom: var(--sp-xs); color: #ffffff; }
-        .submit-title .highlight { color: #fbbf24; }
-        .submit-subtitle { font-size: 14px; color: rgba(255,255,255,0.85); line-height: 1.5; font-weight: 300; }
-
-        .submit-form { padding: var(--sp-lg); }
-        .form-card {
-            background: var(--canvas); border: 1px solid var(--hairline);
-            border-radius: var(--r-lg); padding: var(--sp-lg); margin-bottom: var(--sp-md);
-        }
-        .form-group { margin-bottom: var(--sp-md); }
-        .form-group:last-child { margin-bottom: 0; }
-        .form-group label {
-            display: block; font-size: 13px; font-weight: 400; letter-spacing: -0.39px;
-            font-feature-settings: "tnum";
-            color: var(--ink-secondary); margin-bottom: var(--sp-xs);
-        }
-        .form-group label .required { color: var(--ruby); margin-left: 2px; }
-
-        .form-input {
-            width: 100%; padding: 8px 12px;
-            background: var(--canvas); border: 1px solid var(--hairline-input);
-            border-radius: var(--r-sm); color: var(--ink);
-            font-size: 15px; font-weight: 300; font-family: 'Inter', sans-serif;
-            transition: border-color 0.15s;
-        }
-        .form-input:focus { outline: none; border-color: var(--primary); }
-        .form-input::placeholder { color: var(--ink-mute-2); }
-
-        .lang-toggle {
-            display: flex; background: var(--canvas-soft);
-            border: 1px solid var(--hairline);
-            border-radius: var(--r-md); overflow: hidden; margin-bottom: var(--sp-md);
-        }
-        .lang-btn {
-            flex: 1; padding: 10px var(--sp-md); background: transparent; border: none;
-            color: var(--ink-mute); font-size: 13px; font-weight: 400;
-            cursor: pointer; transition: all 0.15s;
-        }
-        .lang-btn.active { background: var(--primary); color: var(--on-primary); }
-
-        .btn-submit {
-            width: 100%; padding: 10px 16px;
-            background: var(--primary);
-            border: none; border-radius: var(--r-pill);
-            color: var(--on-primary); font-size: 16px; font-weight: 400;
-            font-family: 'Inter', sans-serif;
-            cursor: pointer; transition: background 0.15s;
-            display: flex; align-items: center; justify-content: center; gap: var(--sp-xs);
-        }
-        .btn-submit:hover:not(:disabled) { background: var(--primary-deep); }
-        .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-submit .spinner {
-            width: 18px; height: 18px;
-            border: 2px solid rgba(255,255,255,0.3); border-top-color: white;
-            border-radius: 50%; animation: spin 0.7s linear infinite; display: none;
-        }
-        .btn-submit.loading .spinner { display: block; }
-
-        /* Search results */
-        .search-results { padding: 0 var(--sp-lg) var(--sp-lg); }
-        .search-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: var(--sp-md);
-        }
-        .search-count {
-            font-size: 13px;
-            color: var(--ink-mute);
-        }
-        .search-count strong {
-            color: var(--primary);
-        }
-        .candidates-list {
-            display: flex;
-            flex-direction: column;
-            gap: var(--sp-sm);
-            margin-bottom: var(--sp-md);
-        }
-        .candidate-card {
-            display: flex;
-            align-items: center;
-            gap: var(--sp-md);
-            padding: var(--sp-md);
-            background: var(--canvas);
-            border: 1px solid var(--hairline);
-            border-radius: var(--r-lg);
-            transition: all 0.2s ease;
-            position: relative;
-        }
-        .candidate-card:hover {
-            border-color: var(--primary);
-            box-shadow: var(--shadow-l1);
-            transform: translateY(-1px);
-        }
-        .candidate-rank {
-            width: 24px;
-            height: 24px;
-            border-radius: var(--r-sm);
-            background: var(--canvas-soft);
-            color: var(--ink-mute);
-            font-size: 12px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-        .candidate-rank.best {
-            background: linear-gradient(135deg, #FF6B9D, #C084FC);
-            color: white;
-        }
-        .candidate-cover {
-            width: 56px;
-            height: 76px;
-            border-radius: var(--r-sm);
-            object-fit: cover;
-            flex-shrink: 0;
-            background: var(--canvas-soft);
-        }
-        .candidate-info {
-            flex: 1;
-            min-width: 0;
-        }
-        .candidate-title {
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--ink);
-            margin-bottom: 4px;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            line-height: 1.3;
-        }
-        .candidate-author {
-            font-size: 12px;
-            color: var(--ink-mute);
-            margin-bottom: 4px;
-        }
-        .candidate-rating {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .candidate-rating .stars {
-            color: var(--gold);
-            font-size: 11px;
-            letter-spacing: 1px;
-        }
-        .candidate-rating .score {
-            font-size: 12px;
-            color: var(--ink-mute);
-            font-weight: 500;
-        }
-        .candidate-action {
-            flex-shrink: 0;
-        }
-        .action-btn {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 8px 16px;
-            border-radius: var(--r-pill);
-            font-size: 12px;
-            font-weight: 500;
-            transition: all 0.15s;
-        }
-        .action-btn.primary {
-            background: linear-gradient(135deg, #FF6B9D, #C084FC);
-            color: white;
-        }
-        .action-btn.secondary {
-            background: var(--canvas);
-            color: var(--ink-mute);
-            border: 1px solid var(--hairline);
-        }
-        .action-btn:hover {
-            transform: scale(1.05);
-        }
-        .best-label {
-            font-size: 9px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 2px;
-        }
-        .section-subtitle {
-            font-size: 11px;
-            color: var(--ink-mute);
-            margin-top: 2px;
-        }
-
-
-        /* Empty results */
-        .empty-results {
-            text-align: center;
-            padding: 48px 24px;
-            background: var(--canvas);
-            border: 1px solid var(--hairline);
-            border-radius: var(--r-lg);
-        }
-        .empty-results .empty-icon {
-            font-size: 48px;
-            margin-bottom: var(--sp-md);
-        }
-        .empty-results .empty-title {
-            font-size: 18px;
-            font-weight: 500;
-            color: var(--ink);
-            margin-bottom: var(--sp-xs);
-        }
-        .empty-results .empty-desc {
-            font-size: 14px;
-            color: var(--ink-mute);
-            line-height: 1.5;
-        }
-
-        /* Processing */
-        .processing-status { display: none; text-align: center; padding: 40px 20px; }
-        .processing-status.show { display: block; }
-        .processing-icon {
-            width: 64px; height: 64px; border-radius: 50%;
-            background: var(--canvas-soft);
-            display: flex; align-items: center; justify-content: center;
-            margin: 0 auto var(--sp-lg); color: var(--primary); font-size: 28px;
-        }
-        .processing-status h3 { font-size: 18px; font-weight: 300; letter-spacing: -0.18px; margin-bottom: var(--sp-xs); color: var(--ink); }
-        .processing-status p { font-size: 14px; color: var(--ink-mute); margin-bottom: var(--sp-lg); }
-
-        .processing-steps {
-            background: var(--canvas-soft); border-radius: var(--r-md);
-            padding: var(--sp-md); text-align: left; max-width: 280px; margin: 0 auto;
-        }
-        .processing-step { display: flex; align-items: center; gap: var(--sp-sm); padding: var(--sp-xs) 0; font-size: 13px; color: var(--ink-mute); }
-        .processing-step.done { color: var(--success); }
-        .processing-step.failed { color: var(--danger); }
-        .processing-step.current { color: var(--primary); }
-        .step-icon {
-            width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid currentColor;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 10px; flex-shrink: 0;
-        }
-        .processing-step.done .step-icon { background: var(--success); border-color: var(--success); color: white; }
-
-        /* Success page */
-        .success-page { display: none; text-align: center; padding: 40px 20px; }
-        .success-page.show { display: block; }
-        .success-icon {
-            width: 64px; height: 64px; border-radius: 50%;
-            background: var(--canvas-soft);
-            display: flex; align-items: center; justify-content: center;
-            margin: 0 auto var(--sp-lg); color: var(--success); font-size: 28px;
-        }
-        .success-page h2 { font-size: 22px; font-weight: 300; letter-spacing: -0.44px; margin-bottom: var(--sp-xs); color: var(--ink); }
-        .success-page > p { font-size: 14px; color: var(--ink-mute); margin-bottom: var(--sp-lg); }
-
-        .result-card {
-            background: var(--canvas); border: 1px solid var(--hairline);
-            border-radius: var(--r-lg); padding: var(--sp-lg);
-            margin-bottom: var(--sp-sm); text-align: left;
-        }
-        .result-card h4 {
-            font-size: 10px; font-weight: 400; letter-spacing: 0.1px; text-transform: uppercase;
-            color: var(--ink-mute); margin-bottom: var(--sp-xs);
-        }
-
-        .result-link-box {
-            background: var(--canvas-soft); border-radius: var(--r-sm);
-            padding: var(--sp-sm); word-break: break-all; font-size: 13px;
-            color: var(--primary); font-weight: 300; margin-bottom: var(--sp-sm);
-        }
-        .result-code-box {
-            background: var(--canvas-soft); border: 1px solid var(--hairline);
-            border-radius: var(--r-sm);
-            padding: var(--sp-sm); display: flex; align-items: center; justify-content: space-between;
-        }
-        .result-code {
-            font-size: 18px; font-weight: 300; font-feature-settings: "tnum";
-            color: var(--ink); font-family: 'Inter', monospace; letter-spacing: -0.42px;
-        }
-        .copy-btn {
-            padding: 6px 14px; background: var(--primary);
-            border: none; border-radius: var(--r-pill);
-            color: var(--on-primary); font-size: 12px; font-weight: 400;
-            cursor: pointer; transition: background 0.15s;
-        }
-        .copy-btn:hover { background: var(--primary-deep); }
-
-        /* Recommend card */
-        .result-recommend-box {
-            background: var(--canvas-soft); border-radius: var(--r-sm);
-            padding: var(--sp-md); text-align: left; margin-bottom: var(--sp-sm);
-        }
-        .result-recommend-text { font-size: 14px; color: var(--ink); line-height: 1.5; white-space: pre-wrap; font-weight: 300; }
-
-        .btn-retry {
-            width: 100%; padding: 10px 16px; background: var(--canvas);
-            border: 1px solid var(--hairline); border-radius: var(--r-pill);
-            color: var(--ink); font-size: 14px; font-weight: 400;
-            cursor: pointer; transition: all 0.15s; margin-top: var(--sp-xs);
-        }
-        .btn-retry:hover { border-color: var(--primary); color: var(--primary); }
-
-        .btn-another {
-            width: 100%; padding: 10px 16px;
-            background: var(--primary);
-            border: none; border-radius: var(--r-pill);
-            color: var(--on-primary); font-size: 16px; font-weight: 400;
-            cursor: pointer; transition: background 0.15s;
-            margin-top: var(--sp-md); display: flex; align-items: center; justify-content: center; gap: var(--sp-xs);
-        }
-        .btn-another:hover { background: var(--primary-deep); }
-
-        /* ========== Tab 3: Tasks — Stripe Pricing Cards ========== */
-        .tasks-header { padding: var(--sp-lg) var(--sp-lg) var(--sp-sm); background: var(--canvas); }
-        .tasks-title { font-size: 22px; font-weight: 300; letter-spacing: -0.44px; margin-bottom: var(--sp-xxs); color: var(--ink); }
-        .tasks-subtitle { font-size: 14px; color: var(--ink-mute); font-weight: 300; }
-
-        .task-tabs { display: flex; gap: var(--sp-xs); padding: 0 var(--sp-lg) var(--sp-md); background: var(--canvas); }
-        .task-tab {
-            padding: 6px 14px; border-radius: var(--r-pill); font-size: 13px; font-weight: 400;
-            border: 1px solid var(--hairline); background: var(--canvas);
-            color: var(--ink-mute); cursor: pointer; transition: all 0.15s;
-        }
-        .task-tab.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
-
-        .task-list { padding: 0 var(--sp-lg) var(--sp-lg); }
-        .task-section-title {
-            font-size: 10px; font-weight: 400; letter-spacing: 0.1px; text-transform: uppercase;
-            color: var(--ink-mute); margin: var(--sp-md) 0 var(--sp-sm);
-        }
-
-        .task-card {
-            background: var(--canvas); border: 1px solid var(--hairline);
-            border-radius: var(--r-lg); padding: var(--sp-md); margin-bottom: var(--sp-sm);
-        }
-        .task-card.completed { opacity: 0.6; background: var(--canvas-soft); }
-
-        .task-top { display: flex; align-items: center; gap: var(--sp-sm); margin-bottom: var(--sp-sm); }
-        .task-icon {
-            width: 40px; height: 40px;
-            background: var(--canvas-soft);
-            border-radius: var(--r-md); display: flex; align-items: center; justify-content: center;
-            font-size: 18px; flex-shrink: 0; color: var(--primary);
-        }
-        .task-info { flex: 1; }
-        .task-name { font-size: 14px; font-weight: 300; letter-spacing: -0.14px; margin-bottom: 2px; color: var(--ink); }
-        .task-reward {
-            font-size: 13px; color: var(--primary); font-weight: 400;
-            font-feature-settings: "tnum";
-        }
-
-        .task-progress { margin-bottom: var(--sp-sm); }
-        .progress-bar { height: 4px; background: var(--canvas-soft); border-radius: 2px; overflow: hidden; margin-bottom: var(--sp-xs); }
-        .progress-fill { height: 100%; background: var(--primary); border-radius: 2px; transition: width 0.3s; }
-        .progress-text { font-size: 11px; color: var(--ink-mute); text-align: right; font-feature-settings: "tnum"; }
-
-        .task-claim-btn {
-            width: 100%; padding: 8px 16px;
-            background: var(--primary);
-            border: none; border-radius: var(--r-pill);
-            color: var(--on-primary); font-size: 14px; font-weight: 400;
-            cursor: pointer; transition: background 0.15s;
-        }
-        .task-claim-btn:hover { background: var(--primary-deep); }
-        .task-claim-btn:disabled { background: var(--canvas-soft); color: var(--ink-mute); cursor: not-allowed; }
-        .task-claim-btn.claimed { background: rgba(13,148,96,0.1); color: var(--success); }
-
-        /* ========== Gaming Task Styles ========== */
-        .gaming-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 24px 20px;
-            border-radius: 0;
-        }
-        .gaming-header .tasks-title {
-            color: white;
-            font-size: 24px;
-            font-weight: 700;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        }
-        .gaming-header .tasks-subtitle {
-            color: rgba(255,255,255,0.8);
-            font-size: 14px;
-        }
-
-        /* Check-in Card */
-        .checkin-card {
-            background: linear-gradient(135deg, #FF6B9D 0%, #C084FC 50%, #FFD700 100%);
-            border-radius: 20px;
-            padding: 20px;
-            margin: 16px;
-            box-shadow: 0 8px 32px rgba(255,107,157,0.3);
-        }
-        .checkin-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-        .checkin-title {
-            font-size: 18px;
-            font-weight: 700;
-            color: white;
-            text-shadow: 0 1px 4px rgba(0,0,0,0.2);
-        }
-        .checkin-streak {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            background: rgba(255,255,255,0.2);
-            padding: 6px 12px;
-            border-radius: 20px;
-        }
-        .streak-flame {
-            font-size: 18px;
-            animation: flicker 1s ease-in-out infinite alternate;
-        }
-        @keyframes flicker {
-            0% { transform: scale(1); }
-            100% { transform: scale(1.1); }
-        }
-        .streak-count {
-            font-size: 20px;
-            font-weight: 800;
-            color: white;
-        }
-        .streak-label {
-            font-size: 10px;
-            color: rgba(255,255,255,0.9);
-        }
-        .checkin-calendar {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 16px;
-        }
-        .calendar-day {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: 600;
-            color: rgba(255,255,255,0.7);
-        }
-        .calendar-day.checked {
-            background: rgba(255,255,255,0.9);
-            color: #FF6B9D;
-        }
-        .calendar-day.today {
-            background: white;
-            color: #FF6B9D;
-            box-shadow: 0 0 0 3px rgba(255,255,255,0.5);
-        }
-        .checkin-btn {
-            width: 100%;
-            padding: 14px 24px;
-            background: white;
-            border: none;
-            border-radius: 30px;
-            font-size: 16px;
-            font-weight: 700;
-            color: #FF6B9D;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        }
-        .checkin-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-        }
-        .checkin-btn:active {
-            transform: translateY(0);
-        }
-        .checkin-btn.done {
-            background: rgba(255,255,255,0.5);
-            color: white;
-            cursor: default;
-        }
-        .checkin-btn.done:hover {
-            transform: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        }
-        .checkin-btn.animating {
-            animation: checkinPulse 0.5s ease;
-        }
-        @keyframes checkinPulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(0.95); }
-            100% { transform: scale(1); }
-        }
-
-        /* Gaming Task Cards */
-        .gaming-task-card {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: linear-gradient(135deg, rgba(102,126,234,0.1), rgba(118,75,162,0.05));
-            border: 1px solid rgba(102,126,234,0.2);
-            border-radius: 16px;
-            padding: 16px;
-            margin-bottom: 12px;
-            transition: all 0.3s ease;
-        }
-        .gaming-task-card:hover {
-            border-color: rgba(102,126,234,0.4);
-            box-shadow: 0 4px 20px rgba(102,126,234,0.15);
-            transform: translateY(-2px);
-        }
-        .gaming-task-left {
-            flex-shrink: 0;
-        }
-        .gaming-task-icon {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            box-shadow: 0 4px 12px rgba(102,126,234,0.3);
-        }
-        .gaming-task-content {
-            flex: 1;
-            min-width: 0;
-        }
-        .gaming-task-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 4px;
-        }
-        .gaming-task-name {
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--ink);
-        }
-        .gaming-task-reward {
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--success);
-            background: rgba(13,148,96,0.1);
-            padding: 2px 8px;
-            border-radius: 6px;
-        }
-        .gaming-task-desc {
-            font-size: 12px;
-            color: var(--ink-mute);
-            margin-bottom: 8px;
-        }
-        .gaming-task-progress {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .gaming-progress-bar {
-            flex: 1;
-            height: 6px;
-            background: rgba(102,126,234,0.2);
-            border-radius: 3px;
-            overflow: hidden;
-        }
-        .gaming-progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #667eea, #764ba2);
-            border-radius: 3px;
-            transition: width 0.3s ease;
-        }
-        .gaming-progress-text {
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--ink-mute);
-            min-width: 30px;
-        }
-        .gaming-task-btn {
-            padding: 8px 16px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            border: none;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            flex-shrink: 0;
-        }
-        .gaming-task-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(102,126,234,0.4);
-        }
-        .gaming-task-btn.locked {
-            background: var(--canvas-soft);
-            color: var(--ink-mute);
-            cursor: not-allowed;
-        }
-        .gaming-task-btn.locked:hover {
-            transform: none;
-            box-shadow: none;
-        }
-
-        /* Gaming Achievement Cards */
-        .gaming-achievement-card {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,107,157,0.05));
-            border: 1px solid rgba(255,215,0,0.2);
-            border-radius: 16px;
-            padding: 16px;
-            margin-bottom: 12px;
-            transition: all 0.3s ease;
-        }
-        .gaming-achievement-card:hover {
-            border-color: rgba(255,215,0,0.4);
-            box-shadow: 0 4px 20px rgba(255,215,0,0.15);
-        }
-        .gaming-achievement-card.locked {
-            opacity: 0.6;
-            filter: grayscale(0.5);
-        }
-        .achievement-badge {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, #FFD700, #FF6B9D);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            box-shadow: 0 4px 12px rgba(255,215,0,0.3);
-            flex-shrink: 0;
-        }
-        .achievement-content {
-            flex: 1;
-            min-width: 0;
-        }
-        .achievement-name {
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--ink);
-            margin-bottom: 2px;
-        }
-        .achievement-desc {
-            font-size: 11px;
-            color: var(--ink-mute);
-            margin-bottom: 6px;
-        }
-        .achievement-progress {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .achievement-bar {
-            flex: 1;
-            height: 4px;
-            background: rgba(255,215,0,0.2);
-            border-radius: 2px;
-            overflow: hidden;
-        }
-        .achievement-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #FFD700, #FF6B9D);
-            border-radius: 2px;
-            transition: width 0.3s ease;
-        }
-        .achievement-text {
-            font-size: 10px;
-            font-weight: 600;
-            color: var(--ink-mute);
-        }
-        .achievement-reward {
-            font-size: 14px;
-            font-weight: 700;
-            color: #FFD700;
-            text-shadow: 0 1px 4px rgba(255,215,0,0.3);
-            flex-shrink: 0;
-        }
-
-        /* ========== Tab 4: Profile — Stripe Dashboard ========== */
-        .profile-header {
-            padding: var(--sp-xxl) var(--sp-lg) var(--sp-lg); text-align: center;
-            background: var(--brand-dark); color: var(--on-primary);
-            border-bottom: none;
-        }
-        .profile-avatar {
-            width: 72px; height: 72px; border-radius: 50%;
-            background: var(--primary);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 28px; font-weight: 300; color: var(--on-primary);
-            margin: 0 auto var(--sp-sm);
-        }
-        .profile-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-        .profile-name { font-size: 20px; font-weight: 300; letter-spacing: -0.4px; margin-bottom: var(--sp-xxs); color: var(--on-primary); }
-        .profile-uid { font-size: 13px; color: rgba(255,255,255,0.6); }
-
-        /* Login form */
-        .login-form { margin-top: var(--sp-lg); padding: var(--sp-lg); background: rgba(255,255,255,0.08); border-radius: var(--r-lg); }
-        .login-form h3 { font-size: 16px; font-weight: 300; letter-spacing: -0.16px; margin-bottom: var(--sp-xs); text-align: center; color: var(--on-primary); }
-        .login-form > p { font-size: 13px; color: rgba(255,255,255,0.5); text-align: center; margin-bottom: var(--sp-md); }
-
-        .login-input {
-            width: 100%; padding: 8px 12px;
-            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
-            border-radius: var(--r-sm); color: var(--on-primary);
-            font-size: 15px; font-weight: 300; font-family: 'Inter', sans-serif;
-            outline: none; transition: border-color 0.15s; margin-bottom: var(--sp-sm);
-        }
-        .login-input:focus { border-color: var(--primary-soft); }
-        .login-input::placeholder { color: rgba(255,255,255,0.35); }
-
-        .login-btn {
-            width: 100%; padding: 10px 16px;
-            background: var(--primary);
-            border: none; border-radius: var(--r-pill);
-            color: var(--on-primary); font-size: 16px; font-weight: 400;
-            font-family: 'Inter', sans-serif;
-            cursor: pointer; transition: background 0.15s; margin-bottom: var(--sp-md);
-        }
-        .login-btn:hover { background: var(--primary-soft); }
-        .login-tip { text-align: center; font-size: 11px; color: rgba(255,255,255,0.4); margin-top: var(--sp-sm); }
-
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-xs); padding: var(--sp-md) var(--sp-lg); background: var(--canvas-soft); }
-        .stat-card { background: var(--canvas); border-radius: var(--r-md); padding: var(--sp-md) var(--sp-sm); text-align: center; border: 1px solid var(--hairline); }
-        .stat-num {
-            font-size: 20px; font-weight: 300; font-feature-settings: "tnum";
-            letter-spacing: -0.42px; color: var(--ink); margin-bottom: var(--sp-xxs);
-        }
-        .stat-num.gold { color: var(--primary); }
-        .stat-label { font-size: 10px; color: var(--ink-mute); font-weight: 400; letter-spacing: 0.1px; text-transform: uppercase; }
-
-        .profile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-sm); padding: var(--sp-md) var(--sp-lg); }
-        .profile-card {
-            background: var(--canvas); border: 1px solid var(--hairline);
-            border-radius: var(--r-lg); padding: var(--sp-lg) var(--sp-sm);
-            text-align: center; cursor: pointer; transition: all 0.15s;
-        }
-        .profile-card:hover { border-color: var(--primary); }
-        .profile-card-icon { font-size: 24px; margin-bottom: var(--sp-xs); color: var(--primary); }
-        .profile-card-title { font-size: 13px; font-weight: 300; letter-spacing: -0.13px; margin-bottom: 2px; color: var(--ink); }
-        .profile-card-desc { font-size: 11px; color: var(--ink-mute); }
-        .profile-card-arrow { font-size: 10px; color: var(--ink-mute); margin-top: 4px; transition: transform 0.3s ease; }
-        .profile-card.expanded .profile-card-arrow { transform: rotate(180deg); }
-
-        /* v3: Commission Level Card */
-        .commission-level-card {
-            background: linear-gradient(135deg, #FF6B9D 0%, #C084FC 50%, #FFD700 100%);
+        /* My Performance Dashboard */
+        .perf-dashboard-card {
+            background: linear-gradient(135deg, rgba(15,15,30,0.95) 0%, rgba(30,20,50,0.95) 50%, rgba(20,10,35,0.95) 100%);
+            border: 1.5px solid transparent;
+            border-image: linear-gradient(135deg, #FF6B9D, #C084FC, #FFD700) 1;
             border-radius: var(--r-lg);
             padding: 16px 18px;
             margin: var(--sp-md) var(--sp-lg);
@@ -1276,402 +108,79 @@
             position: relative;
             overflow: hidden;
         }
-        .commission-level-card::before {
+        .perf-dashboard-card::before {
             content: '';
             position: absolute;
             top: -30%; right: -20%;
             width: 100px; height: 100px;
-            background: radial-gradient(circle, rgba(255,255,255,0.2), transparent 70%);
+            background: radial-gradient(circle, rgba(255,107,157,0.15), transparent 70%);
             border-radius: 50%;
         }
-        .commission-level-header {
-            display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+        .perf-dashboard-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;
         }
-        .commission-level-title {
-            font-size: 14px; font-weight: 600; letter-spacing: -0.2px;
+        .perf-dashboard-title {
+            font-size: 15px; font-weight: 700; letter-spacing: -0.2px;
         }
-        .commission-level-badge {
-            font-size: 18px; font-weight: 700; color: #FFD700;
-            background: rgba(0,0,0,0.15); padding: 2px 12px; border-radius: 20px;
+        .perf-dashboard-tier-badge {
+            font-size: 16px; font-weight: 700; color: #FFD700;
+            background: rgba(255,215,0,0.15); padding: 2px 12px; border-radius: 20px;
+            border: 1px solid rgba(255,215,0,0.3);
         }
-        .commission-level-track {
-            height: 8px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden; margin-bottom: 6px;
-        }
-        .commission-level-fill {
-            height: 100%; background: linear-gradient(90deg, #FFD700, #fbbf24); border-radius: 4px; transition: width 0.6s ease;
-        }
-        .commission-level-info {
-            display: flex; justify-content: space-between; font-size: 11px; opacity: 0.9;
-        }
-        .commission-level-next {
-            font-size: 11px; margin-top: 8px; opacity: 0.85; text-align: center;
-        }
-
-        .my-books-section { padding: 0 var(--sp-lg) var(--sp-lg); }
-        .my-book-item {
-            background: var(--canvas); border: 1px solid var(--hairline);
-            border-radius: var(--r-md); padding: var(--sp-sm); margin-bottom: var(--sp-xs);
-            display: flex; gap: var(--sp-sm); align-items: center;
-        }
-        .my-book-cover { width: 36px; height: 48px; border-radius: var(--r-xs); object-fit: cover; flex-shrink: 0; background: var(--canvas-soft); }
-        .my-book-info { flex: 1; min-width: 0; }
-        .my-book-title { font-size: 13px; font-weight: 300; letter-spacing: -0.13px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
-        .my-book-code { font-size: 12px; color: var(--primary); font-weight: 400; font-feature-settings: "tnum"; }
-        .my-book-copy {
-            padding: 6px 14px; background: var(--primary);
-            border: none; border-radius: var(--r-pill);
-            color: var(--on-primary); font-size: 12px; font-weight: 400;
-            cursor: pointer; flex-shrink: 0; transition: background 0.15s;
-        }
-        .my-book-copy:hover { background: var(--primary-deep); }
-
-        /* Expanded My Book Item */
-        .my-book-expanded-item {
-            background: var(--canvas);
-            border: 1px solid var(--hairline);
-            border-radius: var(--r-lg);
-            padding: var(--sp-md);
-            margin-bottom: var(--sp-sm);
-        }
-        .my-book-expanded-header {
-            display: flex;
-            gap: var(--sp-md);
-            margin-bottom: var(--sp-sm);
-        }
-        .my-book-expanded-cover {
-            width: 48px;
-            height: 64px;
-            border-radius: var(--r-sm);
-            object-fit: cover;
-            flex-shrink: 0;
-        }
-        .my-book-expanded-info {
-            flex: 1;
-            min-width: 0;
-        }
-        .my-book-expanded-title {
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--ink);
-            margin-bottom: 4px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .my-book-expanded-code {
-            font-size: 12px;
-            color: var(--primary);
-            font-weight: 500;
-            font-feature-settings: "tnum";
-            margin-bottom: 6px;
-        }
-        .my-book-expanded-copy {
-            padding: 4px 12px;
-            background: var(--primary);
-            border: none;
-            border-radius: var(--r-pill);
-            color: var(--on-primary);
-            font-size: 11px;
-            font-weight: 500;
-            cursor: pointer;
-        }
-        .my-book-expanded-pending {
-            font-size: 11px;
-            color: var(--ink-mute);
-            font-style: italic;
-        }
-        .my-book-expanded-stats {
-            display: flex;
-            justify-content: space-around;
-            padding-top: var(--sp-sm);
-            border-top: 1px solid var(--hairline);
-        }
-        .my-book-expanded-stat {
-            text-align: center;
-        }
-        .my-book-expanded-stat-icon {
-            font-size: 16px;
-            margin-bottom: 2px;
-        }
-        .my-book-expanded-stat-label {
-            font-size: 10px;
-            color: var(--ink-mute);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .my-book-expanded-stat-value {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--ink);
-            font-feature-settings: "tnum";
-        }
-        .my-book-expanded-stat.income .my-book-expanded-stat-value {
-            color: var(--success);
-        }
-
-        /* Stats Overview Cards */
-        .stats-overview {
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-sm);
-            padding: var(--sp-md) var(--sp-lg);
-            background: linear-gradient(135deg, #FF6B9D 0%, #C084FC 40%, #FFD700 100%);
-            margin: 0 calc(-1 * var(--sp-lg));
-            border-radius: 0;
-        }
-        .stats-overview-card { text-align: center; }
-        .stats-overview-icon { font-size: 16px; margin-bottom: 2px; }
-        .stats-overview-value { font-size: 20px; font-weight: 600; color: white; font-feature-settings: "tnum"; }
-        .stats-overview-label { font-size: 10px; color: rgba(255,255,255,0.7); }
-        .stats-overview-card.gold .stats-overview-value { color: #FFD700; }
-
-        /* Book Stats Row */
-        .my-book-stats {
-            display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;
-        }
-        .my-book-stat {
-            font-size: 10px; color: var(--ink-mute);
-            display: flex; align-items: center; gap: 2px;
-        }
-        .my-book-stat.income { color: var(--success); font-weight: 600; }
-        .my-book-stat.income.zero { color: var(--ink-mute); }
-        .my-book-link {
-            font-size: 11px; color: var(--primary); word-break: break-all;
-            margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            cursor: pointer; max-width: 100%;
-        }
-        .my-book-link:hover { text-decoration: underline; }
-
-        /* Stats Loading */
-        .stats-loading {
-            display: flex; align-items: center; justify-content: center;
-            padding: var(--sp-lg); color: var(--ink-mute);
-        }
-        .stats-loading-spinner {
-            width: 16px; height: 16px; border: 2px solid var(--hairline);
-            border-top-color: var(--primary); border-radius: 50%;
-            animation: spin 0.7s linear infinite; margin-right: var(--sp-sm);
-        }
-        .stats-refresh-btn {
-            padding: 4px 10px; background: var(--canvas); border: 1px solid var(--hairline);
-            border-radius: var(--r-pill); font-size: 11px; color: var(--ink-mute);
-            cursor: pointer; transition: all 0.15s;
-        }
-        .stats-refresh-btn:hover { border-color: var(--primary); color: var(--primary); }
-        .stats-refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .stats-coming-soon {
-            text-align: center; padding: var(--sp-lg); color: var(--ink-mute);
-            font-size: 12px;
-        }
-
-
-        /* ========== Splash / Login Screen ========== */
-        .splash-screen {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(135deg, #1c1e54 0%, #533afd 50%, #C084FC 100%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            padding: 24px;
-        }
-        .splash-screen.hidden {
-            display: none;
-        }
-        .splash-logo {
-            width: 80px; height: 80px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 20px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 36px; font-weight: 700; color: white;
-            margin-bottom: 24px;
-            backdrop-filter: blur(10px);
-        }
-        .splash-title {
-            font-size: 28px; font-weight: 700; color: white;
-            margin-bottom: 8px; text-align: center;
-        }
-        .splash-subtitle {
-            font-size: 14px; color: rgba(255,255,255,0.7);
-            margin-bottom: 40px; text-align: center;
-        }
-        .splash-form {
-            width: 100%; max-width: 320px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 16px; padding: 24px;
-            backdrop-filter: blur(10px);
-        }
-        .splash-input {
-            width: 100%; padding: 14px 16px;
-            background: rgba(255,255,255,0.15);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 12px; color: white;
-            font-size: 15px; font-family: 'Inter', sans-serif;
-            margin-bottom: 12px;
-        }
-        .splash-input:focus {
-            outline: none; border-color: rgba(255,255,255,0.5);
-        }
-        .splash-input::placeholder { color: rgba(255,255,255,0.5); }
-        .splash-btn {
-            width: 100%; padding: 14px;
-            background: linear-gradient(135deg, #FFD700, #FF6B9D);
-            border: none; border-radius: 12px;
-            color: #1c1e54; font-size: 16px; font-weight: 700;
-            cursor: pointer; transition: transform 0.2s;
-        }
-        .splash-btn:hover { transform: scale(1.02); }
-        .splash-btn:active { transform: scale(0.98); }
-        .splash-tip {
-            text-align: center; font-size: 12px;
-            color: rgba(255,255,255,0.5); margin-top: 12px;
-        }
-        .splash-skip {
-            margin-top: 16px;
-            background: transparent; border: none;
-            color: rgba(255,255,255,0.6); font-size: 13px;
-            cursor: pointer; text-decoration: underline;
-        }
-        .splash-error {
-            color: #ff6b6b; font-size: 12px; margin-top: 8px;
-            text-align: center;
-        }
-        .logout-btn {
-            display: none; width: calc(100% - 32px); margin: 0 auto var(--sp-md);
-            padding: 10px 16px; background: transparent;
-            border: 1px solid rgba(234,34,97,0.3); border-radius: var(--r-pill);
-            color: var(--ruby); font-size: 14px; font-weight: 400;
-            cursor: pointer; transition: background 0.15s;
-        }
-        .logout-btn.show { display: block; }
-        .logout-btn:hover { background: rgba(234,34,97,0.08); }
-
-        /* ========== Leaderboard / Tasks Page - Taobao-style ========== */
-        .leaderboard-banner {
-            background: linear-gradient(135deg, #FF8C00 0%, #FF6B00 50%, #FF4500 100%);
-            padding: 20px;
-            text-align: center;
-            position: relative;
-        }
-        .leaderboard-banner::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: radial-gradient(circle at 30% 50%, rgba(255,215,0,0.3) 0%, transparent 50%);
-        }
-        .leaderboard-title {
-            font-size: 22px; font-weight: 700; color: white;
+        .perf-dashboard-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;
             position: relative; z-index: 1;
-            text-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
-        .leaderboard-subtitle {
-            font-size: 13px; color: rgba(255,255,255,0.85);
-            margin-top: 4px; position: relative; z-index: 1;
-        }
-
-        .leaderboard-tabs {
-            display: flex;
-            background: var(--canvas);
-            padding: 12px 16px;
-            gap: 8px;
-        }
-        .leaderboard-tab {
-            flex: 1;
-            display: flex; flex-direction: column; align-items: center; gap: 4px;
-            padding: 10px 8px;
-            background: var(--canvas-soft);
-            border: none; border-radius: 10px;
-            cursor: pointer; transition: all 0.2s;
-        }
-        .leaderboard-tab.active {
-            background: linear-gradient(135deg, #FF8C00, #FF6B00);
-            color: white;
-        }
-        .leaderboard-tab .tab-icon { font-size: 20px; }
-        .leaderboard-tab .tab-text { font-size: 12px; font-weight: 600; }
-
-        .time-filter {
-            display: flex;
-            padding: 12px 16px;
-            gap: 8px;
-            background: var(--canvas);
-        }
-        .time-btn {
-            flex: 1;
-            padding: 8px;
-            background: var(--canvas-soft);
-            border: 1px solid var(--hairline);
-            border-radius: 8px;
-            font-size: 13px; font-weight: 500;
-            color: var(--ink-mute);
-            cursor: pointer; transition: all 0.2s;
-        }
-        .time-btn.active {
-            background: var(--gold-soft);
-            border-color: var(--gold);
-            color: #9a6800;
-        }
-
-        .leaderboard-list {
-            padding: 12px 16px;
-        }
-        .leaderboard-item {
-            display: flex; align-items: center; gap: 12px;
-            background: var(--canvas);
-            border: 1px solid var(--hairline);
+        .perf-stat-item {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.08);
             border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 10px;
+            padding: 12px 10px;
+            text-align: center;
+            transition: background 0.2s;
+        }
+        .perf-stat-item:hover { background: rgba(255,255,255,0.1); }
+        .perf-stat-icon { font-size: 18px; margin-bottom: 4px; }
+        .perf-stat-value {
+            font-size: 18px; font-weight: 700; color: #FFD700;
+            min-height: 24px;
+        }
+        .perf-stat-label {
+            font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 2px;
+        }
+        .perf-dashboard-footer {
+            display: flex; justify-content: space-between; align-items: center;
+            position: relative; z-index: 1;
+        }
+        .perf-last-updated {
+            font-size: 11px; color: rgba(255,255,255,0.4);
+        }
+        .perf-refresh-btn {
+            background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7);
+            border: 1px solid rgba(255,255,255,0.15); padding: 4px 12px;
+            border-radius: 16px; font-size: 11px; cursor: pointer;
             transition: all 0.2s;
         }
-        .leaderboard-item:hover {
-            border-color: var(--gold);
-            box-shadow: 0 2px 8px rgba(255,165,0,0.15);
+        .perf-refresh-btn:hover {
+            background: rgba(255,255,255,0.2); color: #fff;
         }
-        .leaderboard-rank {
-            width: 32px; height: 32px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-weight: 700; font-size: 14px;
-            flex-shrink: 0;
+        .perf-login-prompt {
+            text-align: center; padding: 16px 0; position: relative; z-index: 1;
         }
-        .leaderboard-rank.top1 { background: linear-gradient(135deg, #FFD700, #FFA500); color: white; }
-        .leaderboard-rank.top2 { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: white; }
-        .leaderboard-rank.top3 { background: linear-gradient(135deg, #CD7F32, #B87333); color: white; }
-        .leaderboard-rank.normal { background: var(--canvas-soft); color: var(--ink-mute); }
-        
-        .leaderboard-cover {
-            width: 45px; height: 60px;
-            border-radius: 6px;
-            object-fit: cover;
-            background: var(--canvas-soft);
-            flex-shrink: 0;
+        .perf-login-text {
+            font-size: 14px; color: rgba(255,255,255,0.5); margin-bottom: 10px;
         }
-        .leaderboard-info { flex: 1; min-width: 0; }
-        .leaderboard-title-text {
-            font-size: 14px; font-weight: 600; color: var(--ink);
-            margin-bottom: 4px;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        .perf-login-btn {
+            background: linear-gradient(135deg, #FF6B9D, #C084FC);
+            color: #fff; border: none; padding: 8px 24px;
+            border-radius: 20px; font-size: 13px; font-weight: 600;
+            cursor: pointer; transition: transform 0.2s;
         }
-        .leaderboard-meta {
-            font-size: 12px; color: var(--ink-mute);
-        }
-        .leaderboard-earnings {
-            text-align: right; flex-shrink: 0;
-        }
-        .leaderboard-commission {
-            font-size: 16px; font-weight: 700; color: #FF6B00;
-        }
-        .leaderboard-label {
-            font-size: 11px; color: var(--ink-mute);
-        }
-        .leaderboard-share-btn {
-            padding: 6px 12px;
-            background: linear-gradient(135deg, #FF8C00, #FF6B00);
-            border: none; border-radius: 16px;
-            color: white; font-size: 12px; font-weight: 600;
-            cursor: pointer; margin-top: 6px;
-        }
+        .perf-login-btn:active { transform: scale(0.96); }
+        .top-earners-card, .top-earners-header, .top-earners-title, .top-earners-badge,
+        .top-earners-more, .top-earner-item, .top-earner-rank, .top-earner-rank.gold,
+        .top-earner-rank.silver, .top-earner-rank.bronze, .top-earner-rank.normal,
+        .top-earner-name, .top-earner-amount { display: none; }
 
         /* Quick Tasks */
         .quick-tasks-section {
@@ -1781,56 +290,22 @@
             text-align: right;
         }
         
-        /* Leaderboard Mini Section */
-        .leaderboard-mini-section {
-            padding: 0 var(--sp-lg) var(--sp-lg);
-        }
-        .leaderboard-mini-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: var(--sp-sm);
-        }
-        .leaderboard-mini-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--ink);
-        }
-        .leaderboard-mini-more {
-            font-size: 12px;
-            color: var(--primary);
-            cursor: pointer;
-        }
-        .leaderboard-mini-list {
-            display: flex;
-            flex-direction: column;
-            gap: var(--sp-xs);
-        }
-        .leaderboard-mini-item {
-            display: flex;
-            align-items: center;
-            gap: var(--sp-sm);
-            padding: var(--sp-sm);
-            background: var(--canvas);
-            border: 1px solid var(--hairline);
-            border-radius: var(--r-md);
-        }
-        .leaderboard-mini-rank {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            font-weight: 700;
-        }
-        .leaderboard-mini-rank.gold { background: linear-gradient(135deg, #FFD700, #FFA500); color: white; }
-        .leaderboard-mini-rank.silver { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: white; }
-        .leaderboard-mini-rank.bronze { background: linear-gradient(135deg, #CD7F32, #B87333); color: white; }
-        .leaderboard-mini-rank.normal { background: var(--canvas-soft); color: var(--ink-mute); }
-        .leaderboard-mini-name { flex: 1; font-size: 13px; color: var(--ink); }
-        .leaderboard-mini-earning { font-size: 13px; font-weight: 600; color: var(--success); }
+        /* My Reels Section */
+        .my-reels-section { padding: 0 var(--sp-lg) var(--sp-lg); }
+        .my-reels-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--sp-sm); }
+        .my-reels-title { font-size: 14px; font-weight: 600; color: var(--ink); }
+        .my-reels-count { font-size: 12px; color: var(--primary); font-weight: 500; }
+        .my-reels-list { display: flex; flex-direction: column; gap: 8px; }
+        .my-reels-empty { font-size: 13px; color: var(--ink-mute); text-align: center; padding: 16px; background: var(--canvas-soft); border-radius: var(--r-md); }
+        .my-reels-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--canvas); border: 1px solid var(--hairline); border-radius: var(--r-md); font-size: 13px; }
+        .my-reels-item-icon { font-size: 20px; }
+        .my-reels-item-info { flex: 1; min-width: 0; }
+        .my-reels-item-title { font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .my-reels-item-status { font-size: 11px; margin-top: 2px; }
+        .my-reels-item-status.processing { color: #f59e0b; }
+        .my-reels-item-status.completed { color: var(--success); }
+        .my-reels-item-status.failed { color: #ef4444; }
+        .my-reels-item-link { font-size: 11px; color: var(--primary); text-decoration: underline; cursor: pointer; }
 
         /* ========== Profile Page - Miyuan-style ========== */
         .profile-vip-header {
@@ -2234,14 +709,13 @@
         <div class="splash-subtitle">Earn money promoting books</div>
         
         <div class="splash-form">
-            <input type="text" class="splash-input" id="splashUsername" placeholder="Username">
-            <input type="text" class="splash-input" id="splashNFId" placeholder="NovelFlow ID">
-            <button class="splash-btn" onclick="handleSplashLogin()">Start Earning</button>
-            <div class="splash-tip">Enter any username to start. No password needed.</div>
+            <input type="text" class="splash-input" id="splashUsername" placeholder="Enter your username">
+            <button class="splash-btn" id="splashLoginBtn" onclick="handleSplashLogin()">Start Earning</button>
+            <div class="splash-tip">Your username from NovelFlow promotions</div>
             <div class="splash-error" id="splashError"></div>
         </div>
         
-        <button class="splash-skip" onclick="skipLogin()">Skip for now →</button>
+        <button class="splash-skip" onclick="skipLogin()">Browse as guest →</button>
     </div>
 
     <div class="app-container">
@@ -2274,333 +748,6 @@
                 </div>
             </div>
 
-            <!-- Quick Stats Row -->
-            <div class="quick-stats-row">
-                <div class="quick-stat-card" onclick="switchTab('submit')">
-                    <div class="quick-stat-icon">💵</div>
-                    <div class="quick-stat-value">80%</div>
-                    <div class="quick-stat-label">Earnings</div>
-                </div>
-                <div class="quick-stat-card" onclick="switchTab('tasks')">
-                    <div class="quick-stat-icon">🎁</div>
-                    <div class="quick-stat-value">+50</div>
-                    <div class="quick-stat-label">Daily Coins</div>
-                </div>
-                <div class="quick-stat-card secondary" onclick="switchTab('tasks')">
-                    <div class="quick-stat-icon">🔥</div>
-                    <div class="quick-stat-value">500+</div>
-                    <div class="quick-stat-label">Earners</div>
-                </div>
-            </div>
-
-            <!-- Top Earners Card -->
-            <div class="top-earners-card">
-                <div class="top-earners-header">
-                    <div class="top-earners-title">
-                        🏆 Top Earners Today
-                        <span class="top-earners-badge">LIVE</span>
-                    </div>
-                    <span class="top-earners-more" onclick="switchTab('tasks')">View All →</span>
-                </div>
-                <div class="top-earner-item">
-                    <div class="top-earner-rank gold">1</div>
-                    <div class="top-earner-name">Sarah M.</div>
-                    <div class="top-earner-amount">80%</div>
-                </div>
-                <div class="top-earner-item">
-                    <div class="top-earner-rank silver">2</div>
-                    <div class="top-earner-name">Mike T.</div>
-                    <div class="top-earner-amount">75%</div>
-                </div>
-                <div class="top-earner-item">
-                    <div class="top-earner-rank bronze">3</div>
-                    <div class="top-earner-name">Emma W.</div>
-                    <div class="top-earner-amount">72%</div>
-                </div>
-                <div class="top-earner-item">
-                    <div class="top-earner-rank normal">4</div>
-                    <div class="top-earner-name">John D.</div>
-                    <div class="top-earner-amount">68%</div>
-                </div>
-            </div>
-
-            <div class="home-header">
-                <div class="home-logo">
-                    <div class="logo-wrapper">
-                        <div class="logo-icon">N</div>
-                        <div class="logo-text">Novel<span>Flow</span></div>
-                    </div>
-                    <div class="header-actions">
-                        <button class="header-btn" onclick="switchTab('profile')">Account</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Loading -->
-            <div class="loading-container" id="homeLoading">
-                <div class="loading-spinner"></div>
-                <div>Loading books...</div>
-            </div>
-
-            <!-- Scroll -->
-            <div class="book-scroll-section" id="bookScrollSection" style="display: none;">
-                <div class="book-scroll-title">🔥 Trending Now</div>
-                <div class="section-subtitle">Join 500+ promoters earning daily</div>
-                <div class="book-scroll-list" id="bookScrollList"></div>
-            </div>
-
-            <!-- Genre Tabs -->
-            <div class="book-list-tabs" id="bookListTabs" style="display: none;">
-                <button class="book-list-tab active" data-genre="all">All</button>
-                <button class="book-list-tab" data-genre="Romance">Romance</button>
-                <button class="book-list-tab" data-genre="Werewolf">Werewolf</button>
-                <button class="book-list-tab" data-genre="Billionaire">Billionaire</button>
-                <button class="book-list-tab" data-genre="Fantasy">Fantasy</button>
-                <button class="book-list-tab" data-genre="Mafia">Mafia</button>
-            </div>
-
-            <!-- Book List -->
-            <div class="book-list-section">
-                <div class="section-header">
-                    <div class="section-title">Browse books</div>
-                </div>
-                <div class="book-list" id="bookList"></div>
-            </div>
-
-            <!-- Rank -->
-            <div class="section-header" id="rankHeader" style="display: none;">
-                <div class="section-title">Top promotions</div>
-            </div>
-            <div class="rank-section" id="rankSection" style="display: none;">
-                <div class="rank-tabs">
-                    <button class="rank-tab active" data-period="week">This Week</button>
-                    <button class="rank-tab" data-period="month">This Month</button>
-                    <button class="rank-tab" data-period="all">All Time</button>
-                </div>
-                <div id="rankList"></div>
-            </div>
-        </div>
-
-        <!-- Tab 2: Submit -->
-        <div class="tab-content" id="tab-submit">
-            <div class="submit-container" id="submitContainer">
-                <div class="submit-header">
-                    <div class="submit-badge">Earn Money</div>
-                    <h1 class="submit-title">Recommend & <span class="highlight">Earn</span></h1>
-                    <p class="submit-subtitle">Share books you love and earn up to 80% commission on every referral.</p>
-                </div>
-
-                <div class="submit-form" id="submitForm">
-                    <div class="form-card">
-                        <div class="lang-toggle" id="langToggle">
-                            <button class="lang-btn active" data-lang="en">English</button>
-                            <button class="lang-btn" data-lang="es">Espanol</button>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Username <span class="required">*</span></label>
-                            <input type="text" class="form-input" id="discordUsername" placeholder="Enter your username">
-                        </div>
-
-                        <div class="form-group">
-                            <label>Book Name <span class="required">*</span></label>
-                            <input type="text" class="form-input" id="bookName" placeholder="Search books to promote & earn...">
-                        </div>
-
-                        <button class="btn-submit" id="submitBtn" onclick="handleSubmit()">
-                            <span class="btn-text">Search & Create Link</span>
-                            <span class="spinner"></span>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="search-results" id="searchResults"></div>
-
-                <div class="processing-status" id="processingStatus">
-                    <div class="processing-icon">&#9881;</div>
-                    <h3>Creating Your Link...</h3>
-                    <p>Please wait a moment</p>
-                    <div class="processing-steps">
-                        <div class="processing-step current" id="step1"><span class="step-icon">&#9675;</span><span>Searching book database</span></div>
-                        <div class="processing-step" id="step2"><span class="step-icon">&#9675;</span><span>Generating unique link</span></div>
-                        <div class="processing-step" id="step3"><span class="step-icon">&#9675;</span><span>Creating promotion code</span></div>
-                        <div class="processing-step" id="step4"><span class="step-icon">&#9675;</span><span>Finalizing...</span></div>
-                    </div>
-                </div>
-
-                <!-- Success -->
-                <div class="success-page" id="successPage">
-                    <div class="success-icon">&#10003;</div>
-                    <h2>Link Created Successfully</h2>
-                    <p>Share this link with your community</p>
-
-                    <div class="result-card">
-                        <h4>Promotion Link</h4>
-                        <div class="result-link-box" id="resultLink"></div>
-                    </div>
-
-                    <div class="result-card">
-                        <h4>Your Code</h4>
-                        <div class="result-code-box">
-                            <span class="result-code" id="resultCode"></span>
-                            <button class="copy-btn" onclick="copyToClipboard()">Copy</button>
-                        </div>
-                    </div>
-
-                    <!-- Recommend card -->
-                    <div class="result-card" id="resultRecommendCard" style="display: none;">
-                        <h4>Recommended Message</h4>
-                        <div class="result-recommend-box">
-                            <div class="result-recommend-text" id="resultRecommendText"></div>
-                        </div>
-                        <button class="btn-submit" onclick="copyRecommendText()" style="margin-top: var(--sp-sm);">
-                            Copy Recommendation
-                        </button>
-                    </div>
-
-                    <button class="btn-another" onclick="recommendAnother()">
-                        Recommend Another Book
-                    </button>
-
-                    <button class="btn-retry" onclick="resetForm()">&#8592; Back to Search</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab 3: Tasks / Leaderboard - Taobao-style -->
-        <div class="tab-content" id="tab-tasks">
-            <!-- Top Banner -->
-            <div class="leaderboard-banner">
-                <div class="leaderboard-title">&#127941; Earnings Leaderboard</div>
-                <div class="leaderboard-subtitle">Top promoters earning daily</div>
-            </div>
-
-            <!-- Tab Switcher -->
-            <div class="leaderboard-tabs">
-                <button class="leaderboard-tab active" data-rank-type="commission">
-                    <span class="tab-icon">💰</span>
-                    <span class="tab-text">80%</span>
-                </button>
-                <button class="leaderboard-tab" data-rank-type="heat">
-                    <span class="tab-icon">🔥</span>
-                    <span class="tab-text">Heat</span>
-                </button>
-                <button class="leaderboard-tab" data-rank-type="new">
-                    <span class="tab-icon">✨</span>
-                    <span class="tab-text">New</span>
-                </button>
-            </div>
-
-            <!-- Time Filter -->
-            <div class="time-filter">
-                <button class="time-btn active" data-period="today">Today</button>
-                <button class="time-btn" data-period="week">This Week</button>
-                <button class="time-btn" data-period="month">This Month</button>
-            </div>
-
-            <!-- Leaderboard List -->
-            <div class="leaderboard-list" id="leaderboardList">
-                <!-- Dynamic content -->
-            </div>
-
-            <!-- Quick Tasks Section -->
-            <div class="quick-tasks-section">
-                <div class="quick-tasks-header">🎯 Daily Missions</div>
-
-                <!-- v3: Create Reels Card -->
-                <div class="reels-card" onclick="openReelsCreator()">
-                    <div class="reels-card-left">
-                        <div class="reels-card-icon">🎬</div>
-                        <div class="reels-card-info">
-                            <div class="reels-card-title">Create Reels</div>
-                            <div class="reels-card-subtitle">AI-powered video from book promos</div>
-                        </div>
-                    </div>
-                    <div class="reels-card-right">
-                        <div class="reels-card-count" id="reelsDailyCount">Today: 0/3 used</div>
-                        <button class="reels-card-btn">Create →</button>
-                    </div>
-                </div>
-                
-                <!-- Check-in Card - Enhanced Taobao Style -->
-                <div class="checkin-card-v2" id="checkinCardV2">
-                    <div class="checkin-v2-left">
-                        <div class="checkin-v2-icon">🎁</div>
-                        <div class="checkin-v2-info">
-                            <div class="checkin-v2-title">Daily Check-in</div>
-                            <div class="checkin-v2-reward">+10 Coins</div>
-                        </div>
-                    </div>
-                    <button class="checkin-v2-btn" id="checkinBtnV2" onclick="doCheckinV2()">
-                        <span class="checkin-v2-btn-text">Check In</span>
-                        <span class="checkin-v2-btn-done" style="display:none;">✓ Done</span>
-                    </button>
-                </div>
-                
-                <!-- Streak Bonus Card -->
-                <div class="checkin-card-v2" style="background: linear-gradient(135deg, #667eea, #764ba2); margin-bottom: 10px;">
-                    <div class="checkin-v2-left">
-                        <div class="checkin-v2-icon">🔥</div>
-                        <div class="checkin-v2-info">
-                            <div class="checkin-v2-title">Streak Bonus</div>
-                            <div class="checkin-v2-reward" id="streakDisplay">0 days</div>
-                        </div>
-                    </div>
-                    <div class="streak-reward-preview">
-                        <div style="font-size: 11px; color: rgba(255,255,255,0.8);">7 days = +50 Coins</div>
-                    </div>
-                </div>
-
-                <!-- Mission Progress Cards -->
-                <div class="quick-task-item" onclick="switchTab('submit')">
-                    <div class="quick-task-icon">📚</div>
-                    <div class="quick-task-info">
-                        <div class="quick-task-name">Share First Book</div>
-                        <div class="quick-task-reward">+20 Coins</div>
-                        <div class="task-progress-bar">
-                            <div class="task-progress-fill" id="task1Progress" style="width: 0%"></div>
-                        </div>
-                    </div>
-                    <div class="quick-task-btn" id="task1Btn">Start →</div>
-                </div>
-
-                <div class="quick-task-item" onclick="switchTab('submit')">
-                    <div class="quick-task-icon">📖</div>
-                    <div class="quick-task-info">
-                        <div class="quick-task-name">Share 3 Books</div>
-                        <div class="quick-task-reward">+50 Coins</div>
-                        <div class="task-progress-bar">
-                            <div class="task-progress-fill" id="task2Progress" style="width: 33%"></div>
-                        </div>
-                    </div>
-                    <div class="quick-task-btn secondary" id="task2Btn">1/3 →</div>
-                </div>
-                
-                <div class="quick-task-item" onclick="switchTab('home')">
-                    <div class="quick-task-icon">👥</div>
-                    <div class="quick-task-info">
-                        <div class="quick-task-name">Invite 3 Friends</div>
-                        <div class="quick-task-reward">+100 Coins</div>
-                        <div class="task-progress-bar">
-                            <div class="task-progress-fill" style="width: 0%"></div>
-                        </div>
-                    </div>
-                    <div class="quick-task-btn secondary">0/3 →</div>
-                </div>
-            </div>
-            
-            <!-- Leaderboard Mini Section -->
-            <div class="leaderboard-mini-section">
-                <div class="leaderboard-mini-header">
-                    <span class="leaderboard-mini-title">🏆 Top Earners Today</span>
-                    <span class="leaderboard-mini-more" onclick="switchTab('tasks')">More →</span>
-                </div>
-                <div class="leaderboard-mini-list" id="leaderboardMiniList">
-                    <!-- Dynamic content -->
-                </div>
-            </div>
-        </div>
-
         <!-- Tab 4: Profile -->
         <div class="tab-content" id="tab-profile">
             <div class="profile-header" id="profileHeader">
@@ -2610,11 +757,10 @@
 
                 <!-- Login form -->
                 <div class="login-form" id="loginForm">
-                    <h3>Register / Login</h3>
-                    <p>Fill in once, auto-login for 30 days</p>
+                    <h3>Login</h3>
+                    <p>Enter your username to see your data</p>
                     <input type="text" class="login-input" id="regUsername" placeholder="Username" maxlength="50">
-                    <input type="text" class="login-input" id="regNFId" placeholder="NovelFlow ID" maxlength="20">
-                    <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()">Confirm</button>
+                    <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()">Login</button>
                     <div class="login-tip">No password needed</div>
                 </div>
 
@@ -2707,7 +853,7 @@
 
                 <div class="earn-incentive" id="earnIncentive">
                     <div class="earn-incentive-icon">💰</div>
-                    <div class="earn-incentive-text">1,200+ promoters are earning with this book</div>
+                    <div class="earn-incentive-text">Earn commission for every reader you bring</div>
                     <div class="earn-incentive-sub">Earn up to 80% commission for every reader you bring</div>
                 </div>
                 <div class="modal-description">
@@ -2863,7 +1009,7 @@
             try {
                 // Call backend API which uses NOVELSPA_TOKEN environment variable
                 const response = await Promise.race([
-                    fetch('/api/books/search?lang=en&pageSize=30', {
+                    fetch('/api/books/search?lang=en&pageSize=50', {
                         method: 'GET',
                         headers: { 'Content-Type': 'application/json' }
                     }),
@@ -2920,16 +1066,17 @@
         }
 
         function hideLoadingAndShowContent() {
-            document.getElementById('homeLoading').style.display = 'none';
-            document.getElementById('bookListTabs').style.display = 'flex';
-            document.getElementById('bookScrollSection').style.display = 'block';
-            document.getElementById('rankHeader').style.display = 'flex';
-            document.getElementById('rankSection').style.display = 'block';
+            const el1 = document.getElementById('homeLoading'); if (el1) el1.style.display = 'none';
+            const el2 = document.getElementById('bookListTabs'); if (el2) el2.style.display = 'flex';
+            const el3 = document.getElementById('bookScrollSection'); if (el3) el3.style.display = 'block';
+            const el4 = document.getElementById('rankHeader'); if (el4) el4.style.display = 'flex';
+            const el5 = document.getElementById('rankSection'); if (el5) el5.style.display = 'block';
         }
 
         // ========== Render Book List ==========
         function renderBookList() {
             const container = document.getElementById('bookList');
+            if (!container) return;
             const books = AppState.filteredBooks;
 
             if (books.length === 0) {
@@ -2971,6 +1118,7 @@
         // ========== Render Scroll ==========
         function renderBookScroll() {
             const container = document.getElementById('bookScrollList');
+            if (!container) return;
             const books = AppState.books.slice(0, 6);
 
             container.innerHTML = books.map(book => {
@@ -3014,6 +1162,7 @@
 
         function renderRankList() {
             const container = document.getElementById('rankList');
+            if (!container) return;
             const period = AppState.rankPeriod || 'week';
             const weekSeed = getWeekSeed();
             let rankBooks;
@@ -3152,6 +1301,7 @@
 
         function renderCheckinCalendar() {
             const calendar = document.getElementById('checkinCalendar');
+            if (!calendar) return;
             const today = new Date();
             const todayStr = getToday();
             
@@ -3205,6 +1355,7 @@
             }
 
             const btn = document.getElementById('checkinBtn');
+            if (!btn) return;
             btn.classList.add('animating');
             
             setTimeout(() => {
@@ -3313,7 +1464,6 @@
         // Initialize v2 checkin UI on load
         document.addEventListener('DOMContentLoaded', () => {
             setTimeout(updateCheckinV2UI, 100);
-            renderLeaderboardMini();
         });
 
         // ========== Generate Recommend Text ==========
@@ -3547,8 +1697,8 @@
 
                     AppState.myBooks.push(currentRecommendBook);
                     saveMyBooks();
-                    renderMyBooks();
-                    updateStats();
+                    try { renderMyBooks(); } catch(e) { console.log('renderMyBooks skip:', e.message); }
+                    if (typeof updateStats === 'function') updateStats();
                     if (typeof updateShareTasksProgress === 'function') updateShareTasksProgress();
 
                     if (modalLoading) modalLoading.style.display = 'none';
@@ -3584,7 +1734,7 @@
             const el4 = document.getElementById('resultRecommendCard'); if (el4) el4.style.display = 'block';
 
             const sf = document.getElementById('submitForm'); if (sf) sf.style.display = 'none';
-            document.getElementById('searchResults').innerHTML = '';
+            const sr = document.getElementById('searchResults'); if (sr) sr.innerHTML = '';
             const ps = document.getElementById('processingStatus'); if (ps) ps.classList.remove('show');
             const sp = document.getElementById('successPage'); if (sp) sp.classList.add('show');
 
@@ -3611,8 +1761,8 @@
         });
 
         async function handleSubmit() {
-            const discordUsername = document.getElementById('discordUsername').value.trim();
-            const bookName = document.getElementById('bookName').value.trim();
+            const discordUsername = document.getElementById('discordUsername')?.value?.trim() || '';
+            const bookName = document.getElementById('bookName')?.value?.trim() || '';
 
             if (!discordUsername || !bookName) {
                 showToast('Please fill in all fields', 'error');
@@ -3620,13 +1770,14 @@
             }
 
             const btn = document.getElementById('submitBtn');
+            if (!btn) return;
             btn.disabled = true;
             btn.classList.add('loading');
 
-            document.getElementById('submitForm').style.display = 'none';
-            document.getElementById('searchResults').innerHTML = '';
-            document.getElementById('processingStatus').classList.add('show');
-            document.getElementById('successPage').classList.remove('show');
+            const sf = document.getElementById('submitForm'); if (sf) sf.style.display = 'none';
+            const sr = document.getElementById('searchResults'); if (sr) sr.innerHTML = '';
+            const ps = document.getElementById('processingStatus'); if (ps) ps.classList.add('show');
+            const sp = document.getElementById('successPage'); if (sp) sp.classList.remove('show');
 
             await updateStep(1, 'done');
             await delay(300);
@@ -3640,8 +1791,8 @@
             if (candidates.length === 0) {
                 await updateStep(3, 'failed');
                 await updateStep(4, 'failed');
-                document.getElementById('processingStatus').classList.remove('show');
-                document.getElementById('searchResults').innerHTML = `
+                const ps2 = document.getElementById('processingStatus'); if (ps2) ps2.classList.remove('show');
+                const sr2 = document.getElementById('searchResults'); if (sr2) sr2.innerHTML = `
                     <div class="empty-results">
                         <div class="empty-icon">&#128269;</div>
                         <div class="empty-title">No books found</div>
@@ -3658,7 +1809,7 @@
                 await updateStep(3, 'done');
                 await updateStep(4, 'done');
                 await delay(400);
-                document.getElementById('processingStatus').classList.remove('show');
+                const ps3 = document.getElementById('processingStatus'); if (ps3) ps3.classList.remove('show');
                 showCandidates(candidates, discordUsername);
             }
 
@@ -3686,7 +1837,7 @@
             const searchLang = AppState.searchLang || 'en';
             
             try {
-                const response = await fetch(`/api/books/search?keyword=${encodeURIComponent(query.trim())}&lang=${searchLang}&pageSize=10`, {
+                const response = await fetch(`/api/books/search?keyword=${encodeURIComponent(query.trim())}&lang=${searchLang}&pageSize=100`, {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' }
                 });
@@ -3732,6 +1883,7 @@
 
         function showCandidates(candidates, discordUsername) {
             const container = document.getElementById('searchResults');
+            if (!container) return;
             container.innerHTML = `
                 <div class="search-header">
                     <div class="search-count">Found <strong>${candidates.length}</strong> book${candidates.length > 1 ? 's' : ''}</div>
@@ -3771,10 +1923,10 @@
 
         // ========== Create Link via Backend API ==========
         async function createLink(book, discordUsername) {
-            document.getElementById('searchResults').innerHTML = '';
+            const sr4 = document.getElementById('searchResults'); if (sr4) sr4.innerHTML = '';
 
             const processingStatus = document.getElementById('processingStatus');
-            processingStatus.classList.add('show');
+            if (processingStatus) processingStatus.classList.add('show');
             
             await updateStep(1, 'done');
             await updateStep(2, 'current');
@@ -3822,11 +1974,11 @@
 
                     AppState.myBooks.push(newBook);
                     saveMyBooks();
-                    renderMyBooks();
-                    updateStats();
+                    try { renderMyBooks(); } catch(e) { console.log('renderMyBooks skip:', e.message); }
+                    if (typeof updateStats === 'function') updateStats();
                     if (typeof updateShareTasksProgress === 'function') updateShareTasksProgress();
 
-                    processingStatus.classList.remove('show');
+                    if (processingStatus) processingStatus.classList.remove('show');
                     showSuccessPage(newBook);
 
                     // Auto-navigate to profile after a delay
@@ -3839,13 +1991,13 @@
                     // API failed - show error, NEVER fake data
                     await updateStep(3, 'failed');
                     await updateStep(4, 'failed');
-                    processingStatus.classList.remove('show');
+                    if (processingStatus) processingStatus.classList.remove('show');
                     showToast('Link creation failed. API did not return valid data.', 'error');
                 }
             } catch (e) {
                 await updateStep(3, 'failed');
                 await updateStep(4, 'failed');
-                processingStatus.classList.remove('show');
+                if (processingStatus) processingStatus.classList.remove('show');
                 showToast('Failed: ' + e.message, 'error');
             }
         }
@@ -3858,12 +2010,12 @@
         function resetForm() {
             for (let i = 1; i <= 4; i++) updateStep(i, '');
 
-            document.getElementById('submitForm').style.display = 'block';
-            document.getElementById('searchResults').innerHTML = '';
-            document.getElementById('processingStatus').classList.remove('show');
-            document.getElementById('successPage').classList.remove('show');
-            document.getElementById('discordUsername').value = '';
-            document.getElementById('bookName').value = '';
+            const sf2 = document.getElementById('submitForm'); if (sf2) sf2.style.display = 'block';
+            const sr5 = document.getElementById('searchResults'); if (sr5) sr5.innerHTML = '';
+            const ps4 = document.getElementById('processingStatus'); if (ps4) ps4.classList.remove('show');
+            const sp2 = document.getElementById('successPage'); if (sp2) sp2.classList.remove('show');
+            const du = document.getElementById('discordUsername'); if (du) du.value = '';
+            const bn = document.getElementById('bookName'); if (bn) bn.value = '';
         }
 
         function copyToClipboard(text) {
@@ -3956,9 +2108,12 @@
             // v3: Update commission level
             updateCommissionLevelCard();
             updateReelsUI();
+            loadPerformanceDashboard();
+            renderMyReels();
             // Load user stats if logged in
             if (AppState.isLoggedIn && AppState.user && AppState.user.username) {
                 loadUserStats(AppState.user.username);
+                loadACReelsList();
             }
         }
 
@@ -4078,6 +2233,8 @@ function escapeHtml(text) {
 
 function renderMyBooks() {
             const container = document.getElementById('myBooksList');
+            if (!container) return;
+            if (!container) return;
 
             if (AppState.myBooks.length === 0) {
                 container.innerHTML = `
@@ -4191,6 +2348,7 @@ function renderMyBooks() {
         function toggleMyBooksExpand() {
             const card = document.getElementById('myBooksCard');
             const expandedSection = document.getElementById('myBooksExpandedSection');
+            if (!card || !expandedSection) return;
             const isExpanded = card.classList.contains('expanded');
             
             if (isExpanded) {
@@ -4212,6 +2370,7 @@ function renderMyBooks() {
 
         function renderExpandedMyBooks() {
             const container = document.getElementById('myBooksExpandedSection');
+            if (!container) return;
             
             if (AppState.myBooks.length === 0) {
                 container.innerHTML = '<div class="empty-state" style="padding: 20px; background: var(--canvas-soft); border-radius: var(--r-lg);"><div class="empty-icon">&#128218;</div><div class="empty-text">No books yet. Start promoting!</div></div>';
@@ -4275,9 +2434,9 @@ function renderMyBooks() {
         }
 
         function updateStats() {
-            document.getElementById('statLinks').textContent = AppState.myBooks.length;
+            const statLinks = document.getElementById('statLinks'); if (statLinks) statLinks.textContent = AppState.myBooks.length;
             updateProfileMyBooksCount();
-            document.getElementById('statPoints').textContent = AppState.myBooks.length * 10;
+            const statPoints = document.getElementById('statPoints'); if (statPoints) statPoints.textContent = AppState.myBooks.length * 10;
         }
 
         // ========== User State ==========
@@ -4302,54 +2461,37 @@ function renderMyBooks() {
             const logoutBtn = document.getElementById('logoutBtn');
 
             if (AppState.isLoggedIn && AppState.user) {
-                avatar.textContent = AppState.user.username ? AppState.user.username.charAt(0).toUpperCase() : '?';
-                name.textContent = AppState.user.username || 'User';
-                uid.textContent = AppState.user.novelFlowId ? 'ID: ' + AppState.user.novelFlowId : 'Logged In';
-                loginForm.style.display = 'none';
-                logoutBtn.classList.add('show');
+                if (avatar) avatar.textContent = AppState.user.username ? AppState.user.username.charAt(0).toUpperCase() : '?';
+                if (name) name.textContent = AppState.user.username || 'User';
+                if (uid) uid.textContent = AppState.user.novelFlowId ? 'ID: ' + AppState.user.novelFlowId : 'Logged In';
+                if (loginForm) loginForm.style.display = 'none';
+                if (logoutBtn) logoutBtn.classList.add('show');
             } else {
-                avatar.textContent = '?';
-                name.textContent = 'Not Logged In';
-                uid.textContent = 'Login to unlock more features';
-                loginForm.style.display = 'block';
-                logoutBtn.classList.remove('show');
+                if (avatar) avatar.textContent = '?';
+                if (name) name.textContent = 'Not Logged In';
+                if (uid) uid.textContent = 'Login to unlock more features';
+                if (loginForm) loginForm.style.display = 'block';
+                if (logoutBtn) logoutBtn.classList.remove('show');
             }
         }
 
         async function handleLocalRegister() {
-            const username = document.getElementById('regUsername').value.trim();
-            const nfId = document.getElementById('regNFId').value.trim().toUpperCase();
+            const username = document.getElementById('regUsername')?.value?.trim() || '';
 
-            if (!username || !nfId) {
-                showToast('Please fill in all fields', 'error');
+            if (!username) {
+                showToast('Please enter a username', 'error');
                 return;
             }
 
-            try {
-                const response = await fetch('/api/auth/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ username, novelFlowId: nfId })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    AppState.user = { username, novelFlowId: nfId, accountType: 'local' };
-                    AppState.isLoggedIn = true;
-                    localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
-                    updateProfileUI();
-                    showToast('Login successful!', 'success');
-                    document.getElementById('regUsername').value = '';
-                    document.getElementById('regNFId').value = '';
-                } else {
-                    showToast(result.error || 'Registration failed', 'error');
-                }
-            } catch (e) {
-                console.error('Register error:', e);
-                showToast('Registration failed', 'error');
-            }
+            // Quick local login (username only)
+            AppState.user = { username, novelFlowId: '', accountType: 'local' };
+            AppState.isLoggedIn = true;
+            localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
+            localStorage.setItem('novelflow_splash_done', 'true');
+            updateProfileUI();
+            showToast('Login successful!', 'success');
+            document.getElementById('regUsername').value = '';
+            loadPerformanceDashboard();
         }
 
         async function handleLogout() {
@@ -4375,24 +2517,56 @@ function renderMyBooks() {
 
         
         // ========== Splash Screen Login ==========
-        function handleSplashLogin() {
-            const username = document.getElementById('splashUsername').value.trim();
-            const nfId = document.getElementById('splashNFId').value.trim().toUpperCase();
+        async function handleSplashLogin() {
+            const username = document.getElementById('splashUsername')?.value?.trim() || '';
+            const btn = document.getElementById('splashLoginBtn');
+            const errorEl = document.getElementById('splashError');
             
             if (!username) {
-                document.getElementById('splashError').textContent = 'Please enter a username';
+                if (errorEl) errorEl.textContent = 'Please enter a username';
                 return;
             }
             
-            // Quick local login
-            AppState.user = { username: username, novelFlowId: nfId || 'NF' + Math.random().toString(36).substr(2, 6).toUpperCase(), accountType: 'local' };
+            // Show loading state
+            if (btn) { btn.disabled = true; btn.textContent = 'Verifying...'; }
+            if (errorEl) errorEl.textContent = '';
+            
+            let hasRealData = false;
+            
+            try {
+                const response = await fetch('/api/my-stats?username=' + encodeURIComponent(username));
+                if (response.ok) {
+                    const data = await response.json();
+                    if ((data.total_visits && data.total_visits > 0) || 
+                        (data.total_income && data.total_income > 0) || 
+                        (data.books && data.books.length > 0)) {
+                        hasRealData = true;
+                    }
+                }
+            } catch (e) {
+                // API failed - still allow login as new KOC
+                console.log('API check failed, allowing login as new KOC');
+            }
+            
+            // Login (existing KOC or new)
+            AppState.user = { username: username, novelFlowId: '', accountType: 'local', hasRealData: hasRealData };
             AppState.isLoggedIn = true;
             localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
             localStorage.setItem('novelflow_splash_done', 'true');
             
-            document.getElementById('splashScreen').classList.add('hidden');
+            const splashEl = document.getElementById('splashScreen');
+            if (splashEl) splashEl.classList.add('hidden');
             updateProfileUI();
-            showToast('Welcome, ' + username + '!', 'success');
+            
+            if (hasRealData) {
+                showToast('Welcome back, ' + username + '!', 'success');
+            } else {
+                showToast('Welcome, ' + username + '! Start promoting to earn.', 'success');
+            }
+            
+            if (btn) { btn.disabled = false; btn.textContent = 'Start Earning'; }
+            
+            loadPerformanceDashboard();
         }
         
         function skipLogin() {
@@ -4414,7 +2588,7 @@ function renderMyBooks() {
         
         // v3: showSupportModal and closeSupportModal removed
         
-        // v3: Create Reels
+        // v3: Create Reels - Real AC API Integration
         function getReelsDailyCount() {
             const today = new Date().toISOString().split('T')[0];
             const saved = localStorage.getItem('novelflow_reels_count');
@@ -4435,7 +2609,22 @@ function renderMyBooks() {
             const el = document.getElementById('reelsDailyCount');
             if (el) el.textContent = 'Today: ' + getReelsDailyCount() + '/3 used';
         }
-        function openReelsCreator() {
+        function getACToken() {
+            return localStorage.getItem('novelflow_ac_token') || '';
+        }
+        function setACToken(token) {
+            localStorage.setItem('novelflow_ac_token', token);
+        }
+        function getACReels() {
+            try {
+                return JSON.parse(localStorage.getItem('novelflow_ac_reels') || '[]');
+            } catch(e) { return []; }
+        }
+        function saveACReels(reels) {
+            localStorage.setItem('novelflow_ac_reels', JSON.stringify(reels));
+        }
+
+        async function openReelsCreator() {
             const count = getReelsDailyCount();
             if (count >= 3) {
                 showToast('Daily limit reached (3/day). Come back tomorrow!', 'error');
@@ -4446,9 +2635,227 @@ function renderMyBooks() {
                 switchTab('submit');
                 return;
             }
-            // Increment count and show reel creation
-            incrementReelsCount();
-            showToast('🎬 Reel created! Share it to boost your earnings.', 'success');
+            // Check for AC token
+            let token = getACToken();
+            if (!token) {
+                showACTokenModal();
+                return;
+            }
+            await createACReel(token);
+        }
+
+        function showACTokenModal() {
+            const modal = document.getElementById('acTokenModal');
+            if (modal) modal.classList.add('show');
+        }
+        function closeACTokenModal() {
+            const modal = document.getElementById('acTokenModal');
+            if (modal) modal.classList.remove('show');
+        }
+        async function saveACTokenAndCreate() {
+            const input = document.getElementById('acTokenInput');
+            const token = input ? input.value.trim() : '';
+            if (!token) {
+                showToast('Please enter your AC token', 'error');
+                return;
+            }
+            setACToken(token);
+            closeACTokenModal();
+            await createACReel(token);
+        }
+
+        async function createACReel(token) {
+            const lastBook = AppState.myBooks[AppState.myBooks.length - 1];
+            if (!lastBook || !lastBook.bookId) {
+                showToast('No valid book to create reel for', 'error');
+                return;
+            }
+            showToast('Creating reel...', 'loading');
+            try {
+                const response = await fetch('/api/ac-create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-ac-token': token
+                    },
+                    body: JSON.stringify({
+                        book_id: lastBook.bookId,
+                        template: 'default',
+                        num: 1,
+                        language: lastBook.languageCode || 'en',
+                        country: 'US',
+                        ad_platform: 'tiktok',
+                        start_chapter: 1,
+                        end_chapter: 3,
+                        aspect_ratio: '9:16'
+                    })
+                });
+                const data = await response.json();
+                if (data.success || data.threadId || data.taskId) {
+                    incrementReelsCount();
+                    const reels = getACReels();
+                    reels.unshift({
+                        threadId: data.threadId || data.taskId || Date.now().toString(),
+                        bookId: lastBook.bookId,
+                        bookTitle: lastBook.title,
+                        status: 'processing',
+                        createdAt: new Date().toISOString(),
+                        videoUrl: null
+                    });
+                    saveACReels(reels);
+                    showToast('🎬 Reel task created! Processing...', 'success');
+                    renderMyReels();
+                    // Poll for result after a delay
+                    setTimeout(() => checkACReelStatus(reels[0].threadId, token), 15000);
+                } else {
+                    showToast('Failed to create reel: ' + (data.error || data.message || 'Unknown error'), 'error');
+                }
+            } catch(e) {
+                console.error('AC create error:', e);
+                showToast('Failed to create reel. Check your token.', 'error');
+            }
+        }
+
+        async function checkACReelStatus(threadId, token) {
+            if (!token) token = getACToken();
+            if (!token || !threadId) return;
+            try {
+                const response = await fetch('/api/ac-result?threadId=' + encodeURIComponent(threadId), {
+                    headers: { 'x-ac-token': token }
+                });
+                const data = await response.json();
+                const reels = getACReels();
+                const idx = reels.findIndex(r => r.threadId === threadId);
+                if (idx !== -1) {
+                    if (data.status === 'completed' || data.videoUrl) {
+                        reels[idx].status = 'completed';
+                        reels[idx].videoUrl = data.videoUrl || data.url || '';
+                    } else if (data.status === 'failed') {
+                        reels[idx].status = 'failed';
+                    }
+                    // else still processing, poll again
+                    saveACReels(reels);
+                    renderMyReels();
+                    if (reels[idx].status === 'processing') {
+                        setTimeout(() => checkACReelStatus(threadId, token), 30000);
+                    }
+                }
+            } catch(e) {
+                console.error('AC status check error:', e);
+            }
+        }
+
+        async function loadACReelsList() {
+            const token = getACToken();
+            if (!token) return;
+            try {
+                const response = await fetch('/api/ac-list?pageSize=10&pageIndex=1', {
+                    headers: { 'x-ac-token': token }
+                });
+                const data = await response.json();
+                if (data.success && Array.isArray(data.data)) {
+                    // Merge with local reels data
+                    const localReels = getACReels();
+                    const apiReels = data.data.map(task => ({
+                        threadId: task.threadId || task.taskId || task.id,
+                        bookTitle: task.bookTitle || task.title || 'Unknown Book',
+                        status: task.status || 'processing',
+                        createdAt: task.createdAt || new Date().toISOString(),
+                        videoUrl: task.videoUrl || task.url || null
+                    }));
+                    // Save merged (API takes priority)
+                    saveACReels(apiReels);
+                    renderMyReels();
+                }
+            } catch(e) {
+                console.error('AC list error:', e);
+            }
+        }
+
+        function renderMyReels() {
+            const container = document.getElementById('myReelsList');
+            const countEl = document.getElementById('myReelsCount');
+            if (!container) return;
+            const reels = getACReels();
+            if (countEl) countEl.textContent = reels.length + ' video' + (reels.length !== 1 ? 's' : '');
+            if (reels.length === 0) {
+                container.innerHTML = '<div class="my-reels-empty">No reels created yet. Tap Create Reels above!</div>';
+                return;
+            }
+            container.innerHTML = reels.map(reel => {
+                let statusText = 'Processing...';
+                let statusClass = 'processing';
+                let icon = '⏳';
+                let linkHtml = '';
+                if (reel.status === 'completed') {
+                    statusText = 'Completed ✓';
+                    statusClass = 'completed';
+                    icon = '🎬';
+                    if (reel.videoUrl) {
+                        linkHtml = '<a class="my-reels-item-link" href="' + escapeHtml(reel.videoUrl) + '" target="_blank">View Video →</a>';
+                    }
+                } else if (reel.status === 'failed') {
+                    statusText = 'Failed ✗';
+                    statusClass = 'failed';
+                    icon = '❌';
+                }
+                return '<div class="my-reels-item">' +
+                    '<div class="my-reels-item-icon">' + icon + '</div>' +
+                    '<div class="my-reels-item-info">' +
+                        '<div class="my-reels-item-title">' + escapeHtml(reel.bookTitle || 'Reel') + '</div>' +
+                        '<div class="my-reels-item-status ' + statusClass + '">' + statusText + '</div>' +
+                        linkHtml +
+                    '</div>' +
+                '</div>';
+            }).join('');
+        }
+
+        // Load performance dashboard data
+        async function loadPerformanceDashboard() {
+            const gridEl = document.getElementById('perfDashboardGrid');
+            const loginEl = document.getElementById('perfLoginPrompt');
+            const tierBadge = document.getElementById('perfTierBadge');
+            
+            if (!AppState.isLoggedIn || !AppState.user || !AppState.user.username) {
+                if (gridEl) gridEl.style.display = 'none';
+                if (loginEl) loginEl.style.display = 'block';
+                const footerEl = document.querySelector('.perf-dashboard-footer');
+                if (footerEl) footerEl.style.display = 'none';
+                return;
+            }
+            
+            if (gridEl) gridEl.style.display = 'grid';
+            if (loginEl) loginEl.style.display = 'none';
+            const footerEl = document.querySelector('.perf-dashboard-footer');
+            if (footerEl) footerEl.style.display = 'flex';
+            
+            // Update tier badge
+            const count = getWeeklyPromotedCount();
+            const tier = getCommissionTier(count);
+            if (tierBadge) tierBadge.textContent = tier.label;
+            
+            // Update books count from localStorage
+            const booksEl = document.getElementById('perfBooks');
+            if (booksEl) booksEl.textContent = AppState.myBooks.length;
+            
+            // Fetch stats from API
+            try {
+                const response = await fetch('/api/my-stats?username=' + encodeURIComponent(AppState.user.username));
+                if (!response.ok) throw new Error('Failed');
+                const data = await response.json();
+                
+                const visitsEl = document.getElementById('perfVisits');
+                const usersEl = document.getElementById('perfUsers');
+                const incomeEl = document.getElementById('perfIncome');
+                const updatedEl = document.getElementById('perfLastUpdated');
+                
+                if (visitsEl) visitsEl.textContent = fmtNum(data.total_visits || 0);
+                if (usersEl) usersEl.textContent = fmtNum(data.total_unique || data.total_new || 0);
+                if (incomeEl) incomeEl.textContent = data.total_income ? '$' + data.total_income.toFixed(2) : '—';
+                if (updatedEl) updatedEl.textContent = 'Updated: ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+            } catch(e) {
+                console.error('Perf dashboard error:', e);
+            }
         }
 
         function showGuideModal() {
@@ -4461,6 +2868,22 @@ function renderMyBooks() {
             if (modal) modal.classList.remove('show');
         }
 
+        function showReelsModal() {
+            const modal = document.getElementById('reelsModal');
+            if (modal) {
+                // Show which book will be used
+                const bookInfo = document.getElementById('reelsModalBookInfo');
+                const bookTitle = document.getElementById('reelsModalBookTitle');
+                const countSpan = document.getElementById('reelsModalCount');
+                if (AppState.myBooks.length > 0) {
+                    const lastBook = AppState.myBooks[AppState.myBooks.length - 1];
+                    if (bookTitle) bookTitle.textContent = lastBook.title;
+                    if (bookInfo) bookInfo.style.display = 'block';
+                }
+                if (countSpan) countSpan.textContent = getReelsDailyCount() + '/3 used';
+                modal.classList.add('show');
+            }
+        }
         // v3: Close Reels Modal
         function closeReelsModal() {
             const modal = document.getElementById('reelsModal');
@@ -4481,22 +2904,6 @@ function renderMyBooks() {
             }
         }
 
-        
-        function updateIncomeDisplay() {
-            const today = document.getElementById('incomeToday');
-            const month = document.getElementById('incomeMonth');
-            const last = document.getElementById('incomeLast');
-            
-            // Simulated income data
-            const mockToday = (Math.random() * 10).toFixed(2);
-            const mockMonth = (Math.random() * 100 + 50).toFixed(2);
-            const mockLast = (Math.random() * 200 + 100).toFixed(2);
-            
-            if (today) today.textContent = '$' + mockToday;
-            if (month) month.textContent = '$' + mockMonth;
-            if (last) last.textContent = '$' + mockLast;
-        }
-
         // ========== Toast ==========
         function showToast(msg, type = '') {
             const existing = document.querySelector('.toast');
@@ -4506,23 +2913,7 @@ function renderMyBooks() {
             toast.textContent = msg;
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 2500);
-        }
-
-        
-        // ========== Leaderboard Functions ==========
-        function renderLeaderboard(type = 'commission', period = 'today') {
-            const container = document.getElementById('leaderboardList');
-            const books = AppState.books.slice(0, 8);
-            
-            // 80% rates based on book popularity - 50-85% range
-            const commissionRates = [80, 78, 75, 72, 70, 68, 65, 60];
-            
-            // Simulated data with commission rates
-            const earnings = books.map((book, i) => ({
-                ...book,
-                commission: commissionRates[i] || 60,
-                orders: Math.floor(Math.random() * 50) + 10
-            }));
+        }));
             
             // Sort by type
             if (type === 'commission') {
@@ -4555,26 +2946,7 @@ function renderMyBooks() {
                 `;
             }).join('');
         }
-        
-        // Initialize leaderboard tabs
-        document.querySelectorAll('.leaderboard-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.leaderboard-tab').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                const type = tab.dataset.rankType;
-                const period = document.querySelector('.time-btn.active')?.dataset.period || 'today';
-                renderLeaderboard(type, period);
-            });
         });
-        
-        document.querySelectorAll('.time-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                const period = btn.dataset.period;
-                const type = document.querySelector('.leaderboard-tab.active')?.dataset.rankType || 'commission';
-                renderLeaderboard(type, period);
-            });
         });
 
         // ========== Init ==========
@@ -4598,43 +2970,12 @@ function renderMyBooks() {
                 if (el && el.style.display !== 'none') { el.style.display = 'none'; hideLoadingAndShowContent(); }
             }, 3000);
             loadBooks(); loadMyBooks(); updateStats(); checkLocalLogin(); checkLoginStatus();
-            document.getElementById('recommendModal').addEventListener('click', e => {
+            const rm = document.getElementById('recommendModal'); if (rm) rm.addEventListener('click', e => {
                 if (e.target.classList.contains('modal-overlay')) closeModal();
             });
             // Update v2 checkin UI when switching to tasks tab
             updateCheckinV2UI();
-            renderLeaderboardMini();
         });
-        
-        // ========== Render Leaderboard Mini ==========
-        function renderLeaderboardMini() {
-            const container = document.getElementById('leaderboardMiniList');
-            if (!container) return;
-            
-            // Sample data for mini leaderboard - using commission percentages
-            const topEarners = [
-                { rank: 1, name: 'Sarah M.', earning: '80%' },
-                { rank: 2, name: 'Mike T.', earning: '75%' },
-                { rank: 3, name: 'Emma W.', earning: '72%' },
-                { rank: 4, name: 'John D.', earning: '68%' },
-                { rank: 5, name: 'Lisa K.', earning: '65%' }
-            ];
-            
-            container.innerHTML = topEarners.map(user => {
-                let rankClass = 'normal';
-                if (user.rank === 1) rankClass = 'gold';
-                else if (user.rank === 2) rankClass = 'silver';
-                else if (user.rank === 3) rankClass = 'bronze';
-                
-                return `
-                    <div class="leaderboard-mini-item">
-                        <div class="leaderboard-mini-rank ${rankClass}">${user.rank}</div>
-                        <div class="leaderboard-mini-name">${user.name}</div>
-                        <div class="leaderboard-mini-earning">${user.earning}</div>
-                    </div>
-                `;
-            }).join('');
-        }
         
         // Tab switch listener to update checkin UI
         const originalSwitchTab = switchTab;
@@ -4644,8 +2985,7 @@ function renderMyBooks() {
                 setTimeout(() => {
                     updateCheckinV2UI();
                     updateShareTasksProgress();
-                    renderLeaderboardMini();
-                }, 50);
+                        }, 50);
             }
         };
     </script>
@@ -4692,18 +3032,7 @@ function renderMyBooks() {
         </div>
     </div>
     <!-- v3: supportModal removed -->
-                <div style="margin-top: 20px; padding: 16px; background: linear-gradient(135deg, rgba(83,58,253,0.1), rgba(192,132,252,0.1)); border-radius: 12px;">
-                    <div style="font-size: 14px; color: var(--ink); font-weight: 500;">Common Issues:</div>
-                    <ul style="margin-top: 8px; padding-left: 20px; font-size: 13px; color: var(--ink-mute); line-height: 1.6;">
-                        <li>Link not working? Try refreshing the page</li>
-                        <li>Stats not updating? Pull to refresh</li>
-                        <li>Need help with promotion? Read our Guide</li>
-                    </ul>
-                </div>
-                <button class="modal-btn confirm" style="margin-top: 16px;" onclick="closeSupportModal(); showGuideModal();">View Guide →</button>
-            </div>
-        </div>
-    </div>
+
     <!-- v3: Reels Creator Modal -->
     <div class="modal-overlay" id="reelsModal">
         <div class="modal">
@@ -4726,11 +3055,44 @@ function renderMyBooks() {
                         <li>Share on social media for more clicks</li>
                     </ul>
                 </div>
+                <div id="reelsModalBookInfo" style="padding: 12px; background: var(--canvas-soft); border-radius: 10px; margin-bottom: 16px; display: none;">
+                    <div style="font-size: 12px; color: var(--ink-mute); margin-bottom: 4px;">Creating reel for:</div>
+                    <div style="font-size: 14px; font-weight: 600; color: var(--ink);" id="reelsModalBookTitle">—</div>
+                </div>
                 <div style="text-align: center; margin-bottom: 12px;">
                     <span style="font-size: 13px; color: var(--ink-mute);">Daily limit: </span>
                     <span style="font-size: 13px; font-weight: 600; color: var(--primary);" id="reelsModalCount">0/3 used</span>
                 </div>
-                <button class="modal-btn confirm" onclick="openReelsCreator(); closeReelsModal();">Create Reel →</button>
+                <button class="modal-btn confirm" onclick="closeReelsModal(); openReelsCreator();">Create Reel →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AC Token Modal -->
+    <div class="modal-overlay" id="acTokenModal">
+        <div class="modal">
+            <div class="modal-header">
+                <button class="modal-close-btn" onclick="closeACTokenModal()">×</button>
+                <div class="modal-title">🔑 AC Token Setup</div>
+                <div style="width:32px;"></div>
+            </div>
+            <div class="modal-body">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="font-size: 40px; margin-bottom: 12px;">🔑</div>
+                    <div style="font-size: 18px; font-weight: 700; color: var(--ink); margin-bottom: 4px;">Connect AC Video API</div>
+                    <div style="font-size: 13px; color: var(--ink-mute);">Paste your token from ac.beidou.win Pinia store</div>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="font-size: 12px; font-weight: 600; color: var(--ink); display: block; margin-bottom: 6px;">AC Token</label>
+                    <input type="text" id="acTokenInput" placeholder="Paste your token here..." style="width: 100%; padding: 10px 14px; border: 1px solid var(--hairline); border-radius: 10px; font-size: 14px; background: var(--canvas); color: var(--ink); box-sizing: border-box;">
+                </div>
+                <div style="padding: 12px; background: var(--canvas-soft); border-radius: 10px; margin-bottom: 16px; font-size: 12px; color: var(--ink-secondary); line-height: 1.6;">
+                    <strong>How to get your token:</strong><br>
+                    1. Go to ac.beidou.win<br>
+                    2. Open DevTools → Application → Pinia store<br>
+                    3. Copy the token value
+                </div>
+                <button class="modal-btn confirm" onclick="saveACTokenAndCreate()">Save & Create Reel →</button>
             </div>
         </div>
     </div>
