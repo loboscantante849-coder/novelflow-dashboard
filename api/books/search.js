@@ -94,7 +94,7 @@ module.exports = async (req, res) => {
     // When keyword is provided, call API and filter by title
     if (keyword) {
       const keywordLower = keyword.toLowerCase();
-      const apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=1&pageSize=50&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&languageCode=${lang}&bookStatus=1&keyword=${encodeURIComponent(keyword)}${bookClassName ? `&bookClassName=${encodeURIComponent(bookClassName)}` : ''}`;
+      const apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=1&pageSize=100&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&languageCode=${lang}&bookStatus=1&keyword=${encodeURIComponent(keyword)}${bookClassName ? `&bookClassName=${encodeURIComponent(bookClassName)}` : ''}`;
       
       const response = await fetch(apiUrl, {
         method: 'GET',
@@ -112,7 +112,7 @@ module.exports = async (req, res) => {
         return t.includes(keywordLower);
       });
       
-      const books = (filtered.length > 0 ? filtered : rawBooks.slice(0, 10)).map(book => ({
+      const books = (filtered.length > 0 ? filtered : []).map(book => ({
         bookId: book.bookId || book.id,
         title: book.title,
         cover: book.cover || book.coverImage || '',
