@@ -4410,7 +4410,7 @@ function renderMyBooks() {
             const container = document.getElementById('reelBookResults');
             if (!query || query.length < 2) { container.innerHTML = ''; return; }
             try {
-                const resp = await fetch('/api/books/search?q=' + encodeURIComponent(query));
+                const resp = await fetch('/api/books/search?keyword=' + encodeURIComponent(query) + '&pageSize=5');
                 const data = await resp.json();
                 const books = data.books || data.data || [];
                 if (books.length === 0) {
@@ -4482,8 +4482,8 @@ function renderMyBooks() {
             } catch (e) {
                 showToast('Failed: ' + e.message, 'error');
             }
-            btn.disabled = !reelSelectedBook;
-            btn.textContent = reelSelectedBook ? '🎬 Create Reel' : 'Create Reel';
+            btn.disabled = false;
+            btn.textContent = '🎬 Create Reel';
         }
 
         async function listMyReels() {
