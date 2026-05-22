@@ -3739,7 +3739,7 @@
         };
 
         function loadCheckinData() {
-            const saved = localStorage.getItem('novelflow_checkin');
+            const saved = localStorage.getItem(getUserKey('checkin'));
             if (saved) {
                 try {
                     const data = JSON.parse(saved);
@@ -3751,7 +3751,7 @@
         }
 
         function saveCheckinData() {
-            localStorage.setItem('novelflow_checkin', JSON.stringify(CheckinData));
+            localStorage.setItem(getUserKey('checkin'), JSON.stringify(CheckinData));
         }
 
         function getToday() {
@@ -3814,17 +3814,15 @@
 
 
 
-        // Initialize checkin on load
-        loadCheckinData();
-        document.addEventListener('DOMContentLoaded', updateCheckinUI);
+        // Checkin data loaded in main init after user is known (see DOMContentLoaded below)
         
         // ========== Points System ==========
         function getUserPoints() {
-            return parseInt(localStorage.getItem('novelflow_points') || '0');
+            return parseInt(localStorage.getItem(getUserKey('points')) || '0');
         }
         function addUserPoints(pts) {
             const current = getUserPoints();
-            localStorage.setItem('novelflow_points', current + pts);
+            localStorage.setItem(getUserKey('points'), current + pts);
             updatePointsDisplay();
         }
         function updatePointsDisplay() {
@@ -3836,12 +3834,12 @@
 
         // ========== Claimed Missions Tracker ==========
         function getClaimedMissions() {
-            try { return JSON.parse(localStorage.getItem('novelflow_claimed') || '{}'); } catch(e) { return {}; }
+            try { return JSON.parse(localStorage.getItem(getUserKey('claimed')) || '{}'); } catch(e) { return {}; }
         }
         function markMissionClaimed(id) {
             const claimed = getClaimedMissions();
             claimed[id] = true;
-            localStorage.setItem('novelflow_claimed', JSON.stringify(claimed));
+            localStorage.setItem(getUserKey('claimed'), JSON.stringify(claimed));
         }
         function isMissionClaimed(id) {
             return getClaimedMissions()[id] === true;
@@ -3967,7 +3965,7 @@
                 showToast(getText('toast_invalid_id'), 'error');
                 return;
             }
-            localStorage.setItem('novelflow_bind_id', id);
+            localStorage.setItem(getUserKey('bind_id'), id);
             const btn = document.getElementById('taskBindClaimBtn');
             if (btn && !isMissionClaimed('bindId')) {
                 btn.disabled = false;
@@ -3987,9 +3985,9 @@
             }
             addUserPoints(-50);
             // Track VIP days
-            const vipDays = parseInt(localStorage.getItem('novelflow_vip_days') || '0');
+            const vipDays = parseInt(localStorage.getItem(getUserKey('vip_days')) || '0');
             const newVipDays = vipDays + 3;
-            localStorage.setItem('novelflow_vip_days', newVipDays);
+            localStorage.setItem(getUserKey('vip_days'), newVipDays);
             // Show VIP-specific popup
             const overlay = document.createElement('div');
             overlay.className = 'milestone-overlay';
@@ -4037,7 +4035,7 @@
             }
             
             // Bind ID
-            const bindId = localStorage.getItem('novelflow_bind_id');
+            const bindId = localStorage.getItem(getUserKey('bind_id'));
             const bindRow = document.getElementById('bindIdRow');
             const tBb = document.getElementById('taskBindClaimBtn');
             if (bindId) {
@@ -4177,7 +4175,7 @@
 
             const descText = document.getElementById('modalDescriptionText');
             const descToggle = document.getElementById('modalDescriptionToggle');
-            if (descText) { descText.innerHTML = book.description || 'No description available.'; descText.classList.remove('expanded'); descText.classList.add('collapsed'); }
+            if (descText) { descText.innerHTML = escapeHtml(book.description) || 'No description available.'; descText.classList.remove('expanded'); descText.classList.add('collapsed'); }
             if (descToggle) { descToggle.style.display = 'none'; descToggle.textContent = 'Show more'; }
 
             if (book.description && book.description.length > 150 && descToggle) {
@@ -4242,6 +4240,7 @@
                 const data = await response.json();
                 
                 if (data.loggedIn) {
+                    const prevUser = AppState.user?.username;
                     AppState.isLoggedIn = true;
                     AppState.user = {
                         username: data.username || 'User',
@@ -4249,6 +4248,11 @@
                     };
                     localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
                     localStorage.setItem('novelflow_last_user', AppState.user.username);
+                    // If user changed, reload per-user data
+                    if (prevUser !== AppState.user.username) {
+                        loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI();
+                        loadMyBooks();
+                    }
                     return;
                 }
             } catch (e) {
@@ -4702,6 +4706,11 @@
             const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || '';
             return username ? 'novelflow_mybooks_' + username : 'novelflow_mybooks';
         }
+        // Per-user storage key helper - all user-specific data should use this
+        function getUserKey(suffix) {
+            const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || '';
+            return username ? 'novelflow_' + suffix + '_' + username : 'novelflow_' + suffix;
+        }
         function loadMyBooks() {
             const key = getMyBooksKey();
             let saved = localStorage.getItem(key);
@@ -5092,6 +5101,7 @@ function renderMyBooks() {
                     localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
                     localStorage.setItem('novelflow_last_user', username);
                     updateProfileUI();
+                    loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI();
                     loadMyBooks();
                     loadPerformanceDashboard();
                     showToast('Login successful!', 'success');
@@ -5115,17 +5125,22 @@ function renderMyBooks() {
                 console.warn('Logout API error:', e);
             }
             
-            // Save current user's books before clearing session
+            // Save ALL current user's data before clearing session (per-user keys persist)
             if (AppState.myBooks.length > 0) saveMyBooks();
+            saveCheckinData(); // Save checkin data to per-user key
             localStorage.removeItem('novelflow_user');
             localStorage.removeItem('novelflow_last_user');
-            // DON'T delete per-user books data - they persist across logins
+            // Per-user data (books, reels, checkin, points, claimed, bind_id, vip_days) 
+            // uses keys like novelflow_xxx_{username} and persists across logins.
+            // Only session info is cleared.
             AppState.user = null;
             AppState.isLoggedIn = false;
             AppState.myBooks = [];
+            // Reset checkin/points/missions to empty (per-user data preserved in localStorage)
+            CheckinData.streak = 0; CheckinData.lastCheckin = null; CheckinData.history = [];
             updateProfileUI();
             renderMyBooks();
-            updateStats();
+            updateStats(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI();
             showToast('Logged out');
         }
 
@@ -5148,6 +5163,7 @@ function renderMyBooks() {
             
             document.getElementById('splashScreen').classList.add('hidden');
             updateProfileUI();
+            loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI();
             loadMyBooks();
             loadPerformanceDashboard();
             showToast('Welcome, ' + username + '!', 'success');
@@ -5345,7 +5361,7 @@ function renderMyBooks() {
                 const el = document.getElementById('homeLoading');
                 if (el && el.style.display !== 'none') { el.style.display = 'none'; hideLoadingAndShowContent(); }
             }, 3000);
-            loadBooks(); checkLocalLogin(); loadMyBooks(); updateStats(); checkLoginStatus();
+            loadBooks(); checkLocalLogin(); loadCheckinData(); updateCheckinUI(); loadMyBooks(); updateStats(); checkLoginStatus(); updateMissionsUI(); updatePointsDisplay();
             if (typeof loadPerformanceDashboard === 'function') setTimeout(loadPerformanceDashboard, 1000);
             document.getElementById('recommendModal').addEventListener('click', e => {
                 if (e.target.classList.contains('modal-overlay')) closeModal();
@@ -5398,7 +5414,7 @@ function renderMyBooks() {
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
                 // Filter: only show reels belonging to this user
                 const currentUser = AppState.user?.username || '';
-                const myReelIds = JSON.parse(localStorage.getItem('novelflow_my_reel_ids') || '[]');
+                const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
                 const myBookNames = (AppState.myBooks || []).map(b => (b.title || b.bookName || '').toLowerCase());
                 const filteredItems = items.filter(item => {
                     const itemId = String(item.id || item.task_id || '');
@@ -5597,7 +5613,7 @@ function renderMyBooks() {
         function getReelsDailyCount() {
             const today = new Date().toISOString().split('T')[0];
             const username = AppState.user?.username || 'guest';
-            const saved = localStorage.getItem('novelflow_reels_count');
+            const saved = localStorage.getItem(getUserKey('reels_count'));
             if (!saved) return 0;
             try {
                 const data = JSON.parse(saved);
@@ -5609,7 +5625,7 @@ function renderMyBooks() {
             const today = new Date().toISOString().split('T')[0];
             const username = AppState.user?.username || 'guest';
             const count = getReelsDailyCount() + 1;
-            localStorage.setItem('novelflow_reels_count', JSON.stringify({ date: today, username: username, count: count }));
+            localStorage.setItem(getUserKey('reels_count'), JSON.stringify({ date: today, username: username, count: count }));
             updateReelsDailyInfo();
             return count;
         }
@@ -5855,8 +5871,8 @@ function renderMyBooks() {
                     const taskId = taskData.id || taskData.task_id || '';
                     const taskName = taskData.title || reelSelectedBook?.title || 'Your reel';
                     // Save this reel's task ID to user's reel list
-                    const myReelIds = JSON.parse(localStorage.getItem('novelflow_my_reel_ids') || '[]');
-                    if (taskId && !myReelIds.includes(taskId)) { myReelIds.push(taskId); localStorage.setItem('novelflow_my_reel_ids', JSON.stringify(myReelIds)); }
+                    const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
+                    if (taskId && !myReelIds.includes(taskId)) { myReelIds.push(taskId); localStorage.setItem(getUserKey('my_reel_ids'), JSON.stringify(myReelIds)); }
                     showToast('🎬 Reel created for "' + taskName + '"! Video generates in ~25 min. Check My Reels for progress.', 'success');
                     // Show creation progress card in reels section
                     const reelsList = document.getElementById('reelsList');
@@ -5924,7 +5940,7 @@ function renderMyBooks() {
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
                 // Filter: only show reels belonging to this user
                 const currentUser = AppState.user?.username || '';
-                const myReelIds = JSON.parse(localStorage.getItem('novelflow_my_reel_ids') || '[]');
+                const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
                 const myBookNames = (AppState.myBooks || []).map(b => (b.title || b.bookName || '').toLowerCase());
                 const filteredItems = items.filter(item => {
                     const itemId = String(item.id || item.task_id || '');

@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-const CLIENT_SECRET = process.env.JWT_SECRET || 'novelflow-secret-2026';
+const CLIENT_SECRET = process.env.JWT_SECRET;
 
 // Generate JWT token
 function generateJWT(payload) {
@@ -45,16 +45,22 @@ function verifyJWT(token) {
   }
 }
 
+const { setCORSHeaders } = require('../../_lib/cors');
+
 module.exports = async (req, res) => {
+  setCORSHeaders(req, res);
   // Set CORS headers
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+  // CORS handled by setCORSHeaders;
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // CORS handled by setCORSHeaders;
 
   // Handle preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  if (!CLIENT_SECRET) {
+    return res.status(500).json({ error: 'JWT_SECRET not configured' });
   }
 
   if (req.method !== 'POST') {

@@ -4,11 +4,12 @@
  */
 const AC_BASE = 'https://ac.beidou.win/api/v1';
 
+const { setCORSHeaders } = require('../_lib/cors');
+
 module.exports = async (req, res) => {
+  setCORSHeaders(req, res);
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-ac-token, Authorization');
+    // CORS handled by setCORSHeaders;
     return res.status(200).end();
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -28,7 +29,7 @@ module.exports = async (req, res) => {
       return res.status(r.status).json({ error: 'Token invalid', detail: data });
     }
 
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // CORS handled by setCORSHeaders;
     res.setHeader('x-ac-token', newToken || '');
     return res.status(200).json({ success: true, data: { message: 'Token valid' }, newToken: newToken || undefined });
   } catch (e) {

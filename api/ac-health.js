@@ -2,8 +2,11 @@
  * GET /api/ac-health
  * AC代理健康检查 - 纯GET，无需token，验证路由是否通
  */
+const { setCORSHeaders } = require('../_lib/cors');
+
 module.exports = (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  setCORSHeaders(req, res);
+  // CORS handled by setCORSHeaders;
   res.setHeader('Content-Type', 'application/json');
   res.status(200).json({
     status: 'ok',

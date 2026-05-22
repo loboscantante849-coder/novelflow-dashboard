@@ -29,10 +29,11 @@ const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage/book';
 const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
 const BOOKSTORE_TOKEN = process.env.NOVELSPA_TOKEN;
 
+const { setCORSHeaders } = require('../../_lib/cors');
+
 module.exports = async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  setCORSHeaders(req, res);
+  // CORS handled by setCORSHeaders;
   
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
