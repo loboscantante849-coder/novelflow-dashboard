@@ -13,9 +13,10 @@ module.exports = async (req, res) => {
   }
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const token = req.headers['x-ac-token'] ||
+  // Use server-stored AC token from env var
+  const token = process.env.AC_TOKEN || req.headers['x-ac-token'] ||
     (req.headers['authorization'] && req.headers['authorization'].replace('Bearer ', ''));
-  if (!token) return res.status(401).json({ error: 'Token required' });
+  if (!token) return res.status(401).json({ error: 'AC Token not configured on server' });
 
   const ps = req.query.pageSize || '10';
   const pi = req.query.pageIndex || '1';

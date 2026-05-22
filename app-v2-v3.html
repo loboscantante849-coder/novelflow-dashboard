@@ -2317,8 +2317,8 @@
             <div class="reels-section" id="reelsSection">
                 <div class="reels-header">
                     <span class="reels-header-title">🎬 Create Reels</span>
+                    <span style="font-size:11px;color:var(--ink-mute);" id="reelsDailyInfo">3 left today</span>
                 </div>
-                <input type="text" class="reels-token-input" id="acTokenInput" placeholder="Paste your AC Token (from ac.beidou.win)">
                 <div class="reels-actions">
                     <button class="reels-btn reels-btn-create" id="reelsCreateBtn" onclick="createReel()">Create Reel</button>
                     <button class="reels-btn reels-btn-list" onclick="listMyReels()">My Reels</button>
@@ -2485,16 +2485,6 @@
                 </div>
             </div>
             
-            <!-- Leaderboard Mini Section -->
-            <div class="leaderboard-mini-section">
-                <div class="leaderboard-mini-header">
-                    <span class="leaderboard-mini-title">🏆 Top Earners Today</span>
-                    <span class="leaderboard-mini-more" onclick="switchTab('tasks')">More →</span>
-                </div>
-                <div class="leaderboard-mini-list" id="leaderboardMiniList">
-                    <!-- Dynamic content -->
-                </div>
-            </div>
         </div>
 
         <!-- Tab 4: Profile -->
@@ -4374,108 +4364,13 @@ function renderMyBooks() {
         });
         
         // ========== Render Leaderboard Mini ==========
-        function renderLeaderboardMini() {
-            const container = document.getElementById('leaderboardMiniList');
-            if (!container) return;
-            
-            // Sample data for mini leaderboard - using commission percentages
-            const topEarners = [
-                { rank: 1, name: 'Sarah M.', earning: '80%' },
-                { rank: 2, name: 'Mike T.', earning: '75%' },
-                { rank: 3, name: 'Emma W.', earning: '72%' },
-                { rank: 4, name: 'John D.', earning: '68%' },
-                { rank: 5, name: 'Lisa K.', earning: '65%' }
-            ];
-            
-            container.innerHTML = topEarners.map(user => {
-                let rankClass = 'normal';
-                if (user.rank === 1) rankClass = 'gold';
-                else if (user.rank === 2) rankClass = 'silver';
-                else if (user.rank === 3) rankClass = 'bronze';
-                
-                return `
-                    <div class="leaderboard-mini-item">
-                        <div class="leaderboard-mini-rank ${rankClass}">${user.rank}</div>
-                        <div class="leaderboard-mini-name">${user.name}</div>
-                        <div class="leaderboard-mini-earning">${user.earning}</div>
-                    </div>
-                `;
-            }).join('');
-        }
-        
-        
-        // ========== Performance Dashboard ==========
-        async function loadPerformanceDashboard() {
-            if (!AppState.isLoggedIn || !AppState.user) {
-                document.getElementById('perfLoginPrompt').style.display = '';
-                document.getElementById('perfData').style.display = 'none';
-                return;
-            }
-
-            document.getElementById('perfLoginPrompt').style.display = 'none';
-            document.getElementById('perfData').style.display = '';
-
-            const username = AppState.user.username;
-            try {
-                const resp = await fetch('/api/my-stats?username=' + encodeURIComponent(username));
-                if (!resp.ok) throw new Error('API error');
-                const data = await resp.json();
-
-                const visits = data.total_visits || 0;
-                const unique = data.total_unique_visitors || 0;
-                const income = data.total_income || 0;
-                const books = (data.books || []).length;
-                const newUsers = data.total_new_users || 0;
-                const links = AppState.myBooks ? AppState.myBooks.length : 0;
-
-                document.getElementById('perfVisits').textContent = visits;
-                document.getElementById('perfUnique').textContent = unique;
-                document.getElementById('perfIncome').textContent = '$' + income.toFixed(2);
-                document.getElementById('perfBooks').textContent = books;
-                document.getElementById('perfNewUsers').textContent = newUsers;
-                document.getElementById('perfLinks').textContent = links;
-
-                // Income styling
-                document.getElementById('perfIncome').className = 'perf-stat-value' + (income > 0 ? '' : ' zero');
-
-                // Tier calculation
-                const bookCount = books;
-                let tier, nextTier, nextAt, progressPct;
-                if (bookCount >= 5) { tier = '80%'; nextTier = 'MAX'; nextAt = '🎉 Max tier!'; progressPct = 100; }
-                else if (bookCount >= 3) { tier = '70%'; nextTier = '80%'; nextAt = bookCount + '/5 books'; progressPct = (bookCount / 5) * 100; }
-                else if (bookCount >= 1) { tier = '55%'; nextTier = '70%'; nextAt = bookCount + '/3 books'; progressPct = (bookCount / 3) * 100; }
-                else { tier = '40%'; nextTier = '55%'; nextAt = '0/1 books'; progressPct = 0; }
-
-                document.getElementById('perfTier').textContent = tier;
-                document.getElementById('tierProgressFill').style.width = progressPct + '%';
-                document.getElementById('tierCurrent').textContent = nextAt;
-                document.getElementById('tierNext').textContent = nextTier === 'MAX' ? '🎉 Max tier!' : 'Next: ' + nextTier;
-
-                const updated = data.last_updated || '—';
-                document.getElementById('perfUpdated').textContent = updated ? 'Updated: ' + updated : '—';
-
-            } catch (e) {
-                console.warn('Performance dashboard load failed:', e.message);
-                // Show zeros
-                ['perfVisits','perfUnique','perfBooks','perfNewUsers','perfLinks'].forEach(id => {
-                    document.getElementById(id).textContent = '0';
-                });
-                document.getElementById('perfIncome').textContent = '$0';
+        document.getElementById('perfIncome').textContent = '$0';
                 document.getElementById('perfTier').textContent = '40%';
                 document.getElementById('perfUpdated').textContent = 'Data unavailable';
             }
         }
 
         // ========== AC Reels - Real API ==========
-        function getACToken() {
-            let token = document.getElementById('acTokenInput').value.trim();
-            if (!token) {
-                const saved = localStorage.getItem('novelflow_ac_token');
-                if (saved) { token = saved; document.getElementById('acTokenInput').value = token; }
-            }
-            return token;
-        }
-
         function saveACToken(token) {
             localStorage.setItem('novelflow_ac_token', token);
         }
@@ -4498,13 +4393,19 @@ function renderMyBooks() {
             const username = AppState.user?.username || 'guest';
             const count = getReelsDailyCount() + 1;
             localStorage.setItem('novelflow_reels_count', JSON.stringify({ date: today, username: username, count: count }));
+            updateReelsDailyInfo();
             return count;
+        }
+        function updateReelsDailyInfo() {
+            const el = document.getElementById('reelsDailyInfo');
+            if (el) {
+                const remaining = REELS_DAILY_LIMIT - getReelsDailyCount();
+                el.textContent = remaining + ' left today';
+            }
         }
         const REELS_DAILY_LIMIT = 3;
 
         async function createReel() {
-            const token = getACToken();
-            if (!token) { showToast('Please paste your AC Token first', 'error'); return; }
             if (!currentRecommendBook) { showToast('Please select a book first', 'error'); return; }
 
             // Daily limit check
@@ -4514,22 +4415,26 @@ function renderMyBooks() {
                 return;
             }
 
-            saveACToken(token);
             const btn = document.getElementById('reelsCreateBtn');
             btn.disabled = true;
             btn.textContent = 'Creating...';
 
             try {
+                const headers = { 'Content-Type': 'application/json' };
+                const savedToken = localStorage.getItem('novelflow_ac_token');
+                if (savedToken) headers['x-ac-token'] = savedToken;
+
                 const resp = await fetch('/api/ac-create', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-ac-token': token },
+                    headers,
                     body: JSON.stringify({
-                        book_id: currentRecommendBook.bookId
+                        book_id: currentRecommendBook.bookId,
+                        username: AppState.user?.username || 'guest'
                     })
                 });
                 const result = await resp.json();
                 // Save new token if AC refreshed it
-                if (result.newToken) { saveACToken(result.newToken); document.getElementById('acTokenInput').value = result.newToken; }
+                if (result.newToken) { saveACToken(result.newToken);  }
                 if (result.success) {
                     incrementReelsCount();
                     const remaining = REELS_DAILY_LIMIT - getReelsDailyCount();
@@ -4546,8 +4451,6 @@ function renderMyBooks() {
         }
 
         async function listMyReels() {
-            const token = getACToken();
-            if (!token) { showToast('Please paste your AC Token first', 'error'); return; }
             saveACToken(token);
 
             const listEl = document.getElementById('reelsList');
@@ -4559,7 +4462,7 @@ function renderMyBooks() {
                     headers: { 'x-ac-token': token }
                 });
                 const result = await resp.json();
-                if (result.newToken) { saveACToken(result.newToken); document.getElementById('acTokenInput').value = result.newToken; }
+                if (result.newToken) { saveACToken(result.newToken);  }
                 const items = (result.data && result.data.data) || result.data || [];
                 if (result.success && items.length > 0) {
                     listEl.innerHTML = items.slice(0, 5).map(item => {
@@ -4579,13 +4482,8 @@ function renderMyBooks() {
         }
 
         // Load AC token on init
-        (function() {
-            const saved = localStorage.getItem('novelflow_ac_token');
-            if (saved) {
-                const input = document.getElementById('acTokenInput');
-                if (input) input.value = saved;
-            }
-        })();
+        // Initialize reels daily info display
+        updateReelsDailyInfo();
 
         // Tab switch listener to update checkin UI
         const originalSwitchTab = switchTab;

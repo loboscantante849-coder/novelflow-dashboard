@@ -30,17 +30,17 @@ module.exports = async (req, res) => {
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const token = req.headers['x-ac-token'] ||
-    (req.headers['authorization'] && req.headers['authorization'].replace('Bearer ', '')) ||
-    (req.body && req.body.token);
-  if (!token) return res.status(401).json({ error: 'Token required' });
+  // Use server-stored AC token from env var
+  const token = process.env.AC_TOKEN || req.headers['x-ac-token'] ||
+    (req.headers['authorization'] && req.headers['authorization'].replace('Bearer ', ''));
+  if (!token) return res.status(401).json({ error: 'AC Token not configured on server' });
 
   const body = req.body || {};
   if (!body.book_id) return res.status(400).json({ error: 'book_id required' });
 
-  // Server-side daily limit (3 per IP per day)
-  const clientIp = req.headers['x-forwarded-for']?.split(',')[0] || req.connection?.remoteAddress || 'unknown';
-  const limitCheck = checkReelsDailyLimit(clientIp);
+  // Server-side daily limit (3 per username per day, fallback to IP)
+  const limitKey = req.body.username || req.headers['x-forwarded-for']?.split(',')[0] || req.connection?.remoteAddress || 'unknown';
+  const limitCheck = checkReelsDailyLimit(limitKey);
   if (!limitCheck.allowed) return res.status(429).json({ error: 'Daily limit reached (3 reels/day). Try again tomorrow.', remaining: 0 });
 
   const payload = {
