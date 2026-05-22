@@ -4486,10 +4486,39 @@ function renderMyBooks() {
             localStorage.setItem('novelflow_ac_token', token);
         }
 
+        
+        // ========== Reels Daily Limit ==========
+        function getReelsDailyCount() {
+            const today = new Date().toISOString().split('T')[0];
+            const username = AppState.user?.username || 'guest';
+            const saved = localStorage.getItem('novelflow_reels_count');
+            if (!saved) return 0;
+            try {
+                const data = JSON.parse(saved);
+                if (data.date === today && data.username === username) return data.count || 0;
+                return 0;
+            } catch(e) { return 0; }
+        }
+        function incrementReelsCount() {
+            const today = new Date().toISOString().split('T')[0];
+            const username = AppState.user?.username || 'guest';
+            const count = getReelsDailyCount() + 1;
+            localStorage.setItem('novelflow_reels_count', JSON.stringify({ date: today, username: username, count: count }));
+            return count;
+        }
+        const REELS_DAILY_LIMIT = 3;
+
         async function createReel() {
             const token = getACToken();
             if (!token) { showToast('Please paste your AC Token first', 'error'); return; }
             if (!currentRecommendBook) { showToast('Please select a book first', 'error'); return; }
+
+            // Daily limit check
+            const dailyCount = getReelsDailyCount();
+            if (dailyCount >= REELS_DAILY_LIMIT) {
+                showToast('Daily limit reached (3 reels/day). Try again tomorrow!', 'error');
+                return;
+            }
 
             saveACToken(token);
             const btn = document.getElementById('reelsCreateBtn');
@@ -4497,18 +4526,20 @@ function renderMyBooks() {
             btn.textContent = 'Creating...';
 
             try {
-                const resp = await fetch('/api/ac/video/create', {
+                const resp = await fetch('/api/ac-create', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'x-ac-token': token },
                     body: JSON.stringify({
-                        token: token,
-                        bookName: currentRecommendBook.title,
-                        bookId: currentRecommendBook.bookId
+                        book_id: currentRecommendBook.bookId
                     })
                 });
                 const result = await resp.json();
+                // Save new token if AC refreshed it
+                if (result.newToken) { saveACToken(result.newToken); document.getElementById('acTokenInput').value = result.newToken; }
                 if (result.success) {
-                    showToast('Reel creation started! Check My Reels for status.', 'success');
+                    incrementReelsCount();
+                    const remaining = REELS_DAILY_LIMIT - getReelsDailyCount();
+                    showToast('Reel creation started! ' + remaining + ' left today.', 'success');
                     listMyReels();
                 } else {
                     showToast(result.error || 'Reel creation failed', 'error');
@@ -4517,7 +4548,7 @@ function renderMyBooks() {
                 showToast('Failed: ' + e.message, 'error');
             }
             btn.disabled = false;
-            btn.textContent = 'Create Reel';
+            btn.textContent = 'Create Reel (' + (REELS_DAILY_LIMIT - getReelsDailyCount()) + ' left)';
         }
 
         async function listMyReels() {
@@ -4529,16 +4560,18 @@ function renderMyBooks() {
             listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">Loading...</div>';
 
             try {
-                const resp = await fetch('/api/ac/video/list', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token: token })
+                const resp = await fetch('/api/ac-list', {
+                    method: 'GET',
+                    headers: { 'x-ac-token': token }
                 });
                 const result = await resp.json();
-                if (result.success && result.data && result.data.length > 0) {
-                    listEl.innerHTML = result.data.slice(0, 5).map(item => {
-                        const statusClass = item.status === 'done' ? 'done' : (item.status === 'fail' ? 'fail' : '');
-                        const statusText = item.status === 'done' ? '✓ Ready' : (item.status === 'fail' ? '✗ Failed' : '⏳ Processing');
+                if (result.newToken) { saveACToken(result.newToken); document.getElementById('acTokenInput').value = result.newToken; }
+                const items = (result.data && result.data.data) || result.data || [];
+                if (result.success && items.length > 0) {
+                    listEl.innerHTML = items.slice(0, 5).map(item => {
+                        const status = item.status || item.task_status || '';
+                        const statusClass = (status === 2 || status === 'done' || status === 'completed') ? 'done' : ((status === -1 || status === 'fail' || status === 'failed') ? 'fail' : '');
+                        const statusText = statusClass === 'done' ? '✓ Ready' : (statusClass === 'fail' ? '✗ Failed' : '⏳ Processing');
                         return '<div class="reels-item">' +
                             '<img class="reels-item-cover" src="' + (item.cover || 'https://via.placeholder.com/40x54/f6f9fc/64748d?text=R') + '" onerror="this.src='https://via.placeholder.com/40x54/f6f9fc/64748d?text=R'">' +
                             '<div class="reels-item-info"><div class="reels-item-title">' + (item.title || 'Untitled') + '</div><div class="reels-item-status ' + statusClass + '">' + statusText + '</div></div></div>';
