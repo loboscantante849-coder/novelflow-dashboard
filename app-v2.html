@@ -924,6 +924,72 @@
             font-size: 14px;
         }
 
+        
+        /* ========== Redesigned Missions ========== */
+        .missions-section { padding: 16px; }
+        .missions-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 15px; font-weight: 600; color: var(--ink); }
+        .points-badge { background: linear-gradient(135deg, #FF6B9D, #C084FC); color: white; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 700; }
+        
+        /* Check-in Milestone Card */
+        .checkin-milestone-card { background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 16px; padding: 16px; margin-bottom: 14px; color: white; }
+        .milestone-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .milestone-title { font-size: 14px; font-weight: 600; }
+        .milestone-total { font-size: 11px; color: rgba(255,255,255,0.7); }
+        .milestone-track { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; position: relative; padding: 0 4px; }
+        .milestone-track::before { content: ''; position: absolute; top: 14px; left: 20px; right: 20px; height: 3px; background: rgba(255,255,255,0.15); border-radius: 2px; z-index: 0; }
+        .milestone-track-fill { position: absolute; top: 14px; left: 20px; height: 3px; background: linear-gradient(90deg, #FF6B9D, #C084FC, #FFD700); border-radius: 2px; z-index: 1; transition: width 0.5s ease; }
+        .milestone-node { display: flex; flex-direction: column; align-items: center; gap: 4px; z-index: 2; }
+        .milestone-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; border: 2px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); transition: all 0.3s; }
+        .milestone-dot.active { border-color: #FF6B9D; background: linear-gradient(135deg, #FF6B9D, #C084FC); color: white; box-shadow: 0 0 12px rgba(255,107,157,0.5); }
+        .milestone-dot.current { border-color: #FFD700; background: linear-gradient(135deg, #FFD700, #FF6B9D); color: white; animation: milestoneGlow 2s ease-in-out infinite; }
+        @keyframes milestoneGlow { 0%,100% { box-shadow: 0 0 8px rgba(255,215,0,0.4); } 50% { box-shadow: 0 0 20px rgba(255,215,0,0.7); } }
+        .milestone-label { font-size: 9px; color: rgba(255,255,255,0.5); }
+        .milestone-label.active { color: rgba(255,255,255,0.9); }
+        .milestone-points { font-size: 8px; color: #FFD700; font-weight: 600; }
+        .milestone-checkin-btn { width: 100%; padding: 10px; background: linear-gradient(135deg, #FF6B9D, #C084FC); border: none; border-radius: 10px; color: white; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+        .milestone-checkin-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(255,107,157,0.4); }
+        .milestone-checkin-btn.done { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.6); cursor: default; }
+        .milestone-checkin-btn.done:hover { transform: none; box-shadow: none; }
+
+        /* Mission Cards */
+        .mission-card { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: white; border: 1px solid var(--hairline); border-radius: 12px; padding: 12px; margin-bottom: 8px; transition: all 0.2s; }
+        .mission-card:hover { border-color: var(--ruby); box-shadow: 0 2px 8px rgba(255,107,157,0.1); }
+        .mission-card.completed { border-color: var(--success); background: rgba(13,148,96,0.03); }
+        .mission-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+        .mission-icon { font-size: 24px; flex-shrink: 0; }
+        .mission-info { flex: 1; min-width: 0; }
+        .mission-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+        .mission-points { font-size: 12px; color: var(--ruby); font-weight: 700; margin-top: 1px; }
+        .mission-desc { font-size: 11px; color: var(--ink-mute); margin-top: 2px; }
+        .mission-bind-row { display: flex; gap: 6px; margin-top: 6px; }
+        .mission-progress-bar { height: 4px; background: var(--canvas-soft); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+        .mission-progress-fill { height: 100%; background: linear-gradient(90deg, var(--ruby), #C084FC); border-radius: 2px; transition: width 0.3s; }
+        .mission-claim-btn { padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; font-family: inherit; transition: all 0.2s; flex-shrink: 0; }
+        .mission-claim-btn:disabled { background: var(--canvas-soft); color: var(--ink-mute); cursor: not-allowed; }
+        .mission-claim-btn:not(:disabled) { background: linear-gradient(135deg, #FF6B9D, #C084FC); color: white; }
+        .mission-claim-btn:not(:disabled):hover { transform: scale(1.05); }
+        .mission-claim-btn.claimed { background: rgba(13,148,96,0.1); color: var(--success); cursor: default; }
+
+        /* VIP Exchange */
+        .vip-exchange-card { display: flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #1a1a2e, #2d1b69); border-radius: 12px; padding: 12px 14px; margin-top: 14px; }
+        .vip-icon { font-size: 28px; flex-shrink: 0; }
+        .vip-info { flex: 1; }
+        .vip-title { font-size: 13px; font-weight: 600; color: white; }
+        .vip-subtitle { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 1px; }
+        .vip-exchange-btn { padding: 8px 16px; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; background: linear-gradient(135deg, #FFD700, #FF6B9D); color: white; flex-shrink: 0; }
+        .vip-exchange-btn:disabled { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.3); cursor: not-allowed; }
+        .vip-exchange-btn:not(:disabled):hover { transform: scale(1.05); }
+
+        /* Milestone celebration overlay */
+        .milestone-overlay { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); animation: fadeIn 0.3s; }
+        .milestone-popup { background: linear-gradient(135deg, #1a1a2e, #2d1b69); border-radius: 20px; padding: 32px 24px; text-align: center; color: white; max-width: 280px; animation: milestonePop 0.5s ease; }
+        @keyframes milestonePop { 0% { transform: scale(0.5); opacity: 0; } 50% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+        .milestone-popup-icon { font-size: 48px; margin-bottom: 12px; }
+        .milestone-popup-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+        .milestone-popup-points { font-size: 24px; font-weight: 800; color: #FFD700; margin-bottom: 8px; }
+        .milestone-popup-sub { font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 16px; }
+        .milestone-popup-btn { padding: 10px 24px; background: linear-gradient(135deg, #FF6B9D, #C084FC); border: none; border-radius: 20px; color: white; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+
         /* Check-in Card */
         .checkin-card {
             background: linear-gradient(135deg, #FF6B9D 0%, #C084FC 50%, #FFD700 100%);
@@ -2548,74 +2614,83 @@
         <div class="tab-content" id="tab-tasks">
             <!-- Top Banner -->
 
-            <!-- Quick Tasks Section -->
-            <div class="quick-tasks-section">
-                <div class="quick-tasks-header">🎯 Daily Missions</div>
+            <!-- Daily Missions Section - Redesigned -->
+            <div class="missions-section">
+                <div class="missions-header">
+                    <span data-i18n="daily_missions">🎯 Daily Missions</span>
+                    <div class="points-badge" id="pointsBadge">0 <span data-i18n="pts">pts</span></div>
+                </div>
                 
-                <!-- Check-in Card - Enhanced Taobao Style -->
-                <div class="checkin-card-v2" id="checkinCardV2">
-                    <div class="checkin-v2-left">
-                        <div class="checkin-v2-icon">🎁</div>
-                        <div class="checkin-v2-info">
-                            <div class="checkin-v2-title">Daily Check-in</div>
-                            <div class="checkin-v2-reward">+10 Coins</div>
-                        </div>
+                <!-- Check-in Milestone Track -->
+                <div class="checkin-milestone-card">
+                    <div class="milestone-title-row">
+                        <div class="milestone-title" data-i18n="checkin_streak">🔥 Check-in Streak</div>
+                        <div class="milestone-total">7天 = 50 <span data-i18n="pts">pts</span></div>
                     </div>
-                    <button class="checkin-v2-btn" id="checkinBtnV2" onclick="doCheckinV2()">
-                        <span class="checkin-v2-btn-text">Check In</span>
-                        <span class="checkin-v2-btn-done" style="display:none;">✓ Done</span>
+                    <div class="milestone-track" id="milestoneTrack">
+                        <!-- 7 milestone nodes rendered by JS -->
+                    </div>
+                    <button class="milestone-checkin-btn" id="milestoneCheckinBtn" onclick="doCheckinV2()">
+                        <span class="checkin-v2-btn-text" data-i18n="check_in">Check In</span>
+                        <span class="checkin-v2-btn-done" style="display:none;" data-i18n="claimed">✓ Claimed</span>
                     </button>
                 </div>
-                
-                <!-- Streak Bonus Card -->
-                <div class="checkin-card-v2" style="background: linear-gradient(135deg, #667eea, #764ba2); margin-bottom: 10px;">
-                    <div class="checkin-v2-left">
-                        <div class="checkin-v2-icon">🔥</div>
-                        <div class="checkin-v2-info">
-                            <div class="checkin-v2-title">Streak Bonus</div>
-                            <div class="checkin-v2-reward" id="streakDisplay">0 days</div>
+
+                <!-- Mission Cards -->
+                <div class="mission-card" id="missionShare1">
+                    <div class="mission-left">
+                        <div class="mission-icon">📚</div>
+                        <div class="mission-info">
+                            <div class="mission-name" data-i18n="mission_share1">Share First Book</div>
+                            <div class="mission-points">+20 <span data-i18n="pts">pts</span></div>
+                            <div class="mission-progress-bar"><div class="mission-progress-fill" id="task1Progress" style="width:0%"></div></div>
                         </div>
                     </div>
-                    <div class="streak-reward-preview">
-                        <div style="font-size: 11px; color: rgba(255,255,255,0.8);">7 days = +50 Coins</div>
-                    </div>
+                    <button class="mission-claim-btn" id="task1ClaimBtn" onclick="claimMission('share1')" disabled>
+                        <span class="mission-claim-text" data-i18n="claim">Claim</span>
+                    </button>
                 </div>
 
-                <!-- Mission Progress Cards -->
-                <div class="quick-task-item" onclick="switchTab('submit')">
-                    <div class="quick-task-icon">📚</div>
-                    <div class="quick-task-info">
-                        <div class="quick-task-name">Share First Book</div>
-                        <div class="quick-task-reward">+20 Coins</div>
-                        <div class="task-progress-bar">
-                            <div class="task-progress-fill" id="task1Progress" style="width: 0%"></div>
+                <div class="mission-card" id="missionShare3">
+                    <div class="mission-left">
+                        <div class="mission-icon">📖</div>
+                        <div class="mission-info">
+                            <div class="mission-name" data-i18n="mission_share3">Share 3 Books</div>
+                            <div class="mission-points">+50 <span data-i18n="pts">pts</span></div>
+                            <div class="mission-progress-bar"><div class="mission-progress-fill" id="task2Progress" style="width:0%"></div></div>
                         </div>
                     </div>
-                    <div class="quick-task-btn" id="task1Btn">Start →</div>
+                    <button class="mission-claim-btn" id="task2ClaimBtn" onclick="claimMission('share3')" disabled>
+                        <span class="mission-claim-text" data-i18n="claim">Claim</span>
+                    </button>
                 </div>
 
-                <div class="quick-task-item" onclick="switchTab('submit')">
-                    <div class="quick-task-icon">📖</div>
-                    <div class="quick-task-info">
-                        <div class="quick-task-name">Share 3 Books</div>
-                        <div class="quick-task-reward">+50 Coins</div>
-                        <div class="task-progress-bar">
-                            <div class="task-progress-fill" id="task2Progress" style="width: 33%"></div>
+                <div class="mission-card" id="missionBindId">
+                    <div class="mission-left">
+                        <div class="mission-icon">🔗</div>
+                        <div class="mission-info">
+                            <div class="mission-name" data-i18n="mission_bind">Bind NovelFlow ID</div>
+                            <div class="mission-desc" data-i18n="mission_bind_desc">Open NovelFlow app → Profile → Copy ID</div>
+                            <div class="mission-points">+100 <span data-i18n="pts">pts</span></div>
+                            <div class="mission-bind-row" id="bindIdRow" style="display:none;">
+                                <input type="text" id="novelflowIdInput" placeholder="Paste your NovelFlow ID" style="flex:1;padding:6px 8px;border:1px solid var(--hairline);border-radius:6px;font-size:12px;font-family:inherit;">
+                                <button onclick="submitBindId()" style="padding:6px 10px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;" data-i18n="bind_btn">Bind</button>
+                            </div>
                         </div>
                     </div>
-                    <div class="quick-task-btn secondary" id="task2Btn">1/3 →</div>
+                    <button class="mission-claim-btn" id="taskBindClaimBtn" onclick="claimMission('bindId')" disabled>
+                        <span class="mission-claim-text" data-i18n="claim">Claim</span>
+                    </button>
                 </div>
-                
-                <div class="quick-task-item" onclick="switchTab('home')">
-                    <div class="quick-task-icon">👥</div>
-                    <div class="quick-task-info">
-                        <div class="quick-task-name">Invite 3 Friends</div>
-                        <div class="quick-task-reward">+100 Coins</div>
-                        <div class="task-progress-bar">
-                            <div class="task-progress-fill" style="width: 0%"></div>
-                        </div>
+
+                <!-- VIP Exchange -->
+                <div class="vip-exchange-card" id="vipExchangeCard">
+                    <div class="vip-icon">👑</div>
+                    <div class="vip-info">
+                        <div class="vip-title" data-i18n="vip_exchange">50 pts → 3 Days VIP</div>
+                        <div class="vip-subtitle" data-i18n="vip_subtitle">Unlock premium novels & ad-free reading</div>
                     </div>
-                    <div class="quick-task-btn secondary">0/3 →</div>
+                    <button class="vip-exchange-btn" id="vipExchangeBtn" onclick="exchangeVIP()" disabled data-i18n="exchange">Exchange</button>
                 </div>
             </div>
             
@@ -2836,47 +2911,7 @@
 
         // ========== Update Share Tasks Progress ==========
         function updateShareTasksProgress() {
-            const booksShared = AppState.myBooks.length;
-            
-            // Task 1: Share First Book (1 book)
-            const task1Progress = document.getElementById('task1Progress');
-            const task1Btn = document.getElementById('task1Btn');
-            if (task1Progress && task1Btn) {
-                if (booksShared >= 1) {
-                    task1Progress.style.width = '100%';
-                    task1Btn.className = 'quick-task-btn';
-                    task1Btn.textContent = '✓ Done';
-                    task1Btn.style.background = 'linear-gradient(135deg, #0d9460, #059669)';
-                    task1Btn.style.color = 'white';
-                } else {
-                    task1Progress.style.width = '0%';
-                    task1Btn.className = 'quick-task-btn';
-                    task1Btn.textContent = 'Start →';
-                    task1Btn.style.background = '';
-                    task1Btn.style.color = '';
-                }
-            }
-            
-            // Task 2: Share 3 Books
-            const task2Progress = document.getElementById('task2Progress');
-            const task2Btn = document.getElementById('task2Btn');
-            if (task2Progress && task2Btn) {
-                const task2Target = 3;
-                const progressPercent = Math.min((booksShared / task2Target) * 100, 100);
-                task2Progress.style.width = progressPercent + '%';
-                
-                if (booksShared >= task2Target) {
-                    task2Btn.className = 'quick-task-btn';
-                    task2Btn.textContent = '✓ Done';
-                    task2Btn.style.background = 'linear-gradient(135deg, #0d9460, #059669)';
-                    task2Btn.style.color = 'white';
-                } else {
-                    task2Btn.className = 'quick-task-btn secondary';
-                    task2Btn.textContent = booksShared + '/' + task2Target + ' →';
-                    task2Btn.style.background = '';
-                    task2Btn.style.color = '';
-                }
-            }
+            updateMissionsUI();
         }
 
         // ========== Load Books from Backend API ==========
@@ -3228,27 +3263,76 @@
         loadCheckinData();
         document.addEventListener('DOMContentLoaded', updateCheckinUI);
         
-        // ========== V2 Check-in (for Tasks Tab) ==========
+        // ========== Points System ==========
+        function getUserPoints() {
+            return parseInt(localStorage.getItem('novelflow_points') || '0');
+        }
+        function addUserPoints(pts) {
+            const current = getUserPoints();
+            localStorage.setItem('novelflow_points', current + pts);
+            updatePointsDisplay();
+        }
+        function updatePointsDisplay() {
+            const badge = document.getElementById('pointsBadge');
+            if (badge) badge.innerHTML = getUserPoints() + ' <span data-i18n="pts">' + getText('pts') + '</span>';
+            const vipBtn = document.getElementById('vipExchangeBtn');
+            if (vipBtn) vipBtn.disabled = getUserPoints() < 50;
+        }
+
+        // ========== Claimed Missions Tracker ==========
+        function getClaimedMissions() {
+            try { return JSON.parse(localStorage.getItem('novelflow_claimed') || '{}'); } catch(e) { return {}; }
+        }
+        function markMissionClaimed(id) {
+            const claimed = getClaimedMissions();
+            claimed[id] = true;
+            localStorage.setItem('novelflow_claimed', JSON.stringify(claimed));
+        }
+        function isMissionClaimed(id) {
+            return getClaimedMissions()[id] === true;
+        }
+
+        // ========== Milestone Track Renderer ==========
+        // Check-in streak points: day1=5, day2=5, day3=5, day4=5, day5=5, day6=10, day7=15 (total=50)
+        const STREAK_POINTS = [5, 5, 5, 5, 5, 10, 15];
+        
+        function renderMilestoneTrack() {
+            const track = document.getElementById('milestoneTrack');
+            if (!track) return;
+            const streak = CheckinData.streak;
+            let html = '<div class="milestone-track-fill" style="width:' + (streak >= 7 ? '100' : (streak / 7 * 100)) + '%"></div>';
+            for (let i = 1; i <= 7; i++) {
+                const isActive = i <= streak;
+                const isCurrent = i === streak + 1 && !isCheckedInToday();
+                const dotClass = isActive ? 'active' : (isCurrent ? 'current' : '');
+                const labelClass = isActive ? 'active' : '';
+                html += '<div class="milestone-node">' +
+                    '<div class="milestone-dot ' + dotClass + '">' + (isActive ? '✓' : i) + '</div>' +
+                    '<div class="milestone-label ' + labelClass + '">D' + i + '</div>' +
+                    '<div class="milestone-points">+' + STREAK_POINTS[i-1] + '</div>' +
+                    '</div>';
+            }
+            track.innerHTML = html;
+        }
+
+        // ========== V2 Check-in (Milestone Style) ==========
         function doCheckinV2() {
             if (isCheckedInToday()) {
-                showToast('Already checked in today!', 'success');
+                showToast(getText('toast_already_checkin'), 'info');
                 return;
             }
-
-            const btn = document.getElementById('checkinBtnV2');
+            const btn = document.getElementById('milestoneCheckinBtn');
             const btnText = btn.querySelector('.checkin-v2-btn-text');
             const btnDone = btn.querySelector('.checkin-v2-btn-done');
-            
             btn.disabled = true;
-            btnText.textContent = 'Checking in...';
-            
+            btnText.textContent = '...';
+
             setTimeout(() => {
                 const today = getToday();
                 const yesterday = new Date();
                 yesterday.setDate(yesterday.getDate() - 1);
-                const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+                const yesterdayStr = yesterday.getFullYear() + '-' + String(yesterday.getMonth() + 1).padStart(2, '0') + '-' + String(yesterday.getDate()).padStart(2, '0');
                 
-                // Check if streak continues
                 if (CheckinData.lastCheckin === yesterdayStr) {
                     CheckinData.streak++;
                 } else if (CheckinData.lastCheckin !== today) {
@@ -3256,37 +3340,172 @@
                 }
                 
                 CheckinData.lastCheckin = today;
-                if (!CheckinData.history.includes(today)) {
-                    CheckinData.history.push(today);
-                }
-                
+                if (!CheckinData.history.includes(today)) CheckinData.history.push(today);
                 saveCheckinData();
                 
-                // Update v2 button
+                // Award points for this day's check-in
+                const dayPts = STREAK_POINTS[Math.min(CheckinData.streak, 7) - 1] || 5;
+                addUserPoints(dayPts);
+                
+                // Update button
                 btn.classList.add('done');
                 btnText.style.display = 'none';
                 btnDone.style.display = 'inline';
                 btn.disabled = false;
                 
-                // Update streak display
-                const streakDisplay = document.getElementById('streakDisplay');
-                if (streakDisplay) {
-                    streakDisplay.textContent = CheckinData.streak + ' days';
-                }
+                renderMilestoneTrack();
                 
-                showToast(`🎉 ${CheckinData.streak} Day Streak! +10 Coins earned!`, 'success');
-            }, 800);
+                // Show milestone celebration
+                showMilestoneCelebration(CheckinData.streak, dayPts);
+            }, 600);
+        }
+
+        function showMilestoneCelebration(day, pts) {
+            const overlay = document.createElement('div');
+            overlay.className = 'milestone-overlay';
+            overlay.onclick = () => overlay.remove();
+            let icon = '🎉';
+            let title = getText('checkin_complete');
+            let sub = '';
+            if (day === 7) { icon = '🏆'; title = getText('milestone_7day'); sub = getText('milestone_7day_sub'); }
+            else if (day >= 4) { icon = '🔥'; title = getText('milestone_streak'); sub = day + ' ' + getText('days_streak'); }
+            overlay.innerHTML = '<div class="milestone-popup">' +
+                '<div class="milestone-popup-icon">' + icon + '</div>' +
+                '<div class="milestone-popup-title">' + title + '</div>' +
+                '<div class="milestone-popup-points">+' + pts + ' ' + getText('pts') + '</div>' +
+                (sub ? '<div class="milestone-popup-sub">' + sub + '</div>' : '') +
+                '<button class="milestone-popup-btn" onclick="this.closest(\'.milestone-overlay\').remove()">' + getText('awesome') + '</button>' +
+                '</div>';
+            document.body.appendChild(overlay);
+        }
+
+        // ========== Mission Claim ==========
+        function claimMission(missionId) {
+            if (isMissionClaimed(missionId)) return;
+            let pts = 0;
+            if (missionId === 'share1') pts = 20;
+            else if (missionId === 'share3') pts = 50;
+            else if (missionId === 'bindId') pts = 100;
+            else return;
+            
+            markMissionClaimed(missionId);
+            addUserPoints(pts);
+            
+            // Update button
+            const btn = document.getElementById(missionId === 'share1' ? 'task1ClaimBtn' : (missionId === 'share3' ? 'task2ClaimBtn' : 'taskBindClaimBtn'));
+            if (btn) {
+                btn.disabled = true;
+                btn.classList.add('claimed');
+                btn.innerHTML = '<span class="mission-claim-text">✓</span>';
+            }
+            const card = document.getElementById(missionId === 'share1' ? 'missionShare1' : (missionId === 'share3' ? 'missionShare3' : 'missionBindId'));
+            if (card) card.classList.add('completed');
+            
+            showMilestoneCelebration(0, pts);
+        }
+
+        function submitBindId() {
+            const input = document.getElementById('novelflowIdInput');
+            const id = input ? input.value.trim() : '';
+            if (!id || id.length < 3) {
+                showToast(getText('toast_invalid_id'), 'error');
+                return;
+            }
+            localStorage.setItem('novelflow_bind_id', id);
+            const btn = document.getElementById('taskBindClaimBtn');
+            if (btn && !isMissionClaimed('bindId')) {
+                btn.disabled = false;
+            }
+            input.disabled = true;
+            input.value = id;
+            const bindBtn = input.parentElement.querySelector('button');
+            if (bindBtn) { bindBtn.textContent = '✓'; bindBtn.disabled = true; }
+            showToast(getText('toast_id_bound'), 'success');
+        }
+
+        function exchangeVIP() {
+            const pts = getUserPoints();
+            if (pts < 50) {
+                showToast(getText('toast_not_enough'), 'error');
+                return;
+            }
+            addUserPoints(-50);
+            // Track VIP days
+            const vipDays = parseInt(localStorage.getItem('novelflow_vip_days') || '0');
+            localStorage.setItem('novelflow_vip_days', vipDays + 3);
+            showToast(getText('toast_vip_activated'), 'success');
+            showMilestoneCelebration(0, 0);
+        }
+
+        // ========== Update Missions UI ==========
+        function updateMissionsUI() {
+            const booksShared = AppState.myBooks.length;
+            
+            // Share 1
+            const t1p = document.getElementById('task1Progress');
+            const t1b = document.getElementById('task1ClaimBtn');
+            if (t1p) t1p.style.width = (booksShared >= 1 ? 100 : 0) + '%';
+            if (t1b) {
+                if (isMissionClaimed('share1')) {
+                    t1b.disabled = true; t1b.classList.add('claimed'); t1b.innerHTML = '<span class="mission-claim-text">✓</span>';
+                    const c = document.getElementById('missionShare1'); if (c) c.classList.add('completed');
+                } else if (booksShared >= 1) {
+                    t1b.disabled = false;
+                }
+            }
+            
+            // Share 3
+            const t2p = document.getElementById('task2Progress');
+            const t2b = document.getElementById('task2ClaimBtn');
+            if (t2p) t2p.style.width = Math.min(booksShared / 3 * 100, 100) + '%';
+            if (t2b) {
+                if (isMissionClaimed('share3')) {
+                    t2b.disabled = true; t2b.classList.add('claimed'); t2b.innerHTML = '<span class="mission-claim-text">✓</span>';
+                    const c = document.getElementById('missionShare3'); if (c) c.classList.add('completed');
+                } else if (booksShared >= 3) {
+                    t2b.disabled = false;
+                }
+            }
+            
+            // Bind ID
+            const bindId = localStorage.getItem('novelflow_bind_id');
+            const bindRow = document.getElementById('bindIdRow');
+            const tBb = document.getElementById('taskBindClaimBtn');
+            if (bindId) {
+                if (bindRow) bindRow.style.display = 'flex';
+                const input = document.getElementById('novelflowIdInput');
+                if (input) { input.value = bindId; input.disabled = true; }
+            } else {
+                if (bindRow) bindRow.style.display = 'flex';
+            }
+            if (tBb) {
+                if (isMissionClaimed('bindId')) {
+                    tBb.disabled = true; tBb.classList.add('claimed'); tBb.innerHTML = '<span class="mission-claim-text">✓</span>';
+                    const c = document.getElementById('missionBindId'); if (c) c.classList.add('completed');
+                } else if (bindId) {
+                    tBb.disabled = false;
+                }
+            }
+            
+            // Checkin button
+            const checkinBtn = document.getElementById('milestoneCheckinBtn');
+            if (checkinBtn) {
+                if (isCheckedInToday()) {
+                    checkinBtn.classList.add('done');
+                    checkinBtn.querySelector('.checkin-v2-btn-text').style.display = 'none';
+                    checkinBtn.querySelector('.checkin-v2-btn-done').style.display = 'inline';
+                }
+            }
+            
+            renderMilestoneTrack();
+            updatePointsDisplay();
         }
         
         function updateCheckinV2UI() {
-            const btn = document.getElementById('checkinBtnV2');
+            // Update milestone checkin button
+            const btn = document.getElementById('milestoneCheckinBtn');
             const btnText = btn?.querySelector('.checkin-v2-btn-text');
             const btnDone = btn?.querySelector('.checkin-v2-btn-done');
-            const streakDisplay = document.getElementById('streakDisplay');
-            
-            if (streakDisplay) {
-                streakDisplay.textContent = CheckinData.streak + ' days';
-            }
             
             if (btn && btnText && btnDone) {
                 if (isCheckedInToday()) {
@@ -3299,6 +3518,8 @@
                     btnDone.style.display = 'none';
                 }
             }
+            renderMilestoneTrack();
+            updateMissionsUI();
         }
         
         // Initialize v2 checkin UI on load
@@ -4986,6 +5207,31 @@ function renderMyBooks() {
                 recommend_btn: 'Recommend',
                 no_desc: 'No description available.',
                 no_books_cat: 'No books found for this category',
+                daily_missions: '🎯 Daily Missions',
+                pts: 'pts',
+                checkin_streak: '🔥 Check-in Streak',
+                check_in: 'Check In',
+                claimed: '✓ Claimed',
+                claim: 'Claim',
+                mission_share1: 'Share First Book',
+                mission_share3: 'Share 3 Books',
+                mission_bind: 'Bind NovelFlow ID',
+                mission_bind_desc: 'Open NovelFlow app → Profile → Copy ID',
+                bind_btn: 'Bind',
+                vip_exchange: '50 pts → 3 Days VIP',
+                vip_subtitle: 'Unlock premium novels & ad-free reading',
+                exchange: 'Exchange',
+                checkin_complete: 'Check-in Complete!',
+                milestone_7day: '7-Day Streak! 🏆',
+                milestone_7day_sub: 'You earned all streak rewards!',
+                milestone_streak: 'Streak Bonus!',
+                days_streak: 'days streak',
+                awesome: 'Awesome! 🎉',
+                toast_already_checkin: 'Already checked in today!',
+                toast_invalid_id: 'Please enter a valid NovelFlow ID',
+                toast_id_bound: 'NovelFlow ID bound successfully!',
+                toast_not_enough: 'Not enough points (need 50)',
+                toast_vip_activated: '🎉 VIP activated for 3 days!',
             },
             es: {
                 // App
@@ -5075,6 +5321,31 @@ function renderMyBooks() {
                 recommend_btn: 'Recomendar',
                 no_desc: 'Sin descripción disponible.',
                 no_books_cat: 'No se encontraron libros en esta categoría',
+                daily_missions: '🎯 Misiones Diarias',
+                pts: 'pts',
+                checkin_streak: '🔥 Racha de Check-in',
+                check_in: 'Check-in',
+                claimed: '✓ Reclamado',
+                claim: 'Reclamar',
+                mission_share1: 'Compartir Primer Libro',
+                mission_share3: 'Compartir 3 Libros',
+                mission_bind: 'Vincular ID NovelFlow',
+                mission_bind_desc: 'Abre la app NovelFlow → Perfil → Copiar ID',
+                bind_btn: 'Vincular',
+                vip_exchange: '50 pts → 3 Días VIP',
+                vip_subtitle: 'Desbloquea novelas premium y lectura sin anuncios',
+                exchange: 'Canjear',
+                checkin_complete: '¡Check-in Completado!',
+                milestone_7day: '¡Racha de 7 Días! 🏆',
+                milestone_7day_sub: '¡Ganaste todas las recompensas de racha!',
+                milestone_streak: '¡Bonus de Racha!',
+                days_streak: 'días de racha',
+                awesome: '¡Genial! 🎉',
+                toast_already_checkin: '¡Ya hiciste check-in hoy!',
+                toast_invalid_id: 'Ingresa un ID de NovelFlow válido',
+                toast_id_bound: '¡ID de NovelFlow vinculado exitosamente!',
+                toast_not_enough: 'Puntos insuficientes (necesitas 50)',
+                toast_vip_activated: '🎉 ¡VIP activado por 3 días!',
             }
         };
         
