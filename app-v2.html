@@ -2165,7 +2165,23 @@
         .reels-item-status { font-size: 11px; color: var(--ink-mute); }
         .reels-item-status.done { color: var(--success); }
         .reels-item-status.fail { color: var(--danger); }
-</style>
+
+        /* XMP filter buttons */
+        .xmp-filter-btn { padding:4px 10px; border-radius:12px; font-size:11px; font-weight:500; border:1px solid var(--hairline); background:white; color:var(--ink-mute); cursor:pointer; font-family:inherit; }
+        .xmp-filter-btn.active { background:var(--ruby); color:white; border-color:var(--ruby); }
+        /* XMP asset card */
+        .xmp-asset-card { display:flex; gap:10px; padding:10px; border:1px solid var(--hairline); border-radius:10px; margin-bottom:8px; background:white; }
+        .xmp-asset-card:hover { border-color:var(--ruby); }
+        .xmp-asset-thumb { width:60px; height:80px; border-radius:6px; object-fit:cover; background:var(--canvas-soft); flex-shrink:0; }
+        .xmp-asset-info { flex:1; min-width:0; }
+        .xmp-asset-name { font-size:13px; font-weight:500; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .xmp-asset-meta { font-size:11px; color:var(--ink-mute); margin-top:2px; }
+        .xmp-asset-type { display:inline-block; padding:1px 6px; border-radius:4px; font-size:10px; font-weight:600; margin-top:4px; }
+        .xmp-asset-type.video { background:#EDE9FE; color:#7C3AED; }
+        .xmp-asset-type.image { background:#DBEAFE; color:#2563EB; }
+        .xmp-asset-dl { font-size:11px; color:var(--ruby); text-decoration:none; font-weight:500; margin-top:4px; display:inline-block; }
+
+    </style>
 
 <!-- VERSION: 20260518-204300 --></head>
 <body><!-- VERSION: 20260518-2108 -->
@@ -2316,18 +2332,43 @@
             <!-- AC Reels Creator -->
             <div class="reels-section" id="reelsSection">
                 <div class="reels-header">
-                    <span class="reels-header-title">🎬 Create Reels</span>
+                    <span class="reels-header-title">🎬 Video Creator</span>
                     <span style="font-size:11px;color:var(--ink-mute);" id="reelsDailyInfo">3 left today</span>
                 </div>
-                <div style="padding:0 16px 8px;">
-                    <input type="text" class="reels-token-input" id="reelBookSearch" placeholder="Search book name to create reels..." style="width:calc(100% - 24px);padding:10px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;" oninput="searchReelBooks(this.value)">
-                    <div id="reelBookResults" style="max-height:150px;overflow-y:auto;"></div>
+                <!-- Mode Tabs -->
+                <div style="display:flex;gap:0;padding:0 16px 8px;">
+                    <button id="reelModeAI" onclick="switchReelMode('ai')" style="flex:1;padding:8px;border:1px solid var(--hairline);border-radius:8px 0 0 8px;font-size:12px;font-weight:600;background:linear-gradient(135deg,#FF6B9D,#C084FC);color:white;border:none;cursor:pointer;font-family:inherit;">🤖 AI Generate</button>
+                    <button id="reelModeXMP" onclick="switchReelMode('xmp')" style="flex:1;padding:8px;border:1px solid var(--hairline);border-radius:0 8px 8px 0;font-size:12px;font-weight:600;background:white;color:var(--ink);cursor:pointer;font-family:inherit;">📦 Asset Library</button>
                 </div>
-                <div class="reels-actions">
-                    <button class="reels-btn reels-btn-create" id="reelsCreateBtn" onclick="createReelFromSection()" disabled>Create Reel</button>
-                    <button class="reels-btn reels-btn-list" onclick="listMyReels()">My Reels</button>
+
+                <!-- AI Mode -->
+                <div id="reelAIMode">
+                    <div style="padding:0 16px 8px;">
+                        <input type="text" class="reels-token-input" id="reelBookSearch" placeholder="Search book name to create reels..." style="width:calc(100% - 24px);padding:10px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;" oninput="searchReelBooks(this.value)">
+                        <div id="reelBookResults" style="max-height:150px;overflow-y:auto;"></div>
+                    </div>
+                    <div class="reels-actions">
+                        <button class="reels-btn reels-btn-create" id="reelsCreateBtn" onclick="createReelFromSection()" disabled>Create Reel</button>
+                        <button class="reels-btn reels-btn-list" onclick="listMyReels()">My Reels</button>
+                    </div>
+                    <div class="reels-list" id="reelsList"></div>
                 </div>
-                <div class="reels-list" id="reelsList"></div>
+
+                <!-- XMP Asset Library Mode -->
+                <div id="reelXMPMode" style="display:none;">
+                    <div style="padding:0 16px 8px;">
+                        <input type="text" id="xmpSearchInput" placeholder="Search assets by name or tag..." style="width:calc(100% - 24px);padding:10px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;" oninput="debounceXMPSearch(this.value)">
+                        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+                            <button class="xmp-filter-btn active" data-type="" onclick="filterXMPType(this,'')">All</button>
+                            <button class="xmp-filter-btn" data-type="video" onclick="filterXMPType(this,'video')">Video</button>
+                            <button class="xmp-filter-btn" data-type="image" onclick="filterXMPType(this,'image')">Image</button>
+                        </div>
+                    </div>
+                    <div id="xmpResults" style="padding:0 16px;max-height:300px;overflow-y:auto;"></div>
+                    <div style="padding:8px 16px;">
+                        <button class="reels-btn reels-btn-list" onclick="loadXMPMaterials()" style="width:100%;">🔄 Refresh Assets</button>
+                    </div>
+                </div>
             </div>
 
             <div class="submit-container" id="submitContainer">
@@ -3390,11 +3431,13 @@
 
                 const result = await response.json();
 
-                // STRICT CHECK: must have success=true AND real code (numeric) AND real link
-                if (result.success && result.code && result.link && (typeof result.code === 'number' || (typeof result.code === 'string' && /^[0-9]+$/.test(result.code)))) {
+                // Check: code must exist (link is optional - fallback to book page URL)
+                const hasValidCode2 = result.code && (typeof result.code === 'number' || (typeof result.code === 'string' && /^[0-9]+$/.test(result.code)));
+                const linkUrl2 = result.link || ('https://novelflow.app/book/' + currentRecommendBook.bookId);
+                if (result.success && hasValidCode2) {
                     // REAL data from API - code is always a number from bookstore
                     currentRecommendBook.code = String(result.code);
-                    currentRecommendBook.link = result.link;
+                    currentRecommendBook.link = linkUrl2;
                     currentRecommendBook.status = 'completed';
                     currentRecommendBook.submissionId = result.submissionId;
                     currentRecommendBook.createdAt = Date.now();
@@ -3659,15 +3702,17 @@
 
                 const result = await response.json();
 
-                // STRICT CHECK: must have success=true AND numeric code AND real link
-                if (result.success && result.code && result.link && (typeof result.code === 'number' || /^[0-9]+$/.test(String(result.code)))) {
+                // Check: code must exist (link is optional - fallback to book page URL)
+                const hasValidCode = result.code && (typeof result.code === 'number' || /^[0-9]+$/.test(String(result.code)));
+                const linkUrl = result.link || ('https://novelflow.app/book/' + book.bookId);
+                if (result.success && hasValidCode) {
                     await updateStep(3, 'done');
                     await updateStep(4, 'done');
 
                     const newBook = {
                         ...book,
                         code: String(result.code),
-                        link: result.link,
+                        link: linkUrl,
                         discordUsername: discordUsername,
                         createdAt: Date.now(),
                         submissionId: result.submissionId,
@@ -3688,7 +3733,7 @@
                     // Auto-navigate to profile after a delay
                     setTimeout(() => { switchTab('profile'); }, 2000);
 
-                    navigator.clipboard.writeText(result.link).then(function() {
+                    navigator.clipboard.writeText(linkUrl).then(function() {
                         showToast('Link copied to clipboard!', 'success');
                     });
                 } else {
@@ -4404,6 +4449,81 @@ function renderMyBooks() {
         const REELS_DAILY_LIMIT = 3;
 
         let reelSelectedBook = null;
+
+
+        // ========== Reel Mode Switching ==========
+        let currentReelMode = 'ai';
+        function switchReelMode(mode) {
+            currentReelMode = mode;
+            const aiBtn = document.getElementById('reelModeAI');
+            const xmpBtn = document.getElementById('reelModeXMP');
+            const aiPanel = document.getElementById('reelAIMode');
+            const xmpPanel = document.getElementById('reelXMPMode');
+            if (mode === 'ai') {
+                aiBtn.style.background = 'linear-gradient(135deg,#FF6B9D,#C084FC)';
+                aiBtn.style.color = 'white';
+                xmpBtn.style.background = 'white';
+                xmpBtn.style.color = 'var(--ink)';
+                aiPanel.style.display = '';
+                xmpPanel.style.display = 'none';
+            } else {
+                xmpBtn.style.background = 'linear-gradient(135deg,#FF6B9D,#C084FC)';
+                xmpBtn.style.color = 'white';
+                aiBtn.style.background = 'white';
+                aiBtn.style.color = 'var(--ink)';
+                aiPanel.style.display = 'none';
+                xmpPanel.style.display = '';
+                if (!xmpPanel.dataset.loaded) { loadXMPMaterials(); xmpPanel.dataset.loaded = '1'; }
+            }
+        }
+
+        // ========== XMP Asset Library ==========
+        let xmpCurrentType = '';
+        let xmpDebounceTimer = null;
+        function debounceXMPSearch(val) {
+            clearTimeout(xmpDebounceTimer);
+            xmpDebounceTimer = setTimeout(() => loadXMPMaterials(val), 400);
+        }
+        function filterXMPType(btn, type) {
+            document.querySelectorAll('.xmp-filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            xmpCurrentType = type;
+            loadXMPMaterials(document.getElementById('xmpSearchInput')?.value || '');
+        }
+
+        async function loadXMPMaterials(keyword) {
+            const container = document.getElementById('xmpResults');
+            container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--ink-mute);font-size:13px;">Loading assets...</div>';
+            try {
+                let url = '/api/xmp-materials?action=list&page_size=20';
+                if (keyword) url += '&keyword=' + encodeURIComponent(keyword);
+                if (xmpCurrentType) url += '&material_type=' + encodeURIComponent(xmpCurrentType);
+                const resp = await fetch(url);
+                const result = await resp.json();
+                if (result.success && result.data && result.data.length > 0) {
+                    container.innerHTML = result.data.map(m => {
+                        const isVideo = m.material_type === 'video';
+                        const thumb = m.url || m.file_url || '';
+                        const duration = isVideo && m.duration ? m.duration.toFixed(1) + 's' : '';
+                        const size = m.width && m.height ? m.width + 'x' + m.height : '';
+                        const tags = Array.isArray(m.tag) ? m.tag.map(t => t.name || '').filter(Boolean).join(', ') : '';
+                        return '<div class="xmp-asset-card">' +
+                            (thumb ? '<img class="xmp-asset-thumb" src="' + thumb + '" onerror="this.style.display=\'none\'">' : '<div class="xmp-asset-thumb" style="display:flex;align-items:center;justify-content:center;font-size:20px;">' + (isVideo ? '🎬' : '🖼') + '</div>') +
+                            '<div class="xmp-asset-info">' +
+                            '<div class="xmp-asset-name">' + (m.material_name || 'Untitled') + '</div>' +
+                            '<div class="xmp-asset-meta">' + [duration, size, m.folder_name || ''].filter(Boolean).join(' · ') + '</div>' +
+                            (tags ? '<div class="xmp-asset-meta">' + tags + '</div>' : '') +
+                            '<span class="xmp-asset-type ' + (isVideo ? 'video' : 'image') + '">' + (isVideo ? 'Video' : 'Image') + '</span>' +
+                            (m.file_url ? ' <a class="xmp-asset-dl" href="' + m.file_url + '" target="_blank" download>Download</a>' : '') +
+                            '</div></div>';
+                    }).join('');
+                } else {
+                    container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--ink-mute);font-size:13px;">No assets found</div>';
+                }
+            } catch(e) {
+                container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--danger);font-size:13px;">Failed to load assets</div>';
+            }
+        }
 
         // Search books for reels section
         async function searchReelBooks(query) {

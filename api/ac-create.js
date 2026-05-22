@@ -30,10 +30,15 @@ module.exports = async (req, res) => {
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Use server-stored AC token from env var
-  const token = process.env.AC_TOKEN || req.headers['x-ac-token'] ||
+  // Use server-stored AC token: KV first → env var → header
+  let token = null;
+  try {
+    const kv = require('@vercel/kv');
+    token = await kv.get('ac_token');
+  } catch(e) {}
+  if (!token) token = process.env.AC_TOKEN || req.headers['x-ac-token'] ||
     (req.headers['authorization'] && req.headers['authorization'].replace('Bearer ', ''));
-  if (!token) return res.status(401).json({ error: 'AC Token not configured on server' });
+  if (!token) return res.status(401).json({ error: 'AC Token not configured. Set via /api/ac-kv' });
 
   const body = req.body || {};
   if (!body.book_id) return res.status(400).json({ error: 'book_id required' });
@@ -76,6 +81,15 @@ module.exports = async (req, res) => {
     });
     const newToken = r.headers.get('accesstoken') || null;
     const data = await r.json().catch(() => null);
+
+    // Auto-rotate: save new token to KV for next request
+    if (newToken) {
+      try {
+        const kv = require('@vercel/kv');
+        await kv.set('ac_token', newToken);
+        console.log('AC token rotated in KV');
+      } catch(e) { console.warn('KV save failed:', e.message); }
+    }
 
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('x-ac-token', newToken || '');
