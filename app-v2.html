@@ -3112,7 +3112,7 @@
 
                 return `
                     <div class="book-item" onclick="openRecommendModal('${escapeHtml(book.bookId)}')"><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
-                        <img class="book-item-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.src='https://via.placeholder.com/68x92/f6f9fc/64748d?text=N'">
+                        <img class="book-item-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjgiIGhlaWdodD0iOTIiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY4IiBoZWlnaHQ9IjkyIiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMzQiIHk9IjUwIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
                         <div class="book-item-content">
                             <div class="book-item-title">${escapeHtml(book.title)}</div>
                             <div class="book-item-rating">
@@ -3141,7 +3141,7 @@
 
                 return `
                     <div class="book-scroll-card" style="position:relative" onclick="openRecommendModal('${escapeHtml(book.bookId)}')"><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
-                        <img class="book-scroll-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.src='https://via.placeholder.com/136x176/f6f9fc/64748d?text=N'">
+                        <img class="book-scroll-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTM2IiBoZWlnaHQ9IjE3NiIgZmlsbD0iI2Y2ZjlmYyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTM2IiBoZWlnaHQ9IjE3NiIgZmlsbD0iI2Y2ZjlmYyIvPjx0ZXh0IHg9IjY4IiB5PSI5MCIgZm9udC1zaXplPSIzMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk0YTNiOCI+8J+OpfCDgvY8L3RleHQ+PC9zdmc+'">
                         <div class="book-scroll-info">
                             <div class="book-scroll-card-title">${escapeHtml(book.title)}</div>
                             <div class="book-scroll-rating">${ratingVal ? stars + ' ' + ratingVal.toFixed(1) : '<span class="new-badge">New</span>'}</div>
@@ -3169,7 +3169,7 @@
                 return `
                     <div class="rank-item" onclick="openRecommendModal('${escapeHtml(book.bookId)}')">
                         <div class="rank-num ${numClass}">${i + 1}</div>
-                        <img class="rank-cover" src="${escapeHtml(book.cover)}" alt="" onerror="this.src='https://via.placeholder.com/34x46/f6f9fc/64748d?text=N'">
+                        <img class="rank-cover" src="${escapeHtml(book.cover)}" alt="" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzQiIGhlaWdodD0iNDYiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjM0IiBoZWlnaHQ9IjQ2IiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMTciIHk9IjI4IiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
                         <div class="rank-info">
                             <div class="rank-title">${escapeHtml(book.title)}</div>
                             <div class="rank-meta">${book.languageCode === 'es' ? 'Espanol' : 'English'}</div>
@@ -4077,7 +4077,7 @@
                     ${candidates.map((book, i) => `
                         <div class="candidate-card" onclick="selectCandidateAndCreate(${i}, '${discordUsername.replace(/'/g, "\\'")}')" style="cursor: pointer;">
                             <div class="candidate-rank ${i === 0 ? 'best' : ''}">${i + 1}</div>
-                            <img class="candidate-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/68x92/f6f9fc/64748d?text=N'">
+                            <img class="candidate-cover" src="${book.cover}" alt="${book.title}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjgiIGhlaWdodD0iOTIiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY4IiBoZWlnaHQ9IjkyIiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMzQiIHk9IjUwIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
                             <div class="candidate-info">
                                 <div class="candidate-title">${book.title}</div>
                                 <div class="candidate-author">${book.author || 'Unknown Author'}</div>
@@ -4511,7 +4511,7 @@ function renderMyBooks() {
                 return `
                     <div class="my-book-expanded-item">
                         <div class="my-book-expanded-header">
-                            <img class="my-book-expanded-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/48x64/f6f9fc/64748d?text=N'">
+                            <img class="my-book-expanded-cover" src="${book.cover}" alt="${book.title}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNjQiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMjQiIHk9IjM4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
                             <div class="my-book-expanded-info">
                                 <div class="my-book-expanded-title">${book.title}</div>
                                 ${isPending ? `
