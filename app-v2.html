@@ -3346,40 +3346,35 @@
             const loadingEl = document.getElementById('homeLoading');
             const bookLang = AppState.currentLang || 'en';
 
-            // Strategy: Try trending API first, then fall back to books/search (featured-books.json)
+            // Strategy: 4-tier fallback for maximum reliability
             let booksLoaded = false;
+            const mapBook = book => ({
+                bookId: book.bookId || book.id || '',
+                title: book.title || 'Untitled',
+                cover: book.cover || book.coverImage || '',
+                description: book.description || '',
+                rating: book.rating || book.star || 4.5,
+                tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
+                author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
+                languageCode: book.languageCode || 'en',
+                bookClassName: book.bookClassName || ''
+            });
 
-            // Try 1: Trending API
+            // Try 1: Trending API with language
             try {
                 const response = await Promise.race([
-                    fetch('/api/trending-books?mode=trending&lang=' + bookLang + '&limit=30', {
-                        method: 'GET',
-                        headers: { 'Content-Type': 'application/json' }
-                    }),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+                    fetch('/api/trending-books?mode=trending&lang=' + bookLang + '&limit=30'),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
                 ]);
-
                 if (response.ok) {
                     const result = await response.json();
                     if (result.success && Array.isArray(result.data) && result.data.length > 0) {
-                        AppState.books = result.data.map(book => ({
-                            bookId: book.bookId || book.id || '',
-                            title: book.title || 'Untitled',
-                            cover: book.cover || book.coverImage || '',
-                            description: book.description || '',
-                            rating: book.rating || book.star || 4.5,
-                            tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
-                            author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
-                            languageCode: book.languageCode || 'en',
-                            bookClassName: book.bookClassName || ''
-                        }));
-                        console.log('Loaded ' + AppState.books.length + ' books from trending API');
+                        AppState.books = result.data.map(mapBook);
+                        console.log('✅ Loaded ' + AppState.books.length + ' books from trending API (lang=' + bookLang + ')');
                         booksLoaded = true;
                     }
                 }
-            } catch (e) {
-                console.warn('Trending API failed:', e.message);
-            }
+            } catch (e) { console.warn('Trending API (lang) failed:', e.message); }
 
             // Try 2: Trending API without lang filter
             if (!booksLoaded) {
@@ -3387,37 +3382,54 @@
                     const resp2 = await fetch('/api/trending-books?mode=trending&limit=30');
                     const result2 = await resp2.json();
                     if (result2.success && Array.isArray(result2.data) && result2.data.length > 0) {
-                        AppState.books = result2.data.map(book => ({
-                            bookId: book.bookId || book.id || '',
-                            title: book.title || 'Untitled',
-                            cover: book.cover || book.coverImage || '',
-                            description: book.description || '',
-                            rating: book.rating || book.star || 4.5,
-                            tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
-                            author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
-                            languageCode: book.languageCode || 'en',
-                            bookClassName: book.bookClassName || ''
-                        }));
-                        console.log('Loaded ' + AppState.books.length + ' books (no lang filter)');
+                        AppState.books = result2.data.map(mapBook);
+                        console.log('✅ Loaded ' + AppState.books.length + ' books (no lang filter)');
                         booksLoaded = true;
                     }
-                } catch(e2) { console.warn('No-lang fallback failed:', e2.message); }
+                } catch(e2) { console.warn('Trending API (no lang) failed:', e2.message); }
             }
 
-            // Try 3: Featured books (books/search with no keyword = featured list)
+            // Try 3: books/search API (returns featured-books.json data)
             if (!booksLoaded) {
                 try {
                     const resp3 = await fetch('/api/books/search?lang=' + bookLang);
                     const result3 = await resp3.json();
-                    if (result3.success && Array.isArray(result3.books) && result3.books.length > 0) {
-                        AppState.books = result3.books;
-                        console.log('Loaded ' + AppState.books.length + ' books from featured-books.json');
+                    if (result3.success && Array.isArray(result3.data) && result3.data.length > 0) {
+                        AppState.books = result3.data.map(mapBook);
+                        console.log('✅ Loaded ' + AppState.books.length + ' books from books/search');
                         booksLoaded = true;
                     }
-                } catch(e3) { console.warn('Featured books fallback failed:', e3.message); }
+                } catch(e3) { console.warn('books/search failed:', e3.message); }
             }
 
-            // Show all books
+            // Try 4: Direct static featured-books.json (no API dependency)
+            if (!booksLoaded) {
+                try {
+                    const resp4 = await fetch('/featured-books.json');
+                    const result4 = await resp4.json();
+                    const allBooks = (result4.recommended || []).concat(
+                        ...Object.values(result4.categories || {})
+                    );
+                    // Deduplicate by bookId
+                    const seen = new Set();
+                    const uniqueBooks = allBooks.filter(b => {
+                        if (seen.has(b.bookId)) return false;
+                        seen.add(b.bookId);
+                        return true;
+                    });
+                    if (uniqueBooks.length > 0) {
+                        AppState.books = uniqueBooks.map(mapBook);
+                        console.log('✅ Loaded ' + AppState.books.length + ' books from static featured-books.json');
+                        booksLoaded = true;
+                    }
+                } catch(e4) { console.warn('Static featured-books.json failed:', e4.message); }
+            }
+
+            if (!booksLoaded) {
+                console.error('❌ All book loading strategies failed!');
+                AppState.books = [];
+            }
+
             AppState.filteredBooks = AppState.books;
             hideLoadingAndShowContent();
             renderBookList();
@@ -3880,9 +3892,22 @@
             addUserPoints(-50);
             // Track VIP days
             const vipDays = parseInt(localStorage.getItem('novelflow_vip_days') || '0');
-            localStorage.setItem('novelflow_vip_days', vipDays + 3);
+            const newVipDays = vipDays + 3;
+            localStorage.setItem('novelflow_vip_days', newVipDays);
+            // Show VIP-specific popup
+            const overlay = document.createElement('div');
+            overlay.className = 'milestone-overlay';
+            overlay.onclick = () => overlay.remove();
+            overlay.innerHTML = '<div class="milestone-popup">' +
+                '<div class="milestone-popup-icon">👑</div>' +
+                '<div class="milestone-popup-title">VIP Activated!</div>' +
+                '<div class="milestone-popup-points" style="color:#FFD700;">3 Days VIP Access</div>' +
+                '<div class="milestone-popup-sub">Total VIP: ' + newVipDays + ' days</div>' +
+                '<button class="milestone-popup-btn" onclick="this.closest(\'.milestone-overlay\').remove()">Enjoy Reading!</button>' +
+                '</div>';
+            document.body.appendChild(overlay);
             showToast(getText('toast_vip_activated'), 'success');
-            showMilestoneCelebration(0, 0);
+            updateStats();
         }
 
         // ========== Update Missions UI ==========
