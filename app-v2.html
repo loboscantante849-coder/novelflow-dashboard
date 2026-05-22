@@ -3166,7 +3166,6 @@
         // Initialize v2 checkin UI on load
         document.addEventListener('DOMContentLoaded', () => {
             setTimeout(updateCheckinV2UI, 100);
-            renderLeaderboardMini();
         });
 
         // ========== Generate Recommend Text ==========
@@ -4360,15 +4359,9 @@ function renderMyBooks() {
             });
             // Update v2 checkin UI when switching to tasks tab
             updateCheckinV2UI();
-            renderLeaderboardMini();
         });
         
-        // ========== Render Leaderboard Mini ==========
-        document.getElementById('perfIncome').textContent = '$0';
-                document.getElementById('perfTier').textContent = '40%';
-                document.getElementById('perfUpdated').textContent = 'Data unavailable';
-            }
-        }
+        // ========== Render Leaderboard Mini ========== (removed)
 
         // ========== AC Reels - Real API ==========
         function saveACToken(token) {
@@ -4493,8 +4486,7 @@ function renderMyBooks() {
                 setTimeout(() => {
                     updateCheckinV2UI();
                     updateShareTasksProgress();
-                    renderLeaderboardMini();
-                }, 50);
+                        }, 50);
             }
         };
     </script>
