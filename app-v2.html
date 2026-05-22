@@ -824,6 +824,9 @@
         .lang-switch-btn.active {
             background: var(--ruby); color: white;
         }
+        /* Only show lang switch on profile tab */
+        .lang-switch { display: none; }
+        body.profile-active .lang-switch { display: flex; }
 
 /* Pink Create AI box on success page */
         .success-ai-box {
@@ -2048,6 +2051,7 @@
             overflow-y: auto; 
             flex: 1;
             max-height: calc(90vh - 60px);
+            -webkit-overflow-scrolling: touch;
         }
 
         .modal-book-cover {
@@ -2312,8 +2316,44 @@
         .book-item-cover { width: 60px; height: 80px; }
         .reels-item { padding: 8px; }
         .reels-action-btn { padding: 6px 10px; font-size: 11px; }
-        .modal { max-width: 100%; margin: 0 8px; max-height: 95vh; }
+        .modal { max-width: 100%; margin: 0; border-radius: 20px 20px 0 0; max-height: 92vh; }
+        .modal-body { padding: 12px 16px; }
+        .modal-book-cover { width: 80px; height: 110px; }
+        .modal-reel-btn { padding: 10px !important; font-size: 13px !important; }
+        .modal-result { padding: 12px; }
+        .modal-result-value { font-size: 11px; word-break: break-all; }
+        .modal-recommend-text { max-height: 120px; font-size: 12px; }
         .milestone-popup { max-width: 260px; padding: 24px 16px; }
+        /* Fix reels section mobile */
+        .reels-header { padding: 10px 12px; }
+        .reels-actions { flex-direction: column; gap: 6px; padding: 0 12px; }
+        .reels-btn { width: 100%; }
+        .reels-item { padding: 8px 10px; gap: 8px; }
+        .reels-item-title { font-size: 12px; }
+        /* Fix submit header */
+        .submit-title { font-size: 20px; }
+        .submit-subtitle { font-size: 12px; }
+        /* Fix profile cards mobile */
+        .stats-overview { flex-direction: column; gap: 8px; }
+        .profile-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+        /* Fix book list items */
+        .book-item { padding: 8px; gap: 8px; }
+        .book-item-desc { font-size: 11px; max-height: 36px; }
+        .book-item-btn { font-size: 11px; padding: 5px 10px; }
+        /* Fix trending/scroll */
+        .trending-section { padding: 8px 0; }
+        /* Fix home search */
+        #homeBookSearch { width: 140px !important; font-size: 11px; }
+        /* Fix earn tabs */
+        .earn-tabs { gap: 4px; }
+        .earn-tab { font-size: 11px; padding: 5px 10px; }
+        /* Fix rank items */
+        .rank-item { padding: 8px 10px; }
+        .rank-item-cover { width: 40px; height: 54px; }
+        /* Nav spacing */
+        .nav-item { padding: 6px 0; }
+        .nav-label { font-size: 10px; }
+    }
         /* Better touch targets */
         .nav-item { min-height: 52px; }
         .btn-submit { min-height: 44px; }
@@ -3047,6 +3087,8 @@
             document.getElementById('tab-' + tabName)?.classList.add('active');
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             document.querySelector(`.nav-item[data-tab="${tabName}"]`)?.classList.add('active');
+            // Only show language switch on profile tab
+            document.body.classList.toggle('profile-active', tabName === 'profile');
         }
         document.querySelectorAll('.nav-item').forEach(el => el.addEventListener('click', () => switchTab(el.dataset.tab)));
 
@@ -3539,7 +3581,7 @@
                             <div class="book-item-tags">${tags}</div>
                             <div class="book-item-desc">${escapeHtml(book.description) || 'No description available.'}</div>
                             <div class="book-item-action">
-                                <button class="book-item-btn" onclick="event.stopPropagation(); openRecommendModal('${escapeHtml(book.bookId)}')">' + getText('recommend_btn') + '</button>
+                                <button class="book-item-btn" onclick="event.stopPropagation(); openRecommendModal('${escapeHtml(book.bookId)}')">${getText('recommend_btn')}</button>
                             </div>
                         </div>
                     </div>
@@ -4331,8 +4373,6 @@
                     btn.disabled = false;
                     btn.textContent = '✓ Created!';
                     showResultInModal(currentRecommendBook);
-                    // Auto-navigate to profile to show the new book in My Book List
-                    setTimeout(() => { switchTab('profile'); }, 500);
                 } else {
                     // API failed or returned no real data - show error, NEVER fake data
                     if (modalLoading) modalLoading.style.display = 'none';
@@ -4607,8 +4647,7 @@
                     processingStatus.classList.remove('show');
                     showSuccessPage(newBook);
 
-                    // Auto-navigate to profile after a delay
-                    setTimeout(() => { switchTab('profile'); }, 2000);
+                    // Stay on current tab after link creation
 
                     navigator.clipboard.writeText(linkUrl).then(function() {
                         showToast('Link copied to clipboard!', 'success');
@@ -5330,12 +5369,15 @@ function renderMyBooks() {
                 const result = await resp.json();
                 if (result.newToken) saveACToken(result.newToken);
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
-                if (!result.success || items.length === 0) {
+                // Filter: only show reels created by this user
+                const myReelIds = JSON.parse(localStorage.getItem('novelflow_my_reel_ids') || '[]');
+                const filteredItems = myReelIds.length > 0 ? items.filter(item => myReelIds.includes(String(item.id || item.task_id || ''))) : items;
+                if (!result.success || filteredItems.length === 0) {
                     el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;">' + getText('no_reels') + '</div>';
                     return;
                 }
                 // Fetch results for completed items
-                const enriched = await Promise.all(items.slice(0, 5).map(async (item) => {
+                const enriched = await Promise.all(filteredItems.slice(0, 5).map(async (item) => {
                     const status = item.status || '';
                     const isDone = (status === 'completed' || status === 2 || status === 'done');
                     let videoUrl = '', coverUrl = '';
@@ -5786,6 +5828,9 @@ function renderMyBooks() {
                     const taskData = result.data?.data || result.data || {};
                     const taskId = taskData.id || taskData.task_id || '';
                     const taskName = taskData.title || reelSelectedBook?.title || 'Your reel';
+                    // Save this reel's task ID to user's reel list
+                    const myReelIds = JSON.parse(localStorage.getItem('novelflow_my_reel_ids') || '[]');
+                    if (taskId && !myReelIds.includes(taskId)) { myReelIds.push(taskId); localStorage.setItem('novelflow_my_reel_ids', JSON.stringify(myReelIds)); }
                     showToast('🎬 Reel created for "' + taskName + '"! Video generates in ~25 min. Check My Reels for progress.', 'success');
                     // Show creation progress card in reels section
                     const reelsList = document.getElementById('reelsList');
@@ -5851,10 +5896,13 @@ function renderMyBooks() {
                 const result = await resp.json();
                 if (result.newToken) { saveACToken(result.newToken); }
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
-                if (result.success && items.length > 0) {
+                // Filter: only show reels created by this user (tracked by task IDs in localStorage)
+                const myReelIds = JSON.parse(localStorage.getItem('novelflow_my_reel_ids') || '[]');
+                const filteredItems = myReelIds.length > 0 ? items.filter(item => myReelIds.includes(String(item.id || item.task_id || ''))) : items;
+                if (result.success && filteredItems.length > 0) {
                     let hasProcessing = false;
                     // For completed items, fetch their results to get video URLs
-                    const enrichedItems = await Promise.all(items.slice(0, 5).map(async (item) => {
+                    const enrichedItems = await Promise.all(filteredItems.slice(0, 5).map(async (item) => {
                         const status = item.status || '';
                         const isDone = (status === 'completed' || status === 2 || status === 'done');
                         const isFail = (status === 'failed' || status === -1 || status === 'fail');
@@ -5906,10 +5954,10 @@ function renderMyBooks() {
                         if (item.isDone) {
                             actionsHtml = '<div class="reels-item-actions">';
                             if (item.videoUrl) {
-                                actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + item.videoUrl + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();"' + getText('save_video') + '</a>';
+                                actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + item.videoUrl + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">' + getText('save_video') + '</a>';
                             }
                             if (item.creativeText) {
-                                actionsHtml += '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)"' + getText('copy_text') + '</button>';
+                                actionsHtml += '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)">' + getText('copy_text') + '</button>';
                             }
                             actionsHtml += '</div>';
                         }
