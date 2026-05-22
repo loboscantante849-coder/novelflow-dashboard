@@ -2569,9 +2569,9 @@
                             <div style="margin-bottom:8px;">
                                 <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:4px;">🎬 Video Style</div>
                                 <select id="reelTemplate" style="width:100%;padding:8px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;background:white;">
-                                    <option value="Ad_Plot_Video_V3"><span data-i18n="tmpl_story">📖 Story Slideshow (Video + Images)</span></option>
-                                    <option value="PPT_Porn"><span data-i18n="tmpl_spicy">🔥 Spicy &amp; Steamy</span></option>
-                                    <option value="Ad_Plot_Video_V2"><span data-i18n="tmpl_sora">🎥 Story Sora (AI Cinematic)</span></option>
+                                    <option value="Ad_Plot_Video_V3">📖 Story Slideshow (Video + Images)</option>
+                                    <option value="PPT_Porn">🔥 Spicy &amp; Steamy</option>
+                                    <option value="Ad_Plot_Video_V2">🎥 Story Sora (AI Cinematic)</option>
                                 </select>
                             </div>
                             <div style="font-size:11px;color:var(--ink-mute);padding:4px 0;">⏱ Video generation takes ~25 minutes. Check My Reels for progress.</div>
@@ -3748,6 +3748,7 @@
 
         function renderCheckinCalendar() {
             const calendar = document.getElementById('checkinCalendar');
+            if (!calendar) return; // Guard: element only exists on Tasks tab
             const today = new Date();
             const todayStr = getToday();
             
