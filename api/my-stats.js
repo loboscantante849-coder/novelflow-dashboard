@@ -145,6 +145,12 @@ module.exports = async (req, res) => {
       };
     });
 
+    // Include daily breakdown for charts
+    const visits_daily = userData?.link_visits_daily || {};
+    const unique_daily = userData?.link_unique_daily || {};
+    const new_users_daily = userData?.new_users_daily || {};
+    const income_daily = userData?.d14income_daily || {};
+
     return res.status(200).json({
       username,
       total_visits: totalVisits,
@@ -152,6 +158,10 @@ module.exports = async (req, res) => {
       total_new: totalNew,
       total_income: Math.round(totalIncome * 100) / 100,
       last_updated: userData?.last_updated || null,
+      visits_daily,
+      unique_daily,
+      new_users_daily,
+      income_daily,
       books
     });
 

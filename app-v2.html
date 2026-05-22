@@ -2459,35 +2459,53 @@
                 <div id="perfData" style="display:none;">
                     <div class="perf-header">
                         <div class="perf-header-left">
-                            <span class="perf-header-icon">💰</span>
-                            <span class="perf-header-title" data-i18n="perf_premium_title">💰 Share Books, Earn Money</span>
+                            <span class="perf-header-icon">📊</span>
+                            <span class="perf-header-title" data-i18n="perf_dashboard_title">Performance Dashboard</span>
                         </div>
-                        <button class="perf-login-btn" onclick="switchTab('submit')" style="font-size:12px;padding:6px 16px;" data-i18n="start_earning_btn">Start Earning →</button>
+                        <button class="perf-login-btn" onclick="switchTab('submit')" style="font-size:11px;padding:5px 14px;" data-i18n="start_earning_btn">Start Earning →</button>
                     </div>
                     <div class="perf-grid">
                         <div class="perf-stat">
-                            <div class="perf-stat-value" id="perfVisits">0</div>
-                            <div class="perf-stat-label">Visits</div>
+                            <div class="perf-stat-value" id="perfIncome">$0</div>
+                            <div class="perf-stat-label" data-i18n="perf_label_income">Income</div>
+                            <div class="perf-stat-change flat" id="perfIncomeChange">—</div>
                         </div>
                         <div class="perf-stat">
                             <div class="perf-stat-value" id="perfUnique">0</div>
-                            <div class="perf-stat-label">Unique</div>
-                        </div>
-                        <div class="perf-stat">
-                            <div class="perf-stat-value" id="perfIncome">$0</div>
-                            <div class="perf-stat-label">Income</div>
-                        </div>
-                        <div class="perf-stat">
-                            <div class="perf-stat-value" id="perfBooks">0</div>
-                            <div class="perf-stat-label">Books</div>
+                            <div class="perf-stat-label" data-i18n="perf_label_unique">Unique</div>
+                            <div class="perf-stat-change flat" id="perfUniqueChange">—</div>
                         </div>
                         <div class="perf-stat">
                             <div class="perf-stat-value" id="perfNewUsers">0</div>
-                            <div class="perf-stat-label">New Users</div>
+                            <div class="perf-stat-label" data-i18n="perf_label_new">New Users</div>
+                            <div class="perf-stat-change flat" id="perfNewChange">—</div>
+                        </div>
+                        <div class="perf-stat">
+                            <div class="perf-stat-value" id="perfVisits">0</div>
+                            <div class="perf-stat-label" data-i18n="perf_label_visits">Visits</div>
+                            <div class="perf-stat-change flat" id="perfVisitsChange">—</div>
+                        </div>
+                        <div class="perf-stat">
+                            <div class="perf-stat-value" id="perfBooks">0</div>
+                            <div class="perf-stat-label" data-i18n="perf_label_books">Books</div>
                         </div>
                         <div class="perf-stat">
                             <div class="perf-stat-value" id="perfLinks">0</div>
-                            <div class="perf-stat-label">Links</div>
+                            <div class="perf-stat-label" data-i18n="perf_label_links">Links</div>
+                        </div>
+                    </div>
+                    <!-- Trend Chart -->
+                    <div class="perf-chart-section">
+                        <div class="perf-chart-header">
+                            <span class="perf-chart-title" data-i18n="perf_chart_trend">📈 14-Day Trend</span>
+                            <div class="perf-chart-tabs">
+                                <button class="perf-chart-tab active" onclick="switchChartMode('visits')" id="chartTabVisits" data-i18n="perf_tab_visits">Visits</button>
+                                <button class="perf-chart-tab" onclick="switchChartMode('unique')" id="chartTabUnique" data-i18n="perf_tab_unique">Unique</button>
+                                <button class="perf-chart-tab" onclick="switchChartMode('income')" id="chartTabIncome" data-i18n="perf_tab_income">Income</button>
+                            </div>
+                        </div>
+                        <div class="perf-chart-container">
+                            <canvas id="perfTrendChart" class="perf-chart-canvas"></canvas>
                         </div>
                     </div>
                     <div class="tier-progress">
@@ -2498,8 +2516,8 @@
                         </div>
                     </div>
                     <div class="perf-footer">
-                        <span id="perfUpdated">—</span>
-                        <button class="perf-refresh" onclick="loadPerformanceDashboard()">↻ Refresh</button>
+                        <span class="perf-updated" id="perfUpdated">—</span>
+                        <button class="perf-refresh" onclick="loadPerformanceDashboard()">↻</button>
                     </div>
                 </div>
             </div>
@@ -3247,6 +3265,22 @@
                 confirm_btn: 'Confirm',
                 xmp_hint: 'Search a book to browse ready-made video assets',
                 tier_books_week: '0/5 books this week',
+                perf_dashboard_title: '📊 Performance Dashboard',
+                perf_label_income: 'Income',
+                perf_label_unique: 'Unique',
+                perf_label_new: 'New Users',
+                perf_label_visits: 'Visits',
+                perf_label_books: 'Books',
+                perf_label_links: 'Links',
+                perf_chart_trend: '📈 14-Day Trend',
+                perf_tab_visits: 'Visits',
+                perf_tab_unique: 'Unique',
+                perf_tab_income: 'Income',
+                share_this_text: '📋 Share This Text',
+                copy_all_text: 'Copy All Text',
+                try_another: 'Try Another Book',
+                done_btn: 'Done',
+                login_to_see: 'Login to see your stats',
             },
             es: {
                 // App
@@ -3391,6 +3425,18 @@
                 confirm_btn: 'Confirmar',
                 xmp_hint: 'Busca un libro para ver recursos de video listos',
                 tier_books_week: '0/5 libros esta semana',
+                perf_dashboard_title: '📊 Panel de Rendimiento',
+                perf_label_income: 'Ingresos',
+                perf_label_unique: 'Únicos',
+                perf_label_new: 'Nuevos',
+                perf_label_visits: 'Visitas',
+                perf_label_books: 'Libros',
+                perf_label_links: 'Enlaces',
+                perf_chart_trend: '📈 Tendencia 14 Días',
+                perf_tab_visits: 'Visitas',
+                perf_tab_unique: 'Únicos',
+                perf_tab_income: 'Ingresos',
+                login_to_see: 'Inicia sesión para ver tus estadísticas',
             }
         };
         
@@ -5298,6 +5344,151 @@ function renderMyBooks() {
 
 
         // ========== Performance Dashboard (Home Page) ==========
+        // Chart state
+        let _chartMode = 'visits';
+        let _lastPerfData = null;
+
+        function switchChartMode(mode) {
+            _chartMode = mode;
+            document.querySelectorAll('.perf-chart-tab').forEach(t => t.classList.remove('active'));
+            const tabId = 'chartTab' + mode.charAt(0).toUpperCase() + mode.slice(1);
+            const tab = document.getElementById(tabId);
+            if (tab) tab.classList.add('active');
+            if (_lastPerfData) renderTrendChart(_lastPerfData);
+        }
+
+        function calcChange(dailyData) {
+            if (!dailyData || Object.keys(dailyData).length < 2) return null;
+            const dates = Object.keys(dailyData).sort();
+            const last7 = dates.slice(-7);
+            const prev7 = dates.slice(-14, -7);
+            if (prev7.length === 0) return null;
+            const recent = last7.reduce((s, d) => s + (dailyData[d] || 0), 0);
+            const previous = prev7.reduce((s, d) => s + (dailyData[d] || 0), 0);
+            if (previous === 0) return recent > 0 ? 100 : null;
+            return Math.round((recent - previous) / previous * 100);
+        }
+
+        function renderChangeEl(elId, change) {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            if (change === null) { el.textContent = '—'; el.className = 'perf-stat-change flat'; return; }
+            const prefix = change > 0 ? '↑' : change < 0 ? '↓' : '→';
+            el.textContent = prefix + ' ' + Math.abs(change) + '%';
+            el.className = 'perf-stat-change ' + (change > 0 ? 'up' : change < 0 ? 'down' : 'flat');
+        }
+
+        function renderTrendChart(data) {
+            const canvas = document.getElementById('perfTrendChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * 2;
+            canvas.height = rect.height * 2;
+            ctx.scale(2, 2);
+            const w = rect.width;
+            const h = rect.height;
+            ctx.clearRect(0, 0, w, h);
+
+            let dailyData;
+            let color, gradientId;
+            if (_chartMode === 'income') {
+                dailyData = data.income_daily || {};
+                color = '#FFD700';
+            } else if (_chartMode === 'unique') {
+                dailyData = data.unique_daily || {};
+                color = '#C084FC';
+            } else {
+                dailyData = data.visits_daily || {};
+                color = '#60a5fa';
+            }
+
+            const dates = Object.keys(dailyData).sort().slice(-14);
+            if (dates.length === 0) {
+                ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                ctx.font = '11px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('No data yet', w/2, h/2);
+                return;
+            }
+
+            const values = dates.map(d => dailyData[d] || 0);
+            const maxVal = Math.max(...values, 1);
+            const padding = { top: 4, bottom: 16, left: 4, right: 4 };
+            const chartW = w - padding.left - padding.right;
+            const chartH = h - padding.top - padding.bottom;
+
+            // Draw gradient fill
+            const points = values.map((v, i) => ({
+                x: padding.left + (i / Math.max(values.length - 1, 1)) * chartW,
+                y: padding.top + chartH - (v / maxVal) * chartH
+            }));
+
+            // Smooth curve helper
+            function drawSmoothLine(pts) {
+                ctx.beginPath();
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) {
+                    const prev = pts[i - 1];
+                    const curr = pts[i];
+                    const cpx = (prev.x + curr.x) / 2;
+                    ctx.bezierCurveTo(cpx, prev.y, cpx, curr.y, curr.x, curr.y);
+                }
+            }
+
+            // Fill area under curve
+            const grad = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartH);
+            grad.addColorStop(0, color + '30');
+            grad.addColorStop(1, color + '05');
+            drawSmoothLine(points);
+            ctx.lineTo(points[points.length-1].x, padding.top + chartH);
+            ctx.lineTo(points[0].x, padding.top + chartH);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Draw line
+            drawSmoothLine(points);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw dots on last point
+            const last = points[points.length - 1];
+            ctx.beginPath();
+            ctx.arc(last.x, last.y, 3, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(last.x, last.y, 5, 0, Math.PI * 2);
+            ctx.strokeStyle = color + '40';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Draw date labels (first, middle, last)
+            ctx.fillStyle = 'rgba(255,255,255,0.25)';
+            ctx.font = '9px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            if (dates.length >= 3) {
+                const labelIndices = [0, Math.floor(dates.length/2), dates.length-1];
+                labelIndices.forEach(i => {
+                    const d = dates[i].substring(5); // MM-DD
+                    ctx.fillText(d, points[i].x, h - 2);
+                });
+            } else {
+                dates.forEach((d, i) => {
+                    ctx.fillText(d.substring(5), points[i].x, h - 2);
+                });
+            }
+
+            // Value on last point
+            ctx.fillStyle = color;
+            ctx.font = 'bold 10px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            const lastVal = values[values.length - 1];
+            ctx.fillText(_chartMode === 'income' ? '$' + lastVal.toFixed(2) : lastVal, last.x, last.y - 8);
+        }
+
         async function loadPerformanceDashboard() {
             const perfData = document.getElementById('perfData');
             const perfLogin = document.getElementById('perfLoginPrompt');
@@ -5315,6 +5506,7 @@ function renderMyBooks() {
                 const resp = await fetch('/api/my-stats?username=' + encodeURIComponent(AppState.user.username));
                 if (!resp.ok) throw new Error('Failed');
                 const data = await resp.json();
+                _lastPerfData = data;
                 
                 // Update perf stats
                 const pv = document.getElementById('perfVisits');
@@ -5324,12 +5516,19 @@ function renderMyBooks() {
                 const pn = document.getElementById('perfNewUsers');
                 const pl = document.getElementById('perfLinks');
                 
-                if (pv) pv.textContent = data.total_visits || 0;
-                if (pu) pu.textContent = data.total_unique || 0;
-                if (pi) pi.textContent = '$' + (data.total_income || 0).toFixed(2);
-                if (pb) pb.textContent = (data.books || []).length;
-                if (pn) pn.textContent = data.total_new || 0;
-                if (pl) pl.textContent = (data.books || []).length;
+                const income = data.total_income || 0;
+                if (pv) { pv.textContent = data.total_visits || 0; pv.className = 'perf-stat-value' + (data.total_visits ? '' : ' zero'); }
+                if (pu) { pu.textContent = data.total_unique || 0; pu.className = 'perf-stat-value' + (data.total_unique ? '' : ' zero'); }
+                if (pi) { pi.textContent = '$' + income.toFixed(2); pi.className = 'perf-stat-value' + (income ? '' : ' zero'); }
+                if (pb) { pb.textContent = (data.books || []).length; }
+                if (pn) { pn.textContent = data.total_new || 0; pn.className = 'perf-stat-value' + (data.total_new ? '' : ' zero'); }
+                if (pl) { pl.textContent = (data.books || []).length; }
+                
+                // Calculate and render changes
+                renderChangeEl('perfIncomeChange', calcChange(data.income_daily));
+                renderChangeEl('perfUniqueChange', calcChange(data.unique_daily));
+                renderChangeEl('perfNewChange', calcChange(data.new_users_daily));
+                renderChangeEl('perfVisitsChange', calcChange(data.visits_daily));
                 
                 // Tier progress
                 const booksCount = (data.books || []).length;
@@ -5338,22 +5537,28 @@ function renderMyBooks() {
                 const tierNext = document.getElementById('tierNext');
                 const tierPct = Math.min(booksCount / 5 * 100, 100);
                 if (tierFill) tierFill.style.width = tierPct + '%';
-                if (tierCurrent) tierCurrent.textContent = booksCount + '/5 books this week';
-                if (tierNext) tierNext.textContent = booksCount >= 5 ? '✓ Max tier!' : 'Next: ' + (45 + booksCount * 2) + '% commission';
+                if (tierCurrent) tierCurrent.textContent = booksCount + '/5 ' + getText('days_streak').replace('days streak', '').trim() + 'books';
+                if (tierNext) tierNext.textContent = booksCount >= 5 ? '✓ 80%!' : 'Next: ' + [40,55,70,80][Math.min(booksCount, 3)] + '%';
+                
+                // Render trend chart
+                renderTrendChart(data);
                 
                 // Last updated
                 const perfUpdated = document.getElementById('perfUpdated');
-                if (perfUpdated && data.last_updated) perfUpdated.textContent = 'Updated: ' + new Date(data.last_updated).toLocaleString();
+                if (perfUpdated && data.last_updated) {
+                    const d = new Date(data.last_updated);
+                    perfUpdated.textContent = d.toLocaleString(AppState.currentLang === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                }
                 
             } catch (e) {
                 console.warn('Perf dashboard load failed:', e.message);
-                // Show zeros
-                const pi = document.getElementById('perfIncome');
-                if (pi) pi.textContent = '$0.00';
             }
         }
 
-        // ========== Init ==========
+        // Resize chart on window resize
+        window.addEventListener('resize', () => { if (_lastPerfData) renderTrendChart(_lastPerfData); });
+
+        // ========== Init =========="
         document.addEventListener('DOMContentLoaded', async () => {
             // Clean up migrated - per-user storage handles data isolation now
             checkSplashStatus();
