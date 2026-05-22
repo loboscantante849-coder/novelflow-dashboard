@@ -2118,7 +2118,54 @@
             background: var(--canvas); border-radius: var(--r-lg);
         }
         .login-required-msg p { font-size: 14px; color: var(--ink-mute); margin-bottom: 16px; }
-    </style>
+    
+        /* ========== Performance Dashboard ========== */
+        .perf-dashboard { margin: 12px 16px; background: linear-gradient(135deg, #1c1e54, #533afd); border-radius: 16px; padding: 18px; color: white; position: relative; overflow: hidden; }
+        .perf-dashboard::before { content: ''; position: absolute; top: -30px; right: -30px; width: 100px; height: 100px; background: rgba(255,255,255,0.06); border-radius: 50%; }
+        .perf-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .perf-header-left { display: flex; align-items: center; gap: 8px; }
+        .perf-header-icon { font-size: 18px; }
+        .perf-header-title { font-size: 15px; font-weight: 600; color: white; }
+        .perf-tier-badge { background: rgba(255,215,0,0.25); color: #FFD700; padding: 3px 10px; border-radius: 20px; font-size: 13px; font-weight: 700; }
+        .perf-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+        .perf-stat { text-align: center; }
+        .perf-stat-value { font-size: 20px; font-weight: 700; color: white; line-height: 1.2; }
+        .perf-stat-value.zero { color: rgba(255,255,255,0.4); }
+        .perf-stat-label { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 2px; }
+        .perf-footer { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: rgba(255,255,255,0.4); }
+        .perf-refresh { background: none; border: none; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 12px; padding: 4px 8px; }
+        .perf-refresh:hover { color: white; }
+        .perf-login-prompt { text-align: center; padding: 16px 0 8px; }
+        .perf-login-text { font-size: 14px; color: rgba(255,255,255,0.7); margin-bottom: 12px; }
+        .perf-login-btn { display: inline-block; background: linear-gradient(135deg, #FF6B9D, #C084FC); color: white; padding: 10px 28px; border-radius: 25px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: transform 0.2s; }
+        .perf-login-btn:hover { transform: scale(1.03); }
+        .perf-login-btn:active { transform: scale(0.97); }
+        .tier-progress { margin: 10px 0 4px; }
+        .tier-progress-bar { height: 4px; background: rgba(255,255,255,0.15); border-radius: 2px; overflow: hidden; }
+        .tier-progress-fill { height: 100%; background: linear-gradient(90deg, #FFD700, #FF6B9D); border-radius: 2px; transition: width 0.5s ease; }
+        .tier-progress-text { display: flex; justify-content: space-between; font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px; }
+
+        /* ========== AC Reels ========== */
+        .reels-section { margin: 16px; background: var(--canvas); border: 1px solid var(--hairline); border-radius: 16px; overflow: hidden; }
+        .reels-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px 8px; }
+        .reels-header-title { font-size: 15px; font-weight: 600; color: var(--ink); }
+        .reels-token-input { width: calc(100% - 32px); padding: 10px 12px; border: 1px solid var(--hairline); border-radius: 8px; font-size: 13px; margin: 0 16px 8px; font-family: inherit; }
+        .reels-token-input:focus { outline: none; border-color: var(--primary); }
+        .reels-actions { display: flex; gap: 8px; padding: 0 16px 12px; }
+        .reels-btn { flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+        .reels-btn-create { background: linear-gradient(135deg, #FF6B9D, #C084FC); color: white; }
+        .reels-btn-list { background: var(--canvas-soft); color: var(--ink); }
+        .reels-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .reels-list { padding: 0 16px 12px; }
+        .reels-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--hairline); }
+        .reels-item:last-child { border-bottom: none; }
+        .reels-item-cover { width: 40px; height: 54px; border-radius: 6px; object-fit: cover; }
+        .reels-item-info { flex: 1; }
+        .reels-item-title { font-size: 13px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .reels-item-status { font-size: 11px; color: var(--ink-mute); }
+        .reels-item-status.done { color: var(--success); }
+        .reels-item-status.fail { color: var(--danger); }
+</style>
 
 <!-- VERSION: 20260518-204300 --></head>
 <body><!-- VERSION: 20260518-2108 -->
@@ -2156,6 +2203,67 @@
                     <div class="banner-eyebrow">💰 UP TO 80% COMMISSION</div>
                     <div class="banner-title">Earn Up to <span class="highlight">80%</span><br>Commission!</div>
                     <div class="banner-subtitle">Promote 5 books to unlock 80% commission</div>
+                </div>
+            </div>
+
+            
+            <!-- Performance Dashboard -->
+            <div class="perf-dashboard" id="perfDashboard">
+                <!-- Logged out state -->
+                <div class="perf-login-prompt" id="perfLoginPrompt">
+                    <div class="perf-header-left" style="justify-content:center;">
+                        <span class="perf-header-icon">📊</span>
+                        <span class="perf-header-title">My Performance</span>
+                    </div>
+                    <div class="perf-login-text">Login to see your stats</div>
+                    <button class="perf-login-btn" onclick="switchTab('profile')">Login →</button>
+                </div>
+                <!-- Logged in state (hidden by default) -->
+                <div id="perfData" style="display:none;">
+                    <div class="perf-header">
+                        <div class="perf-header-left">
+                            <span class="perf-header-icon">📊</span>
+                            <span class="perf-header-title">My Performance</span>
+                        </div>
+                        <span class="perf-tier-badge" id="perfTier">40%</span>
+                    </div>
+                    <div class="perf-grid">
+                        <div class="perf-stat">
+                            <div class="perf-stat-value" id="perfVisits">0</div>
+                            <div class="perf-stat-label">Visits</div>
+                        </div>
+                        <div class="perf-stat">
+                            <div class="perf-stat-value" id="perfUnique">0</div>
+                            <div class="perf-stat-label">Unique</div>
+                        </div>
+                        <div class="perf-stat">
+                            <div class="perf-stat-value" id="perfIncome">$0</div>
+                            <div class="perf-stat-label">Income</div>
+                        </div>
+                        <div class="perf-stat">
+                            <div class="perf-stat-value" id="perfBooks">0</div>
+                            <div class="perf-stat-label">Books</div>
+                        </div>
+                        <div class="perf-stat">
+                            <div class="perf-stat-value" id="perfNewUsers">0</div>
+                            <div class="perf-stat-label">New Users</div>
+                        </div>
+                        <div class="perf-stat">
+                            <div class="perf-stat-value" id="perfLinks">0</div>
+                            <div class="perf-stat-label">Links</div>
+                        </div>
+                    </div>
+                    <div class="tier-progress">
+                        <div class="tier-progress-bar"><div class="tier-progress-fill" id="tierProgressFill" style="width:0%"></div></div>
+                        <div class="tier-progress-text">
+                            <span id="tierCurrent">0/5 books this week</span>
+                            <span id="tierNext">Next: 55%</span>
+                        </div>
+                    </div>
+                    <div class="perf-footer">
+                        <span id="perfUpdated">—</span>
+                        <button class="perf-refresh" onclick="loadPerformanceDashboard()">↻ Refresh</button>
+                    </div>
                 </div>
             </div>
 
@@ -2205,6 +2313,20 @@
 
         <!-- Tab 2: Submit -->
         <div class="tab-content" id="tab-submit">
+            
+            <!-- AC Reels Creator -->
+            <div class="reels-section" id="reelsSection">
+                <div class="reels-header">
+                    <span class="reels-header-title">🎬 Create Reels</span>
+                </div>
+                <input type="text" class="reels-token-input" id="acTokenInput" placeholder="Paste your AC Token (from ac.beidou.win)">
+                <div class="reels-actions">
+                    <button class="reels-btn reels-btn-create" id="reelsCreateBtn" onclick="createReel()">Create Reel</button>
+                    <button class="reels-btn reels-btn-list" onclick="listMyReels()">My Reels</button>
+                </div>
+                <div class="reels-list" id="reelsList"></div>
+            </div>
+
             <div class="submit-container" id="submitContainer">
                 <div class="submit-header">
                     <div class="submit-badge">Earn Money</div>
@@ -4248,6 +4370,7 @@ function renderMyBooks() {
                 if (el && el.style.display !== 'none') { el.style.display = 'none'; hideLoadingAndShowContent(); }
             }, 3000);
             loadBooks(); loadMyBooks(); updateStats(); checkLocalLogin(); checkLoginStatus();
+            if (typeof loadPerformanceDashboard === 'function') setTimeout(loadPerformanceDashboard, 1000);
             document.getElementById('recommendModal').addEventListener('click', e => {
                 if (e.target.classList.contains('modal-overlay')) closeModal();
             });
@@ -4286,6 +4409,157 @@ function renderMyBooks() {
             }).join('');
         }
         
+        
+        // ========== Performance Dashboard ==========
+        async function loadPerformanceDashboard() {
+            if (!AppState.isLoggedIn || !AppState.user) {
+                document.getElementById('perfLoginPrompt').style.display = '';
+                document.getElementById('perfData').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('perfLoginPrompt').style.display = 'none';
+            document.getElementById('perfData').style.display = '';
+
+            const username = AppState.user.username;
+            try {
+                const resp = await fetch('/api/my-stats?username=' + encodeURIComponent(username));
+                if (!resp.ok) throw new Error('API error');
+                const data = await resp.json();
+
+                const visits = data.total_visits || 0;
+                const unique = data.total_unique_visitors || 0;
+                const income = data.total_income || 0;
+                const books = (data.books || []).length;
+                const newUsers = data.total_new_users || 0;
+                const links = AppState.myBooks ? AppState.myBooks.length : 0;
+
+                document.getElementById('perfVisits').textContent = visits;
+                document.getElementById('perfUnique').textContent = unique;
+                document.getElementById('perfIncome').textContent = '$' + income.toFixed(2);
+                document.getElementById('perfBooks').textContent = books;
+                document.getElementById('perfNewUsers').textContent = newUsers;
+                document.getElementById('perfLinks').textContent = links;
+
+                // Income styling
+                document.getElementById('perfIncome').className = 'perf-stat-value' + (income > 0 ? '' : ' zero');
+
+                // Tier calculation
+                const bookCount = books;
+                let tier, nextTier, nextAt, progressPct;
+                if (bookCount >= 5) { tier = '80%'; nextTier = 'MAX'; nextAt = '🎉 Max tier!'; progressPct = 100; }
+                else if (bookCount >= 3) { tier = '70%'; nextTier = '80%'; nextAt = bookCount + '/5 books'; progressPct = (bookCount / 5) * 100; }
+                else if (bookCount >= 1) { tier = '55%'; nextTier = '70%'; nextAt = bookCount + '/3 books'; progressPct = (bookCount / 3) * 100; }
+                else { tier = '40%'; nextTier = '55%'; nextAt = '0/1 books'; progressPct = 0; }
+
+                document.getElementById('perfTier').textContent = tier;
+                document.getElementById('tierProgressFill').style.width = progressPct + '%';
+                document.getElementById('tierCurrent').textContent = nextAt;
+                document.getElementById('tierNext').textContent = nextTier === 'MAX' ? '🎉 Max tier!' : 'Next: ' + nextTier;
+
+                const updated = data.last_updated || '—';
+                document.getElementById('perfUpdated').textContent = updated ? 'Updated: ' + updated : '—';
+
+            } catch (e) {
+                console.warn('Performance dashboard load failed:', e.message);
+                // Show zeros
+                ['perfVisits','perfUnique','perfBooks','perfNewUsers','perfLinks'].forEach(id => {
+                    document.getElementById(id).textContent = '0';
+                });
+                document.getElementById('perfIncome').textContent = '$0';
+                document.getElementById('perfTier').textContent = '40%';
+                document.getElementById('perfUpdated').textContent = 'Data unavailable';
+            }
+        }
+
+        // ========== AC Reels - Real API ==========
+        function getACToken() {
+            let token = document.getElementById('acTokenInput').value.trim();
+            if (!token) {
+                const saved = localStorage.getItem('novelflow_ac_token');
+                if (saved) { token = saved; document.getElementById('acTokenInput').value = token; }
+            }
+            return token;
+        }
+
+        function saveACToken(token) {
+            localStorage.setItem('novelflow_ac_token', token);
+        }
+
+        async function createReel() {
+            const token = getACToken();
+            if (!token) { showToast('Please paste your AC Token first', 'error'); return; }
+            if (!currentRecommendBook) { showToast('Please select a book first', 'error'); return; }
+
+            saveACToken(token);
+            const btn = document.getElementById('reelsCreateBtn');
+            btn.disabled = true;
+            btn.textContent = 'Creating...';
+
+            try {
+                const resp = await fetch('/api/ac/video/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        token: token,
+                        bookName: currentRecommendBook.title,
+                        bookId: currentRecommendBook.bookId
+                    })
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    showToast('Reel creation started! Check My Reels for status.', 'success');
+                    listMyReels();
+                } else {
+                    showToast(result.error || 'Reel creation failed', 'error');
+                }
+            } catch (e) {
+                showToast('Failed: ' + e.message, 'error');
+            }
+            btn.disabled = false;
+            btn.textContent = 'Create Reel';
+        }
+
+        async function listMyReels() {
+            const token = getACToken();
+            if (!token) { showToast('Please paste your AC Token first', 'error'); return; }
+            saveACToken(token);
+
+            const listEl = document.getElementById('reelsList');
+            listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">Loading...</div>';
+
+            try {
+                const resp = await fetch('/api/ac/video/list', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: token })
+                });
+                const result = await resp.json();
+                if (result.success && result.data && result.data.length > 0) {
+                    listEl.innerHTML = result.data.slice(0, 5).map(item => {
+                        const statusClass = item.status === 'done' ? 'done' : (item.status === 'fail' ? 'fail' : '');
+                        const statusText = item.status === 'done' ? '✓ Ready' : (item.status === 'fail' ? '✗ Failed' : '⏳ Processing');
+                        return '<div class="reels-item">' +
+                            '<img class="reels-item-cover" src="' + (item.cover || 'https://via.placeholder.com/40x54/f6f9fc/64748d?text=R') + '" onerror="this.src='https://via.placeholder.com/40x54/f6f9fc/64748d?text=R'">' +
+                            '<div class="reels-item-info"><div class="reels-item-title">' + (item.title || 'Untitled') + '</div><div class="reels-item-status ' + statusClass + '">' + statusText + '</div></div></div>';
+                    }).join('');
+                } else {
+                    listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">No reels yet</div>';
+                }
+            } catch (e) {
+                listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--danger);font-size:13px;">Failed to load reels</div>';
+            }
+        }
+
+        // Load AC token on init
+        (function() {
+            const saved = localStorage.getItem('novelflow_ac_token');
+            if (saved) {
+                const input = document.getElementById('acTokenInput');
+                if (input) input.value = saved;
+            }
+        })();
+
         // Tab switch listener to update checkin UI
         const originalSwitchTab = switchTab;
         switchTab = function(tabName) {
