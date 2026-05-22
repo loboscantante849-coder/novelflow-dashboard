@@ -55,7 +55,7 @@ module.exports = async (req, res) => {
   const effectiveLimit = Math.min(parseInt(limit) || 20, 50);
   
   // Build cache key
-  const cacheKey = `trending:${mode}:${category || 'all'}:${lang}:${effectiveLimit}`;
+  const cacheKey = `trending:v2:${mode}:${category || 'all'}:${lang}:${effectiveLimit}`;
 
   try {
     // Try cache first
@@ -103,11 +103,15 @@ module.exports = async (req, res) => {
 
     const data = await response.json();
     const rawBooks = (data.data && data.data.data) || data.data || [];
+    if (rawBooks.length > 0) {
+      console.log('Sample book raw keys:', Object.keys(rawBooks[0]).join(', '));
+      console.log('Sample book cover-related:', JSON.stringify(Object.fromEntries(Object.entries(rawBooks[0]).filter(([k]) => k.toLowerCase().includes('cover') || k.toLowerCase().includes('pic') || k.toLowerCase().includes('img') || k.toLowerCase().includes('url')))));
+    }
 
     const books = rawBooks.map(book => ({
       bookId: book.bookId || book.id,
       title: book.title,
-      cover: book.cover || book.coverImage || '',
+      cover: book.cover || book.coverImage || book.coverUrl || book.picUrl || book.bookCover || book.imgUrl || book.pic || '',
       author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
       description: book.description ? book.description.substring(0, 200) : '',
       rating: book.bookScore > 0 ? book.bookScore : 4.5,
@@ -115,8 +119,12 @@ module.exports = async (req, res) => {
       bookClassName: book.bookClassName || '',
       languageCode: book.languageCode || lang,
       words: book.words || 0,
-      chapterCount: book.chapterCount || 0
+      chapterCount: book.chapterCount || 0,
+      uv: book.uv || book.bookUv || book.readCount || 0
     }));
+
+    // Safeguard: sort by UV descending in case API returns wrong order
+    books.sort((a, b) => (b.uv || 0) - (a.uv || 0));
 
     // For browse mode, group by category
     let result;

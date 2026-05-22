@@ -2421,7 +2421,13 @@
 
             <!-- Scroll -->
             <div class="book-scroll-section" id="bookScrollSection" style="display: none;">
-                <div class="book-scroll-title" data-i18n="trending_now">🔥 Trending This Week</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:0 var(--sp-lg) var(--sp-sm);">
+                    <div class="book-scroll-title" style="padding:0;" data-i18n="trending_now">🔥 Trending This Week</div>
+                    <div style="position:relative;">
+                        <input type="text" id="homeBookSearch" placeholder="Search books to promote..." data-i18n-placeholder="search_books_promote" style="font-size:12px;padding:6px 12px 6px 30px;border-radius:20px;border:1px solid #e2e8f0;background:#f8fafc;color:#1e293b;outline:none;width:180px;font-family:inherit;cursor:pointer;" onfocus="switchTab('earn');this.blur();">
+                        <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:12px;pointer-events:none;">🔍</span>
+                    </div>
+                </div>
                 <div class="section-subtitle">Find your next favorite read</div>
                 <div class="book-scroll-list" id="bookScrollList"></div>
             </div>
@@ -2489,7 +2495,7 @@
                                     <option value="Ad_Plot_Video_V2"><span data-i18n="tmpl_sora">🎥 Story Sora (AI Cinematic)</span></option>
                                 </select>
                             </div>
-                            <div style="font-size:11px;color:var(--ink-mute);padding:4px 0;">⏱ Video generation takes ~15 minutes. Check My Reels for progress.</div>
+                            <div style="font-size:11px;color:var(--ink-mute);padding:4px 0;">⏱ Video generation takes ~25 minutes. Check My Reels for progress.</div>
                         </div>
                     </div>
                     <div class="reels-actions">
@@ -2598,7 +2604,7 @@
                     <!-- Create AI Assets Pink Box -->
                     <div class="success-ai-box" onclick="goToAIGenerate()">
                         <div class="success-ai-box-title" data-i18n="ai_box_title">🎬 Create AI Assets, Promote Now!</div>
-                        <div class="success-ai-box-sub" data-i18n="ai_box_sub">Generate stunning video reels for this book in ~15 min</div>
+                        <div class="success-ai-box-sub" data-i18n="ai_box_sub">Generate stunning video reels for this book in ~25 min</div>
                     </div>
 
 <button class="btn-another" onclick="recommendAnother()">
@@ -2683,6 +2689,21 @@
                     </button>
                 </div>
 
+                <!-- Share App Mission -->
+                <div class="mission-card" id="missionShareApp">
+                    <div class="mission-left">
+                        <div class="mission-icon">📣</div>
+                        <div class="mission-info">
+                            <div class="mission-name" data-i18n="mission_share_app">Share & Earn 50 pts</div>
+                            <div class="mission-desc" data-i18n="mission_share_app_desc">Share NovelFlow on social media</div>
+                            <div class="mission-points">+50 <span data-i18n="pts">pts</span></div>
+                        </div>
+                    </div>
+                    <button class="mission-claim-btn" id="taskShareAppClaimBtn" onclick="openShareAppModal()" disabled>
+                        <span class="mission-claim-text" data-i18n="claim">Claim</span>
+                    </button>
+                </div>
+
                 <!-- VIP Exchange -->
                 <div class="vip-exchange-card" id="vipExchangeCard">
                     <div class="vip-icon">👑</div>
@@ -2757,6 +2778,51 @@
                 </div>
             </div>
 
+            <!-- Quick Access: Reels / Text / Links - Collapsible -->
+            <div style="padding: 0 var(--sp-lg); margin-top: 8px;">
+                <!-- My Reels Quick Access -->
+                <div style="background:var(--card);border-radius:12px;margin-bottom:8px;overflow:hidden;">
+                    <div onclick="toggleQuickSection('quickReels')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:16px;">🎬</span>
+                            <span style="font-size:13px;font-weight:600;color:var(--ink);" data-i18n="my_reels">My Reels</span>
+                        </div>
+                        <span id="quickReelsArrow" style="font-size:10px;color:var(--ink-mute);transition:transform 0.2s;">▼</span>
+                    </div>
+                    <div id="quickReels" style="display:none;padding:0 12px 12px;max-height:300px;overflow-y:auto;">
+                        <div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;" data-i18n="login_to_see">Login to see your stats</div>
+                    </div>
+                </div>
+
+                <!-- My Copy Text Quick Access -->
+                <div style="background:var(--card);border-radius:12px;margin-bottom:8px;overflow:hidden;">
+                    <div onclick="toggleQuickSection('quickCopyText')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:16px;">📋</span>
+                            <span style="font-size:13px;font-weight:600;color:var(--ink);" data-i18n="my_copy_text">My Copy Text</span>
+                        </div>
+                        <span id="quickCopyTextArrow" style="font-size:10px;color:var(--ink-mute);transition:transform 0.2s;">▼</span>
+                    </div>
+                    <div id="quickCopyText" style="display:none;padding:0 12px 12px;max-height:300px;overflow-y:auto;">
+                        <div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;" data-i18n="login_to_see">Login to see your stats</div>
+                    </div>
+                </div>
+
+                <!-- My Links Quick Access -->
+                <div style="background:var(--card);border-radius:12px;margin-bottom:8px;overflow:hidden;">
+                    <div onclick="toggleQuickSection('quickLinks')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:16px;">🔗</span>
+                            <span style="font-size:13px;font-weight:600;color:var(--ink);" data-i18n="my_links">My Links</span>
+                        </div>
+                        <span id="quickLinksArrow" style="font-size:10px;color:var(--ink-mute);transition:transform 0.2s;">▼</span>
+                    </div>
+                    <div id="quickLinks" style="display:none;padding:0 12px 12px;max-height:300px;overflow-y:auto;">
+                        <div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;" data-i18n="login_to_see">Login to see your stats</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="my-books-section" id="myBooksSection">
                 <div class="section-header" style="padding: 0 0 var(--sp-sm); display: flex; align-items: center; justify-content: space-between;">
                     <div>
@@ -2782,6 +2848,42 @@
             <button class="nav-item" data-tab="tasks"><span class="nav-icon">&#9733;</span><span class="nav-label">Tasks</span></button>
             <button class="nav-item" data-tab="profile"><span class="nav-icon">&#9787;</span><span class="nav-label">Profile</span></button>
         </nav>
+    </div>
+
+    <!-- Share App Modal -->
+    <div class="modal-overlay" id="shareAppModal" style="z-index:1001;">
+        <div class="modal" style="max-width:380px;">
+            <div class="modal-header">
+                <button class="modal-close-btn" onclick="closeShareAppModal()" aria-label="Close">×</button>
+                <div class="modal-title" data-i18n="share_app_title">📣 Share NovelFlow</div>
+                <div style="width:32px;"></div>
+            </div>
+            <div class="modal-body" style="padding:16px;text-align:center;">
+                <div style="font-size:14px;font-weight:600;margin-bottom:8px;color:var(--ink);" data-i18n="share_app_subtitle">Share novels, earn money & read free!</div>
+                <div style="font-size:12px;color:var(--ink-mute);margin-bottom:16px;line-height:1.6;" data-i18n="share_app_desc">NovelFlow lets you discover amazing stories, share them with friends, and earn real money for every reader you bring. Join thousands of promoters already earning!</div>
+                
+                <!-- Copy Text Section -->
+                <div style="background:var(--canvas-soft);border-radius:10px;padding:12px;margin-bottom:12px;text-align:left;position:relative;">
+                    <div style="font-size:11px;font-weight:600;color:var(--ink-mute);margin-bottom:6px;" data-i18n="share_copy_label">📋 Copy this text:</div>
+                    <div id="shareAppText" style="font-size:12px;line-height:1.5;color:var(--ink);padding-right:40px;">🚀 Join NovelFlow - Read novels for FREE & earn money by sharing! 💰 Start now: https://novelflow-dashboard.vercel.app</div>
+                    <button id="shareAppCopyBtn" onclick="copyShareAppText()" style="position:absolute;top:12px;right:12px;padding:4px 10px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;" data-i18n="copy_btn">Copy</button>
+                </div>
+
+                <!-- Poster Image Section -->
+                <div style="background:var(--canvas-soft);border-radius:10px;padding:12px;margin-bottom:12px;text-align:center;">
+                    <div style="font-size:11px;font-weight:600;color:var(--ink-mute);margin-bottom:8px;" data-i18n="share_poster_label">🖼️ Download promoter poster:</div>
+                    <div style="width:100%;aspect-ratio:9/16;max-height:200px;background:linear-gradient(135deg,#ff6b9d,#c44dff,#6c5ce7);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;margin-bottom:8px;overflow:hidden;">
+                        <div style="font-size:24px;font-weight:800;letter-spacing:-1px;">NovelFlow</div>
+                        <div style="font-size:11px;margin-top:4px;opacity:0.9;">Read Free · Share · Earn</div>
+                        <div style="font-size:20px;margin-top:12px;">📚💰</div>
+                        <div style="font-size:10px;margin-top:8px;opacity:0.8;">Join Now →</div>
+                    </div>
+                    <button id="shareAppDownloadBtn" onclick="downloadSharePoster()" style="padding:6px 16px;background:var(--ruby);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;width:100%;" data-i18n="download_poster">📥 Download Poster</button>
+                </div>
+
+                <div style="font-size:11px;color:var(--ink-mute);" id="shareAppStatus" data-i18n="share_app_hint">Complete both actions to earn 50 pts</div>
+            </div>
+        </div>
     </div>
 
     <!-- Recommend Modal -->
@@ -2863,7 +2965,7 @@
         // ========== Global State ==========
         const AppState = {
             currentTab: 'home',
-            currentLang: 'en',
+            currentLang: localStorage.getItem('novelflow_lang') || 'en',
             searchLang: 'en',
             isLoggedIn: false,
             user: null,
@@ -3386,6 +3488,7 @@
             if (missionId === 'share1') pts = 20;
             else if (missionId === 'share3') pts = 50;
             else if (missionId === 'bindId') pts = 100;
+            else if (missionId === 'shareApp') pts = 50;
             else return;
             
             markMissionClaimed(missionId);
@@ -3484,6 +3587,21 @@
                     const c = document.getElementById('missionBindId'); if (c) c.classList.add('completed');
                 } else if (bindId) {
                     tBb.disabled = false;
+                }
+            }
+            
+            // Share App
+            const shareAppBtn = document.getElementById('taskShareAppClaimBtn');
+            if (shareAppBtn) {
+                if (isMissionClaimed('shareApp')) {
+                    shareAppBtn.disabled = true;
+                    shareAppBtn.classList.add('claimed');
+                    shareAppBtn.innerHTML = '<span class="mission-claim-text">✓</span>';
+                    const c = document.getElementById('missionShareApp'); if (c) c.classList.add('completed');
+                } else {
+                    // Always enable the claim button (opens modal, doesn't auto-claim)
+                    shareAppBtn.disabled = false;
+                    shareAppBtn.textContent = getText('claim');
                 }
             }
             
@@ -4733,6 +4851,224 @@ function renderMyBooks() {
         
         // ========== Render Leaderboard Mini ========== (removed)
 
+        // ========== Quick Section Toggle (Profile) ==========
+        function toggleQuickSection(sectionId) {
+            const el = document.getElementById(sectionId);
+            const arrow = document.getElementById(sectionId + 'Arrow');
+            if (!el) return;
+            const isOpen = el.style.display !== 'none';
+            if (isOpen) {
+                el.style.display = 'none';
+                if (arrow) arrow.style.transform = 'rotate(0deg)';
+            } else {
+                el.style.display = 'block';
+                if (arrow) arrow.style.transform = 'rotate(180deg)';
+                // Load data into the section
+                loadQuickSectionData(sectionId);
+            }
+        }
+
+        function loadQuickSectionData(sectionId) {
+            if (!AppState.isLoggedIn) return;
+            if (sectionId === 'quickReels') {
+                loadQuickReels();
+            } else if (sectionId === 'quickCopyText') {
+                loadQuickCopyText();
+            } else if (sectionId === 'quickLinks') {
+                loadQuickLinks();
+            }
+        }
+
+        async function loadQuickReels() {
+            const el = document.getElementById('quickReels');
+            if (!el) return;
+            el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;">' + getText('loading') + '</div>';
+            try {
+                const headers = {};
+                const savedToken = localStorage.getItem('novelflow_ac_token');
+                if (savedToken) headers['x-ac-token'] = savedToken;
+                const resp = await fetch('/api/ac-list', { headers });
+                const result = await resp.json();
+                if (result.newToken) saveACToken(result.newToken);
+                const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
+                if (!result.success || items.length === 0) {
+                    el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;">' + getText('no_reels') + '</div>';
+                    return;
+                }
+                // Fetch results for completed items
+                const enriched = await Promise.all(items.slice(0, 5).map(async (item) => {
+                    const status = item.status || '';
+                    const isDone = (status === 'completed' || status === 2 || status === 'done');
+                    let videoUrl = '', coverUrl = '';
+                    if (isDone && item.thread_id) {
+                        try {
+                            const rHeaders = {};
+                            if (savedToken) rHeaders['x-ac-token'] = savedToken;
+                            const rResp = await fetch('/api/ac-result?threadId=' + item.thread_id, { headers: rHeaders });
+                            const rResult = await rResp.json();
+                            if (rResult.newToken) saveACToken(rResult.newToken);
+                            const rData = rResult.data || {};
+                            const materials = rData.materials || rData.items || rData.results || [];
+                            if (materials.length > 0) {
+                                videoUrl = materials[0].video_url || '';
+                                coverUrl = materials[0].cover_image_url || '';
+                            }
+                        } catch(e) {}
+                    }
+                    return { ...item, isDone, videoUrl, coverUrl };
+                }));
+                el.innerHTML = enriched.map(item => {
+                    const templateLabel = item.template === 'PPT_Porn' ? '🔥' : (item.template === 'Ad_Plot_Video_V2' ? '🎥' : '📖');
+                    const statusText = item.isDone ? '✅' : '⏳';
+                    const thumbHtml = item.coverUrl
+                        ? '<img src="' + item.coverUrl + '" style="width:48px;height:64px;border-radius:6px;object-fit:cover;" onerror="this.style.display=\'none\'">'
+                        : '<div style="width:48px;height:64px;border-radius:6px;background:var(--canvas-soft);display:flex;align-items:center;justify-content:center;font-size:18px;">' + templateLabel + '</div>';
+                    const saveBtn = item.isDone && item.videoUrl
+                        ? '<a href="' + item.videoUrl + '" download target="_blank" style="padding:4px 10px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;text-decoration:none;">💾</a>'
+                        : '';
+                    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--hairline);">' + thumbHtml + '<div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(item.book_name || item.title || 'Untitled') + '</div><div style="font-size:10px;color:var(--ink-mute);">' + statusText + '</div></div>' + saveBtn + '</div>';
+                }).join('');
+            } catch(e) {
+                el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--danger);font-size:12px;">Failed to load</div>';
+            }
+        }
+
+        function loadQuickCopyText() {
+            const el = document.getElementById('quickCopyText');
+            if (!el) return;
+            const myBooks = AppState.myBooks || [];
+            if (myBooks.length === 0) {
+                el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;">No copy text yet. Share a book first!</div>';
+                return;
+            }
+            el.innerHTML = myBooks.slice(0, 5).map(book => {
+                const shortTitle = (book.title || 'Untitled').substring(0, 30);
+                const text = book.recommendText || 'Check out "' + (book.title || '') + '" - an amazing read! ' + (book.link || '');
+                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--hairline);"><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;">' + escapeHtml(shortTitle) + '</div><div style="font-size:10px;color:var(--ink-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(text.substring(0, 60)) + '...</div></div><button onclick="navigator.clipboard.writeText(\'' + text.replace(/'/g, "\\'") + '\');showToast(\'Copied!\',\'success\')" style="padding:4px 8px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;cursor:pointer;flex-shrink:0;">📋</button></div>';
+            }).join('');
+        }
+
+        function loadQuickLinks() {
+            const el = document.getElementById('quickLinks');
+            if (!el) return;
+            const myBooks = AppState.myBooks || [];
+            if (myBooks.length === 0) {
+                el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;">No links yet. Share a book first!</div>';
+                return;
+            }
+            el.innerHTML = myBooks.filter(b => b.link).slice(0, 5).map(book => {
+                const shortTitle = (book.title || 'Untitled').substring(0, 30);
+                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--hairline);"><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;">' + escapeHtml(shortTitle) + '</div><div style="font-size:10px;color:var(--ruby);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(book.link) + '</div></div><button onclick="navigator.clipboard.writeText(\'' + (book.link || '').replace(/'/g, "\\'") + '\');showToast(\'Link copied!\',\'success\')" style="padding:4px 8px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;cursor:pointer;flex-shrink:0;">📋</button></div>';
+            }).join('');
+        }
+
+        // ========== Share App Modal ==========
+        let shareAppCopied = false;
+        let shareAppDownloaded = false;
+        let shareAppTimer = null;
+
+        function openShareAppModal() {
+            if (isMissionClaimed('shareApp')) {
+                showToast('Already claimed!', 'info');
+                return;
+            }
+            shareAppCopied = false;
+            shareAppDownloaded = false;
+            document.getElementById('shareAppModal').classList.add('show');
+            updateShareAppStatus();
+        }
+
+        function closeShareAppModal() {
+            document.getElementById('shareAppModal').classList.remove('show');
+        }
+
+        function copyShareAppText() {
+            const text = document.getElementById('shareAppText').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                shareAppCopied = true;
+                document.getElementById('shareAppCopyBtn').textContent = '✓';
+                document.getElementById('shareAppCopyBtn').style.background = '#059669';
+                showToast('Copied!', 'success');
+                updateShareAppStatus();
+            });
+        }
+
+        function downloadSharePoster() {
+            // Create a canvas-based poster download
+            const canvas = document.createElement('canvas');
+            canvas.width = 540;
+            canvas.height = 960;
+            const ctx = canvas.getContext('2d');
+            // Background gradient
+            const grad = ctx.createLinearGradient(0, 0, 540, 960);
+            grad.addColorStop(0, '#ff6b9d');
+            grad.addColorStop(0.5, '#c44dff');
+            grad.addColorStop(1, '#6c5ce7');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 540, 960);
+            // Title
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 48px Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('NovelFlow', 270, 300);
+            // Subtitle
+            ctx.font = '22px Arial, sans-serif';
+            ctx.fillText('Read Free · Share · Earn', 270, 350);
+            // Icons
+            ctx.font = '60px Arial';
+            ctx.fillText('📚💰', 270, 460);
+            // CTA
+            ctx.font = 'bold 26px Arial, sans-serif';
+            ctx.fillText('Join Now →', 270, 560);
+            // URL
+            ctx.font = '16px Arial, sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.8)';
+            ctx.fillText('novelflow-dashboard.vercel.app', 270, 620);
+            // Download
+            const link = document.createElement('a');
+            link.download = 'NovelFlow-Promoter-Poster.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            
+            shareAppDownloaded = true;
+            document.getElementById('shareAppDownloadBtn').textContent = '✓ Downloaded';
+            document.getElementById('shareAppDownloadBtn').style.background = '#059669';
+            showToast('Poster downloaded!', 'success');
+            updateShareAppStatus();
+        }
+
+        function updateShareAppStatus() {
+            const statusEl = document.getElementById('shareAppStatus');
+            const bothDone = shareAppCopied && shareAppDownloaded;
+            if (bothDone) {
+                statusEl.textContent = '✅ Both done! Rewarding 50 pts in 10 seconds...';
+                statusEl.style.color = '#059669';
+                // Start 10 second countdown then auto-claim
+                if (shareAppTimer) clearTimeout(shareAppTimer);
+                shareAppTimer = setTimeout(() => {
+                    if (!isMissionClaimed('shareApp')) {
+                        markMissionClaimed('shareApp');
+                        addUserPoints(50);
+                        const btn = document.getElementById('taskShareAppClaimBtn');
+                        if (btn) {
+                            btn.disabled = true;
+                            btn.classList.add('claimed');
+                            btn.innerHTML = '<span class="mission-claim-text">✓</span>';
+                        }
+                        const card = document.getElementById('missionShareApp');
+                        if (card) card.classList.add('completed');
+                        showMilestoneCelebration(0, 50);
+                        closeShareAppModal();
+                    }
+                }, 10000);
+            } else {
+                const copied = shareAppCopied ? '✅' : '⬜';
+                const downloaded = shareAppDownloaded ? '✅' : '⬜';
+                statusEl.textContent = copied + ' Copy text  ' + downloaded + ' Download poster';
+                statusEl.style.color = 'var(--ink-mute)';
+            }
+        }
+
         // ========== AC Reels - Real API ==========
         function saveACToken(token) {
             localStorage.setItem('novelflow_ac_token', token);
@@ -4982,7 +5318,18 @@ function renderMyBooks() {
                     const taskData = result.data?.data || result.data || {};
                     const taskId = taskData.id || taskData.task_id || '';
                     const taskName = taskData.title || reelSelectedBook?.title || 'Your reel';
-                    showToast('🎬 Reel created for "' + taskName + '"! Video generates in ~15 min. Check My Reels for progress.', 'success');
+                    showToast('🎬 Reel created for "' + taskName + '"! Video generates in ~25 min. Check My Reels for progress.', 'success');
+                    // Show creation progress card in reels section
+                    const reelsList = document.getElementById('reelsList');
+                    if (reelsList) {
+                        const progressCard = document.createElement('div');
+                        progressCard.className = 'reels-item';
+                        progressCard.style.background = 'linear-gradient(135deg, rgba(255,107,157,0.08), rgba(192,132,252,0.08))';
+                        progressCard.style.border = '1px solid var(--ruby)';
+                        progressCard.id = 'reel-progress-' + taskId;
+                        progressCard.innerHTML = '<div style="width:54px;height:72px;border-radius:8px;background:var(--canvas-soft);display:flex;align-items:center;justify-content:center;font-size:20px;">⏳</div><div class="reels-item-body"><div class="reels-item-title">' + escapeHtml(taskName) + '</div><div class="reels-item-status" style="color:var(--ruby);">🎬 ' + getText('status_creating') + '</div><div style="font-size:10px;color:var(--ink-mute);margin-top:2px;">~25 min remaining</div></div>';
+                        reelsList.insertBefore(progressCard, reelsList.firstChild);
+                    }
                     listMyReels();
                     // Poll for completion after 30 seconds
                     setTimeout(() => listMyReels(), 30000);
@@ -5146,7 +5493,7 @@ function renderMyBooks() {
                 
                 // Pink AI box
                 ai_box_title: '🎬 Create AI Assets, Promote Now!',
-                ai_box_sub: 'Generate stunning video reels for this book in ~15 min',
+                ai_box_sub: 'Generate stunning video reels for this book in ~25 min',
                 
                 // Reels
                 ai_generate: '🤖 AI Generate',
@@ -5158,8 +5505,9 @@ function renderMyBooks() {
                 tmpl_story: '📖 Story Slideshow (Video + Images)',
                 tmpl_spicy: '🔥 Spicy & Steamy',
                 tmpl_sora: '🎥 Story Sora (AI Cinematic)',
-                min_15_note: '⏱ Video generates in ~15 min',
+                min_15_note: '⏱ Video generates in ~25 min',
                 video_assets_label: '🎬 Video Assets',
+                search_books_promote: 'Search books to promote...',
                 xmp_search_placeholder: 'Search a book to browse video assets...',
                 refresh_assets: '🔄 Refresh Assets',
                 
@@ -5190,7 +5538,7 @@ function renderMyBooks() {
                 toast_creating: 'Creating...',
                 status_ready: 'Ready to share',
                 status_failed: 'Failed',
-                status_creating: 'Creating video (~15 min)...',
+                status_creating: 'Creating video (~25 min)...',
                 no_reels: 'No reels yet',
                 loading: 'Loading...',
                 no_books: 'No books found',
@@ -5208,6 +5556,18 @@ function renderMyBooks() {
                 no_desc: 'No description available.',
                 no_books_cat: 'No books found for this category',
                 daily_missions: '🎯 Daily Missions',
+                my_copy_text: 'My Copy Text',
+                my_links: 'My Links',
+                mission_share_app: 'Share & Earn 50 pts',
+                mission_share_app_desc: 'Share NovelFlow on social media',
+                share_app_title: '📣 Share NovelFlow',
+                share_app_subtitle: 'Share novels, earn money & read free!',
+                share_app_desc: 'NovelFlow lets you discover amazing stories, share them with friends, and earn real money for every reader you bring. Join thousands of promoters already earning!',
+                share_copy_label: '📋 Copy this text:',
+                share_poster_label: '🖼️ Download promoter poster:',
+                download_poster: '📥 Download Poster',
+                share_app_hint: 'Complete both actions to earn 50 pts',
+                copy_btn: 'Copy',
                 pts: 'pts',
                 checkin_streak: '🔥 Check-in Streak',
                 check_in: 'Check In',
@@ -5260,7 +5620,7 @@ function renderMyBooks() {
                 
                 // Pink AI box
                 ai_box_title: '🎬 Crea Contenido IA, ¡Promociona Ahora!',
-                ai_box_sub: 'Genera reels de video increíbles para este libro en ~15 min',
+                ai_box_sub: 'Genera reels de video increíbles para este libro en ~25 min',
                 
                 // Reels
                 ai_generate: '🤖 Generar con IA',
@@ -5272,8 +5632,9 @@ function renderMyBooks() {
                 tmpl_story: '📖 Presentación de Historia (Video + Imágenes)',
                 tmpl_spicy: '🔥 Picante y Sensual',
                 tmpl_sora: '🎥 Historia Sora (IA Cinematográfica)',
-                min_15_note: '⏱ El video se genera en ~15 min',
+                min_15_note: '⏱ El video se genera en ~25 min',
                 video_assets_label: '🎬 Recursos de Video',
+                search_books_promote: 'Buscar libros para promover...',
                 xmp_search_placeholder: 'Busca un libro para ver recursos de video...',
                 refresh_assets: '🔄 Actualizar Recursos',
                 
@@ -5304,7 +5665,7 @@ function renderMyBooks() {
                 toast_creating: 'Creando...',
                 status_ready: 'Listo para compartir',
                 status_failed: 'Fallido',
-                status_creating: 'Creando video (~15 min)...',
+                status_creating: 'Creando video (~25 min)...',
                 no_reels: 'Aún no hay reels',
                 loading: 'Cargando...',
                 no_books: 'No se encontraron libros',
@@ -5322,6 +5683,18 @@ function renderMyBooks() {
                 no_desc: 'Sin descripción disponible.',
                 no_books_cat: 'No se encontraron libros en esta categoría',
                 daily_missions: '🎯 Misiones Diarias',
+                my_copy_text: 'Mis Textos',
+                my_links: 'Mis Enlaces',
+                mission_share_app: 'Compartir y Ganar 50 pts',
+                mission_share_app_desc: 'Comparte NovelFlow en redes sociales',
+                share_app_title: '📣 Comparte NovelFlow',
+                share_app_subtitle: '¡Comparte novelas, gana dinero y lee gratis!',
+                share_app_desc: 'NovelFlow te permite descubrir historias increíbles, compartirlas con amigos y ganar dinero real por cada lector que traigas. ¡Únete a miles de promotores que ya están ganando!',
+                share_copy_label: '📋 Copia este texto:',
+                share_poster_label: '🖼️ Descarga el póster de promotor:',
+                download_poster: '📥 Descargar Póster',
+                share_app_hint: 'Completa ambas acciones para ganar 50 pts',
+                copy_btn: 'Copiar',
                 pts: 'pts',
                 checkin_streak: '🔥 Racha de Check-in',
                 check_in: 'Check-in',
@@ -5349,14 +5722,14 @@ function renderMyBooks() {
             }
         };
         
-        let currentLang = localStorage.getItem('novelflow_lang') || 'en';
         
         function getText(key) {
-            return (I18N[currentLang] && I18N[currentLang][key]) || (I18N['en'][key]) || key;
+            return (I18N[AppState.currentLang] && I18N[AppState.currentLang][key]) || (I18N['en'][key]) || key;
         }
         
         function switchLang(lang) {
-            currentLang = lang;
+            AppState.currentLang = lang;
+            AppState.searchLang = lang;
             localStorage.setItem('novelflow_lang', lang);
             applyTranslations();
             // Update toggle buttons
@@ -5366,7 +5739,7 @@ function renderMyBooks() {
         }
         
         function applyTranslations() {
-            const dict = I18N[currentLang] || I18N['en'];
+            const dict = I18N[AppState.currentLang] || I18N['en'];
             
             // Translate data-i18n elements (text content)
             document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -5403,8 +5776,8 @@ function renderMyBooks() {
         
         // Apply saved language on load
         document.addEventListener('DOMContentLoaded', () => {
-            if (currentLang !== 'en') {
-                switchLang(currentLang);
+            if (AppState.currentLang !== 'en') {
+                switchLang(AppState.currentLang);
             }
         });
 
