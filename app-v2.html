@@ -3811,34 +3811,7 @@
             }
         }
 
-            const btn = document.getElementById('checkinBtn');
-            btn.classList.add('animating');
-            
-            setTimeout(() => {
-                const today = getToday();
-                const yesterday = new Date();
-                yesterday.setDate(yesterday.getDate() - 1);
-                const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
-                
-                // Check if streak continues
-                if (CheckinData.lastCheckin === yesterdayStr) {
-                    CheckinData.streak++;
-                } else if (CheckinData.lastCheckin !== today) {
-                    CheckinData.streak = 1;
-                }
-                
-                CheckinData.lastCheckin = today;
-                if (!CheckinData.history.includes(today)) {
-                    CheckinData.history.push(today);
-                }
-                
-                saveCheckinData();
-                updateCheckinUI();
-                
-                btn.classList.remove('animating');
-                showToast(`&#128293; ${CheckinData.streak} Day Streak!`, 'success');
-            }, 500);
-        }
+
 
         // Initialize checkin on load
         loadCheckinData();
@@ -5200,8 +5173,6 @@ function renderMyBooks() {
         function closeGuideModal() {
             const modal = document.getElementById('guideModal');
             if (modal) modal.classList.remove('show');
-        });
-            }
         }
 
         // ========== Toast ==========
@@ -5817,14 +5788,7 @@ function renderMyBooks() {
             }, 300);
             showToast(getText('toast_select_style'), 'success');
         }
-            const latestBook = AppState.myBooks[AppState.myBooks.length - 1];
-            reelSelectedBook = { bookId: latestBook.bookId, title: latestBook.title || latestBook.bookName };
-            switchTab('submit');
-            setTimeout(() => {
-                document.getElementById('reelsSection')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 300);
-            showToast('🎬 Select a style and create your reel below!', 'success');
-        }
+
 
         async function createReelFromModal() {
             if (!currentRecommendBook || !currentRecommendBook.bookId) { showToast('No book selected', 'error'); return; }
