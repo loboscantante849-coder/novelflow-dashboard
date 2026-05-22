@@ -40,7 +40,11 @@ module.exports = async (req, res) => {
       const allData = JSON.parse(Buffer.from(dataContent.content, 'base64').toString('utf-8'));
       const users = allData.users || {};
       // Match by username (case-insensitive)
-      const key = Object.keys(users).find(k => k.toLowerCase() === username.toLowerCase());
+      // Match by key (discord ID) or by name field inside user object
+      const key = Object.keys(users).find(k => 
+        k.toLowerCase() === username.toLowerCase() || 
+        (users[k].name && users[k].name.toLowerCase() === username.toLowerCase())
+      );
       if (key) {
         userData = users[key];
       }
@@ -73,8 +77,8 @@ module.exports = async (req, res) => {
     }
 
     // Step 5: Calculate totals from data.json (primary source)
-    const totalVisits = userData?.link_visits || 0;
-    const totalUnique = userData?.link_unique || userData?.unique_visitors || 0;
+    const totalVisits = userData?.visits || userData?.link_visits || 0;
+    const totalUnique = userData?.unique_users || userData?.link_unique || userData?.unique_visitors || 0;
     const totalNew = userData?.new_users || 0;
     const totalIncome = userData?.d14income || 0;
 
@@ -134,7 +138,7 @@ module.exports = async (req, res) => {
       total_unique: totalUnique,
       total_new: totalNew,
       total_income: Math.round(totalIncome * 100) / 100,
-      last_updated: userData?.unique_last_success || null,
+      last_updated: userData?.last_updated || null,
       books
     });
 
