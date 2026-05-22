@@ -4248,6 +4248,7 @@
                         accountType: data.accountType || 'local'
                     };
                     localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
+                    localStorage.setItem('novelflow_last_user', AppState.user.username);
                     return;
                 }
             } catch (e) {
@@ -4697,8 +4698,22 @@
             }
         }
 
+        function getMyBooksKey() {
+            const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || '';
+            return username ? 'novelflow_mybooks_' + username : 'novelflow_mybooks';
+        }
         function loadMyBooks() {
-            const saved = localStorage.getItem('novelflow_mybooks');
+            const key = getMyBooksKey();
+            let saved = localStorage.getItem(key);
+            // Migrate from old global key if no per-user data exists
+            if (!saved) {
+                const oldData = localStorage.getItem('novelflow_mybooks');
+                if (oldData) {
+                    saved = oldData;
+                    localStorage.setItem(key, oldData);
+                    localStorage.removeItem('novelflow_mybooks');
+                }
+            }
             AppState.myBooks = saved ? JSON.parse(saved) : [];
             renderMyBooks();
             // Load user stats if logged in
@@ -4707,7 +4722,7 @@
             }
         }
 
-        function saveMyBooks() { localStorage.setItem('novelflow_mybooks', JSON.stringify(AppState.myBooks)); }
+        function saveMyBooks() { localStorage.setItem(getMyBooksKey(), JSON.stringify(AppState.myBooks)); }
 
         // Format number or return dash
         function fmtNum(n, prefix = '') {
@@ -5075,7 +5090,10 @@ function renderMyBooks() {
                     AppState.user = { username, accountType: 'local' };
                     AppState.isLoggedIn = true;
                     localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
+                    localStorage.setItem('novelflow_last_user', username);
                     updateProfileUI();
+                    loadMyBooks();
+                    loadPerformanceDashboard();
                     showToast('Login successful!', 'success');
                     (document.getElementById('regUsername') || {}).value = '';
                 } else {
@@ -5097,8 +5115,11 @@ function renderMyBooks() {
                 console.warn('Logout API error:', e);
             }
             
+            // Save current user's books before clearing session
+            if (AppState.myBooks.length > 0) saveMyBooks();
             localStorage.removeItem('novelflow_user');
-            localStorage.removeItem('novelflow_mybooks');
+            localStorage.removeItem('novelflow_last_user');
+            // DON'T delete per-user books data - they persist across logins
             AppState.user = null;
             AppState.isLoggedIn = false;
             AppState.myBooks = [];
@@ -5122,10 +5143,13 @@ function renderMyBooks() {
             AppState.user = { username: username, accountType: 'local' };
             AppState.isLoggedIn = true;
             localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
+            localStorage.setItem('novelflow_last_user', username);
             localStorage.setItem('novelflow_splash_done', 'true');
             
             document.getElementById('splashScreen').classList.add('hidden');
             updateProfileUI();
+            loadMyBooks();
+            loadPerformanceDashboard();
             showToast('Welcome, ' + username + '!', 'success');
         }
         
@@ -5315,25 +5339,13 @@ function renderMyBooks() {
 
         // ========== Init ==========
         document.addEventListener('DOMContentLoaded', async () => {
-            // Clean up any old fake data from localStorage
-            try {
-                var saved = localStorage.getItem('novelflow_mybooks');
-                if (saved) {
-                    var arr = JSON.parse(saved);
-                    var cleaned = arr.filter(function(b) {
-                        if (b.code && !/^[0-9]+$/.test(b.code)) return false;
-                        if (b.link && !b.link.includes('social.novelplatform.vip')) return false;
-                        return true;
-                    });
-                    localStorage.setItem('novelflow_mybooks', JSON.stringify(cleaned));
-                }
-            } catch(e) {}
+            // Clean up migrated - per-user storage handles data isolation now
             checkSplashStatus();
             setTimeout(() => {
                 const el = document.getElementById('homeLoading');
                 if (el && el.style.display !== 'none') { el.style.display = 'none'; hideLoadingAndShowContent(); }
             }, 3000);
-            loadBooks(); loadMyBooks(); updateStats(); checkLocalLogin(); checkLoginStatus();
+            loadBooks(); checkLocalLogin(); loadMyBooks(); updateStats(); checkLoginStatus();
             if (typeof loadPerformanceDashboard === 'function') setTimeout(loadPerformanceDashboard, 1000);
             document.getElementById('recommendModal').addEventListener('click', e => {
                 if (e.target.classList.contains('modal-overlay')) closeModal();
