@@ -3344,47 +3344,45 @@
         // ========== Load Books from Backend API ==========
         async function loadBooks() {
             const loadingEl = document.getElementById('homeLoading');
-            const timeout = 10000;
             const bookLang = AppState.currentLang || 'en';
 
+            // Strategy: Try trending API first, then fall back to books/search (featured-books.json)
+            let booksLoaded = false;
+
+            // Try 1: Trending API
             try {
-                // Fetch trending books sorted by UV (weekly top) from novelspa API
                 const response = await Promise.race([
                     fetch('/api/trending-books?mode=trending&lang=' + bookLang + '&limit=30', {
                         method: 'GET',
                         headers: { 'Content-Type': 'application/json' }
                     }),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeout))
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
                 ]);
 
-                if (!response.ok) throw new Error('API error: ' + response.status);
-
-                const result = await response.json();
-
-                if (result.success && Array.isArray(result.data)) {
-                    AppState.books = result.data.map(book => ({
-                        bookId: book.bookId || book.id || '',
-                        title: book.title || 'Untitled',
-                        cover: book.cover || book.coverImage || '',
-                        description: book.description || '',
-                        rating: book.rating || book.star || 4.5,
-                        tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
-                        author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
-                        languageCode: book.languageCode || 'en',
-                        bookClassName: book.bookClassName || ''
-                    }));
-                    
-                    console.log('Loaded ' + AppState.books.length + ' books from API');
-                } else {
-                    throw new Error('Invalid API response');
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+                        AppState.books = result.data.map(book => ({
+                            bookId: book.bookId || book.id || '',
+                            title: book.title || 'Untitled',
+                            cover: book.cover || book.coverImage || '',
+                            description: book.description || '',
+                            rating: book.rating || book.star || 4.5,
+                            tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
+                            author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
+                            languageCode: book.languageCode || 'en',
+                            bookClassName: book.bookClassName || ''
+                        }));
+                        console.log('Loaded ' + AppState.books.length + ' books from trending API');
+                        booksLoaded = true;
+                    }
                 }
             } catch (e) {
-                console.warn('API load failed:', e.message);
-                AppState.books = [];
+                console.warn('Trending API failed:', e.message);
             }
 
-            // If no books from API with lang filter, try without lang
-            if (AppState.books.length === 0) {
+            // Try 2: Trending API without lang filter
+            if (!booksLoaded) {
                 try {
                     const resp2 = await fetch('/api/trending-books?mode=trending&limit=30');
                     const result2 = await resp2.json();
@@ -3400,12 +3398,26 @@
                             languageCode: book.languageCode || 'en',
                             bookClassName: book.bookClassName || ''
                         }));
-                        console.log('Loaded ' + AppState.books.length + ' books without lang filter');
+                        console.log('Loaded ' + AppState.books.length + ' books (no lang filter)');
+                        booksLoaded = true;
                     }
-                } catch(e2) { console.warn('Fallback load also failed:', e2.message); }
+                } catch(e2) { console.warn('No-lang fallback failed:', e2.message); }
             }
 
-            // Show all books (no rating filter)
+            // Try 3: Featured books (books/search with no keyword = featured list)
+            if (!booksLoaded) {
+                try {
+                    const resp3 = await fetch('/api/books/search?lang=' + bookLang);
+                    const result3 = await resp3.json();
+                    if (result3.success && Array.isArray(result3.books) && result3.books.length > 0) {
+                        AppState.books = result3.books;
+                        console.log('Loaded ' + AppState.books.length + ' books from featured-books.json');
+                        booksLoaded = true;
+                    }
+                } catch(e3) { console.warn('Featured books fallback failed:', e3.message); }
+            }
+
+            // Show all books
             AppState.filteredBooks = AppState.books;
             hideLoadingAndShowContent();
             renderBookList();
