@@ -3448,6 +3448,7 @@
         // ========== Render Book List ==========
         function renderBookList() {
             const container = document.getElementById('bookList');
+            if (!container) return;
             const books = AppState.filteredBooks;
 
             if (books.length === 0) {
@@ -3489,6 +3490,7 @@
         // ========== Render Scroll ==========
         function renderBookScroll() {
             const container = document.getElementById('bookScrollList');
+            if (!container) return;
             const books = AppState.books.slice(0, 6);
 
             container.innerHTML = books.map(book => {
@@ -3512,6 +3514,7 @@
         // ========== Render Rank ==========
         function renderRankList() {
             const container = document.getElementById('rankList');
+            if (!container) return;
             const rankBooks = AppState.books.slice(0, 5).map((book, i) => ({
                 ...book,
                 clicks: Math.floor(Math.random() * 500) + 100
@@ -5700,9 +5703,8 @@ function renderMyBooks() {
                         progressCard.innerHTML = '<div style="width:54px;height:72px;border-radius:8px;background:var(--canvas-soft);display:flex;align-items:center;justify-content:center;font-size:20px;">⏳</div><div class="reels-item-body"><div class="reels-item-title">' + escapeHtml(taskName) + '</div><div class="reels-item-status" style="color:var(--ruby);">🎬 ' + getText('status_creating') + '</div><div style="font-size:10px;color:var(--ink-mute);margin-top:2px;">~25 min remaining</div></div>';
                         reelsList.insertBefore(progressCard, reelsList.firstChild);
                     }
-                    listMyReels();
-                    // Poll for completion after 30 seconds
-                    setTimeout(() => listMyReels(), 30000);
+                    // Refresh reels list after a delay (progress card is already shown above)
+                    setTimeout(() => listMyReels(), 60000);
                 } else {
                     const errMsg = result.error || (result.data?.msg) || 'Reel creation failed';
                     showToast(errMsg, 'error');
@@ -5714,10 +5716,13 @@ function renderMyBooks() {
             if (modalBtn) { modalBtn.disabled = false; modalBtn.textContent = '🎬 Create Reels for This Book'; }
         }
 
+        let _reelsPollTimer = null;
         async function listMyReels() {
             const listEl = document.getElementById('reelsList');
             if (!listEl) return;
-            listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">' + getText('loading') + '</div>';
+
+            // Clear any existing poll timer to prevent stacking
+            if (_reelsPollTimer) { clearTimeout(_reelsPollTimer); _reelsPollTimer = null; }
 
             try {
                 const headers = {};
@@ -5771,18 +5776,25 @@ function renderMyBooks() {
                             hasProcessing = true;
                         }
                         const templateLabel = item.template === 'PPT_Porn' ? '🔥' : (item.template === 'Ad_Plot_Video_V2' ? '🎥' : '📖');
+                        // Thumbnail: use cover image if available, otherwise show gradient placeholder with play icon
                         const thumb = item.coverUrl || '';
                         const thumbClickAction = item.videoUrl ? 'window.open(\'' + item.videoUrl + '\', \'_blank\')' : '';
+                        const placeholderGrad = 'linear-gradient(135deg, #FF6B9D22, #C084FC22)';
+                        const placeholderHtml = '<div style="width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:24px;' + (thumbClickAction ? 'cursor:pointer;" onclick="' + thumbClickAction : '') + '">▶️</div>';
                         const thumbHtml = thumb
-                            ? '<img class="reels-item-thumb" src="' + thumb + '"' + (thumbClickAction ? ' onclick="' + thumbClickAction + '"' : '') + ' onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div style="display:none;width:54px;height:72px;border-radius:8px;background:var(--canvas-soft);align-items:center;justify-content:center;font-size:20px;' + (thumbClickAction ? 'cursor:pointer;" onclick="' + thumbClickAction : '') + '">' + templateLabel + '</div>'
-                            : '<div style="width:54px;height:72px;border-radius:8px;background:var(--canvas-soft);display:flex;align-items:center;justify-content:center;font-size:20px;' + (thumbClickAction ? 'cursor:pointer;" onclick="' + thumbClickAction : '') + '">' + templateLabel + '</div>';
+                            ? '<img class="reels-item-thumb" src="' + thumb + '" style="width:54px;height:72px;border-radius:8px;object-fit:cover;"' + (thumbClickAction ? ' onclick="' + thumbClickAction + '"' : '') + ' onerror="this.outerHTML=\'' + placeholderHtml.replace(/'/g, "\\'") + '\'">' + placeholderHtml.replace(/display:flex/g, 'display:none')
+                            : placeholderHtml;
                         
                         let actionsHtml = '';
-                        if (item.isDone && item.videoUrl) {
-                            actionsHtml = '<div class="reels-item-actions">' +
-                                '<a class="reels-action-btn reels-btn-save" href="' + item.videoUrl + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">💾 Save Video</a>' +
-                                (item.creativeText ? '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)">📋 Copy Text</button>' : '') +
-                                '</div>';
+                        if (item.isDone) {
+                            actionsHtml = '<div class="reels-item-actions">';
+                            if (item.videoUrl) {
+                                actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + item.videoUrl + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">💾 Save Video</a>';
+                            }
+                            if (item.creativeText) {
+                                actionsHtml += '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)">📋 Copy Text</button>';
+                            }
+                            actionsHtml += '</div>';
                         }
                         
                         let copyTextHtml = '';
@@ -5800,7 +5812,7 @@ function renderMyBooks() {
                             '</div></div>';
                     }).join('');
                     
-                    if (hasProcessing) { setTimeout(() => listMyReels(), 15000); }
+                    if (hasProcessing) { _reelsPollTimer = setTimeout(() => listMyReels(), 30000); }
                 } else {
                     listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">' + getText('no_reels') + '</div>';
                 }
