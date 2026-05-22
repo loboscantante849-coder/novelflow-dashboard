@@ -5285,6 +5285,63 @@ function renderMyBooks() {
             });
         });
 
+
+        // ========== Performance Dashboard (Home Page) ==========
+        async function loadPerformanceDashboard() {
+            const perfData = document.getElementById('perfData');
+            const perfLogin = document.getElementById('perfLoginPrompt');
+            
+            if (!AppState.isLoggedIn || !AppState.user || !AppState.user.username) {
+                if (perfData) perfData.style.display = 'none';
+                if (perfLogin) perfLogin.style.display = 'block';
+                return;
+            }
+            
+            if (perfLogin) perfLogin.style.display = 'none';
+            if (perfData) perfData.style.display = 'block';
+            
+            try {
+                const resp = await fetch('/api/my-stats?username=' + encodeURIComponent(AppState.user.username));
+                if (!resp.ok) throw new Error('Failed');
+                const data = await resp.json();
+                
+                // Update perf stats
+                const pv = document.getElementById('perfVisits');
+                const pu = document.getElementById('perfUnique');
+                const pi = document.getElementById('perfIncome');
+                const pb = document.getElementById('perfBooks');
+                const pn = document.getElementById('perfNewUsers');
+                const pl = document.getElementById('perfLinks');
+                
+                if (pv) pv.textContent = data.total_visits || 0;
+                if (pu) pu.textContent = data.total_unique || 0;
+                if (pi) pi.textContent = '$' + (data.total_income || 0).toFixed(2);
+                if (pb) pb.textContent = (data.books || []).length;
+                if (pn) pn.textContent = data.total_new || 0;
+                if (pl) pl.textContent = (data.books || []).length;
+                
+                // Tier progress
+                const booksCount = (data.books || []).length;
+                const tierFill = document.getElementById('tierProgressFill');
+                const tierCurrent = document.getElementById('tierCurrent');
+                const tierNext = document.getElementById('tierNext');
+                const tierPct = Math.min(booksCount / 5 * 100, 100);
+                if (tierFill) tierFill.style.width = tierPct + '%';
+                if (tierCurrent) tierCurrent.textContent = booksCount + '/5 books this week';
+                if (tierNext) tierNext.textContent = booksCount >= 5 ? '✓ Max tier!' : 'Next: ' + (45 + booksCount * 2) + '% commission';
+                
+                // Last updated
+                const perfUpdated = document.getElementById('perfUpdated');
+                if (perfUpdated && data.last_updated) perfUpdated.textContent = 'Updated: ' + new Date(data.last_updated).toLocaleString();
+                
+            } catch (e) {
+                console.warn('Perf dashboard load failed:', e.message);
+                // Show zeros
+                const pi = document.getElementById('perfIncome');
+                if (pi) pi.textContent = '$0.00';
+            }
+        }
+
         // ========== Init ==========
         document.addEventListener('DOMContentLoaded', async () => {
             // Clean up any old fake data from localStorage

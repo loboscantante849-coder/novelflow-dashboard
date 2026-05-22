@@ -40,13 +40,23 @@ module.exports = async (req, res) => {
       const allData = JSON.parse(Buffer.from(dataContent.content, 'base64').toString('utf-8'));
       const users = allData.users || {};
       // Match by username (case-insensitive)
-      // Match by key (discord ID) or by name field inside user object
-      const key = Object.keys(users).find(k => 
+      // Strategy: find all matches, prefer direct key match, then prefer richer data
+      const allMatches = Object.entries(users).filter(([k, v]) => 
         k.toLowerCase() === username.toLowerCase() || 
-        (users[k].name && users[k].name.toLowerCase() === username.toLowerCase())
+        (v.name && v.name.toLowerCase() === username.toLowerCase())
       );
-      if (key) {
-        userData = users[key];
+      if (allMatches.length > 0) {
+        // Prefer direct key match, then prefer entry with daily breakdown, then highest income
+        allMatches.sort((a, b) => {
+          const aDirectKey = a[0].toLowerCase() === username.toLowerCase() ? 1 : 0;
+          const bDirectKey = b[0].toLowerCase() === username.toLowerCase() ? 1 : 0;
+          if (aDirectKey !== bDirectKey) return bDirectKey - aDirectKey;
+          const aHasDaily = a[1].d14income_daily ? 1 : 0;
+          const bHasDaily = b[1].d14income_daily ? 1 : 0;
+          if (aHasDaily !== bHasDaily) return bHasDaily - aHasDaily;
+          return (b[1].d14income || 0) - (a[1].d14income || 0);
+        });
+        userData = allMatches[0][1];
       }
     }
 
