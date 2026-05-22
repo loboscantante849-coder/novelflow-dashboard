@@ -2,6 +2,23 @@
  * POST /api/ac-create
  * 创建AC视频任务
  */
+
+const REELS_DAILY_LIMIT = 3;
+const reelsDailyCounts = new Map(); // key: ip:date, value: count
+
+function checkReelsDailyLimit(ip) {
+  const today = new Date().toISOString().split('T')[0];
+  const key = ip + ':' + today;
+  const count = reelsDailyCounts.get(key) || 0;
+  if (count >= REELS_DAILY_LIMIT) return { allowed: false, count };
+  reelsDailyCounts.set(key, count + 1);
+  // Clean up old entries (keep only today's)
+  for (const [k] of reelsDailyCounts) {
+    if (!k.endsWith(today)) reelsDailyCounts.delete(k);
+  }
+  return { allowed: true, count: count + 1 };
+}
+
 const AC_BASE = 'https://ac.beidou.win/api/v1';
 
 module.exports = async (req, res) => {
@@ -20,6 +37,11 @@ module.exports = async (req, res) => {
 
   const body = req.body || {};
   if (!body.book_id) return res.status(400).json({ error: 'book_id required' });
+
+  // Server-side daily limit (3 per IP per day)
+  const clientIp = req.headers['x-forwarded-for']?.split(',')[0] || req.connection?.remoteAddress || 'unknown';
+  const limitCheck = checkReelsDailyLimit(clientIp);
+  if (!limitCheck.allowed) return res.status(429).json({ error: 'Daily limit reached (3 reels/day). Try again tomorrow.', remaining: 0 });
 
   const payload = {
     template: body.template || 'PPT_Porn',
