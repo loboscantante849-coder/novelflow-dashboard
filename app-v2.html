@@ -3383,12 +3383,30 @@
                 AppState.books = [];
             }
 
-            // Filter to show only high-rated books (4.5+)
-            AppState.filteredBooks = AppState.books.filter(b => (b.rating || 4.5) >= 4.5);
-            if (AppState.filteredBooks.length < 6) {
-                // Fallback to 4.0 if not enough high-rated books
-                AppState.filteredBooks = AppState.books.filter(b => (b.rating || 4.0) >= 4.0);
+            // If no books from API with lang filter, try without lang
+            if (AppState.books.length === 0) {
+                try {
+                    const resp2 = await fetch('/api/trending-books?mode=trending&limit=30');
+                    const result2 = await resp2.json();
+                    if (result2.success && Array.isArray(result2.data) && result2.data.length > 0) {
+                        AppState.books = result2.data.map(book => ({
+                            bookId: book.bookId || book.id || '',
+                            title: book.title || 'Untitled',
+                            cover: book.cover || book.coverImage || '',
+                            description: book.description || '',
+                            rating: book.rating || book.star || 4.5,
+                            tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
+                            author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
+                            languageCode: book.languageCode || 'en',
+                            bookClassName: book.bookClassName || ''
+                        }));
+                        console.log('Loaded ' + AppState.books.length + ' books without lang filter');
+                    }
+                } catch(e2) { console.warn('Fallback load also failed:', e2.message); }
             }
+
+            // Show all books (no rating filter)
+            AppState.filteredBooks = AppState.books;
             hideLoadingAndShowContent();
             renderBookList();
             renderBookScroll();
