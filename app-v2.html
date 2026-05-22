@@ -814,6 +814,7 @@
             display: flex; gap: 0; border-radius: 16px; overflow: hidden;
             border: 1px solid var(--hairline); background: white;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            pointer-events: auto;
         }
         .lang-switch-btn {
             padding: 4px 10px; font-size: 11px; font-weight: 600;
@@ -2202,14 +2203,22 @@
         .reels-btn-list { background: var(--canvas-soft); color: var(--ink); }
         .reels-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .reels-list { padding: 0 16px 12px; }
-        .reels-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--hairline); }
+        .reels-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--hairline); }
         .reels-item:last-child { border-bottom: none; }
-        .reels-item-cover { width: 40px; height: 54px; border-radius: 6px; object-fit: cover; }
-        .reels-item-info { flex: 1; }
+        .reels-item-thumb { width: 54px; height: 72px; border-radius: 8px; object-fit: cover; background: var(--canvas-soft); flex-shrink: 0; cursor: pointer; border: 1px solid var(--hairline); }
+        .reels-item-thumb:hover { border-color: var(--ruby); }
+        .reels-item-body { flex: 1; min-width: 0; }
         .reels-item-title { font-size: 13px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .reels-item-status { font-size: 11px; color: var(--ink-mute); }
+        .reels-item-status { font-size: 11px; color: var(--ink-mute); margin-top: 2px; }
         .reels-item-status.done { color: var(--success); }
         .reels-item-status.fail { color: var(--danger); }
+        .reels-item-actions { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+        .reels-action-btn { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; font-family: inherit; }
+        .reels-btn-save { background: linear-gradient(135deg, #FF6B9D, #C084FC); color: white; }
+        .reels-btn-save:hover { opacity: 0.9; }
+        .reels-btn-copy { background: var(--canvas-soft); color: var(--ink); border: 1px solid var(--hairline); }
+        .reels-btn-copy:hover { border-color: var(--ruby); color: var(--ruby); }
+        .reels-item-copy { font-size: 11px; color: var(--ink-mute); margin-top: 6px; background: var(--canvas-soft); border-radius: 6px; padding: 6px 8px; line-height: 1.4; white-space: pre-wrap; max-height: 60px; overflow-y: auto; }
 
         /* XMP filter buttons */
         .xmp-filter-btn { padding:4px 10px; border-radius:12px; font-size:11px; font-weight:500; border:1px solid var(--hairline); background:white; color:var(--ink-mute); cursor:pointer; font-family:inherit; }
@@ -2243,6 +2252,10 @@
         <div class="splash-title" data-i18n="app_name">NovelFlow</div>
         <div class="splash-subtitle" data-i18n="splash_subtitle">Earn money promoting books</div>
         
+        <div style="position:absolute;top:12px;right:12px;display:flex;gap:0;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.15);">
+            <button style="padding:4px 10px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:inherit;" class="splash-lang-btn" data-lang="en" onclick="switchLang('en');document.querySelectorAll('.splash-lang-btn').forEach(b=>b.style.background=b.dataset.lang==='en'?'rgba(255,255,255,0.4)':'transparent');document.querySelectorAll('.splash-lang-btn').forEach(b=>b.style.color=b.dataset.lang==='en'?'white':'rgba(255,255,255,0.6)')">EN</button>
+            <button style="padding:4px 10px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:inherit;" class="splash-lang-btn" data-lang="es" onclick="switchLang('es');document.querySelectorAll('.splash-lang-btn').forEach(b=>b.style.background=b.dataset.lang==='es'?'rgba(255,255,255,0.4)':'transparent');document.querySelectorAll('.splash-lang-btn').forEach(b=>b.style.color=b.dataset.lang==='es'?'white':'rgba(255,255,255,0.6)')">ES</button>
+        </div>
         <div class="splash-form">
             <input type="text" class="splash-input" id="splashUsername" data-i18n-placeholder="username" placeholder="Username">
             <button class="splash-btn" onclick="handleSplashLogin()" data-i18n="start_earning"><span data-i18n="start_earning_btn">Start Earning</span></button>
@@ -2405,9 +2418,9 @@
                             <div style="margin-bottom:8px;">
                                 <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:4px;">🎬 Video Style</div>
                                 <select id="reelTemplate" style="width:100%;padding:8px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;background:white;">
-                                    <option value="PPT_Porn"><span data-i18n="tmpl_story">📖 Story Slideshow (Video + Images)</span></option>
-                                    <option value="Spicy"><span data-i18n="tmpl_spicy">🔥 Spicy &amp; Steamy</span></option>
-                                    <option value="Sora"><span data-i18n="tmpl_sora">🎥 Story Sora (AI Cinematic)</span></option>
+                                    <option value="Ad_Plot_Video_V3"><span data-i18n="tmpl_story">📖 Story Slideshow (Video + Images)</span></option>
+                                    <option value="PPT_Porn"><span data-i18n="tmpl_spicy">🔥 Spicy &amp; Steamy</span></option>
+                                    <option value="Ad_Plot_Video_V2"><span data-i18n="tmpl_sora">🎥 Story Sora (AI Cinematic)</span></option>
                                 </select>
                             </div>
                             <div style="font-size:11px;color:var(--ink-mute);padding:4px 0;">⏱ Video generation takes ~15 minutes. Check My Reels for progress.</div>
@@ -4728,7 +4741,7 @@ function renderMyBooks() {
                 if (savedToken) headers['x-ac-token'] = savedToken;
 
                 const templateSelect = document.getElementById('reelTemplate');
-                const selectedTemplate = templateSelect ? templateSelect.value : 'PPT_Porn';
+                const selectedTemplate = templateSelect ? templateSelect.value : 'Ad_Plot_Video_V3';
                 const resp = await fetch('/api/ac-create', {
                     method: 'POST',
                     headers,
@@ -4774,33 +4787,107 @@ function renderMyBooks() {
                 if (savedToken) headers['x-ac-token'] = savedToken;
                 const resp = await fetch('/api/ac-list', { headers });
                 const result = await resp.json();
-                if (result.newToken) { saveACToken(result.newToken);  }
-                const items = (result.data && result.data.data) || result.data || [];
+                if (result.newToken) { saveACToken(result.newToken); }
+                const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
                 if (result.success && items.length > 0) {
                     let hasProcessing = false;
-                    listEl.innerHTML = items.slice(0, 5).map(item => {
-                        const status = item.status || item.task_status || '';
-                        const statusClass = (status === 2 || status === 'done' || status === 'completed') ? 'done' : ((status === -1 || status === 'fail' || status === 'failed') ? 'fail' : '');
+                    // For completed items, fetch their results to get video URLs
+                    const enrichedItems = await Promise.all(items.slice(0, 5).map(async (item) => {
+                        const status = item.status || '';
+                        const isDone = (status === 'completed' || status === 2 || status === 'done');
+                        const isFail = (status === 'failed' || status === -1 || status === 'fail');
+                        let videoUrl = '', coverUrl = '', creativeText = '';
+                        if (isDone && item.thread_id) {
+                            try {
+                                const rHeaders = {};
+                                if (savedToken) rHeaders['x-ac-token'] = savedToken;
+                                const rResp = await fetch('/api/ac-result?threadId=' + item.thread_id, { headers: rHeaders });
+                                const rResult = await rResp.json();
+                                if (rResult.newToken) saveACToken(rResult.newToken);
+                                const rData = rResult.data || {};
+                                const materials = rData.materials || rData.items || rData.results || [];
+                                const finalResult = rData.final_result || {};
+                                if (materials.length > 0) {
+                                    const first = materials[0];
+                                    videoUrl = first.video_url || '';
+                                    coverUrl = first.cover_image_url || '';
+                                    creativeText = first.creative_text || first.dialogue_content || first.landing_page_copy || '';
+                                } else if (finalResult) {
+                                    videoUrl = finalResult.video_url || '';
+                                    coverUrl = finalResult.cover_image_url || '';
+                                    creativeText = finalResult.creative_text || finalResult.dialogue_content || '';
+                                }
+                            } catch(e) { console.warn('Failed to fetch result for', item.thread_id, e); }
+                        }
+                        return { ...item, isDone, isFail, videoUrl, coverUrl, creativeText };
+                    }));
+
+                    listEl.innerHTML = enrichedItems.map(item => {
                         let statusText = '';
-                        if (statusClass === 'done') {
-                            statusText = '✅ Ready to share';
-                        } else if (statusClass === 'fail') {
-                            statusText = '❌ Failed';
+                        if (item.isDone) {
+                            statusText = '✅ ' + getText('status_ready');
+                        } else if (item.isFail) {
+                            statusText = '❌ ' + getText('status_failed');
                         } else {
-                            statusText = '⏳ Creating video (~15 min)...';
+                            statusText = '⏳ ' + getText('status_creating');
                             hasProcessing = true;
                         }
-                        const templateLabel = item.template === 'Spicy' ? '🔥' : (item.template === 'Sora' ? '🎥' : '📖');
-                        return '<div class="reels-item" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--hairline);">' +
-                            '<div style="width:36px;height:36px;border-radius:8px;background:var(--canvas-soft);display:flex;align-items:center;justify-content:center;font-size:18px;">' + templateLabel + '</div>' +
-                            '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (item.title || 'Untitled') + '</div><div class="reels-item-status ' + statusClass + '" style="font-size:11px;">' + statusText + '</div></div></div>';
+                        const templateLabel = item.template === 'PPT_Porn' ? '🔥' : (item.template === 'Ad_Plot_Video_V2' ? '🎥' : '📖');
+                        const thumb = item.coverUrl || '';
+                        const thumbHtml = thumb
+                            ? '<img class="reels-item-thumb" src="' + thumb + '" onclick="window.open(\'' + (item.videoUrl || thumb) + '\', \'_blank\')" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div style="display:none;width:54px;height:72px;border-radius:8px;background:var(--canvas-soft);align-items:center;justify-content:center;font-size:20px;cursor:pointer;" onclick="window.open(\'' + (item.videoUrl || '#') + '\', \'_blank\')">' + templateLabel + '</div>'
+                            : '<div style="width:54px;height:72px;border-radius:8px;background:var(--canvas-soft);display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;" onclick="window.open(\'' + (item.videoUrl || '#') + '\', \'_blank\')">' + templateLabel + '</div>';
+                        
+                        let actionsHtml = '';
+                        if (item.isDone && item.videoUrl) {
+                            actionsHtml = '<div class="reels-item-actions">' +
+                                '<a class="reels-action-btn reels-btn-save" href="' + item.videoUrl + '" download target="_blank" style="text-decoration:none;">💾 Save Video</a>' +
+                                (item.creativeText ? '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)">📋 Copy Text</button>' : '') +
+                                '</div>';
+                        }
+                        
+                        let copyTextHtml = '';
+                        if (item.isDone && item.creativeText) {
+                            copyTextHtml = '<div class="reels-item-copy">' + escapeHtml(item.creativeText) + '</div>';
+                        }
+
+                        return '<div class="reels-item">' +
+                            thumbHtml +
+                            '<div class="reels-item-body">' +
+                            '<div class="reels-item-title">' + escapeHtml(item.book_name || item.title || 'Untitled') + '</div>' +
+                            '<div class="reels-item-status ' + (item.isDone ? 'done' : (item.isFail ? 'fail' : '')) + '">' + statusText + '</div>' +
+                            actionsHtml +
+                            copyTextHtml +
+                            '</div></div>';
                     }).join('');
+                    
                     if (hasProcessing) { setTimeout(() => listMyReels(), 15000); }
                 } else {
                     listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">' + getText('no_reels') + '</div>';
                 }
             } catch (e) {
                 listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--danger);font-size:13px;">Failed to load reels</div>';
+            }
+        }
+
+        function copyReelText(btn) {
+            const copyDiv = btn.closest('.reels-item-body').querySelector('.reels-item-copy');
+            if (copyDiv) {
+                const text = copyDiv.textContent || copyDiv.innerText;
+                navigator.clipboard.writeText(text).then(() => {
+                    btn.textContent = '✅ Copied!';
+                    setTimeout(() => { btn.textContent = '📋 Copy Text'; }, 2000);
+                }).catch(() => {
+                    // Fallback
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    btn.textContent = '✅ Copied!';
+                    setTimeout(() => { btn.textContent = '📋 Copy Text'; }, 2000);
+                });
             }
         }
 
@@ -4889,6 +4976,9 @@ function renderMyBooks() {
                 search_failed: 'Search failed',
                 no_assets: 'No assets found for this book',
                 reels_left: ' left today',
+                save_video: '💾 Save Video',
+                copy_text: '📋 Copy Text',
+                copied: '✅ Copied!',
                 trending_now: '🔥 Trending This Week',
                 browse_books: 'Browse Books',
                 genre_all: 'All',
@@ -4975,6 +5065,9 @@ function renderMyBooks() {
                 search_failed: 'Búsqueda fallida',
                 no_assets: 'No se encontraron recursos para este libro',
                 reels_left: ' disponibles hoy',
+                save_video: '💾 Guardar Video',
+                copy_text: '📋 Copiar Texto',
+                copied: '✅ ¡Copiado!',
                 trending_now: '🔥 Tendencias de la Semana',
                 browse_books: 'Explorar Libros',
                 genre_all: 'Todos',

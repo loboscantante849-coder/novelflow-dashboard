@@ -3,7 +3,7 @@
  * 创建AC视频任务
  */
 
-const REELS_DAILY_LIMIT = 3;
+const REELS_DAILY_LIMIT = 5;
 const reelsDailyCounts = new Map(); // key: ip:date, value: count
 
 function checkReelsDailyLimit(ip) {
@@ -49,10 +49,10 @@ module.exports = async (req, res) => {
   // Server-side daily limit (3 per username per day, fallback to IP)
   const limitKey = req.body.username || req.headers['x-forwarded-for']?.split(',')[0] || req.connection?.remoteAddress || 'unknown';
   const limitCheck = checkReelsDailyLimit(limitKey);
-  if (!limitCheck.allowed) return res.status(429).json({ error: 'Daily limit reached (3 reels/day). Try again tomorrow.', remaining: 0 });
+  if (!limitCheck.allowed) return res.status(429).json({ error: 'Daily limit reached (5 reels/day). Try again tomorrow.', remaining: 0 });
 
   const payload = {
-    template: body.template || 'PPT_Porn',
+    template: body.template || 'Ad_Plot_Video_V3',
     relatedBook: { book_id: body.book_id },
     num: body.num || 3,
     language: body.language || 'English',
