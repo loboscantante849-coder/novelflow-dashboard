@@ -3285,6 +3285,8 @@
             AppState.searchLang = lang;
             localStorage.setItem('novelflow_lang', lang);
             applyTranslations();
+            // Reload books for the new language
+            loadBooks();
             // Update toggle buttons
             document.querySelectorAll('.lang-switch-btn').forEach(b => {
                 b.classList.toggle('active', b.dataset.lang === lang);
@@ -3343,12 +3345,12 @@
         async function loadBooks() {
             const loadingEl = document.getElementById('homeLoading');
             const timeout = 10000;
-            const currentLang = AppState.searchLang || 'en';
+            const bookLang = AppState.currentLang || 'en';
 
             try {
                 // Fetch trending books sorted by UV (weekly top) from novelspa API
                 const response = await Promise.race([
-                    fetch('/api/trending-books?mode=trending&lang=' + currentLang + '&limit=30', {
+                    fetch('/api/trending-books?mode=trending&lang=' + bookLang + '&limit=30', {
                         method: 'GET',
                         headers: { 'Content-Type': 'application/json' }
                     }),
@@ -3377,18 +3379,8 @@
                     throw new Error('Invalid API response');
                 }
             } catch (e) {
-                console.warn('API load failed, using sample data:', e.message);
-                // Fallback sample data with real novelspa cover format
-                AppState.books = [
-                    { bookId: 'b1', title: 'The Alpha King\'s Claim', cover: 'https://cdn.myserver.com/covers/alpha-king.jpg', description: 'She never expected to be claimed by the most powerful Alpha in the territory.', rating: 4.8, tags: ['Romance', 'Fantasy', 'Alpha'], author: 'Luna Silver', languageCode: 'en' },
-                    { bookId: 'b2', title: 'My Cruel Alpha', cover: 'https://cdn.myserver.com/covers/cruel-alpha.jpg', description: 'He is cold, ruthless, and feared by all.', rating: 4.6, tags: ['Romance', 'Dark', 'Werewolf'], author: 'Night Walker', languageCode: 'en' },
-                    { bookId: 'b3', title: 'La Reina del Desierto', cover: 'https://cdn.myserver.com/covers/desert-queen.jpg', description: 'Una princesa guerera debe decidir entre su deber y su corazon.', rating: 4.7, tags: ['Romance', 'Adventure', 'Fantasy'], author: 'Rosa Montana', languageCode: 'es' },
-                    { bookId: 'b4', title: 'El Amor Prohibido', cover: 'https://cdn.myserver.com/covers/forbidden-love.jpg', description: 'Dos familias enfrentadas por una antigua deuda.', rating: 4.5, tags: ['Drama', 'Romance', 'Family'], author: 'Sol Dorado', languageCode: 'es' },
-                    { bookId: 'b5', title: 'Bound to the Dark', cover: 'https://cdn.myserver.com/covers/dark-bound.jpg', description: 'In a world where darkness holds ancient secrets.', rating: 4.4, tags: ['Fantasy', 'Mystery', 'Dark'], author: 'Shadow Noir', languageCode: 'en' },
-                    { bookId: 'b6', title: 'The CEO\'s Forbidden Princess', cover: 'https://cdn.myserver.com/covers/ceo-princess.jpg', description: 'She\'s a princess in hiding. He\'s the billionaire CEO.', rating: 4.3, tags: ['Romance', 'Drama', 'Royalty'], author: 'Crown Jewel', languageCode: 'en' },
-                    { bookId: 'b7', title: 'Suenos de Cristal', cover: 'https://cdn.myserver.com/covers/crystal-dreams.jpg', description: 'Una joven con poderes extraordinarios debe aprender a controlarlos.', rating: 4.6, tags: ['Fantasy', 'Drama', 'Supernatural'], author: 'Cristal Luna', languageCode: 'es' },
-                    { bookId: 'b8', title: 'Midnight Secrets', cover: 'https://cdn.myserver.com/covers/midnight-secrets.jpg', description: 'The small town of Willow Creek hides dark secrets.', rating: 4.2, tags: ['Mystery', 'Thriller', 'Crime'], author: 'Dark Waters', languageCode: 'en' }
-                ];
+                console.warn('API load failed:', e.message);
+                AppState.books = [];
             }
 
             // Filter to show only high-rated books (4.5+)
@@ -3520,8 +3512,8 @@
                 } else {
                     // Load books by genre from API (different books per category)
                     try {
-                        const currentLang = AppState.searchLang || 'en';
-                        const resp = await fetch('/api/trending-books?mode=category&category=' + encodeURIComponent(genre) + '&lang=' + currentLang + '&limit=30');
+                        const bookLang = AppState.currentLang || 'en';
+                        const resp = await fetch('/api/trending-books?mode=category&category=' + encodeURIComponent(genre) + '&lang=' + bookLang + '&limit=30');
                         if (resp.ok) {
                             const result = await resp.json();
                             if (result.success && Array.isArray(result.data)) {
@@ -4018,7 +4010,7 @@
 
             document.getElementById('modalBookCover').src = book.cover;
             document.getElementById('modalBookCover').onerror = function() {
-                this.src = 'https://via.placeholder.com/96x134/f6f9fc/64748d?text=N';
+                this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOTYiIGhlaWdodD0iMTM0IiBmaWxsPSIjZjZmOWZjIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSI5NiIgaGVpZ2h0PSIxMzQiIGZpbGw9IiNmNmY5ZmMiLz48dGV4dCB4PSI0OCIgeT0iNzAiIGZvbnQtc2l6ZT0iMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5NGEzYjgiPuCfjqXwn46lPC90ZXh0Pjwvc3ZnPg==';
             };
             document.getElementById('modalBookTitle').textContent = book.title;
 
@@ -4704,7 +4696,7 @@ function renderMyBooks() {
                 
                 return `
                     <div class="my-book-item">
-                        <img class="my-book-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.src='https://via.placeholder.com/36x48/f6f9fc/64748d?text=N'">
+                        <img class="my-book-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzYiIGhlaWdodD0iNDgiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjM2IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjZjZmOWZjIi8+PC9zdmc+'">
                         <div class="my-book-info">
                             <div class="my-book-title">${escapeHtml(book.title)}</div>
                             <div class="my-book-code">CODE: ${escapeHtml(book.code) || 'N/A'}</div>
@@ -5107,7 +5099,7 @@ function renderMyBooks() {
                 return `
                     <div class="leaderboard-item" onclick="openRecommendModal('${book.bookId}')">
                         <div class="leaderboard-rank ${rankClass}">${i + 1}</div>
-                        <img class="leaderboard-cover" src="${book.cover}" alt="${book.title}" onerror="this.src='https://via.placeholder.com/45x60/f6f9fc/64748d?text=N'">
+                        <img class="leaderboard-cover" src="${book.cover}" alt="${book.title}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDUiIGhlaWdodD0iNjAiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ1IiBoZWlnaHQ9IjYwIiBmaWxsPSIjZjZmOWZjIi8+PC9zdmc+'">
                         <div class="leaderboard-info">
                             <div class="leaderboard-title-text">${book.title}</div>
                             <div class="leaderboard-meta">Share to earn up to 80%</div>
@@ -5725,14 +5717,15 @@ function renderMyBooks() {
                         }
                         const templateLabel = item.template === 'PPT_Porn' ? '🔥' : (item.template === 'Ad_Plot_Video_V2' ? '🎥' : '📖');
                         const thumb = item.coverUrl || '';
+                        const thumbClickAction = item.videoUrl ? 'window.open(\'' + item.videoUrl + '\', \'_blank\')' : '';
                         const thumbHtml = thumb
-                            ? '<img class="reels-item-thumb" src="' + thumb + '" onclick="window.open(\'' + (item.videoUrl || thumb) + '\', \'_blank\')" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div style="display:none;width:54px;height:72px;border-radius:8px;background:var(--canvas-soft);align-items:center;justify-content:center;font-size:20px;cursor:pointer;" onclick="window.open(\'' + (item.videoUrl || '#') + '\', \'_blank\')">' + templateLabel + '</div>'
-                            : '<div style="width:54px;height:72px;border-radius:8px;background:var(--canvas-soft);display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;" onclick="window.open(\'' + (item.videoUrl || '#') + '\', \'_blank\')">' + templateLabel + '</div>';
+                            ? '<img class="reels-item-thumb" src="' + thumb + '"' + (thumbClickAction ? ' onclick="' + thumbClickAction + '"' : '') + ' onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div style="display:none;width:54px;height:72px;border-radius:8px;background:var(--canvas-soft);align-items:center;justify-content:center;font-size:20px;' + (thumbClickAction ? 'cursor:pointer;" onclick="' + thumbClickAction : '') + '">' + templateLabel + '</div>'
+                            : '<div style="width:54px;height:72px;border-radius:8px;background:var(--canvas-soft);display:flex;align-items:center;justify-content:center;font-size:20px;' + (thumbClickAction ? 'cursor:pointer;" onclick="' + thumbClickAction : '') + '">' + templateLabel + '</div>';
                         
                         let actionsHtml = '';
                         if (item.isDone && item.videoUrl) {
                             actionsHtml = '<div class="reels-item-actions">' +
-                                '<a class="reels-action-btn reels-btn-save" href="' + item.videoUrl + '" download target="_blank" style="text-decoration:none;">💾 Save Video</a>' +
+                                '<a class="reels-action-btn reels-btn-save" href="' + item.videoUrl + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">💾 Save Video</a>' +
                                 (item.creativeText ? '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)">📋 Copy Text</button>' : '') +
                                 '</div>';
                         }
