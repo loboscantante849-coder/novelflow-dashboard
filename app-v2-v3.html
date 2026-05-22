@@ -2319,8 +2319,12 @@
                     <span class="reels-header-title">🎬 Create Reels</span>
                     <span style="font-size:11px;color:var(--ink-mute);" id="reelsDailyInfo">3 left today</span>
                 </div>
+                <div style="padding:0 16px 8px;">
+                    <input type="text" class="reels-token-input" id="reelBookSearch" placeholder="Search book name to create reels..." style="width:calc(100% - 24px);padding:10px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;" oninput="searchReelBooks(this.value)">
+                    <div id="reelBookResults" style="max-height:150px;overflow-y:auto;"></div>
+                </div>
                 <div class="reels-actions">
-                    <button class="reels-btn reels-btn-create" id="reelsCreateBtn" onclick="createReel()">Create Reel</button>
+                    <button class="reels-btn reels-btn-create" id="reelsCreateBtn" onclick="createReelFromSection()" disabled>Create Reel</button>
                     <button class="reels-btn reels-btn-list" onclick="listMyReels()">My Reels</button>
                 </div>
                 <div class="reels-list" id="reelsList"></div>
@@ -2625,6 +2629,7 @@
                 <div class="modal-recommend-label">📋 Share This Text</div>
                 <div class="modal-recommend-text" id="modalRecommendText"></div>
                 <button class="modal-copy-btn" style="width:100%; padding:10px; margin-top:4px;" onclick="copyModalResult('text')">Copy All Text</button>
+                <button class="modal-reel-btn" id="modalCreateReelBtn" onclick="createReelFromModal()" style="width:100%;padding:12px;margin-top:8px;border:none;border-radius:10px;background:linear-gradient(135deg,#FF6B9D,#C084FC);color:white;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">🎬 Create Reels for This Book</button>
                 <button class="modal-done-btn" onclick="closeModal()">Done</button>
             </div>
             
@@ -4398,16 +4403,55 @@ function renderMyBooks() {
         }
         const REELS_DAILY_LIMIT = 3;
 
-        async function createReel() {
-            if (!currentRecommendBook) { showToast('Please select a book first', 'error'); return; }
+        let reelSelectedBook = null;
 
-            // Daily limit check
+        // Search books for reels section
+        async function searchReelBooks(query) {
+            const container = document.getElementById('reelBookResults');
+            if (!query || query.length < 2) { container.innerHTML = ''; return; }
+            try {
+                const resp = await fetch('/api/books/search?q=' + encodeURIComponent(query));
+                const data = await resp.json();
+                const books = data.books || data.data || [];
+                if (books.length === 0) {
+                    container.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--ink-mute);">No books found</div>';
+                    return;
+                }
+                container.innerHTML = books.slice(0, 5).map(b => 
+                    '<div class="reel-book-option" data-bookid="' + (b.bookId || b.id || b.book_id) + '" onclick="selectReelBook(this)" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--hairline);font-size:13px;display:flex;gap:8px;align-items:center;">' +
+                    '<img src="' + (b.cover || '') + '" style="width:30px;height:40px;border-radius:4px;object-fit:cover;" onerror="this.style.display=\'none\'">' +
+                    '<div><div style="font-weight:500;">' + (b.title || 'Untitled') + '</div><div style="font-size:11px;color:var(--ink-mute);">' + (b.author || '') + '</div></div></div>'
+                ).join('');
+            } catch(e) { container.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--ink-mute);">Search failed</div>'; }
+        }
+
+        function selectReelBook(el) {
+            document.querySelectorAll('.reel-book-option').forEach(e => e.style.background = '');
+            el.style.background = 'var(--canvas-soft)';
+            reelSelectedBook = { bookId: el.dataset.bookid, title: el.querySelector('div > div').textContent };
+            document.getElementById('reelsCreateBtn').disabled = false;
+            document.getElementById('reelsCreateBtn').textContent = '🎬 Create Reel';
+        }
+
+        // Create reel from the reels section (after searching a book)
+        async function createReelFromSection() {
+            if (!reelSelectedBook) { showToast('Please search and select a book first', 'error'); return; }
+            await doCreateReel(reelSelectedBook.bookId);
+        }
+
+        // Create reel from the success modal (after creating a link)
+        async function createReelFromModal() {
+            if (!currentRecommendBook || !currentRecommendBook.bookId) { showToast('No book selected', 'error'); return; }
+            await doCreateReel(currentRecommendBook.bookId);
+        }
+
+        // Core reel creation logic
+        async function doCreateReel(bookId) {
             const dailyCount = getReelsDailyCount();
             if (dailyCount >= REELS_DAILY_LIMIT) {
                 showToast('Daily limit reached (3 reels/day). Try again tomorrow!', 'error');
                 return;
             }
-
             const btn = document.getElementById('reelsCreateBtn');
             btn.disabled = true;
             btn.textContent = 'Creating...';
@@ -4421,13 +4465,12 @@ function renderMyBooks() {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        book_id: currentRecommendBook.bookId,
+                        book_id: bookId,
                         username: AppState.user?.username || 'guest'
                     })
                 });
                 const result = await resp.json();
-                // Save new token if AC refreshed it
-                if (result.newToken) { saveACToken(result.newToken);  }
+                if (result.newToken) { saveACToken(result.newToken); }
                 if (result.success) {
                     incrementReelsCount();
                     const remaining = REELS_DAILY_LIMIT - getReelsDailyCount();
@@ -4439,21 +4482,19 @@ function renderMyBooks() {
             } catch (e) {
                 showToast('Failed: ' + e.message, 'error');
             }
-            btn.disabled = false;
-            btn.textContent = 'Create Reel (' + (REELS_DAILY_LIMIT - getReelsDailyCount()) + ' left)';
+            btn.disabled = !reelSelectedBook;
+            btn.textContent = reelSelectedBook ? '🎬 Create Reel' : 'Create Reel';
         }
 
         async function listMyReels() {
-            saveACToken(token);
-
             const listEl = document.getElementById('reelsList');
             listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">Loading...</div>';
 
             try {
-                const resp = await fetch('/api/ac-list', {
-                    method: 'GET',
-                    headers: { 'x-ac-token': token }
-                });
+                const headers = {};
+                const savedToken = localStorage.getItem('novelflow_ac_token');
+                if (savedToken) headers['x-ac-token'] = savedToken;
+                const resp = await fetch('/api/ac-list', { headers });
                 const result = await resp.json();
                 if (result.newToken) { saveACToken(result.newToken);  }
                 const items = (result.data && result.data.data) || result.data || [];
