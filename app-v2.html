@@ -2301,7 +2301,53 @@
         .xmp-asset-type.image { background:#DBEAFE; color:#2563EB; }
         .xmp-asset-dl { font-size:11px; color:var(--ruby); text-decoration:none; font-weight:500; margin-top:4px; display:inline-block; }
 
-    </style>
+
+    /* ===== Mobile Responsive ===== */
+    @media (max-width: 430px) {
+        .app-container { max-width: 100%; }
+        .book-scroll-list { gap: 8px; }
+        .book-scroll-card { min-width: 120px; }
+        .book-scroll-cover { height: 160px; }
+        .book-item { padding: 10px; }
+        .book-item-cover { width: 60px; height: 80px; }
+        .reels-item { padding: 8px; }
+        .reels-action-btn { padding: 6px 10px; font-size: 11px; }
+        .modal { max-width: 100%; margin: 0 8px; max-height: 95vh; }
+        .milestone-popup { max-width: 260px; padding: 24px 16px; }
+        /* Better touch targets */
+        .nav-item { min-height: 52px; }
+        .btn-submit { min-height: 44px; }
+        .book-item-btn { min-height: 36px; padding: 6px 14px; }
+        .reels-btn { min-height: 42px; }
+        .checkin-v2-btn { min-height: 44px; }
+        .vip-exchange-btn { min-height: 44px; }
+        .login-btn { min-height: 44px; }
+        .mission-claim-btn { min-width: 44px; min-height: 36px; }
+        .lang-switch-btn { min-width: 36px; min-height: 36px; }
+        /* Search inputs */
+        input[type="text"] { min-height: 44px; font-size: 16px; }
+        /* Rank items */
+        .rank-item { padding: 10px 12px; }
+    }
+    @media (min-width: 431px) {
+        .app-container { box-shadow: 0 0 30px rgba(0,0,0,0.08); }
+    }
+    /* Video player - mobile friendly */
+    #reelVideoOverlay video { max-width: 100vw; max-height: 70vh; }
+    @media (max-width: 430px) {
+        #reelVideoOverlay video { max-height: 65vh; border-radius: 8px; }
+        #reelVideoOverlay { padding: 0; }
+    }
+    /* Safe area for notched phones */
+    .app-container { padding-bottom: env(safe-area-inset-bottom, 0); }
+    .bottom-nav { padding-bottom: env(safe-area-inset-bottom, 8px); }
+    /* Smooth scrolling for mobile */
+    .book-scroll-list, .reels-list { -webkit-overflow-scrolling: touch; scroll-behavior: smooth; }
+    /* Prevent text selection on buttons for mobile */
+    button, .nav-item, .reels-btn, .book-item-btn { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+    /* Fix iOS input zoom */
+    input[type="text"], input[type="password"], textarea { font-size: 16px; }
+        </style>
 
 <!-- VERSION: 20260518-204300 --></head>
 <body>
@@ -2396,7 +2442,7 @@
                     <div class="tier-progress">
                         <div class="tier-progress-bar"><div class="tier-progress-fill" id="tierProgressFill" style="width:0%"></div></div>
                         <div class="tier-progress-text">
-                            <span id="tierCurrent">0/5 books this week</span>
+                            <span id="tierCurrent" data-i18n="tier_books_week">0/5 books this week</span>
                             <span id="tierNext">Next: 55%</span>
                         </div>
                     </div>
@@ -2719,10 +2765,10 @@
 
                 <!-- Login form -->
                 <div class="login-form" id="loginForm">
-                    <h3>Register / Login</h3>
+                    <h3 data-i18n="register_login">Register / Login</h3>
                     <p>Fill in once, auto-login for 30 days</p>
                     <input type="text" class="login-input" id="regUsername" placeholder="Username" maxlength="50">
-                    <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()">Confirm</button>
+                    <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()" data-i18n="confirm_btn">Confirm</button>
                     <div class="login-tip">No password needed</div>
                 </div>
 
@@ -2836,10 +2882,10 @@
         <!-- Bottom Nav -->
         <div style="text-align:center;padding:8px 16px 4px;"><a href="mailto:LobosCantante849@gmail.com" style="font-size:11px;color:var(--ink-mute);text-decoration:none;" data-i18n="email_support">📧 Email Support: LobosCantante849@gmail.com</a></div>
         <nav class="bottom-nav">
-            <button class="nav-item active" data-tab="home"><span class="nav-icon">&#8962;</span><span class="nav-label">Home</span></button>
+            <button class="nav-item active" data-tab="home"><span class="nav-icon">&#8962;</span><span class="nav-label" data-i18n="nav_home">Home</span></button>
             <button class="nav-item" data-tab="submit"><span class="nav-icon">$</span><span class="nav-label" data-i18n="nav_earn">Earn</span></button>
-            <button class="nav-item" data-tab="tasks"><span class="nav-icon">&#9733;</span><span class="nav-label">Tasks</span></button>
-            <button class="nav-item" data-tab="profile"><span class="nav-icon">&#9787;</span><span class="nav-label">Profile</span></button>
+            <button class="nav-item" data-tab="tasks"><span class="nav-icon">&#9733;</span><span class="nav-label" data-i18n="nav_tasks">Tasks</span></button>
+            <button class="nav-item" data-tab="profile"><span class="nav-icon">&#9787;</span><span class="nav-label" data-i18n="nav_profile">Profile</span></button>
         </nav>
     </div>
 
@@ -2917,14 +2963,14 @@
                     <div class="modal-result-label">Promotion Link</div>
                     <div class="modal-result-value">
                         <span id="modalResultLink"></span>
-                        <button class="modal-copy-btn" onclick="copyModalResult('link')">Copy</button>
+                        <button class="modal-copy-btn" onclick="copyModalResult('link')" data-i18n="copy">Copy</button>
                     </div>
                 </div>
                 <div class="modal-result-box">
                     <div class="modal-result-label">Your Code</div>
                     <div class="modal-result-value">
                         <span id="modalResultCode"></span>
-                        <button class="modal-copy-btn" onclick="copyModalResult('code')">Copy</button>
+                        <button class="modal-copy-btn" onclick="copyModalResult('code')" data-i18n="copy">Copy</button>
                     </div>
                 </div>
                 <div class="modal-recommend-label">📋 Share This Text</div>
@@ -2948,7 +2994,7 @@
             </div>
                 <div class="modal-actions">
                     <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
-                    <button class="modal-btn confirm" id="modalConfirmBtn" onclick="confirmRecommend()">Start Earning</button>
+                    <button class="modal-btn confirm" id="modalConfirmBtn" onclick="confirmRecommend()" data-i18n="start_earning_btn">Start Earning</button>
                 </div>
             </div>
         </div>
@@ -3139,6 +3185,13 @@
                 toast_id_bound: 'NovelFlow ID bound successfully!',
                 toast_not_enough: 'Not enough points (need 50)',
                 toast_vip_activated: '🎉 VIP activated for 3 days!',
+                nav_home: 'Home',
+                nav_tasks: 'Tasks',
+                nav_profile: 'Profile',
+                register_login: 'Register / Login',
+                confirm_btn: 'Confirm',
+                xmp_hint: 'Search a book to browse ready-made video assets',
+                tier_books_week: '0/5 books this week',
             },
             es: {
                 // App
@@ -3272,6 +3325,13 @@
                 toast_id_bound: '¡ID de NovelFlow vinculado exitosamente!',
                 toast_not_enough: 'Puntos insuficientes (necesitas 50)',
                 toast_vip_activated: '🎉 ¡VIP activado por 3 días!',
+                nav_home: 'Inicio',
+                nav_tasks: 'Tareas',
+                nav_profile: 'Perfil',
+                register_login: 'Registrarse / Iniciar Sesión',
+                confirm_btn: 'Confirmar',
+                xmp_hint: 'Busca un libro para ver recursos de video listos',
+                tier_books_week: '0/5 libros esta semana',
             }
         };
         
@@ -3479,7 +3539,7 @@
                             <div class="book-item-tags">${tags}</div>
                             <div class="book-item-desc">${escapeHtml(book.description) || 'No description available.'}</div>
                             <div class="book-item-action">
-                                <button class="book-item-btn" onclick="event.stopPropagation(); openRecommendModal('${escapeHtml(book.bookId)}')">Recommend</button>
+                                <button class="book-item-btn" onclick="event.stopPropagation(); openRecommendModal('${escapeHtml(book.bookId)}')">' + getText('recommend_btn') + '</button>
                             </div>
                         </div>
                     </div>
@@ -3909,10 +3969,10 @@
             overlay.onclick = () => overlay.remove();
             overlay.innerHTML = '<div class="milestone-popup">' +
                 '<div class="milestone-popup-icon">👑</div>' +
-                '<div class="milestone-popup-title">VIP Activated!</div>' +
-                '<div class="milestone-popup-points" style="color:#FFD700;">3 Days VIP Access</div>' +
-                '<div class="milestone-popup-sub">Total VIP: ' + newVipDays + ' days</div>' +
-                '<button class="milestone-popup-btn" onclick="this.closest(\'.milestone-overlay\').remove()">Enjoy Reading!</button>' +
+                '<div class="milestone-popup-title">👑 ' + getText('toast_vip_activated').replace('🎉 ', '') + '</div>' +
+                '<div class="milestone-popup-points" style="color:#FFD700;">3 ' + getText('days_streak') + ' VIP</div>' +
+                '<div class="milestone-popup-sub">Total VIP: ' + newVipDays + ' ' + getText('days_streak') + '</div>' +
+                '<button class="milestone-popup-btn" onclick="this.closest(\'.milestone-overlay\').remove()">' + getText('awesome') + '</button>' +
                 '</div>';
             document.body.appendChild(overlay);
             showToast(getText('toast_vip_activated'), 'success');
@@ -5546,6 +5606,8 @@ function renderMyBooks() {
         }
         let xmpCurrentType = '';
         let xmpDebounceTimer = null;
+        let _xmpCache = {};  // Client-side cache for XMP results
+        let _xmpCacheTime = 0;
         function debounceXMPSearch(val) {
             clearTimeout(xmpDebounceTimer);
             xmpDebounceTimer = setTimeout(() => loadXMPMaterials(val), 400);
@@ -5554,12 +5616,19 @@ function renderMyBooks() {
             document.querySelectorAll('.xmp-filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             xmpCurrentType = type;
-            loadXMPMaterials(document.getElementById('xmpSearchInput')?.value || '');
+            loadXMPMaterials(document.getElementById('xmpBookSearch')?.value || '');
         }
 
         async function loadXMPMaterials(keyword) {
             const container = document.getElementById('xmpResults');
             if (!container) return;
+            // Check cache (valid for 5 minutes)
+            const cacheKey = (keyword || 'all') + '_' + xmpCurrentType;
+            const now = Date.now();
+            if (_xmpCache[cacheKey] && (now - _xmpCacheTime < 300000)) {
+                renderXMPResults(_xmpCache[cacheKey], container);
+                return;
+            }
             container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--ink-mute);font-size:13px;">Loading assets...</div>';
             try {
                 let url = '/api/xmp-materials?action=list&page_size=10&material_type=video';
@@ -5568,18 +5637,31 @@ function renderMyBooks() {
                 const resp = await fetch(url);
                 const result = await resp.json();
                 if (result.success && result.data && result.data.length > 0) {
-                    container.innerHTML = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">' + result.data.filter(m => m.material_type === 'video').slice(0, 10).map(m => {
+                    // Cache the results
+                    _xmpCache[cacheKey] = result.data;
+                    _xmpCacheTime = now;
+                    renderXMPResults(result.data, container);
+                } else {
+                    container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--ink-mute);font-size:13px;">No assets found</div>';
+                }
+            } catch(e) {
+                container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--danger);font-size:13px;">Failed to load assets</div>';
+            }
+        }
+
+        function renderXMPResults(data, container) {
+            if (!container) container = document.getElementById('xmpResults');
+            const videos = data.filter(m => m.material_type === 'video').slice(0, 10);
+            if (videos.length > 0) {
+                container.innerHTML = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">' + videos.map(m => {
                         const thumb = m.url || m.file_url || '';
                         const fallbackIcon = '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:24px;">🎬</div>';
                         let inner = thumb ? '<img src="' + thumb + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div style="display:none;align-items:center;justify-content:center;height:100%;font-size:24px;">🎬</div>' : fallbackIcon;
                         return '<div style="position:relative;border-radius:10px;overflow:hidden;background:var(--canvas-soft);cursor:pointer;aspect-ratio:9/16;border:2px solid rgba(255,107,157,0.2);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all 0.2s;" onmouseover="this.style.borderColor=\'#FF6B9D\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.borderColor=\'rgba(255,107,157,0.2)\';this.style.transform=\'none\'"' +
                             (m.file_url ? ' onclick="window.open(\'' + m.file_url + '\', \'_blank\')"' : '') + '>' + inner + '</div>';
                     }).join('') + '</div>';
-                } else {
-                    container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--ink-mute);font-size:13px;">No assets found</div>';
-                }
-            } catch(e) {
-                container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--danger);font-size:13px;">Failed to load assets</div>';
+            } else {
+                container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--ink-mute);font-size:13px;">No assets found</div>';
             }
         }
 
@@ -5824,10 +5906,10 @@ function renderMyBooks() {
                         if (item.isDone) {
                             actionsHtml = '<div class="reels-item-actions">';
                             if (item.videoUrl) {
-                                actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + item.videoUrl + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">💾 Save Video</a>';
+                                actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + item.videoUrl + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();"' + getText('save_video') + '</a>';
                             }
                             if (item.creativeText) {
-                                actionsHtml += '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)">📋 Copy Text</button>';
+                                actionsHtml += '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)"' + getText('copy_text') + '</button>';
                             }
                             actionsHtml += '</div>';
                         }
@@ -5861,8 +5943,8 @@ function renderMyBooks() {
             if (copyDiv) {
                 const text = copyDiv.textContent || copyDiv.innerText;
                 navigator.clipboard.writeText(text).then(() => {
-                    btn.textContent = '✅ Copied!';
-                    setTimeout(() => { btn.textContent = '📋 Copy Text'; }, 2000);
+                    btn.textContent = getText('copied');
+                    setTimeout(() => { btn.textContent = getText('copy_text'); }, 2000);
                 }).catch(() => {
                     // Fallback
                     const ta = document.createElement('textarea');
@@ -5871,8 +5953,8 @@ function renderMyBooks() {
                     ta.select();
                     document.execCommand('copy');
                     document.body.removeChild(ta);
-                    btn.textContent = '✅ Copied!';
-                    setTimeout(() => { btn.textContent = '📋 Copy Text'; }, 2000);
+                    btn.textContent = getText('copied');
+                    setTimeout(() => { btn.textContent = getText('copy_text'); }, 2000);
                 });
             }
         }
