@@ -4407,6 +4407,11 @@
             showToast('Link created successfully!', 'success');
 
             switchTab('submit');
+            // Scroll to success page to prevent white screen
+            setTimeout(() => {
+                const spEl = document.getElementById('successPage');
+                if (spEl) spEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
         }
 
         function copyRecommendText() {
@@ -5369,9 +5374,17 @@ function renderMyBooks() {
                 const result = await resp.json();
                 if (result.newToken) saveACToken(result.newToken);
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
-                // Filter: only show reels created by this user
+                // Filter: only show reels belonging to this user
+                const currentUser = AppState.user?.username || '';
                 const myReelIds = JSON.parse(localStorage.getItem('novelflow_my_reel_ids') || '[]');
-                const filteredItems = myReelIds.length > 0 ? items.filter(item => myReelIds.includes(String(item.id || item.task_id || ''))) : items;
+                const myBookNames = (AppState.myBooks || []).map(b => (b.title || b.bookName || '').toLowerCase());
+                const filteredItems = items.filter(item => {
+                    const itemId = String(item.id || item.task_id || '');
+                    if (myReelIds.includes(itemId)) return true;
+                    if (item.remark && item.remark.startsWith('nf_' + currentUser + '_')) return true;
+                    if (currentUser && item.book_name && myBookNames.includes(item.book_name.toLowerCase())) return true;
+                    return false;
+                });
                 if (!result.success || filteredItems.length === 0) {
                     el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;">' + getText('no_reels') + '</div>';
                     return;
@@ -5814,6 +5827,7 @@ function renderMyBooks() {
                         book_id: bookId,
                         username: AppState.user?.username || 'guest',
                         template: selectedTemplate,
+                        remark: 'nf_' + (AppState.user?.username || 'guest') + '_' + Date.now(),
                         num: 1,
                         language: reelLang,
                         country: reelCountry
@@ -5896,9 +5910,18 @@ function renderMyBooks() {
                 const result = await resp.json();
                 if (result.newToken) { saveACToken(result.newToken); }
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
-                // Filter: only show reels created by this user (tracked by task IDs in localStorage)
+                // Filter: only show reels belonging to this user
+                const currentUser = AppState.user?.username || '';
                 const myReelIds = JSON.parse(localStorage.getItem('novelflow_my_reel_ids') || '[]');
-                const filteredItems = myReelIds.length > 0 ? items.filter(item => myReelIds.includes(String(item.id || item.task_id || ''))) : items;
+                const myBookNames = (AppState.myBooks || []).map(b => (b.title || b.bookName || '').toLowerCase());
+                const filteredItems = items.filter(item => {
+                    const itemId = String(item.id || item.task_id || '');
+                    // Match by: stored task ID, remark prefix, or book name in myBooks
+                    if (myReelIds.includes(itemId)) return true;
+                    if (item.remark && item.remark.startsWith('nf_' + currentUser + '_')) return true;
+                    if (currentUser && item.book_name && myBookNames.includes(item.book_name.toLowerCase())) return true;
+                    return false;
+                });
                 if (result.success && filteredItems.length > 0) {
                     let hasProcessing = false;
                     // For completed items, fetch their results to get video URLs
