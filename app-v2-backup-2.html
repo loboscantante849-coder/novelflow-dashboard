@@ -806,52 +806,7 @@
         }
         .btn-another:hover { background: var(--primary-deep); }
 
-        
-        
-        /* Language toggle */
-        .lang-switch {
-            position: fixed; top: 8px; right: 8px; z-index: 9999;
-            display: flex; gap: 0; border-radius: 16px; overflow: hidden;
-            border: 1px solid var(--hairline); background: white;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .lang-switch-btn {
-            padding: 4px 10px; font-size: 11px; font-weight: 600;
-            border: none; background: white; color: var(--ink-mute);
-            cursor: pointer; font-family: inherit; transition: all 0.15s;
-        }
-        .lang-switch-btn.active {
-            background: var(--ruby); color: white;
-        }
-
-/* Pink Create AI box on success page */
-        .success-ai-box {
-            margin-top: var(--sp-md);
-            padding: 14px 16px;
-            border: 2px solid #FF6B9D;
-            border-radius: 12px;
-            background: linear-gradient(135deg, #FFF0F5, #FFE4EC);
-            cursor: pointer;
-            text-align: center;
-            transition: all 0.2s;
-        }
-        .success-ai-box:hover {
-            background: linear-gradient(135deg, #FFE4EC, #FFD0E0);
-            border-color: #E91E76;
-            transform: translateY(-1px);
-        }
-        .success-ai-box-title {
-            font-size: 15px;
-            font-weight: 600;
-            color: #C2185B;
-        }
-        .success-ai-box-sub {
-            font-size: 12px;
-            color: #E91E76;
-            margin-top: 2px;
-        }
-
-/* ========== Tab 3: Tasks — Stripe Pricing Cards ========== */
+        /* ========== Tab 3: Tasks — Stripe Pricing Cards ========== */
         .tasks-header { padding: var(--sp-lg) var(--sp-lg) var(--sp-sm); background: var(--canvas); }
         .tasks-title { font-size: 22px; font-weight: 300; letter-spacing: -0.44px; margin-bottom: var(--sp-xxs); color: var(--ink); }
         .tasks-subtitle { font-size: 14px; color: var(--ink-mute); font-weight: 300; }
@@ -2229,25 +2184,17 @@
     </style>
 
 <!-- VERSION: 20260518-204300 --></head>
-<body>
-    <!-- Language Switch -->
-    <div class="lang-switch" id="langSwitch">
-        <button class="lang-switch-btn active" data-lang="en" onclick="switchLang('en')">EN</button>
-        <button class="lang-switch-btn" data-lang="es" onclick="switchLang('es')">ES</button>
-    </div>
-
-<!-- VERSION: 20260518-2108 -->
+<body><!-- VERSION: 20260518-2108 -->
     <!-- Splash / Login Screen -->
     <div class="splash-screen" id="splashScreen">
         <div class="splash-logo">N</div>
-        <div class="splash-title" data-i18n="app_name">NovelFlow</div>
-        <div class="splash-subtitle" data-i18n="splash_subtitle">Earn money promoting books</div>
+        <div class="splash-title">NovelFlow</div>
+        <div class="splash-subtitle">Earn money promoting books</div>
         
         <div class="splash-form">
-            <input type="text" class="splash-input" id="splashUsername" data-i18n-placeholder="username" placeholder="Username">
-            <button class="splash-btn" onclick="handleSplashLogin()" data-i18n="start_earning"><span data-i18n="start_earning_btn">Start Earning</span></button>
+            <input type="text" class="splash-input" id="splashUsername" placeholder="Username">
+            <button class="splash-btn" onclick="handleSplashLogin()">Start Earning</button>
             <div class="splash-tip">Enter any username to start. No password needed.</div>
-            <div style="text-align:center;margin-top:12px;"><a href="mailto:LobosCantante849@gmail.com" style="font-size:12px;color:var(--ink-mute);text-decoration:none;" data-i18n="email_support">📧 Email Support</a></div>
             <div class="splash-error" id="splashError"></div>
         </div>
         
@@ -2269,7 +2216,7 @@
                 </div>
                 <div class="banner-content">
                     <div class="banner-eyebrow">💰 UP TO 80% COMMISSION</div>
-                    <div class="banner-title"><span data-i18n-html="earn_up_to">Earn Up to <span class="highlight">80%</span><br>Commission!</span></div>
+                    <div class="banner-title">Earn Up to <span class="highlight">80%</span><br>Commission!</div>
                     <div class="banner-subtitle">Promote 5 books to unlock 80% commission</div>
                 </div>
             </div>
@@ -2390,30 +2337,30 @@
                 </div>
                 <!-- Mode Tabs -->
                 <div style="display:flex;gap:0;padding:0 16px 8px;">
-                    <button id="reelModeAI" onclick="switchReelMode('ai')" style="flex:1;padding:8px;border:1px solid var(--hairline);border-radius:8px 0 0 8px;font-size:12px;font-weight:600;background:linear-gradient(135deg,#FF6B9D,#C084FC);color:white;border:none;cursor:pointer;font-family:inherit;" data-i18n="ai_generate" data-i18n="ai_generate">🤖 AI Generate</button>
-                    <button id="reelModeXMP" onclick="switchReelMode('xmp')" style="flex:1;padding:8px;border:1px solid var(--hairline);border-radius:0 8px 8px 0;font-size:12px;font-weight:600;background:white;color:var(--ink);cursor:pointer;font-family:inherit;" data-i18n="asset_library" data-i18n="asset_library">📦 Asset Library</button>
+                    <button id="reelModeAI" onclick="switchReelMode('ai')" style="flex:1;padding:8px;border:1px solid var(--hairline);border-radius:8px 0 0 8px;font-size:12px;font-weight:600;background:linear-gradient(135deg,#FF6B9D,#C084FC);color:white;border:none;cursor:pointer;font-family:inherit;">🤖 AI Generate</button>
+                    <button id="reelModeXMP" onclick="switchReelMode('xmp')" style="flex:1;padding:8px;border:1px solid var(--hairline);border-radius:0 8px 8px 0;font-size:12px;font-weight:600;background:white;color:var(--ink);cursor:pointer;font-family:inherit;">📦 Asset Library</button>
                 </div>
 
                 <!-- AI Mode -->
                 <div id="reelAIMode">
                     <div style="padding:0 16px 8px;">
-                        <input type="text" class="reels-token-input" id="reelBookSearch" data-i18n-placeholder="reel_search" placeholder="Search book name to create reels..." style="width:calc(100% - 24px);padding:10px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;" oninput="searchReelBooks(this.value)">
+                        <input type="text" class="reels-token-input" id="reelBookSearch" placeholder="Search book name to create reels..." style="width:calc(100% - 24px);padding:10px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;" oninput="searchReelBooks(this.value)">
                         <div id="reelBookResults" style="max-height:150px;overflow-y:auto;"></div>
                         <div id="reelOptions" style="display:none;margin-top:8px;">
                             <div style="margin-bottom:8px;">
                                 <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:4px;">🎬 Video Style</div>
                                 <select id="reelTemplate" style="width:100%;padding:8px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;background:white;">
-                                    <option value="PPT_Porn"><span data-i18n="tmpl_story">📖 Story Slideshow (Video + Images)</span></option>
-                                    <option value="Spicy"><span data-i18n="tmpl_spicy">🔥 Spicy &amp; Steamy</span></option>
-                                    <option value="Sora"><span data-i18n="tmpl_sora">🎥 Story Sora (AI Cinematic)</span></option>
+                                    <option value="PPT_Porn">📖 Story Slideshow (Video + Images)</option>
+                                    <option value="Spicy">🔥 Spicy &amp; Steamy</option>
+                                    <option value="Sora">🎥 Story Sora (AI Cinematic)</option>
                                 </select>
                             </div>
                             <div style="font-size:11px;color:var(--ink-mute);padding:4px 0;">⏱ Video generation takes ~15 minutes. Check My Reels for progress.</div>
                         </div>
                     </div>
                     <div class="reels-actions">
-                        <button class="reels-btn reels-btn-create" id="reelsCreateBtn" onclick="createReelFromSection()" disabled data-i18n="create_reel">Create Reel</button>
-                        <button class="reels-btn reels-btn-list" onclick="listMyReels()" data-i18n="my_reels">My Reels</button>
+                        <button class="reels-btn reels-btn-create" id="reelsCreateBtn" onclick="createReelFromSection()" disabled>Create Reel</button>
+                        <button class="reels-btn reels-btn-list" onclick="listMyReels()">My Reels</button>
                     </div>
                     <div class="reels-list" id="reelsList"></div>
                 </div>
@@ -2421,18 +2368,23 @@
                 <!-- XMP Asset Library Mode -->
                 <div id="reelXMPMode" style="display:none;">
                     <div style="padding:0 16px 8px;">
-                        <input type="text" id="xmpBookSearch" data-i18n-placeholder="xmp_search_placeholder" placeholder="Search a book to browse video assets..." style="width:calc(100% - 24px);padding:10px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;" oninput="searchXMBooks(this.value)">
+                        <input type="text" id="xmpBookSearch" placeholder="Search book name for ready-made reels..." style="width:calc(100% - 24px);padding:10px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;" oninput="searchXMBooks(this.value)">
                         <div id="xmpBookResults" style="max-height:120px;overflow-y:auto;"></div>
                         <div id="xmpAssetSection" style="display:none;margin-top:8px;">
-                            <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:4px;" data-i18n="video_assets_label">🎬 Video Assets</div>
+                            <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:4px;">📂 Creative Assets</div>
+                            <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;">
+                                <button class="xmp-filter-btn active" data-type="" onclick="filterXMPType(this,'')">All</button>
+                                <button class="xmp-filter-btn" data-type="video" onclick="filterXMPType(this,'video')">Video</button>
+                                <button class="xmp-filter-btn" data-type="image" onclick="filterXMPType(this,'image')">Image</button>
+                            </div>
                             <div id="xmpResults" style="max-height:200px;overflow-y:auto;"></div>
                             <div style="margin-top:6px;">
-                                <button class="reels-btn reels-btn-list" onclick="loadXMPMaterials()" style="width:100%;" data-i18n="refresh_assets">🔄 Refresh Assets</button>
+                                <button class="reels-btn reels-btn-list" onclick="loadXMPMaterials()" style="width:100%;">🔄 Refresh Assets</button>
                             </div>
                         </div>
                         <div id="xmpEmptyHint" style="text-align:center;padding:20px 12px;color:var(--ink-mute);font-size:13px;">
                             <div style="font-size:24px;margin-bottom:8px;">📦</div>
-                            Search a book to browse ready-made video assets
+                            Search a book to find ready-made creative assets
                         </div>
                     </div>
                 </div>
@@ -2440,9 +2392,9 @@
 
             <div class="submit-container" id="submitContainer">
                 <div class="submit-header">
-                    <div class="submit-badge" data-i18n="earn_money">Earn Money</div>
-                    <h1 class="submit-title" data-i18n-html="recommend_earn">Recommend & <span class="highlight">Earn</span></h1>
-                    <p class="submit-subtitle" data-i18n="submit_subtitle">Share books you love and earn up to 80% commission on every referral.</p>
+                    <div class="submit-badge">Earn Money</div>
+                    <h1 class="submit-title">Recommend & <span class="highlight">Earn</span></h1>
+                    <p class="submit-subtitle">Share books you love and earn up to 80% commission on every referral.</p>
                 </div>
 
                 <div class="submit-form" id="submitForm">
@@ -2459,11 +2411,11 @@
 
                         <div class="form-group">
                             <label>Book Name <span class="required">*</span></label>
-                            <input type="text" class="form-input" id="bookName" data-i18n-placeholder="search_books" placeholder="Search books to promote & earn...">
+                            <input type="text" class="form-input" id="bookName" placeholder="Search books to promote & earn...">
                         </div>
 
                         <button class="btn-submit" id="submitBtn" onclick="handleSubmit()">
-                            <span class="btn-text" data-i18n="search_create">Search & Create Link</span>
+                            <span class="btn-text">Search & Create Link</span>
                             <span class="spinner"></span>
                         </button>
                     </div>
@@ -2476,55 +2428,48 @@
                     <h3>Creating Your Link...</h3>
                     <p>Please wait a moment</p>
                     <div class="processing-steps">
-                        <div class="processing-step current" id="step1"><span class="step-icon">&#9675;</span><span><span data-i18n="step_search" data-i18n="step_search">Searching book database</span></span></div>
-                        <div class="processing-step" id="step2"><span class="step-icon">&#9675;</span><span><span data-i18n="step_link" data-i18n="step_link">Generating unique link</span></span></div>
-                        <div class="processing-step" id="step3"><span class="step-icon">&#9675;</span><span><span data-i18n="step_code" data-i18n="step_code">Creating promotion code</span></span></div>
-                        <div class="processing-step" id="step4"><span class="step-icon">&#9675;</span><span><span data-i18n="step_final" data-i18n="step_final">Finalizing...</span></span></div>
+                        <div class="processing-step current" id="step1"><span class="step-icon">&#9675;</span><span>Searching book database</span></div>
+                        <div class="processing-step" id="step2"><span class="step-icon">&#9675;</span><span>Generating unique link</span></div>
+                        <div class="processing-step" id="step3"><span class="step-icon">&#9675;</span><span>Creating promotion code</span></div>
+                        <div class="processing-step" id="step4"><span class="step-icon">&#9675;</span><span>Finalizing...</span></div>
                     </div>
                 </div>
 
                 <!-- Success -->
                 <div class="success-page" id="successPage">
                     <div class="success-icon">&#10003;</div>
-                    <h2 data-i18n="link_created">Link Created Successfully</h2>
-                    <p data-i18n="share_link">Share this link with your community</p>
+                    <h2>Link Created Successfully</h2>
+                    <p>Share this link with your community</p>
 
                     <div class="result-card">
-                        <h4 data-i18n="promo_link">Promotion Link</h4>
+                        <h4>Promotion Link</h4>
                         <div class="result-link-box" id="resultLink"></div>
                     </div>
 
                     <div class="result-card">
-                        <h4 data-i18n="your_code">Your Code</h4>
+                        <h4>Your Code</h4>
                         <div class="result-code-box">
                             <span class="result-code" id="resultCode"></span>
-                            <button class="copy-btn" onclick="copyToClipboard()" data-i18n="copy">Copy</button>
+                            <button class="copy-btn" onclick="copyToClipboard()">Copy</button>
                         </div>
                     </div>
 
                     <!-- Recommend card -->
                     <div class="result-card" id="resultRecommendCard" style="display: none;">
-                        <h4 data-i18n="recommended_msg">Recommended Message</h4>
+                        <h4>Recommended Message</h4>
                         <div class="result-recommend-box">
                             <div class="result-recommend-text" id="resultRecommendText"></div>
                         </div>
                         <button class="btn-submit" onclick="copyRecommendText()" style="margin-top: var(--sp-sm);">
-                            <span data-i18n="copy_rec">Copy Recommendation</span>
+                            Copy Recommendation
                         </button>
                     </div>
 
-                    
-                    <!-- Create AI Assets Pink Box -->
-                    <div class="success-ai-box" onclick="goToAIGenerate()">
-                        <div class="success-ai-box-title" data-i18n="ai_box_title">🎬 Create AI Assets, Promote Now!</div>
-                        <div class="success-ai-box-sub" data-i18n="ai_box_sub">Generate stunning video reels for this book in ~15 min</div>
-                    </div>
-
-<button class="btn-another" onclick="recommendAnother()">
+                    <button class="btn-another" onclick="recommendAnother()">
                         Recommend Another Book
                     </button>
 
-                    <button class="btn-retry" onclick="resetForm()"><span data-i18n="back_search">&#8592; Back to Search</span></button>
+                    <button class="btn-retry" onclick="resetForm()">&#8592; Back to Search</button>
                 </div>
             </div>
         </div>
@@ -2685,10 +2630,9 @@
         </div>
 
         <!-- Bottom Nav -->
-        <div style="text-align:center;padding:8px 16px 4px;"><a href="mailto:LobosCantante849@gmail.com" style="font-size:11px;color:var(--ink-mute);text-decoration:none;" data-i18n="email_support">📧 Email Support: LobosCantante849@gmail.com</a></div>
         <nav class="bottom-nav">
             <button class="nav-item active" data-tab="home"><span class="nav-icon">&#8962;</span><span class="nav-label">Home</span></button>
-            <button class="nav-item" data-tab="submit"><span class="nav-icon">$</span><span class="nav-label" data-i18n="nav_earn">Earn</span></button>
+            <button class="nav-item" data-tab="submit"><span class="nav-icon">$</span><span class="nav-label">Earn</span></button>
             <button class="nav-item" data-tab="tasks"><span class="nav-icon">&#9733;</span><span class="nav-label">Tasks</span></button>
             <button class="nav-item" data-tab="profile"><span class="nav-icon">&#9787;</span><span class="nav-label">Profile</span></button>
         </nav>
@@ -2715,8 +2659,8 @@
 
                 <div class="earn-incentive" id="earnIncentive">
                     <div class="earn-incentive-icon">💰</div>
-                    <div class="earn-incentive-text" data-i18n="incentive_text">1,200+ promoters are earning with this book</div>
-                    <div class="earn-incentive-sub" data-i18n="incentive_sub">Earn up to 80% commission for every reader you bring</div>
+                    <div class="earn-incentive-text">1,200+ promoters are earning with this book</div>
+                    <div class="earn-incentive-sub">Earn up to 80% commission for every reader you bring</div>
                 </div>
                 <div class="modal-description">
                     <div class="modal-description-label">Description</div>
@@ -2727,7 +2671,7 @@
                 </div>
 
             <div class="modal-result" id="modalResult">
-                <div class="modal-result-title"><span data-i18n="earning_link_ready"><span data-i18n="earning_link_ready">🎉 Your Earning Link is Ready!</span></span></div>
+                <div class="modal-result-title">🎉 Your Earning Link is Ready!</div>
                 <div class="modal-result-box">
                     <div class="modal-result-label">Promotion Link</div>
                     <div class="modal-result-value">
@@ -2745,7 +2689,7 @@
                 <div class="modal-recommend-label">📋 Share This Text</div>
                 <div class="modal-recommend-text" id="modalRecommendText"></div>
                 <button class="modal-copy-btn" style="width:100%; padding:10px; margin-top:4px;" onclick="copyModalResult('text')">Copy All Text</button>
-                <button class="modal-reel-btn" id="modalCreateReelBtn" onclick="createReelFromModal()" style="width:100%;padding:12px;margin-top:8px;border:none;border-radius:10px;background:linear-gradient(135deg,#FF6B9D,#C084FC);color:white;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;" data-i18n="create_reels_book">🎬 Create Reels for This Book</button>
+                <button class="modal-reel-btn" id="modalCreateReelBtn" onclick="createReelFromModal()" style="width:100%;padding:12px;margin-top:8px;border:none;border-radius:10px;background:linear-gradient(135deg,#FF6B9D,#C084FC);color:white;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">🎬 Create Reels for This Book</button>
                 <button class="modal-done-btn" onclick="closeModal()">Done</button>
             </div>
             
@@ -3473,7 +3417,7 @@
             const modalError = document.getElementById('modalError');
             
             btn.disabled = true;
-            btn.textContent = getText('toast_creating');
+            btn.textContent = 'Creating...';
             if (modalActions) modalActions.style.display = 'none';
             if (modalLoading) modalLoading.style.display = 'flex';
             if (modalError) modalError.style.display = 'none';
@@ -4525,10 +4469,10 @@ function renderMyBooks() {
             const el = document.getElementById('reelsDailyInfo');
             if (el) {
                 const remaining = REELS_DAILY_LIMIT - getReelsDailyCount();
-                el.textContent = remaining + getText('reels_left');
+                el.textContent = remaining + ' left today';
             }
         }
-        const REELS_DAILY_LIMIT = 5;
+        const REELS_DAILY_LIMIT = 3;
 
         let reelSelectedBook = null;
 
@@ -4587,7 +4531,7 @@ function renderMyBooks() {
             xmpSelectedBook = { bookId: el.dataset.bookid, title: el.querySelector('div > div').textContent };
             document.getElementById('xmpAssetSection').style.display = 'block';
             document.getElementById('xmpEmptyHint').style.display = 'none';
-            loadXMPMaterials('');  // XMP materials use Chinese names, load all recent videos
+            loadXMPMaterials(xmpSelectedBook.title);
         }
         let xmpCurrentType = '';
         let xmpDebounceTimer = null;
@@ -4607,17 +4551,20 @@ function renderMyBooks() {
             if (!container) return;
             container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--ink-mute);font-size:13px;">Loading assets...</div>';
             try {
-                let url = '/api/xmp-materials?action=list&page_size=10&material_type=video';
+                let url = '/api/xmp-materials?action=list&page_size=10';
                 if (keyword) url += '&keyword=' + encodeURIComponent(keyword);
-                // material_type=video is already in base URL
+                if (xmpCurrentType) url += '&material_type=' + encodeURIComponent(xmpCurrentType);
                 const resp = await fetch(url);
                 const result = await resp.json();
                 if (result.success && result.data && result.data.length > 0) {
-                    container.innerHTML = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">' + result.data.filter(m => m.material_type === 'video').slice(0, 10).map(m => {
+                    container.innerHTML = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">' + result.data.map(m => {
+                        const isVideo = m.material_type === 'video';
                         const thumb = m.url || m.file_url || '';
+                        const duration = isVideo && m.duration ? m.duration.toFixed(0) + 's' : '';
                         const fallbackIcon = '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:24px;">🎬</div>';
                         let inner = thumb ? '<img src="' + thumb + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div style="display:none;align-items:center;justify-content:center;height:100%;font-size:24px;">🎬</div>' : fallbackIcon;
-                        return '<div style="position:relative;border-radius:10px;overflow:hidden;background:var(--canvas-soft);cursor:pointer;aspect-ratio:9/16;border:2px solid rgba(255,107,157,0.2);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all 0.2s;" onmouseover="this.style.borderColor=\'#FF6B9D\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.borderColor=\'rgba(255,107,157,0.2)\';this.style.transform=\'none\'"' +
+                        if (isVideo) inner += '<div style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,0.7));color:white;font-size:10px;">▶ ' + duration + '</div>';
+                        return '<div style="position:relative;border-radius:8px;overflow:hidden;background:var(--canvas-soft);cursor:pointer;aspect-ratio:9/16;"' +
                             (m.file_url ? ' onclick="window.open(\'' + m.file_url + '\', \'_blank\')"' : '') + '>' + inner + '</div>';
                     }).join('') + '</div>';
                 } else {
@@ -4666,28 +4613,6 @@ function renderMyBooks() {
 
         // Create reel from the success modal (after creating a link)
         // Create reel from the Earn success page
-
-        // Navigate to AI Generate from success page
-        function goToAIGenerate() {
-            if (AppState.myBooks.length > 0) {
-                const latestBook = AppState.myBooks[AppState.myBooks.length - 1];
-                reelSelectedBook = { bookId: latestBook.bookId, title: latestBook.title || latestBook.bookName };
-            }
-            switchTab('submit');
-            setTimeout(() => {
-                switchReelMode('ai');
-                document.getElementById('reelsSection')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                if (reelSelectedBook && reelSelectedBook.title) {
-                    const searchInput = document.getElementById('reelBookSearch');
-                    if (searchInput) {
-                        searchInput.value = reelSelectedBook.title;
-                        searchReelBooks(reelSelectedBook.title);
-                    }
-                }
-            }, 300);
-            showToast(getText('toast_select_style'), 'success');
-        }
-
         async function createReelFromSuccessPage() {
             if (AppState.myBooks.length === 0) { showToast('No book selected', 'error'); return; }
             const latestBook = AppState.myBooks[AppState.myBooks.length - 1];
@@ -4710,13 +4635,13 @@ function renderMyBooks() {
         async function doCreateReel(bookId) {
             const dailyCount = getReelsDailyCount();
             if (dailyCount >= REELS_DAILY_LIMIT) {
-                showToast(getText('toast_daily_limit'), 'error');
+                showToast('Daily limit reached (3 reels/day). Try again tomorrow!', 'error');
                 return;
             }
             const btn = document.getElementById('reelsCreateBtn');
             const modalBtn = document.getElementById('modalCreateReelBtn');
-            if (btn) { btn.disabled = true; btn.textContent = getText('toast_creating'); }
-            if (modalBtn) { modalBtn.disabled = true; modalBtn.textContent = '🎬 ' + getText('toast_creating'); }
+            if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
+            if (modalBtn) { modalBtn.disabled = true; modalBtn.textContent = '🎬 Creating...'; }
 
             try {
                 const headers = { 'Content-Type': 'application/json' };
@@ -4762,7 +4687,7 @@ function renderMyBooks() {
         async function listMyReels() {
             const listEl = document.getElementById('reelsList');
             if (!listEl) return;
-            listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">' + getText('loading') + '</div>';
+            listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">Loading...</div>';
 
             try {
                 const headers = {};
@@ -4793,7 +4718,7 @@ function renderMyBooks() {
                     }).join('');
                     if (hasProcessing) { setTimeout(() => listMyReels(), 15000); }
                 } else {
-                    listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">' + getText('no_reels') + '</div>';
+                    listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">No reels yet</div>';
                 }
             } catch (e) {
                 listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--danger);font-size:13px;">Failed to load reels</div>';
@@ -4803,228 +4728,6 @@ function renderMyBooks() {
         // Load AC token on init
         // Initialize reels daily info display
         updateReelsDailyInfo();
-
-
-        // ========== i18n Internationalization ==========
-        const I18N = {
-            en: {
-                // App
-                app_name: 'NovelFlow',
-                splash_subtitle: 'Earn money promoting books',
-                start_earning: 'Start Earning',
-                username: 'Username',
-                
-                // Earn tab
-                earn_money: 'Earn Money',
-                recommend_earn: 'Recommend & <span class="highlight">Earn</span>',
-                submit_subtitle: 'Share books you love and earn up to 80% commission on every referral.',
-                search_books: 'Search books to promote & earn...',
-                search_create: 'Search & Create Link',
-                
-                // Success page
-                link_created: 'Link Created Successfully',
-                share_link: 'Share this link with your community',
-                promo_link: 'Promotion Link',
-                your_code: 'Your Code',
-                copy: 'Copy',
-                recommended_msg: 'Recommended Message',
-                copy_rec: 'Copy Recommendation',
-                rec_another: 'Recommend Another Book',
-                back_search: '← Back to Search',
-                
-                // Pink AI box
-                ai_box_title: '🎬 Create AI Assets, Promote Now!',
-                ai_box_sub: 'Generate stunning video reels for this book in ~15 min',
-                
-                // Reels
-                ai_generate: '🤖 AI Generate',
-                asset_library: '📦 Asset Library',
-                create_reel: 'Create Reel',
-                my_reels: 'My Reels',
-                create_reels_book: '🎬 Create Reels for This Book',
-                reel_search: 'Search books for AI video generation...',
-                tmpl_story: '📖 Story Slideshow (Video + Images)',
-                tmpl_spicy: '🔥 Spicy & Steamy',
-                tmpl_sora: '🎥 Story Sora (AI Cinematic)',
-                min_15_note: '⏱ Video generates in ~15 min',
-                video_assets_label: '🎬 Video Assets',
-                xmp_search_placeholder: 'Search a book to browse video assets...',
-                refresh_assets: '🔄 Refresh Assets',
-                
-                // Processing
-                step_search: 'Searching book database',
-                step_link: 'Generating unique link',
-                step_code: 'Creating promotion code',
-                step_final: 'Finalizing...',
-                
-                // Modal
-                earning_link_ready: '🎉 Your Earning Link is Ready!',
-                start_earning_btn: 'Start Earning',
-                
-                // Banner
-                earn_up_to: 'Earn Up to <span class="highlight">80%</span><br>Commission!',
-                incentive_text: '1,200+ promoters are earning with this book',
-                incentive_sub: 'Earn up to 80% commission for every reader you bring',
-                
-                // Nav
-                nav_earn: 'Earn',
-                
-                // Email
-                email_support: '📧 Email Support',
-                
-                // Toasts
-                toast_select_style: '🎬 Select a style and create your reel!',
-                toast_daily_limit: 'Daily limit reached (5 reels/day). Try again tomorrow!',
-                toast_creating: 'Creating...',
-                status_ready: 'Ready to share',
-                status_failed: 'Failed',
-                status_creating: 'Creating video (~15 min)...',
-                no_reels: 'No reels yet',
-                loading: 'Loading...',
-                no_books: 'No books found',
-                search_failed: 'Search failed',
-                no_assets: 'No assets found for this book',
-                reels_left: ' left today',
-            },
-            es: {
-                // App
-                app_name: 'NovelFlow',
-                splash_subtitle: 'Gana dinero promoviendo libros',
-                start_earning: 'Empezar a Ganar',
-                username: 'Usuario',
-                
-                // Earn tab
-                earn_money: 'Gana Dinero',
-                recommend_earn: 'Recomienda & <span class="highlight">Gana</span>',
-                submit_subtitle: 'Comparte libros que amas y gana hasta 80% de comisión por cada referido.',
-                search_books: 'Buscar libros para promover y ganar...',
-                search_create: 'Buscar y Crear Enlace',
-                
-                // Success page
-                link_created: '¡Enlace Creado con Éxito!',
-                share_link: 'Comparte este enlace con tu comunidad',
-                promo_link: 'Enlace de Promoción',
-                your_code: 'Tu Código',
-                copy: 'Copiar',
-                recommended_msg: 'Mensaje Recomendado',
-                copy_rec: 'Copiar Recomendación',
-                rec_another: 'Recomendar Otro Libro',
-                back_search: '← Volver a Buscar',
-                
-                // Pink AI box
-                ai_box_title: '🎬 Crea Contenido IA, ¡Promociona Ahora!',
-                ai_box_sub: 'Genera reels de video increíbles para este libro en ~15 min',
-                
-                // Reels
-                ai_generate: '🤖 Generar con IA',
-                asset_library: '📦 Biblioteca de Recursos',
-                create_reel: 'Crear Reel',
-                my_reels: 'Mis Reels',
-                create_reels_book: '🎬 Crear Reels para Este Libro',
-                reel_search: 'Buscar libros para generar video IA...',
-                tmpl_story: '📖 Presentación de Historia (Video + Imágenes)',
-                tmpl_spicy: '🔥 Picante y Sensual',
-                tmpl_sora: '🎥 Historia Sora (IA Cinematográfica)',
-                min_15_note: '⏱ El video se genera en ~15 min',
-                video_assets_label: '🎬 Recursos de Video',
-                xmp_search_placeholder: 'Busca un libro para ver recursos de video...',
-                refresh_assets: '🔄 Actualizar Recursos',
-                
-                // Processing
-                step_search: 'Buscando en la base de datos',
-                step_link: 'Generando enlace único',
-                step_code: 'Creando código de promoción',
-                step_final: 'Finalizando...',
-                
-                // Modal
-                earning_link_ready: '🎉 ¡Tu Enlace de Ganancias está Listo!',
-                start_earning_btn: 'Empezar a Ganar',
-                
-                // Banner
-                earn_up_to: '¡Gana Hasta <span class="highlight">80%</span><br>de Comisión!',
-                incentive_text: '1,200+ promotores están ganando con este libro',
-                incentive_sub: 'Gana hasta 80% de comisión por cada lector que traigas',
-                
-                // Nav
-                nav_earn: 'Ganar',
-                
-                // Email
-                email_support: '📧 Soporte por Email',
-                
-                // Toasts
-                toast_select_style: '🎬 ¡Elige un estilo y crea tu reel!',
-                toast_daily_limit: 'Límite diario alcanzado (5 reels/día). ¡Inténtalo mañana!',
-                toast_creating: 'Creando...',
-                status_ready: 'Listo para compartir',
-                status_failed: 'Fallido',
-                status_creating: 'Creando video (~15 min)...',
-                no_reels: 'Aún no hay reels',
-                loading: 'Cargando...',
-                no_books: 'No se encontraron libros',
-                search_failed: 'Búsqueda fallida',
-                no_assets: 'No se encontraron recursos para este libro',
-                reels_left: ' disponibles hoy',
-            }
-        };
-        
-        let currentLang = localStorage.getItem('novelflow_lang') || 'en';
-        
-        function getText(key) {
-            return (I18N[currentLang] && I18N[currentLang][key]) || (I18N['en'][key]) || key;
-        }
-        
-        function switchLang(lang) {
-            currentLang = lang;
-            localStorage.setItem('novelflow_lang', lang);
-            applyTranslations();
-            // Update toggle buttons
-            document.querySelectorAll('.lang-switch-btn').forEach(b => {
-                b.classList.toggle('active', b.dataset.lang === lang);
-            });
-        }
-        
-        function applyTranslations() {
-            const dict = I18N[currentLang] || I18N['en'];
-            
-            // Translate data-i18n elements (text content)
-            document.querySelectorAll('[data-i18n]').forEach(el => {
-                const key = el.getAttribute('data-i18n');
-                if (dict[key] !== undefined) {
-                    el.textContent = dict[key];
-                }
-            });
-            
-            // Translate data-i18n-html elements (innerHTML, for spans with highlights)
-            document.querySelectorAll('[data-i18n-html]').forEach(el => {
-                const key = el.getAttribute('data-i18n-html');
-                if (dict[key] !== undefined) {
-                    el.innerHTML = dict[key];
-                }
-            });
-            
-            // Translate data-i18n-placeholder elements
-            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-                const key = el.getAttribute('data-i18n-placeholder');
-                if (dict[key] !== undefined) {
-                    el.placeholder = dict[key];
-                }
-            });
-            
-            // Translate select options with data-i18n
-            document.querySelectorAll('option[data-i18n]').forEach(el => {
-                const key = el.getAttribute('data-i18n');
-                if (dict[key] !== undefined) {
-                    el.textContent = dict[key];
-                }
-            });
-        }
-        
-        // Apply saved language on load
-        document.addEventListener('DOMContentLoaded', () => {
-            if (currentLang !== 'en') {
-                switchLang(currentLang);
-            }
-        });
 
         // Tab switch listener to update checkin UI
         const originalSwitchTab = switchTab;

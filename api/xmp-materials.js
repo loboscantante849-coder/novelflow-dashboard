@@ -93,7 +93,8 @@ module.exports = async (req, res) => {
       materials = materials.filter(m => {
         const name = (m.material_name || '').toLowerCase();
         const tags = Array.isArray(m.tag) ? m.tag.map(t => (t.name || '').toLowerCase()).join(' ') : '';
-        return name.includes(kw) || tags.includes(kw);
+        const folder = (m.folder_name || '').toLowerCase();
+        return name.includes(kw) || tags.includes(kw) || folder.includes(kw);
       });
     }
 
