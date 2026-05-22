@@ -1,6 +1,7 @@
 /**
  * Book search API - supports featured-books.json and novelspa API
  * When no keyword/class specified, returns featured books
+ * When keyword provided, searches both API and featured-books.json
  */
 
 const RATE_LIMIT = 10;
@@ -34,6 +35,61 @@ function loadFeaturedBooks() {
     console.warn('Failed to load featured-books.json:', e.message);
     return null;
   }
+}
+
+// Search featured books by keyword across all categories + recommended
+function searchFeaturedBooks(featured, keyword, lang) {
+  if (!featured) return [];
+  const keywordLower = keyword.toLowerCase();
+  const allBooks = [];
+  
+  // Collect from recommended
+  if (Array.isArray(featured.recommended)) {
+    allBooks.push(...featured.recommended);
+  }
+  
+  // Collect from all categories
+  if (featured.categories) {
+    Object.values(featured.categories).forEach(catBooks => {
+      if (Array.isArray(catBooks)) allBooks.push(...catBooks);
+    });
+  }
+  
+  // Deduplicate by bookId
+  const seen = new Set();
+  const unique = allBooks.filter(b => {
+    if (seen.has(b.bookId)) return false;
+    seen.add(b.bookId);
+    return true;
+  });
+  
+  // Filter by keyword (match title, author, tags, description) and language
+  return unique.filter(book => {
+    // Language filter
+    if (lang && book.languageCode && book.languageCode !== lang) return false;
+    
+    const title = (book.title || '').toLowerCase();
+    const author = (book.author || '').toLowerCase();
+    const desc = (book.description || '').toLowerCase();
+    const tags = Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? (t.tagName || t.name || '') : t).join(' ').toLowerCase() : '';
+    const bookClass = (book.bookClassName || '').toLowerCase();
+    
+    return title.includes(keywordLower) || 
+           author.includes(keywordLower) || 
+           desc.includes(keywordLower) ||
+           tags.includes(keywordLower) ||
+           bookClass.includes(keywordLower);
+  }).map(book => ({
+    bookId: book.bookId || book.id,
+    title: book.title,
+    cover: book.cover || book.coverImage || '',
+    author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
+    description: book.description,
+    rating: book.rating || book.star || (book.bookScore > 0 ? book.bookScore : 4.5),
+    tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
+    languageCode: book.languageCode || lang,
+    bookClassName: book.bookClassName || ''
+  }));
 }
 
 module.exports = async (req, res) => {
@@ -83,7 +139,7 @@ module.exports = async (req, res) => {
           success: true,
           data: books.slice(start, end),
           total: books.length,
-          page: parseInt(page),
+          page: parseInt(pageSize),
           pageSize: parseInt(pageSize),
           source: 'featured',
           bookClassName: bookClassName
@@ -91,46 +147,91 @@ module.exports = async (req, res) => {
       }
     }
     
-    // When keyword is provided, call API and filter by title
+    // When keyword is provided, try API first, then fall back to featured books
     if (keyword) {
       const keywordLower = keyword.toLowerCase();
-      const apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=1&pageSize=100&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&languageCode=${lang}&bookStatus=1&keyword=${encodeURIComponent(keyword)}${bookClassName ? `&bookClassName=${encodeURIComponent(bookClassName)}` : ''}`;
+      let apiBooks = [];
+      let apiSucceeded = false;
       
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${BOOKSTORE_TOKEN}`, 'Content-Type': 'application/json' }
+      // Try bookstore API
+      if (BOOKSTORE_TOKEN) {
+        try {
+          const apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=1&pageSize=100&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&languageCode=${lang}&bookStatus=1&keyword=${encodeURIComponent(keyword)}${bookClassName ? `&bookClassName=${encodeURIComponent(bookClassName)}` : ''}`;
+          
+          const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${BOOKSTORE_TOKEN}`, 'Content-Type': 'application/json' }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const rawBooks = ((data.data && data.data.data) || data.data || []);
+            
+            // Filter: keep books whose title contains the keyword
+            const filtered = rawBooks.filter(book => {
+              const t = (book.title || '').toLowerCase();
+              return t.includes(keywordLower);
+            });
+            
+            apiBooks = filtered.map(book => ({
+              bookId: book.bookId || book.id,
+              title: book.title,
+              cover: book.cover || book.coverImage || '',
+              author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
+              description: book.description,
+              rating: book.rating || book.star || (book.bookScore > 0 ? book.bookScore : 4.5),
+              tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
+              languageCode: book.languageCode || lang,
+              bookClassName: book.bookClassName || ''
+            }));
+            apiSucceeded = true;
+          }
+        } catch (e) {
+          console.warn('Bookstore API failed for keyword search:', e.message);
+        }
+      }
+      
+      // Also search featured books
+      const featured = loadFeaturedBooks();
+      const featuredResults = searchFeaturedBooks(featured, keyword, lang);
+      
+      // Merge: API results first, then featured results (dedup by bookId)
+      const seenIds = new Set();
+      const mergedBooks = [];
+      
+      apiBooks.forEach(b => {
+        if (!seenIds.has(b.bookId)) {
+          seenIds.add(b.bookId);
+          mergedBooks.push(b);
+        }
       });
       
-      if (!response.ok) return res.status(502).json({ error: 'Upstream API error' });
-      
-      const data = await response.json();
-      const rawBooks = ((data.data && data.data.data) || data.data || []);
-      
-      // Filter: only keep books whose title contains the keyword
-      const filtered = rawBooks.filter(book => {
-        const t = (book.title || '').toLowerCase();
-        return t.includes(keywordLower);
+      featuredResults.forEach(b => {
+        if (!seenIds.has(b.bookId)) {
+          seenIds.add(b.bookId);
+          mergedBooks.push(b);
+        }
       });
       
-      const books = (filtered.length > 0 ? filtered : []).map(book => ({
-        bookId: book.bookId || book.id,
-        title: book.title,
-        cover: book.cover || book.coverImage || '',
-        author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
-        description: book.description,
-        rating: book.rating || book.star || (book.bookScore > 0 ? book.bookScore : 4.5),
-        tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
-        languageCode: book.languageCode || lang,
-        bookClassName: book.bookClassName || ''
-      }));
+      if (mergedBooks.length > 0 || apiSucceeded) {
+        return res.status(200).json({
+          success: true,
+          data: mergedBooks.slice(0, parseInt(pageSize)),
+          total: mergedBooks.length,
+          page: parseInt(page),
+          pageSize: parseInt(pageSize),
+          source: apiSucceeded ? 'api+featured' : 'featured-fallback'
+        });
+      }
       
+      // Complete fallback: if nothing found at all
       return res.status(200).json({
         success: true,
-        data: books,
-        total: books.length,
+        data: [],
+        total: 0,
         page: parseInt(page),
         pageSize: parseInt(pageSize),
-        source: 'api-filtered'
+        source: 'empty'
       });
     }
     
