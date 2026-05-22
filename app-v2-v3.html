@@ -182,132 +182,6 @@
         .top-earner-rank.silver, .top-earner-rank.bronze, .top-earner-rank.normal,
         .top-earner-name, .top-earner-amount { display: none; }
 
-        .leaderboard-banner {
-            background: linear-gradient(135deg, #FF8C00 0%, #FF6B00 50%, #FF4500 100%);
-            padding: 20px;
-            text-align: center;
-            position: relative;
-        }
-        .leaderboard-banner::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: radial-gradient(circle at 30% 50%, rgba(255,215,0,0.3) 0%, transparent 50%);
-        }
-        .leaderboard-title {
-            font-size: 22px; font-weight: 700; color: white;
-            position: relative; z-index: 1;
-            text-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-        .leaderboard-subtitle {
-            font-size: 13px; color: rgba(255,255,255,0.85);
-            margin-top: 4px; position: relative; z-index: 1;
-        }
-
-        .leaderboard-tabs {
-            display: flex;
-            background: var(--canvas);
-            padding: 12px 16px;
-            gap: 8px;
-        }
-        .leaderboard-tab {
-            flex: 1;
-            display: flex; flex-direction: column; align-items: center; gap: 4px;
-            padding: 10px 8px;
-            background: var(--canvas-soft);
-            border: none; border-radius: 10px;
-            cursor: pointer; transition: all 0.2s;
-        }
-        .leaderboard-tab.active {
-            background: linear-gradient(135deg, #FF8C00, #FF6B00);
-            color: white;
-        }
-        .leaderboard-tab .tab-icon { font-size: 20px; }
-        .leaderboard-tab .tab-text { font-size: 12px; font-weight: 600; }
-
-        .time-filter {
-            display: flex;
-            padding: 12px 16px;
-            gap: 8px;
-            background: var(--canvas);
-        }
-        .time-btn {
-            flex: 1;
-            padding: 8px;
-            background: var(--canvas-soft);
-            border: 1px solid var(--hairline);
-            border-radius: 8px;
-            font-size: 13px; font-weight: 500;
-            color: var(--ink-mute);
-            cursor: pointer; transition: all 0.2s;
-        }
-        .time-btn.active {
-            background: var(--gold-soft);
-            border-color: var(--gold);
-            color: #9a6800;
-        }
-
-        .leaderboard-list {
-            padding: 12px 16px;
-        }
-        .leaderboard-item {
-            display: flex; align-items: center; gap: 12px;
-            background: var(--canvas);
-            border: 1px solid var(--hairline);
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 10px;
-            transition: all 0.2s;
-        }
-        .leaderboard-item:hover {
-            border-color: var(--gold);
-            box-shadow: 0 2px 8px rgba(255,165,0,0.15);
-        }
-        .leaderboard-rank {
-            width: 32px; height: 32px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-weight: 700; font-size: 14px;
-            flex-shrink: 0;
-        }
-        .leaderboard-rank.top1 { background: linear-gradient(135deg, #FFD700, #FFA500); color: white; }
-        .leaderboard-rank.top2 { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: white; }
-        .leaderboard-rank.top3 { background: linear-gradient(135deg, #CD7F32, #B87333); color: white; }
-        .leaderboard-rank.normal { background: var(--canvas-soft); color: var(--ink-mute); }
-        
-        .leaderboard-cover {
-            width: 45px; height: 60px;
-            border-radius: 6px;
-            object-fit: cover;
-            background: var(--canvas-soft);
-            flex-shrink: 0;
-        }
-        .leaderboard-info { flex: 1; min-width: 0; }
-        .leaderboard-title-text {
-            font-size: 14px; font-weight: 600; color: var(--ink);
-            margin-bottom: 4px;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .leaderboard-meta {
-            font-size: 12px; color: var(--ink-mute);
-        }
-        .leaderboard-earnings {
-            text-align: right; flex-shrink: 0;
-        }
-        .leaderboard-commission {
-            font-size: 16px; font-weight: 700; color: #FF6B00;
-        }
-        .leaderboard-label {
-            font-size: 11px; color: var(--ink-mute);
-        }
-        .leaderboard-share-btn {
-            padding: 6px 12px;
-            background: linear-gradient(135deg, #FF8C00, #FF6B00);
-            border: none; border-radius: 16px;
-            color: white; font-size: 12px; font-weight: 600;
-            cursor: pointer; margin-top: 6px;
-        }
-
         /* Quick Tasks */
         .quick-tasks-section {
             padding: 16px;
@@ -835,14 +709,13 @@
         <div class="splash-subtitle">Earn money promoting books</div>
         
         <div class="splash-form">
-            <input type="text" class="splash-input" id="splashUsername" placeholder="Username">
-            <input type="text" class="splash-input" id="splashNFId" placeholder="NovelFlow ID">
-            <button class="splash-btn" onclick="handleSplashLogin()">Start Earning</button>
-            <div class="splash-tip">Enter any username to start. No password needed.</div>
+            <input type="text" class="splash-input" id="splashUsername" placeholder="Enter your username">
+            <button class="splash-btn" id="splashLoginBtn" onclick="handleSplashLogin()">Start Earning</button>
+            <div class="splash-tip">Your username from NovelFlow promotions</div>
             <div class="splash-error" id="splashError"></div>
         </div>
         
-        <button class="splash-skip" onclick="skipLogin()">Skip for now →</button>
+        <button class="splash-skip" onclick="skipLogin()">Browse as guest →</button>
     </div>
 
     <div class="app-container">
@@ -875,340 +748,6 @@
                 </div>
             </div>
 
-            <!-- Quick Stats Row -->
-            <div class="quick-stats-row">
-                <div class="quick-stat-card" onclick="switchTab('submit')">
-                    <div class="quick-stat-icon">💵</div>
-                    <div class="quick-stat-value">80%</div>
-                    <div class="quick-stat-label">Earnings</div>
-                </div>
-                <div class="quick-stat-card" onclick="switchTab('tasks')">
-                    <div class="quick-stat-icon">🎁</div>
-                    <div class="quick-stat-value">+50</div>
-                    <div class="quick-stat-label">Daily Coins</div>
-                </div>
-                <div class="quick-stat-card secondary" onclick="switchTab('tasks')">
-                    <div class="quick-stat-icon">🔥</div>
-                    <div class="quick-stat-value">500+</div>
-                    <div class="quick-stat-label">Earners</div>
-                </div>
-            </div>
-
-            <!-- My Performance Dashboard -->
-            <div class="perf-dashboard-card" id="perfDashboardCard">
-                <div class="perf-dashboard-header">
-                    <div class="perf-dashboard-title">📊 My Performance</div>
-                    <div class="perf-dashboard-tier-badge" id="perfTierBadge">40%</div>
-                </div>
-                <div class="perf-dashboard-grid" id="perfDashboardGrid">
-                    <div class="perf-stat-item">
-                        <div class="perf-stat-icon">👁</div>
-                        <div class="perf-stat-value" id="perfVisits">—</div>
-                        <div class="perf-stat-label">Total Visits</div>
-                    </div>
-                    <div class="perf-stat-item">
-                        <div class="perf-stat-icon">👥</div>
-                        <div class="perf-stat-value" id="perfUsers">—</div>
-                        <div class="perf-stat-label">Unique Users</div>
-                    </div>
-                    <div class="perf-stat-item">
-                        <div class="perf-stat-icon">💰</div>
-                        <div class="perf-stat-value" id="perfIncome">—</div>
-                        <div class="perf-stat-label">D14 Income</div>
-                    </div>
-                    <div class="perf-stat-item">
-                        <div class="perf-stat-icon">📚</div>
-                        <div class="perf-stat-value" id="perfBooks">0</div>
-                        <div class="perf-stat-label">Books Promoted</div>
-                    </div>
-                </div>
-                <div class="perf-dashboard-footer">
-                    <span class="perf-last-updated" id="perfLastUpdated"></span>
-                    <button class="perf-refresh-btn" onclick="loadPerformanceDashboard()">↻ Refresh</button>
-                </div>
-                <div class="perf-login-prompt" id="perfLoginPrompt" style="display:none;">
-                    <div class="perf-login-text">Login to see your stats</div>
-                    <button class="perf-login-btn" onclick="switchTab('profile')">Login →</button>
-                </div>
-            </div>
-
-            <div class="home-header">
-                <div class="home-logo">
-                    <div class="logo-wrapper">
-                        <div class="logo-icon">N</div>
-                        <div class="logo-text">Novel<span>Flow</span></div>
-                    </div>
-                    <div class="header-actions">
-                        <button class="header-btn" onclick="switchTab('profile')">Account</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Loading -->
-            <div class="loading-container" id="homeLoading">
-                <div class="loading-spinner"></div>
-                <div>Loading books...</div>
-            </div>
-
-            <!-- Scroll -->
-            <div class="book-scroll-section" id="bookScrollSection" style="display: none;">
-                <div class="book-scroll-title">🔥 Trending Now</div>
-                <div class="section-subtitle">Join 500+ promoters earning daily</div>
-                <div class="book-scroll-list" id="bookScrollList"></div>
-            </div>
-
-            <!-- Genre Tabs -->
-            <div class="book-list-tabs" id="bookListTabs" style="display: none;">
-                <button class="book-list-tab active" data-genre="all">All</button>
-                <button class="book-list-tab" data-genre="Romance">Romance</button>
-                <button class="book-list-tab" data-genre="Werewolf">Werewolf</button>
-                <button class="book-list-tab" data-genre="Billionaire">Billionaire</button>
-                <button class="book-list-tab" data-genre="Fantasy">Fantasy</button>
-                <button class="book-list-tab" data-genre="Mafia">Mafia</button>
-            </div>
-
-            <!-- Book List -->
-            <div class="book-list-section">
-                <div class="section-header">
-                    <div class="section-title">Browse books</div>
-                </div>
-                <div class="book-list" id="bookList"></div>
-            </div>
-
-            <!-- Rank -->
-            <div class="section-header" id="rankHeader" style="display: none;">
-                <div class="section-title">Top promotions</div>
-            </div>
-            <div class="rank-section" id="rankSection" style="display: none;">
-                <div class="rank-tabs">
-                    <button class="rank-tab active" data-period="week">This Week</button>
-                    <button class="rank-tab" data-period="month">This Month</button>
-                    <button class="rank-tab" data-period="all">All Time</button>
-                </div>
-                <div id="rankList"></div>
-            </div>
-        </div>
-
-        <!-- Tab 2: Submit -->
-        <div class="tab-content" id="tab-submit">
-            <div class="submit-container" id="submitContainer">
-                <div class="submit-header">
-                    <div class="submit-badge">Earn Money</div>
-                    <h1 class="submit-title">Recommend & <span class="highlight">Earn</span></h1>
-                    <p class="submit-subtitle">Share books you love and earn up to 80% commission on every referral.</p>
-                </div>
-
-                <div class="submit-form" id="submitForm">
-                    <div class="form-card">
-                        <div class="lang-toggle" id="langToggle">
-                            <button class="lang-btn active" data-lang="en">English</button>
-                            <button class="lang-btn" data-lang="es">Espanol</button>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Username <span class="required">*</span></label>
-                            <input type="text" class="form-input" id="discordUsername" placeholder="Enter your username">
-                        </div>
-
-                        <div class="form-group">
-                            <label>Book Name <span class="required">*</span></label>
-                            <input type="text" class="form-input" id="bookName" placeholder="Search books to promote & earn...">
-                        </div>
-
-                        <button class="btn-submit" id="submitBtn" onclick="handleSubmit()">
-                            <span class="btn-text">Search & Create Link</span>
-                            <span class="spinner"></span>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="search-results" id="searchResults"></div>
-
-                <div class="processing-status" id="processingStatus">
-                    <div class="processing-icon">&#9881;</div>
-                    <h3>Creating Your Link...</h3>
-                    <p>Please wait a moment</p>
-                    <div class="processing-steps">
-                        <div class="processing-step current" id="step1"><span class="step-icon">&#9675;</span><span>Searching book database</span></div>
-                        <div class="processing-step" id="step2"><span class="step-icon">&#9675;</span><span>Generating unique link</span></div>
-                        <div class="processing-step" id="step3"><span class="step-icon">&#9675;</span><span>Creating promotion code</span></div>
-                        <div class="processing-step" id="step4"><span class="step-icon">&#9675;</span><span>Finalizing...</span></div>
-                    </div>
-                </div>
-
-                <!-- Success -->
-                <div class="success-page" id="successPage">
-                    <div class="success-icon">&#10003;</div>
-                    <h2>Link Created Successfully</h2>
-                    <p>Share this link with your community</p>
-
-                    <div class="result-card">
-                        <h4>Promotion Link</h4>
-                        <div class="result-link-box" id="resultLink"></div>
-                    </div>
-
-                    <div class="result-card">
-                        <h4>Your Code</h4>
-                        <div class="result-code-box">
-                            <span class="result-code" id="resultCode"></span>
-                            <button class="copy-btn" onclick="copyToClipboard()">Copy</button>
-                        </div>
-                    </div>
-
-                    <!-- Recommend card -->
-                    <div class="result-card" id="resultRecommendCard" style="display: none;">
-                        <h4>Recommended Message</h4>
-                        <div class="result-recommend-box">
-                            <div class="result-recommend-text" id="resultRecommendText"></div>
-                        </div>
-                        <button class="btn-submit" onclick="copyRecommendText()" style="margin-top: var(--sp-sm);">
-                            Copy Recommendation
-                        </button>
-                    </div>
-
-                    <button class="btn-another" onclick="recommendAnother()">
-                        Recommend Another Book
-                    </button>
-
-                    <button class="btn-retry" onclick="resetForm()">&#8592; Back to Search</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab 3: Tasks / Leaderboard - Taobao-style -->
-        <div class="tab-content" id="tab-tasks">
-            <!-- Top Banner -->
-            <div class="leaderboard-banner">
-                <div class="leaderboard-title">&#127941; Earnings Leaderboard</div>
-                <div class="leaderboard-subtitle">Top promoters earning daily</div>
-            </div>
-
-            <!-- Tab Switcher -->
-            <div class="leaderboard-tabs">
-                <button class="leaderboard-tab active" data-rank-type="commission">
-                    <span class="tab-icon">💰</span>
-                    <span class="tab-text">80%</span>
-                </button>
-                <button class="leaderboard-tab" data-rank-type="heat">
-                    <span class="tab-icon">🔥</span>
-                    <span class="tab-text">Heat</span>
-                </button>
-                <button class="leaderboard-tab" data-rank-type="new">
-                    <span class="tab-icon">✨</span>
-                    <span class="tab-text">New</span>
-                </button>
-            </div>
-
-            <!-- Time Filter -->
-            <div class="time-filter">
-                <button class="time-btn active" data-period="today">Today</button>
-                <button class="time-btn" data-period="week">This Week</button>
-                <button class="time-btn" data-period="month">This Month</button>
-            </div>
-
-            <!-- Leaderboard List -->
-            <div class="leaderboard-list" id="leaderboardList">
-                <!-- Dynamic content -->
-            </div>
-
-            <!-- Quick Tasks Section -->
-            <div class="quick-tasks-section">
-                <div class="quick-tasks-header">🎯 Daily Missions</div>
-
-                <!-- v3: Create Reels Card -->
-                <div class="reels-card" onclick="showReelsModal()">
-                    <div class="reels-card-left">
-                        <div class="reels-card-icon">🎬</div>
-                        <div class="reels-card-info">
-                            <div class="reels-card-title">Create Reels</div>
-                            <div class="reels-card-subtitle">AI-powered video from book promos</div>
-                        </div>
-                    </div>
-                    <div class="reels-card-right">
-                        <div class="reels-card-count" id="reelsDailyCount">Today: 0/3 used</div>
-                        <button class="reels-card-btn">Create →</button>
-                    </div>
-                </div>
-                
-                <!-- Check-in Card - Enhanced Taobao Style -->
-                <div class="checkin-card-v2" id="checkinCardV2">
-                    <div class="checkin-v2-left">
-                        <div class="checkin-v2-icon">🎁</div>
-                        <div class="checkin-v2-info">
-                            <div class="checkin-v2-title">Daily Check-in</div>
-                            <div class="checkin-v2-reward">+10 Coins</div>
-                        </div>
-                    </div>
-                    <button class="checkin-v2-btn" id="checkinBtnV2" onclick="doCheckinV2()">
-                        <span class="checkin-v2-btn-text">Check In</span>
-                        <span class="checkin-v2-btn-done" style="display:none;">✓ Done</span>
-                    </button>
-                </div>
-                
-                <!-- Streak Bonus Card -->
-                <div class="checkin-card-v2" style="background: linear-gradient(135deg, #667eea, #764ba2); margin-bottom: 10px;">
-                    <div class="checkin-v2-left">
-                        <div class="checkin-v2-icon">🔥</div>
-                        <div class="checkin-v2-info">
-                            <div class="checkin-v2-title">Streak Bonus</div>
-                            <div class="checkin-v2-reward" id="streakDisplay">0 days</div>
-                        </div>
-                    </div>
-                    <div class="streak-reward-preview">
-                        <div style="font-size: 11px; color: rgba(255,255,255,0.8);">7 days = +50 Coins</div>
-                    </div>
-                </div>
-
-                <!-- Mission Progress Cards -->
-                <div class="quick-task-item" onclick="switchTab('submit')">
-                    <div class="quick-task-icon">📚</div>
-                    <div class="quick-task-info">
-                        <div class="quick-task-name">Share First Book</div>
-                        <div class="quick-task-reward">+20 Coins</div>
-                        <div class="task-progress-bar">
-                            <div class="task-progress-fill" id="task1Progress" style="width: 0%"></div>
-                        </div>
-                    </div>
-                    <div class="quick-task-btn" id="task1Btn">Start →</div>
-                </div>
-
-                <div class="quick-task-item" onclick="switchTab('submit')">
-                    <div class="quick-task-icon">📖</div>
-                    <div class="quick-task-info">
-                        <div class="quick-task-name">Share 3 Books</div>
-                        <div class="quick-task-reward">+50 Coins</div>
-                        <div class="task-progress-bar">
-                            <div class="task-progress-fill" id="task2Progress" style="width: 33%"></div>
-                        </div>
-                    </div>
-                    <div class="quick-task-btn secondary" id="task2Btn">1/3 →</div>
-                </div>
-                
-                <div class="quick-task-item" onclick="switchTab('home')">
-                    <div class="quick-task-icon">👥</div>
-                    <div class="quick-task-info">
-                        <div class="quick-task-name">Invite 3 Friends</div>
-                        <div class="quick-task-reward">+100 Coins</div>
-                        <div class="task-progress-bar">
-                            <div class="task-progress-fill" style="width: 0%"></div>
-                        </div>
-                    </div>
-                    <div class="quick-task-btn secondary">0/3 →</div>
-                </div>
-            </div>
-            
-            <!-- My Reels Section -->
-            <div class="my-reels-section" id="myReelsSection">
-                <div class="my-reels-header">
-                    <span class="my-reels-title">🎬 My Reels</span>
-                    <span class="my-reels-count" id="myReelsCount">0 videos</span>
-                </div>
-                <div class="my-reels-list" id="myReelsList">
-                    <div class="my-reels-empty">No reels created yet. Tap Create Reels above!</div>
-                </div>
-            </div>
-        </div>
-
         <!-- Tab 4: Profile -->
         <div class="tab-content" id="tab-profile">
             <div class="profile-header" id="profileHeader">
@@ -1218,11 +757,10 @@
 
                 <!-- Login form -->
                 <div class="login-form" id="loginForm">
-                    <h3>Register / Login</h3>
-                    <p>Fill in once, auto-login for 30 days</p>
+                    <h3>Login</h3>
+                    <p>Enter your username to see your data</p>
                     <input type="text" class="login-input" id="regUsername" placeholder="Username" maxlength="50">
-                    <input type="text" class="login-input" id="regNFId" placeholder="NovelFlow ID" maxlength="20">
-                    <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()">Confirm</button>
+                    <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()">Login</button>
                     <div class="login-tip">No password needed</div>
                 </div>
 
@@ -1315,7 +853,7 @@
 
                 <div class="earn-incentive" id="earnIncentive">
                     <div class="earn-incentive-icon">💰</div>
-                    <div class="earn-incentive-text">1,200+ promoters are earning with this book</div>
+                    <div class="earn-incentive-text">Earn commission for every reader you bring</div>
                     <div class="earn-incentive-sub">Earn up to 80% commission for every reader you bring</div>
                 </div>
                 <div class="modal-description">
@@ -1471,7 +1009,7 @@
             try {
                 // Call backend API which uses NOVELSPA_TOKEN environment variable
                 const response = await Promise.race([
-                    fetch('/api/books/search?lang=en&pageSize=30', {
+                    fetch('/api/books/search?lang=en&pageSize=50', {
                         method: 'GET',
                         headers: { 'Content-Type': 'application/json' }
                     }),
@@ -1528,16 +1066,17 @@
         }
 
         function hideLoadingAndShowContent() {
-            document.getElementById('homeLoading').style.display = 'none';
-            document.getElementById('bookListTabs').style.display = 'flex';
-            document.getElementById('bookScrollSection').style.display = 'block';
-            document.getElementById('rankHeader').style.display = 'flex';
-            document.getElementById('rankSection').style.display = 'block';
+            const el1 = document.getElementById('homeLoading'); if (el1) el1.style.display = 'none';
+            const el2 = document.getElementById('bookListTabs'); if (el2) el2.style.display = 'flex';
+            const el3 = document.getElementById('bookScrollSection'); if (el3) el3.style.display = 'block';
+            const el4 = document.getElementById('rankHeader'); if (el4) el4.style.display = 'flex';
+            const el5 = document.getElementById('rankSection'); if (el5) el5.style.display = 'block';
         }
 
         // ========== Render Book List ==========
         function renderBookList() {
             const container = document.getElementById('bookList');
+            if (!container) return;
             const books = AppState.filteredBooks;
 
             if (books.length === 0) {
@@ -1579,6 +1118,7 @@
         // ========== Render Scroll ==========
         function renderBookScroll() {
             const container = document.getElementById('bookScrollList');
+            if (!container) return;
             const books = AppState.books.slice(0, 6);
 
             container.innerHTML = books.map(book => {
@@ -1622,6 +1162,7 @@
 
         function renderRankList() {
             const container = document.getElementById('rankList');
+            if (!container) return;
             const period = AppState.rankPeriod || 'week';
             const weekSeed = getWeekSeed();
             let rankBooks;
@@ -1760,6 +1301,7 @@
 
         function renderCheckinCalendar() {
             const calendar = document.getElementById('checkinCalendar');
+            if (!calendar) return;
             const today = new Date();
             const todayStr = getToday();
             
@@ -1813,6 +1355,7 @@
             }
 
             const btn = document.getElementById('checkinBtn');
+            if (!btn) return;
             btn.classList.add('animating');
             
             setTimeout(() => {
@@ -2154,8 +1697,8 @@
 
                     AppState.myBooks.push(currentRecommendBook);
                     saveMyBooks();
-                    renderMyBooks();
-                    updateStats();
+                    try { renderMyBooks(); } catch(e) { console.log('renderMyBooks skip:', e.message); }
+                    if (typeof updateStats === 'function') updateStats();
                     if (typeof updateShareTasksProgress === 'function') updateShareTasksProgress();
 
                     if (modalLoading) modalLoading.style.display = 'none';
@@ -2191,7 +1734,7 @@
             const el4 = document.getElementById('resultRecommendCard'); if (el4) el4.style.display = 'block';
 
             const sf = document.getElementById('submitForm'); if (sf) sf.style.display = 'none';
-            document.getElementById('searchResults').innerHTML = '';
+            const sr = document.getElementById('searchResults'); if (sr) sr.innerHTML = '';
             const ps = document.getElementById('processingStatus'); if (ps) ps.classList.remove('show');
             const sp = document.getElementById('successPage'); if (sp) sp.classList.add('show');
 
@@ -2218,8 +1761,8 @@
         });
 
         async function handleSubmit() {
-            const discordUsername = document.getElementById('discordUsername').value.trim();
-            const bookName = document.getElementById('bookName').value.trim();
+            const discordUsername = document.getElementById('discordUsername')?.value?.trim() || '';
+            const bookName = document.getElementById('bookName')?.value?.trim() || '';
 
             if (!discordUsername || !bookName) {
                 showToast('Please fill in all fields', 'error');
@@ -2227,13 +1770,14 @@
             }
 
             const btn = document.getElementById('submitBtn');
+            if (!btn) return;
             btn.disabled = true;
             btn.classList.add('loading');
 
-            document.getElementById('submitForm').style.display = 'none';
-            document.getElementById('searchResults').innerHTML = '';
-            document.getElementById('processingStatus').classList.add('show');
-            document.getElementById('successPage').classList.remove('show');
+            const sf = document.getElementById('submitForm'); if (sf) sf.style.display = 'none';
+            const sr = document.getElementById('searchResults'); if (sr) sr.innerHTML = '';
+            const ps = document.getElementById('processingStatus'); if (ps) ps.classList.add('show');
+            const sp = document.getElementById('successPage'); if (sp) sp.classList.remove('show');
 
             await updateStep(1, 'done');
             await delay(300);
@@ -2247,8 +1791,8 @@
             if (candidates.length === 0) {
                 await updateStep(3, 'failed');
                 await updateStep(4, 'failed');
-                document.getElementById('processingStatus').classList.remove('show');
-                document.getElementById('searchResults').innerHTML = `
+                const ps2 = document.getElementById('processingStatus'); if (ps2) ps2.classList.remove('show');
+                const sr2 = document.getElementById('searchResults'); if (sr2) sr2.innerHTML = `
                     <div class="empty-results">
                         <div class="empty-icon">&#128269;</div>
                         <div class="empty-title">No books found</div>
@@ -2265,7 +1809,7 @@
                 await updateStep(3, 'done');
                 await updateStep(4, 'done');
                 await delay(400);
-                document.getElementById('processingStatus').classList.remove('show');
+                const ps3 = document.getElementById('processingStatus'); if (ps3) ps3.classList.remove('show');
                 showCandidates(candidates, discordUsername);
             }
 
@@ -2293,7 +1837,7 @@
             const searchLang = AppState.searchLang || 'en';
             
             try {
-                const response = await fetch(`/api/books/search?keyword=${encodeURIComponent(query.trim())}&lang=${searchLang}&pageSize=10`, {
+                const response = await fetch(`/api/books/search?keyword=${encodeURIComponent(query.trim())}&lang=${searchLang}&pageSize=100`, {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' }
                 });
@@ -2339,6 +1883,7 @@
 
         function showCandidates(candidates, discordUsername) {
             const container = document.getElementById('searchResults');
+            if (!container) return;
             container.innerHTML = `
                 <div class="search-header">
                     <div class="search-count">Found <strong>${candidates.length}</strong> book${candidates.length > 1 ? 's' : ''}</div>
@@ -2378,10 +1923,10 @@
 
         // ========== Create Link via Backend API ==========
         async function createLink(book, discordUsername) {
-            document.getElementById('searchResults').innerHTML = '';
+            const sr4 = document.getElementById('searchResults'); if (sr4) sr4.innerHTML = '';
 
             const processingStatus = document.getElementById('processingStatus');
-            processingStatus.classList.add('show');
+            if (processingStatus) processingStatus.classList.add('show');
             
             await updateStep(1, 'done');
             await updateStep(2, 'current');
@@ -2429,11 +1974,11 @@
 
                     AppState.myBooks.push(newBook);
                     saveMyBooks();
-                    renderMyBooks();
-                    updateStats();
+                    try { renderMyBooks(); } catch(e) { console.log('renderMyBooks skip:', e.message); }
+                    if (typeof updateStats === 'function') updateStats();
                     if (typeof updateShareTasksProgress === 'function') updateShareTasksProgress();
 
-                    processingStatus.classList.remove('show');
+                    if (processingStatus) processingStatus.classList.remove('show');
                     showSuccessPage(newBook);
 
                     // Auto-navigate to profile after a delay
@@ -2446,13 +1991,13 @@
                     // API failed - show error, NEVER fake data
                     await updateStep(3, 'failed');
                     await updateStep(4, 'failed');
-                    processingStatus.classList.remove('show');
+                    if (processingStatus) processingStatus.classList.remove('show');
                     showToast('Link creation failed. API did not return valid data.', 'error');
                 }
             } catch (e) {
                 await updateStep(3, 'failed');
                 await updateStep(4, 'failed');
-                processingStatus.classList.remove('show');
+                if (processingStatus) processingStatus.classList.remove('show');
                 showToast('Failed: ' + e.message, 'error');
             }
         }
@@ -2465,12 +2010,12 @@
         function resetForm() {
             for (let i = 1; i <= 4; i++) updateStep(i, '');
 
-            document.getElementById('submitForm').style.display = 'block';
-            document.getElementById('searchResults').innerHTML = '';
-            document.getElementById('processingStatus').classList.remove('show');
-            document.getElementById('successPage').classList.remove('show');
-            document.getElementById('discordUsername').value = '';
-            document.getElementById('bookName').value = '';
+            const sf2 = document.getElementById('submitForm'); if (sf2) sf2.style.display = 'block';
+            const sr5 = document.getElementById('searchResults'); if (sr5) sr5.innerHTML = '';
+            const ps4 = document.getElementById('processingStatus'); if (ps4) ps4.classList.remove('show');
+            const sp2 = document.getElementById('successPage'); if (sp2) sp2.classList.remove('show');
+            const du = document.getElementById('discordUsername'); if (du) du.value = '';
+            const bn = document.getElementById('bookName'); if (bn) bn.value = '';
         }
 
         function copyToClipboard(text) {
@@ -2689,6 +2234,7 @@ function escapeHtml(text) {
 function renderMyBooks() {
             const container = document.getElementById('myBooksList');
             if (!container) return;
+            if (!container) return;
 
             if (AppState.myBooks.length === 0) {
                 container.innerHTML = `
@@ -2803,6 +2349,7 @@ function renderMyBooks() {
             const card = document.getElementById('myBooksCard');
             const expandedSection = document.getElementById('myBooksExpandedSection');
             if (!card || !expandedSection) return;
+            if (!card || !expandedSection) return;
             const isExpanded = card.classList.contains('expanded');
             
             if (isExpanded) {
@@ -2888,9 +2435,9 @@ function renderMyBooks() {
         }
 
         function updateStats() {
-            document.getElementById('statLinks').textContent = AppState.myBooks.length;
+            const statLinks = document.getElementById('statLinks'); if (statLinks) statLinks.textContent = AppState.myBooks.length;
             updateProfileMyBooksCount();
-            document.getElementById('statPoints').textContent = AppState.myBooks.length * 10;
+            const statPoints = document.getElementById('statPoints'); if (statPoints) statPoints.textContent = AppState.myBooks.length * 10;
         }
 
         // ========== User State ==========
@@ -2915,54 +2462,37 @@ function renderMyBooks() {
             const logoutBtn = document.getElementById('logoutBtn');
 
             if (AppState.isLoggedIn && AppState.user) {
-                avatar.textContent = AppState.user.username ? AppState.user.username.charAt(0).toUpperCase() : '?';
-                name.textContent = AppState.user.username || 'User';
-                uid.textContent = AppState.user.novelFlowId ? 'ID: ' + AppState.user.novelFlowId : 'Logged In';
-                loginForm.style.display = 'none';
-                logoutBtn.classList.add('show');
+                if (avatar) avatar.textContent = AppState.user.username ? AppState.user.username.charAt(0).toUpperCase() : '?';
+                if (name) name.textContent = AppState.user.username || 'User';
+                if (uid) uid.textContent = AppState.user.novelFlowId ? 'ID: ' + AppState.user.novelFlowId : 'Logged In';
+                if (loginForm) loginForm.style.display = 'none';
+                if (logoutBtn) logoutBtn.classList.add('show');
             } else {
-                avatar.textContent = '?';
-                name.textContent = 'Not Logged In';
-                uid.textContent = 'Login to unlock more features';
-                loginForm.style.display = 'block';
-                logoutBtn.classList.remove('show');
+                if (avatar) avatar.textContent = '?';
+                if (name) name.textContent = 'Not Logged In';
+                if (uid) uid.textContent = 'Login to unlock more features';
+                if (loginForm) loginForm.style.display = 'block';
+                if (logoutBtn) logoutBtn.classList.remove('show');
             }
         }
 
         async function handleLocalRegister() {
-            const username = document.getElementById('regUsername').value.trim();
-            const nfId = document.getElementById('regNFId').value.trim().toUpperCase();
+            const username = document.getElementById('regUsername')?.value?.trim() || '';
 
-            if (!username || !nfId) {
-                showToast('Please fill in all fields', 'error');
+            if (!username) {
+                showToast('Please enter a username', 'error');
                 return;
             }
 
-            try {
-                const response = await fetch('/api/auth/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ username, novelFlowId: nfId })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    AppState.user = { username, novelFlowId: nfId, accountType: 'local' };
-                    AppState.isLoggedIn = true;
-                    localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
-                    updateProfileUI();
-                    showToast('Login successful!', 'success');
-                    document.getElementById('regUsername').value = '';
-                    document.getElementById('regNFId').value = '';
-                } else {
-                    showToast(result.error || 'Registration failed', 'error');
-                }
-            } catch (e) {
-                console.error('Register error:', e);
-                showToast('Registration failed', 'error');
-            }
+            // Quick local login (username only)
+            AppState.user = { username, novelFlowId: '', accountType: 'local' };
+            AppState.isLoggedIn = true;
+            localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
+            localStorage.setItem('novelflow_splash_done', 'true');
+            updateProfileUI();
+            showToast('Login successful!', 'success');
+            document.getElementById('regUsername').value = '';
+            loadPerformanceDashboard();
         }
 
         async function handleLogout() {
@@ -2988,24 +2518,56 @@ function renderMyBooks() {
 
         
         // ========== Splash Screen Login ==========
-        function handleSplashLogin() {
-            const username = document.getElementById('splashUsername').value.trim();
-            const nfId = document.getElementById('splashNFId').value.trim().toUpperCase();
+        async function handleSplashLogin() {
+            const username = document.getElementById('splashUsername')?.value?.trim() || '';
+            const btn = document.getElementById('splashLoginBtn');
+            const errorEl = document.getElementById('splashError');
             
             if (!username) {
-                document.getElementById('splashError').textContent = 'Please enter a username';
+                if (errorEl) errorEl.textContent = 'Please enter a username';
                 return;
             }
             
-            // Quick local login
-            AppState.user = { username: username, novelFlowId: nfId || 'NF' + Math.random().toString(36).substr(2, 6).toUpperCase(), accountType: 'local' };
+            // Show loading state
+            if (btn) { btn.disabled = true; btn.textContent = 'Verifying...'; }
+            if (errorEl) errorEl.textContent = '';
+            
+            let hasRealData = false;
+            
+            try {
+                const response = await fetch('/api/my-stats?username=' + encodeURIComponent(username));
+                if (response.ok) {
+                    const data = await response.json();
+                    if ((data.total_visits && data.total_visits > 0) || 
+                        (data.total_income && data.total_income > 0) || 
+                        (data.books && data.books.length > 0)) {
+                        hasRealData = true;
+                    }
+                }
+            } catch (e) {
+                // API failed - still allow login as new KOC
+                console.log('API check failed, allowing login as new KOC');
+            }
+            
+            // Login (existing KOC or new)
+            AppState.user = { username: username, novelFlowId: '', accountType: 'local', hasRealData: hasRealData };
             AppState.isLoggedIn = true;
             localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
             localStorage.setItem('novelflow_splash_done', 'true');
             
-            document.getElementById('splashScreen').classList.add('hidden');
+            const splashEl = document.getElementById('splashScreen');
+            if (splashEl) splashEl.classList.add('hidden');
             updateProfileUI();
-            showToast('Welcome, ' + username + '!', 'success');
+            
+            if (hasRealData) {
+                showToast('Welcome back, ' + username + '!', 'success');
+            } else {
+                showToast('Welcome, ' + username + '! Start promoting to earn.', 'success');
+            }
+            
+            if (btn) { btn.disabled = false; btn.textContent = 'Start Earning'; }
+            
+            loadPerformanceDashboard();
         }
         
         function skipLogin() {
@@ -3343,22 +2905,6 @@ function renderMyBooks() {
             }
         }
 
-        
-        function updateIncomeDisplay() {
-            const today = document.getElementById('incomeToday');
-            const month = document.getElementById('incomeMonth');
-            const last = document.getElementById('incomeLast');
-            
-            // Simulated income data
-            const mockToday = (Math.random() * 10).toFixed(2);
-            const mockMonth = (Math.random() * 100 + 50).toFixed(2);
-            const mockLast = (Math.random() * 200 + 100).toFixed(2);
-            
-            if (today) today.textContent = '$' + mockToday;
-            if (month) month.textContent = '$' + mockMonth;
-            if (last) last.textContent = '$' + mockLast;
-        }
-
         // ========== Toast ==========
         function showToast(msg, type = '') {
             const existing = document.querySelector('.toast');
@@ -3368,23 +2914,7 @@ function renderMyBooks() {
             toast.textContent = msg;
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 2500);
-        }
-
-        
-        // ========== Leaderboard Functions ==========
-        function renderLeaderboard(type = 'commission', period = 'today') {
-            const container = document.getElementById('leaderboardList');
-            const books = AppState.books.slice(0, 8);
-            
-            // 80% rates based on book popularity - 50-85% range
-            const commissionRates = [80, 78, 75, 72, 70, 68, 65, 60];
-            
-            // Simulated data with commission rates
-            const earnings = books.map((book, i) => ({
-                ...book,
-                commission: commissionRates[i] || 60,
-                orders: Math.floor(Math.random() * 50) + 10
-            }));
+        }));
             
             // Sort by type
             if (type === 'commission') {
@@ -3417,26 +2947,7 @@ function renderMyBooks() {
                 `;
             }).join('');
         }
-        
-        // Initialize leaderboard tabs
-        document.querySelectorAll('.leaderboard-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.leaderboard-tab').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                const type = tab.dataset.rankType;
-                const period = document.querySelector('.time-btn.active')?.dataset.period || 'today';
-                renderLeaderboard(type, period);
-            });
         });
-        
-        document.querySelectorAll('.time-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                const period = btn.dataset.period;
-                const type = document.querySelector('.leaderboard-tab.active')?.dataset.rankType || 'commission';
-                renderLeaderboard(type, period);
-            });
         });
 
         // ========== Init ==========
@@ -3460,7 +2971,7 @@ function renderMyBooks() {
                 if (el && el.style.display !== 'none') { el.style.display = 'none'; hideLoadingAndShowContent(); }
             }, 3000);
             loadBooks(); loadMyBooks(); updateStats(); checkLocalLogin(); checkLoginStatus();
-            document.getElementById('recommendModal').addEventListener('click', e => {
+            const rm = document.getElementById('recommendModal'); if (rm) rm.addEventListener('click', e => {
                 if (e.target.classList.contains('modal-overlay')) closeModal();
             });
             // Update v2 checkin UI when switching to tasks tab
