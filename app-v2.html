@@ -5716,6 +5716,23 @@ function renderMyBooks() {
             if (modalBtn) { modalBtn.disabled = false; modalBtn.textContent = '🎬 Create Reels for This Book'; }
         }
 
+        // Play reel video in fullscreen overlay
+        function playReelVideo(videoUrl) {
+            const existing = document.getElementById('reelVideoOverlay');
+            if (existing) existing.remove();
+            const overlay = document.createElement('div');
+            overlay.id = 'reelVideoOverlay';
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;';
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+            overlay.innerHTML = '<div style="position:relative;max-width:90vw;max-height:85vh;">' +
+                '<video src="' + videoUrl + '" controls autoplay style="max-width:90vw;max-height:80vh;border-radius:12px;background:#000;"></video>' +
+                '<div style="position:absolute;top:-40px;right:0;display:flex;gap:8px;">' +
+                '<a href="' + videoUrl + '" download target="_blank" style="color:white;text-decoration:none;font-size:13px;padding:6px 12px;background:linear-gradient(135deg,#FF6B9D,#C084FC);border-radius:8px;">💾 Download</a>' +
+                '<button onclick="document.getElementById(\'reelVideoOverlay\').remove()" style="color:white;font-size:18px;padding:6px 12px;background:rgba(255,255,255,0.2);border:none;border-radius:8px;cursor:pointer;">✕</button>' +
+                '</div></div>';
+            document.body.appendChild(overlay);
+        }
+
         let _reelsPollTimer = null;
         async function listMyReels() {
             const listEl = document.getElementById('reelsList');
@@ -5748,17 +5765,15 @@ function renderMyBooks() {
                                 const rResult = await rResp.json();
                                 if (rResult.newToken) saveACToken(rResult.newToken);
                                 const rData = rResult.data || {};
+                                // AC API returns: { final_result: [{video_url, cover_image_url, creative_text}], base_info: {...} }
+                                const finalResults = Array.isArray(rData.final_result) ? rData.final_result : [];
                                 const materials = rData.materials || rData.items || rData.results || [];
-                                const finalResult = rData.final_result || {};
-                                if (materials.length > 0) {
-                                    const first = materials[0];
+                                const allResults = finalResults.length > 0 ? finalResults : materials;
+                                if (allResults.length > 0) {
+                                    const first = allResults[0];
                                     videoUrl = first.video_url || '';
                                     coverUrl = first.cover_image_url || '';
                                     creativeText = first.creative_text || first.dialogue_content || first.landing_page_copy || '';
-                                } else if (finalResult) {
-                                    videoUrl = finalResult.video_url || '';
-                                    coverUrl = finalResult.cover_image_url || '';
-                                    creativeText = finalResult.creative_text || finalResult.dialogue_content || '';
                                 }
                             } catch(e) { console.warn('Failed to fetch result for', item.thread_id, e); }
                         }
@@ -5775,15 +5790,15 @@ function renderMyBooks() {
                             statusText = '⏳ ' + getText('status_creating');
                             hasProcessing = true;
                         }
-                        const templateLabel = item.template === 'PPT_Porn' ? '🔥' : (item.template === 'Ad_Plot_Video_V2' ? '🎥' : '📖');
-                        // Thumbnail: use cover image if available, otherwise show gradient placeholder with play icon
+
+                        // Thumbnail: show video cover image with play overlay
                         const thumb = item.coverUrl || '';
-                        const thumbClickAction = item.videoUrl ? 'window.open(\'' + item.videoUrl + '\', \'_blank\')' : '';
-                        const placeholderGrad = 'linear-gradient(135deg, #FF6B9D22, #C084FC22)';
-                        const placeholderHtml = '<div style="width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:24px;' + (thumbClickAction ? 'cursor:pointer;" onclick="' + thumbClickAction : '') + '">▶️</div>';
+                        const playOverlay = item.videoUrl ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25);border-radius:8px;"><div style="width:22px;height:22px;background:rgba(255,255,255,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;">▶</div></div>' : '';
+                        const thumbClickAction = item.videoUrl ? ' onclick="playReelVideo(\'' + item.videoUrl.replace(/'/g, "\\'") + '\')"' : '';
+                        const placeholderGrad = 'linear-gradient(135deg, #FF6B9D33, #C084FC33)';
                         const thumbHtml = thumb
-                            ? '<img class="reels-item-thumb" src="' + thumb + '" style="width:54px;height:72px;border-radius:8px;object-fit:cover;"' + (thumbClickAction ? ' onclick="' + thumbClickAction + '"' : '') + ' onerror="this.outerHTML=\'' + placeholderHtml.replace(/'/g, "\\'") + '\'">' + placeholderHtml.replace(/display:flex/g, 'display:none')
-                            : placeholderHtml;
+                            ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;"' + thumbClickAction + '><img src="' + thumb + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML=\'<div style=\'\' + \'width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;\' + (\'' + item.videoUrl + '\' ? \'cursor:pointer;\' : \'\') + \'\'>🎬</div>\'">' + playOverlay + '</div>'
+                            : '<div style="width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;' + (item.videoUrl ? 'cursor:pointer;"' + thumbClickAction : '"') + '>🎬</div>';
                         
                         let actionsHtml = '';
                         if (item.isDone) {
