@@ -62,26 +62,24 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { username, novelFlowId } = req.body;
+    const { username } = req.body;
     
     // Validate input
-    if (!username || !novelFlowId) {
-      return res.status(400).json({ error: 'Username and NovelFlow ID are required' });
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
     }
     
     // Trim and sanitize
     const cleanUsername = username.trim().substring(0, 50);
-    const cleanNFId = novelFlowId.trim().toUpperCase().substring(0, 20);
     
-    if (!cleanUsername || !cleanNFId) {
-      return res.status(400).json({ error: 'Invalid username or NovelFlow ID' });
+    if (!cleanUsername) {
+      return res.status(400).json({ error: 'Invalid username' });
     }
     
     // Generate JWT payload
     const payload = {
       type: 'local',
       username: cleanUsername,
-      novelFlowId: cleanNFId,
       iat: Math.floor(Date.now() / 1000)
     };
     
@@ -91,13 +89,12 @@ module.exports = async (req, res) => {
     // Set cookie (30 days)
     res.setHeader('Set-Cookie', [
       `nf_token=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`,
-      `nf_user=${encodeURIComponent(JSON.stringify({ username: cleanUsername, novelFlowId: cleanNFId }))}; Path=/; Max-Age=2592000`
+      `nf_user=${encodeURIComponent(JSON.stringify({ username: cleanUsername }))}; Path=/; Max-Age=2592000`
     ]);
     
     return res.status(200).json({
       success: true,
       username: cleanUsername,
-      novelFlowId: cleanNFId,
       isNewUser: true
     });
     
