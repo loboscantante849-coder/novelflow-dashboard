@@ -33,8 +33,11 @@ module.exports = async (req, res) => {
   // Use server-stored AC token: KV first → env var → header
   let token = null;
   try {
-    const kv = require('@vercel/kv');
-    token = await kv.get('ac_token');
+    const { Redis } = require('@upstash/redis');
+    if (process.env.UPSTASH_REDIS_REST_URL) {
+      const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN });
+      token = await redis.get('ac_token');
+    }
   } catch(e) {}
   if (!token) token = process.env.AC_TOKEN || req.headers['x-ac-token'] ||
     (req.headers['authorization'] && req.headers['authorization'].replace('Bearer ', ''));
@@ -82,13 +85,16 @@ module.exports = async (req, res) => {
     const newToken = r.headers.get('accesstoken') || null;
     const data = await r.json().catch(() => null);
 
-    // Auto-rotate: save new token to KV for next request
+    // Auto-rotate: save new token to Upstash Redis for next request
     if (newToken) {
       try {
-        const kv = require('@vercel/kv');
-        await kv.set('ac_token', newToken);
-        console.log('AC token rotated in KV');
-      } catch(e) { console.warn('KV save failed:', e.message); }
+        const { Redis } = require('@upstash/redis');
+        if (process.env.UPSTASH_REDIS_REST_URL) {
+          const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN });
+          await redis.set('ac_token', newToken);
+          console.log('AC token rotated in Upstash');
+        }
+      } catch(e) { console.warn('Redis save failed:', e.message); }
     }
 
     res.setHeader('Access-Control-Allow-Origin', '*');

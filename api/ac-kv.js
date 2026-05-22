@@ -1,10 +1,20 @@
 /**
  * AC Token KV Store
- * Uses Vercel KV (@vercel/kv) to persist and auto-rotate AC tokens
+ * Uses Upstash Redis to persist and auto-rotate AC tokens
  * 
  * POST /api/ac-kv  - Set initial token: { action: 'set', token: 'xxx' }
- * GET  /api/ac-kv  - Get current token (internal use)
+ * GET  /api/ac-kv  - Get current token
  */
+const { Redis } = require('@upstash/redis');
+
+function getRedis() {
+  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) return null;
+  return new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+  });
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -12,29 +22,22 @@ module.exports = async (req, res) => {
   
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // Try to use Vercel KV
-  let kv = null;
-  try {
-    kv = require('@vercel/kv');
-  } catch (e) {
-    // KV not available
-  }
-
-  if (!kv) {
-    return res.status(503).json({ error: 'Vercel KV not configured. Run: vercel env add KV_REST_API_URL' });
+  const redis = getRedis();
+  if (!redis) {
+    return res.status(503).json({ error: 'Upstash Redis not configured. Connect Upstash to this project in Vercel Storage.' });
   }
 
   if (req.method === 'POST') {
     const { action, token } = req.body || {};
     if (action === 'set' && token) {
-      await kv.set('ac_token', token);
-      return res.status(200).json({ success: true, message: 'Token saved' });
+      await redis.set('ac_token', token);
+      return res.status(200).json({ success: true, message: 'Token saved to Upstash Redis' });
     }
-    return res.status(400).json({ error: 'Invalid action' });
+    return res.status(400).json({ error: 'Invalid action. Use {action:"set", token:"xxx"}' });
   }
 
   if (req.method === 'GET') {
-    const token = await kv.get('ac_token');
+    const token = await redis.get('ac_token');
     return res.status(200).json({ token: token || null });
   }
 
