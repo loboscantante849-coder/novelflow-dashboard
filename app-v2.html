@@ -190,16 +190,16 @@
             position: relative;
             padding: 24px 24px 20px;
             overflow: hidden;
-            background: linear-gradient(135deg, #FF6B9D 0%, #C084FC 40%, #FFD700 100%);
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 40%, #16213e 70%, #0f3460 100%);
         }
         .home-banner::before {
             content: '';
             position: absolute;
             top: -40%; left: -20%; right: -20%; bottom: -20%;
             background: 
-                radial-gradient(ellipse 50% 80% at 15% 50%, rgba(255,255,255,0.3) 0%, transparent 70%),
-                radial-gradient(ellipse 40% 70% at 40% 40%, rgba(192,132,252,0.3) 0%, transparent 70%),
-                radial-gradient(ellipse 45% 60% at 65% 55%, rgba(255,215,0,0.3) 0%, transparent 70%);
+                radial-gradient(ellipse 50% 80% at 15% 50%, rgba(255,215,0,0.15) 0%, transparent 70%),
+                radial-gradient(ellipse 40% 70% at 40% 40%, rgba(255,215,0,0.1) 0%, transparent 70%),
+                radial-gradient(ellipse 45% 60% at 65% 55%, rgba(255,215,0,0.12) 0%, transparent 70%);
             filter: blur(30px);
             z-index: 0;
         }
@@ -909,7 +909,7 @@
 
         /* ========== Gaming Task Styles ========== */
         .gaming-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
             padding: 24px 20px;
             border-radius: 0;
         }
@@ -2232,7 +2232,7 @@
         .login-required-msg p { font-size: 14px; color: var(--ink-mute); margin-bottom: 16px; }
     
         /* ========== Performance Dashboard ========== */
-        .perf-dashboard { margin: 12px 16px; background: linear-gradient(135deg, #1c1e54, #533afd); border-radius: 16px; padding: 18px; color: white; position: relative; overflow: hidden; }
+        .perf-dashboard { margin: 12px 16px; background: linear-gradient(135deg, #0a0a0a, #1a1a2e, #0f3460); border-radius: 16px; padding: 18px; color: white; position: relative; overflow: hidden; }
         .perf-dashboard::before { content: ''; position: absolute; top: -30px; right: -30px; width: 100px; height: 100px; background: rgba(255,255,255,0.06); border-radius: 50%; }
         .perf-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
         .perf-header-left { display: flex; align-items: center; gap: 8px; }
@@ -2249,7 +2249,7 @@
         .perf-refresh:hover { color: white; }
         .perf-login-prompt { text-align: center; padding: 16px 0 8px; }
         .perf-login-text { font-size: 14px; color: rgba(255,255,255,0.7); margin-bottom: 12px; }
-        .perf-login-btn { display: inline-block; background: linear-gradient(135deg, #FF6B9D, #C084FC); color: white; padding: 10px 28px; border-radius: 25px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: transform 0.2s; }
+        .perf-login-btn { display: inline-block; background: linear-gradient(135deg, #FFD700, #f0c040); color: white; padding: 10px 28px; border-radius: 25px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: transform 0.2s; }
         .perf-login-btn:hover { transform: scale(1.03); }
         .perf-login-btn:active { transform: scale(0.97); }
         .tier-progress { margin: 10px 0 4px; }
@@ -2338,18 +2338,10 @@
         <div class="tab-content active" id="tab-home">
             <!-- Banner — Gradient Mesh with Floating Coins -->
             <div class="home-banner">
-                <div class="floating-coins" id="floatingCoins">
-                    <span class="floating-coin" style="left:10%;animation-delay:0s;">🪙</span>
-                    <span class="floating-coin" style="left:25%;animation-delay:0.5s;">💰</span>
-                    <span class="floating-coin" style="left:40%;animation-delay:1s;">🪙</span>
-                    <span class="floating-coin" style="left:55%;animation-delay:1.5s;">💵</span>
-                    <span class="floating-coin" style="left:70%;animation-delay:2s;">🪙</span>
-                    <span class="floating-coin" style="left:85%;animation-delay:2.5s;">💰</span>
-                </div>
-                <div class="banner-content">
-                    <div class="banner-eyebrow">💰 UP TO 80% COMMISSION</div>
-                    <div class="banner-title"><span data-i18n-html="earn_up_to">Earn Up to <span class="highlight">80%</span><br>Commission!</span></div>
-                    <div class="banner-subtitle">Promote 5 books to unlock 80% commission</div>
+                <div class="banner-content" style="text-align:center;padding:20px 16px;">
+                    <div style="font-size:12px;letter-spacing:2px;color:#FFD700;text-transform:uppercase;margin-bottom:6px;">✨ Share Books · Earn Money</div>
+                    <div style="font-size:20px;font-weight:800;color:white;line-height:1.3;" data-i18n-html="banner_premium_title">Share Novels, <span style="color:#FFD700;">Earn Money</span></div>
+                    <div style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:6px;" data-i18n="banner_premium_sub">Promote books and earn up to 80% commission</div>
                 </div>
             </div>
 
@@ -2358,21 +2350,22 @@
             <div class="perf-dashboard" id="perfDashboard">
                 <!-- Logged out state -->
                 <div class="perf-login-prompt" id="perfLoginPrompt">
-                    <div class="perf-header-left" style="justify-content:center;">
-                        <span class="perf-header-icon">📊</span>
-                        <span class="perf-header-title">My Performance</span>
+                    <div style="text-align:center;padding:12px 0 4px;">
+                        <div style="font-size:18px;font-weight:700;color:#FFD700;" data-i18n="perf_premium_title">💰 Share Books, Earn Money</div>
+                        <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:4px;" data-i18n="perf_premium_sub">Login to unlock your earnings dashboard</div>
                     </div>
-                    <div class="perf-login-text">Login to see your stats</div>
-                    <button class="perf-login-btn" onclick="switchTab('profile')">Login →</button>
+                    <div style="text-align:center;margin-top:12px;">
+                        <button class="perf-login-btn" onclick="switchTab('profile')" data-i18n="login_now">Login →</button>
+                    </div>
                 </div>
                 <!-- Logged in state (hidden by default) -->
                 <div id="perfData" style="display:none;">
                     <div class="perf-header">
                         <div class="perf-header-left">
-                            <span class="perf-header-icon">📊</span>
-                            <span class="perf-header-title">My Performance</span>
+                            <span class="perf-header-icon">💰</span>
+                            <span class="perf-header-title" data-i18n="perf_premium_title">💰 Share Books, Earn Money</span>
                         </div>
-                        <span class="perf-tier-badge" id="perfTier">40%</span>
+                        <button class="perf-login-btn" onclick="switchTab('submit')" style="font-size:12px;padding:6px 16px;" data-i18n="start_earning_btn">Start Earning →</button>
                     </div>
                     <div class="perf-grid">
                         <div class="perf-stat">
@@ -3010,6 +3003,336 @@
             document.querySelector(`.nav-item[data-tab="${tabName}"]`)?.classList.add('active');
         }
         document.querySelectorAll('.nav-item').forEach(el => el.addEventListener('click', () => switchTab(el.dataset.tab)));
+
+
+        // ========== i18n Internationalization ==========
+        const I18N = {
+            en: {
+                // App
+                app_name: 'NovelFlow',
+                banner_premium_title: 'Share Novels, <span style="color:#FFD700;">Earn Money</span>',
+                banner_premium_sub: 'Promote books and earn up to 80% commission',
+                perf_premium_title: '💰 Share Books, Earn Money',
+                perf_premium_sub: 'Login to unlock your earnings dashboard',
+                login_now: 'Login →',
+                start_earning_btn: 'Start Earning →',
+                splash_subtitle: 'Earn money promoting books',
+                start_earning: 'Start Earning',
+                username: 'Username',
+                
+                // Earn tab
+                earn_money: 'Earn Money',
+                recommend_earn: 'Recommend & <span class="highlight">Earn</span>',
+                submit_subtitle: 'Share books you love and earn up to 80% commission on every referral.',
+                search_books: 'Search books to promote & earn...',
+                search_create: 'Search & Create Link',
+                
+                // Success page
+                link_created: 'Link Created Successfully',
+                share_link: 'Share this link with your community',
+                promo_link: 'Promotion Link',
+                your_code: 'Your Code',
+                copy: 'Copy',
+                recommended_msg: 'Recommended Message',
+                copy_rec: 'Copy Recommendation',
+                rec_another: 'Recommend Another Book',
+                back_search: '← Back to Search',
+                
+                // Pink AI box
+                ai_box_title: '🎬 Create AI Assets, Promote Now!',
+                ai_box_sub: 'Generate stunning video reels for this book in ~25 min',
+                
+                // Reels
+                ai_generate: '🤖 AI Generate',
+                asset_library: '📦 Asset Library',
+                create_reel: 'Create Reel',
+                my_reels: 'My Reels',
+                create_reels_book: '🎬 Create Reels for This Book',
+                reel_search: 'Search books for AI video generation...',
+                tmpl_story: '📖 Story Slideshow (Video + Images)',
+                tmpl_spicy: '🔥 Spicy & Steamy',
+                tmpl_sora: '🎥 Story Sora (AI Cinematic)',
+                min_15_note: '⏱ Video generates in ~25 min',
+                video_assets_label: '🎬 Video Assets',
+                search_books_promote: 'Search books to promote...',
+                xmp_search_placeholder: 'Search a book to browse video assets...',
+                refresh_assets: '🔄 Refresh Assets',
+                
+                // Processing
+                step_search: 'Searching book database',
+                step_link: 'Generating unique link',
+                step_code: 'Creating promotion code',
+                step_final: 'Finalizing...',
+                
+                // Modal
+                earning_link_ready: '🎉 Your Earning Link is Ready!',
+                start_earning_btn: 'Start Earning',
+                
+                // Banner
+                earn_up_to: 'Earn Up to <span class="highlight">80%</span><br>Commission!',
+                incentive_text: '1,200+ promoters are earning with this book',
+                incentive_sub: 'Earn up to 80% commission for every reader you bring',
+                
+                // Nav
+                nav_earn: 'Earn',
+                
+                // Email
+                email_support: '📧 Email Support',
+                
+                // Toasts
+                toast_select_style: '🎬 Select a style and create your reel!',
+                toast_daily_limit: 'Daily limit reached (5 reels/day). Try again tomorrow!',
+                toast_creating: 'Creating...',
+                status_ready: 'Ready to share',
+                status_failed: 'Failed',
+                status_creating: 'Creating video (~25 min)...',
+                no_reels: 'No reels yet',
+                loading: 'Loading...',
+                no_books: 'No books found',
+                search_failed: 'Search failed',
+                no_assets: 'No assets found for this book',
+                reels_left: ' left today',
+                save_video: '💾 Save Video',
+                copy_text: '📋 Copy Text',
+                copied: '✅ Copied!',
+                trending_now: '🔥 Trending This Week',
+                browse_books: 'Browse Books',
+                genre_all: 'All',
+                top_promotions: 'Top Promotions',
+                recommend_btn: 'Recommend',
+                no_desc: 'No description available.',
+                no_books_cat: 'No books found for this category',
+                daily_missions: '🎯 Daily Missions',
+                my_copy_text: 'My Copy Text',
+                my_links: 'My Links',
+                mission_share_app: 'Share & Earn 50 pts',
+                mission_share_app_desc: 'Share NovelFlow on social media',
+                share_app_title: '📣 Share NovelFlow',
+                share_app_subtitle: 'Share novels, earn money & read free!',
+                share_app_desc: 'NovelFlow lets you discover amazing stories, share them with friends, and earn real money for every reader you bring. Join thousands of promoters already earning!',
+                share_copy_label: '📋 Copy this text:',
+                share_poster_label: '🖼️ Download promoter poster:',
+                download_poster: '📥 Download Poster',
+                share_app_hint: 'Complete both actions to earn 50 pts',
+                copy_btn: 'Copy',
+                pts: 'pts',
+                checkin_streak: '🔥 Check-in Streak',
+                check_in: 'Check In',
+                claimed: '✓ Claimed',
+                claim: 'Claim',
+                mission_share1: 'Share First Book',
+                mission_share3: 'Share 3 Books',
+                mission_bind: 'Bind NovelFlow ID',
+                mission_bind_desc: 'Open NovelFlow app → Profile → Copy ID',
+                bind_btn: 'Bind',
+                vip_exchange: '50 pts → 3 Days VIP',
+                vip_subtitle: 'Unlock premium novels & ad-free reading',
+                exchange: 'Exchange',
+                checkin_complete: 'Check-in Complete!',
+                milestone_7day: '7-Day Streak! 🏆',
+                milestone_7day_sub: 'You earned all streak rewards!',
+                milestone_streak: 'Streak Bonus!',
+                days_streak: 'days streak',
+                awesome: 'Awesome! 🎉',
+                toast_already_checkin: 'Already checked in today!',
+                toast_invalid_id: 'Please enter a valid NovelFlow ID',
+                toast_id_bound: 'NovelFlow ID bound successfully!',
+                toast_not_enough: 'Not enough points (need 50)',
+                toast_vip_activated: '🎉 VIP activated for 3 days!',
+            },
+            es: {
+                // App
+                app_name: 'NovelFlow',
+                banner_premium_title: 'Comparte Novelas, <span style="color:#FFD700;">Gana Dinero</span>',
+                banner_premium_sub: 'Promociona libros y gana hasta 80% de comisión',
+                perf_premium_title: '💰 Comparte Libros, Gana Dinero',
+                perf_premium_sub: 'Inicia sesión para ver tus ganancias',
+                login_now: 'Iniciar Sesión →',
+                start_earning_btn: 'Empezar a Ganar →',
+                splash_subtitle: 'Gana dinero promoviendo libros',
+                start_earning: 'Empezar a Ganar',
+                username: 'Usuario',
+                
+                // Earn tab
+                earn_money: 'Gana Dinero',
+                recommend_earn: 'Recomienda & <span class="highlight">Gana</span>',
+                submit_subtitle: 'Comparte libros que amas y gana hasta 80% de comisión por cada referido.',
+                search_books: 'Buscar libros para promover y ganar...',
+                search_create: 'Buscar y Crear Enlace',
+                
+                // Success page
+                link_created: '¡Enlace Creado con Éxito!',
+                share_link: 'Comparte este enlace con tu comunidad',
+                promo_link: 'Enlace de Promoción',
+                your_code: 'Tu Código',
+                copy: 'Copiar',
+                recommended_msg: 'Mensaje Recomendado',
+                copy_rec: 'Copiar Recomendación',
+                rec_another: 'Recomendar Otro Libro',
+                back_search: '← Volver a Buscar',
+                
+                // Pink AI box
+                ai_box_title: '🎬 Crea Contenido IA, ¡Promociona Ahora!',
+                ai_box_sub: 'Genera reels de video increíbles para este libro en ~25 min',
+                
+                // Reels
+                ai_generate: '🤖 Generar con IA',
+                asset_library: '📦 Biblioteca de Recursos',
+                create_reel: 'Crear Reel',
+                my_reels: 'Mis Reels',
+                create_reels_book: '🎬 Crear Reels para Este Libro',
+                reel_search: 'Buscar libros para generar video IA...',
+                tmpl_story: '📖 Presentación de Historia (Video + Imágenes)',
+                tmpl_spicy: '🔥 Picante y Sensual',
+                tmpl_sora: '🎥 Historia Sora (IA Cinematográfica)',
+                min_15_note: '⏱ El video se genera en ~25 min',
+                video_assets_label: '🎬 Recursos de Video',
+                search_books_promote: 'Buscar libros para promover...',
+                xmp_search_placeholder: 'Busca un libro para ver recursos de video...',
+                refresh_assets: '🔄 Actualizar Recursos',
+                
+                // Processing
+                step_search: 'Buscando en la base de datos',
+                step_link: 'Generando enlace único',
+                step_code: 'Creando código de promoción',
+                step_final: 'Finalizando...',
+                
+                // Modal
+                earning_link_ready: '🎉 ¡Tu Enlace de Ganancias está Listo!',
+                start_earning_btn: 'Empezar a Ganar',
+                
+                // Banner
+                earn_up_to: '¡Gana Hasta <span class="highlight">80%</span><br>de Comisión!',
+                incentive_text: '1,200+ promotores están ganando con este libro',
+                incentive_sub: 'Gana hasta 80% de comisión por cada lector que traigas',
+                
+                // Nav
+                nav_earn: 'Ganar',
+                
+                // Email
+                email_support: '📧 Soporte por Email',
+                
+                // Toasts
+                toast_select_style: '🎬 ¡Elige un estilo y crea tu reel!',
+                toast_daily_limit: 'Límite diario alcanzado (5 reels/día). ¡Inténtalo mañana!',
+                toast_creating: 'Creando...',
+                status_ready: 'Listo para compartir',
+                status_failed: 'Fallido',
+                status_creating: 'Creando video (~25 min)...',
+                no_reels: 'Aún no hay reels',
+                loading: 'Cargando...',
+                no_books: 'No se encontraron libros',
+                search_failed: 'Búsqueda fallida',
+                no_assets: 'No se encontraron recursos para este libro',
+                reels_left: ' disponibles hoy',
+                save_video: '💾 Guardar Video',
+                copy_text: '📋 Copiar Texto',
+                copied: '✅ ¡Copiado!',
+                trending_now: '🔥 Tendencias de la Semana',
+                browse_books: 'Explorar Libros',
+                genre_all: 'Todos',
+                top_promotions: 'Top Promociones',
+                recommend_btn: 'Recomendar',
+                no_desc: 'Sin descripción disponible.',
+                no_books_cat: 'No se encontraron libros en esta categoría',
+                daily_missions: '🎯 Misiones Diarias',
+                my_copy_text: 'Mis Textos',
+                my_links: 'Mis Enlaces',
+                mission_share_app: 'Compartir y Ganar 50 pts',
+                mission_share_app_desc: 'Comparte NovelFlow en redes sociales',
+                share_app_title: '📣 Comparte NovelFlow',
+                share_app_subtitle: '¡Comparte novelas, gana dinero y lee gratis!',
+                share_app_desc: 'NovelFlow te permite descubrir historias increíbles, compartirlas con amigos y ganar dinero real por cada lector que traigas. ¡Únete a miles de promotores que ya están ganando!',
+                share_copy_label: '📋 Copia este texto:',
+                share_poster_label: '🖼️ Descarga el póster de promotor:',
+                download_poster: '📥 Descargar Póster',
+                share_app_hint: 'Completa ambas acciones para ganar 50 pts',
+                copy_btn: 'Copiar',
+                pts: 'pts',
+                checkin_streak: '🔥 Racha de Check-in',
+                check_in: 'Check-in',
+                claimed: '✓ Reclamado',
+                claim: 'Reclamar',
+                mission_share1: 'Compartir Primer Libro',
+                mission_share3: 'Compartir 3 Libros',
+                mission_bind: 'Vincular ID NovelFlow',
+                mission_bind_desc: 'Abre la app NovelFlow → Perfil → Copiar ID',
+                bind_btn: 'Vincular',
+                vip_exchange: '50 pts → 3 Días VIP',
+                vip_subtitle: 'Desbloquea novelas premium y lectura sin anuncios',
+                exchange: 'Canjear',
+                checkin_complete: '¡Check-in Completado!',
+                milestone_7day: '¡Racha de 7 Días! 🏆',
+                milestone_7day_sub: '¡Ganaste todas las recompensas de racha!',
+                milestone_streak: '¡Bonus de Racha!',
+                days_streak: 'días de racha',
+                awesome: '¡Genial! 🎉',
+                toast_already_checkin: '¡Ya hiciste check-in hoy!',
+                toast_invalid_id: 'Ingresa un ID de NovelFlow válido',
+                toast_id_bound: '¡ID de NovelFlow vinculado exitosamente!',
+                toast_not_enough: 'Puntos insuficientes (necesitas 50)',
+                toast_vip_activated: '🎉 ¡VIP activado por 3 días!',
+            }
+        };
+        
+        
+        function getText(key) {
+            return (I18N[AppState.currentLang] && I18N[AppState.currentLang][key]) || (I18N['en'][key]) || key;
+        }
+        
+        function switchLang(lang) {
+            AppState.currentLang = lang;
+            AppState.searchLang = lang;
+            localStorage.setItem('novelflow_lang', lang);
+            applyTranslations();
+            // Update toggle buttons
+            document.querySelectorAll('.lang-switch-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.lang === lang);
+            });
+        }
+        
+        function applyTranslations() {
+            const dict = I18N[AppState.currentLang] || I18N['en'];
+            
+            // Translate data-i18n elements (text content)
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (dict[key] !== undefined) {
+                    el.textContent = dict[key];
+                }
+            });
+            
+            // Translate data-i18n-html elements (innerHTML, for spans with highlights)
+            document.querySelectorAll('[data-i18n-html]').forEach(el => {
+                const key = el.getAttribute('data-i18n-html');
+                if (dict[key] !== undefined) {
+                    el.innerHTML = dict[key];
+                }
+            });
+            
+            // Translate data-i18n-placeholder elements
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (dict[key] !== undefined) {
+                    el.placeholder = dict[key];
+                }
+            });
+            
+            // Translate select options with data-i18n
+            document.querySelectorAll('option[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (dict[key] !== undefined) {
+                    el.textContent = dict[key];
+                }
+            });
+        }
+        
+        // Apply saved language on load
+        document.addEventListener('DOMContentLoaded', () => {
+            if (AppState.currentLang !== 'en') {
+                switchLang(AppState.currentLang);
+            }
+        });
 
         // ========== Update Share Tasks Progress ==========
         function updateShareTasksProgress() {
@@ -4548,7 +4871,7 @@ function renderMyBooks() {
         function updateStats() {
             document.getElementById('statLinks').textContent = AppState.myBooks.length;
             updateProfileMyBooksCount();
-            document.getElementById('statPoints').textContent = AppState.myBooks.length * 10;
+            document.getElementById('statPoints').textContent = getUserPoints();
         }
 
         // ========== User State ==========
@@ -5464,322 +5787,7 @@ function renderMyBooks() {
         updateReelsDailyInfo();
 
 
-        // ========== i18n Internationalization ==========
-        const I18N = {
-            en: {
-                // App
-                app_name: 'NovelFlow',
-                splash_subtitle: 'Earn money promoting books',
-                start_earning: 'Start Earning',
-                username: 'Username',
-                
-                // Earn tab
-                earn_money: 'Earn Money',
-                recommend_earn: 'Recommend & <span class="highlight">Earn</span>',
-                submit_subtitle: 'Share books you love and earn up to 80% commission on every referral.',
-                search_books: 'Search books to promote & earn...',
-                search_create: 'Search & Create Link',
-                
-                // Success page
-                link_created: 'Link Created Successfully',
-                share_link: 'Share this link with your community',
-                promo_link: 'Promotion Link',
-                your_code: 'Your Code',
-                copy: 'Copy',
-                recommended_msg: 'Recommended Message',
-                copy_rec: 'Copy Recommendation',
-                rec_another: 'Recommend Another Book',
-                back_search: '← Back to Search',
-                
-                // Pink AI box
-                ai_box_title: '🎬 Create AI Assets, Promote Now!',
-                ai_box_sub: 'Generate stunning video reels for this book in ~25 min',
-                
-                // Reels
-                ai_generate: '🤖 AI Generate',
-                asset_library: '📦 Asset Library',
-                create_reel: 'Create Reel',
-                my_reels: 'My Reels',
-                create_reels_book: '🎬 Create Reels for This Book',
-                reel_search: 'Search books for AI video generation...',
-                tmpl_story: '📖 Story Slideshow (Video + Images)',
-                tmpl_spicy: '🔥 Spicy & Steamy',
-                tmpl_sora: '🎥 Story Sora (AI Cinematic)',
-                min_15_note: '⏱ Video generates in ~25 min',
-                video_assets_label: '🎬 Video Assets',
-                search_books_promote: 'Search books to promote...',
-                xmp_search_placeholder: 'Search a book to browse video assets...',
-                refresh_assets: '🔄 Refresh Assets',
-                
-                // Processing
-                step_search: 'Searching book database',
-                step_link: 'Generating unique link',
-                step_code: 'Creating promotion code',
-                step_final: 'Finalizing...',
-                
-                // Modal
-                earning_link_ready: '🎉 Your Earning Link is Ready!',
-                start_earning_btn: 'Start Earning',
-                
-                // Banner
-                earn_up_to: 'Earn Up to <span class="highlight">80%</span><br>Commission!',
-                incentive_text: '1,200+ promoters are earning with this book',
-                incentive_sub: 'Earn up to 80% commission for every reader you bring',
-                
-                // Nav
-                nav_earn: 'Earn',
-                
-                // Email
-                email_support: '📧 Email Support',
-                
-                // Toasts
-                toast_select_style: '🎬 Select a style and create your reel!',
-                toast_daily_limit: 'Daily limit reached (5 reels/day). Try again tomorrow!',
-                toast_creating: 'Creating...',
-                status_ready: 'Ready to share',
-                status_failed: 'Failed',
-                status_creating: 'Creating video (~25 min)...',
-                no_reels: 'No reels yet',
-                loading: 'Loading...',
-                no_books: 'No books found',
-                search_failed: 'Search failed',
-                no_assets: 'No assets found for this book',
-                reels_left: ' left today',
-                save_video: '💾 Save Video',
-                copy_text: '📋 Copy Text',
-                copied: '✅ Copied!',
-                trending_now: '🔥 Trending This Week',
-                browse_books: 'Browse Books',
-                genre_all: 'All',
-                top_promotions: 'Top Promotions',
-                recommend_btn: 'Recommend',
-                no_desc: 'No description available.',
-                no_books_cat: 'No books found for this category',
-                daily_missions: '🎯 Daily Missions',
-                my_copy_text: 'My Copy Text',
-                my_links: 'My Links',
-                mission_share_app: 'Share & Earn 50 pts',
-                mission_share_app_desc: 'Share NovelFlow on social media',
-                share_app_title: '📣 Share NovelFlow',
-                share_app_subtitle: 'Share novels, earn money & read free!',
-                share_app_desc: 'NovelFlow lets you discover amazing stories, share them with friends, and earn real money for every reader you bring. Join thousands of promoters already earning!',
-                share_copy_label: '📋 Copy this text:',
-                share_poster_label: '🖼️ Download promoter poster:',
-                download_poster: '📥 Download Poster',
-                share_app_hint: 'Complete both actions to earn 50 pts',
-                copy_btn: 'Copy',
-                pts: 'pts',
-                checkin_streak: '🔥 Check-in Streak',
-                check_in: 'Check In',
-                claimed: '✓ Claimed',
-                claim: 'Claim',
-                mission_share1: 'Share First Book',
-                mission_share3: 'Share 3 Books',
-                mission_bind: 'Bind NovelFlow ID',
-                mission_bind_desc: 'Open NovelFlow app → Profile → Copy ID',
-                bind_btn: 'Bind',
-                vip_exchange: '50 pts → 3 Days VIP',
-                vip_subtitle: 'Unlock premium novels & ad-free reading',
-                exchange: 'Exchange',
-                checkin_complete: 'Check-in Complete!',
-                milestone_7day: '7-Day Streak! 🏆',
-                milestone_7day_sub: 'You earned all streak rewards!',
-                milestone_streak: 'Streak Bonus!',
-                days_streak: 'days streak',
-                awesome: 'Awesome! 🎉',
-                toast_already_checkin: 'Already checked in today!',
-                toast_invalid_id: 'Please enter a valid NovelFlow ID',
-                toast_id_bound: 'NovelFlow ID bound successfully!',
-                toast_not_enough: 'Not enough points (need 50)',
-                toast_vip_activated: '🎉 VIP activated for 3 days!',
-            },
-            es: {
-                // App
-                app_name: 'NovelFlow',
-                splash_subtitle: 'Gana dinero promoviendo libros',
-                start_earning: 'Empezar a Ganar',
-                username: 'Usuario',
-                
-                // Earn tab
-                earn_money: 'Gana Dinero',
-                recommend_earn: 'Recomienda & <span class="highlight">Gana</span>',
-                submit_subtitle: 'Comparte libros que amas y gana hasta 80% de comisión por cada referido.',
-                search_books: 'Buscar libros para promover y ganar...',
-                search_create: 'Buscar y Crear Enlace',
-                
-                // Success page
-                link_created: '¡Enlace Creado con Éxito!',
-                share_link: 'Comparte este enlace con tu comunidad',
-                promo_link: 'Enlace de Promoción',
-                your_code: 'Tu Código',
-                copy: 'Copiar',
-                recommended_msg: 'Mensaje Recomendado',
-                copy_rec: 'Copiar Recomendación',
-                rec_another: 'Recomendar Otro Libro',
-                back_search: '← Volver a Buscar',
-                
-                // Pink AI box
-                ai_box_title: '🎬 Crea Contenido IA, ¡Promociona Ahora!',
-                ai_box_sub: 'Genera reels de video increíbles para este libro en ~25 min',
-                
-                // Reels
-                ai_generate: '🤖 Generar con IA',
-                asset_library: '📦 Biblioteca de Recursos',
-                create_reel: 'Crear Reel',
-                my_reels: 'Mis Reels',
-                create_reels_book: '🎬 Crear Reels para Este Libro',
-                reel_search: 'Buscar libros para generar video IA...',
-                tmpl_story: '📖 Presentación de Historia (Video + Imágenes)',
-                tmpl_spicy: '🔥 Picante y Sensual',
-                tmpl_sora: '🎥 Historia Sora (IA Cinematográfica)',
-                min_15_note: '⏱ El video se genera en ~25 min',
-                video_assets_label: '🎬 Recursos de Video',
-                search_books_promote: 'Buscar libros para promover...',
-                xmp_search_placeholder: 'Busca un libro para ver recursos de video...',
-                refresh_assets: '🔄 Actualizar Recursos',
-                
-                // Processing
-                step_search: 'Buscando en la base de datos',
-                step_link: 'Generando enlace único',
-                step_code: 'Creando código de promoción',
-                step_final: 'Finalizando...',
-                
-                // Modal
-                earning_link_ready: '🎉 ¡Tu Enlace de Ganancias está Listo!',
-                start_earning_btn: 'Empezar a Ganar',
-                
-                // Banner
-                earn_up_to: '¡Gana Hasta <span class="highlight">80%</span><br>de Comisión!',
-                incentive_text: '1,200+ promotores están ganando con este libro',
-                incentive_sub: 'Gana hasta 80% de comisión por cada lector que traigas',
-                
-                // Nav
-                nav_earn: 'Ganar',
-                
-                // Email
-                email_support: '📧 Soporte por Email',
-                
-                // Toasts
-                toast_select_style: '🎬 ¡Elige un estilo y crea tu reel!',
-                toast_daily_limit: 'Límite diario alcanzado (5 reels/día). ¡Inténtalo mañana!',
-                toast_creating: 'Creando...',
-                status_ready: 'Listo para compartir',
-                status_failed: 'Fallido',
-                status_creating: 'Creando video (~25 min)...',
-                no_reels: 'Aún no hay reels',
-                loading: 'Cargando...',
-                no_books: 'No se encontraron libros',
-                search_failed: 'Búsqueda fallida',
-                no_assets: 'No se encontraron recursos para este libro',
-                reels_left: ' disponibles hoy',
-                save_video: '💾 Guardar Video',
-                copy_text: '📋 Copiar Texto',
-                copied: '✅ ¡Copiado!',
-                trending_now: '🔥 Tendencias de la Semana',
-                browse_books: 'Explorar Libros',
-                genre_all: 'Todos',
-                top_promotions: 'Top Promociones',
-                recommend_btn: 'Recomendar',
-                no_desc: 'Sin descripción disponible.',
-                no_books_cat: 'No se encontraron libros en esta categoría',
-                daily_missions: '🎯 Misiones Diarias',
-                my_copy_text: 'Mis Textos',
-                my_links: 'Mis Enlaces',
-                mission_share_app: 'Compartir y Ganar 50 pts',
-                mission_share_app_desc: 'Comparte NovelFlow en redes sociales',
-                share_app_title: '📣 Comparte NovelFlow',
-                share_app_subtitle: '¡Comparte novelas, gana dinero y lee gratis!',
-                share_app_desc: 'NovelFlow te permite descubrir historias increíbles, compartirlas con amigos y ganar dinero real por cada lector que traigas. ¡Únete a miles de promotores que ya están ganando!',
-                share_copy_label: '📋 Copia este texto:',
-                share_poster_label: '🖼️ Descarga el póster de promotor:',
-                download_poster: '📥 Descargar Póster',
-                share_app_hint: 'Completa ambas acciones para ganar 50 pts',
-                copy_btn: 'Copiar',
-                pts: 'pts',
-                checkin_streak: '🔥 Racha de Check-in',
-                check_in: 'Check-in',
-                claimed: '✓ Reclamado',
-                claim: 'Reclamar',
-                mission_share1: 'Compartir Primer Libro',
-                mission_share3: 'Compartir 3 Libros',
-                mission_bind: 'Vincular ID NovelFlow',
-                mission_bind_desc: 'Abre la app NovelFlow → Perfil → Copiar ID',
-                bind_btn: 'Vincular',
-                vip_exchange: '50 pts → 3 Días VIP',
-                vip_subtitle: 'Desbloquea novelas premium y lectura sin anuncios',
-                exchange: 'Canjear',
-                checkin_complete: '¡Check-in Completado!',
-                milestone_7day: '¡Racha de 7 Días! 🏆',
-                milestone_7day_sub: '¡Ganaste todas las recompensas de racha!',
-                milestone_streak: '¡Bonus de Racha!',
-                days_streak: 'días de racha',
-                awesome: '¡Genial! 🎉',
-                toast_already_checkin: '¡Ya hiciste check-in hoy!',
-                toast_invalid_id: 'Ingresa un ID de NovelFlow válido',
-                toast_id_bound: '¡ID de NovelFlow vinculado exitosamente!',
-                toast_not_enough: 'Puntos insuficientes (necesitas 50)',
-                toast_vip_activated: '🎉 ¡VIP activado por 3 días!',
-            }
-        };
-        
-        
-        function getText(key) {
-            return (I18N[AppState.currentLang] && I18N[AppState.currentLang][key]) || (I18N['en'][key]) || key;
-        }
-        
-        function switchLang(lang) {
-            AppState.currentLang = lang;
-            AppState.searchLang = lang;
-            localStorage.setItem('novelflow_lang', lang);
-            applyTranslations();
-            // Update toggle buttons
-            document.querySelectorAll('.lang-switch-btn').forEach(b => {
-                b.classList.toggle('active', b.dataset.lang === lang);
-            });
-        }
-        
-        function applyTranslations() {
-            const dict = I18N[AppState.currentLang] || I18N['en'];
-            
-            // Translate data-i18n elements (text content)
-            document.querySelectorAll('[data-i18n]').forEach(el => {
-                const key = el.getAttribute('data-i18n');
-                if (dict[key] !== undefined) {
-                    el.textContent = dict[key];
-                }
-            });
-            
-            // Translate data-i18n-html elements (innerHTML, for spans with highlights)
-            document.querySelectorAll('[data-i18n-html]').forEach(el => {
-                const key = el.getAttribute('data-i18n-html');
-                if (dict[key] !== undefined) {
-                    el.innerHTML = dict[key];
-                }
-            });
-            
-            // Translate data-i18n-placeholder elements
-            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-                const key = el.getAttribute('data-i18n-placeholder');
-                if (dict[key] !== undefined) {
-                    el.placeholder = dict[key];
-                }
-            });
-            
-            // Translate select options with data-i18n
-            document.querySelectorAll('option[data-i18n]').forEach(el => {
-                const key = el.getAttribute('data-i18n');
-                if (dict[key] !== undefined) {
-                    el.textContent = dict[key];
-                }
-            });
-        }
-        
-        // Apply saved language on load
-        document.addEventListener('DOMContentLoaded', () => {
-            if (AppState.currentLang !== 'en') {
-                switchLang(AppState.currentLang);
-            }
-        });
+
 
         // Tab switch listener to update checkin UI
         const originalSwitchTab = switchTab;
