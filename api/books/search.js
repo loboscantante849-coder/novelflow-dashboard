@@ -156,7 +156,7 @@ module.exports = async (req, res) => {
       // Try bookstore API
       if (BOOKSTORE_TOKEN) {
         try {
-          const apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=1&pageSize=100&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&languageCode=${lang}&bookStatus=1&keyword=${encodeURIComponent(keyword)}${bookClassName ? `&bookClassName=${encodeURIComponent(bookClassName)}` : ''}`;
+          const apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=1&pageSize=100&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&languageCode=${lang}&bookStatus=1&bookName=${encodeURIComponent(keyword)}${bookClassName ? `&bookClassName=${encodeURIComponent(bookClassName)}` : ''}`;
           
           const response = await fetch(apiUrl, {
             method: 'GET',

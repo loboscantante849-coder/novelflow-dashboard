@@ -59,7 +59,7 @@ module.exports = async (req, res) => {
       // If no folder_id, use date range (last 30 days)
       if (!folder_id) {
         const now = new Date();
-        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const thirtyDaysAgo = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000);
         body.start_date = thirtyDaysAgo.toISOString().split('T')[0];
         body.end_date = now.toISOString().split('T')[0];
       }

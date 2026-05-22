@@ -15,7 +15,13 @@ module.exports = async (req, res) => {
 
   // Use KV first → env var → header
   let token = null;
-  try { const kv = require('@vercel/kv'); token = await kv.get('ac_token'); } catch(e) {}
+  try {
+    const { Redis } = require('@upstash/redis');
+    if (process.env.KV_REST_API_URL) {
+      const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+      token = await redis.get('ac_token');
+    }
+  } catch(e) {}
   if (!token) token = process.env.AC_TOKEN || req.headers['x-ac-token'] ||
     (req.headers['authorization'] && req.headers['authorization'].replace('Bearer ', ''));
   if (!token) return res.status(401).json({ error: 'AC Token not configured. Set via /api/ac-kv' });
@@ -32,7 +38,14 @@ module.exports = async (req, res) => {
 
     // Auto-rotate: save new token to KV for next request
     if (newToken) {
-      try { const kv = require('@vercel/kv'); await kv.set('ac_token', newToken); console.log('AC token rotated in KV'); } catch(e) { console.warn('KV save failed:', e.message); }
+      try {
+      const { Redis } = require('@upstash/redis');
+      if (process.env.KV_REST_API_URL) {
+        const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+        await redis.set('ac_token', newToken);
+        console.log('AC token rotated in Upstash');
+      }
+    } catch(e) { console.warn('Redis save failed:', e.message); }
     }
 
     res.setHeader('Access-Control-Allow-Origin', '*');

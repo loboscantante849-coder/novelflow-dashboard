@@ -2357,16 +2357,24 @@
                 <!-- XMP Asset Library Mode -->
                 <div id="reelXMPMode" style="display:none;">
                     <div style="padding:0 16px 8px;">
-                        <input type="text" id="xmpSearchInput" placeholder="Search assets by name or tag..." style="width:calc(100% - 24px);padding:10px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;" oninput="debounceXMPSearch(this.value)">
-                        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
-                            <button class="xmp-filter-btn active" data-type="" onclick="filterXMPType(this,'')">All</button>
-                            <button class="xmp-filter-btn" data-type="video" onclick="filterXMPType(this,'video')">Video</button>
-                            <button class="xmp-filter-btn" data-type="image" onclick="filterXMPType(this,'image')">Image</button>
+                        <input type="text" id="xmpBookSearch" placeholder="Search book name for ready-made reels..." style="width:calc(100% - 24px);padding:10px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;" oninput="searchXMBooks(this.value)">
+                        <div id="xmpBookResults" style="max-height:120px;overflow-y:auto;"></div>
+                        <div id="xmpAssetSection" style="display:none;margin-top:8px;">
+                            <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:4px;">📂 Creative Assets</div>
+                            <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;">
+                                <button class="xmp-filter-btn active" data-type="" onclick="filterXMPType(this,'')">All</button>
+                                <button class="xmp-filter-btn" data-type="video" onclick="filterXMPType(this,'video')">Video</button>
+                                <button class="xmp-filter-btn" data-type="image" onclick="filterXMPType(this,'image')">Image</button>
+                            </div>
+                            <div id="xmpResults" style="max-height:200px;overflow-y:auto;"></div>
+                            <div style="margin-top:6px;">
+                                <button class="reels-btn reels-btn-list" onclick="loadXMPMaterials()" style="width:100%;">🔄 Refresh Assets</button>
+                            </div>
                         </div>
-                    </div>
-                    <div id="xmpResults" style="padding:0 16px;max-height:300px;overflow-y:auto;"></div>
-                    <div style="padding:8px 16px;">
-                        <button class="reels-btn reels-btn-list" onclick="loadXMPMaterials()" style="width:100%;">🔄 Refresh Assets</button>
+                        <div id="xmpEmptyHint" style="text-align:center;padding:20px 12px;color:var(--ink-mute);font-size:13px;">
+                            <div style="font-size:24px;margin-bottom:8px;">📦</div>
+                            Search a book to find ready-made creative assets
+                        </div>
                     </div>
                 </div>
             </div>
@@ -4478,6 +4486,35 @@ function renderMyBooks() {
         }
 
         // ========== XMP Asset Library ==========
+        let xmpSelectedBook = null;
+        async function searchXMBooks(query) {
+            const container = document.getElementById('xmpBookResults');
+            if (!query || query.length < 2) { container.innerHTML = ''; return; }
+            try {
+                const searchLang = AppState.searchLang || 'en';
+                const resp = await fetch('/api/books/search?keyword=' + encodeURIComponent(query) + '&lang=' + searchLang + '&pageSize=5');
+                const data = await resp.json();
+                const books = data.data || data.books || [];
+                if (books.length === 0) {
+                    container.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--ink-mute);">No books found</div>';
+                    return;
+                }
+                container.innerHTML = books.slice(0, 5).map(b =>
+                    '<div class="reel-book-option" data-bookid="' + (b.bookId || b.id) + '" onclick="selectXMPBook(this)" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--hairline);font-size:13px;display:flex;gap:8px;align-items:center;">' +
+                    '<img src="' + (b.cover || '') + '" style="width:30px;height:40px;border-radius:4px;object-fit:cover;" onerror="this.style.display='none'">' +
+                    '<div><div style="font-weight:500;">' + (b.title || 'Untitled') + '</div><div style="font-size:11px;color:var(--ink-mute);">' + (b.author || '') + '</div></div></div>'
+                ).join('');
+            } catch(e) { container.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--ink-mute);">Search failed</div>'; }
+        }
+
+        function selectXMPBook(el) {
+            document.querySelectorAll('#xmpBookResults .reel-book-option').forEach(e => e.style.background = '');
+            el.style.background = 'var(--canvas-soft)';
+            xmpSelectedBook = { bookId: el.dataset.bookid, title: el.querySelector('div > div').textContent };
+            document.getElementById('xmpAssetSection').style.display = 'block';
+            document.getElementById('xmpEmptyHint').style.display = 'none';
+            loadXMPMaterials(xmpSelectedBook.title);
+        }
         let xmpCurrentType = '';
         let xmpDebounceTimer = null;
         function debounceXMPSearch(val) {
@@ -4493,6 +4530,7 @@ function renderMyBooks() {
 
         async function loadXMPMaterials(keyword) {
             const container = document.getElementById('xmpResults');
+            if (!container) return;
             container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--ink-mute);font-size:13px;">Loading assets...</div>';
             try {
                 let url = '/api/xmp-materials?action=list&page_size=20';
@@ -4530,7 +4568,8 @@ function renderMyBooks() {
             const container = document.getElementById('reelBookResults');
             if (!query || query.length < 2) { container.innerHTML = ''; return; }
             try {
-                const resp = await fetch('/api/books/search?keyword=' + encodeURIComponent(query) + '&pageSize=5');
+                const searchLang = AppState.searchLang || 'en';
+                const resp = await fetch('/api/books/search?keyword=' + encodeURIComponent(query) + '&lang=' + searchLang + '&pageSize=10');
                 const data = await resp.json();
                 const books = data.books || data.data || [];
                 if (books.length === 0) {
@@ -4562,6 +4601,8 @@ function renderMyBooks() {
         // Create reel from the success modal (after creating a link)
         async function createReelFromModal() {
             if (!currentRecommendBook || !currentRecommendBook.bookId) { showToast('No book selected', 'error'); return; }
+            // Set reelSelectedBook for the toast message
+            reelSelectedBook = { bookId: currentRecommendBook.bookId, title: currentRecommendBook.title };
             await doCreateReel(currentRecommendBook.bookId);
         }
 
@@ -4573,8 +4614,9 @@ function renderMyBooks() {
                 return;
             }
             const btn = document.getElementById('reelsCreateBtn');
-            btn.disabled = true;
-            btn.textContent = 'Creating...';
+            const modalBtn = document.getElementById('modalCreateReelBtn');
+            if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
+            if (modalBtn) { modalBtn.disabled = true; modalBtn.textContent = '🎬 Creating...'; }
 
             try {
                 const headers = { 'Content-Type': 'application/json' };
@@ -4594,20 +4636,28 @@ function renderMyBooks() {
                 if (result.success) {
                     incrementReelsCount();
                     const remaining = REELS_DAILY_LIMIT - getReelsDailyCount();
-                    showToast('Reel creation started! ' + remaining + ' left today.', 'success');
+                    // Show detailed feedback
+                    const taskData = result.data?.data || result.data || {};
+                    const taskId = taskData.id || taskData.task_id || '';
+                    const taskName = taskData.title || reelSelectedBook?.title || 'Your reel';
+                    showToast('🎬 Reel created for "' + taskName + '"! Generating video... Check My Reels for progress.', 'success');
                     listMyReels();
+                    // Poll for completion after 30 seconds
+                    setTimeout(() => listMyReels(), 30000);
                 } else {
-                    showToast(result.error || 'Reel creation failed', 'error');
+                    const errMsg = result.error || (result.data?.msg) || 'Reel creation failed';
+                    showToast(errMsg, 'error');
                 }
             } catch (e) {
                 showToast('Failed: ' + e.message, 'error');
             }
-            btn.disabled = false;
-            btn.textContent = '🎬 Create Reel';
+            if (btn) { btn.disabled = false; btn.textContent = '🎬 Create Reel'; }
+            if (modalBtn) { modalBtn.disabled = false; modalBtn.textContent = '🎬 Create Reels for This Book'; }
         }
 
         async function listMyReels() {
             const listEl = document.getElementById('reelsList');
+            if (!listEl) return;
             listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">Loading...</div>';
 
             try {
