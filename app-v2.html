@@ -2342,32 +2342,34 @@
 
             <!-- Scroll -->
             <div class="book-scroll-section" id="bookScrollSection" style="display: none;">
-                <div class="book-scroll-title">🔥 Trending Now</div>
+                <div class="book-scroll-title" data-i18n="trending_now">🔥 Trending This Week</div>
                 <div class="section-subtitle">Find your next favorite read</div>
                 <div class="book-scroll-list" id="bookScrollList"></div>
             </div>
 
             <!-- Genre Tabs -->
             <div class="book-list-tabs" id="bookListTabs" style="display: none;">
-                <button class="book-list-tab active" data-genre="all">All</button>
+                <button class="book-list-tab active" data-genre="all" data-i18n="genre_all">All</button>
                 <button class="book-list-tab" data-genre="Romance">Romance</button>
                 <button class="book-list-tab" data-genre="Werewolf">Werewolf</button>
                 <button class="book-list-tab" data-genre="Billionaire">Billionaire</button>
+                <button class="book-list-tab" data-genre="Teenfiction/Young Adult">Young Adult</button>
                 <button class="book-list-tab" data-genre="Fantasy">Fantasy</button>
                 <button class="book-list-tab" data-genre="Mafia">Mafia</button>
+                <button class="book-list-tab" data-genre="LGBT">LGBT</button>
             </div>
 
             <!-- Book List -->
             <div class="book-list-section">
                 <div class="section-header">
-                    <div class="section-title">Browse books</div>
+                    <div class="section-title" data-i18n="browse_books">Browse Books</div>
                 </div>
                 <div class="book-list" id="bookList"></div>
             </div>
 
             <!-- Rank -->
             <div class="section-header" id="rankHeader" style="display: none;">
-                <div class="section-title">Top promotions</div>
+                <div class="section-title" data-i18n="top_promotions">Top Promotions</div>
             </div>
             <div class="rank-section" id="rankSection" style="display: none;">
                 <div class="rank-tabs">
@@ -2868,11 +2870,12 @@
         async function loadBooks() {
             const loadingEl = document.getElementById('homeLoading');
             const timeout = 10000;
+            const currentLang = AppState.searchLang || 'en';
 
             try {
-                // Call backend API which uses NOVELSPA_TOKEN environment variable
+                // Fetch trending books sorted by UV (weekly top) from novelspa API
                 const response = await Promise.race([
-                    fetch('/api/books/search?lang=en&pageSize=30', {
+                    fetch('/api/trending-books?mode=trending&lang=' + currentLang + '&limit=30', {
                         method: 'GET',
                         headers: { 'Content-Type': 'application/json' }
                     }),
@@ -2893,7 +2896,6 @@
                         tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
                         author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
                         languageCode: book.languageCode || 'en',
-                        bookClassName: book.bookClassName || '',
                         bookClassName: book.bookClassName || ''
                     }));
                     
@@ -3045,7 +3047,8 @@
                 } else {
                     // Load books by genre from API (different books per category)
                     try {
-                        const resp = await fetch('/api/books/search?bookClassName=' + encodeURIComponent(genre) + '&lang=en&pageSize=30');
+                        const currentLang = AppState.searchLang || 'en';
+                        const resp = await fetch('/api/trending-books?mode=category&category=' + encodeURIComponent(genre) + '&lang=' + currentLang + '&limit=30');
                         if (resp.ok) {
                             const result = await resp.json();
                             if (result.success && Array.isArray(result.data)) {
@@ -3057,7 +3060,8 @@
                                     rating: book.rating || book.star || 4.5,
                                     tags: Array.isArray(book.tags) ? book.tags.map(t => typeof t === 'object' ? t.tagName || t.name || '' : t).filter(Boolean) : (book.genre || []),
                                     author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
-                                    languageCode: book.languageCode || 'en'
+                                    languageCode: book.languageCode || 'en',
+                                    bookClassName: book.bookClassName || ''
                                 }));
                             } else { throw new Error('bad data'); }
                         } else { throw new Error('API error'); }
@@ -4885,6 +4889,13 @@ function renderMyBooks() {
                 search_failed: 'Search failed',
                 no_assets: 'No assets found for this book',
                 reels_left: ' left today',
+                trending_now: '🔥 Trending This Week',
+                browse_books: 'Browse Books',
+                genre_all: 'All',
+                top_promotions: 'Top Promotions',
+                recommend_btn: 'Recommend',
+                no_desc: 'No description available.',
+                no_books_cat: 'No books found for this category',
             },
             es: {
                 // App
@@ -4964,6 +4975,13 @@ function renderMyBooks() {
                 search_failed: 'Búsqueda fallida',
                 no_assets: 'No se encontraron recursos para este libro',
                 reels_left: ' disponibles hoy',
+                trending_now: '🔥 Tendencias de la Semana',
+                browse_books: 'Explorar Libros',
+                genre_all: 'Todos',
+                top_promotions: 'Top Promociones',
+                recommend_btn: 'Recomendar',
+                no_desc: 'Sin descripción disponible.',
+                no_books_cat: 'No se encontraron libros en esta categoría',
             }
         };
         

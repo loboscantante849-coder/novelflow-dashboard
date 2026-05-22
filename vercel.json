@@ -1,7 +1,10 @@
 {
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/", "destination": "/index.html" }
+    {
+      "source": "/",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
@@ -78,7 +81,17 @@
     "api/ac-health.js": {
       "memory": 128,
       "maxDuration": 5
+    },
+    "api/trending-books.js": {
+      "memory": 256,
+      "maxDuration": 15
     }
   },
-  "framework": null
+  "framework": null,
+  "crons": [
+    {
+      "path": "/api/trending-books?mode=refresh&limit=50",
+      "schedule": "0 0 * * 1"
+    }
+  ]
 }
