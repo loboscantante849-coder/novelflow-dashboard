@@ -742,7 +742,11 @@
               headers: { 'Content-Type': 'application/json' }
             });
             
-            if (!response.ok) break;
+            // retry-pending endpoint removed - graceful fallback
+            if (!response.ok) {
+              document.getElementById('pendingText').textContent = 'Auto-retry unavailable. Please re-submit manually.';
+              break;
+            }
             
             const result = await response.json();
             retryAttempts++;
