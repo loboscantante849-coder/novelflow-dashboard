@@ -104,8 +104,15 @@ module.exports = async (req, res) => {
     const data = await response.json();
     const rawBooks = (data.data && data.data.data) || data.data || [];
     if (rawBooks.length > 0) {
-      console.log('Sample book raw keys:', Object.keys(rawBooks[0]).join(', '));
-      console.log('Sample book cover-related:', JSON.stringify(Object.fromEntries(Object.entries(rawBooks[0]).filter(([k]) => k.toLowerCase().includes('cover') || k.toLowerCase().includes('pic') || k.toLowerCase().includes('img') || k.toLowerCase().includes('url')))));
+      const sample = rawBooks[0];
+      console.log('[trending] Sample book raw keys:', Object.keys(sample).join(', '));
+      // Log all fields that might be cover-related
+      const coverFields = Object.entries(sample).filter(([k, v]) => {
+        const kl = k.toLowerCase();
+        return (kl.includes('cover') || kl.includes('pic') || kl.includes('img') || kl.includes('url') || kl.includes('image')) && typeof v === 'string' && v.length > 0;
+      });
+      console.log('[trending] Cover-related fields:', JSON.stringify(Object.fromEntries(coverFields)));
+      console.log('[trending] First 3 books titles:', rawBooks.slice(0, 3).map(b => b.title).join(' | '));
     }
 
     const books = rawBooks.map(book => ({
