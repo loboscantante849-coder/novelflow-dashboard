@@ -2017,7 +2017,7 @@
         }
         .modal-overlay.show { display: flex; animation: fadeIn 0.2s; }
         .modal {
-            background: var(--canvas); border-radius: var(--r-xl) var(--r-xl) 0 0;
+            background: var(--canvas); border-radius: 20px 20px 0 0;
             width: 100%; max-width: 430px; max-height: 90vh;
             box-shadow: var(--shadow-l2); animation: slideUp 0.25s ease;
             display: flex; flex-direction: column;
@@ -2317,13 +2317,23 @@
         .reels-item { padding: 8px; }
         .reels-action-btn { padding: 6px 10px; font-size: 11px; }
         .modal { max-width: 100%; margin: 0; border-radius: 20px 20px 0 0; max-height: 92vh; }
+        .modal-actions { flex-direction: column; gap: 8px; padding: 0 16px 16px; }
+        .modal-actions button { width: 100%; min-height: 44px; }
+        .modal-result-value { word-break: break-all; }
+        .modal-copy-btn { flex-shrink: 0; }
+        .modal-done-btn { width: calc(100% - 32px); margin: 12px 16px; min-height: 44px; }
+        .modal-reel-btn { min-height: 48px; }
+        .modal-confirm-btn { min-height: 48px; }
         .modal-body { padding: 12px 16px; }
         .modal-book-cover { width: 80px; height: 110px; }
         .modal-reel-btn { padding: 10px !important; font-size: 13px !important; }
         .modal-result { padding: 12px; }
         .modal-result-value { font-size: 11px; word-break: break-all; }
         .modal-recommend-text { max-height: 120px; font-size: 12px; }
-        .milestone-popup { max-width: 260px; padding: 24px 16px; }
+        .milestone-popup { max-width: 260px; padding: 20px 14px; }
+        .milestone-popup h3 { font-size: 16px; }
+        .milestone-popup .vip-badge { font-size: 32px; }
+        .milestone-popup button { min-height: 44px; font-size: 14px; }
         /* Fix reels section mobile */
         .reels-header { padding: 10px 12px; }
         .reels-actions { flex-direction: column; gap: 6px; padding: 0 12px; }
@@ -2373,7 +2383,8 @@
         .app-container { box-shadow: 0 0 30px rgba(0,0,0,0.08); }
     }
     /* Video player - mobile friendly */
-    #reelVideoOverlay video { max-width: 100vw; max-height: 70vh; }
+    #reelVideoOverlay { background: rgba(0,0,0,0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    #reelVideoOverlay video { max-width: 100vw; max-height: 70vh; border-radius: 8px; }
     @media (max-width: 430px) {
         #reelVideoOverlay video { max-height: 65vh; border-radius: 8px; }
         #reelVideoOverlay { padding: 0; }
@@ -2556,8 +2567,8 @@
                 </div>
                 <!-- Mode Tabs -->
                 <div style="display:flex;gap:0;padding:0 16px 8px;">
-                    <button id="reelModeAI" onclick="switchReelMode('ai')" style="flex:1;padding:8px;border:1px solid var(--hairline);border-radius:8px 0 0 8px;font-size:12px;font-weight:600;background:linear-gradient(135deg,#FF6B9D,#C084FC);color:white;border:none;cursor:pointer;font-family:inherit;" data-i18n="ai_generate" data-i18n="ai_generate">🤖 AI Generate</button>
-                    <button id="reelModeXMP" onclick="switchReelMode('xmp')" style="flex:1;padding:8px;border:1px solid var(--hairline);border-radius:0 8px 8px 0;font-size:12px;font-weight:600;background:white;color:var(--ink);cursor:pointer;font-family:inherit;" data-i18n="asset_library" data-i18n="asset_library">📦 Asset Library</button>
+                    <button id="reelModeAI" onclick="switchReelMode('ai')" style="flex:1;padding:8px;border:1px solid var(--hairline);border-radius:8px 0 0 8px;font-size:12px;font-weight:600;background:linear-gradient(135deg,#FF6B9D,#C084FC);color:white;border:none;cursor:pointer;font-family:inherit;" data-i18n="ai_generate">🤖 AI Generate</button>
+                    <button id="reelModeXMP" onclick="switchReelMode('xmp')" style="flex:1;padding:8px;border:1px solid var(--hairline);border-radius:0 8px 8px 0;font-size:12px;font-weight:600;background:white;color:var(--ink);cursor:pointer;font-family:inherit;" data-i18n="asset_library">📦 Asset Library</button>
                 </div>
 
                 <!-- AI Mode -->
@@ -2642,10 +2653,10 @@
                     <h3>Creating Your Link...</h3>
                     <p>Please wait a moment</p>
                     <div class="processing-steps">
-                        <div class="processing-step current" id="step1"><span class="step-icon">&#9675;</span><span><span data-i18n="step_search" data-i18n="step_search">Searching book database</span></span></div>
-                        <div class="processing-step" id="step2"><span class="step-icon">&#9675;</span><span><span data-i18n="step_link" data-i18n="step_link">Generating unique link</span></span></div>
-                        <div class="processing-step" id="step3"><span class="step-icon">&#9675;</span><span><span data-i18n="step_code" data-i18n="step_code">Creating promotion code</span></span></div>
-                        <div class="processing-step" id="step4"><span class="step-icon">&#9675;</span><span><span data-i18n="step_final" data-i18n="step_final">Finalizing...</span></span></div>
+                        <div class="processing-step current" id="step1"><span class="step-icon">&#9675;</span><span><span data-i18n="step_search">Searching book database</span></span></div>
+                        <div class="processing-step" id="step2"><span class="step-icon">&#9675;</span><span><span data-i18n="step_link">Generating unique link</span></span></div>
+                        <div class="processing-step" id="step3"><span class="step-icon">&#9675;</span><span><span data-i18n="step_code">Creating promotion code</span></span></div>
+                        <div class="processing-step" id="step4"><span class="step-icon">&#9675;</span><span><span data-i18n="step_final">Finalizing...</span></span></div>
                     </div>
                 </div>
 
@@ -2998,33 +3009,33 @@
                 </div>
 
             <div class="modal-result" id="modalResult">
-                <div class="modal-result-title"><span data-i18n="earning_link_ready"><span data-i18n="earning_link_ready">🎉 Your Earning Link is Ready!</span></span></div>
+                <div class="modal-result-title"><span data-i18n="earning_link_ready">🎉 Your Earning Link is Ready!</span></div>
                 <div class="modal-result-box">
-                    <div class="modal-result-label">Promotion Link</div>
+                    <div class="modal-result-label" data-i18n="promo_link">Promotion Link</div>
                     <div class="modal-result-value">
                         <span id="modalResultLink"></span>
                         <button class="modal-copy-btn" onclick="copyModalResult('link')" data-i18n="copy">Copy</button>
                     </div>
                 </div>
                 <div class="modal-result-box">
-                    <div class="modal-result-label">Your Code</div>
+                    <div class="modal-result-label" data-i18n="your_code">Your Code</div>
                     <div class="modal-result-value">
                         <span id="modalResultCode"></span>
                         <button class="modal-copy-btn" onclick="copyModalResult('code')" data-i18n="copy">Copy</button>
                     </div>
                 </div>
-                <div class="modal-recommend-label">📋 Share This Text</div>
+                <div class="modal-recommend-label" data-i18n="share_this_text">📋 Share This Text</div>
                 <div class="modal-recommend-text" id="modalRecommendText"></div>
-                <button class="modal-copy-btn" style="width:100%; padding:10px; margin-top:4px;" onclick="copyModalResult('text')">Copy All Text</button>
+                <button class="modal-copy-btn" style="width:100%; padding:10px; margin-top:4px;" onclick="copyModalResult('text')" data-i18n="copy_all_text">Copy All Text</button>
                 <button class="modal-reel-btn" id="modalCreateReelBtn" onclick="createReelFromModal()" style="width:100%;padding:12px;margin-top:8px;border:none;border-radius:10px;background:linear-gradient(135deg,#FF6B9D,#C084FC);color:white;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;" data-i18n="create_reels_book">🎬 Create Reels for This Book</button>
-                <button class="modal-done-btn" onclick="closeModal()">Done</button>
+                <button class="modal-done-btn" onclick="closeModal()" data-i18n="done_btn">Done</button>
             </div>
             
             <div class="modal-result modal-error" id="modalError" style="display:none;">
                 <div class="modal-error-icon">⚠️</div>
                 <div class="modal-error-title">Unable to create link</div>
                 <div class="modal-error-text">This book is not available for promotion yet. Try another one!</div>
-                <button class="modal-done-btn" onclick="closeModal()">Try Another Book</button>
+                <button class="modal-done-btn" onclick="closeModal()" data-i18n="try_another">Try Another Book</button>
             </div>
             
             <div class="modal-loading" id="modalLoading" style="display:none;">
@@ -3328,6 +3339,10 @@
                 genre_all: 'Todos',
                 top_promotions: 'Top Promociones',
                 recommend_btn: 'Recomendar',
+                share_this_text: '📋 Comparte Este Texto',
+                copy_all_text: 'Copiar Todo el Texto',
+                try_another: 'Probar Otro Libro',
+                done_btn: 'Hecho',
                 no_desc: 'Sin descripción disponible.',
                 no_books_cat: 'No se encontraron libros en esta categoría',
                 daily_missions: '🎯 Misiones Diarias',
@@ -3795,12 +3810,6 @@
             }
         }
 
-        function doCheckin() {
-            if (isCheckedInToday()) {
-                showToast('Already checked in today!', 'success');
-                return;
-            }
-
             const btn = document.getElementById('checkinBtn');
             btn.classList.add('animating');
             
@@ -4183,13 +4192,13 @@
 
             const ratingVal = book.rating && book.rating > 0 ? book.rating : null;
             const stars = ratingVal ? '&#9733;'.repeat(Math.floor(ratingVal)) : '';
-            document.getElementById('modalBookStars').innerHTML = ratingVal ? stars : '<span class="new-badge">New</span>';
+            const starsEl = document.getElementById('modalBookStars'); if (starsEl) starsEl.innerHTML = ratingVal ? stars : '<span class="new-badge">New</span>';
             document.getElementById('modalBookScore').textContent = ratingVal ? ratingVal.toFixed(1) : '';
 
             const tagsHtml = (book.tags || []).slice(0, 4).filter(t => typeof t === 'string').map(t =>
                 `<span class="book-tag ${book.languageCode === 'es' ? 'lang-es' : ''}">${t}</span>`
             ).join('');
-            document.getElementById('modalBookTags').innerHTML = tagsHtml;
+            const tagsEl = document.getElementById('modalBookTags'); if (tagsEl) tagsEl.innerHTML = tagsHtml;
 
             const descText = document.getElementById('modalDescriptionText');
             const descToggle = document.getElementById('modalDescriptionToggle');
@@ -5192,36 +5201,8 @@ function renderMyBooks() {
         function closeGuideModal() {
             const modal = document.getElementById('guideModal');
             if (modal) modal.classList.remove('show');
-        }
-
-        
-        function showInviteModal() {
-            showToast('Invite link: novelflow.app/invite/' + (AppState.user?.username || 'guest'), 'success');
-        }
-        
-        function copyUserId() {
-            const uid = document.getElementById('profileUid').textContent;
-            if (uid && uid !== '------') {
-                navigator.clipboard.writeText(uid).then(() => {
-                    showToast('User ID copied!', 'success');
-                });
+        });
             }
-        }
-
-        
-        function updateIncomeDisplay() {
-            const today = document.getElementById('incomeToday');
-            const month = document.getElementById('incomeMonth');
-            const last = document.getElementById('incomeLast');
-            
-            // Simulated income data
-            const mockToday = (Math.random() * 10).toFixed(2);
-            const mockMonth = (Math.random() * 100 + 50).toFixed(2);
-            const mockLast = (Math.random() * 200 + 100).toFixed(2);
-            
-            if (today) today.textContent = '$' + mockToday;
-            if (month) month.textContent = '$' + mockMonth;
-            if (last) last.textContent = '$' + mockLast;
         }
 
         // ========== Toast ==========
@@ -5780,9 +5761,6 @@ function renderMyBooks() {
             }, 300);
             showToast(getText('toast_select_style'), 'success');
         }
-
-        async function createReelFromSuccessPage() {
-            if (AppState.myBooks.length === 0) { showToast('No book selected', 'error'); return; }
             const latestBook = AppState.myBooks[AppState.myBooks.length - 1];
             reelSelectedBook = { bookId: latestBook.bookId, title: latestBook.title || latestBook.bookName };
             switchTab('submit');
@@ -5867,8 +5845,8 @@ function renderMyBooks() {
             } catch (e) {
                 showToast('Failed: ' + e.message, 'error');
             }
-            if (btn) { btn.disabled = false; btn.textContent = '🎬 Create Reel'; }
-            if (modalBtn) { modalBtn.disabled = false; modalBtn.textContent = '🎬 Create Reels for This Book'; }
+            if (btn) { btn.disabled = false; btn.textContent = '🎬 ' + getText('create_reel'); }
+            if (modalBtn) { modalBtn.disabled = false; modalBtn.textContent = '🎬 ' + getText('create_reels_book'); }
         }
 
         // Strip HTML tags from text for display
