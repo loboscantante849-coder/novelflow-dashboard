@@ -2323,16 +2323,26 @@
     /* ===== Mobile Responsive ===== */
     @media (max-width: 430px) {
         .app-container { max-width: 100%; }
-        /* Perf dashboard mobile */
-        .perf-dashboard { margin: 8px 10px; padding: 14px 12px; border-radius: 12px; }
-        .perf-grid { grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
-        .perf-stat-value { font-size: 17px; }
-        .perf-stat-label { font-size: 10px; }
+        /* Banner mobile - compact */
+        .home-banner { padding: 14px 14px 12px; }
+        .home-banner .banner-content { padding: 8px 10px !important; }
+        .home-banner [style*="font-size:12px;letter-spacing"] { font-size: 10px !important; margin-bottom: 3px !important; }
+        .home-banner [style*="font-size:20px"] { font-size: 17px !important; }
+        .home-banner [style*="font-size:12px;color:rgba"] { font-size: 11px !important; margin-top: 3px !important; }
+        /* Perf dashboard mobile - compact */
+        .perf-dashboard { margin: 6px 8px; padding: 12px 10px; border-radius: 12px; }
+        .perf-grid { grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-bottom: 8px; }
+        .perf-stat-value { font-size: 16px; }
+        .perf-stat-label { font-size: 9px; }
         .perf-stat-change { font-size: 9px; }
-        .perf-chart-container { height: 100px; }
-        .perf-chart-tab { padding: 2px 8px; font-size: 10px; }
-        .perf-chart-title { font-size: 11px; }
-        .perf-header-title { font-size: 13px; }
+        .perf-chart-container { height: 90px; }
+        .perf-chart-tab { padding: 2px 7px; font-size: 10px; }
+        .perf-chart-title { font-size: 10px; }
+        .perf-header-title { font-size: 12px; }
+        .perf-header { margin-bottom: 10px; }
+        .perf-login-prompt { padding: 10px 0 4px; }
+        .perf-login-btn { padding: 8px 22px; font-size: 13px; }
+        .tier-progress { margin: 6px 0 2px; }
         .book-scroll-list { gap: 8px; }
         .book-scroll-card { min-width: 120px; }
         .book-scroll-cover { height: 160px; }
