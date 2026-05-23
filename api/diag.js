@@ -1,15 +1,29 @@
 /**
- * GET /api/diag - Diagnostic endpoint
+ * GET /api/diag - Diagnostic endpoint (admin only)
+ * Requires x-admin-key header matching ADMIN_KEY env var
  */
 const { setCORSHeaders } = require('./_lib/cors');
+const { verifyJWT } = require('./_lib/jwt');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   
+  // Require admin key for full diagnostics
+  const adminKey = req.headers['x-admin-key'] || req.query.admin_key;
+  const isAdmin = adminKey && adminKey === process.env.ADMIN_KEY;
+  
+  if (!isAdmin) {
+    return res.status(200).json({ 
+      status: 'ok', 
+      version: '2026-05-23-v4',
+      hint: 'Add x-admin-key header or admin_key param for full diagnostics'
+    });
+  }
+  
   const diag = {
     timestamp: new Date().toISOString(),
-    deploy_check: '2026-05-23-v2',  // version marker
+    deploy_check: '2026-05-23-v4',
     env: {
       GITHUB_TOKEN: !!process.env.GITHUB_TOKEN,
       NOVELSPA_TOKEN: !!process.env.NOVELSPA_TOKEN,
@@ -17,14 +31,15 @@ module.exports = async (req, res) => {
       AC_TOKEN: !!process.env.AC_TOKEN,
       ADMIN_KEY: !!process.env.ADMIN_KEY,
       JWT_SECRET: !!process.env.JWT_SECRET,
-      JWT_SECRET_SOURCE: process.env.JWT_SECRET ? 'env_var' : 'fallback',
+      DISCORD_CLIENT_ID: !!process.env.DISCORD_CLIENT_ID,
+      DISCORD_CLIENT_SECRET: !!process.env.DISCORD_CLIENT_SECRET,
       KV_REST_API_URL: !!process.env.KV_REST_API_URL,
     },
     token_check: {},
     api_tests: {},
   };
 
-  // Decode JWT
+  // Decode novelspa JWT
   const token = process.env.NOVELSPA_TOKEN || '';
   if (token) {
     try {
@@ -37,17 +52,12 @@ module.exports = async (req, res) => {
     } catch(e) {}
   }
 
-  // Test register function
+  // Test JWT generation
   try {
-    const crypto = require('crypto');
-    const secret = process.env.JWT_SECRET || 'nf-default-secret-2026-change-me-in-prod';
-    const testPayload = { type: 'test', iat: Math.floor(Date.now() / 1000) };
-    const header = { alg: 'HS256', typ: 'JWT' };
-    const encH = Buffer.from(JSON.stringify(header)).toString('base64url');
-    const encP = Buffer.from(JSON.stringify(testPayload)).toString('base64url');
-    const sig = crypto.createHmac('sha256', secret).update(`${encH}.${encP}`).digest('base64url');
+    const { createJWT } = require('./_lib/jwt');
+    const testToken = createJWT({ type: 'test', iat: Math.floor(Date.now() / 1000) });
     diag.api_tests.jwt_generation = 'ok';
-    diag.api_tests.jwt_token_sample = `${encH}.${encP}.${sig}`.substring(0, 30) + '...';
+    diag.api_tests.jwt_verify = verifyJWT(testToken) ? 'ok' : 'failed';
   } catch(e) {
     diag.api_tests.jwt_generation = 'failed: ' + e.message;
   }

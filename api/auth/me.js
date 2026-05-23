@@ -1,54 +1,12 @@
-const crypto = require('crypto');
-
-const CLIENT_SECRET = process.env.JWT_SECRET || 'nf-default-secret-2026-change-me-in-prod';
-
-// Verify JWT and extract payload
-function verifyJWT(token) {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    
-    const [encodedHeader, encodedPayload, signature] = parts;
-    
-    // Verify signature
-    const expectedSignature = crypto
-      .createHmac('sha256', CLIENT_SECRET)
-      .update(`${encodedHeader}.${encodedPayload}`)
-      .digest('base64url');
-    
-    if (signature !== expectedSignature) return null;
-    
-    // Decode payload
-    const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString());
-    
-    // Check expiration (30 days max)
-    const maxAge = 2592000; // 30 days in seconds
-    if (payload.iat && (Date.now() / 1000 - payload.iat) > maxAge) {
-      return null;
-    }
-    
-    return payload;
-  } catch (e) {
-    return null;
-  }
-}
-
 const { setCORSHeaders } = require('../_lib/cors');
+const { verifyJWT } = require('../_lib/jwt');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
-  // Set CORS headers for local development
-  // CORS handled by setCORSHeaders;
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  // CORS handled by setCORSHeaders;
 
-  // Handle preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
-  }
-
-  if (!CLIENT_SECRET) {
-    console.warn('JWT_SECRET not set, using default');
   }
 
   if (req.method !== 'GET') {
@@ -56,7 +14,6 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Parse cookies from header
     const cookieHeader = req.headers.cookie || '';
     const cookies = {};
     cookieHeader.split(';').forEach(cookie => {
@@ -75,14 +32,11 @@ module.exports = async (req, res) => {
     const payload = verifyJWT(token);
     
     if (!payload) {
-      // Invalid token, clear cookie
       res.setHeader('Set-Cookie', 'nf_token=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0');
       return res.status(200).json({ loggedIn: false });
     }
 
-    // Check account type and return appropriate user info
     if (payload.type === 'local') {
-      // Local account (username + NovelFlow ID)
       return res.status(200).json({
         loggedIn: true,
         accountType: 'local',
@@ -90,7 +44,6 @@ module.exports = async (req, res) => {
         novelFlowId: payload.novelFlowId,
       });
     } else {
-      // Discord OAuth account
       return res.status(200).json({
         loggedIn: true,
         accountType: 'discord',
