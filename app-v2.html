@@ -2454,9 +2454,9 @@
             <button style="padding:4px 10px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:inherit;" class="splash-lang-btn" data-lang="es" onclick="switchLang('es');document.querySelectorAll('.splash-lang-btn').forEach(b=>b.style.background=b.dataset.lang==='es'?'rgba(255,255,255,0.4)':'transparent');document.querySelectorAll('.splash-lang-btn').forEach(b=>b.style.color=b.dataset.lang==='es'?'white':'rgba(255,255,255,0.6)')">ES</button>
         </div>
         <div class="splash-form">
-            <input type="text" class="splash-input" id="splashUsername" data-i18n-placeholder="username" placeholder="Username">
+            <input type="text" class="splash-input" id="splashUsername" data-i18n-placeholder="username" placeholder="Your username">
             <button class="splash-btn" onclick="handleSplashLogin()" data-i18n="start_earning"><span data-i18n="start_earning_btn">Start Earning</span></button>
-            <div class="splash-tip">Enter any username to start. No password needed.</div>
+            <div class="splash-tip">Enter any username to start. No password needed — just enter your name.</div>
             <div style="text-align:center;margin-top:12px;"><a href="mailto:LobosCantante849@gmail.com" style="font-size:12px;color:var(--ink-mute);text-decoration:none;" data-i18n="email_support">📧 Email Support</a></div>
             <div class="splash-error" id="splashError"></div>
         </div>
@@ -2868,11 +2868,11 @@
 
                 <!-- Login form -->
                 <div class="login-form" id="loginForm">
-                    <h3 data-i18n="register_login">Register / Login</h3>
-                    <p>Fill in once, auto-login for 30 days</p>
-                    <input type="text" class="login-input" id="regUsername" placeholder="Username" maxlength="50">
+                    <h3 data-i18n="register_login">Login / Register</h3>
+                    <p>Enter username to login or create account</p>
+                    <input type="text" class="login-input" id="regUsername" placeholder="Your username" maxlength="50">
                     <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()" data-i18n="confirm_btn">Confirm</button>
-                    <div class="login-tip">No password needed</div>
+                    <div class="login-tip">No password needed — just enter your name</div>
                 </div>
 
                 <button class="logout-btn" id="logoutBtn" onclick="handleLogout()">Logout</button>
@@ -3295,8 +3295,8 @@
                 nav_home: 'Home',
                 nav_tasks: 'Tasks',
                 nav_profile: 'Profile',
-                register_login: 'Register / Login',
-                confirm_btn: 'Confirm',
+                register_login: 'Login / Register',
+                confirm_btn: 'Login / Register',
                 xmp_hint: 'Search a book to browse ready-made video assets',
                 tier_books_week: '0/5 books this week',
                 perf_dashboard_title: '📊 Performance Dashboard',
@@ -3456,7 +3456,7 @@
                 nav_tasks: 'Tareas',
                 nav_profile: 'Perfil',
                 register_login: 'Registrarse / Iniciar Sesión',
-                confirm_btn: 'Confirmar',
+                confirm_btn: 'Entrar / Registrarse',
                 xmp_hint: 'Busca un libro para ver recursos de video listos',
                 tier_books_week: '0/5 libros esta semana',
                 perf_dashboard_title: '📊 Panel de Rendimiento',
@@ -5176,9 +5176,10 @@ function renderMyBooks() {
                     body: JSON.stringify({ username })
                 });
 
-                const result = await response.json();
+                let result;
+                try { result = await response.json(); } catch(e) { result = {}; }
 
-                if (result.success) {
+                if (response.ok && result.success) {
                     AppState.user = { username, accountType: 'local' };
                     AppState.isLoggedIn = true;
                     localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
@@ -5187,14 +5188,15 @@ function renderMyBooks() {
                     loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI();
                     loadMyBooks();
                     loadPerformanceDashboard();
-                    showToast('Login successful!', 'success');
+                    showToast('✅ Welcome back, ' + username + '!', 'success');
                     (document.getElementById('regUsername') || {}).value = '';
                 } else {
-                    showToast(result.error || 'Registration failed', 'error');
+                    const errMsg = result.error || 'Login failed, please try again';
+                    showToast(errMsg, 'error');
                 }
             } catch (e) {
-                console.error('Register error:', e);
-                showToast('Registration failed', 'error');
+                console.error('Login error:', e);
+                showToast('Connection error, please try again', 'error');
             }
         }
 
