@@ -31,7 +31,8 @@ module.exports = async (req, res) => {
 
   const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
   if (!GITHUB_TOKEN) {
-    return res.status(500).json({ error: 'GITHUB_TOKEN not set' });
+    console.error('GITHUB_TOKEN env var is missing');
+    return res.status(500).json({ error: 'Server configuration error: GITHUB_TOKEN not set. Please contact admin.' });
   }
 
   const { bookName, discordUsername, promotionMethod, notes, bookId, bookTitle, bookAuthor, lang = 'en' } = req.body || {};
@@ -48,6 +49,9 @@ module.exports = async (req, res) => {
   const languageCode = lang === 'es' ? 'es' : 'en';
   // Token ONLY from env var - no hardcoded fallbacks
   const BOOKSTORE_TOKEN = process.env.NOVELSPA_TOKEN;
+  if (!BOOKSTORE_TOKEN) {
+    console.warn('NOVELSPA_TOKEN not configured - code creation will be skipped');
+  }
 
   // Generate submission ID locally
   const submissionId = 'sub_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);

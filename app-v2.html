@@ -4412,11 +4412,12 @@
                 clearInterval(countdownInterval);
                 clearTimeout(timeoutWarning);
 
+                let result;
+                try { result = await response.json(); } catch(e) { result = {}; }
                 if (!response.ok) {
-                    throw new Error('Server error: ' + response.status);
+                    const errMsg = result.error || ('Server error: ' + response.status);
+                    throw new Error(errMsg);
                 }
-
-                const result = await response.json();
 
                 // Check: code must exist (link is optional - fallback to book page URL)
                 const hasValidCode2 = result.code && (typeof result.code === 'number' || (typeof result.code === 'string' && /^[0-9]+$/.test(result.code)));
@@ -4686,11 +4687,12 @@
                 await updateStep(3, 'current');
                 await delay(500);
 
+                let result;
+                try { result = await response.json(); } catch(e) { result = {}; }
                 if (!response.ok) {
-                    throw new Error('Server error: ' + response.status);
+                    const errMsg = result.error || ('Server error: ' + response.status);
+                    throw new Error(errMsg);
                 }
-
-                const result = await response.json();
 
                 // Check: code must exist (link is optional - fallback to book page URL)
                 const hasValidCode = result.code && (typeof result.code === 'number' || /^[0-9]+$/.test(String(result.code)));
@@ -5001,11 +5003,12 @@ function renderMyBooks() {
                     })
                 });
                 
+                let result;
+                try { result = await response.json(); } catch(e) { result = {}; }
                 if (!response.ok) {
-                    throw new Error('Failed to create link');
+                    const errMsg = result.error || 'Failed to create link';
+                    throw new Error(errMsg);
                 }
-                
-                const result = await response.json();
                 
                 if (result.success) {
                     // Update the book in myBooks
