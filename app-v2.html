@@ -6103,8 +6103,13 @@ function renderMyBooks() {
                         country: reelCountry
                     })
                 });
-                const result = await resp.json();
+                let result;
+                try { result = await resp.json(); } catch(e) { result = {}; }
                 if (result.newToken) { saveACToken(result.newToken); }
+                if (!resp.ok) {
+                    const errMsg = result.error || ('API error: ' + resp.status);
+                    throw new Error(errMsg);
+                }
                 if (result.success) {
                     incrementReelsCount();
                     const remaining = REELS_DAILY_LIMIT - getReelsDailyCount();
