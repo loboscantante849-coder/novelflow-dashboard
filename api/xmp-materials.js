@@ -16,7 +16,7 @@ function generateSign(secret, timestamp) {
   return crypto.createHash('md5').update(secret + String(timestamp)).digest('hex');
 }
 
-const { setCORSHeaders } = require('../_lib/cors');
+const { setCORSHeaders } = require('./_lib/cors');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);

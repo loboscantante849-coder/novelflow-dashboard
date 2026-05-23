@@ -92,7 +92,7 @@ function searchFeaturedBooks(featured, keyword, lang) {
   }));
 }
 
-const { setCORSHeaders } = require('../../_lib/cors');
+const { setCORSHeaders } = require('../_lib/cors');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);

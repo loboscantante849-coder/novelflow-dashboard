@@ -18,7 +18,7 @@ function createJWT(payload) {
 }
 
 // Exchange code for user info (for Discord Activity / Embedded App SDK)
-const { setCORSHeaders } = require('../../_lib/cors');
+const { setCORSHeaders } = require('../_lib/cors');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);

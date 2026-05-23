@@ -2,7 +2,7 @@
  * GET /api/ac-health
  * AC代理健康检查 - 纯GET，无需token，验证路由是否通
  */
-const { setCORSHeaders } = require('../_lib/cors');
+const { setCORSHeaders } = require('./_lib/cors');
 
 module.exports = (req, res) => {
   setCORSHeaders(req, res);

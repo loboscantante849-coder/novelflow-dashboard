@@ -5,7 +5,7 @@
  * Requires NOVELSPA_TOKEN env var for API auth
  */
 
-const { setCORSHeaders } = require('../_lib/cors');
+const { setCORSHeaders } = require('./_lib/cors');
 
 const PUTREPORT_API = 'https://ad.anystories.app/api/v1/novelflowmiddlegroundmanage/putreport/putreport';
 const BOOKSTORE_API = 'https://admin.novelspa.app/api/v1/novelmanage';

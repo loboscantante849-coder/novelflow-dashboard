@@ -5178,6 +5178,7 @@ function renderMyBooks() {
 
                 let result;
                 try { result = await response.json(); } catch(e) { result = {}; }
+                console.log('Register API response:', response.status, JSON.stringify(result));
 
                 if (response.ok && result.success) {
                     AppState.user = { username, accountType: 'local' };
@@ -5191,8 +5192,9 @@ function renderMyBooks() {
                     showToast('✅ Welcome back, ' + username + '!', 'success');
                     (document.getElementById('regUsername') || {}).value = '';
                 } else {
-                    const errMsg = result.error || 'Login failed, please try again';
+                    const errMsg = result.error || 'Login failed (HTTP ' + response.status + ')';
                     showToast(errMsg, 'error');
+                    console.error('Login failed:', response.status, result);
                 }
             } catch (e) {
                 console.error('Login error:', e);

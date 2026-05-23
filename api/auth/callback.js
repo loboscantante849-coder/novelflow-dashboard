@@ -18,7 +18,7 @@ function createJWT(payload) {
   return `${encodedHeader}.${encodedPayload}.${signature}`;
 }
 
-const { setCORSHeaders } = require('../../_lib/cors');
+const { setCORSHeaders } = require('../_lib/cors');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
