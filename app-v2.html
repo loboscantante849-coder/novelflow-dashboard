@@ -5431,22 +5431,25 @@ function renderMyBooks() {
             const h = rect.height;
             ctx.clearRect(0, 0, w, h);
 
-            // Auto-select tab with most data if current mode has none
+            // Auto-select tab with most non-zero data if current mode has none or all zeros
             const modeDataMap = {
                 'income': data.income_daily || {},
                 'unique': data.unique_daily || {},
                 'visits': data.visits_daily || {}
             };
-            if (Object.keys(modeDataMap[_chartMode] || {}).length === 0) {
-                // Find the mode with the most data
+            // Check if current mode has no meaningful data (empty or all zeros)
+            const currentData = modeDataMap[_chartMode] || {};
+            const currentNonZero = Object.values(currentData).filter(v => v > 0).length;
+            if (Object.keys(currentData).length === 0 || currentNonZero === 0) {
+                // Find the mode with the most non-zero data points
                 const modes = ['income', 'unique', 'visits'];
                 let bestMode = _chartMode;
-                let bestCount = 0;
+                let bestNonZero = 0;
                 for (const m of modes) {
-                    const cnt = Object.keys(modeDataMap[m]).length;
-                    if (cnt > bestCount) { bestCount = cnt; bestMode = m; }
+                    const nonZero = Object.values(modeDataMap[m]).filter(v => v > 0).length;
+                    if (nonZero > bestNonZero) { bestNonZero = nonZero; bestMode = m; }
                 }
-                if (bestCount > 0) {
+                if (bestNonZero > 0) {
                     switchChartMode(bestMode);
                     return; // switchChartMode will re-call renderTrendChart
                 }
