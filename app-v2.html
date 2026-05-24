@@ -4432,7 +4432,13 @@
 
                     AppState.currentRecommendText = generateRecommendText(currentRecommendBook);
 
-                    AppState.myBooks.push(currentRecommendBook);
+                    // Deduplicate: if same bookId already exists, update instead of adding duplicate
+                    const existIdx = AppState.myBooks.findIndex(b => b.bookId === currentRecommendBook.bookId);
+                    if (existIdx >= 0) {
+                        AppState.myBooks[existIdx] = currentRecommendBook;
+                    } else {
+                        AppState.myBooks.push(currentRecommendBook);
+                    }
                     saveMyBooks();
                     renderMyBooks();
                     updateStats();
@@ -4501,7 +4507,11 @@
         });
 
         async function handleSubmit() {
-            const discordUsername = document.getElementById('discordUsername').value.trim();
+            let discordUsername = document.getElementById('discordUsername').value.trim();
+            // If logged in, always use logged-in username
+            if (AppState.isLoggedIn && AppState.user && AppState.user.username) {
+                discordUsername = AppState.user.username;
+            }
             const bookName = document.getElementById('bookName').value.trim();
 
             if (!discordUsername || !bookName) {
@@ -4713,7 +4723,13 @@
 
                     AppState.currentRecommendText = generateRecommendText(newBook);
 
-                    AppState.myBooks.push(newBook);
+                    // Deduplicate: if same bookId already exists, update instead of adding duplicate
+                    const existingIdx = AppState.myBooks.findIndex(b => b.bookId === newBook.bookId);
+                    if (existingIdx >= 0) {
+                        AppState.myBooks[existingIdx] = newBook;
+                    } else {
+                        AppState.myBooks.push(newBook);
+                    }
                     saveMyBooks();
                     renderMyBooks();
                     updateStats();
@@ -5151,12 +5167,23 @@ function renderMyBooks() {
                 uid.textContent = AppState.user.username ? '@' + AppState.user.username : 'Logged In';
                 loginForm.style.display = 'none';
                 logoutBtn.classList.add('show');
+                // Auto-fill and hide username field when logged in
+                const usernameInput = document.getElementById('discordUsername');
+                const usernameGroup = usernameInput ? usernameInput.closest('.form-group') : null;
+                if (usernameInput) {
+                    usernameInput.value = AppState.user.username || '';
+                    if (usernameGroup) usernameGroup.style.display = 'none';
+                }
             } else {
                 avatar.textContent = '?';
                 name.textContent = 'Not Logged In';
                 uid.textContent = 'Login to unlock more features';
                 loginForm.style.display = 'block';
                 logoutBtn.classList.remove('show');
+                // Show username field when not logged in
+                const usernameInput = document.getElementById('discordUsername');
+                const usernameGroup = usernameInput ? usernameInput.closest('.form-group') : null;
+                if (usernameGroup) usernameGroup.style.display = '';
             }
         }
 
@@ -6445,7 +6472,7 @@ function renderMyBooks() {
                     <div style="padding: 16px; background: var(--canvas-soft); border-radius: 12px; text-align: center;">
                         <div style="font-size: 24px; margin-bottom: 8px;">📧</div>
                         <div style="font-weight: 600; color: var(--ink); margin-bottom: 4px;">Email Support</div>
-                        <div style="font-size: 13px; color: var(--primary);">support@novelflow.app</div>
+                        <div style="font-size: 13px; color: var(--primary);">LobosCantante849@gmail.com</div>
                     </div>
                     <div style="padding: 16px; background: var(--canvas-soft); border-radius: 12px; text-align: center;">
                         <div style="font-size: 24px; margin-bottom: 8px;">💬</div>
