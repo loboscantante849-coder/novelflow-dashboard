@@ -5,7 +5,8 @@
  * Requires NOVELSPA_TOKEN env var for API auth
  */
 
-const { setCORSHeaders } = require('./_lib/cors');
+const { setCORSHeaders } = require('./_lib/cors')
+const { getBookstoreToken } = require('./_lib/oidc-token');
 
 const PUTREPORT_API = 'https://ad.anystories.app/api/v1/novelflowmiddlegroundmanage/putreport/putreport';
 const BOOKSTORE_API = 'https://admin.novelspa.app/api/v1/novelmanage';
@@ -34,7 +35,7 @@ module.exports = async (req, res) => {
   }
 
   const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-  const BOOKSTORE_TOKEN = process.env.NOVELSPA_TOKEN;
+  const BOOKSTORE_TOKEN = await getBookstoreToken();
   if (!GITHUB_TOKEN) return res.status(500).json({ error: 'GITHUB_TOKEN not set' });
 
   const owner = 'loboscantante849-coder';

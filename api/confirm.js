@@ -16,6 +16,7 @@ function checkRateLimit(ip) {
 }
 
 const { setCORSHeaders } = require('./_lib/cors');
+const { getBookstoreToken } = require('./_lib/oidc-token');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -47,10 +48,10 @@ module.exports = async (req, res) => {
   const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage';
   const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
   const languageCode = lang === 'es' ? 'es' : 'en';
-  // Token ONLY from env var - no hardcoded fallbacks
-  const BOOKSTORE_TOKEN = process.env.NOVELSPA_TOKEN;
+  // Get bookstore token (auto-refreshes via OIDC if expired)
+  const BOOKSTORE_TOKEN = await getBookstoreToken();
   if (!BOOKSTORE_TOKEN) {
-    console.warn('NOVELSPA_TOKEN not configured - code creation will be skipped');
+    console.warn('No bookstore token available - code creation will be skipped');
   }
 
   // Generate submission ID locally

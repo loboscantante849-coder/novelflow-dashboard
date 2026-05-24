@@ -12,7 +12,7 @@
 
 const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage/book';
 const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
-const BOOKSTORE_TOKEN = process.env.NOVELSPA_TOKEN || process.env.BOOKSTORE_TOKEN || '';
+// BOOKSTORE_TOKEN fetched via getBookstoreToken() inside handler
 
 const KV_REST_API_URL = process.env.KV_REST_API_URL;
 const KV_REST_API_TOKEN = process.env.KV_REST_API_TOKEN;
@@ -54,6 +54,7 @@ async function kvDel(key) {
 }
 
 async function fetchBooksFromAPI(lang, category, limit) {
+  const BOOKSTORE_TOKEN = await getBookstoreToken();
   if (!BOOKSTORE_TOKEN) {
     console.error('[trending] No BOOKSTORE_TOKEN configured');
     return [];
@@ -144,7 +145,8 @@ async function fetchBooksFromAPI(lang, category, limit) {
   return books;
 }
 
-const { setCORSHeaders } = require('./_lib/cors');
+const { setCORSHeaders } = require('./_lib/cors')
+const { getBookstoreToken } = require('./_lib/oidc-token');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);

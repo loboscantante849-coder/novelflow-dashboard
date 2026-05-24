@@ -92,7 +92,8 @@ function searchFeaturedBooks(featured, keyword, lang) {
   }));
 }
 
-const { setCORSHeaders } = require('../_lib/cors');
+const { setCORSHeaders } = require('../_lib/cors')
+const { getBookstoreToken } = require('../_lib/oidc-token');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -107,7 +108,7 @@ module.exports = async (req, res) => {
   res.setHeader('X-RateLimit-Remaining', String(rateCheck.remaining));
   if (!rateCheck.allowed) return res.status(429).json({ error: 'Rate limit exceeded.' });
   
-  const BOOKSTORE_TOKEN = process.env.NOVELSPA_TOKEN;
+  const BOOKSTORE_TOKEN = await getBookstoreToken();
   const { keyword = '', lang = 'en', page = 1, pageSize = 20, bookClassName = '' } = req.query || {};
   
   try {

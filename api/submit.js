@@ -1,4 +1,5 @@
-const { setCORSHeaders } = require('./_lib/cors');
+const { setCORSHeaders } = require('./_lib/cors')
+const { getBookstoreToken } = require('./_lib/oidc-token');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -15,7 +16,7 @@ module.exports = async (req, res) => {
   // NovelFlow - same appId for both English and Spanish, just different languageCode
   const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
   // OIDC token for novelspa API (env var preferred, fallback to hardcoded)
-  const BOOKSTORE_TOKEN = process.env.NOVELSPA_TOKEN || process.env.BOOKSTORE_TOKEN;
+  const BOOKSTORE_TOKEN = await getBookstoreToken();
 
   const languageCode = lang === 'es' ? 'es' : 'en';
 

@@ -27,9 +27,10 @@ function checkRateLimit(ip) {
 
 const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage/book';
 const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
-const BOOKSTORE_TOKEN = process.env.NOVELSPA_TOKEN;
+// BOOKSTORE_TOKEN fetched via getBookstoreToken()
 
-const { setCORSHeaders } = require('../_lib/cors');
+const { setCORSHeaders } = require('../_lib/cors')
+const { getBookstoreToken } = require('../_lib/oidc-token');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
