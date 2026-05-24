@@ -89,11 +89,25 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Step 5: Calculate totals from data.json (primary source)
-    const totalVisits = userData?.visits || userData?.link_visits || 0;
-    const totalUnique = userData?.unique_users || userData?.link_unique || userData?.unique_visitors || 0;
-    const totalNew = userData?.new_users || 0;
-    const totalIncome = userData?.d14income || 0;
+    // Step 5: Calculate totals - from data.json first, then fallback to link-stats aggregation
+    let totalVisits = userData?.visits || userData?.link_visits || 0;
+    let totalUnique = userData?.unique_users || userData?.link_unique || userData?.unique_visitors || 0;
+    let totalNew = userData?.new_users || 0;
+    let totalIncome = userData?.d14income || 0;
+
+    // If userData has no income/unique, aggregate from link-stats per-link data
+    if (totalUnique === 0 && totalIncome === 0 && userSubmissions.length > 0) {
+      for (const sub of userSubmissions) {
+        const linkId = sub.linkId;
+        if (linkId && linkStats?.links?.[linkId]) {
+          const ls = linkStats.links[linkId];
+          totalUnique += ls.unique_users || 0;
+          totalNew += ls.new_users || 0;
+          totalIncome += ls.d14_income || 0;
+          totalVisits += ls.visits || 0;
+        }
+      }
+    }
 
     // Step 6: Build books list - distribute stats across books
     const numBooks = userSubmissions.length || 1;
@@ -104,7 +118,7 @@ module.exports = async (req, res) => {
       // Per-link stats from link-stats.json if available, otherwise distribute evenly
       let bookVisits, bookUnique, bookNew, bookIncome;
 
-      if (linkStat.visits > 0 || linkStat.unique_users > 0) {
+      if (linkStat.unique_users > 0 || linkStat.d14_income > 0) {
         // Has per-link data
         bookVisits = linkStat.visits || 0;
         bookUnique = linkStat.unique_users || 0;
@@ -146,10 +160,42 @@ module.exports = async (req, res) => {
     });
 
     // Include daily breakdown for charts
-    const visits_daily = userData?.link_visits_daily || {};
-    const unique_daily = userData?.link_unique_daily || {};
-    const new_users_daily = userData?.new_users_daily || {};
-    const income_daily = userData?.d14income_daily || {};
+    // Aggregate from link-stats per-link daily data when userData doesn't have it
+    let visits_daily = userData?.link_visits_daily || {};
+    let unique_daily = userData?.link_unique_daily || {};
+    let new_users_daily = userData?.new_users_daily || {};
+    let income_daily = userData?.d14income_daily || {};
+
+    // If no daily data from userData, aggregate from link-stats
+    if (Object.keys(unique_daily).length === 0 && Object.keys(income_daily).length === 0) {
+      for (const sub of userSubmissions) {
+        const linkId = sub.linkId;
+        if (linkId && linkStats?.links?.[linkId]) {
+          const ls = linkStats.links[linkId];
+          // Merge daily data
+          if (ls.unique_daily) {
+            for (const [date, val] of Object.entries(ls.unique_daily)) {
+              unique_daily[date] = (unique_daily[date] || 0) + val;
+            }
+          }
+          if (ls.new_daily) {
+            for (const [date, val] of Object.entries(ls.new_daily)) {
+              new_users_daily[date] = (new_users_daily[date] || 0) + val;
+            }
+          }
+          if (ls.d14_income_daily) {
+            for (const [date, val] of Object.entries(ls.d14_income_daily)) {
+              income_daily[date] = (income_daily[date] || 0) + val;
+            }
+          }
+          if (ls.visits_daily) {
+            for (const [date, val] of Object.entries(ls.visits_daily)) {
+              visits_daily[date] = (visits_daily[date] || 0) + val;
+            }
+          }
+        }
+      }
+    }
 
     return res.status(200).json({
       username,
