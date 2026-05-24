@@ -2888,7 +2888,7 @@
                 <div class="stats-overview-card">
                     <div class="stats-overview-icon">&#128101;</div>
                     <div class="stats-overview-value" id="totalUsers">0</div>
-                    <div class="stats-overview-label">Total Users</div>
+                    <div class="stats-overview-label">Unique Users</div>
                 </div>
                 <div class="stats-overview-card">
                     <div class="stats-overview-icon">&#128065;</div>
@@ -4894,7 +4894,7 @@
             
             if (incomeEl) incomeEl.textContent = '$' + (data.total_income || 0).toFixed(2);
             if (usersEl) usersEl.textContent = fmtNum(data.total_unique || data.total_new || 0);
-            if (visitsEl) visitsEl.textContent = fmtNum(data.total_visits || 0);
+            if (visitsEl) visitsEl.textContent = fmtNum(data.total_visits || data.total_unique || 0);
         }
 
         function refreshUserStats() {
@@ -5464,7 +5464,11 @@ function renderMyBooks() {
                 dailyData = data.unique_daily || {};
                 color = '#C084FC';
             } else {
+                // Visits: use visits_daily if available, otherwise fallback to unique_daily
                 dailyData = data.visits_daily || {};
+                if (Object.keys(dailyData).length === 0) {
+                    dailyData = data.unique_daily || {};
+                }
                 color = '#60a5fa';
             }
 
@@ -5610,7 +5614,7 @@ function renderMyBooks() {
                 const pl = document.getElementById('perfLinks');
                 
                 const income = data.total_income || 0;
-                if (pv) { pv.textContent = data.total_visits || 0; pv.className = 'perf-stat-value' + (data.total_visits ? '' : ' zero'); }
+                if (pv) { const pvVal = data.total_visits || (data.total_unique || 0); pv.textContent = pvVal; pv.className = 'perf-stat-value' + (pvVal ? '' : ' zero'); }
                 if (pu) { pu.textContent = data.total_unique || 0; pu.className = 'perf-stat-value' + (data.total_unique ? '' : ' zero'); }
                 if (pi) { pi.textContent = '$' + income.toFixed(2); pi.className = 'perf-stat-value' + (income ? '' : ' zero'); }
                 if (pb) { pb.textContent = (data.books || []).length; }
@@ -5621,7 +5625,7 @@ function renderMyBooks() {
                 renderChangeEl('perfIncomeChange', calcChange(data.income_daily));
                 renderChangeEl('perfUniqueChange', calcChange(data.unique_daily));
                 renderChangeEl('perfNewChange', calcChange(data.new_users_daily));
-                renderChangeEl('perfVisitsChange', calcChange(data.visits_daily));
+                renderChangeEl('perfVisitsChange', calcChange(data.visits_daily && Object.keys(data.visits_daily).length > 0 ? data.visits_daily : data.unique_daily));
                 
                 // Tier progress
                 const booksCount = (data.books || []).length;
