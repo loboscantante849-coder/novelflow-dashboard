@@ -475,6 +475,115 @@ def fetch_all_putreport_by_adid(campaign_ids, date_from, date_to):
     return results
 
 
+def fetch_putreport_by_submission_adids(adids, date_from, date_to):
+    """
+    按submission中的adId批量查询putreport数据（不依赖广告系列）
+    支持按adid分组，返回每个adid的unique/new/d14数据
+    
+    Args:
+        adids: adId列表（来自submissions.json的linkId字段）
+        date_from: 开始日期
+        date_to: 结束日期
+    
+    Returns:
+        dict: {adid: {unique_users, new_users, d14_income, d14_income_daily, ...}}
+    """
+    token = get_putreport_token()
+    if not token:
+        print("  [submission_adids] No putreport token, skipping")
+        return {}
+    
+    print(f"\n--- Fetching Putreport Data by Submission AdIDs ---")
+    print(f"  Total adIds to query: {len(adids)}")
+    
+    all_results = {}
+    
+    # Process in batches of 50 (API limit)
+    for i in range(0, len(adids), 50):
+        batch = adids[i:i+50]
+        
+        payload = {
+            "filters": {
+                "productline": ["NovelFlow"],
+                "mediasource": [],
+                "mediasource2": ["SocialMedia"],
+                "date": {
+                    "from": date_from,
+                    "to": date_to,
+                    "datesLabel": ""
+                },
+                "campaignid": [],
+                "adsetid": [],
+                "adid": batch,
+                "copywritingid": []
+            },
+            "groupings": ["adid", "date"]
+        }
+        
+        headers = {**PUTREPORT_HEADERS, "Authorization": f"Bearer {token}"}
+        
+        try:
+            resp = requests.post(PUTREPORT_API, json=payload, headers=headers, timeout=180)
+            resp.raise_for_status()
+            result = resp.json()
+            
+            if result.get("code") != 200:
+                print(f"  [submission_adids] API error: code={result.get('code')}, msg={result.get('msg')}")
+                continue
+            
+            data_list = result.get("data", [])
+            if not data_list:
+                continue
+            
+            for item in data_list:
+                adid = item.get("adid", "")
+                if not adid:
+                    continue
+                
+                h5 = item.get("h5landingpageclickusernum", 0) or 0
+                new = item.get("newusernum", 0) or 0
+                d14 = item.get("d14income", 0.0) or 0.0
+                date = item.get("date", "")
+                
+                if adid not in all_results:
+                    all_results[adid] = {
+                        "unique_users": 0,
+                        "new_users": 0,
+                        "d14_income": 0.0,
+                        "d14_income_daily": {},
+                        "unique_daily": {},
+                        "new_daily": {}
+                    }
+                
+                all_results[adid]["unique_users"] += h5
+                all_results[adid]["new_users"] += new
+                all_results[adid]["d14_income"] += d14
+                
+                if date:
+                    all_results[adid]["d14_income_daily"][date] = d14
+                    all_results[adid]["unique_daily"][date] = h5
+                    all_results[adid]["new_daily"][date] = new
+        
+        except requests.Timeout:
+            print(f"  [submission_adids] Timeout for batch {i}")
+        except Exception as e:
+            print(f"  [submission_adids] Error for batch {i}: {e}")
+    
+    # Summary
+    with_data = sum(1 for v in all_results.values() if v["unique_users"] > 0 or v["new_users"] > 0)
+    total_unique = sum(v["unique_users"] for v in all_results.values())
+    total_new = sum(v["new_users"] for v in all_results.values())
+    total_d14 = sum(v["d14_income"] for v in all_results.values())
+    
+    print(f"  AdIds with data: {with_data}/{len(adids)}")
+    print(f"  Total: {total_unique} unique, {total_new} new, ${total_d14:.2f} D14")
+    
+    return all_results
+
+
+    return results
+
+
 def backfill_submissions_linkid(putreport_adid_data, submissions):
     """
     Backfill submissions.json 中缺失的 linkId 和 campaignId
@@ -497,7 +606,7 @@ def backfill_submissions_linkid(putreport_adid_data, submissions):
     
     # 收集所有 adid
     all_adids = set()
-    for cid, data in putreport_adid_data.items():
+    for cid, data in (putreport_adid_data or {}).items():
         for adid in data.get("ad_data", {}).keys():
             all_adids.add(adid)
     
@@ -543,7 +652,7 @@ def backfill_submissions_linkid(putreport_adid_data, submissions):
         
         if matched_adid:
             # 找到该 adid 属于哪个 campaign
-            for cid, data in putreport_adid_data.items():
+            for cid, data in (putreport_adid_data or {}).items():
                 if matched_adid in data.get("ad_data", {}):
                     sub_copy["linkId"] = matched_adid
                     sub_copy["campaignId"] = cid
@@ -746,7 +855,35 @@ def main():
     # ================================================
     putreport_by_adid = {}
     if active_campaigns:
-        putreport_by_adid = fetch_all_putreport_by_adid(active_campaigns, date_from, date_to)
+        putreport_by_adid = fetch_all_putreport_by_adid(active_campaigns, date_from, date_to) or {}
+
+    # ================================================
+    # STEP 1.6: 获取所有submission的adId数据（不限于活跃广告系列）
+    # ================================================
+    submission_adid_data = {}
+    # 从submissions.json获取所有adId
+    submissions_path = os.path.join(REPO_DIR, "submissions.json")
+    if os.path.exists(submissions_path):
+        with open(submissions_path, "r") as f:
+            _temp_subs = json.load(f)
+        _submission_adids = list(set(
+            s.get("linkId") for s in _temp_subs 
+            if s.get("linkId") and s.get("status") == "completed"
+        ))
+        # 排除已在活跃广告系列中的adId（避免重复查询）
+        _campaign_adids = set()
+        if putreport_by_adid:
+            for cid, cid_data in putreport_by_adid.items():
+                if cid_data and "ad_data" in cid_data:
+                    _campaign_adids.update(cid_data["ad_data"].keys())
+        _remaining_adids = [a for a in _submission_adids if a not in _campaign_adids]
+        
+        if _remaining_adids:
+            submission_adid_data = fetch_putreport_by_submission_adids(_remaining_adids, date_from, date_to)
+        else:
+            print("\n  No additional submission adIds to query")
+    
+
     
     # ================================================
     # STEP 2: 获取北斗API数据 (Visits)
@@ -918,6 +1055,61 @@ def main():
     update_fallback_data(data)
 
     # ================================================
+    # STEP 3.5: 从 submission adid 数据聚合到 data.json（按用户）
+    # ================================================
+    if submission_adid_data:
+        print("\n--- Aggregating submission adid data per user ---")
+        # Build adid -> username mapping from submissions
+        adid_to_user = {}
+        for sub in _temp_subs:
+            if sub.get("linkId") and sub.get("status") == "completed":
+                adid_to_user[sub["linkId"]] = sub.get("discordUsername", "")
+        
+        # Aggregate per user
+        user_adid_agg = {}
+        for adid, stats in submission_adid_data.items():
+            username = adid_to_user.get(adid, "")
+            if not username:
+                continue
+            if username not in user_adid_agg:
+                user_adid_agg[username] = {"unique_users": 0, "new_users": 0, "d14income": 0.0}
+            user_adid_agg[username]["unique_users"] += stats.get("unique_users", 0)
+            user_adid_agg[username]["new_users"] += stats.get("new_users", 0)
+            user_adid_agg[username]["d14income"] += stats.get("d14_income", 0.0)
+        
+        # Write to data.json
+        for username, agg in user_adid_agg.items():
+            mapped = map_koc_username(username, data_users)
+            if not mapped:
+                # Create new user entry
+                mapped = username
+                data["users"][mapped] = {
+                    "name": username,
+                    "campaign_id": "",
+                    "unique_users": 0,
+                    "new_users": 0,
+                    "visits": 0,
+                    "d14income": 0.0,
+                    "last_updated": ""
+                }
+                data_users.append(mapped)
+            
+            u = data["users"][mapped]
+            # Only update if new data is higher (data protection)
+            if agg["unique_users"] > u.get("link_unique", u.get("unique_users", 0)):
+                u["link_unique"] = agg["unique_users"]
+                u["unique_users"] = agg["unique_users"]
+            if agg["new_users"] > u.get("new_users", 0):
+                u["new_users"] = agg["new_users"]
+            if agg["d14income"] > u.get("d14income", 0):
+                u["d14income"] = agg["d14income"]
+            u["last_updated"] = data.get("last_updated", "")
+            
+            print(f"  {mapped}: +{agg['unique_users']} unique, +{agg['new_users']} new, +${agg['d14income']:.2f} D14")
+        
+        updated_users.update(user_adid_agg.keys())
+    
+    # ================================================
     # STEP 4: Backfill submissions.json 并生成 link-stats.json
     # ================================================
     print("\n--- Processing Submissions & Link Stats ---")
@@ -939,7 +1131,7 @@ def main():
     
     # 生成 link-stats.json
     try:
-        generate_link_stats(putreport_by_adid, updated_submissions, date_from, date_to)
+        generate_link_stats(putreport_by_adid, updated_submissions, date_from, date_to, submission_adid_data)
     except Exception as e:
         print(f"  WARN: Failed to generate link-stats.json: {e}")
         import traceback
@@ -967,7 +1159,7 @@ def main():
     print("\n=== Done ===")
 
 
-def generate_link_stats(putreport_by_adid, submissions, date_from, date_to):
+def generate_link_stats(putreport_by_adid, submissions, date_from, date_to, submission_adid_data=None):
     """
     生成 link-stats.json 文件，按 adid 索引统计数据
     
@@ -999,9 +1191,13 @@ def generate_link_stats(putreport_by_adid, submissions, date_from, date_to):
     print("\n  Fetching book info for each adid...")
     adid_book_info = {}
     all_adids = set()
-    for campaign_id, campaign_data in putreport_by_adid.items():
+    for campaign_id, campaign_data in (putreport_by_adid or {}).items():
+        if not campaign_data: continue
         for adid in campaign_data.get("ad_data", {}).keys():
             all_adids.add(adid)
+    # Also include submission adids for book info lookup
+    if submission_adid_data:
+        all_adids.update(submission_adid_data.keys())
     
     for i, adid in enumerate(all_adids):
         print(f"    [{i+1}/{len(all_adids)}] Querying book info for {adid[:20]}...")
@@ -1027,7 +1223,7 @@ def generate_link_stats(putreport_by_adid, submissions, date_from, date_to):
     total_d14_income = 0.0
     
     # 处理每个 campaign 的 adid 数据
-    for campaign_id, campaign_data in putreport_by_adid.items():
+    for campaign_id, campaign_data in (putreport_by_adid or {}).items():
         ad_data = campaign_data.get("ad_data", {})
         
         for adid, stats in ad_data.items():
@@ -1112,14 +1308,23 @@ def generate_link_stats(putreport_by_adid, submissions, date_from, date_to):
         if link_key in link_stats["links"]:
             continue
         
-        # 新增条目
+        # 新增条目 - 优先使用 submission_adid_data 中的数据
+        sub_unique = 0
+        sub_new = 0
+        sub_d14 = 0.0
+        if submission_adid_data and link_key in submission_adid_data:
+            sdata = submission_adid_data[link_key]
+            sub_unique = sdata.get("unique_users", 0)
+            sub_new = sdata.get("new_users", 0)
+            sub_d14 = sdata.get("d14_income", 0.0)
+        
         link_stats["links"][link_key] = {
             "visits": 0,
-            "unique_users": 0,
-            "new_users": 0,
-            "d14_income": 0.0,
+            "unique_users": max(0, sub_unique),
+            "new_users": max(0, sub_new),
+            "d14_income": max(0, round(sub_d14, 2)),
             "campaign_id": sub.get("campaignId", ""),
-            "source": "submission_sync",
+            "source": "submission_adid" if sub_unique > 0 or sub_new > 0 else "submission_sync",
             "book_name": sub.get("matchedBookName", sub.get("bookName", "")),
             "short_url": sub.get("shortUrl", ""),
             "koc_username": sub.get("discordUsername", ""),
