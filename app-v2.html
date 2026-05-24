@@ -5431,6 +5431,27 @@ function renderMyBooks() {
             const h = rect.height;
             ctx.clearRect(0, 0, w, h);
 
+            // Auto-select tab with most data if current mode has none
+            const modeDataMap = {
+                'income': data.income_daily || {},
+                'unique': data.unique_daily || {},
+                'visits': data.visits_daily || {}
+            };
+            if (Object.keys(modeDataMap[_chartMode] || {}).length === 0) {
+                // Find the mode with the most data
+                const modes = ['income', 'unique', 'visits'];
+                let bestMode = _chartMode;
+                let bestCount = 0;
+                for (const m of modes) {
+                    const cnt = Object.keys(modeDataMap[m]).length;
+                    if (cnt > bestCount) { bestCount = cnt; bestMode = m; }
+                }
+                if (bestCount > 0) {
+                    switchChartMode(bestMode);
+                    return; // switchChartMode will re-call renderTrendChart
+                }
+            }
+
             let dailyData;
             let color, gradientId;
             if (_chartMode === 'income') {
@@ -5458,6 +5479,34 @@ function renderMyBooks() {
             const padding = { top: 4, bottom: 16, left: 4, right: 4 };
             const chartW = w - padding.left - padding.right;
             const chartH = h - padding.top - padding.bottom;
+
+            // For single data point, render as a highlight bar
+            if (dates.length === 1) {
+                const v = values[0];
+                const barH = Math.max((v / maxVal) * chartH, 4);
+                const barW = Math.min(chartW * 0.4, 60);
+                const x = padding.left + chartW / 2 - barW / 2;
+                const y = padding.top + chartH - barH;
+                // Gradient fill
+                const grad = ctx.createLinearGradient(x, y, x, padding.top + chartH);
+                grad.addColorStop(0, color + '60');
+                grad.addColorStop(1, color + '10');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.roundRect(x, y, barW, barH, 4);
+                ctx.fill();
+                // Value label
+                ctx.fillStyle = color;
+                ctx.font = 'bold 12px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                const label = _chartMode === 'income' ? '$' + v.toFixed(2) : v;
+                ctx.fillText(label, padding.left + chartW / 2, y - 6);
+                // Date label
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.font = '9px Inter, sans-serif';
+                ctx.fillText(dates[0].substring(5), padding.left + chartW / 2, h - 2);
+                return;
+            }
 
             // Draw gradient fill
             const points = values.map((v, i) => ({
