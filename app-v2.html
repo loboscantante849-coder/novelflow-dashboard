@@ -2272,7 +2272,7 @@
         .perf-chart-tabs { display: flex; gap: 4px; }
         .perf-chart-tab { padding: 3px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); background: transparent; color: rgba(255,255,255,0.5); font-size: 11px; cursor: pointer; font-family: inherit; transition: all 0.2s; }
         .perf-chart-tab.active { background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.3); }
-        .perf-chart-container { width: 100%; height: 130px; position: relative; }
+        .perf-chart-container { width: 100%; height: 130px; position: relative; cursor: crosshair; }
         .perf-chart-canvas { width: 100%; height: 100%; display: block; }
 
         /* ========== AC Reels ========== */
@@ -2540,7 +2540,9 @@
                         </div>
                         <div class="perf-chart-container">
                             <canvas id="perfTrendChart" class="perf-chart-canvas"></canvas>
+                            <div id="chartTooltip" style="display:none;position:absolute;background:rgba(15,15,30,0.95);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:6px 10px;pointer-events:none;z-index:10;font-size:11px;color:#fff;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,0.4);"></div>
                         </div>
+                        <div id="chartDetail" style="display:none;text-align:center;font-size:11px;font-weight:600;padding:2px 0;transition:opacity 0.3s;"></div>
                     </div>
                     <div class="tier-progress">
                         <div class="tier-progress-bar"><div class="tier-progress-fill" id="tierProgressFill" style="width:0%"></div></div>
@@ -5466,8 +5468,10 @@ function renderMyBooks() {
         let _chartMode = 'visits';
         let _lastPerfData = null;
 
+        let _userSelectedChart = false;
         function switchChartMode(mode) {
             _chartMode = mode;
+            _userSelectedChart = true;
             document.querySelectorAll('.perf-chart-tab').forEach(t => t.classList.remove('active'));
             const tabId = 'chartTab' + mode.charAt(0).toUpperCase() + mode.slice(1);
             const tab = document.getElementById(tabId);
@@ -5508,32 +5512,35 @@ function renderMyBooks() {
             const h = rect.height;
             ctx.clearRect(0, 0, w, h);
 
-            // Auto-select tab with most non-zero data if current mode has none or all zeros
             const modeDataMap = {
                 'income': data.income_daily || {},
                 'unique': data.unique_daily || {},
                 'visits': data.visits_daily || {}
             };
-            // Check if current mode has no meaningful data (empty or all zeros)
+            // Check if current mode has no meaningful data
             const currentData = modeDataMap[_chartMode] || {};
             const currentNonZero = Object.values(currentData).filter(v => v > 0).length;
             if (Object.keys(currentData).length === 0 || currentNonZero === 0) {
-                // Find the mode with the most non-zero data points
-                const modes = ['income', 'unique', 'visits'];
+                const modes = ['visits', 'unique', 'income'];
                 let bestMode = _chartMode;
                 let bestNonZero = 0;
                 for (const m of modes) {
                     const nonZero = Object.values(modeDataMap[m]).filter(v => v > 0).length;
                     if (nonZero > bestNonZero) { bestNonZero = nonZero; bestMode = m; }
                 }
-                if (bestNonZero > 0) {
-                    switchChartMode(bestMode);
-                    return; // switchChartMode will re-call renderTrendChart
+                if (bestNonZero > 0 && bestMode !== _chartMode) {
+                    _chartMode = bestMode;
+                    document.querySelectorAll('.perf-chart-tab').forEach(t => t.classList.remove('active'));
+                    const tabId = 'chartTab' + bestMode.charAt(0).toUpperCase() + bestMode.slice(1);
+                    const tab = document.getElementById(tabId);
+                    if (tab) tab.classList.add('active');
+                    // Don't call switchChartMode to avoid recursion, just re-render
+                    // Re-run with new mode data
                 }
             }
 
             let dailyData;
-            let color, gradientId;
+            let color;
             if (_chartMode === 'income') {
                 dailyData = data.income_daily || {};
                 color = '#FFD700';
@@ -5541,7 +5548,6 @@ function renderMyBooks() {
                 dailyData = data.unique_daily || {};
                 color = '#C084FC';
             } else {
-                // Visits: use visits_daily (cumulative total visits from 北斗 link_visits_daily)
                 dailyData = data.visits_daily || {};
                 color = '#60a5fa';
             }
@@ -5568,7 +5574,6 @@ function renderMyBooks() {
                 const barW = Math.min(chartW * 0.4, 60);
                 const x = padding.left + chartW / 2 - barW / 2;
                 const y = padding.top + chartH - barH;
-                // Gradient fill
                 const grad = ctx.createLinearGradient(x, y, x, padding.top + chartH);
                 grad.addColorStop(0, color + '60');
                 grad.addColorStop(1, color + '10');
@@ -5576,13 +5581,11 @@ function renderMyBooks() {
                 ctx.beginPath();
                 ctx.roundRect(x, y, barW, barH, 4);
                 ctx.fill();
-                // Value label
                 ctx.fillStyle = color;
                 ctx.font = 'bold 12px Inter, sans-serif';
                 ctx.textAlign = 'center';
                 const label = _chartMode === 'income' ? '$' + v.toFixed(2) : v;
                 ctx.fillText(label, padding.left + chartW / 2, y - 6);
-                // Date label
                 ctx.fillStyle = 'rgba(255,255,255,0.3)';
                 ctx.font = '9px Inter, sans-serif';
                 ctx.fillText(dates[0].substring(5), padding.left + chartW / 2, h - 2);
@@ -5595,7 +5598,13 @@ function renderMyBooks() {
                 y: padding.top + chartH - (v / maxVal) * chartH
             }));
 
-            // Smooth curve helper
+            // Store points for hover/click interaction
+            canvas._chartPoints = points;
+            canvas._chartDates = dates;
+            canvas._chartValues = values;
+            canvas._chartColor = color;
+            canvas._chartMode = _chartMode;
+
             function drawSmoothLine(pts) {
                 ctx.beginPath();
                 ctx.moveTo(pts[0].x, pts[0].y);
@@ -5624,17 +5633,13 @@ function renderMyBooks() {
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // Draw dots on last point
-            const last = points[points.length - 1];
-            ctx.beginPath();
-            ctx.arc(last.x, last.y, 3, 0, Math.PI * 2);
-            ctx.fillStyle = color;
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(last.x, last.y, 5, 0, Math.PI * 2);
-            ctx.strokeStyle = color + '40';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
+            // Draw small dots on ALL points (subtle)
+            points.forEach((p, i) => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+                ctx.fillStyle = values[i] > 0 ? color : 'rgba(255,255,255,0.15)';
+                ctx.fill();
+            });
 
             // Draw date labels (first, middle, last)
             ctx.fillStyle = 'rgba(255,255,255,0.25)';
@@ -5643,7 +5648,7 @@ function renderMyBooks() {
             if (dates.length >= 3) {
                 const labelIndices = [0, Math.floor(dates.length/2), dates.length-1];
                 labelIndices.forEach(i => {
-                    const d = dates[i].substring(5); // MM-DD
+                    const d = dates[i].substring(5);
                     ctx.fillText(d, points[i].x, h - 2);
                 });
             } else {
@@ -5651,13 +5656,144 @@ function renderMyBooks() {
                     ctx.fillText(d.substring(5), points[i].x, h - 2);
                 });
             }
+        }
 
-            // Value on last point
-            ctx.fillStyle = color;
-            ctx.font = 'bold 10px Inter, sans-serif';
-            ctx.textAlign = 'center';
-            const lastVal = values[values.length - 1];
-            ctx.fillText(_chartMode === 'income' ? '$' + lastVal.toFixed(2) : lastVal, last.x, last.y - 8);
+        // Chart tooltip interaction - initialized after DOM ready
+        function initChartTooltip() {
+            const canvas = document.getElementById('perfTrendChart');
+            const tooltip = document.getElementById('chartTooltip');
+            if (!canvas || !tooltip) return;
+
+            let _highlightedIdx = -1;
+            let _animFrame = null;
+
+            function findClosestPoint(e) {
+                if (!canvas._chartPoints) return -1;
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = (canvas.width / 2) / rect.width;
+                const mx = (e.clientX - rect.left) * scaleX / 2;
+                const points = canvas._chartPoints;
+                let closest = -1, minDist = Infinity;
+                for (let i = 0; i < points.length; i++) {
+                    const dist = Math.abs(points[i].x - mx);
+                    if (dist < minDist) { minDist = dist; closest = i; }
+                }
+                // Only if close enough
+                const stepX = points.length > 1 ? Math.abs(points[1].x - points[0].x) : 20;
+                return minDist < stepX * 0.7 ? closest : -1;
+            }
+
+            function drawHighlight(idx) {
+                if (!_lastPerfData || idx < 0) return;
+                const points = canvas._chartPoints;
+                const values = canvas._chartValues;
+                const color = canvas._chartColor;
+                if (!points || idx >= points.length) return;
+
+                // Re-render chart then overlay highlight
+                renderTrendChart(_lastPerfData);
+
+                const ctx = canvas.getContext('2d');
+                ctx.save();
+                ctx.scale(2, 2);
+                // undo the scale since renderTrendChart already set it
+                ctx.restore();
+
+                // Just use direct canvas manipulation after renderTrendChart
+                const ctx2 = canvas.getContext('2d');
+                // renderTrendChart already scaled, we need raw pixel coords
+                const p = points[idx];
+                const px = p.x * 2;
+                const py = p.y * 2;
+
+                // Vertical line
+                ctx2.beginPath();
+                ctx2.moveTo(px, 8);
+                ctx2.lineTo(px, (canvas.height / 2) - 32);
+                ctx2.strokeStyle = color + '40';
+                ctx2.lineWidth = 1;
+                ctx2.stroke();
+
+                // Bigger dot
+                ctx2.beginPath();
+                ctx2.arc(px, py, 8, 0, Math.PI * 2);
+                ctx2.fillStyle = color + '30';
+                ctx2.fill();
+                ctx2.beginPath();
+                ctx2.arc(px, py, 4, 0, Math.PI * 2);
+                ctx2.fillStyle = color;
+                ctx2.fill();
+            }
+
+            function showTooltip(idx, e) {
+                if (idx < 0 || !canvas._chartDates) { tooltip.style.display = 'none'; return; }
+                const dates = canvas._chartDates;
+                const values = canvas._chartValues;
+                const mode = canvas._chartMode;
+                const color = canvas._chartColor;
+
+                const dateStr = dates[idx];
+                const val = values[idx];
+                const modeLabel = mode === 'income' ? 'Income' : mode === 'unique' ? 'Unique' : 'Visits';
+                const valStr = mode === 'income' ? '$' + val.toFixed(2) : val.toLocaleString();
+
+                tooltip.innerHTML = '<div style="color:' + color + ';font-weight:600;">' + valStr + '</div><div style="color:rgba(255,255,255,0.5);font-size:10px;margin-top:2px;">' + modeLabel + ' · ' + dateStr + '</div>';
+                tooltip.style.display = 'block';
+
+                // Position tooltip
+                const containerRect = canvas.parentElement.getBoundingClientRect();
+                const canvasRect = canvas.getBoundingClientRect();
+                const p = canvas._chartPoints[idx];
+                const pxRatio = canvasRect.width / (canvas.width / 2);
+                let left = p.x * pxRatio + 10;
+                let top = (p.y * pxRatio) - 20;
+                // Keep within bounds
+                if (left + 120 > containerRect.width) left = p.x * pxRatio - 130;
+                if (top < 0) top = 4;
+                tooltip.style.left = left + 'px';
+                tooltip.style.top = top + 'px';
+            }
+
+            canvas.addEventListener('mousemove', function(e) {
+                const idx = findClosestPoint(e);
+                if (idx !== _highlightedIdx) {
+                    _highlightedIdx = idx;
+                    if (idx >= 0) {
+                        showTooltip(idx, e);
+                    } else {
+                        tooltip.style.display = 'none';
+                    }
+                } else if (idx >= 0) {
+                    // Just update tooltip position slightly
+                    showTooltip(idx, e);
+                }
+            });
+
+            canvas.addEventListener('mouseleave', function() {
+                _highlightedIdx = -1;
+                tooltip.style.display = 'none';
+            });
+
+            // Click to show detail
+            canvas.addEventListener('click', function(e) {
+                const idx = findClosestPoint(e);
+                if (idx < 0 || !canvas._chartDates) return;
+                const dates = canvas._chartDates;
+                const values = canvas._chartValues;
+                const mode = canvas._chartMode;
+                const dateStr = dates[idx];
+                const val = values[idx];
+                const modeLabel = mode === 'income' ? 'Income' : mode === 'unique' ? 'Unique Users' : 'Visits';
+                const valStr = mode === 'income' ? '$' + val.toFixed(2) : val.toLocaleString();
+                // Show inline detail below chart
+                const detailEl = document.getElementById('chartDetail');
+                if (detailEl) {
+                    detailEl.textContent = modeLabel + ' on ' + dateStr + ': ' + valStr;
+                    detailEl.style.display = 'block';
+                    detailEl.style.color = canvas._chartColor;
+                    setTimeout(() => { detailEl.style.opacity = '0'; setTimeout(() => { detailEl.style.display = 'none'; detailEl.style.opacity = '1'; }, 300); }, 3000);
+                }
+            });
         }
 
         async function loadPerformanceDashboard() {
@@ -5716,9 +5852,10 @@ function renderMyBooks() {
                 
                 // Last updated
                 const perfUpdated = document.getElementById('perfUpdated');
-                if (perfUpdated && data.last_updated) {
-                    const d = new Date(data.last_updated);
-                    perfUpdated.textContent = d.toLocaleString(AppState.currentLang === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                if (perfUpdated) {
+                    const lastDate = data.last_updated ? new Date(data.last_updated) : null;
+                    const dateStr = lastDate ? lastDate.toLocaleDateString(AppState.currentLang === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric' }) : '';
+                    perfUpdated.textContent = '🔄 ' + (AppState.currentLang === 'es' ? 'Datos actualizados a las 00:00 UTC diariamente' : 'Data refreshes daily at 00:00 UTC') + (dateStr ? ' · Last: ' + dateStr : '');
                 }
                 
             } catch (e) {
@@ -5738,7 +5875,7 @@ function renderMyBooks() {
                 if (el && el.style.display !== 'none') { el.style.display = 'none'; hideLoadingAndShowContent(); }
             }, 3000);
             loadBooks(); checkLocalLogin(); loadCheckinData(); verifyPointsIntegrity(); updateCheckinUI(); loadMyBooks(); updateStats(); checkLoginStatus(); updateMissionsUI(); updatePointsDisplay();
-            if (typeof loadPerformanceDashboard === 'function') setTimeout(loadPerformanceDashboard, 1000);
+            if (typeof loadPerformanceDashboard === 'function') setTimeout(() => { loadPerformanceDashboard(); if (typeof initChartTooltip === 'function') setTimeout(initChartTooltip, 200); }, 1000);
             document.getElementById('recommendModal').addEventListener('click', e => {
                 if (e.target.classList.contains('modal-overlay')) closeModal();
             });
