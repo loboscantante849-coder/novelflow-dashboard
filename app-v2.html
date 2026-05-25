@@ -5604,55 +5604,13 @@ function renderMyBooks() {
             canvas._chartColor = color;
             canvas._chartMode = _chartMode;
 
-            // Monotone cubic interpolation - prevents overshoot
-            function drawSmoothLine(pts) {
+            // Straight line segments - zero overshoot, data-accurate
+            function drawLine(pts) {
                 if (pts.length < 2) return;
                 ctx.beginPath();
                 ctx.moveTo(pts[0].x, pts[0].y);
-                if (pts.length === 2) {
-                    ctx.lineTo(pts[1].x, pts[1].y);
-                    return;
-                }
-                // Compute monotone cubic tangents
-                const n = pts.length;
-                const dx = [], dy = [], m = [];
-                for (let i = 0; i < n - 1; i++) {
-                    dx[i] = pts[i+1].x - pts[i].x;
-                    dy[i] = pts[i+1].y - pts[i].y;
-                    m[i] = dy[i] / (dx[i] || 1);
-                }
-                const tangents = [m[0]];
-                for (let i = 1; i < n - 1; i++) {
-                    if (m[i-1] * m[i] <= 0) {
-                        tangents[i] = 0; // slope change = flat
-                    } else {
-                        tangents[i] = (m[i-1] + m[i]) / 2;
-                    }
-                }
-                tangents[n-1] = m[n-2];
-                // Clamp tangents to prevent overshoot (Fritsch-Carlson)
-                for (let i = 0; i < n - 1; i++) {
-                    if (Math.abs(m[i]) < 1e-6) {
-                        tangents[i] = 0;
-                        tangents[i+1] = 0;
-                    } else {
-                        const alpha = tangents[i] / m[i];
-                        const beta = tangents[i+1] / m[i];
-                        const s = alpha * alpha + beta * beta;
-                        if (s > 9) {
-                            const t = 3 / Math.sqrt(s);
-                            tangents[i] = t * alpha * m[i];
-                            tangents[i+1] = t * beta * m[i];
-                        }
-                    }
-                }
-                // Draw cubic bezier segments
-                for (let i = 0; i < n - 1; i++) {
-                    const cp1x = pts[i].x + dx[i] / 3;
-                    const cp1y = pts[i].y + tangents[i] * dx[i] / 3;
-                    const cp2x = pts[i+1].x - dx[i] / 3;
-                    const cp2y = pts[i+1].y - tangents[i+1] * dx[i] / 3;
-                    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, pts[i+1].x, pts[i+1].y);
+                for (let i = 1; i < pts.length; i++) {
+                    ctx.lineTo(pts[i].x, pts[i].y);
                 }
             }
 
@@ -5660,7 +5618,7 @@ function renderMyBooks() {
             const grad = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartH);
             grad.addColorStop(0, color + '30');
             grad.addColorStop(1, color + '05');
-            drawSmoothLine(points);
+            drawLine(points);
             ctx.lineTo(points[points.length-1].x, padding.top + chartH);
             ctx.lineTo(points[0].x, padding.top + chartH);
             ctx.closePath();
@@ -5668,7 +5626,7 @@ function renderMyBooks() {
             ctx.fill();
 
             // Draw line
-            drawSmoothLine(points);
+            drawLine(points);
             ctx.strokeStyle = color;
             ctx.lineWidth = 2;
             ctx.stroke();
