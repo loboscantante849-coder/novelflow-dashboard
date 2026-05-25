@@ -172,7 +172,6 @@ module.exports = async (req, res) => {
         const linkId = sub.linkId;
         if (linkId && linkStats?.links?.[linkId]) {
           const ls = linkStats.links[linkId];
-          // Merge daily data
           if (ls.unique_daily) {
             for (const [date, val] of Object.entries(ls.unique_daily)) {
               unique_daily[date] = (unique_daily[date] || 0) + val;
@@ -194,6 +193,31 @@ module.exports = async (req, res) => {
             }
           }
         }
+      }
+    }
+
+    // Backfill visits_daily: if total_visits > 0 but visits_daily is empty or all zeros,
+    // distribute total_visits proportionally using unique_daily as guide
+    const visitsDailySum = Object.values(visits_daily).reduce((s, v) => s + v, 0);
+    if (totalVisits > 0 && (Object.keys(visits_daily).length === 0 || visitsDailySum === 0)) {
+      // Use unique_daily as proportional guide
+      const uniqueDailySum = Object.values(unique_daily).reduce((s, v) => s + v, 0);
+      if (uniqueDailySum > 0 && Object.keys(unique_daily).length > 0) {
+        const ratio = totalVisits / uniqueDailySum;
+        for (const [date, val] of Object.entries(unique_daily)) {
+          visits_daily[date] = Math.round(val * ratio);
+        }
+        // Adjust for rounding errors
+        const newSum = Object.values(visits_daily).reduce((s, v) => s + v, 0);
+        const diff = totalVisits - newSum;
+        if (diff !== 0 && Object.keys(visits_daily).length > 0) {
+          const lastDate = Object.keys(visits_daily).sort().pop();
+          visits_daily[lastDate] = (visits_daily[lastDate] || 0) + diff;
+        }
+      } else if (Object.keys(unique_daily).length === 0) {
+        // No unique_daily either - create a single entry for today
+        const today = new Date().toISOString().split('T')[0];
+        visits_daily[today] = totalVisits;
       }
     }
 
