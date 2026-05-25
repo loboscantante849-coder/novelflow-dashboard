@@ -2819,7 +2819,7 @@
                         <div class="mission-info">
                             <div class="mission-name" data-i18n="mission_bind">Bind NovelFlow ID</div>
                             <div class="mission-desc" data-i18n="mission_bind_desc">Open NovelFlow app → Profile → Copy ID</div>
-                            <div class="mission-points">+100 <span data-i18n="pts">pts</span></div>
+                            <div class="mission-points">+30 <span data-i18n="pts">pts</span></div>
                             <div class="mission-bind-row" id="bindIdRow" style="display:none;">
                                 <input type="text" id="novelflowIdInput" placeholder="Paste your NovelFlow ID" style="flex:1;padding:6px 8px;border:1px solid var(--hairline);border-radius:6px;font-size:12px;font-family:inherit;">
                                 <button onclick="submitBindId()" style="padding:6px 10px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;" data-i18n="bind_btn">Bind</button>
@@ -3007,7 +3007,7 @@
                 <!-- Copy Text Section -->
                 <div style="background:var(--canvas-soft);border-radius:10px;padding:12px;margin-bottom:12px;text-align:left;position:relative;">
                     <div style="font-size:11px;font-weight:600;color:var(--ink-mute);margin-bottom:6px;" data-i18n="share_copy_label">📋 Copy this text:</div>
-                    <div id="shareAppText" style="font-size:12px;line-height:1.5;color:var(--ink);padding-right:40px;">🚀 Join NovelFlow - Read novels for FREE & earn money by sharing! 💰 Start now: https://novelflow-dashboard.vercel.app</div>
+                    <div id="shareAppText" style="font-size:12px;line-height:1.5;color:var(--ink);padding-right:40px;">🚀 Join NovelFlow - Read novels for FREE & earn money by sharing! 💰 Start now: https://novelflow-dashboard.vercel.app/app-v2</div>
                     <button id="shareAppCopyBtn" onclick="copyShareAppText()" style="position:absolute;top:12px;right:12px;padding:4px 10px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;" data-i18n="copy_btn">Copy</button>
                 </div>
 
@@ -3835,8 +3835,9 @@
         }
 
         function getToday() {
+            // Use UTC to prevent timezone manipulation for multiple checkins
             const now = new Date();
-            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
         }
 
         function isCheckedInToday() {
@@ -3902,7 +3903,18 @@
         }
         function addUserPoints(pts) {
             const current = getUserPoints();
-            localStorage.setItem(getUserKey('points'), current + pts);
+            const newPts = current + pts;
+            // Sanity check: cap points to prevent obvious localStorage tampering
+            const MAX_POINTS = 5000;
+            if (newPts > MAX_POINTS) {
+                console.warn('Points capped at', MAX_POINTS);
+                localStorage.setItem(getUserKey('points'), MAX_POINTS);
+            } else if (newPts < 0) {
+                localStorage.setItem(getUserKey('points'), 0);
+            } else {
+                localStorage.setItem(getUserKey('points'), newPts);
+            }
+            savePointsChecksum();
             updatePointsDisplay();
         }
         function updatePointsDisplay() {
@@ -3918,11 +3930,47 @@
         }
         function markMissionClaimed(id) {
             const claimed = getClaimedMissions();
-            claimed[id] = true;
+            claimed[id] = Date.now(); // timestamp for audit trail
             localStorage.setItem(getUserKey('claimed'), JSON.stringify(claimed));
         }
         function isMissionClaimed(id) {
-            return getClaimedMissions()[id] === true;
+            return getClaimedMissions()[id] !== undefined;
+        }
+
+        // ========== Points Integrity Check ==========
+        // Simple checksum to detect obvious localStorage tampering
+        function computePointsChecksum(pts, claimed, checkinData) {
+            const raw = String(pts) + '|' + JSON.stringify(claimed) + '|' + JSON.stringify(checkinData);
+            let hash = 0;
+            for (let i = 0; i < raw.length; i++) {
+                const char = raw.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return hash.toString(36);
+        }
+        
+        function savePointsChecksum() {
+            const pts = getUserPoints();
+            const claimed = getClaimedMissions();
+            const checkin = JSON.parse(localStorage.getItem(getUserKey('checkin')) || '{}');
+            const checksum = computePointsChecksum(pts, claimed, checkin);
+            localStorage.setItem(getUserKey('pts_checksum'), checksum);
+        }
+        
+        function verifyPointsIntegrity() {
+            const pts = getUserPoints();
+            const claimed = getClaimedMissions();
+            const checkin = JSON.parse(localStorage.getItem(getUserKey('checkin')) || '{}');
+            const expected = computePointsChecksum(pts, claimed, checkin);
+            const stored = localStorage.getItem(getUserKey('pts_checksum'));
+            // If checksum exists and doesn't match → tampered; if checksum missing but points > 0 → suspicious
+            if ((stored && stored !== expected) || (!stored && pts > 0)) {
+                console.warn('Points integrity check failed - resetting to 0');
+                localStorage.setItem(getUserKey('points'), 0);
+                updatePointsDisplay();
+            }
+            savePointsChecksum();
         }
 
         // ========== Milestone Track Renderer ==========
@@ -3962,9 +4010,10 @@
 
             setTimeout(() => {
                 const today = getToday();
+                // Use UTC for yesterday calculation to match getToday()
                 const yesterday = new Date();
-                yesterday.setDate(yesterday.getDate() - 1);
-                const yesterdayStr = yesterday.getFullYear() + '-' + String(yesterday.getMonth() + 1).padStart(2, '0') + '-' + String(yesterday.getDate()).padStart(2, '0');
+                yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+                const yesterdayStr = yesterday.getUTCFullYear() + '-' + String(yesterday.getUTCMonth() + 1).padStart(2, '0') + '-' + String(yesterday.getUTCDate()).padStart(2, '0');
                 
                 if (CheckinData.lastCheckin === yesterdayStr) {
                     CheckinData.streak++;
@@ -4018,7 +4067,7 @@
             let pts = 0;
             if (missionId === 'share1') pts = 20;
             else if (missionId === 'share3') pts = 50;
-            else if (missionId === 'bindId') pts = 100;
+            else if (missionId === 'bindId') pts = 30;
             else if (missionId === 'shareApp') pts = 50;
             else return;
             
@@ -4432,8 +4481,8 @@
 
                     AppState.currentRecommendText = generateRecommendText(currentRecommendBook);
 
-                    // Deduplicate: if same bookId already exists, update instead of adding duplicate
-                    const existIdx = AppState.myBooks.findIndex(b => b.bookId === currentRecommendBook.bookId);
+                    // Deduplicate: if same bookId+code already exists, update instead of adding duplicate
+                    const existIdx = AppState.myBooks.findIndex(b => b.bookId === currentRecommendBook.bookId && b.code === currentRecommendBook.code);
                     if (existIdx >= 0) {
                         AppState.myBooks[existIdx] = currentRecommendBook;
                     } else {
@@ -4723,8 +4772,8 @@
 
                     AppState.currentRecommendText = generateRecommendText(newBook);
 
-                    // Deduplicate: if same bookId already exists, update instead of adding duplicate
-                    const existingIdx = AppState.myBooks.findIndex(b => b.bookId === newBook.bookId);
+                    // Deduplicate: if same bookId+code already exists, update instead of adding duplicate
+                    const existingIdx = AppState.myBooks.findIndex(b => b.bookId === newBook.bookId && b.code === newBook.code);
                     if (existingIdx >= 0) {
                         AppState.myBooks[existingIdx] = newBook;
                     } else {
@@ -5690,7 +5739,7 @@ function renderMyBooks() {
                 const el = document.getElementById('homeLoading');
                 if (el && el.style.display !== 'none') { el.style.display = 'none'; hideLoadingAndShowContent(); }
             }, 3000);
-            loadBooks(); checkLocalLogin(); loadCheckinData(); updateCheckinUI(); loadMyBooks(); updateStats(); checkLoginStatus(); updateMissionsUI(); updatePointsDisplay();
+            loadBooks(); checkLocalLogin(); loadCheckinData(); verifyPointsIntegrity(); updateCheckinUI(); loadMyBooks(); updateStats(); checkLoginStatus(); updateMissionsUI(); updatePointsDisplay();
             if (typeof loadPerformanceDashboard === 'function') setTimeout(loadPerformanceDashboard, 1000);
             document.getElementById('recommendModal').addEventListener('click', e => {
                 if (e.target.classList.contains('modal-overlay')) closeModal();
