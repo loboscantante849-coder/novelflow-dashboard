@@ -5520,7 +5520,8 @@ function renderMyBooks() {
             // Check if current mode has no meaningful data
             const currentData = modeDataMap[_chartMode] || {};
             const currentNonZero = Object.values(currentData).filter(v => v > 0).length;
-            if (Object.keys(currentData).length === 0 || currentNonZero === 0) {
+            // Auto-select only on first load (not after user explicitly picks a tab)
+            if (!_userSelectedChart && (Object.keys(currentData).length === 0 || currentNonZero === 0)) {
                 const modes = ['visits', 'unique', 'income'];
                 let bestMode = _chartMode;
                 let bestNonZero = 0;
@@ -5534,8 +5535,6 @@ function renderMyBooks() {
                     const tabId = 'chartTab' + bestMode.charAt(0).toUpperCase() + bestMode.slice(1);
                     const tab = document.getElementById(tabId);
                     if (tab) tab.classList.add('active');
-                    // Don't call switchChartMode to avoid recursion, just re-render
-                    // Re-run with new mode data
                 }
             }
 
