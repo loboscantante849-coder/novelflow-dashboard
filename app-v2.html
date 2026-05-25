@@ -5591,68 +5591,71 @@ function renderMyBooks() {
                 return;
             }
 
-            // Draw gradient fill
-            const points = values.map((v, i) => ({
-                x: padding.left + (i / Math.max(values.length - 1, 1)) * chartW,
-                y: padding.top + chartH - (v / maxVal) * chartH
-            }));
+            // Bar chart - each bar = one day, impossible to misread
+            const barGap = 2;
+            const barW = Math.max(Math.floor((chartW - barGap * dates.length) / dates.length), 4);
+            const totalBarW = dates.length * (barW + barGap) - barGap;
+            const startX = padding.left + (chartW - totalBarW) / 2;
 
-            // Store points for hover/click interaction
-            canvas._chartPoints = points;
+            // Store bar positions for hover/click interaction
+            canvas._chartPoints = [];
             canvas._chartDates = dates;
             canvas._chartValues = values;
             canvas._chartColor = color;
             canvas._chartMode = _chartMode;
 
-            // Straight line segments - zero overshoot, data-accurate
-            function drawLine(pts) {
-                if (pts.length < 2) return;
-                ctx.beginPath();
-                ctx.moveTo(pts[0].x, pts[0].y);
-                for (let i = 1; i < pts.length; i++) {
-                    ctx.lineTo(pts[i].x, pts[i].y);
+            // Draw bars
+            values.forEach((v, i) => {
+                const x = startX + i * (barW + barGap);
+                const barH = v > 0 ? Math.max((v / maxVal) * chartH, 2) : 0;
+                const y = padding.top + chartH - barH;
+                const centerX = x + barW / 2;
+
+                // Store center point for tooltip
+                canvas._chartPoints.push({ x: centerX, y });
+
+                // Gradient fill for bar
+                if (v > 0) {
+                    const grad = ctx.createLinearGradient(x, y, x, padding.top + chartH);
+                    grad.addColorStop(0, color + 'cc');
+                    grad.addColorStop(1, color + '20');
+                    ctx.fillStyle = grad;
+                } else {
+                    ctx.fillStyle = 'rgba(255,255,255,0.05)';
                 }
-            }
 
-            // Fill area under curve
-            const grad = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartH);
-            grad.addColorStop(0, color + '30');
-            grad.addColorStop(1, color + '05');
-            drawLine(points);
-            ctx.lineTo(points[points.length-1].x, padding.top + chartH);
-            ctx.lineTo(points[0].x, padding.top + chartH);
-            ctx.closePath();
-            ctx.fillStyle = grad;
-            ctx.fill();
+                // Draw bar with rounded top
+                if (barH > 4) {
+                    ctx.beginPath();
+                    ctx.roundRect(x, y, barW, barH, [3, 3, 0, 0]);
+                    ctx.fill();
+                } else if (barH > 0) {
+                    ctx.fillRect(x, y, barW, barH);
+                }
 
-            // Draw line
-            drawLine(points);
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            // Draw small dots on ALL points (subtle)
-            points.forEach((p, i) => {
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
-                ctx.fillStyle = values[i] > 0 ? color : 'rgba(255,255,255,0.15)';
-                ctx.fill();
+                // Value label on top for non-zero bars
+                if (v > 0 && dates.length <= 14) {
+                    ctx.fillStyle = color;
+                    ctx.font = 'bold 9px Inter, sans-serif';
+                    ctx.textAlign = 'center';
+                    const label = _chartMode === 'income' ? '$' + v.toFixed(2) : v;
+                    ctx.fillText(label, centerX, y - 4);
+                }
             });
 
-            // Draw date labels (first, middle, last)
-            ctx.fillStyle = 'rgba(255,255,255,0.25)';
-            ctx.font = '9px Inter, sans-serif';
+            // Draw date labels
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.font = '8px Inter, sans-serif';
             ctx.textAlign = 'center';
-            if (dates.length >= 3) {
-                const labelIndices = [0, Math.floor(dates.length/2), dates.length-1];
-                labelIndices.forEach(i => {
-                    const d = dates[i].substring(5);
-                    ctx.fillText(d, points[i].x, h - 2);
-                });
-            } else {
-                dates.forEach((d, i) => {
-                    ctx.fillText(d.substring(5), points[i].x, h - 2);
-                });
+            const labelStep = dates.length <= 7 ? 1 : dates.length <= 14 ? 2 : 3;
+            for (let i = 0; i < dates.length; i += labelStep) {
+                const x = startX + i * (barW + barGap) + barW / 2;
+                ctx.fillText(dates[i].substring(5), x, h - 2);
+            }
+            // Always show last date
+            if ((dates.length - 1) % labelStep !== 0) {
+                const x = startX + (dates.length - 1) * (barW + barGap) + barW / 2;
+                ctx.fillText(dates[dates.length - 1].substring(5), x, h - 2);
             }
         }
 
