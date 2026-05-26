@@ -2694,6 +2694,13 @@
                                 <option value="Ad_Plot_Video_V3" data-i18n="tmpl_story">📖 Story Slideshow (Video + Images)</option>
                                 <option value="PPT_Porn" data-i18n="tmpl_spicy">🔥 Spicy &amp; Steamy</option>
                                 <option value="Ad_Plot_Video_V2" data-i18n="tmpl_sora">🎥 Story Sora (AI Cinematic)</option>
+                                <option value="Dialogue" data-i18n="tmpl_dialogue">💬 Dialogue</option>
+                                <option value="PPT_Multi" data-i18n="tmpl_ppt_multi">📑 Slideshow Multi-style</option>
+                                <option value="Comic" data-i18n="tmpl_comic">🖼 Comic Style</option>
+                                <option value="PPT_Porn_Loop_Video" data-i18n="tmpl_ppt_porn_loop">🔥 Spicy Loop Video</option>
+                                <option value="Ad_Plot_Seedance" data-i18n="tmpl_seedance">🎬 Story Seedance 2.0</option>
+                                <option value="Digital" data-i18n="tmpl_digital">🤖 Digital Avatar</option>
+                                <option value="Extract" data-i18n="tmpl_extract">🧊 Satisfying / Decompress</option>
                             </select>
 
                             <!-- Chapter Range -->
@@ -3305,6 +3312,13 @@
                 adv_ref_images: '🖼 Reference Images',
                 adv_ref_images_hint: 'Upload an image as visual reference for AI video generation (max 1)',
                 adv_ref_max_1: 'Max 1 reference image',
+                tmpl_dialogue: '💬 Dialogue',
+                tmpl_ppt_multi: '📑 Slideshow Multi-style',
+                tmpl_comic: '🖼 Comic Style',
+                tmpl_ppt_porn_loop: '🔥 Spicy Loop Video',
+                tmpl_seedance: '🎬 Story Seedance 2.0',
+                tmpl_digital: '🤖 Digital Avatar',
+                tmpl_extract: '🧊 Satisfying / Decompress',
                 min_15_note: '⏱ Video generates in ~25 min',
                 video_assets_label: '🎬 Video Assets',
                 search_books_promote: 'Search books to promote...',
@@ -3477,6 +3491,13 @@
                 adv_ref_images: '🖼 Imagen de Referencia',
                 adv_ref_images_hint: 'Sube una imagen como referencia visual para la generación de video IA (máx 1)',
                 adv_ref_max_1: 'Máximo 1 imagen de referencia',
+                tmpl_dialogue: '💬 Diálogo',
+                tmpl_ppt_multi: '📑 Presentación Multi-estilo',
+                tmpl_comic: '🖼 Estilo Cómic',
+                tmpl_ppt_porn_loop: '🔥 Video Picante en Bucle',
+                tmpl_seedance: '🎬 Historia Seedance 2.0',
+                tmpl_digital: '🤖 Avatar Digital',
+                tmpl_extract: '🧊 Satisfactorio / Descompresión',
                 min_15_note: '⏱ El video se genera en ~25 min',
                 video_assets_label: '🎬 Recursos de Video',
                 search_books_promote: 'Buscar libros para promover...',
@@ -6122,7 +6143,7 @@ function renderMyBooks() {
                     return { ...item, isDone, videoUrl, coverUrl };
                 }));
                 el.innerHTML = enriched.map(item => {
-                    const templateLabel = item.template === 'PPT_Porn' ? '🔥' : (item.template === 'Ad_Plot_Video_V2' ? '🎥' : '📖');
+                    const templateLabel = ({'PPT_Porn':'🔥','PPT_Porn_Loop_Video':'🔥','Ad_Plot_Video_V2':'🎥','Ad_Plot_Seedance':'🎬','Dialogue':'💬','PPT_Multi':'📑','Comic':'🖼','Digital':'🤖','Extract':'🧊'})[item.template] || '📖';
                     const statusText = item.isDone ? '✅' : '⏳';
                     const thumbHtml = item.coverUrl
                         ? '<img src="' + item.coverUrl + '" style="width:48px;height:64px;border-radius:6px;object-fit:cover;" onerror="this.style.display=\'none\'">'
