@@ -2639,6 +2639,20 @@
                                     <option value="Ad_Plot_Video_V2">🎥 Story Sora (AI Cinematic)</option>
                                 </select>
                             </div>
+                            <div style="margin-top:8px;">
+                                <div style="font-size:12px;font-weight:400;color:var(--ink-mute);margin-bottom:4px;">💡 Prompt</div>
+                                <textarea id="reelPrompt" rows="3" style="width:100%;padding:8px 10px;border:1px solid var(--hairline);border-radius:8px;font-size:12px;font-family:inherit;resize:vertical;background:white;" placeholder="Describe your requirements in natural language. Tip: cover copy, imagery, and action. E.g. end with: Search code 4712 to read the full story for free!"></textarea>
+                            </div>
+                            <div style="display:flex;gap:8px;margin-top:8px;">
+                                <div style="flex:1;">
+                                    <div style="font-size:12px;font-weight:400;color:var(--ink-mute);margin-bottom:4px;">Start Chapter</div>
+                                    <input type="number" id="reelStartChapter" min="1" style="width:100%;padding:8px 10px;border:1px solid var(--hairline);border-radius:8px;font-size:12px;font-family:inherit;background:white;" placeholder="e.g. 1">
+                                </div>
+                                <div style="flex:1;">
+                                    <div style="font-size:12px;font-weight:400;color:var(--ink-mute);margin-bottom:4px;">End Chapter</div>
+                                    <input type="number" id="reelEndChapter" min="1" style="width:100%;padding:8px 10px;border:1px solid var(--hairline);border-radius:8px;font-size:12px;font-family:inherit;background:white;" placeholder="e.g. 5">
+                                </div>
+                            </div>
                             <div style="font-size:11px;color:var(--ink-mute);padding:4px 0;">⏱ Video generation takes ~25 minutes. Check My Reels for progress.</div>
                         </div>
                     </div>
@@ -6369,6 +6383,9 @@ function renderMyBooks() {
                 // Language: EN system = English, ES system = Spanish
                 const reelLang = AppState.currentLang === 'es' ? 'Spanish' : 'English';
                 const reelCountry = AppState.currentLang === 'es' ? 'ES' : 'US';
+                const reelPrompt = document.getElementById('reelPrompt')?.value?.trim() || '';
+                const reelStartCh = document.getElementById('reelStartChapter')?.value || '';
+                const reelEndCh = document.getElementById('reelEndChapter')?.value || '';
                 const resp = await fetch('/api/ac-create', {
                     method: 'POST',
                     headers,
@@ -6379,7 +6396,10 @@ function renderMyBooks() {
                         remark: 'nf_' + (AppState.user?.username || 'guest') + '_' + Date.now(),
                         num: 1,
                         language: reelLang,
-                        country: reelCountry
+                        country: reelCountry,
+                        prompt: reelPrompt,
+                        start_chapter: reelStartCh,
+                        end_chapter: reelEndCh
                     })
                 });
                 let result;
