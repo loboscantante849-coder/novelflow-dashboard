@@ -19,7 +19,7 @@ const PUTREPORT_API = 'https://ad.anystories.app/api/v1/novelflowmiddlegroundman
 // Only dedicated KOC campaigns (one user, one campaign, all links belong to that user)
 // Shared channels like xujt/zhangth/jiangjx/zhangshang contain links from MANY users — MUST NOT map here
 const CAMPAIGN_USER_MAP = {
-  '69f42260362028a0ac10b770': 'ConsEspher',
+  '69f42260362028a0ac10b770': 'Cons Espher',
   '69f94be3e71c030eb9032000': 'DRAS',
 };
 
