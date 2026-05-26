@@ -11,13 +11,11 @@ const { getBookstoreToken } = require('./_lib/oidc-token');
 const PUTREPORT_API = 'https://ad.anystories.app/api/v1/novelflowmiddlegroundmanage/putreport/putreport';
 
 // Campaign → username mapping for fallback queries
+// Only dedicated KOC campaigns (one user, one campaign, all links belong to that user)
+// Shared channels like xujt/zhangth/jiangjx/zhangshang contain links from MANY users — MUST NOT map here
 const CAMPAIGN_USER_MAP = {
   '69f42260362028a0ac10b770': 'ConsEspher',
   '69f94be3e71c030eb9032000': 'DRAS',
-  '699ef7b8194eb218db3c2270': 'xujt',
-  '690dc4d8f12f26c746c245b3': 'zhangth',
-  '690afae3f12f26c746c24553': 'jiangjx',
-  '694ca8495351adbc02818388': 'zhangshang'
 };
 
 // Reverse map: username (lowercase) → campaign IDs
