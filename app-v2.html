@@ -6551,8 +6551,13 @@ function renderMyBooks() {
                             actionsHtml += '</div>';
                         }
                         let copyTextHtml = '';
-                        if (item.isDone && item.creativeText) {
-                            copyTextHtml = '<div class="reels-item-copy" data-raw="' + escapeHtml(stripHtml(item.creativeText)) + '">' + escapeHtml(stripHtml(item.creativeText)) + '</div>';
+                        // Fallback: use book description if no creativeText
+                        const reelMeta = JSON.parse(localStorage.getItem(getUserKey('reel_meta')) || '{}');
+                        const meta = reelMeta[item.id] || {};
+                        const fallbackText = meta.description || '';
+                        const displayText = item.creativeText || fallbackText;
+                        if (item.isDone && displayText) {
+                            copyTextHtml = '<div class="reels-item-copy" data-raw="' + escapeHtml(stripHtml(displayText)) + '">' + escapeHtml(stripHtml(displayText)) + '</div>';
                         }
 
                         return '<div class="reels-item">' + thumbHtml + '<div class="reels-item-body"><div class="reels-item-title">' + escapeHtml(item.book_name || item.title || 'Untitled') + '</div><div class="reels-item-status ' + (item.isDone ? 'done' : (item.isFail ? 'fail' : '')) + '">' + statusText + '</div>' + actionsHtml + copyTextHtml + '</div></div>';
@@ -6790,6 +6795,16 @@ function renderMyBooks() {
                     // Save this reel's task ID to user's reel list
                     const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
                     if (taskId && !myReelIds.includes(taskId)) { myReelIds.push(taskId); localStorage.setItem(getUserKey('my_reel_ids'), JSON.stringify(myReelIds)); }
+                    // Save book description as fallback for reel copy text
+                    if (taskId) {
+                        const reelMeta = JSON.parse(localStorage.getItem(getUserKey('reel_meta')) || '{}');
+                        const bookDesc = reelSelectedBook?.description || currentRecommendBook?.description || '';
+                        const bookTitle = reelSelectedBook?.title || currentRecommendBook?.title || taskName || '';
+                        const bookCode = reelSelectedBook?.code || currentRecommendBook?.code || '';
+                        const bookLink = reelSelectedBook?.link || currentRecommendBook?.link || '';
+                        reelMeta[taskId] = { description: bookDesc, title: bookTitle, code: bookCode, link: bookLink };
+                        localStorage.setItem(getUserKey('reel_meta'), JSON.stringify(reelMeta));
+                    }
                     showToast('🎬 Reel created for "' + taskName + '"! Video generates in ~25 min. Check My Reels for progress.', 'success');
                     // Show congratulations modal
                     showReelSuccessModal(taskName);
@@ -6936,8 +6951,13 @@ function renderMyBooks() {
                         }
                         
                         let copyTextHtml = '';
-                        if (item.isDone && item.creativeText) {
-                            copyTextHtml = '<div class="reels-item-copy" data-raw="' + escapeHtml(stripHtml(item.creativeText)) + '">' + escapeHtml(stripHtml(item.creativeText)) + '</div>';
+                        // Fallback: use book description if no creativeText
+                        const reelMeta = JSON.parse(localStorage.getItem(getUserKey('reel_meta')) || '{}');
+                        const meta = reelMeta[item.id] || {};
+                        const fallbackText = meta.description || '';
+                        const displayText = item.creativeText || fallbackText;
+                        if (item.isDone && displayText) {
+                            copyTextHtml = '<div class="reels-item-copy" data-raw="' + escapeHtml(stripHtml(displayText)) + '">' + escapeHtml(stripHtml(displayText)) + '</div>';
                         }
 
                         return '<div class="reels-item">' +
