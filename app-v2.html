@@ -2656,11 +2656,12 @@
                             <div style="font-size:11px;color:var(--ink-mute);padding:4px 0;">⏱ Video generation takes ~25 minutes. Check My Reels for progress.</div>
                         </div>
                     </div>
-                    <div class="reels-actions">
-                        <button class="reels-btn reels-btn-create" id="reelsCreateBtn" onclick="createReelFromSection()" disabled data-i18n="create_reel">Create Reel</button>
-                        <button class="reels-btn reels-btn-list" onclick="listMyReels()" data-i18n="my_reels">My Reels</button>
+                    <button class="reels-btn reels-btn-create" id="reelsCreateBtn" onclick="createReelFromSection()" disabled data-i18n="create_reel" style="width:calc(100% - 32px);margin:0 16px 8px;">Create Reel</button>
+                    <div id="reelsStatusBar" onclick="switchReelMode('xmp')" style="margin:0 16px 12px;padding:8px 12px;background:var(--canvas-soft);border-radius:8px;font-size:12px;color:var(--ink-mute);cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+                        <span id="reelsStatusText">🎬 No reels yet</span>
+                        <span style="font-size:10px;color:var(--primary);">View all →</span>
                     </div>
-                    <div class="reels-list" id="reelsList"></div>
+                    <div class="reels-list" id="reelsList" style="display:none;"></div>
                 </div>
 
                 <!-- XMP Asset Library Mode -->
@@ -5343,7 +5344,7 @@ function renderMyBooks() {
             
             document.getElementById('splashScreen').classList.add('hidden');
             updateProfileUI();
-            loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo();
+            loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo(); updateReelsStatusBar();
             loadMyBooks();
             loadPerformanceDashboard();
             showToast('Welcome, ' + username + '!', 'success');
@@ -6156,7 +6157,7 @@ function renderMyBooks() {
             const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || 'guest';
             const count = getReelsDailyCount() + 1;
             localStorage.setItem(getUserKey('reels_count'), JSON.stringify({ date: today, username: username, count: count }));
-            updateReelsDailyInfo();
+            updateReelsDailyInfo(); updateReelsStatusBar();
             return count;
         }
         function updateReelsDailyInfo() {
@@ -6167,6 +6168,19 @@ function renderMyBooks() {
             }
         }
         const REELS_DAILY_LIMIT = 7;
+
+        function updateReelsStatusBar() {
+            const statusEl = document.getElementById('reelsStatusText');
+            if (!statusEl) return;
+            const remaining = REELS_DAILY_LIMIT - getReelsDailyCount();
+            const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
+            const total = myReelIds.length;
+            if (total === 0) {
+                statusEl.textContent = '🎬 No reels yet · ' + remaining + ' left today';
+            } else {
+                statusEl.textContent = '🎬 ' + total + ' reel' + (total > 1 ? 's' : '') + ' · ' + remaining + ' left today';
+            }
+        }
 
         let reelSelectedBook = null;
 
@@ -6693,7 +6707,7 @@ function renderMyBooks() {
 
         // Load AC token on init
         // Initialize reels daily info display
-        updateReelsDailyInfo();
+        updateReelsDailyInfo(); updateReelsStatusBar();
 
 
 
