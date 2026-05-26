@@ -2852,7 +2852,7 @@
                 <div class="vip-exchange-card" id="vipExchangeCard">
                     <div class="vip-icon">👑</div>
                     <div class="vip-info">
-                        <div class="vip-title" data-i18n="vip_exchange">50 pts → 3 Days VIP</div>
+                        <div class="vip-title" data-i18n="vip_exchange">100 pts → 3 Days VIP</div>
                         <div class="vip-subtitle" data-i18n="vip_subtitle">Unlock premium novels & ad-free reading</div>
                     </div>
                     <button class="vip-exchange-btn" id="vipExchangeBtn" onclick="exchangeVIP()" disabled data-i18n="exchange">Exchange</button>
@@ -3280,7 +3280,7 @@
                 mission_bind: 'Bind NovelFlow ID',
                 mission_bind_desc: 'Open NovelFlow app → Profile → Copy ID',
                 bind_btn: 'Bind',
-                vip_exchange: '50 pts → 3 Days VIP',
+                vip_exchange: '100 pts → 3 Days VIP',
                 vip_subtitle: 'Unlock premium novels & ad-free reading',
                 exchange: 'Exchange',
                 checkin_complete: 'Check-in Complete!',
@@ -3292,7 +3292,7 @@
                 toast_already_checkin: 'Already checked in today!',
                 toast_invalid_id: 'Please enter a valid NovelFlow ID',
                 toast_id_bound: 'NovelFlow ID bound successfully!',
-                toast_not_enough: 'Not enough points (need 50)',
+                toast_not_enough: 'Not enough points (need 100)',
                 toast_vip_activated: '🎉 VIP activated for 3 days!',
                 nav_home: 'Home',
                 nav_tasks: 'Tasks',
@@ -3923,7 +3923,7 @@
             const badge = document.getElementById('pointsBadge');
             if (badge) badge.innerHTML = getUserPoints() + ' <span data-i18n="pts">' + getText('pts') + '</span>';
             const vipBtn = document.getElementById('vipExchangeBtn');
-            if (vipBtn) vipBtn.disabled = getUserPoints() < 50;
+            if (vipBtn) vipBtn.disabled = getUserPoints() < 100;
         }
 
         // ========== Claimed Missions Tracker ==========
@@ -4110,11 +4110,16 @@
 
         function exchangeVIP() {
             const pts = getUserPoints();
-            if (pts < 50) {
+            if (pts < 100) {
                 showToast(getText('toast_not_enough'), 'error');
                 return;
             }
-            addUserPoints(-50);
+            const bindId = localStorage.getItem(getUserKey('bind_id'));
+            if (!bindId) {
+                showToast('Please bind your NovelFlow ID first!', 'error');
+                return;
+            }
+            addUserPoints(-100);
             // Track VIP days
             const vipDays = parseInt(localStorage.getItem(getUserKey('vip_days')) || '0');
             const newVipDays = vipDays + 3;
