@@ -6981,5 +6981,27 @@ function renderMyBooks() {
             </div>
         </div>
     </div>
+    <!-- Set Password Modal -->
+    <div id="setPasswordModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;">
+        <div style="background:white;border-radius:16px;padding:24px;width:320px;max-width:90vw;">
+            <div style="font-size:16px;font-weight:600;margin-bottom:16px;">&#128274; Set Password</div>
+            <div id="setPasswordOldRow" style="display:none;margin-bottom:12px;">
+                <div style="font-size:12px;color:#999;margin-bottom:4px;">Current Password</div>
+                <input type="password" id="setOldPassword" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;" placeholder="Enter current password">
+            </div>
+            <div style="margin-bottom:12px;">
+                <div style="font-size:12px;color:#999;margin-bottom:4px;">New Password</div>
+                <input type="password" id="setNewPassword" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;" placeholder="At least 4 characters">
+            </div>
+            <div style="margin-bottom:16px;">
+                <div style="font-size:12px;color:#999;margin-bottom:4px;">Confirm Password</div>
+                <input type="password" id="setConfirmPassword" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;" placeholder="Re-enter password">
+            </div>
+            <div style="display:flex;gap:8px;">
+                <button onclick="closeSetPasswordModal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ddd;background:white;font-size:13px;cursor:pointer;font-family:inherit;">Cancel</button>
+                <button onclick="submitSetPassword()" style="flex:1;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#FF6B9D,#C084FC);color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Save</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
