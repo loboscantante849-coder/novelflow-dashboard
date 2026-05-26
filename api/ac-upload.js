@@ -1,10 +1,13 @@
 /**
  * POST /api/ac-upload
- * Upload reference images to Vercel Blob for AI video generation
+ * Generate a presigned URL for client-side direct upload to Vercel Blob
+ * Alternatively, handles server-side upload for smaller files
  */
 
 const { put } = require('@vercel/blob');
 const { setCORSHeaders } = require('./_lib/cors');
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -12,67 +15,66 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // Vercel serverless functions don't natively parse multipart/form-data
-    // We use the raw body approach
     const contentType = req.headers['content-type'] || '';
+    
     if (!contentType.includes('multipart/form-data')) {
       return res.status(400).json({ error: 'Content-Type must be multipart/form-data' });
     }
 
-    // Parse multipart using busboy or simple boundary parsing
-    // For simplicity, use the built-in approach with @vercel/blob client upload
-    // Actually, server-side: we need to parse the file from the request
-    // Vercel provides req.body as parsed when using formidable/multiparty
-    // But in Node.js API routes, we need to handle it manually
-
-    // Simple approach: use the buffer from raw body
     const boundary = contentType.split('boundary=')[1];
     if (!boundary) return res.status(400).json({ error: 'No boundary found' });
 
-    // Collect raw body chunks
+    // Collect raw body
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     const rawBody = Buffer.concat(chunks);
 
-    // Find file data in multipart
-    const boundaryStr = '--' + boundary;
+    // Parse multipart manually
+    const boundaryBuf = Buffer.from('--' + boundary);
     const parts = [];
-    let start = rawBody.indexOf(boundaryStr) + boundaryStr.length;
+    let pos = 0;
 
-    while (start < rawBody.length) {
-      // Skip \r\n after boundary
-      start += 2;
-      // Find next boundary
-      const nextBoundary = rawBody.indexOf(boundaryStr, start);
+    while (pos < rawBody.length) {
+      const boundaryStart = rawBody.indexOf(boundaryBuf, pos);
+      if (boundaryStart === -1) break;
+      
+      pos = boundaryStart + boundaryBuf.length + 2; // skip \r\n
+      
+      const nextBoundary = rawBody.indexOf(boundaryBuf, pos);
       if (nextBoundary === -1) break;
 
-      const partData = rawBody.slice(start, nextBoundary - 2); // -2 for \r\n before boundary
+      const partData = rawBody.slice(pos, nextBoundary - 2); // -2 for \r\n before boundary
       const headerEnd = partData.indexOf('\r\n\r\n');
-      if (headerEnd === -1) { start = nextBoundary + boundaryStr.length; continue; }
+      if (headerEnd === -1) { pos = nextBoundary; continue; }
 
-      const header = partData.slice(0, headerEnd).toString();
+      const header = partData.slice(0, headerEnd).toString('utf-8');
       const bodyData = partData.slice(headerEnd + 4);
 
-      // Check if this part is a file
       const nameMatch = header.match(/name="([^"]+)"/);
       const filenameMatch = header.match(/filename="([^"]+)"/);
 
       if (nameMatch && filenameMatch && nameMatch[1] === 'file') {
-        const filename = filenameMatch[1];
-        // Generate unique path
-        const ext = filename.split('.').pop() || 'png';
-        const uniqueName = 'ref-img/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+        if (bodyData.length > MAX_FILE_SIZE) {
+          return res.status(413).json({ error: 'File too large (max 10MB)' });
+        }
 
-        // Upload to Vercel Blob
+        const filename = filenameMatch[1];
+        const ext = filename.split('.').pop() || 'png';
+        const safeExt = ext.replace(/[^a-zA-Z0-9]/g, '').slice(0, 5);
+        const uniqueName = 'ref-img/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + safeExt;
+
+        const ctMatch = header.match(/Content-Type:\s*([^\r\n]+)/i);
+        const fileContentType = ctMatch ? ctMatch[1].trim() : 'image/png';
+
         const blob = await put(uniqueName, bodyData, {
           access: 'public',
-          contentType: header.match(/Content-Type:\s*([^\r\n]+)/)?.[1] || 'image/png',
+          contentType: fileContentType,
         });
 
         parts.push({ url: blob.url, pathname: blob.pathname });
       }
 
-      start = nextBoundary + boundaryStr.length;
+      pos = nextBoundary;
     }
 
     if (parts.length === 0) {
