@@ -5054,10 +5054,12 @@
             }
 
             try {
-                const response = await fetch(`/api/my-stats?username=${encodeURIComponent(username)}`);
+                const response = await fetch(`/api/per-link-stats?username=${encodeURIComponent(username)}`);
                 if (!response.ok) throw new Error('Failed to fetch stats');
                 
                 const data = await response.json();
+                // per-link-stats returns 'links' instead of 'books' — normalize for renderMyBooks
+                if (data.links && !data.books) data.books = data.links;
                 UserStats.data = data;
                 
                 // Update overview
