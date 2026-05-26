@@ -1,12 +1,32 @@
 /**
  * GET /api/per-link-stats?username=xxx
- * Queries putreport API with each link's linkId as adid
- * Returns precise per-link stats (not campaign-level aggregation)
+ * Two-phase data query:
+ * Phase 1: Query putreport by user's linkIds (from submissions.json)
+ * Phase 2: If user has known campaigns, query those campaigns by adid grouping (fallback for old KOC links)
+ * Merge & deduplicate results
  */
 const { setCORSHeaders } = require('./_lib/cors');
 const { getBookstoreToken } = require('./_lib/oidc-token');
 
 const PUTREPORT_API = 'https://ad.anystories.app/api/v1/novelflowmiddlegroundmanage/putreport/putreport';
+
+// Campaign → username mapping for fallback queries
+const CAMPAIGN_USER_MAP = {
+  '69f42260362028a0ac10b770': 'ConsEspher',
+  '69f94be3e71c030eb9032000': 'DRAS',
+  '699ef7b8194eb218db3c2270': 'xujt',
+  '690dc4d8f12f26c746c245b3': 'zhangth',
+  '690afae3f12f26c746c24553': 'jiangjx',
+  '694ca8495351adbc02818388': 'zhangshang'
+};
+
+// Reverse map: username (lowercase) → campaign IDs
+const USER_CAMPAIGNS = {};
+for (const [cid, uname] of Object.entries(CAMPAIGN_USER_MAP)) {
+  const key = uname.toLowerCase();
+  if (!USER_CAMPAIGNS[key]) USER_CAMPAIGNS[key] = [];
+  USER_CAMPAIGNS[key].push(cid);
+}
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -40,26 +60,50 @@ module.exports = async (req, res) => {
       s.linkId
     );
 
-    if (userSubs.length === 0) {
-      return res.status(200).json({ username, links: [], message: 'No completed submissions with linkIds' });
-    }
-
     // Step 2: Get putreport token
     const token = await getBookstoreToken();
     if (!token) return res.status(500).json({ error: 'Failed to get API token' });
 
-    // Step 3: Query putreport with all linkIds as adid filter
-    const linkIds = userSubs.map(s => s.linkId);
     const now = new Date();
     const dateTo = now.toISOString().split('T')[0];
-    const dateFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    // Use wider date range for historical data (90 days)
+    const dateFrom = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    // Split into batches of 50 (putreport limit)
     const BATCH_SIZE = 50;
     let allRows = [];
 
-    for (let i = 0; i < linkIds.length; i += BATCH_SIZE) {
-      const batch = linkIds.slice(i, i + BATCH_SIZE);
+    // Phase 1: Query by user's linkIds
+    if (userSubs.length > 0) {
+      const linkIds = userSubs.map(s => s.linkId);
+      for (let i = 0; i < linkIds.length; i += BATCH_SIZE) {
+        const batch = linkIds.slice(i, i + BATCH_SIZE);
+        const resp = await fetch(PUTREPORT_API, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'X-OS': 'web', 'X-AppName': 'web-admin',
+            'X-AppIdentifier': 'web', 'X-AppVersion': '1.0.0,1',
+            'Content-Type': 'application/json;charset=UTF-8',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            filters: {
+              productline: ['NovelFlow'], mediasource: [], mediasource2: ['SocialMedia'],
+              date: { from: dateFrom, to: dateTo, datesLabel: '' },
+              campaignid: [], adsetid: [], adid: batch, copywritingid: []
+            },
+            groupings: ['adid', 'date']
+          })
+        });
+        if (resp.status === 401) return res.status(500).json({ error: 'API token expired' });
+        const data = await resp.json();
+        if (data.data) allRows = allRows.concat(data.data);
+      }
+    }
+
+    // Phase 2: Campaign fallback - query by campaignid with adid grouping
+    const userCampaigns = USER_CAMPAIGNS[username.toLowerCase()] || [];
+    for (const campaignId of userCampaigns) {
       const resp = await fetch(PUTREPORT_API, {
         method: 'POST',
         headers: {
@@ -71,28 +115,20 @@ module.exports = async (req, res) => {
         },
         body: JSON.stringify({
           filters: {
-            productline: ['NovelFlow'],
-            mediasource: [],
-            mediasource2: ['SocialMedia'],
+            productline: ['NovelFlow'], mediasource: [], mediasource2: ['SocialMedia'],
             date: { from: dateFrom, to: dateTo, datesLabel: '' },
-            campaignid: [],
-            adsetid: [],
-            adid: batch,
-            copywritingid: []
+            campaignid: [campaignId], adsetid: [], adid: [], copywritingid: []
           },
           groupings: ['adid', 'date']
         })
       });
-
-      if (resp.status === 401) {
-        return res.status(500).json({ error: 'API token expired' });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.data) allRows = allRows.concat(data.data);
       }
-
-      const data = await resp.json();
-      if (data.data) allRows = allRows.concat(data.data);
     }
 
-    // Step 4: Structure the response
+    // Step 3: Structure the response - aggregate by adid
     const linkMap = {};
     for (const row of allRows) {
       const adid = row.adid || '';
@@ -115,10 +151,16 @@ module.exports = async (req, res) => {
       }
     }
 
-    // Step 5: Merge with submission metadata
-    const links = userSubs.map(sub => {
+    // Step 4: Build links array - merge submission metadata with putreport data
+    // Start with submissions (have code/bookName/link metadata)
+    const seenAdids = new Set();
+    const links = [];
+
+    // First: user's app submissions (have full metadata)
+    for (const sub of userSubs) {
       const ls = linkMap[sub.linkId] || { total_visits: 0, total_unique: 0, total_new: 0, total_income: 0, daily: {} };
-      return {
+      seenAdids.add(sub.linkId);
+      links.push({
         bookName: sub.matchedBookName || sub.bookName,
         bookId: sub.bookId,
         code: sub.code,
@@ -130,8 +172,39 @@ module.exports = async (req, res) => {
         new_users: ls.total_new,
         d14_income: Math.round(ls.total_income * 100) / 100,
         daily: ls.daily
-      };
-    });
+      });
+    }
+
+    // Then: campaign adids not in submissions (old links, no code metadata)
+    for (const [adid, ls] of Object.entries(linkMap)) {
+      if (seenAdids.has(adid)) continue;
+      // Only include if there's actual data
+      if (ls.total_unique > 0 || ls.total_income > 0 || ls.total_visits > 0) {
+        links.push({
+          bookName: 'Legacy Link',
+          bookId: null,
+          code: null,
+          link: null,
+          linkId: adid,
+          submittedAt: null,
+          visits: ls.total_visits,
+          unique_users: ls.total_unique,
+          new_users: ls.total_new,
+          d14_income: Math.round(ls.total_income * 100) / 100,
+          daily: ls.daily,
+          isLegacy: true
+        });
+      }
+    }
+
+    if (links.length === 0) {
+      return res.status(200).json({
+        username,
+        total_visits: 0, total_unique: 0, total_new: 0, total_income: 0,
+        daily: {}, links: [],
+        message: 'No completed submissions with linkIds'
+      });
+    }
 
     // Summary
     const totalVisits = links.reduce((s, l) => s + l.visits, 0);
