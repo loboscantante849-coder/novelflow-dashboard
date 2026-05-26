@@ -5054,7 +5054,7 @@
             }
 
             try {
-                const response = await fetch(`/api/my-stats?username=${encodeURIComponent(username)}`);
+                const response = await fetch(`/api/per-link-stats?username=${encodeURIComponent(username)}`);
                 if (!response.ok) throw new Error('Failed to fetch stats');
                 
                 const data = await response.json();
@@ -6002,7 +6002,7 @@ function renderMyBooks() {
             if (perfData) perfData.style.display = 'block';
             
             try {
-                const resp = await fetch('/api/my-stats?username=' + encodeURIComponent(AppState.user.username));
+                const resp = await fetch('/api/per-link-stats?username=' + encodeURIComponent(AppState.user.username));
                 if (!resp.ok) throw new Error('Failed');
                 const data = await resp.json();
                 _lastPerfData = data;
@@ -6019,9 +6019,9 @@ function renderMyBooks() {
                 if (pv) { const pvVal = data.total_visits || 0; pv.textContent = pvVal; pv.className = 'perf-stat-value' + (pvVal ? '' : ' zero'); }
                 if (pu) { pu.textContent = data.total_unique || 0; pu.className = 'perf-stat-value' + (data.total_unique ? '' : ' zero'); }
                 if (pi) { pi.textContent = '$' + income.toFixed(2); pi.className = 'perf-stat-value' + (income ? '' : ' zero'); }
-                if (pb) { pb.textContent = (data.books || []).length; }
+                if (pb) { pb.textContent = (data.links || data.books || []).length; }
                 if (pn) { pn.textContent = data.total_new || 0; pn.className = 'perf-stat-value' + (data.total_new ? '' : ' zero'); }
-                if (pl) { pl.textContent = (data.books || []).length; }
+                if (pl) { pl.textContent = (data.links || data.books || []).length; }
                 
                 // Calculate and render changes
                 renderChangeEl('perfIncomeChange', calcChange(data.income_daily));
@@ -6030,7 +6030,7 @@ function renderMyBooks() {
                 renderChangeEl('perfVisitsChange', calcChange(data.visits_daily || {}));
                 
                 // Tier progress
-                const booksCount = (data.books || []).length;
+                const booksCount = (data.links || data.books || []).length;
                 const tierFill = document.getElementById('tierProgressFill');
                 const tierCurrent = document.getElementById('tierCurrent');
                 const tierNext = document.getElementById('tierNext');
