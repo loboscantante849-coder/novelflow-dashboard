@@ -2622,7 +2622,7 @@
                 <!-- Mode Tabs -->
                 <div style="display:flex;gap:0;padding:0 16px 8px;">
                     <button id="reelModeAI" onclick="switchReelMode('ai')" style="flex:1;padding:8px;border:1px solid var(--hairline);border-radius:8px 0 0 8px;font-size:12px;font-weight:600;background:linear-gradient(135deg,#FF6B9D,#C084FC);color:white;border:none;cursor:pointer;font-family:inherit;" data-i18n="ai_generate">🤖 AI Generate</button>
-                    <button id="reelModeXMP" onclick="switchReelMode('xmp')" style="flex:1;padding:8px;border:1px solid var(--hairline);border-radius:0 8px 8px 0;font-size:12px;font-weight:600;background:white;color:var(--ink);cursor:pointer;font-family:inherit;" data-i18n="asset_library">📦 Asset Library</button>
+                    <button id="reelModeXMP" onclick="switchReelMode('xmp')" style="flex:1;padding:8px;border:1px solid var(--hairline);border-radius:0 8px 8px 0;font-size:12px;font-weight:600;background:white;color:var(--ink);cursor:pointer;font-family:inherit;" data-i18n="asset_library">🎬 My Reels</button>
                 </div>
 
                 <!-- AI Mode -->
@@ -2666,18 +2666,13 @@
                 <!-- XMP Asset Library Mode -->
                 <div id="reelXMPMode" style="display:none;">
                     <div style="padding:0 16px 8px;">
-                        <input type="text" id="xmpBookSearch" data-i18n-placeholder="xmp_search_placeholder" placeholder="Search a book to browse video assets..." style="width:calc(100% - 24px);padding:10px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;" oninput="searchXMBooks(this.value)">
-                        <div id="xmpBookResults" style="max-height:120px;overflow-y:auto;"></div>
-                        <div id="xmpAssetSection" style="display:none;margin-top:8px;">
-                            <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:4px;" data-i18n="video_assets_label">🎬 Video Assets</div>
-                            <div id="xmpResults" style="max-height:200px;overflow-y:auto;"></div>
-                            <div style="margin-top:6px;">
-                                <button class="reels-btn reels-btn-list" onclick="loadXMPMaterials()" style="width:100%;" data-i18n="refresh_assets">🔄 Refresh Assets</button>
-                            </div>
+                        <div id="myReelsAssetList" style="max-height:400px;overflow-y:auto;"></div>
+                        <div id="myReelsEmptyHint" style="text-align:center;padding:20px 12px;color:var(--ink-mute);font-size:13px;">
+                            <div style="font-size:24px;margin-bottom:8px;">🎬</div>
+                            No reels yet. Create your first reel in AI Generate!
                         </div>
-                        <div id="xmpEmptyHint" style="text-align:center;padding:20px 12px;color:var(--ink-mute);font-size:13px;">
-                            <div style="font-size:24px;margin-bottom:8px;">📦</div>
-                            Search a book to browse ready-made video assets
+                        <div style="margin-top:8px;">
+                            <button class="reels-btn reels-btn-list" onclick="loadMyReelsAssets()" style="width:100%;">🔄 Refresh My Reels</button>
                         </div>
                     </div>
                 </div>
@@ -3212,7 +3207,7 @@
                 
                 // Reels
                 ai_generate: '🤖 AI Generate',
-                asset_library: '📦 Asset Library',
+                asset_library: '🎬 My Reels',
                 create_reel: 'Create Reel',
                 my_reels: 'My Reels',
                 create_reels_book: '🎬 Create Reels for This Book',
@@ -3249,7 +3244,7 @@
                 
                 // Toasts
                 toast_select_style: '🎬 Select a style and create your reel!',
-                toast_daily_limit: 'Daily limit reached (5 reels/day). Try again tomorrow!',
+                toast_daily_limit: 'Daily limit reached (7 reels/day). Try again tomorrow!',
                 toast_creating: 'Creating...',
                 status_ready: 'Ready to share',
                 status_failed: 'Failed',
@@ -3369,7 +3364,7 @@
                 
                 // Reels
                 ai_generate: '🤖 Generar con IA',
-                asset_library: '📦 Biblioteca de Recursos',
+                asset_library: '🎬 Mis Reels',
                 create_reel: 'Crear Reel',
                 my_reels: 'Mis Reels',
                 create_reels_book: '🎬 Crear Reels para Este Libro',
@@ -3406,7 +3401,7 @@
                 
                 // Toasts
                 toast_select_style: '🎬 ¡Elige un estilo y crea tu reel!',
-                toast_daily_limit: 'Límite diario alcanzado (5 reels/día). ¡Inténtalo mañana!',
+                toast_daily_limit: 'Límite diario alcanzado (7 reels/día). ¡Inténtalo mañana!',
                 toast_creating: 'Creando...',
                 status_ready: 'Listo para compartir',
                 status_failed: 'Fallido',
@@ -6171,7 +6166,7 @@ function renderMyBooks() {
                 el.textContent = remaining + getText('reels_left');
             }
         }
-        const REELS_DAILY_LIMIT = 5;
+        const REELS_DAILY_LIMIT = 7;
 
         let reelSelectedBook = null;
 
@@ -6198,11 +6193,103 @@ function renderMyBooks() {
                 aiBtn.style.color = 'var(--ink)';
                 aiPanel.style.display = 'none';
                 xmpPanel.style.display = '';
-                if (!xmpPanel.dataset.loaded) { loadXMPMaterials(); xmpPanel.dataset.loaded = '1'; }
+                if (!xmpPanel.dataset.loaded) { loadMyReelsAssets(); xmpPanel.dataset.loaded = '1'; }
             }
         }
 
-        // ========== XMP Asset Library ==========
+        // ========== My Reels Asset Library ==========
+        async function loadMyReelsAssets() {
+            const listEl = document.getElementById('myReelsAssetList');
+            const emptyEl = document.getElementById('myReelsEmptyHint');
+            if (!listEl) return;
+
+            try {
+                const headers = {};
+                const savedToken = localStorage.getItem('novelflow_ac_token');
+                if (savedToken) headers['x-ac-token'] = savedToken;
+                const resp = await fetch('/api/ac-list', { headers });
+                const result = await resp.json();
+                if (result.newToken) { saveACToken(result.newToken); }
+                const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
+                const currentUser = AppState.user?.username || '';
+                const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
+                const myBookNames = (AppState.myBooks || []).map(b => (b.title || b.bookName || '').toLowerCase());
+                const filteredItems = items.filter(item => {
+                    const itemId = String(item.id || item.task_id || '');
+                    if (myReelIds.includes(itemId)) return true;
+                    if (item.remark && item.remark.startsWith('nf_' + currentUser + '_')) return true;
+                    if (currentUser && item.book_name && myBookNames.includes(item.book_name.toLowerCase())) return true;
+                    return false;
+                });
+
+                if (filteredItems.length > 0) {
+                    if (emptyEl) emptyEl.style.display = 'none';
+                    const enrichedItems = await Promise.all(filteredItems.slice(0, 10).map(async (item) => {
+                        const status = item.status || '';
+                        const isDone = (status === 'completed' || status === 2 || status === 'done');
+                        const isFail = (status === 'failed' || status === -1 || status === 'fail');
+                        let videoUrl = '', coverUrl = '', creativeText = '';
+                        if (isDone && item.thread_id) {
+                            try {
+                                const rHeaders = {};
+                                if (savedToken) rHeaders['x-ac-token'] = savedToken;
+                                const rResp = await fetch('/api/ac-result?threadId=' + item.thread_id, { headers: rHeaders });
+                                const rResult = await rResp.json();
+                                if (rResult.newToken) saveACToken(rResult.newToken);
+                                const rData = rResult.data || {};
+                                const finalResults = Array.isArray(rData.final_result) ? rData.final_result : [];
+                                const materials = rData.materials || rData.items || rData.results || [];
+                                const allResults = finalResults.length > 0 ? finalResults : materials;
+                                if (allResults.length > 0) {
+                                    const first = allResults[0];
+                                    videoUrl = first.video_url || '';
+                                    coverUrl = first.cover_image_url || '';
+                                    creativeText = first.creative_text || first.dialogue_content || first.landing_page_copy || '';
+                                }
+                            } catch(e) { console.warn('Failed to fetch result for', item.thread_id, e); }
+                        }
+                        return { ...item, isDone, isFail, videoUrl, coverUrl, creativeText };
+                    }));
+
+                    listEl.innerHTML = enrichedItems.map(item => {
+                        let statusText = '';
+                        if (item.isDone) statusText = '✅ Ready';
+                        else if (item.isFail) statusText = '❌ Failed';
+                        else statusText = '⏳ Processing...';
+
+                        const thumb = item.coverUrl || '';
+                        const playOverlay = item.videoUrl ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25);border-radius:8px;"><div style="width:22px;height:22px;background:rgba(255,255,255,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;">▶</div></div>' : '';
+                        const thumbClickAction = item.videoUrl ? ' onclick="playReelVideo(\'' + item.videoUrl.replace(/'/g, "\\'") + '\')"' : '';
+                        const placeholderGrad = 'linear-gradient(135deg, #FF6B9D33, #C084FC33)';
+                        const thumbHtml = thumb
+                            ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;"' + thumbClickAction + '><img src="' + thumb + '" style="width:100%;height:100%;object-fit:cover;">' + playOverlay + '</div>'
+                            : '<div style="width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;' + (item.videoUrl ? 'cursor:pointer;"' + thumbClickAction : '"') + '>🎬</div>';
+
+                        let actionsHtml = '';
+                        if (item.isDone) {
+                            actionsHtml = '<div class="reels-item-actions">';
+                            if (item.videoUrl) actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + item.videoUrl + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">Save</a>';
+                            if (item.creativeText) actionsHtml += '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)">Copy</button>';
+                            actionsHtml += '</div>';
+                        }
+                        let copyTextHtml = '';
+                        if (item.isDone && item.creativeText) {
+                            copyTextHtml = '<div class="reels-item-copy" data-raw="' + escapeHtml(stripHtml(item.creativeText)) + '">' + escapeHtml(stripHtml(item.creativeText)) + '</div>';
+                        }
+
+                        return '<div class="reels-item">' + thumbHtml + '<div class="reels-item-body"><div class="reels-item-title">' + escapeHtml(item.book_name || item.title || 'Untitled') + '</div><div class="reels-item-status ' + (item.isDone ? 'done' : (item.isFail ? 'fail' : '')) + '">' + statusText + '</div>' + actionsHtml + copyTextHtml + '</div></div>';
+                    }).join('');
+                } else {
+                    listEl.innerHTML = '';
+                    if (emptyEl) emptyEl.style.display = '';
+                }
+            } catch(e) {
+                console.error('loadMyReelsAssets error:', e);
+                listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">Failed to load reels</div>';
+            }
+        }
+
+        // ========== Legacy XMP (unused) ==========
         let xmpSelectedBook = null;
         async function searchXMBooks(query) {
             const container = document.getElementById('xmpBookResults');
