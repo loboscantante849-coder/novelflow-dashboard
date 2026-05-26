@@ -2663,6 +2663,7 @@
                         <div id="reelOptions" style="display:none;margin-top:8px;">
                             <div style="font-size:11px;color:var(--ink-mute);padding:4px 0;" data-i18n="min_15_note">⏱ Video generation takes ~25 minutes. Check My Reels for progress.</div>
                             <!-- Basic Mode Fields -->
+                            <div id="reelBasicFields">
                             <div class="reels-adv-label" style="margin-top:8px;" data-i18n="adv_video_style">🎬 Video Style</div>
                             <select id="reelTemplateBasic" class="reels-adv-input" style="cursor:pointer;">
                                 <option value="Ad_Plot_Video_V3" data-i18n="tmpl_story">📖 Story Slideshow (Video + Images)</option>
@@ -2682,7 +2683,8 @@
                             </div>
                             <div class="reels-adv-label" style="margin-top:8px;" data-i18n="adv_description">💡 Description</div>
                             <input type="text" id="reelDescBasic" class="reels-adv-input" data-i18n-placeholder="adv_desc_placeholder" placeholder="Briefly describe what you want (optional)">
-                        </div>
+                            </div><!-- /reelBasicFields -->
+                        </div><!-- /reelOptions -->
                         <!-- Advanced Creation Mode -->
                         <div class="reels-adv-panel" id="reelAdvPanel">
                             <div style="font-size:12px;font-weight:700;color:var(--ruby);margin-bottom:2px;" data-i18n="adv_mode_title">⚙️ Advanced Mode</div>
@@ -6356,10 +6358,13 @@ function renderMyBooks() {
         function toggleAdvMode() {
             const panel = document.getElementById('reelAdvPanel');
             const btn = document.getElementById('reelAdvToggle');
+            const basicFields = document.getElementById('reelBasicFields');
             if (!panel) return;
             panel.classList.toggle('open');
             const isOpen = panel.classList.contains('open');
             btn.innerHTML = isOpen ? '⚙️ ✓ Advanced' : '⚙️ Advanced';
+            // Hide basic fields when advanced is open, show when closed
+            if (basicFields) basicFields.style.display = isOpen ? 'none' : '';
         }
 
         async function handleRefImgUpload(input) {
