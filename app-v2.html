@@ -2646,7 +2646,7 @@
                     <span class="reels-header-title">🎬 Video Creator</span>
                     <div style="display:flex;align-items:center;gap:8px;">
                         <span style="font-size:11px;color:var(--ink-mute);" id="reelsDailyInfo">3 left today</span>
-                        <button class="reels-adv-toggle" id="reelAdvToggle" onclick="toggleAdvMode()">⚙️ Advanced</button>
+                        <button class="reels-adv-toggle" id="reelAdvToggle" onclick="toggleAdvMode()">⚙️ Switch to Advanced</button>
                     </div>
                 </div>
                 <!-- Mode Tabs -->
@@ -6362,7 +6362,7 @@ function renderMyBooks() {
             if (!panel) return;
             panel.classList.toggle('open');
             const isOpen = panel.classList.contains('open');
-            btn.innerHTML = isOpen ? '⚙️ ✓ Advanced' : '⚙️ Advanced';
+            btn.innerHTML = isOpen ? '⚙️ Switch to Basic' : '⚙️ Switch to Advanced';
             // Hide basic fields when advanced is open, show when closed
             if (basicFields) basicFields.style.display = isOpen ? 'none' : '';
         }
