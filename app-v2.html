@@ -4387,7 +4387,7 @@
                     localStorage.setItem('novelflow_last_user', AppState.user.username);
                     // If user changed, reload per-user data
                     if (prevUser !== AppState.user.username) {
-                        loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI();
+                        loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo();
                         loadMyBooks();
                     }
                     return;
@@ -5270,7 +5270,7 @@ function renderMyBooks() {
                     localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
                     localStorage.setItem('novelflow_last_user', username);
                     updateProfileUI();
-                    loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI();
+                    loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo();
                     loadMyBooks();
                     loadPerformanceDashboard();
                     showToast('✅ Welcome back, ' + username + '!', 'success');
@@ -5334,7 +5334,7 @@ function renderMyBooks() {
             
             document.getElementById('splashScreen').classList.add('hidden');
             updateProfileUI();
-            loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI();
+            loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo();
             loadMyBooks();
             loadPerformanceDashboard();
             showToast('Welcome, ' + username + '!', 'success');
@@ -6131,18 +6131,20 @@ function renderMyBooks() {
         // ========== Reels Daily Limit ==========
         function getReelsDailyCount() {
             const today = new Date().toISOString().split('T')[0];
-            const username = AppState.user?.username || 'guest';
+            const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || 'guest';
             const saved = localStorage.getItem(getUserKey('reels_count'));
             if (!saved) return 0;
             try {
                 const data = JSON.parse(saved);
                 if (data.date === today && data.username === username) return data.count || 0;
+                // Fallback: check by date only (username may have been set differently)
+                if (data.date === today) return data.count || 0;
                 return 0;
             } catch(e) { return 0; }
         }
         function incrementReelsCount() {
             const today = new Date().toISOString().split('T')[0];
-            const username = AppState.user?.username || 'guest';
+            const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || 'guest';
             const count = getReelsDailyCount() + 1;
             localStorage.setItem(getUserKey('reels_count'), JSON.stringify({ date: today, username: username, count: count }));
             updateReelsDailyInfo();
