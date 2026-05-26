@@ -2303,6 +2303,32 @@
         .reels-btn-copy { background: var(--canvas-soft); color: var(--ink); border: 1px solid var(--hairline); }
         .reels-btn-copy:hover { border-color: var(--ruby); color: var(--ruby); }
         .reels-item-copy { font-size: 11px; color: var(--ink-mute); margin-top: 6px; background: var(--canvas-soft); border-radius: 6px; padding: 6px 8px; line-height: 1.4; white-space: pre-wrap; max-height: 60px; overflow-y: auto; }
+        /* ========== Advanced Mode ========== */
+        .reels-adv-toggle { font-size:11px; color:var(--ruby); cursor:pointer; display:flex; align-items:center; gap:3px; background:none; border:none; font-family:inherit; font-weight:600; padding:2px 6px; border-radius:6px; }
+        .reels-adv-toggle:hover { background:rgba(255,107,157,0.08); }
+        .reels-adv-panel { margin:0 16px 8px; padding:12px; background:var(--canvas-soft); border:1px dashed var(--hairline); border-radius:10px; display:none; }
+        .reels-adv-panel.open { display:block; }
+        .reels-adv-label { font-size:11px; font-weight:600; color:var(--ink); margin-bottom:4px; margin-top:8px; }
+        .reels-adv-label:first-child { margin-top:0; }
+        .reels-adv-hint { font-size:10px; color:var(--ink-mute); margin-bottom:4px; }
+        .reels-adv-input { width:100%; padding:8px 10px; border:1px solid var(--hairline); border-radius:8px; font-size:12px; font-family:inherit; background:white; box-sizing:border-box; }
+        .reels-adv-input:focus { outline:none; border-color:var(--primary); }
+        .reels-adv-row { display:flex; gap:8px; }
+        .reels-adv-row > div { flex:1; }
+        .ref-img-grid { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+        .ref-img-thumb { width:52px; height:52px; border-radius:6px; object-fit:cover; border:1px solid var(--hairline); cursor:pointer; position:relative; }
+        .ref-img-remove { position:absolute; top:-4px; right:-4px; width:16px; height:16px; border-radius:50%; background:var(--danger); color:white; font-size:9px; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1; }
+        .ref-img-add { width:52px; height:52px; border-radius:6px; border:1px dashed var(--hairline); display:flex; align-items:center; justify-content:center; font-size:20px; color:var(--ink-mute); cursor:pointer; background:white; }
+        .ref-img-add:hover { border-color:var(--primary); color:var(--primary); }
+        /* Reel Success Modal */
+        .reel-success-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9998; display:flex; align-items:center; justify-content:center; }
+        .reel-success-card { background:white; border-radius:16px; padding:28px 20px 20px; max-width:320px; width:90%; text-align:center; box-shadow:0 8px 32px rgba(0,0,0,0.15); }
+        .reel-success-icon { font-size:48px; margin-bottom:8px; }
+        .reel-success-title { font-size:16px; font-weight:700; color:var(--ink); margin-bottom:4px; }
+        .reel-success-sub { font-size:12px; color:var(--ink-mute); margin-bottom:16px; line-height:1.5; }
+        .reel-success-cta { display:inline-block; padding:10px 24px; background:linear-gradient(135deg,#FF6B9D,#C084FC); color:white; border:none; border-radius:10px; font-size:13px; font-weight:600; cursor:pointer; text-decoration:none; font-family:inherit; }
+        .reel-success-cta:hover { opacity:0.9; }
+        .reel-success-close { margin-top:12px; font-size:11px; color:var(--ink-mute); cursor:pointer; background:none; border:none; font-family:inherit; }
 
         /* XMP filter buttons */
         .xmp-filter-btn { padding:4px 10px; border-radius:12px; font-size:11px; font-weight:500; border:1px solid var(--hairline); background:white; color:var(--ink-mute); cursor:pointer; font-family:inherit; }
@@ -2618,7 +2644,11 @@
             <div class="reels-section" id="reelsSection">
                 <div class="reels-header">
                     <span class="reels-header-title">🎬 Video Creator</span>
-                    <span style="font-size:11px;color:var(--ink-mute);" id="reelsDailyInfo">3 left today</span>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:11px;color:var(--ink-mute);" id="reelsDailyInfo">3 left today</span>
+                        <button class="reels-adv-toggle" id="reelAdvToggle" onclick="toggleAdvMode()">⚙️ Advanced</button>
+                    </div>
+                </div>
                 </div>
                 <!-- Mode Tabs -->
                 <div style="display:flex;gap:0;padding:0 16px 8px;">
@@ -2632,29 +2662,49 @@
                         <input type="text" class="reels-token-input" id="reelBookSearch" data-i18n-placeholder="reel_search" placeholder="Search book name to create reels..." style="width:calc(100% - 24px);padding:10px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;" oninput="searchReelBooks(this.value)">
                         <div id="reelBookResults" style="max-height:150px;overflow-y:auto;"></div>
                         <div id="reelOptions" style="display:none;margin-top:8px;">
-                            <div style="margin-bottom:8px;">
-                                <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:4px;">🎬 Video Style</div>
-                                <select id="reelTemplate" style="width:100%;padding:8px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;background:white;">
-                                    <option value="Ad_Plot_Video_V3">📖 Story Slideshow (Video + Images)</option>
-                                    <option value="PPT_Porn">🔥 Spicy &amp; Steamy</option>
-                                    <option value="Ad_Plot_Video_V2">🎥 Story Sora (AI Cinematic)</option>
-                                </select>
-                            </div>
-                            <div style="margin-top:8px;">
-                                <div style="font-size:12px;font-weight:400;color:var(--ink-mute);margin-bottom:4px;">💡 Prompt</div>
-                                <textarea id="reelPrompt" rows="3" style="width:100%;padding:8px 10px;border:1px solid var(--hairline);border-radius:8px;font-size:12px;font-family:inherit;resize:vertical;background:white;" placeholder="Describe your requirements in natural language. Tip: cover copy, imagery, and action. E.g. end with: Search code 4712 to read the full story for free!"></textarea>
-                            </div>
-                            <div style="display:flex;gap:8px;margin-top:8px;">
-                                <div style="flex:1;">
-                                    <div style="font-size:12px;font-weight:400;color:var(--ink-mute);margin-bottom:4px;">Start Chapter</div>
-                                    <input type="number" id="reelStartChapter" min="1" style="width:100%;padding:8px 10px;border:1px solid var(--hairline);border-radius:8px;font-size:12px;font-family:inherit;background:white;" placeholder="e.g. 1">
-                                </div>
-                                <div style="flex:1;">
-                                    <div style="font-size:12px;font-weight:400;color:var(--ink-mute);margin-bottom:4px;">End Chapter</div>
-                                    <input type="number" id="reelEndChapter" min="1" style="width:100%;padding:8px 10px;border:1px solid var(--hairline);border-radius:8px;font-size:12px;font-family:inherit;background:white;" placeholder="e.g. 5">
-                                </div>
-                            </div>
                             <div style="font-size:11px;color:var(--ink-mute);padding:4px 0;">⏱ Video generation takes ~25 minutes. Check My Reels for progress.</div>
+                        </div>
+                        <!-- Advanced Creation Mode -->
+                        <div class="reels-adv-panel" id="reelAdvPanel">
+                            <div style="font-size:12px;font-weight:700;color:var(--ruby);margin-bottom:2px;">⚙️ Advanced Mode</div>
+                            <div style="font-size:10px;color:var(--ink-mute);margin-bottom:8px;">限时免费功能！欢迎体验</div>
+
+                            <!-- Template -->
+                            <div class="reels-adv-label">🎬 Video Style</div>
+                            <select id="reelTemplate" class="reels-adv-input" style="cursor:pointer;">
+                                <option value="Ad_Plot_Video_V3">📖 Story Slideshow (Video + Images)</option>
+                                <option value="PPT_Porn">🔥 Spicy & Steamy</option>
+                                <option value="Ad_Plot_Video_V2">🎥 Story Sora (AI Cinematic)</option>
+                            </select>
+
+                            <!-- Chapter Range -->
+                            <div class="reels-adv-label">📚 Chapter Range</div>
+                            <div class="reels-adv-row">
+                                <div>
+                                    <div class="reels-adv-hint">Start Chapter</div>
+                                    <input type="number" id="reelStartChapter" min="1" class="reels-adv-input" placeholder="e.g. 1">
+                                </div>
+                                <div>
+                                    <div class="reels-adv-hint">End Chapter</div>
+                                    <input type="number" id="reelEndChapter" min="1" class="reels-adv-input" placeholder="e.g. 5">
+                                </div>
+                            </div>
+
+                            <!-- Build Requirement -->
+                            <div class="reels-adv-label">🏗 Build Requirement</div>
+                            <input type="text" id="reelBuildReq" class="reels-adv-input" placeholder="e.g. Focus on emotional tension, cliffhanger ending">
+
+                            <!-- Prompt / Ad Copy -->
+                            <div class="reels-adv-label">💡 Prompt / Ad Copy</div>
+                            <textarea id="reelPrompt" rows="3" class="reels-adv-input" style="resize:vertical;" placeholder="Describe your requirements. E.g. end with: Search code 4712 to read the full story for free!"></textarea>
+
+                            <!-- Reference Images -->
+                            <div class="reels-adv-label">🖼 Reference Images</div>
+                            <div class="reels-adv-hint">Upload images as visual reference for AI video generation (max 3)</div>
+                            <div class="ref-img-grid" id="refImgGrid">
+                                <div class="ref-img-add" id="refImgAddBtn" onclick="document.getElementById('refImgInput').click()">+</div>
+                                <input type="file" id="refImgInput" accept="image/*" multiple style="display:none;" onchange="handleRefImgUpload(this)">
+                            </div>
                         </div>
                     </div>
                     <button class="reels-btn reels-btn-create" id="reelsCreateBtn" onclick="createReelFromSection()" disabled data-i18n="create_reel" style="width:calc(100% - 32px);margin:0 16px 8px;">Create Reel</button>
@@ -6229,6 +6279,91 @@ function renderMyBooks() {
 
         // ========== Reel Mode Switching ==========
         let currentReelMode = 'ai';
+
+        // ========== Advanced Mode & Reference Images ==========
+        let _refImgUrls = []; // Stores uploaded reference image URLs
+
+        function toggleAdvMode() {
+            const panel = document.getElementById('reelAdvPanel');
+            const btn = document.getElementById('reelAdvToggle');
+            if (!panel) return;
+            panel.classList.toggle('open');
+            const isOpen = panel.classList.contains('open');
+            btn.innerHTML = isOpen ? '⚙️ ✓ Advanced' : '⚙️ Advanced';
+        }
+
+        async function handleRefImgUpload(input) {
+            const files = Array.from(input.files || []);
+            if (!files.length) return;
+            if (_refImgUrls.length + files.length > 3) {
+                showToast('Max 3 reference images', 'error');
+                input.value = '';
+                return;
+            }
+            for (const file of files) {
+                if (file.size > 10 * 1024 * 1024) {
+                    showToast('Image too large (max 10MB)', 'error');
+                    continue;
+                }
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const resp = await fetch('/api/ac-upload', { method: 'POST', body: formData });
+                    const result = await resp.json();
+                    if (result.url) {
+                        _refImgUrls.push(result.url);
+                    } else {
+                        showToast(result.error || 'Upload failed', 'error');
+                    }
+                } catch(e) {
+                    showToast('Upload failed: ' + e.message, 'error');
+                }
+            }
+            renderRefImgs();
+            input.value = '';
+        }
+
+        function removeRefImg(idx) {
+            _refImgUrls.splice(idx, 1);
+            renderRefImgs();
+        }
+
+        function renderRefImgs() {
+            const grid = document.getElementById('refImgGrid');
+            const addBtn = document.getElementById('refImgAddBtn');
+            if (!grid) return;
+            grid.querySelectorAll('.ref-img-thumb-wrap').forEach(el => el.remove());
+            if (addBtn) addBtn.style.display = _refImgUrls.length >= 3 ? 'none' : '';
+            _refImgUrls.forEach((url, i) => {
+                const wrap = document.createElement('div');
+                wrap.className = 'ref-img-thumb-wrap';
+                wrap.style.cssText = 'position:relative;display:inline-block;';
+                wrap.innerHTML = '<img src="' + url + '" class="ref-img-thumb"><button class="ref-img-remove" onclick="removeRefImg(' + i + ')">✕</button>';
+                if (addBtn) grid.insertBefore(wrap, addBtn);
+                else grid.appendChild(wrap);
+            });
+        }
+
+        // ========== Reel Success Modal ==========
+        function showReelSuccessModal(taskName) {
+            const existing = document.getElementById('reelSuccessOverlay');
+            if (existing) existing.remove();
+            const overlay = document.createElement('div');
+            overlay.id = 'reelSuccessOverlay';
+            overlay.className = 'reel-success-overlay';
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+            const earnLink = 'https://novelflow-dashboard.vercel.app/app-v2';
+            overlay.innerHTML = '<div class="reel-success-card">' +
+                '<div class="reel-success-icon">🎉</div>' +
+                '<div class="reel-success-title">Congratulations!</div>' +
+                '<div class="reel-success-sub">Video for &quot;' + escapeHtml(taskName) + '&quot; created successfully!<br>You can find it in My Reels.</div>' +
+                '<a class="reel-success-cta" href="' + earnLink + '#submit" onclick="document.getElementById(\'reelSuccessOverlay\').remove()">Upload Video & Earn Now 💰</a>' +
+                '<div style="font-size:10px;color:var(--ink-mute);margin-top:8px;">Share your video + link to earn commission</div>' +
+                '<button class="reel-success-close" onclick="document.getElementById(\'reelSuccessOverlay\').remove()">Close</button>' +
+                '</div>';
+            document.body.appendChild(overlay);
+        }
+
         function switchReelMode(mode) {
             currentReelMode = mode;
             const aiBtn = document.getElementById('reelModeAI');
@@ -6542,7 +6677,10 @@ function renderMyBooks() {
                         country: reelCountry,
                         prompt: reelPrompt,
                         start_chapter: reelStartCh,
-                        end_chapter: reelEndCh
+                        end_chapter: reelEndCh,
+                        build_requirement: document.getElementById('reelBuildReq')?.value?.trim() || '',
+                        ad_copy: reelPrompt,
+                        reference_picture_list: _refImgUrls.slice()
                     })
                 });
                 let result;
@@ -6563,6 +6701,11 @@ function renderMyBooks() {
                     const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
                     if (taskId && !myReelIds.includes(taskId)) { myReelIds.push(taskId); localStorage.setItem(getUserKey('my_reel_ids'), JSON.stringify(myReelIds)); }
                     showToast('🎬 Reel created for "' + taskName + '"! Video generates in ~25 min. Check My Reels for progress.', 'success');
+                    // Show congratulations modal
+                    showReelSuccessModal(taskName);
+                    // Clear advanced mode state
+                    _refImgUrls = [];
+                    renderRefImgs();
                     // Show creation progress card in reels section
                     const reelsList = document.getElementById('reelsList');
                     if (reelsList) {
