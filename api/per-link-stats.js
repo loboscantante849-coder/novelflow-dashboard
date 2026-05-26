@@ -1,9 +1,14 @@
 /**
  * GET /api/per-link-stats?username=xxx
- * Two-phase data query:
- * Phase 1: Query putreport by user's linkIds (from submissions.json)
- * Phase 2: If user has known campaigns, query those campaigns by adid grouping (fallback for old KOC links)
- * Merge & deduplicate results
+ * Three data sources:
+ * 1. Legacy links (old KOC links created manually in bookstore, in campaigns but not in submissions.json)
+ * 2. V1 submission system (self-service links, in submissions.json with linkId)
+ * 3. App-v2 aggregation site (new links, also in submissions.json)
+ *
+ * Two-phase query:
+ * Phase 1: Query putreport by user's linkIds (from submissions.json) — covers sources 2 & 3
+ * Phase 2: Query by dedicated campaign (fallback for legacy links) — covers source 1
+ * Merge & deduplicate by adid
  */
 const { setCORSHeaders } = require('./_lib/cors');
 const { getBookstoreToken } = require('./_lib/oidc-token');
@@ -16,6 +21,20 @@ const PUTREPORT_API = 'https://ad.anystories.app/api/v1/novelflowmiddlegroundman
 const CAMPAIGN_USER_MAP = {
   '69f42260362028a0ac10b770': 'ConsEspher',
   '69f94be3e71c030eb9032000': 'DRAS',
+};
+
+// Known legacy links with bookName metadata (created manually before submission system)
+const KNOWN_LEGACY_LINKS = {
+  // Cons Espher legacy links (campaign 69f42260362028a0ac10b770)
+  '69f42401e255ff29f2ff1708': { bookName: 'Legacy - Cons Espher Link 1' },
+  '69f4242e362028a0ac10b773': { bookName: 'Legacy - Cons Espher Link 2' },
+  '69f42482e255ff29f2ff170a': { bookName: 'Legacy - Cons Espher Link 3' },
+  '69f42364e255ff29f2ff1707': { bookName: 'Legacy - Cons Espher Link 4' },
+  '69f422db1e1476c5e25b1650': { bookName: 'Legacy - Cons Espher Link 5' },
+  // DRAS legacy links (campaign 69f94be3e71c030eb9032000)
+  '69f95cea362028a0ac10b7b2': { bookName: 'Legacy - DRAS Link 1' },
+  '69f95c9c362028a0ac10b7ae': { bookName: 'Legacy - DRAS Link 2' },
+  '69f963191e1476c5e25b16a3': { bookName: 'Legacy - DRAS Link 3' },
 };
 
 // Reverse map: username (lowercase) → campaign IDs
@@ -64,15 +83,18 @@ module.exports = async (req, res) => {
 
     const now = new Date();
     const dateTo = now.toISOString().split('T')[0];
-    // Use wider date range for historical data (90 days)
-    const dateFrom = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    // Use 365 days to cover all historical data including legacy links
+    const dateFrom = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     const BATCH_SIZE = 50;
     let allRows = [];
+    const phase1Adids = new Set(); // Track adids from Phase 1 for dedup
 
-    // Phase 1: Query by user's linkIds
+    // Phase 1: Query by user's linkIds (covers v1 submission system + app-v2)
     if (userSubs.length > 0) {
       const linkIds = userSubs.map(s => s.linkId);
+      linkIds.forEach(id => phase1Adids.add(id));
+      
       for (let i = 0; i < linkIds.length; i += BATCH_SIZE) {
         const batch = linkIds.slice(i, i + BATCH_SIZE);
         const resp = await fetch(PUTREPORT_API, {
@@ -99,7 +121,8 @@ module.exports = async (req, res) => {
       }
     }
 
-    // Phase 2: Campaign fallback - query by campaignid with adid grouping
+    // Phase 2: Campaign fallback - query by campaignid with adid grouping (legacy links)
+    // This covers old links that are in the campaign but NOT in submissions.json
     const userCampaigns = USER_CAMPAIGNS[username.toLowerCase()] || [];
     for (const campaignId of userCampaigns) {
       const resp = await fetch(PUTREPORT_API, {
@@ -122,7 +145,11 @@ module.exports = async (req, res) => {
       });
       if (resp.ok) {
         const data = await resp.json();
-        if (data.data) allRows = allRows.concat(data.data);
+        if (data.data) {
+          // Dedup: only add rows whose adid was NOT already covered in Phase 1
+          const dedupedRows = data.data.filter(row => !phase1Adids.has(row.adid));
+          allRows = allRows.concat(dedupedRows);
+        }
       }
     }
 
@@ -150,11 +177,10 @@ module.exports = async (req, res) => {
     }
 
     // Step 4: Build links array - merge submission metadata with putreport data
-    // Start with submissions (have code/bookName/link metadata)
     const seenAdids = new Set();
     const links = [];
 
-    // First: user's app submissions (have full metadata)
+    // First: user's app/v1 submissions (have full metadata)
     for (const sub of userSubs) {
       const ls = linkMap[sub.linkId] || { total_visits: 0, total_unique: 0, total_new: 0, total_income: 0, daily: {} };
       seenAdids.add(sub.linkId);
@@ -173,16 +199,17 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Then: campaign adids not in submissions (old links, no code metadata)
+    // Then: campaign legacy adids not in submissions (old links)
     for (const [adid, ls] of Object.entries(linkMap)) {
       if (seenAdids.has(adid)) continue;
       // Only include if there's actual data
       if (ls.total_unique > 0 || ls.total_income > 0 || ls.total_visits > 0) {
+        const legacyMeta = KNOWN_LEGACY_LINKS[adid] || {};
         links.push({
-          bookName: 'Legacy Link',
-          bookId: null,
-          code: null,
-          link: null,
+          bookName: legacyMeta.bookName || 'Legacy Link',
+          bookId: legacyMeta.bookId || null,
+          code: legacyMeta.code || null,
+          link: legacyMeta.link || null,
           linkId: adid,
           submittedAt: null,
           visits: ls.total_visits,
