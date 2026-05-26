@@ -27,19 +27,13 @@ module.exports = async (req, res) => {
     if (!cleanUsername) return res.status(400).json({ error: 'Invalid username' });
 
     const redis = getRedis();
-
-    // Check if user already has a password set
     if (redis) {
       const storedHash = await redis.get('nf_user_pass:' + cleanUsername);
       if (storedHash) {
-        // User exists with password - redirect to login flow
+        // User has a password - must verify
         if (!password) return res.status(401).json({ error: 'Password required', needPassword: true });
         const inputHash = hashPassword(password);
         if (inputHash !== storedHash) return res.status(401).json({ error: 'Wrong password', needPassword: true });
-      } else if (password && password.length >= 4) {
-        // New user setting a password, or existing user adding password
-        const newHash = hashPassword(password);
-        await redis.set('nf_user_pass:' + cleanUsername, newHash);
       }
     }
 
@@ -55,7 +49,7 @@ module.exports = async (req, res) => {
 
     return res.status(200).json({ success: true, username: cleanUsername, message: 'Login successful' });
   } catch (error) {
-    console.error('Register error:', error);
+    console.error('Login error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

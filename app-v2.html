@@ -2454,9 +2454,10 @@
             <button style="padding:4px 10px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:inherit;" class="splash-lang-btn" data-lang="es" onclick="switchLang('es');document.querySelectorAll('.splash-lang-btn').forEach(b=>b.style.background=b.dataset.lang==='es'?'rgba(255,255,255,0.4)':'transparent');document.querySelectorAll('.splash-lang-btn').forEach(b=>b.style.color=b.dataset.lang==='es'?'white':'rgba(255,255,255,0.6)')">ES</button>
         </div>
         <div class="splash-form">
-            <input type="text" class="splash-input" id="splashUsername" data-i18n-placeholder="username" placeholder="Your username">
+            <input type="text" class="splash-input" id="splashUsername" data-i18n-placeholder="username" placeholder="Your username" oninput="checkSplashPasswordNeeded()">
+            <input type="password" class="splash-input" id="splashPassword" data-i18n-placeholder="password_placeholder" placeholder="Password (optional)" style="display:none;">
             <button class="splash-btn" onclick="handleSplashLogin()" data-i18n="start_earning"><span data-i18n="start_earning_btn">Start Earning</span></button>
-            <div class="splash-tip">Enter any username to start. No password needed — just enter your name.</div>
+            <div class="splash-tip" id="splashTip" data-i18n="splash_tip">Enter your username to login or create account. Set a password to protect your data.</div>
             <div style="text-align:center;margin-top:12px;"><a href="mailto:LobosCantante849@gmail.com" style="font-size:12px;color:var(--ink-mute);text-decoration:none;" data-i18n="email_support">📧 Email Support</a></div>
             <div class="splash-error" id="splashError"></div>
         </div>
@@ -2883,8 +2884,9 @@
                     <h3 data-i18n="register_login">Login / Register</h3>
                     <p>Enter username to login or create account</p>
                     <input type="text" class="login-input" id="regUsername" placeholder="Your username" maxlength="50">
+                    <input type="password" class="login-input" id="regPassword" placeholder="Password (if set)" style="display:none;margin-top:8px;">
                     <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()" data-i18n="confirm_btn">Confirm</button>
-                    <div class="login-tip">No password needed — just enter your name</div>
+                    <div class="login-tip">Set a password in Profile to protect your account</div>
                 </div>
 
                 <button class="logout-btn" id="logoutBtn" onclick="handleLogout()">Logout</button>
@@ -2919,6 +2921,9 @@
             <div class="profile-grid">
                 <div class="profile-card" onclick="alert('Coming soon! PayPal withdrawal is under development.')">
                     <div class="profile-card-icon">&#128179;</div><div class="profile-card-title">PayPal Withdrawal</div><div class="profile-card-desc" style="color:var(--ink-mute);font-size:10px;">In development 🚧</div>
+                </div>
+                <div class="profile-card" id="setPasswordCard" onclick="showSetPasswordModal()">
+                    <div class="profile-card-icon">&#128274;</div><div class="profile-card-title" id="setPasswordTitle">Set Password</div><div class="profile-card-desc" id="setPasswordDesc">Protect your account</div>
                 </div>
                 <div class="profile-card" id="myBooksCard" onclick="toggleMyBooksExpand()">
                     <div class="profile-card-icon">&#128176;</div><div class="profile-card-title">My Books</div><div class="profile-card-desc" id="profileMyBooksCount">0 books promoted</div>
@@ -5327,22 +5332,44 @@ function renderMyBooks() {
 
         
         // ========== Splash Screen Login ==========
-        function handleSplashLogin() {
+        async function handleSplashLogin() {
             const username = document.getElementById('splashUsername').value.trim();
+            const password = document.getElementById('splashPassword')?.value || '';
             
             if (!username) {
                 const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Please enter a username';
                 return;
             }
             
-            // Quick local login - username only
-            AppState.user = { username: username, accountType: 'local' };
-            AppState.isLoggedIn = true;
-            localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
-            localStorage.setItem('novelflow_last_user', username);
-            localStorage.setItem('novelflow_splash_done', 'true');
-            
-            document.getElementById('splashScreen').classList.add('hidden');
+            // Try server login with optional password
+            try {
+                const resp = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, password: password || undefined })
+                });
+                const result = await resp.json();
+                
+                if (!resp.ok && result.needPassword) {
+                    const passField = document.getElementById('splashPassword');
+                    if (passField) { passField.style.display = ''; passField.placeholder = 'Password (required)'; }
+                    const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'This account requires a password';
+                    return;
+                }
+                if (!resp.ok) {
+                    const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = result.error || 'Login failed';
+                    return;
+                }
+                
+                // Success
+                AppState.user = { username: username, accountType: 'local' };
+                AppState.isLoggedIn = true;
+                localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
+                localStorage.setItem('novelflow_last_user', username);
+                localStorage.setItem('novelflow_splash_done', 'true');
+                
+                document.getElementById('splashScreen').classList.add('hidden');
             updateProfileUI();
             loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo(); updateReelsStatusBar();
             loadMyBooks();
@@ -6723,7 +6750,115 @@ function renderMyBooks() {
                         }, 50);
             }
         };
-    </script>
+    
+        // ========== Password System ==========
+        let _splashPasswordCheckTimer = null;
+        async function checkSplashPasswordNeeded() {
+            const username = document.getElementById('splashUsername')?.value?.trim();
+            const passField = document.getElementById('splashPassword');
+            const tipEl = document.getElementById('splashTip');
+            if (!username || username.length < 2) {
+                if (passField) passField.style.display = 'none';
+                return;
+            }
+            // Debounce
+            if (_splashPasswordCheckTimer) clearTimeout(_splashPasswordCheckTimer);
+            _splashPasswordCheckTimer = setTimeout(async () => {
+                try {
+                    const resp = await fetch('/api/auth/check-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username })
+                    });
+                    const result = await resp.json();
+                    if (result.hasPassword) {
+                        if (passField) { passField.style.display = ''; passField.placeholder = 'Password (required)'; }
+                        if (tipEl) tipEl.textContent = 'This account has a password. Enter it to login.';
+                    } else {
+                        if (passField) { passField.style.display = ''; passField.placeholder = 'Set a password (optional)'; }
+                        if (tipEl) tipEl.textContent = 'No password set yet. You can add one to protect your account.';
+                    }
+                } catch(e) {
+                    // Silently fail - show password field as optional
+                    if (passField) { passField.style.display = ''; passField.placeholder = 'Password (optional)'; }
+                }
+            }, 500);
+        }
+
+        function showSetPasswordModal() {
+            const modal = document.getElementById('setPasswordModal');
+            if (!modal) return;
+            modal.style.display = 'flex';
+            // Check if user already has password
+            fetch('/api/auth/check-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: AppState.user?.username })
+            }).then(r => r.json()).then(result => {
+                const oldRow = document.getElementById('setPasswordOldRow');
+                if (oldRow) oldRow.style.display = result.hasPassword ? '' : 'none';
+            }).catch(() => {});
+        }
+
+        function closeSetPasswordModal() {
+            const modal = document.getElementById('setPasswordModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function submitSetPassword() {
+            const oldPass = document.getElementById('setOldPassword')?.value || '';
+            const newPass = document.getElementById('setNewPassword')?.value || '';
+            const confirmPass = document.getElementById('setConfirmPassword')?.value || '';
+            const oldRow = document.getElementById('setPasswordOldRow');
+
+            if (!newPass || newPass.length < 4) {
+                showToast('Password must be at least 4 characters', 'error');
+                return;
+            }
+            if (newPass !== confirmPass) {
+                showToast('Passwords do not match', 'error');
+                return;
+            }
+            if (oldRow && oldRow.style.display !== 'none' && !oldPass) {
+                showToast('Please enter your current password', 'error');
+                return;
+            }
+
+            try {
+                const body = { password: newPass };
+                if (oldPass) body.oldPassword = oldPass;
+                const resp = await fetch('/api/auth/set-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(body)
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    showToast('Password saved! Your account is now protected.', 'success');
+                    closeSetPasswordModal();
+                    updatePasswordCardUI(true);
+                } else {
+                    showToast(result.error || 'Failed to set password', 'error');
+                }
+            } catch(e) {
+                showToast('Connection error', 'error');
+            }
+        }
+
+        function updatePasswordCardUI(hasPassword) {
+            const titleEl = document.getElementById('setPasswordTitle');
+            const descEl = document.getElementById('setPasswordDesc');
+            if (hasPassword) {
+                if (titleEl) titleEl.textContent = 'Change Password';
+                if (descEl) descEl.textContent = 'Account protected ✓';
+            } else {
+                if (titleEl) titleEl.textContent = 'Set Password';
+                if (descEl) descEl.textContent = 'Protect your account';
+            }
+        }
+
+</script>
 
     <!-- Guide Modal -->
     <div class="modal-overlay" id="guideModal">
