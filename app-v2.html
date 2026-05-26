@@ -5054,7 +5054,7 @@
             }
 
             try {
-                const response = await fetch(`/api/per-link-stats?username=${encodeURIComponent(username)}`);
+                const response = await fetch(`/api/my-stats?username=${encodeURIComponent(username)}`);
                 if (!response.ok) throw new Error('Failed to fetch stats');
                 
                 const data = await response.json();
@@ -6005,6 +6005,20 @@ function renderMyBooks() {
                 const resp = await fetch('/api/per-link-stats?username=' + encodeURIComponent(AppState.user.username));
                 if (!resp.ok) throw new Error('Failed');
                 const data = await resp.json();
+                // Convert daily format: { date: {visits, unique_users, new_users, income} }
+                // → separate dicts for chart rendering
+                if (data.daily && !data.income_daily) {
+                    data.income_daily = {};
+                    data.unique_daily = {};
+                    data.visits_daily = {};
+                    data.new_users_daily = {};
+                    for (const [date, val] of Object.entries(data.daily)) {
+                        data.income_daily[date] = val.income || 0;
+                        data.unique_daily[date] = val.unique_users || 0;
+                        data.visits_daily[date] = val.visits || 0;
+                        data.new_users_daily[date] = val.new_users || 0;
+                    }
+                }
                 _lastPerfData = data;
                 
                 // Update perf stats
