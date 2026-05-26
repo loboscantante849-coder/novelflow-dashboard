@@ -2961,7 +2961,7 @@
                 <div class="login-form" id="loginForm">
                     <h3 data-i18n="register_login">Login / Register</h3>
                     <p>Enter username to login or create account</p>
-                    <input type="text" class="login-input" id="regUsername" placeholder="Your username" maxlength="50">
+                    <input type="text" class="login-input" id="regUsername" placeholder="Your username" maxlength="50" oninput="checkRegPasswordNeeded()">
                     <input type="password" class="login-input" id="regPassword" placeholder="Password (if set)" style="display:none;margin-top:8px;">
                     <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()" data-i18n="confirm_btn">Confirm</button>
                     <div class="login-tip">Set a password in Profile to protect your account</div>
@@ -5383,6 +5383,7 @@ function renderMyBooks() {
 
         async function handleLocalRegister() {
             const username = document.getElementById('regUsername').value.trim();
+            const password = document.getElementById('regPassword')?.value || '';
 
             if (!username) {
                 showToast('Please enter a username', 'error');
@@ -5394,12 +5395,20 @@ function renderMyBooks() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ username })
+                    body: JSON.stringify({ username, password: password || undefined })
                 });
 
                 let result;
                 try { result = await response.json(); } catch(e) { result = {}; }
                 console.log('Register API response:', response.status, JSON.stringify(result));
+
+                if (!response.ok && result.needPassword) {
+                    // User has a password set - show the password field
+                    const passField = document.getElementById('regPassword');
+                    if (passField) { passField.style.display = ''; passField.placeholder = 'Password (required)'; }
+                    showToast('This account requires a password', 'error');
+                    return;
+                }
 
                 if (response.ok && result.success) {
                     AppState.user = { username, accountType: 'local' };
@@ -5412,6 +5421,9 @@ function renderMyBooks() {
                     loadPerformanceDashboard();
                     showToast('✅ Welcome back, ' + username + '!', 'success');
                     (document.getElementById('regUsername') || {}).value = '';
+                    (document.getElementById('regPassword') || {}).value = '';
+                    const passField = document.getElementById('regPassword');
+                    if (passField) passField.style.display = 'none';
                     checkAndPromptSetPassword(username);
                 } else {
                     const errMsg = result.error || 'Login failed (HTTP ' + response.status + ')';
@@ -7019,6 +7031,30 @@ function renderMyBooks() {
                     if (passField) { passField.style.display = ''; passField.placeholder = 'Password (optional)'; }
                 }
             }, 500);
+        }
+
+        async function checkRegPasswordNeeded() {
+            const username = document.getElementById('regUsername')?.value?.trim();
+            const passField = document.getElementById('regPassword');
+            if (!username || username.length < 2) {
+                if (passField) passField.style.display = 'none';
+                return;
+            }
+            try {
+                const resp = await fetch('/api/auth/check-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                const result = await resp.json();
+                if (result.hasPassword) {
+                    if (passField) { passField.style.display = ''; passField.placeholder = 'Password (required)'; }
+                } else {
+                    if (passField) passField.style.display = 'none';
+                }
+            } catch(e) {
+                if (passField) passField.style.display = 'none';
+            }
         }
 
         function showSetPasswordModal() {
