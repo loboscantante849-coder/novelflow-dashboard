@@ -5290,6 +5290,7 @@ function renderMyBooks() {
                     loadPerformanceDashboard();
                     showToast('✅ Welcome back, ' + username + '!', 'success');
                     (document.getElementById('regUsername') || {}).value = '';
+                    checkAndPromptSetPassword(username);
                 } else {
                     const errMsg = result.error || 'Login failed (HTTP ' + response.status + ')';
                     showToast(errMsg, 'error');
@@ -5341,7 +5342,6 @@ function renderMyBooks() {
                 return;
             }
             
-            // Try server login with optional password
             try {
                 const resp = await fetch('/api/auth/register', {
                     method: 'POST',
@@ -5370,11 +5370,26 @@ function renderMyBooks() {
                 localStorage.setItem('novelflow_splash_done', 'true');
                 
                 document.getElementById('splashScreen').classList.add('hidden');
-            updateProfileUI();
-            loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo(); updateReelsStatusBar();
-            loadMyBooks();
-            loadPerformanceDashboard();
-            showToast('Welcome, ' + username + '!', 'success');
+                updateProfileUI();
+                loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo(); updateReelsStatusBar();
+                loadMyBooks();
+                loadPerformanceDashboard();
+                showToast('Welcome, ' + username + '!', 'success');
+                checkAndPromptSetPassword(username);
+            } catch(e) {
+                console.error('Login error:', e);
+                // Fallback: allow offline login
+                AppState.user = { username: username, accountType: 'local' };
+                AppState.isLoggedIn = true;
+                localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
+                localStorage.setItem('novelflow_last_user', username);
+                localStorage.setItem('novelflow_splash_done', 'true');
+                document.getElementById('splashScreen').classList.add('hidden');
+                updateProfileUI();
+                loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo(); updateReelsStatusBar();
+                loadMyBooks();
+                showToast('Welcome, ' + username + '!', 'success');
+            }
         }
         
         function skipLogin() {
@@ -6855,6 +6870,27 @@ function renderMyBooks() {
             } else {
                 if (titleEl) titleEl.textContent = 'Set Password';
                 if (descEl) descEl.textContent = 'Protect your account';
+            }
+        }
+
+
+        async function checkAndPromptSetPassword(username) {
+            try {
+                const resp = await fetch('/api/auth/check-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                const result = await resp.json();
+                updatePasswordCardUI(result.hasPassword);
+                if (!result.hasPassword) {
+                    // Show gentle prompt after 2 seconds
+                    setTimeout(() => {
+                        showToast('💡 Tip: Set a password in Profile to protect your account!', 'info');
+                    }, 2000);
+                }
+            } catch(e) {
+                // Silent fail
             }
         }
 
