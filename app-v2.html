@@ -4247,7 +4247,8 @@
 
         function exchangeVIP() {
             const pts = getUserPoints();
-            if (pts < 100) {
+            const VIP_COST = currentLang === 'es' ? 50 : 100;
+            if (pts < VIP_COST) {
                 showToast(getText('toast_not_enough'), 'error');
                 return;
             }
@@ -4256,7 +4257,7 @@
                 showToast('Please bind your NovelFlow ID first!', 'error');
                 return;
             }
-            addUserPoints(-100);
+            addUserPoints(-VIP_COST);
             // Track VIP days
             const vipDays = parseInt(localStorage.getItem(getUserKey('vip_days')) || '0');
             const newVipDays = vipDays + 3;
