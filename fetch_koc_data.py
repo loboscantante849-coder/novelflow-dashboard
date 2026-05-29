@@ -161,6 +161,7 @@ def update_data_files(raw_data, existing_data, existing_links):
         campaign_id = record.get("campaignid", "")
         adid = record.get("adid", "")
         unique = int(record.get("h5landingpageclickusernum", 0) or 0)
+        visits = int(record.get("h5landingpageclicks", 0) or 0)
         new_users = int(record.get("newusernum", 0) or 0)
         date = record.get("date", "")
         income = float(record.get("d14income", 0) or 0)
@@ -185,10 +186,13 @@ def update_data_files(raw_data, existing_data, existing_links):
             old_unique = user_data.get("unique_users", 0)
             old_new = user_data.get("new_users", 0)
             old_income = user_data.get("d14income", 0)
+            old_visits = user_data.get("visits", 0)
             
             # 只有当API返回值有效（非0、非None）才更新
             if unique == 0 or unique is None:
                 unique = old_unique
+            if visits == 0 or visits is None:
+                visits = old_visits
             if new_users == 0 or new_users is None:
                 new_users = old_new
             if income == 0 or income is None:
@@ -197,7 +201,7 @@ def update_data_files(raw_data, existing_data, existing_links):
         # 保留最大值（不累加，避免重复计算）
         user_stats[koc_username]["unique_users"] = max(user_stats[koc_username]["unique_users"], unique)
         user_stats[koc_username]["new_users"] = max(user_stats[koc_username]["new_users"], new_users)
-        user_stats[koc_username]["visits"] = max(user_stats[koc_username]["visits"], unique)
+        user_stats[koc_username]["visits"] = max(user_stats[koc_username]["visits"], visits)
         user_stats[koc_username]["d14income"] = max(user_stats[koc_username]["d14income"], income)
         user_stats[koc_username]["last_updated"] = now_et
         
@@ -206,13 +210,15 @@ def update_data_files(raw_data, existing_data, existing_links):
             old_link = existing_links.get("links", {}).get(adid, {})
             if unique == 0 and old_link.get("unique_users", 0) > 0:
                 unique = old_link.get("unique_users", 0)
+            if visits == 0 and old_link.get("visits", 0) > 0:
+                visits = old_link.get("visits", 0)
             if new_users == 0 and old_link.get("new_users", 0) > 0:
                 new_users = old_link.get("new_users", 0)
             if income == 0 and old_link.get("d14_income", 0) > 0:
                 income = old_link.get("d14_income", 0)
             
             link_stats[adid] = {
-                "visits": old_link.get("visits", 0),
+                "visits": visits,
                 "unique_users": unique,
                 "new_users": new_users,
                 "d14_income": income,
@@ -261,9 +267,9 @@ def main():
         sys.exit(1)
     print("✅ Token获取成功")
     
-    # 获取最近14天数据
+    # 获取最近90天数据（覆盖完整累积窗口）
     end_date = datetime.now().strftime("%Y-%m-%d")
-    start_date = (datetime.now() - timedelta(days=14)).strftime("%Y-%m-%d")
+    start_date = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
     
     print(f"📡 从API获取数据 ({start_date} ~ {end_date})...")
     raw_data = get_campaign_data(token, start_date, end_date)
