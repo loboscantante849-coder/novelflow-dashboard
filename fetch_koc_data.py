@@ -2,6 +2,7 @@
 """
 KOC数据每日更新脚本
 从putreport API获取KOC推广数据，更新data.json和link-stats.json
+保留历史数据，只更新有变化的字段
 """
 
 import json
@@ -145,10 +146,16 @@ def update_data_files(raw_data, existing_data, existing_links):
         "69f94be3e71c030eb9032000": "DRAS"
     }
     
-    # 按用户聚合
-    user_stats = {}
-    # 按链接聚合
-    link_stats = {}
+    # 保留历史用户数据
+    user_stats = dict(existing_data.get("users", {}))
+    # 保留历史链接数据
+    link_stats = dict(existing_links.get("links", {}))
+    
+    # 统计变量
+    total_users = 0
+    total_visits = 0
+    total_new_users = 0
+    total_d14income = 0.0
     
     for record in raw_data:
         campaign_id = record.get("campaignid", "")
@@ -160,7 +167,7 @@ def update_data_files(raw_data, existing_data, existing_links):
         
         koc_username = koc_mapping.get(campaign_id, "unknown")
         
-        # 按用户聚合
+        # 按用户聚合（累加，不是覆盖）
         if koc_username not in user_stats:
             user_stats[koc_username] = {
                 "name": koc_username,
@@ -172,32 +179,30 @@ def update_data_files(raw_data, existing_data, existing_links):
                 "last_updated": None
             }
         
-        # 数据保护逻辑：API返回0但旧值>0时不覆盖
+        # 数据保护逻辑：API返回0或None但旧值>0时保留旧值
         user_data = existing_data.get("users", {}).get(koc_username)
-        if user_data and unique == 0:
+        if user_data:
             old_unique = user_data.get("unique_users", 0)
-            if old_unique > 0:
-                unique = old_unique
-        
-        if user_data and new_users == 0:
             old_new = user_data.get("new_users", 0)
-            if old_new > 0:
-                new_users = old_new
-        
-        if user_data and income == 0:
             old_income = user_data.get("d14income", 0)
-            if old_income > 0:
+            
+            # 只有当API返回值有效（非0、非None）才更新
+            if unique == 0 or unique is None:
+                unique = old_unique
+            if new_users == 0 or new_users is None:
+                new_users = old_new
+            if income == 0 or income is None:
                 income = old_income
         
-        user_stats[koc_username]["unique_users"] += unique
-        user_stats[koc_username]["new_users"] += new_users
-        user_stats[koc_username]["visits"] += unique
-        user_stats[koc_username]["d14income"] += income
+        # 保留最大值（不累加，避免重复计算）
+        user_stats[koc_username]["unique_users"] = max(user_stats[koc_username]["unique_users"], unique)
+        user_stats[koc_username]["new_users"] = max(user_stats[koc_username]["new_users"], new_users)
+        user_stats[koc_username]["visits"] = max(user_stats[koc_username]["visits"], unique)
+        user_stats[koc_username]["d14income"] = max(user_stats[koc_username]["d14income"], income)
         user_stats[koc_username]["last_updated"] = now_et
         
-        # 按链接记录（如果有adid）
+        # 按链接记录（保留旧值，只更新有数据的字段）
         if adid:
-            # 数据保护
             old_link = existing_links.get("links", {}).get(adid, {})
             if unique == 0 and old_link.get("unique_users", 0) > 0:
                 unique = old_link.get("unique_users", 0)
@@ -207,13 +212,15 @@ def update_data_files(raw_data, existing_data, existing_links):
                 income = old_link.get("d14_income", 0)
             
             link_stats[adid] = {
-                "visits": 0,
+                "visits": old_link.get("visits", 0),
                 "unique_users": unique,
                 "new_users": new_users,
                 "d14_income": income,
                 "campaign_id": campaign_id,
-                "source": "putreport_adid",
+                "source": old_link.get("source", "putreport_adid"),
                 "koc_username": koc_username,
+                "book_name": old_link.get("book_name"),
+                "short_url": old_link.get("short_url"),
                 "status": "completed"
             }
     
@@ -226,12 +233,13 @@ def update_data_files(raw_data, existing_data, existing_links):
     existing_links["links"] = link_stats
     
     # 计算汇总
-    total_users = sum(u["unique_users"] for u in user_stats.values())
-    total_visits = sum(u["visits"] for u in user_stats.values())
-    total_new = sum(u["new_users"] for u in user_stats.values())
-    total_income = sum(u["d14income"] for u in user_stats.values())
+    for user in user_stats.values():
+        total_users += user["unique_users"]
+        total_visits += user["visits"]
+        total_new_users += user["new_users"]
+        total_d14income += user["d14income"]
     
-    return total_users, total_visits, total_new, total_income
+    return total_users, total_visits, total_new_users, total_d14income
 
 def main():
     print("=" * 50)
@@ -242,6 +250,8 @@ def main():
     # 加载现有数据
     existing_data, existing_links = load_existing_data()
     print(f"📂 已加载现有数据")
+    print(f"   - 已有 {len(existing_data.get('users', {}))} 个用户")
+    print(f"   - 已有 {len(existing_links.get('links', {}))} 条链接")
     
     # 获取OIDC Token
     print("🔑 获取访问令牌...")
