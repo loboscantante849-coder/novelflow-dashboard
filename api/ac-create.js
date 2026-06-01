@@ -11,12 +11,19 @@ function checkReelsDailyLimit(ip) {
   const key = ip + ':' + today;
   const count = reelsDailyCounts.get(key) || 0;
   if (count >= REELS_DAILY_LIMIT) return { allowed: false, count };
+  // Don't increment yet - wait until creation succeeds
+  return { allowed: true, count, key };
+}
+
+function incrementReelsDailyCount(key) {
+  const today = new Date().toISOString().split('T')[0];
+  const count = reelsDailyCounts.get(key) || 0;
   reelsDailyCounts.set(key, count + 1);
   // Clean up old entries (keep only today's)
   for (const [k] of reelsDailyCounts) {
     if (!k.endsWith(today)) reelsDailyCounts.delete(k);
   }
-  return { allowed: true, count: count + 1 };
+  return count + 1;
 }
 
 const AC_BASE = 'https://ac.beidou.win/api/v1';
@@ -26,7 +33,6 @@ const { setCORSHeaders } = require('./_lib/cors');
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
   if (req.method === 'OPTIONS') {
-    // CORS handled by setCORSHeaders;
     return res.status(200).end();
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -47,10 +53,14 @@ module.exports = async (req, res) => {
   const body = req.body || {};
   if (!body.book_id) return res.status(400).json({ error: 'book_id required' });
 
-  // Server-side daily limit (3 per username per day, fallback to IP)
+  // Server-side daily limit (5 per username per day, fallback to IP)
+  // Pre-check only - increment happens after successful creation
   const limitKey = req.body.username || req.headers['x-forwarded-for']?.split(',')[0] || req.connection?.remoteAddress || 'unknown';
   const limitCheck = checkReelsDailyLimit(limitKey);
   if (!limitCheck.allowed) return res.status(429).json({ error: 'Daily limit reached (5 reels/day). Try again tomorrow.', remaining: 0 });
+
+  // Use prompt as fallback for ad_copy (advanced mode sends prompt field)
+  const adCopy = body.ad_copy || body.prompt || '';
 
   const payload = {
     template: body.template || 'Ad_Plot_Video_V3',
@@ -66,7 +76,7 @@ module.exports = async (req, res) => {
     is_generate_img: String(body.is_generate_img ?? 'true'),
     copy_type: body.copy_type || '原创',
     build_requirement: body.build_requirement || '',
-    ad_copy: body.ad_copy || '',
+    ad_copy: adCopy,
     word_count: body.word_count || '200词',
     reference_picture_list: body.reference_picture_list || [],
     remark: body.remark || '',
@@ -98,9 +108,30 @@ module.exports = async (req, res) => {
       } catch(e) { console.warn('Redis save failed:', e.message); }
     }
 
-    // CORS handled by setCORSHeaders;
+    // Only increment daily count if creation succeeded
+    if (r.status >= 200 && r.status < 300) {
+      incrementReelsDailyCount(limitCheck.key);
+    }
+
+    const remaining = REELS_DAILY_LIMIT - (reelsDailyCounts.get(limitCheck.key) || 0);
+
     res.setHeader('x-ac-token', newToken || '');
-    return res.status(r.status).json({ success: r.status >= 200 && r.status < 300, data, newToken: newToken || undefined });
+    
+    // Better error propagation
+    if (r.status === 401) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'AC Token expired or invalid. Please re-login to ac.beidou.win and update the token.',
+        data 
+      });
+    }
+    
+    return res.status(r.status).json({ 
+      success: r.status >= 200 && r.status < 300, 
+      data, 
+      newToken: newToken || undefined,
+      remaining 
+    });
   } catch (e) {
     return res.status(502).json({ error: 'AC API unreachable', detail: e.message });
   }
