@@ -4247,7 +4247,8 @@
 
         function exchangeVIP() {
             const pts = getUserPoints();
-            if (pts < 100) {
+            const VIP_COST = currentLang === 'es' ? 50 : 100;
+            if (pts < VIP_COST) {
                 showToast(getText('toast_not_enough'), 'error');
                 return;
             }
@@ -4256,7 +4257,7 @@
                 showToast('Please bind your NovelFlow ID first!', 'error');
                 return;
             }
-            addUserPoints(-100);
+            addUserPoints(-VIP_COST);
             // Track VIP days
             const vipDays = parseInt(localStorage.getItem(getUserKey('vip_days')) || '0');
             const newVipDays = vipDays + 3;
@@ -6798,6 +6799,10 @@ function renderMyBooks() {
                 try { result = await resp.json(); } catch(e) { result = {}; }
                 if (result.newToken) { saveACToken(result.newToken); }
                 if (!resp.ok) {
+                    if (resp.status === 401) {
+                        showToast('⚠️ Session expired. Please refresh the page and try again.', 'error');
+                        throw new Error('Token expired. Please refresh the page.');
+                    }
                     const errMsg = result.error || ('API error: ' + resp.status);
                     throw new Error(errMsg);
                 }
@@ -6806,7 +6811,7 @@ function renderMyBooks() {
                     const remaining = REELS_DAILY_LIMIT - getReelsDailyCount();
                     // Show detailed feedback
                     const taskData = result.data?.data || result.data || {};
-                    const taskId = taskData.id || taskData.task_id || '';
+                    const taskId = taskData.id || taskData.task_id || taskData.thread_id || '';
                     const taskName = taskData.title || reelSelectedBook?.title || 'Your reel';
                     // Save this reel's task ID to user's reel list
                     const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
@@ -6821,7 +6826,7 @@ function renderMyBooks() {
                         reelMeta[taskId] = { description: bookDesc, title: bookTitle, code: bookCode, link: bookLink };
                         localStorage.setItem(getUserKey('reel_meta'), JSON.stringify(reelMeta));
                     }
-                    showToast('🎬 Reel created for "' + taskName + '"! Video generates in ~25 min. Check My Reels for progress.', 'success');
+                    const remainInfo = (result.remaining !== undefined) ? (' (' + result.remaining + ' left today)') : ''; showToast('🎬 Reel created for "' + taskName + '"! Video generates in ~25 min. Check My Reels for progress.' + remainInfo, 'success');
                     // Show congratulations modal
                     showReelSuccessModal(taskName);
                     // Clear advanced mode state
