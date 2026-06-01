@@ -112,7 +112,7 @@ module.exports = async (req, res) => {
 
           for (const row of rows) {
             const date = row.date || row.dt || '';
-            const visits = parseInt(row.h5landingpageclicknum || row.clicknum || row.visits || 0);
+            const visits = parseInt(row.h5landingpageclicks || row.h5landingpageclicknum || row.clicknum || row.visits || 0);
             const unique = parseInt(row.h5landingpageclickusernum || row.clickusernum || row.unique_users || 0);
             const newUsers = parseInt(row.newusernum || row.new_users || 0);
             const income = parseFloat(row.d14income || row.income || 0);
@@ -129,31 +129,36 @@ module.exports = async (req, res) => {
             totalIncome += income;
           }
 
-          // Update data.json for this user
+          // Update data.json for this user - use dashboard.html compatible field names
           const users = currentData.users || {};
           if (!users[campaign.username]) {
             users[campaign.username] = { name: campaign.username };
           }
           const userData = users[campaign.username];
           userData.campaign_id = campaign.id;
-          userData.visits = totalVisits;
-          userData.unique_users = totalUnique;
+          userData.link_visits = totalVisits;                // was: visits
+          userData.link_unique = totalUnique;                // was: unique_users  
+          userData.unique_visitors = totalUnique;            // was: unique_users
           userData.new_users = totalNew;
-          userData.d14income = parseFloat(totalIncome.toFixed(2));
+          userData.subscription_revenue = parseFloat(totalIncome.toFixed(2)); // was: d14income
+          userData.ad_revenue = 0.0;                         // was: missing
           userData.link_visits_daily = visitsDaily;
           userData.link_unique_daily = uniqueDaily;
           userData.new_users_daily = newUsersDaily;
-          userData.d14income_daily = incomeDaily;
+          userData.subscription_revenue_daily = incomeDaily;  // was: d14income_daily
+          userData.ad_revenue_daily = {};                     // was: missing
           userData.last_updated = now.toISOString();
 
           // Also set by campaign ID for my-stats.js compatibility
           users[campaign.id] = {
             name: campaign.username,
             campaign_id: campaign.id,
-            visits: totalVisits,
-            unique_users: totalUnique,
+            link_visits: totalVisits,
+            link_unique: totalUnique,
+            unique_visitors: totalUnique,
             new_users: totalNew,
-            d14income: parseFloat(totalIncome.toFixed(2)),
+            subscription_revenue: parseFloat(totalIncome.toFixed(2)),
+            ad_revenue: 0.0,
             last_updated: now.toISOString()
           };
 
