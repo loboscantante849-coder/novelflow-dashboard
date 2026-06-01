@@ -1,4 +1,3 @@
-// deploy: blob-store-setup-20260601
 {
   "cleanUrls": true,
   "rewrites": [
@@ -115,6 +114,10 @@
     "api/update-stats.js": {
       "memory": 512,
       "maxDuration": 30
+    },
+    "api/ac-upload.js": {
+      "memory": 256,
+      "maxDuration": 15
     }
   },
   "framework": null,
