@@ -1,10 +1,9 @@
 /**
  * POST /api/ac-upload
- * Generate a presigned URL for client-side direct upload to Vercel Blob
- * Alternatively, handles server-side upload for smaller files
+ * Upload reference images for AC video generation
+ * Uses Vercel Blob storage (requires BLOB_READ_WRITE_TOKEN env var)
  */
 
-const { put } = require('@vercel/blob');
 const { setCORSHeaders } = require('./_lib/cors');
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -14,7 +13,16 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  // Check if Vercel Blob is configured
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return res.status(503).json({ 
+      error: 'Image upload is not configured. Admin needs to set BLOB_READ_WRITE_TOKEN in Vercel environment variables. Go to Vercel Dashboard > Project > Storage > Create Blob Store.',
+      code: 'BLOB_NOT_CONFIGURED'
+    });
+  }
+
   try {
+    const { put } = require('@vercel/blob');
     const contentType = req.headers['content-type'] || '';
     
     if (!contentType.includes('multipart/form-data')) {
@@ -38,12 +46,12 @@ module.exports = async (req, res) => {
       const boundaryStart = rawBody.indexOf(boundaryBuf, pos);
       if (boundaryStart === -1) break;
       
-      pos = boundaryStart + boundaryBuf.length + 2; // skip \r\n
+      pos = boundaryStart + boundaryBuf.length + 2;
       
       const nextBoundary = rawBody.indexOf(boundaryBuf, pos);
       if (nextBoundary === -1) break;
 
-      const partData = rawBody.slice(pos, nextBoundary - 2); // -2 for \r\n before boundary
+      const partData = rawBody.slice(pos, nextBoundary - 2);
       const headerEnd = partData.indexOf('\r\n\r\n');
       if (headerEnd === -1) { pos = nextBoundary; continue; }
 
