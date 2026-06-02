@@ -146,8 +146,15 @@ def update_data_files(raw_data, existing_data, existing_links):
         "69f94be3e71c030eb9032000": "DRAS"
     }
     
-    # 保留历史用户数据
+    # 保留历史用户数据，并补充缺失字段（兼容旧数据结构）
     user_stats = dict(existing_data.get("users", {}))
+    for u in user_stats.values():
+        if "unique_users" not in u:
+            u["unique_users"] = u.get("unique_visitors", 0) or 0
+        if "visits" not in u:
+            u["visits"] = u.get("link_visits", 0) or 0
+        if "d14income" not in u:
+            u["d14income"] = 0.0
     # 保留历史链接数据
     link_stats = dict(existing_links.get("links", {}))
     
