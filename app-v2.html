@@ -5483,12 +5483,16 @@ function renderMyBooks() {
             }
             
             try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
                 const resp = await fetch('/api/auth/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ username, password: password || undefined })
+                    body: JSON.stringify({ username, password: password || undefined }),
+                    signal: controller.signal
                 });
+                clearTimeout(timeoutId);
                 const result = await resp.json();
                 
                 if (!resp.ok && result.needPassword) {
@@ -5518,7 +5522,7 @@ function renderMyBooks() {
                 checkAndPromptSetPassword(username);
             } catch(e) {
                 console.error('Login error:', e);
-                // Fallback: allow offline login
+                // Fallback: allow offline login (API unreachable or timed out)
                 AppState.user = { username: username, accountType: 'local' };
                 AppState.isLoggedIn = true;
                 localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
@@ -5528,7 +5532,9 @@ function renderMyBooks() {
                 updateProfileUI();
                 loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo(); updateReelsStatusBar();
                 loadMyBooks();
-                showToast('Welcome, ' + username + '!', 'success');
+                loadPerformanceDashboard();
+                showToast('Welcome, ' + username + '! (offline mode)', 'success');
+                checkAndPromptSetPassword(username);
             }
         }
         
