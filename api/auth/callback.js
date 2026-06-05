@@ -14,31 +14,37 @@ const {
   setAuthCookies
 } = require('../_lib/auth');
 
-const { setCORSHeaders } = require('../../_lib/cors');
+const { setCORSHeaders } = require('../_lib/cors');
 
-const CLIENT_ID = '1504779503237333033';
-const CLIENT_SECRET = 'MWBTsNd-5Ot-0gQ8CzzeYbucCUjQdmxS';
-const REDIRECT_URI = 'https://novelflow-dashboard.vercel.app/api/auth/callback';
+const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1504779503237333033';
+const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || 'MWBTsNd-5Ot-0gQ8CzzeYbucCUjQdmxS';
+
+function getRedirectUri(req) {
+  if (req.headers.host) {
+    const proto = req.headers['x-forwarded-proto'] || 'https';
+    return proto + '://' + req.headers.host + '/api/auth/callback';
+  }
+  return 'https://novelflow-dashboard.vercel.app/api/auth/callback';
+}
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
 
-  const { code, error } = req.query;
+  var code = req.query.code;
+  var oauthError = req.query.error;
 
-  if (error) {
-    return res.redirect('/app.html?login=cancelled');
+  if (oauthError) {
+    return res.redirect('/app-v2?auth=cancelled');
   }
 
   if (!code) {
-    return res.redirect('/app.html?login=error');
+    return res.redirect('/app-v2?auth=error');
   }
 
   try {
-    // Exchange code for access token
-    const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
+    var REDIRECT_URI = getRedirectUri(req);
+    
+    var tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -51,26 +57,24 @@ module.exports = async (req, res) => {
     });
 
     if (!tokenResponse.ok) {
-      console.error('Token exchange failed:', await tokenResponse.text());
-      return res.redirect('/app.html?login=error');
+      console.error('[auth/callback] Token exchange failed:', tokenResponse.status);
+      return res.redirect('/app-v2?auth=error');
     }
 
-    const tokenData = await tokenResponse.json();
+    var tokenData = await tokenResponse.json();
 
-    // Get user info from Discord
-    const userResponse = await fetch('https://discord.com/api/users/@me', {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    var userResponse = await fetch('https://discord.com/api/users/@me', {
+      headers: { Authorization: 'Bearer ' + tokenData.access_token },
     });
 
     if (!userResponse.ok) {
-      console.error('Failed to get user info:', await userResponse.text());
-      return res.redirect('/app.html?login=error');
+      console.error('[auth/callback] User fetch failed:', userResponse.status);
+      return res.redirect('/app-v2?auth=error');
     }
 
-    const userData = await userResponse.json();
+    var userData = await userResponse.json();
 
-    // Build token payload
-    const userPayload = buildUserPayload({
+    var userPayload = buildUserPayload({
       discordId: userData.id,
       username: userData.username,
       globalName: userData.global_name || userData.username,
@@ -78,16 +82,16 @@ module.exports = async (req, res) => {
       discriminator: userData.discriminator,
     });
 
-    const accessToken = signAccessToken(userPayload);
-    const refreshToken = signRefreshToken(userPayload);
-    const userInfo = extractUserInfo(userPayload);
+    var accessToken = signAccessToken(userPayload);
+    var refreshToken = signRefreshToken(userPayload);
+    var userInfo = extractUserInfo(userPayload);
 
     setAuthCookies(res, accessToken, refreshToken, userInfo);
 
-    return res.redirect('/app.html?login=success');
+    return res.redirect('/app-v2?auth=success');
 
   } catch (error) {
     console.error('[auth/callback] Error:', error);
-    return res.redirect('/app.html?login=error');
+    return res.redirect('/app-v2?auth=error');
   }
 };
