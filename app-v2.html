@@ -3973,6 +3973,7 @@
 
         function saveCheckinData() {
             localStorage.setItem(getUserKey('checkin'), JSON.stringify(CheckinData));
+            CloudSync.schedulePush();
         }
 
         function getToday() {
@@ -4053,7 +4054,7 @@
             } else if (newPts < 0) {
                 localStorage.setItem(getUserKey('points'), 0);
             } else {
-                localStorage.setItem(getUserKey('points'), newPts);
+                localStorage.setItem(getUserKey('points'), newPts); CloudSync.schedulePush();
             }
             savePointsChecksum();
             updatePointsDisplay();
@@ -4072,7 +4073,7 @@
         function markMissionClaimed(id) {
             const claimed = getClaimedMissions();
             claimed[id] = Date.now(); // timestamp for audit trail
-            localStorage.setItem(getUserKey('claimed'), JSON.stringify(claimed));
+            localStorage.setItem(getUserKey('claimed'), JSON.stringify(claimed)); CloudSync.schedulePush();
         }
         function isMissionClaimed(id) {
             return getClaimedMissions()[id] !== undefined;
@@ -4235,7 +4236,7 @@
                 showToast(getText('toast_invalid_id'), 'error');
                 return;
             }
-            localStorage.setItem(getUserKey('bind_id'), id);
+            localStorage.setItem(getUserKey('bind_id'), id); CloudSync.schedulePush();
             const btn = document.getElementById('taskBindClaimBtn');
             if (btn && !isMissionClaimed('bindId')) {
                 btn.disabled = false;
@@ -4263,7 +4264,7 @@
             // Track VIP days
             const vipDays = parseInt(localStorage.getItem(getUserKey('vip_days')) || '0');
             const newVipDays = vipDays + 3;
-            localStorage.setItem(getUserKey('vip_days'), newVipDays);
+            localStorage.setItem(getUserKey('vip_days'), newVipDays); CloudSync.schedulePush();
             // Show VIP-specific popup
             const overlay = document.createElement('div');
             overlay.className = 'milestone-overlay';
@@ -5026,7 +5027,171 @@
             }
         }
 
-        function saveMyBooks() { localStorage.setItem(getMyBooksKey(), JSON.stringify(AppState.myBooks)); }
+        function saveMyBooks() { localStorage.setItem(getMyBooksKey(), JSON.stringify(AppState.myBooks)); CloudSync.schedulePush(); }
+
+        // ========== Cloud Sync ==========
+        // Syncs user data (myBooks, checkin, points, etc.) across devices via Redis
+        const CloudSync = {
+            _syncing: false,
+            _lastSyncAt: 0,
+            _debounceTimer: null,
+            _enabled: false,
+
+            isEnabled() {
+                return this._enabled && AppState.isLoggedIn && AppState.user && AppState.user.username;
+            },
+
+            // Collect all user data that should be synced
+            collectData() {
+                return {
+                    myBooks: AppState.myBooks || [],
+                    checkin: JSON.parse(localStorage.getItem(getUserKey('checkin')) || 'null'),
+                    points: parseInt(localStorage.getItem(getUserKey('points')) || '0'),
+                    claimed: JSON.parse(localStorage.getItem(getUserKey('claimed')) || 'null'),
+                    bind_id: localStorage.getItem(getUserKey('bind_id')) || null,
+                    vip_days: parseInt(localStorage.getItem(getUserKey('vip_days')) || '0'),
+                    lastSyncAt: Date.now()
+                };
+            },
+
+            // Push local data to cloud
+            async push() {
+                if (!this.isEnabled() || this._syncing) return;
+                try {
+                    this._syncing = true;
+                    const data = this.collectData();
+                    const resp = await fetch('/api/user-data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ data })
+                    });
+                    if (resp.ok) {
+                        const result = await resp.json();
+                        this._lastSyncAt = result.lastSyncAt || Date.now();
+                        console.log('[CloudSync] Push OK');
+                    }
+                } catch (e) {
+                    console.warn('[CloudSync] Push failed:', e.message);
+                } finally {
+                    this._syncing = false;
+                }
+            },
+
+            // Pull cloud data and merge with local
+            async pull() {
+                if (!this.isEnabled()) return;
+                try {
+                    const resp = await fetch('/api/user-data', {
+                        method: 'GET',
+                        credentials: 'include'
+                    });
+                    if (!resp.ok) {
+                        console.warn('[CloudSync] Pull failed:', resp.status);
+                        return;
+                    }
+                    const result = await resp.json();
+                    if (!result.exists || !result.data) {
+                        console.log('[CloudSync] No cloud data, pushing local data');
+                        await this.push();
+                        return;
+                    }
+
+                    const cloud = result.data;
+                    this._lastSyncAt = cloud.lastSyncAt || 0;
+
+                    // Merge strategy: cloud wins for accumulated data, merge for lists
+                    // Points: take max (don't lose earned points)
+                    const localPoints = parseInt(localStorage.getItem(getUserKey('points')) || '0');
+                    if (cloud.points !== undefined && cloud.points > localPoints) {
+                        localStorage.setItem(getUserKey('points'), String(cloud.points));
+                    }
+
+                    // Checkin: cloud wins if it has more streak/history
+                    const localCheckin = JSON.parse(localStorage.getItem(getUserKey('checkin')) || '{}');
+                    if (cloud.checkin) {
+                        const cloudStreak = cloud.checkin.streak || 0;
+                        const localStreak = localCheckin.streak || 0;
+                        if (cloudStreak >= localStreak || !localCheckin.lastCheckin) {
+                            localStorage.setItem(getUserKey('checkin'), JSON.stringify(cloud.checkin));
+                        }
+                    }
+
+                    // Claimed: merge (union of both)
+                    const localClaimed = JSON.parse(localStorage.getItem(getUserKey('claimed')) || '{}');
+                    if (cloud.claimed) {
+                        const merged = { ...localClaimed, ...cloud.claimed };
+                        localStorage.setItem(getUserKey('claimed'), JSON.stringify(merged));
+                    }
+
+                    // Bind ID: cloud wins if set
+                    if (cloud.bind_id) {
+                        localStorage.setItem(getUserKey('bind_id'), cloud.bind_id);
+                    }
+
+                    // VIP days: take max
+                    const localVip = parseInt(localStorage.getItem(getUserKey('vip_days')) || '0');
+                    if (cloud.vip_days !== undefined && cloud.vip_days > localVip) {
+                        localStorage.setItem(getUserKey('vip_days'), String(cloud.vip_days));
+                    }
+
+                    // MyBooks: merge by book ID (union, deduplicated)
+                    const localBooks = AppState.myBooks || [];
+                    if (cloud.myBooks && Array.isArray(cloud.myBooks)) {
+                        const bookMap = new Map();
+                        // Add local books first
+                        for (const b of localBooks) {
+                            const id = b.id || b.bookId || b.title;
+                            if (id) bookMap.set(id, b);
+                        }
+                        // Cloud books overwrite on conflict (newer data)
+                        for (const b of cloud.myBooks) {
+                            const id = b.id || b.bookId || b.title;
+                            if (id) {
+                                if (!bookMap.has(id)) {
+                                    bookMap.set(id, b);
+                                } else {
+                                    // Keep the one with more data (more properties)
+                                    const existing = bookMap.get(id);
+                                    const merged = { ...existing, ...b };
+                                    bookMap.set(id, merged);
+                                }
+                            }
+                        }
+                        AppState.myBooks = Array.from(bookMap.values());
+                        saveMyBooks();
+                    }
+
+                    // Reload all data into AppState
+                    loadCheckinData();
+                    updatePointsDisplay();
+                    
+                    console.log('[CloudSync] Pull & merge OK');
+                } catch (e) {
+                    console.warn('[CloudSync] Pull failed:', e.message);
+                }
+            },
+
+            // Debounced push - avoids hammering the API on rapid changes
+            schedulePush() {
+                if (!this.isEnabled()) return;
+                if (this._debounceTimer) clearTimeout(this._debounceTimer);
+                this._debounceTimer = setTimeout(() => this.push(), 2000);
+            },
+
+            // Enable sync after login
+            enable() {
+                this._enabled = true;
+                this.pull(); // Pull first, then any changes will push
+            },
+
+            // Disable sync on logout
+            disable() {
+                this._enabled = false;
+                if (this._debounceTimer) clearTimeout(this._debounceTimer);
+            }
+        };
+
 
         // Format number or return dash
         function fmtNum(n, prefix = '') {
@@ -5155,8 +5320,6 @@ function renderMyBooks() {
                     keys.forEach(k => { if (!statsMap[k]) statsMap[k] = book; });
                 });
             }
-                const key = book.link || (book.code && String(book.code)) || book.title;
-                const stats = statsMap[key] || {};
             container.innerHTML = AppState.myBooks.map(book => {
                 const key = book.link || (book.code && String(book.code)) || book.title;
                 const stats = statsMap[key] || {};
@@ -5287,7 +5450,6 @@ function renderMyBooks() {
                     keys.forEach(k => { if (!statsMap[k]) statsMap[k] = book; });
                 });
             }
-            }
 
             container.innerHTML = AppState.myBooks.map(book => {
                 const key = book.link || (book.code && String(book.code)) || book.title;
@@ -5349,6 +5511,7 @@ function renderMyBooks() {
                 try {
                     AppState.user = JSON.parse(saved);
                     AppState.isLoggedIn = true;
+                    CloudSync.enable();
                 } catch (e) {
                     localStorage.removeItem('novelflow_user');
                 }
@@ -5459,6 +5622,7 @@ function renderMyBooks() {
             saveCheckinData(); // Save checkin data to per-user key
             localStorage.removeItem('novelflow_user');
             localStorage.removeItem('novelflow_last_user');
+            CloudSync.disable();
             // Per-user data (books, reels, checkin, points, claimed, bind_id, vip_days) 
             // uses keys like novelflow_xxx_{username} and persists across logins.
             // Only session info is cleared.
@@ -5526,6 +5690,7 @@ function renderMyBooks() {
                 loadPerformanceDashboard();
                 showToast('Welcome, ' + username + '!', 'success');
                 checkAndPromptSetPassword(username);
+                CloudSync.enable();
             } catch(e) {
                 console.error('Login error:', e);
                 // Fallback: allow offline login (API unreachable or timed out)
@@ -5541,6 +5706,7 @@ function renderMyBooks() {
                 loadPerformanceDashboard();
                 showToast('Welcome, ' + username + '! (offline mode)', 'success');
                 checkAndPromptSetPassword(username);
+                CloudSync.enable();
             }
         }
         
