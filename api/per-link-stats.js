@@ -35,7 +35,7 @@ module.exports = async (req, res) => {
     const submissions = JSON.parse(Buffer.from(subData.content, 'base64').toString('utf-8'));
 
     const userSubs = submissions.filter(s =>
-      (s.discordUsername || '').toLowerCase() === username.toLowerCase() &&
+      ((s.discordUsername || '').toLowerCase() === username.toLowerCase() || (s.discordUsername || '') === 'Anonymous') &&
       s.status === 'completed' &&
       s.linkId
     );
