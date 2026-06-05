@@ -11,11 +11,11 @@ let cachedToken = null;
 let cachedTokenExp = 0;
 
 async function getFreshToken() {
-  // Prefer env vars; fallback to known credentials (remove fallback in production)
-  const username = process.env.OIDC_USERNAME || 'xujt';
-  const password = process.env.OIDC_PASSWORD || '9@OY9NuHX4O2';
+  const username = process.env.OIDC_USERNAME;
+  const password = process.env.OIDC_PASSWORD;
 
   if (!username || !password) {
+    console.error('OIDC_USERNAME or OIDC_PASSWORD not set in env vars');
     return null;
   }
 
