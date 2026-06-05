@@ -4657,7 +4657,7 @@
                         bookId: currentRecommendBook.bookId,
                         bookTitle: currentRecommendBook.title,
                         bookAuthor: currentRecommendBook.author || '',
-                        lang: currentRecommendBook.languageCode || 'en'
+                        lang: currentRecommendBook.languageCode || 'en',
                         discordUsername: AppState.user?.username || 'Anonymous'
                     })
                 });
@@ -4943,7 +4943,7 @@
                         bookId: book.bookId,
                         bookTitle: book.title,
                         bookAuthor: book.author || '',
-                        lang: AppState.searchLang
+                        lang: AppState.searchLang,
                         discordUsername: AppState.user?.username || 'Anonymous'
                     })
                 });
@@ -5436,7 +5436,7 @@ function renderMyBooks() {
                         bookId: book.bookId,
                         bookTitle: book.title,
                         bookAuthor: book.author || '',
-                        lang: book.languageCode || 'en'
+                        lang: book.languageCode || 'en',
                         discordUsername: AppState.user?.username || 'Anonymous'
                     })
                 });
