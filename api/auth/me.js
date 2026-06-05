@@ -15,7 +15,7 @@ const {
   extractUserInfo
 } = require('../_lib/auth');
 
-const { setCORSHeaders } = require('../../_lib/cors');
+const { setCORSHeaders } = require('../_lib/cors');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -37,14 +37,13 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Access token missing or expired — check if refresh token exists
+    // Access token missing or expired - check if refresh token exists
     const cookies = parseCookies(req);
     const refreshToken = cookies['nf_refresh'];
 
     if (refreshToken) {
       const refreshPayload = verifyJWT(refreshToken);
       if (refreshPayload && refreshPayload._refresh) {
-        // Refresh token is valid, tell frontend to refresh
         return res.status(200).json({
           loggedIn: false,
           needsRefresh: true
