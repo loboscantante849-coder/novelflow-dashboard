@@ -5144,18 +5144,19 @@ function renderMyBooks() {
                 return;
             }
 
-            // Build stats map from UserStats.data
+            // Build stats map from UserStats.data - match by link, code, linkId, bookName
             const statsMap = {};
             if (UserStats.data && UserStats.data.books) {
                 UserStats.data.books.forEach(book => {
-                    // Match by link or bookName
-                    const key = book.link || book.bookName;
-                    if (key) statsMap[key] = book;
+                    // Index by multiple keys for flexible matching
+                    const keys = [book.link, book.code && String(book.code), book.linkId, book.bookName].filter(Boolean);
+                    keys.forEach(k => { if (!statsMap[k]) statsMap[k] = book; });
                 });
             }
-
+                const key = book.link || (book.code && String(book.code)) || book.title;
+                const stats = statsMap[key] || {};
             container.innerHTML = AppState.myBooks.map(book => {
-                const key = book.link || book.title;
+                const key = book.link || (book.code && String(book.code)) || book.title;
                 const stats = statsMap[key] || {};
                 
                 const visits = stats.visits || 0;
@@ -5276,16 +5277,18 @@ function renderMyBooks() {
             }
 
             // Build stats map
+            // Build stats map - match by link, code, linkId, bookName
             const statsMap = {};
             if (UserStats.data && UserStats.data.books) {
                 UserStats.data.books.forEach(book => {
-                    const key = book.link || book.bookName;
-                    if (key) statsMap[key] = book;
+                    const keys = [book.link, book.code && String(book.code), book.linkId, book.bookName].filter(Boolean);
+                    keys.forEach(k => { if (!statsMap[k]) statsMap[k] = book; });
                 });
+            }
             }
 
             container.innerHTML = AppState.myBooks.map(book => {
-                const key = book.link || book.title;
+                const key = book.link || (book.code && String(book.code)) || book.title;
                 const stats = statsMap[key] || {};
                 const visits = stats.visits || 0;
                 const unique = stats.unique_users || 0;
