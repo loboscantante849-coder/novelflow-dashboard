@@ -8,7 +8,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <meta name="theme-color" content="#ffffff">
     <title>NovelFlow - Earn Money Promoting Books</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.loli.net/css2?family=Inter:wght@300;400;500;600;700&display=swap" onerror="this.remove()"" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -3199,7 +3199,9 @@
     </div>
 
     <script>
-// NovelFlow v2.4.1 - Syntax Fix - deployed 2026-05-23
+// Global fetch timeout - no API call can block the page
+(function(){var _f=window.fetch;window.fetch=function(u,o){o=o||{};if(o.signal)return _f(u,o);var c=new AbortController(),t=setTimeout(function(){c.abort()},o.timeout||8000),n=Object.assign({},o,{signal:c.signal});return _f(u,n).then(function(r){clearTimeout(t);return r}).catch(function(e){clearTimeout(t);if(e.name==='AbortError'){return new Response(JSON.stringify({error:'timeout',offline:true}),{status:504,headers:{'Content-Type':'application/json'}})}throw e})}})();
+// NovelFlow v2.4.2 - China access fix - 2026-06-05
         // ========== Global State ==========
         const AppState = {
             currentTab: 'home',
@@ -5502,6 +5504,10 @@ function renderMyBooks() {
                     return;
                 }
                 if (!resp.ok) {
+                    if (resp.status === 504 || result.offline) {
+                        // Server unreachable - use offline mode
+                        throw new Error('offline');
+                    }
                     const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = result.error || 'Login failed';
                     return;
                 }
