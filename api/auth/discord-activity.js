@@ -14,7 +14,7 @@ const {
   setAuthCookies
 } = require('../_lib/auth');
 
-const { setCORSHeaders } = require('../../_lib/cors');
+const { setCORSHeaders } = require('../_lib/cors');
 
 const CLIENT_ID = '1504779503237333033';
 const CLIENT_SECRET = 'MWBTsNd-5Ot-0gQ8CzzeYbucCUjQdmxS';
