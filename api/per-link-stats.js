@@ -82,12 +82,13 @@ module.exports = async (req, res) => {
       }
     }
 
-    // Step 3: Aggregate by adid
+    // Step 3: Aggregate by adid — use correct putreport field names
     const linkMap = {};
     for (const row of allRows) {
       const adid = row.adid || '';
       const date = row.date || row.dt || '';
-      const visits = parseInt(row.h5landingpageclicknum || row.clicknum || row.visits || 0);
+      // FIX: use h5landingpageclicks (correct field) not h5landingpageclicknum
+      const visits = parseInt(row.h5landingpageclicks || row.h5landingpageclicknum || row.clicknum || row.visits || 0);
       const unique = parseInt(row.h5landingpageclickusernum || row.clickusernum || row.unique_users || 0);
       const newUsers = parseInt(row.newusernum || row.new_users || 0);
       const income = parseFloat(row.d14income || row.income || 0);
@@ -106,9 +107,26 @@ module.exports = async (req, res) => {
     }
 
     // Step 4: Build links array - merge submission metadata with putreport data
+    // FIX: Also try matching by shortUrl extracted from link field for Anonymous data recovery
     const links = [];
     for (const sub of userSubs) {
-      const ls = linkMap[sub.linkId] || { total_visits: 0, total_unique: 0, total_new: 0, total_income: 0, daily: {} };
+      let ls = linkMap[sub.linkId] || null;
+      
+      // If no data found by linkId, try matching by shortUrl from the link field
+      if (!ls && sub.link) {
+        // Extract shortUrl from link: "https://social.novelplatform.vip/XXXXX" → "XXXXX"
+        const shortUrlMatch = sub.link.match(/\/([^\/]+)\/?$/);
+        if (shortUrlMatch) {
+          const shortUrl = shortUrlMatch[1];
+          // Exact match by shortUrl
+          ls = linkMap[shortUrl] || null;
+        }
+      }
+      
+      if (!ls) {
+        ls = { total_visits: 0, total_unique: 0, total_new: 0, total_income: 0, daily: {} };
+      }
+      
       links.push({
         bookName: sub.matchedBookName || sub.bookName,
         bookId: sub.bookId,
