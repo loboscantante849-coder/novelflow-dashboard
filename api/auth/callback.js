@@ -17,7 +17,7 @@ const {
 const { setCORSHeaders } = require('../_lib/cors');
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1504779503237333033';
-const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || 'MWBTsNd-5Ot-0gQ8CzzeYbucCUjQdmxS';
+const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 
 function getRedirectUri(req) {
   if (req.headers.host) {
@@ -38,6 +38,11 @@ module.exports = async (req, res) => {
   }
 
   if (!code) {
+    return res.redirect('/app-v2?auth=error');
+  }
+
+  if (!CLIENT_SECRET) {
+    console.error('[auth/callback] DISCORD_CLIENT_SECRET not configured');
     return res.redirect('/app-v2?auth=error');
   }
 
