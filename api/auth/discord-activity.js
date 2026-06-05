@@ -1,66 +1,98 @@
-const { setCORSHeaders } = require('../_lib/cors');
-const { createJWT } = require('../_lib/jwt');
+/**
+ * Discord Activity Auth
+ * 
+ * POST /api/auth/discord-activity
+ * 
+ * For Discord Embedded App SDK (Activity) authentication.
+ */
 
-const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1504779503237333033';
-const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
+const {
+  signAccessToken,
+  signRefreshToken,
+  buildUserPayload,
+  extractUserInfo,
+  setAuthCookies
+} = require('../_lib/auth');
+
+const { setCORSHeaders } = require('../../_lib/cors');
+
+const CLIENT_ID = '1504779503237333033';
+const CLIENT_SECRET = 'MWBTsNd-5Ot-0gQ8CzzeYbucCUjQdmxS';
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  if (!CLIENT_SECRET) {
-    return res.status(500).json({ error: 'Discord OAuth not configured' });
-  }
-
   try {
-    const { access_token } = req.body || {};
-    
-    if (!access_token) {
-      return res.status(400).json({ error: 'Access token required' });
+    const { code } = req.body;
+
+    if (!code) {
+      return res.status(400).json({ error: 'Code is required' });
     }
 
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        grant_type: 'authorization_code',
+        code: code,
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      console.error('Token exchange failed:', await tokenResponse.text());
+      return res.status(401).json({ error: 'Failed to exchange code for token' });
+    }
+
+    const tokenData = await tokenResponse.json();
+
+    // Get user info from Discord
     const userResponse = await fetch('https://discord.com/api/users/@me', {
-      headers: { Authorization: `Bearer ${access_token}` },
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
 
     if (!userResponse.ok) {
-      return res.status(401).json({ error: 'Invalid Discord token' });
+      console.error('Failed to get user info:', await userResponse.text());
+      return res.status(401).json({ error: 'Failed to get user info' });
     }
 
     const userData = await userResponse.json();
 
-    const payload = {
-      type: 'discord',
+    // Build token payload
+    const userPayload = buildUserPayload({
       discordId: userData.id,
       username: userData.username,
-      globalName: userData.global_name,
+      globalName: userData.global_name || userData.username,
       avatar: userData.avatar,
       discriminator: userData.discriminator,
-      iat: Math.floor(Date.now() / 1000),
-    };
+    });
 
-    const token = createJWT(payload);
+    const accessToken = signAccessToken(userPayload);
+    const refreshToken = signRefreshToken(userPayload);
+    const userInfo = extractUserInfo(userPayload);
 
-    res.setHeader('Set-Cookie', [
-      `nf_token=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`,
-      `nf_user=${encodeURIComponent(JSON.stringify({ username: userData.global_name || userData.username, avatar: userData.avatar }))}; Path=/; Max-Age=2592000`
-    ]);
+    setAuthCookies(res, accessToken, refreshToken, userInfo);
+
+    console.log('[discord-activity] User authenticated:', userInfo.username);
 
     return res.status(200).json({
       success: true,
-      username: userData.global_name || userData.username,
-      avatar: userData.avatar,
+      user: {
+        id: userData.id,
+        username: userData.username,
+        global_name: userData.global_name || userData.username,
+        avatar: userData.avatar,
+      },
+      token: accessToken
     });
+
   } catch (error) {
-    console.error('Discord activity error:', error);
+    console.error('[discord-activity] Error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

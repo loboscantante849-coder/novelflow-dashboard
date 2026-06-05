@@ -1,19 +1,16 @@
-const { setCORSHeaders } = require('../_lib/cors');
+/**
+ * Logout Endpoint
+ * 
+ * GET /api/auth/logout
+ * 
+ * Clears all auth cookies (access + refresh + user info).
+ */
+
+const { clearAuthCookies } = require('../_lib/auth');
+const { setCORSHeaders } = require('../../_lib/cors');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  // Clear all auth cookies
-  res.setHeader('Set-Cookie', [
-    'nf_token=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0',
-    'nf_user=; Path=/; Max-Age=0'
-  ]);
-
-  // Redirect to app
-  return res.redirect('/app-v2');
+  clearAuthCookies(res);
+  return res.redirect('/app.html');
 };

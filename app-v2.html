@@ -4508,7 +4508,31 @@
             navigator.clipboard.writeText(text).then(() => showToast('Copied!', 'success')).catch(() => showToast('Copy failed', 'error'));
         }
 
-        // ========== Check Login Status ==========
+        // ========== Auto-Refresh + Check Login Status ==========
+
+        // Refresh the access token using refresh token (called automatically)
+        async function refreshAuth() {
+            try {
+                const response = await fetch('/api/auth/refresh', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                if (!response.ok) return false;
+                const data = await response.json();
+                if (data.success && data.user) {
+                    AppState.isLoggedIn = true;
+                    AppState.user = data.user;
+                    localStorage.setItem('novelflow_user', JSON.stringify(data.user));
+                    localStorage.setItem('novelflow_last_user', data.user.username);
+                    updateProfileUI();
+                    return true;
+                }
+            } catch (e) {
+                console.warn('[Auth] Refresh failed:', e.message);
+            }
+            return false;
+        }
+
         async function checkLoginStatus() {
             try {
                 const response = await fetch('/api/auth/me', {
@@ -4526,12 +4550,22 @@
                     };
                     localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
                     localStorage.setItem('novelflow_last_user', AppState.user.username);
-                    // If user changed, reload per-user data
                     if (prevUser !== AppState.user.username) {
                         loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo();
                         loadMyBooks();
                     }
                     return;
+                }
+
+                // Access token expired — try refresh token (auto-login)
+                if (data.needsRefresh) {
+                    const refreshed = await refreshAuth();
+                    if (refreshed) {
+                        // Reload per-user data after refresh
+                        loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI();
+                        loadMyBooks();
+                        return;
+                    }
                 }
             } catch (e) {
                 console.warn('Login check API failed:', e.message);
@@ -4554,6 +4588,25 @@
             AppState.isLoggedIn = false;
             AppState.user = null;
             updateProfileUI();
+        }
+
+        // Auth-aware fetch wrapper: auto-refreshes on 401
+        async function authFetch(url, options = {}) {
+            const response = await fetch(url, { ...options, credentials: 'include' });
+            if (response.status !== 401) return response;
+
+            // Got 401 — try refresh
+            const refreshed = await refreshAuth();
+            if (refreshed) {
+                // Retry original request with new cookies
+                return fetch(url, { ...options, credentials: 'include' });
+            }
+
+            // Refresh also failed — user needs to re-login
+            AppState.isLoggedIn = false;
+            AppState.user = null;
+            updateProfileUI();
+            return response;
         }
 
         // ========== Confirm Recommend - Call Backend API ==========

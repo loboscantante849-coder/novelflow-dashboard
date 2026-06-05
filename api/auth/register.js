@@ -1,16 +1,20 @@
-const { setCORSHeaders } = require('../_lib/cors');
-const { createJWT } = require('../_lib/jwt');
-const { Redis } = require('@upstash/redis');
-const crypto = require('crypto');
+/**
+ * Register / Login Endpoint (local accounts)
+ * 
+ * POST /api/auth/register
+ * 
+ * Creates a local account (username only) and issues access + refresh tokens.
+ */
 
-function getRedis() {
-  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
-  return new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
-}
+const {
+  signAccessToken,
+  signRefreshToken,
+  buildUserPayload,
+  extractUserInfo,
+  setAuthCookies
+} = require('../_lib/auth');
 
-function hashPassword(password) {
-  return crypto.createHash('sha256').update('nf_' + password + '_salt2026').digest('hex');
-}
+const { setCORSHeaders } = require('../../_lib/cors');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -20,42 +24,36 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { username, password } = req.body;
-    if (!username) return res.status(400).json({ error: 'Username is required' });
+    const { username } = req.body;
 
-    const cleanUsername = username.trim().substring(0, 50);
-    if (!cleanUsername) return res.status(400).json({ error: 'Invalid username' });
-
-    const redis = getRedis();
-
-    // Check if user already has a password set
-    if (redis) {
-      const storedHash = await redis.get('nf_user_pass:' + cleanUsername);
-      if (storedHash) {
-        // User exists with password - redirect to login flow
-        if (!password) return res.status(401).json({ error: 'Password required', needPassword: true });
-        const inputHash = hashPassword(password);
-        if (inputHash !== storedHash) return res.status(401).json({ error: 'Wrong password', needPassword: true });
-      } else if (password && password.length >= 4) {
-        // New user setting a password, or existing user adding password
-        const newHash = hashPassword(password);
-        await redis.set('nf_user_pass:' + cleanUsername, newHash);
-      }
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
     }
 
-    // Generate JWT
-    const iat = Math.floor(Date.now() / 1000);
-    const payload = { type: 'local', username: cleanUsername, novelFlowId: 'NF' + String(iat).slice(-6) + Math.random().toString(36).substr(2, 4).toUpperCase(), iat };
-    const token = createJWT(payload);
+    const cleanUsername = username.trim().substring(0, 50);
+    if (!cleanUsername) {
+      return res.status(400).json({ error: 'Invalid username' });
+    }
 
-    res.setHeader('Set-Cookie', [
-      `nf_token=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`,
-      `nf_user=${encodeURIComponent(JSON.stringify({ username: cleanUsername }))}; Path=/; Max-Age=2592000`
-    ]);
+    // Build token payload
+    const userPayload = buildUserPayload({ type: 'local', username: cleanUsername });
+    const accessToken = signAccessToken(userPayload);
+    const refreshToken = signRefreshToken(userPayload);
+    const userInfo = extractUserInfo(userPayload);
 
-    return res.status(200).json({ success: true, username: cleanUsername, message: 'Login successful' });
+    setAuthCookies(res, accessToken, refreshToken, userInfo);
+
+    return res.status(200).json({
+      success: true,
+      username: cleanUsername,
+      isNewUser: true
+    });
+
   } catch (error) {
-    console.error('Register error:', error);
+    console.error('[auth/register] Error:', error);
+    if (error.message === 'JWT_SECRET not configured') {
+      return res.status(500).json({ error: 'Server auth not configured' });
+    }
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
