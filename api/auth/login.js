@@ -1,5 +1,24 @@
+/**
+ * Login Endpoint (local accounts)
+ * 
+ * POST /api/auth/login
+ * 
+ * Authenticates local users and issues access + refresh tokens.
+ * Consistent with register.js - uses auth.js module for token creation.
+ */
+
+const {
+  signAccessToken,
+  signRefreshToken,
+  buildUserPayload,
+  extractUserInfo,
+  setAuthCookies,
+  verifyJWT,
+  parseCookies,
+  clearAuthCookies
+} = require('../_lib/auth');
+
 const { setCORSHeaders } = require('../_lib/cors');
-const { createJWT } = require('../_lib/jwt');
 const { Redis } = require('@upstash/redis');
 const crypto = require('crypto');
 
@@ -37,19 +56,21 @@ module.exports = async (req, res) => {
       }
     }
 
-    // Generate JWT
-    const iat = Math.floor(Date.now() / 1000);
-    const payload = { type: 'local', username: cleanUsername, novelFlowId: 'NF' + String(iat).slice(-6) + Math.random().toString(36).substr(2, 4).toUpperCase(), iat };
-    const token = createJWT(payload);
+    // Build token payload (consistent with register.js)
+    const userPayload = buildUserPayload({ type: 'local', username: cleanUsername });
+    const accessToken = signAccessToken(userPayload);
+    const refreshToken = signRefreshToken(userPayload);
+    const userInfo = extractUserInfo(userPayload);
 
-    res.setHeader('Set-Cookie', [
-      `nf_token=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`,
-      `nf_user=${encodeURIComponent(JSON.stringify({ username: cleanUsername }))}; Path=/; Max-Age=2592000`
-    ]);
+    setAuthCookies(res, accessToken, refreshToken, userInfo);
 
-    return res.status(200).json({ success: true, username: cleanUsername, message: 'Login successful' });
+    return res.status(200).json({
+      success: true,
+      username: cleanUsername,
+      user: userInfo
+    });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('[auth/login] Error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
