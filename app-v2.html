@@ -5155,8 +5155,6 @@ function renderMyBooks() {
                     keys.forEach(k => { if (!statsMap[k]) statsMap[k] = book; });
                 });
             }
-                const key = book.link || (book.code && String(book.code)) || book.title;
-                const stats = statsMap[key] || {};
             container.innerHTML = AppState.myBooks.map(book => {
                 const key = book.link || (book.code && String(book.code)) || book.title;
                 const stats = statsMap[key] || {};
@@ -5286,7 +5284,6 @@ function renderMyBooks() {
                     const keys = [book.link, book.code && String(book.code), book.linkId, book.bookName].filter(Boolean);
                     keys.forEach(k => { if (!statsMap[k]) statsMap[k] = book; });
                 });
-            }
             }
 
             container.innerHTML = AppState.myBooks.map(book => {
