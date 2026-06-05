@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NovelFlow — Get Paid to Recommend Books You Love</title>
+    <meta name="description" content="Earn real money sharing novels. Up to 80% commission. Free AI video tools. Join 1,200+ promoters already earning.">
+    <meta property="og:title" content="NovelFlow — Get Paid to Recommend Books">
+    <meta property="og:description" content="Earn up to 80% commission sharing novels. AI video tools included. Join our community.">
+    <meta property="og:image" content="https://novelflow-dashboard.vercel.app/static/nf-og.png">
+    <link rel="icon" href="/favicon.ico">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:#0a0a0a; color:#fff; overflow-x:hidden; }
+        .hero { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:40px 20px; position:relative; }
+        .hero::before { content:''; position:absolute; top:0; left:0; right:0; bottom:0; background:radial-gradient(ellipse at 50% 30%, rgba(192,132,252,0.15) 0%, transparent 60%), radial-gradient(ellipse at 30% 70%, rgba(255,107,157,0.1) 0%, transparent 50%); pointer-events:none; }
+        .logo { font-size:28px; font-weight:800; margin-bottom:8px; position:relative; }
+        .logo span { background:linear-gradient(135deg,#FF6B9D,#C084FC); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .tagline { font-size:14px; color:rgba(255,255,255,0.5); margin-bottom:40px; letter-spacing:1px; text-transform:uppercase; }
+        .hero h1 { font-size:clamp(32px,6vw,56px); font-weight:800; line-height:1.15; margin-bottom:16px; position:relative; max-width:700px; }
+        .hero h1 .gradient { background:linear-gradient(135deg,#FF6B9D,#C084FC); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .hero h1 .gold { color:#FFD700; -webkit-text-fill-color:#FFD700; }
+        .hero .sub { font-size:clamp(16px,2.5vw,20px); color:rgba(255,255,255,0.65); max-width:560px; line-height:1.6; margin-bottom:36px; position:relative; }
+        .cta-btn { display:inline-flex; align-items:center; gap:10px; padding:16px 40px; background:linear-gradient(135deg,#FF6B9D,#C084FC); color:white; font-size:18px; font-weight:700; border:none; border-radius:14px; cursor:pointer; text-decoration:none; transition:transform .2s,box-shadow .2s; position:relative; }
+        .cta-btn:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(255,107,157,0.3); }
+        .cta-sub { font-size:13px; color:rgba(255,255,255,0.4); margin-top:14px; position:relative; }
+        .stats { display:flex; gap:40px; margin-top:48px; position:relative; }
+        .stat { text-align:center; }
+        .stat-num { font-size:28px; font-weight:800; background:linear-gradient(135deg,#FF6B9D,#C084FC); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .stat-label { font-size:12px; color:rgba(255,255,255,0.4); margin-top:4px; }
+
+        .section { padding:80px 20px; max-width:900px; margin:0 auto; }
+        .section h2 { font-size:clamp(24px,4vw,36px); font-weight:800; text-align:center; margin-bottom:48px; }
+        .section h2 .gradient { background:linear-gradient(135deg,#FF6B9D,#C084FC); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+
+        .how-it-works { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:24px; }
+        .step { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:28px 24px; text-align:center; transition:border-color .3s; }
+        .step:hover { border-color:rgba(192,132,252,0.3); }
+        .step-icon { font-size:36px; margin-bottom:12px; }
+        .step-title { font-size:16px; font-weight:700; margin-bottom:8px; }
+        .step-desc { font-size:13px; color:rgba(255,255,255,0.5); line-height:1.5; }
+
+        .perks { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:20px; }
+        .perk { display:flex; gap:14px; align-items:flex-start; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:20px; }
+        .perk-icon { font-size:28px; flex-shrink:0; }
+        .perk-title { font-size:15px; font-weight:700; margin-bottom:4px; }
+        .perk-desc { font-size:13px; color:rgba(255,255,255,0.45); line-height:1.4; }
+
+        .testimonials { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; }
+        .testimonial { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:24px; }
+        .testimonial-text { font-size:14px; color:rgba(255,255,255,0.7); line-height:1.6; font-style:italic; margin-bottom:12px; }
+        .testimonial-author { font-size:13px; color:rgba(255,255,255,0.4); }
+
+        .faq-item { border-bottom:1px solid rgba(255,255,255,0.08); padding:20px 0; }
+        .faq-q { font-size:16px; font-weight:600; cursor:pointer; display:flex; justify-content:space-between; align-items:center; }
+        .faq-q::after { content:'+'; font-size:20px; color:rgba(255,255,255,0.3); transition:transform .3s; }
+        .faq-item.open .faq-q::after { transform:rotate(45deg); }
+        .faq-a { font-size:14px; color:rgba(255,255,255,0.5); line-height:1.6; max-height:0; overflow:hidden; transition:max-height .3s,padding .3s; }
+        .faq-item.open .faq-a { max-height:200px; padding-top:12px; }
+
+        .bottom-cta { text-align:center; padding:80px 20px 60px; }
+        .bottom-cta h2 { font-size:clamp(28px,5vw,42px); font-weight:800; margin-bottom:16px; }
+        .bottom-cta h2 .gradient { background:linear-gradient(135deg,#FF6B9D,#C084FC); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .bottom-cta .sub { font-size:16px; color:rgba(255,255,255,0.5); margin-bottom:32px; }
+
+        footer { text-align:center; padding:24px; font-size:12px; color:rgba(255,255,255,0.2); border-top:1px solid rgba(255,255,255,0.06); }
+        footer a { color:rgba(255,255,255,0.3); text-decoration:none; }
+
+        @media (max-width:480px) {
+            .stats { gap:24px; }
+            .stat-num { font-size:22px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Hero -->
+<section class="hero">
+    <div class="logo"><span>NovelFlow</span></div>
+    <div class="tagline">Book Promoter Program</div>
+    <h1>Get Paid to Recommend <span class="gradient">Books You Love</span></h1>
+    <p class="sub">Share novels, create AI videos, earn real money. Join 1,200+ promoters already earning up to <span class="gold">$800+/month</span>.</p>
+    <a href="https://discord.gg/UzRwWr8U" class="cta-btn" target="_blank">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+        Join Our Discord — Start Earning
+    </a>
+    <p class="cta-sub">Free to join · No minimum followers required</p>
+    <div class="stats">
+        <div class="stat">
+            <div class="stat-num">1,200+</div>
+            <div class="stat-label">Active Promoters</div>
+        </div>
+        <div class="stat">
+            <div class="stat-num">80%</div>
+            <div class="stat-label">Max Commission</div>
+        </div>
+        <div class="stat">
+            <div class="stat-num">$866+</div>
+            <div class="stat-label">Paid Out This Month</div>
+        </div>
+    </div>
+</section>
+
+<!-- How It Works -->
+<section class="section">
+    <h2>How It <span class="gradient">Works</span></h2>
+    <div class="how-it-works">
+        <div class="step">
+            <div class="step-icon">📚</div>
+            <div class="step-title">Pick a Book</div>
+            <div class="step-desc">Browse trending novels — romance, fantasy, werewolf, mafia, and more. Choose what fits your audience.</div>
+        </div>
+        <div class="step">
+            <div class="step-icon">🔗</div>
+            <div class="step-title">Get Your Link</div>
+            <div class="step-desc">One click generates your unique promotion link and code. Share it anywhere — TikTok, Instagram, Facebook.</div>
+        </div>
+        <div class="step">
+            <div class="step-icon">🎬</div>
+            <div class="step-title">Create AI Videos</div>
+            <div class="step-desc">Use our free AI video generator. Turn any book into stunning reels in ~25 min. No editing skills needed.</div>
+        </div>
+        <div class="step">
+            <div class="step-icon">💰</div>
+            <div class="step-title">Earn Money</div>
+            <div class="step-desc">Every reader who comes through your link earns you commission. Track everything in real-time.</div>
+        </div>
+    </div>
+</section>
+
+<!-- Perks -->
+<section class="section">
+    <h2>Why <span class="gradient">NovelFlow?</span></h2>
+    <div class="perks">
+        <div class="perk">
+            <div class="perk-icon">🎬</div>
+            <div>
+                <div class="perk-title">Free AI Video Tools</div>
+                <div class="perk-desc">10+ video styles — cinematic, comic, dialogue, spicy & more. Generate reels that actually convert.</div>
+            </div>
+        </div>
+        <div class="perk">
+            <div class="perk-icon">📈</div>
+            <div>
+                <div class="perk-title">Real-Time Dashboard</div>
+                <div class="perk-desc">Track clicks, activations, and income. 14-day trend charts. Know exactly what's working.</div>
+            </div>
+        </div>
+        <div class="perk">
+            <div class="perk-icon">💳</div>
+            <div>
+                <div class="perk-title">Commission Up to 80%</div>
+                <div class="perk-desc">Start at 50%. Hit milestones and unlock higher rates. The more you promote, the more you earn.</div>
+            </div>
+        </div>
+        <div class="perk">
+            <div class="perk-icon">🎯</div>
+            <div>
+                <div class="perk-title">Ready-Made Assets</div>
+                <div class="perk-desc">Pre-generated video reels, copy templates, and promo codes. Just share — no content creation required.</div>
+            </div>
+        </div>
+        <div class="perk">
+            <div class="perk-icon">🏆</div>
+            <div>
+                <div class="perk-title">Weekly Leaderboards</div>
+                <div class="perk-desc">Compete for bonus rewards. Top promoters get featured and earn extra perks.</div>
+            </div>
+        </div>
+        <div class="perk">
+            <div class="perk-icon">🌍</div>
+            <div>
+                <div class="perk-title">English & Spanish</div>
+                <div class="perk-desc">Full bilingual support. Promote to US, LATAM, or global audiences.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Social Proof -->
+<section class="section">
+    <h2>What Promoters <span class="gradient">Say</span></h2>
+    <div class="testimonials">
+        <div class="testimonial">
+            <div class="testimonial-text">"I made my first $50 in 3 days just by posting book clips on TikTok. The AI video tool is a game changer — I don't even need to edit."</div>
+            <div class="testimonial-author">— Maria T., BookTok Creator 🇺🇸</div>
+        </div>
+        <div class="testimonial">
+            <div class="testimonial-text">"No necesito seguidores enormes. Solo comparto los enlaces en mis historias de Instagram y gano dinero cada semana. ¡Es muy fácil!"</div>
+            <div class="testimonial-author">— Carlos R., Instagram Creator 🇲🇽</div>
+        </div>
+        <div class="testimonial">
+            <div class="testimonial-text">"The commission system is transparent. I can see every click and dollar in real-time. Best promoter program I've tried."</div>
+            <div class="testimonial-author">— Sarah K., Content Creator 🇬🇧</div>
+        </div>
+    </div>
+</section>
+
+<!-- FAQ -->
+<section class="section">
+    <h2>Common <span class="gradient">Questions</span></h2>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+        <div class="faq-q">Do I need a big following?</div>
+        <div class="faq-a">Nope! Zero followers required. Share your links anywhere — social media, group chats, forums. Even 1 click can earn you money.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+        <div class="faq-q">How do I get paid?</div>
+        <div class="faq-a">Commission accumulates in your dashboard. Withdraw via supported payment methods once you reach the minimum threshold.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+        <div class="faq-q">Is the AI video tool really free?</div>
+        <div class="faq-a">Yes! Promoters get free daily video generation credits. Advanced mode with 10+ styles is currently free during our launch period.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+        <div class="faq-q">What books can I promote?</div>
+        <div class="faq-a">Hundreds of trending novels — romance, werewolf, mafia, fantasy, and more. English and Spanish titles available.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+        <div class="faq-q">Can I promote on any platform?</div>
+        <div class="faq-a">Absolutely. TikTok, Instagram, Facebook, Twitter/X, YouTube Shorts, Reddit, WhatsApp — share your link wherever your audience is.</div>
+    </div>
+</section>
+
+<!-- Bottom CTA -->
+<section class="bottom-cta">
+    <h2>Ready to <span class="gradient">Start Earning?</span></h2>
+    <p class="sub">Join our Discord community. Get started in under 2 minutes.</p>
+    <a href="https://discord.gg/UzRwWr8U" class="cta-btn" target="_blank">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+        Join Discord — It's Free
+    </a>
+</section>
+
+<footer>
+    <p>&copy; 2026 NovelFlow &middot; <a href="https://novelflow-dashboard.vercel.app">Dashboard</a> &middot; <a href="mailto:LobosCantante849@gmail.com">Support</a></p>
+</footer>
+
+</body>
+</html>

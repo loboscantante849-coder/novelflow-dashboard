@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NovelFlow Book Recommender — Promotion Playbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #050714;
+  color: #c8cdd5;
+  line-height: 1.7;
+  font-size: 15px;
+  min-height: 100vh;
+}
+a { color: #7c6cff; text-decoration: none; transition: color .2s; }
+a:hover { color: #a89cff; }
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0a0d1f; }
+::-webkit-scrollbar-thumb { background: #2a2d45; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3d55; }
+
+/* ===== Sidebar Navigation (Desktop) ===== */
+.sidebar {
+  position: fixed;
+  top: 0; left: 0;
+  width: 260px;
+  height: 100vh;
+  background: linear-gradient(180deg, #0a0d1f 0%, #080b1a 100%);
+  border-right: 1px solid rgba(124, 108, 255, 0.1);
+  padding: 24px 0;
+  overflow-y: auto;
+  z-index: 100;
+  transition: transform .3s ease;
+}
+.sidebar-logo {
+  padding: 0 24px 28px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  margin-bottom: 16px;
+}
+.sidebar-logo .logo-text {
+  font-size: 22px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #7c6cff, #00d4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.5px;
+}
+.sidebar-logo .logo-sub {
+  font-size: 11px;
+  color: #5a5f7a;
+  margin-top: 4px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.sidebar-nav { list-style: none; padding: 0 12px; }
+.sidebar-nav li { margin-bottom: 2px; }
+.sidebar-nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #7a7f9a;
+  transition: all .2s;
+}
+.sidebar-nav a:hover,
+.sidebar-nav a.active {
+  background: rgba(124, 108, 255, 0.1);
+  color: #c4bfff;
+}
+.sidebar-nav a.active {
+  background: rgba(124, 108, 255, 0.15);
+  color: #7c6cff;
+}
+.sidebar-nav .nav-icon {
+  width: 20px;
+  text-align: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* ===== Mobile Nav Toggle ===== */
+.mobile-nav-toggle {
+  display: none;
+  position: fixed;
+  top: 16px; left: 16px;
+  z-index: 200;
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  background: rgba(124, 108, 255, 0.15);
+  border: 1px solid rgba(124, 108, 255, 0.3);
+  color: #7c6cff;
+  font-size: 20px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+}
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 99;
+}
+
+/* ===== Main Content ===== */
+.main-content {
+  margin-left: 260px;
+  margin-right: 230px;
+  padding: 40px 48px 80px;
+  max-width: 920px;
+}
+
+/* ===== Hero Section ===== */
+.hero {
+  text-align: center;
+  padding: 48px 0 40px;
+  margin-bottom: 40px;
+}
+.hero-badge {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 20px;
+  background: rgba(124, 108, 255, 0.12);
+  border: 1px solid rgba(124, 108, 255, 0.25);
+  color: #a89cff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin-bottom: 20px;
+}
+.hero h1 {
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 16px;
+  letter-spacing: -1px;
+}
+.hero h1 .gradient-text {
+  background: linear-gradient(135deg, #7c6cff 0%, #00d4ff 50%, #7c6cff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% auto;
+  animation: shimmer 3s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0%, 100% { background-position: 0% center; }
+  50% { background-position: 200% center; }
+}
+.hero p {
+  font-size: 17px;
+  color: #8a8faa;
+  max-width: 560px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+/* ===== Earnings Banner ===== */
+.earnings-banner {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 48px;
+}
+.earnings-card {
+  background: linear-gradient(135deg, rgba(124, 108, 255, 0.08), rgba(0, 212, 255, 0.05));
+  border: 1px solid rgba(124, 108, 255, 0.15);
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  transition: transform .2s, border-color .2s;
+}
+.earnings-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(124, 108, 255, 0.3);
+}
+.earnings-card .ec-value {
+  font-size: 28px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #7c6cff, #00d4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 4px;
+}
+.earnings-card .ec-label {
+  font-size: 12px;
+  color: #6a6f8a;
+  font-weight: 500;
+}
+
+/* ===== Card ===== */
+.card {
+  background: linear-gradient(135deg, rgba(14, 17, 38, 0.9), rgba(10, 13, 31, 0.95));
+  border: 1px solid rgba(124, 108, 255, 0.08);
+  border-radius: 20px;
+  padding: 36px;
+  margin-bottom: 28px;
+  transition: border-color .2s;
+}
+.card:hover {
+  border-color: rgba(124, 108, 255, 0.18);
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.card-icon {
+  width: 48px; height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.card-icon.purple { background: rgba(124, 108, 255, 0.15); }
+.card-icon.blue { background: rgba(0, 212, 255, 0.12); }
+.card-icon.green { background: rgba(0, 212, 130, 0.12); }
+.card-icon.orange { background: rgba(255, 170, 50, 0.12); }
+.card-icon.pink { background: rgba(255, 100, 150, 0.12); }
+.card-icon.red { background: rgba(255, 80, 80, 0.12); }
+.card-icon.gold { background: rgba(255, 200, 50, 0.12); }
+
+.card h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #eef0f6;
+  letter-spacing: -0.3px;
+}
+.card h3 {
+  font-size: 17px;
+  font-weight: 600;
+  color: #d0d4e0;
+  margin: 24px 0 12px;
+}
+.card h4 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #b8bcd0;
+  margin: 18px 0 8px;
+}
+
+/* ===== Step Cards ===== */
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+}
+.step-card {
+  background: rgba(124, 108, 255, 0.06);
+  border: 1px solid rgba(124, 108, 255, 0.12);
+  border-radius: 14px;
+  padding: 24px 20px;
+  text-align: center;
+  transition: transform .2s, border-color .2s;
+}
+.step-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(124, 108, 255, 0.25);
+}
+.step-number {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7c6cff, #5a4ce0);
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.step-card p {
+  font-size: 14px;
+  color: #9a9fba;
+  line-height: 1.6;
+}
+
+/* ===== Lists ===== */
+.card ul, .card ol {
+  padding-left: 0;
+  list-style: none;
+}
+.card ul li, .card ol li {
+  position: relative;
+  padding-left: 24px;
+  margin-bottom: 10px;
+  font-size: 14.5px;
+}
+.card ul li::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 10px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #7c6cff;
+}
+.card ol {
+  counter-reset: item;
+}
+.card ol li {
+  counter-increment: item;
+}
+.card ol li::before {
+  content: counter(item);
+  position: absolute;
+  left: 0; top: 1px;
+  width: 20px; height: 20px;
+  border-radius: 6px;
+  background: rgba(124, 108, 255, 0.15);
+  color: #7c6cff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== Do / Don't Lists ===== */
+.do-list li::before,
+.dont-list li::before {
+  width: auto; height: auto;
+  border-radius: 0;
+  background: none;
+  font-size: 14px;
+  top: 1px;
+}
+.do-list li::before { content: '✅'; }
+.dont-list li::before { content: '❌'; }
+.do-list li { color: #a0e8c0; }
+.dont-list li { color: #f0a0a0; }
+
+/* ===== Blockquote (Post Templates) ===== */
+.card blockquote {
+  background: rgba(124, 108, 255, 0.06);
+  border-left: 3px solid #7c6cff;
+  border-radius: 0 12px 12px 0;
+  padding: 18px 22px;
+  margin: 14px 0;
+  font-size: 14px;
+  color: #b0b4cc;
+  line-height: 1.75;
+  font-style: italic;
+}
+.card blockquote strong {
+  color: #d0d4e8;
+  font-style: normal;
+}
+
+/* ===== Table ===== */
+.card table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 16px 0;
+  font-size: 14px;
+}
+.card table thead th {
+  background: rgba(124, 108, 255, 0.1);
+  color: #a89cff;
+  font-weight: 600;
+  padding: 14px 18px;
+  text-align: left;
+  border-bottom: 1px solid rgba(124, 108, 255, 0.15);
+}
+.card table thead th:first-child { border-radius: 10px 0 0 0; }
+.card table thead th:last-child { border-radius: 0 10px 0 0; }
+.card table tbody td {
+  padding: 13px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  color: #b0b4cc;
+}
+.card table tbody tr:hover td {
+  background: rgba(124, 108, 255, 0.04);
+}
+.card table tbody tr:last-child td { border-bottom: none; }
+.card table tbody tr:last-child td:first-child { border-radius: 0 0 0 10px; }
+.card table tbody tr:last-child td:last-child { border-radius: 0 0 10px 0; }
+
+/* ===== Tools Grid ===== */
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+}
+.tool-card {
+  background: rgba(0, 212, 255, 0.04);
+  border: 1px solid rgba(0, 212, 255, 0.1);
+  border-radius: 14px;
+  padding: 24px 20px;
+  transition: transform .2s, border-color .2s;
+}
+.tool-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 212, 255, 0.25);
+}
+.tool-card .tool-icon {
+  font-size: 28px;
+  margin-bottom: 12px;
+}
+.tool-card h4 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #00d4ff;
+  margin-bottom: 8px;
+}
+.tool-card p {
+  font-size: 13px;
+  color: #8a8faa;
+  line-height: 1.6;
+}
+.tool-card .tool-usage {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(0, 212, 255, 0.08);
+  color: #5cc8e8;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ===== Earnings Compound Table ===== */
+.compound-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+}
+.compound-card {
+  background: rgba(0, 212, 130, 0.05);
+  border: 1px solid rgba(0, 212, 130, 0.12);
+  border-radius: 14px;
+  padding: 24px 20px;
+  text-align: center;
+}
+.compound-card .cc-readers {
+  font-size: 14px;
+  color: #8a8faa;
+  margin-bottom: 6px;
+}
+.compound-card .cc-amount {
+  font-size: 30px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #00d482, #00d4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.compound-card .cc-period {
+  font-size: 13px;
+  color: #5a8a6a;
+  margin-top: 2px;
+}
+
+/* ===== Channel Tag ===== */
+.channel-tag {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.channel-tag.recommended { background: rgba(0, 212, 130, 0.12); color: #00d482; }
+.channel-tag.high-potential { background: rgba(255, 170, 50, 0.12); color: #ffaa32; }
+.channel-tag.growing { background: rgba(0, 212, 255, 0.12); color: #00d4ff; }
+
+/* ===== Apply Section ===== */
+.apply-card {
+  background: linear-gradient(135deg, rgba(124, 108, 255, 0.1), rgba(0, 212, 255, 0.06));
+  border: 1px solid rgba(124, 108, 255, 0.2);
+  border-radius: 24px;
+  padding: 44px;
+  text-align: center;
+  margin-top: 40px;
+}
+.apply-card h2 {
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #7c6cff, #00d4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.apply-card .apply-desc {
+  font-size: 15px;
+  color: #9a9fba;
+  max-width: 500px;
+  margin: 0 auto 28px;
+}
+.form-questions {
+  text-align: left;
+  max-width: 520px;
+  margin: 0 auto 32px;
+}
+.form-questions .fq-item {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #a0a4c0;
+}
+.form-questions .fq-num {
+  flex-shrink: 0;
+  width: 24px; height: 24px;
+  border-radius: 7px;
+  background: rgba(124, 108, 255, 0.15);
+  color: #7c6cff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 36px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #7c6cff, #5a4ce0);
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: transform .2s, box-shadow .2s;
+  text-decoration: none;
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(124, 108, 255, 0.35);
+  color: white;
+}
+
+/* ===== Discord Banner ===== */
+.discord-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: rgba(88, 101, 242, 0.08);
+  border: 1px solid rgba(88, 101, 242, 0.2);
+  border-radius: 14px;
+  padding: 20px 24px;
+  margin-top: 24px;
+}
+.discord-banner .db-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+.discord-banner .db-text {
+  font-size: 14px;
+  color: #9a9fba;
+}
+.discord-banner .db-text strong {
+  color: #5865f2;
+}
+
+/* ===== Week Goals ===== */
+.goals-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-top: 20px;
+}
+.goal-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 170, 50, 0.05);
+  border: 1px solid rgba(255, 170, 50, 0.1);
+  border-radius: 12px;
+  padding: 16px 18px;
+  transition: transform .2s;
+}
+.goal-item:hover { transform: translateY(-1px); }
+.goal-item .goal-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.goal-item .goal-text {
+  font-size: 14px;
+  color: #c8ccd5;
+}
+
+/* ===== Highlight Box ===== */
+.highlight-box {
+  background: linear-gradient(135deg, rgba(124, 108, 255, 0.08), rgba(0, 212, 255, 0.04));
+  border: 1px solid rgba(124, 108, 255, 0.15);
+  border-radius: 14px;
+  padding: 22px 26px;
+  margin: 20px 0;
+  font-size: 15px;
+  color: #c0c4dc;
+  line-height: 1.7;
+}
+.highlight-box .hb-emphasis {
+  font-weight: 700;
+  color: #a89cff;
+}
+
+/* ===== Footer ===== */
+.page-footer {
+  text-align: center;
+  padding: 40px 0 20px;
+  color: #3a3f5a;
+  font-size: 13px;
+}
+.page-footer .footer-brand {
+  font-weight: 700;
+  color: #5a5f7a;
+}
+
+/* ===== Principles Grid ===== */
+.principles-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+/* ===== Right Side Poster ===== */
+.right-poster {
+  position: fixed;
+  right: 20px;
+  top: 80px;
+  width: 200px;
+  max-height: calc(100vh - 110px);
+  z-index: 50;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.right-poster::-webkit-scrollbar { display: none; }
+
+.poster-inner {
+  background: linear-gradient(180deg, #0d1028 0%, #080b1a 100%);
+  border: 1px solid rgba(124, 108, 255, 0.25);
+  border-radius: 20px;
+  padding: 28px 16px 22px;
+  box-shadow:
+    0 0 40px rgba(124, 108, 255, 0.12),
+    0 0 80px rgba(0, 212, 255, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+.poster-inner::before {
+  content: '';
+  position: absolute;
+  top: -50%; left: -50%;
+  width: 200%; height: 200%;
+  background: conic-gradient(from 0deg, transparent, rgba(124, 108, 255, 0.08), transparent, rgba(0, 212, 255, 0.06), transparent);
+  animation: posterRotate 8s linear infinite;
+  z-index: 0;
+}
+@keyframes posterRotate {
+  100% { transform: rotate(360deg); }
+}
+.poster-inner > * { position: relative; z-index: 1; }
+
+.poster-logo {
+  font-size: 24px;
+  font-weight: 800;
+  text-align: center;
+  background: linear-gradient(135deg, #7c6cff, #00d4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.5px;
+  margin-bottom: 2px;
+}
+.poster-tagline {
+  text-align: center;
+  font-size: 10px;
+  color: #5a5f7a;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.poster-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(124, 108, 255, 0.3), transparent);
+  margin: 16px 0;
+}
+.poster-benefits {
+  text-align: center;
+  margin: 4px 0;
+}
+.poster-benefit {
+  margin-bottom: 18px;
+}
+.poster-benefit:last-child { margin-bottom: 0; }
+.poster-benefit .pb-value {
+  font-size: 22px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #7c6cff, #00d4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.2;
+}
+.poster-benefit .pb-label {
+  font-size: 11px;
+  color: #6a6f8a;
+  font-weight: 500;
+  margin-top: 2px;
+}
+.poster-cta {
+  text-align: center;
+  margin-top: 6px;
+  padding: 10px 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #a89cff;
+  letter-spacing: 0.3px;
+}
+.poster-cta span {
+  background: linear-gradient(90deg, #a89cff, #00d4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Discord section in poster */
+.poster-discord {
+  margin-top: 4px;
+  text-align: center;
+}
+.pd-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #d0d4e8;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+.pd-desc {
+  font-size: 11px;
+  color: #6a6f8a;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+.discord-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #5865f2, #4752c4);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform .2s, box-shadow .2s, background .2s;
+  box-shadow: 0 4px 20px rgba(88, 101, 242, 0.3);
+}
+.discord-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 28px rgba(88, 101, 242, 0.5);
+  background: linear-gradient(135deg, #6b73f5, #5865f2);
+  color: #fff;
+}
+.discord-btn svg {
+  flex-shrink: 0;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1200px) {
+  .right-poster { display: none; }
+  .main-content { margin-right: 0; }
+}
+
+@media (max-width: 1024px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .mobile-nav-toggle { display: flex; }
+  .mobile-overlay.show { display: block; }
+  .main-content { margin-left: 0; margin-right: 0; padding: 70px 24px 60px; }
+  .hero h1 { font-size: 30px; }
+}
+
+@media (max-width: 768px) {
+  .main-content { padding: 70px 16px 60px; }
+  .hero { padding: 32px 0 28px; }
+  .hero h1 { font-size: 26px; }
+  .hero p { font-size: 15px; }
+  .card { padding: 24px 20px; }
+  .card h2 { font-size: 19px; }
+  .card h3 { font-size: 15px; }
+  .earnings-banner { grid-template-columns: 1fr; }
+  .steps-grid { grid-template-columns: 1fr; }
+  .tools-grid { grid-template-columns: 1fr; }
+  .compound-grid { grid-template-columns: 1fr; }
+  .goals-grid { grid-template-columns: 1fr; }
+  .apply-card { padding: 28px 20px; }
+  .apply-card h2 { font-size: 22px; }
+  .principles-grid { grid-template-columns: 1fr; }
+  .discord-banner {
+    background: rgba(88, 101, 242, 0.14);
+    border-color: rgba(88, 101, 242, 0.35);
+    padding: 16px 18px;
+    gap: 12px;
+  }
+  .discord-banner .db-icon { font-size: 32px; }
+  .discord-banner .db-text { font-size: 14px; }
+  .discord-banner .db-text strong { font-size: 15px; }
+  .card table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .mobile-nav-toggle { width: 48px; height: 48px; font-size: 22px; }
+}
+@media (max-width: 480px) {
+  .main-content { padding: 66px 12px 48px; }
+  .hero h1 { font-size: 22px; letter-spacing: -0.5px; }
+  .card { padding: 20px 16px; }
+  .card h2 { font-size: 17px; }
+  .earnings-card { padding: 18px 16px; }
+  .earnings-card .ec-value { font-size: 24px; }
+  .step-card { padding: 18px 16px; }
+  .tool-card { padding: 18px 16px; }
+  .compound-card { padding: 18px 16px; }
+  .compound-card .cc-amount { font-size: 26px; }
+  .goal-item { padding: 14px 16px; }
+  .apply-card { padding: 24px 16px; }
+  .apply-card h2 { font-size: 20px; }
+  .btn-primary { padding: 14px 28px; font-size: 14px; min-height: 48px; }
+  .highlight-box { padding: 18px 20px; }
+  .discord-btn { padding: 14px; font-size: 14px; min-height: 48px; }
+}
+
+/* ===== Intersection Observer Animation ===== */
+.card, .earnings-card, .step-card, .tool-card, .compound-card, .goal-item {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity .5s ease, transform .5s ease;
+}
+.card.visible, .earnings-card.visible, .step-card.visible,
+.tool-card.visible, .compound-card.visible, .goal-item.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+</style>
+</head>
+<body>
+
+<!-- ===== Mobile Nav Toggle ===== -->
+<button class="mobile-nav-toggle" id="navToggle" aria-label="Toggle navigation">☰</button>
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<!-- ===== Sidebar Navigation ===== -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-text">NovelFlow</div>
+    <div class="logo-sub">Recommender Playbook</div>
+  </div>
+  <ul class="sidebar-nav">
+    <li><a href="#quick-start" class="active"><span class="nav-icon">🚀</span> Quick Start</a></li>
+    <li><a href="#earnings"><span class="nav-icon">💰</span> Earnings</a></li>
+    <li><a href="#tools"><span class="nav-icon">🛠</span> Your Tools</a></li>
+    <li><a href="#fb-groups"><span class="nav-icon">📍</span> Facebook Groups</a></li>
+    <li><a href="#fb-pages"><span class="nav-icon">📍</span> Facebook Pages</a></li>
+    <li><a href="#discord"><span class="nav-icon">📍</span> Discord</a></li>
+    <li><a href="#tiktok"><span class="nav-icon">📍</span> TikTok / Reels</a></li>
+    <li><a href="#principles"><span class="nav-icon">💡</span> Core Principles</a></li>
+    <li><a href="#maximize"><span class="nav-icon">📊</span> Maximize Earnings</a></li>
+    <li><a href="#schedule"><span class="nav-icon">📅</span> Daily Schedule</a></li>
+    <li><a href="#first-week"><span class="nav-icon">🔥</span> First Week Goals</a></li>
+    <li><a href="https://tinyurl.com/hs5ku9at" target="_blank"><span class="nav-icon">🏆</span> Leaderboard</a></li>
+  </ul>
+</nav>
+
+<!-- ===== Main Content ===== -->
+<main class="main-content">
+
+  <!-- Hero Section -->
+  <section class="hero" id="top">
+    <div class="hero-badge">📘 Official Promotion Playbook</div>
+    <h1>Turn Your Reading Passion Into <span class="gradient-text">Real Income</span></h1>
+    <p>Everything you need to know about promoting NovelFlow books and earning as a Book Recommender. Let's get started!</p>
+  </section>
+
+  <!-- Earnings Banner -->
+  <section class="earnings-banner" id="earnings">
+    <div class="earnings-card">
+      <div class="ec-value">100%</div>
+      <div class="ec-label">Revenue share for the first 7 days after each new reader signs up</div>
+    </div>
+    <div class="earnings-card">
+      <div class="ec-value">$50–500+</div>
+      <div class="ec-label">Estimated Weekly Earnings for Active Recommenders</div>
+      <div style="font-size:11px;color:#5a5f7a;margin-top:6px;">* Actual earnings depend on promotion performance</div>
+    </div>
+    <div class="earnings-card">
+      <div class="ec-value">Bi-Weekly Payouts</div>
+      <div class="ec-label">Via PayPal — Track earnings on your dashboard</div>
+    </div>
+  </section>
+
+  <!-- Quick Start -->
+  <section class="card" id="quick-start">
+    <div class="card-header">
+      <div class="card-icon purple">🚀</div>
+      <h2>Quick Start: 3 Steps to Get Going</h2>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-number">1</div>
+        <p><strong>Get your unique referral link</strong> — We'll send it after you're approved</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">2</div>
+        <p><strong>Choose your promotion channels</strong> — Pick what you're best at</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">3</div>
+        <p><strong>Win over readers</strong> — Share genuine experiences and keep driving traffic</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Your Tools -->
+  <section class="card" id="tools">
+    <div class="card-header">
+      <div class="card-icon blue">🛠</div>
+      <h2>Your Recommender Toolkit</h2>
+    </div>
+    <p style="color:#8a8faa;margin-bottom:4px;">Three powerful tools to track and convert your readers:</p>
+    <div class="tools-grid">
+      <div class="tool-card">
+        <div class="tool-icon">🔗</div>
+        <h4>Referral Link</h4>
+        <p>Share this in your posts. Readers click and download the app directly.</p>
+        <span class="tool-usage">Use where links are allowed</span>
+      </div>
+      <div class="tool-card">
+        <div class="tool-icon">🔍</div>
+        <h4>Search Code</h4>
+        <p>Readers search this code in the NovelFlow app to find the recommended book.</p>
+        <span class="tool-usage">Use where links are banned</span>
+      </div>
+      <div class="tool-card">
+        <div class="tool-icon">🎁</div>
+        <h4>Reward Code</h4>
+        <p>Readers enter this for free reading credits — and you earn credit too.</p>
+        <span class="tool-usage">DM only</span>
+      </div>
+    </div>
+    <div class="discord-banner">
+      <div class="db-icon">💬</div>
+      <div class="db-text">
+        Join our <strong><a href="https://discord.gg/4NQ6xRJfqf" target="_blank">Official Discord Community</a></strong> to connect with fellow recommenders, get tips, and ask questions anytime!
+      </div>
+    </div>
+  </section>
+
+  <!-- Channel 1: Facebook Groups -->
+  <section class="card" id="fb-groups">
+    <div class="card-header">
+      <div class="card-icon purple">📍</div>
+      <h2>Channel 1: Facebook Groups</h2>
+    </div>
+    <span class="channel-tag recommended">⭐ Most Recommended</span>
+
+    <h3>Find the Right Groups</h3>
+    <ul>
+      <li>Search keywords: <strong style="color:#c0c4dc">Romance Books, Werewolf Romance, Dark Romance, Billionaire Romance, Mafia Romance, Web Fiction, Free Books, Book Recommendations</strong></li>
+      <li>Prioritize groups with <strong style="color:#c0c4dc">500+ members</strong> and recent activity</li>
+      <li>Observe group rules after joining — some groups ban promotions, others allow them</li>
+    </ul>
+
+    <h3>Posting Tips</h3>
+    <ol>
+      <li><strong style="color:#c0c4dc">No hard selling</strong> — Say "I'm reading this book" instead of "Come download now"</li>
+      <li><strong style="color:#c0c4dc">Share real reading experiences</strong> — "Chapter 47 made me cry my eyes out, the male lead is such a jerk but I'm so hooked"</li>
+      <li><strong style="color:#c0c4dc">Use screenshots as bait</strong> — Share censored cliffhanger screenshots to spark curiosity</li>
+      <li><strong style="color:#c0c4dc">Ask questions for engagement</strong> — "Has anyone read this? How's the ending?"</li>
+      <li><strong style="color:#c0c4dc">Series posts</strong> — Spread posts about the same book over several days, leaving cliffhangers each time</li>
+    </ol>
+
+    <h3>Post Templates</h3>
+    <blockquote>
+      📖 I just found this werewolf romance and I can NOT put it down... The alpha rejected his mate but now he's crawling back?? 😭🔥 Chapters 1-30 are FREE on NovelFlow if anyone wants to binge this weekend!<br>
+      <strong>[Your Referral Link]</strong>
+    </blockquote>
+    <blockquote>
+      Has anyone else read this?? The plot twist in Chapter 25 had me SCREAMING. If you haven't read it yet, first 30 chapters are free 👉 <strong>[Your Referral Link]</strong>
+    </blockquote>
+  </section>
+
+  <!-- Channel 2: Facebook Pages -->
+  <section class="card" id="fb-pages">
+    <div class="card-header">
+      <div class="card-icon blue">📍</div>
+      <h2>Channel 2: Facebook Public Pages</h2>
+    </div>
+    <span class="channel-tag growing">Growing Channel</span>
+
+    <h3>Posting Strategy</h3>
+    <ul>
+      <li>Post book reviews and recommendations on your own page</li>
+      <li>Use eye-catching cover images (novel screenshots + emotional copy)</li>
+      <li>Your copy needs a hook: <em style="color:#a89cff">"This book ruined my sleep schedule and I'm not even mad"</em></li>
+    </ul>
+
+    <h3>Comment Section Engagement</h3>
+    <ul>
+      <li>Comment on posts from similar book pages</li>
+      <li><em style="color:#a89cff">"I read something similar on NovelFlow, the werewolf rejection trope goes CRAZY in this one"</em></li>
+      <li>Don't spam — naturally blend into conversations</li>
+    </ul>
+  </section>
+
+  <!-- Channel 3: Discord -->
+  <section class="card" id="discord">
+    <div class="card-header">
+      <div class="card-icon green">📍</div>
+      <h2>Channel 3: Discord Communities</h2>
+    </div>
+    <span class="channel-tag growing">Community Driven</span>
+
+    <h3>Find Active Reading Discords</h3>
+    <ul>
+      <li>Search: <strong style="color:#c0c4dc">NovelFlow Discord, Romance Readers Discord, Web Fiction Discord</strong></li>
+      <li>We also have an <a href="https://discord.gg/4NQ6xRJfqf" target="_blank">official Discord community</a> where you can connect with like-minded readers</li>
+    </ul>
+
+    <h3>Promotion Methods</h3>
+    <ul>
+      <li>Share books you're reading in recommendation channels</li>
+      <li>Participate in book discussions and naturally mention NovelFlow</li>
+      <li>Don't drop links the moment you join — participate in the community first to build trust</li>
+    </ul>
+  </section>
+
+  <!-- Channel 4: TikTok / Reels -->
+  <section class="card" id="tiktok">
+    <div class="card-header">
+      <div class="card-icon orange">📍</div>
+      <h2>Channel 4: TikTok / Reels</h2>
+    </div>
+    <span class="channel-tag high-potential">🔥 High Viral Potential</span>
+
+    <h3>Video Types</h3>
+    <ol>
+      <li><strong style="color:#c0c4dc">BookTok style</strong> — Hold your phone showing the novel with emotional music<br>
+        <blockquote>"POV: You found a werewolf romance that actually slaps and the first 30 chapters are free"</blockquote>
+      </li>
+      <li><strong style="color:#c0c4dc">Screenshot carousel</strong> — Cliffhanger dialogue screenshots + suspenseful BGM</li>
+      <li><strong style="color:#c0c4dc">Reading reactions</strong> — Record your genuine reactions to plot twists</li>
+      <li><strong style="color:#c0c4dc">Book list recommendations</strong> — "5 Werewolf Romances That Will Ruin Your Life (in the best way)"</li>
+    </ol>
+
+    <h3>Key Points</h3>
+    <ul>
+      <li>The first <strong style="color:#c0c4dc">3 seconds</strong> must have a hook</li>
+      <li>Pin your referral link in the comments</li>
+      <li>Use trending hashtags: <strong style="color:#c0c4dc">#BookTok #WerewolfRomance #WebFiction #RomanceBooks</strong></li>
+    </ul>
+  </section>
+
+  <!-- Core Promotion Principles -->
+  <section class="card" id="principles">
+    <div class="card-header">
+      <div class="card-icon gold">💡</div>
+      <h2>Core Promotion Principles</h2>
+    </div>
+
+    <div class="principles-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+      <div>
+        <h3 style="color:#6ee7a0;">✅ Do This</h3>
+        <ul class="do-list">
+          <li>Recommend books you've actually read — Authenticity is your biggest selling point</li>
+          <li>Focus on one genre to start — Start with Werewolf Romance and dominate that niche</li>
+          <li>Post consistently — 2-3 posts daily is better than 10 posts one day then disappearing</li>
+          <li>Create suspense — "I was blown away by Chapter 30" is 100x more effective than "This book is great"</li>
+          <li>Reply to every comment — More engagement = higher post visibility</li>
+          <li>Cover multiple accounts and groups — Posting in 5 groups doubles your reach</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="color:#f0a0a0;">❌ Don't Do This</h3>
+        <ul class="dont-list">
+          <li>Don't drop links immediately like a bot</li>
+          <li>Don't hard-sell in groups that ban promotions — you'll get kicked out</li>
+          <li>Don't copy-paste identical content across different groups — it'll be flagged as spam</li>
+          <li>Don't exaggerate earnings — nobody believes "easy $10K+ a month"</li>
+          <li>Don't post once and disappear — consistent exposure drives conversions</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tips to Maximize Earnings -->
+  <section class="card" id="maximize">
+    <div class="card-header">
+      <div class="card-icon green">📊</div>
+      <h2>Tips to Maximize Earnings</h2>
+    </div>
+
+    <h3>Boost Conversion Rates</h3>
+    <ol>
+      <li><strong style="color:#c0c4dc">Guide users to register, not just download</strong> — Make sure users register through your link so you get credited for their sign-up within the 7-day window</li>
+      <li><strong style="color:#c0c4dc">Recommend books with plenty of free chapters</strong> — Once readers get hooked on free content, they'll naturally upgrade to VIP</li>
+      <li><strong style="color:#c0c4dc">Recommend ongoing series</strong> — Readers following ongoing stories are more likely to maintain subscriptions</li>
+      <li><strong style="color:#c0c4dc">Teach users how to use the app</strong> — Some users don't know how to register/recharge; help them out</li>
+    </ol>
+
+    <h3>Improve Retention Rates</h3>
+    <ol>
+      <li><strong style="color:#c0c4dc">Keep recommending new books</strong> — Give your readers constant fresh content</li>
+      <li><strong style="color:#c0c4dc">Build your own reader group</strong> — Add recommended readers to a group and broadcast new book recommendations</li>
+      <li><strong style="color:#c0c4dc">Pay attention to reader feedback</strong> — Recommend more of the genres they love</li>
+    </ol>
+
+    <h3>Compound Your Earnings</h3>
+    <p style="color:#8a8faa;margin-bottom:16px;">Your posts keep working for you — as long as they stay up, new readers can keep discovering and signing up through your links. More posts = more chances to earn.</p>
+    <div class="compound-grid">
+      <div class="compound-card">
+        <div class="cc-readers">10 active readers</div>
+        <div class="cc-amount">$70+</div>
+        <div class="cc-period">per month</div>
+      </div>
+      <div class="compound-card">
+        <div class="cc-readers">50 active readers</div>
+        <div class="cc-amount">$350+</div>
+        <div class="cc-period">per month</div>
+      </div>
+      <div class="compound-card">
+        <div class="cc-readers">100 active readers</div>
+        <div class="cc-amount">$700+</div>
+        <div class="cc-period">per month</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Daily Schedule -->
+  <section class="card" id="schedule">
+    <div class="card-header">
+      <div class="card-icon orange">📅</div>
+      <h2>Daily Promotion Schedule</h2>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Time</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>🌅 Morning</td><td>Post recommendations in 2-3 Facebook groups</td></tr>
+        <tr><td>☀️ Noon</td><td>Reply to all comments and DMs</td></tr>
+        <tr><td>🌤 Afternoon</td><td>Engage in Discord / other communities</td></tr>
+        <tr><td>🌆 Evening</td><td>Prepare tomorrow's content (screenshots, copy)</td></tr>
+        <tr><td>🔄 All Day</td><td>Respond to new comments anytime, keep posts active</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- First Week Goals -->
+  <section class="card" id="first-week">
+    <div class="card-header">
+      <div class="card-icon pink">🔥</div>
+      <h2>First Week Goals for Beginners</h2>
+    </div>
+    <div class="goals-grid">
+      <div class="goal-item">
+        <div class="goal-icon">👥</div>
+        <div class="goal-text">Join at least <strong style="color:#e0e4f0">10 relevant Facebook groups</strong></div>
+      </div>
+      <div class="goal-item">
+        <div class="goal-icon">📝</div>
+        <div class="goal-text">Post at least <strong style="color:#e0e4f0">15 recommendation posts</strong> (different content for different groups)</div>
+      </div>
+      <div class="goal-item">
+        <div class="goal-icon">🎯</div>
+        <div class="goal-text">Get at least <strong style="color:#e0e4f0">5 registered users</strong></div>
+      </div>
+      <div class="goal-item">
+        <div class="goal-icon">📋</div>
+        <div class="goal-text">Master <strong style="color:#e0e4f0">2+ posting templates</strong></div>
+      </div>
+    </div>
+    <div class="highlight-box" style="margin-top:24px;">
+      You don't need to chase earnings in the first week — figure out which groups work best and which posts get the most engagement. Once you do, <span class="hb-emphasis">you'll only get better from there!</span>
+    </div>
+    <div class="highlight-box" style="background:linear-gradient(135deg, rgba(0,212,130,0.06), rgba(0,212,255,0.03));border-color:rgba(0,212,130,0.15);">
+      💡 <span class="hb-emphasis" style="color:#6ee7a0;">Remember:</span> The best promotion is being a genuine reader yourself. When you recommend a book you're truly hooked on, people can feel it. 💸
+    </div>
+  </section>
+
+  <!-- View Leaderboard -->
+  <section class="apply-card" id="apply">
+    <h2>Check Your Ranking</h2>
+    <p class="apply-desc">See how you stack up against other top recommenders! Track your clicks, signups, and earnings in real-time on the leaderboard.</p>
+    <a href="https://tinyurl.com/hs5ku9at" target="_blank" class="btn-primary">🏆 View Leaderboard</a>
+    <p style="color:#9a9fba;font-size:14px;margin-top:16px;">See how you rank among our top recommenders →</p>
+  </section>
+
+  <!-- Footer -->
+  <footer class="page-footer">
+    <span class="footer-brand">NovelFlow</span> — Book Recommender Promotion Playbook<br>
+    <span style="font-size:11px;">Questions? Join our <a href="https://discord.gg/4NQ6xRJfqf" target="_blank">Discord</a> community</span>
+  </footer>
+
+</main>
+
+<!-- ===== Right Side Poster ===== -->
+<aside class="right-poster">
+  <div class="poster-inner">
+    <div class="poster-logo">NovelFlow</div>
+    <div class="poster-tagline">Book Recommender</div>
+    <div class="poster-divider"></div>
+    <div class="poster-benefits">
+      <div class="poster-benefit">
+        <div class="pb-value">100%</div>
+        <div class="pb-label">Revenue Share</div>
+      </div>
+      <div class="poster-benefit">
+        <div class="pb-value">$50–500</div>
+        <div class="pb-label">Earn Per Week</div>
+      </div>
+      <div class="poster-benefit">
+        <div class="pb-value">Bi-Weekly</div>
+        <div class="pb-label">Payout Cycle</div>
+      </div>
+    </div>
+    <div class="poster-divider"></div>
+    <div class="poster-cta"><span>Start Earning Today →</span></div>
+    <div class="poster-divider"></div>
+    <div class="poster-discord">
+      <div class="pd-title">Join Our Community &amp; Start Earning</div>
+      <div class="pd-desc">Connect with fellow recommenders, get tips, and grow your earnings together.</div>
+      <a href="https://discord.gg/4NQ6xRJfqf" target="_blank" class="discord-btn">
+        <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M6.44 5.72a.86.86 0 110 1.72.86.86 0 010-1.72zm3.14 0a.86.86 0 110 1.72.86.86 0 010-1.72z"/><path d="M13.16.66A12.6 12.6 0 009.99.14a.05.05 0 00-.05.03c-.19.33-.39.76-.53 1.1a11.67 11.67 0 00-3.82 0c-.15-.35-.36-.77-.55-1.1A.05.05 0 005 .14 12.57 12.57 0 001.83.66a.05.05 0 00-.03.02C-.53 3.66-.08 6.59.3 8.98a.05.05 0 00.02.04 12.68 12.68 0 003.83 2.04.05.05 0 00.06-.02c.3-.4.56-.83.8-1.29a.05.05 0 00-.03-.07 8.35 8.35 0 01-1.15-.55.05.05 0 01-.01-.08l.23-.18a.05.05 0 01.05-.01c2.42 1.1 5.04 1.1 7.43 0a.05.05 0 01.05.01l.23.18a.05.05 0 01-.01.08c-.37.22-.75.4-1.15.55a.05.05 0 00-.03.07c.24.46.5.89.8 1.29a.05.05 0 00.06.02 12.64 12.64 0 003.85-2.04.05.05 0 00.02-.04c.48-2.83.08-5.13-1.28-8.3a.04.04 0 00-.02-.02z"/></svg>
+        Join Discord →
+      </a>
+    </div>
+  </div>
+</aside>
+
+<!-- ===== JavaScript ===== -->
+<script>
+// Sidebar navigation active state & scroll spy
+(function() {
+  const navLinks = document.querySelectorAll('.sidebar-nav a');
+  const sections = [];
+  navLinks.forEach(link => {
+    const id = link.getAttribute('href').slice(1);
+    const el = document.getElementById(id);
+    if (el) sections.push({ id, el, link });
+  });
+
+  function updateActive() {
+    let current = sections[0];
+    for (const s of sections) {
+      if (s.el.getBoundingClientRect().top <= 120) current = s;
+    }
+    navLinks.forEach(l => l.classList.remove('active'));
+    if (current) current.link.classList.add('active');
+  }
+
+  window.addEventListener('scroll', updateActive, { passive: true });
+  updateActive();
+
+  // Mobile nav toggle
+  const sidebar = document.getElementById('sidebar');
+  const toggle = document.getElementById('navToggle');
+  const overlay = document.getElementById('mobileOverlay');
+
+  toggle.addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('show');
+  });
+  overlay.addEventListener('click', () => {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+  });
+
+  // Close mobile nav on link click
+  navLinks.forEach(link => {
+    link.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('show');
+    });
+  });
+
+  // Intersection Observer for fade-in animations
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.card, .earnings-card, .step-card, .tool-card, .compound-card, .goal-item').forEach(el => {
+    observer.observe(el);
+  });
+})();
+</script>
+
+</body>
+</html>

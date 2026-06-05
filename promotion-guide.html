@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<title>NovelFlow KOC — Promotion Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #050714; color: #c8cdd5; line-height: 1.7; font-size: 15px; min-height: 100vh; }
+a { color: #7c6cff; text-decoration: none; transition: color .2s; }
+a:hover { color: #a89cff; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0a0d1f; }
+::-webkit-scrollbar-thumb { background: #2a2d45; border-radius: 3px; }
+
+/* Container */
+.container { max-width: 800px; margin: 0 auto; padding: 48px 24px 80px; }
+
+/* Hero */
+.hero { text-align: center; margin-bottom: 48px; }
+.hero-badge { display: inline-block; padding: 6px 16px; border-radius: 20px; background: rgba(124, 108, 255, 0.12); border: 1px solid rgba(124, 108, 255, 0.25); color: #a89cff; font-size: 12px; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 20px; }
+.hero h1 { font-size: 36px; font-weight: 800; line-height: 1.15; margin-bottom: 14px; letter-spacing: -0.5px; }
+.hero h1 .gradient-text { background: linear-gradient(135deg, #7c6cff 0%, #00d4ff 50%, #7c6cff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; background-size: 200% auto; animation: shimmer 3s ease-in-out infinite; }
+@keyframes shimmer { 0%, 100% { background-position: 0% center; } 50% { background-position: 200% center; } }
+.hero p { font-size: 16px; color: #8a8faa; max-width: 520px; margin: 0 auto; line-height: 1.7; }
+
+/* Steps */
+.steps-section { margin-bottom: 48px; }
+.section-title { font-size: 14px; font-weight: 600; color: #6a6f8a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 24px; }
+.steps-list { display: flex; flex-direction: column; gap: 16px; }
+.step-card { background: linear-gradient(135deg, rgba(14, 17, 38, 0.9), rgba(10, 13, 31, 0.95)); border: 1px solid rgba(124, 108, 255, 0.08); border-radius: 16px; padding: 24px; display: flex; gap: 20px; transition: transform .2s, border-color .2s; }
+.step-card:hover { transform: translateY(-2px); border-color: rgba(124, 108, 255, 0.2); }
+.step-number { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, rgba(124, 108, 255, 0.2), rgba(0, 212, 255, 0.15)); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: #a89cff; flex-shrink: 0; }
+.step-content { flex: 1; }
+.step-title { font-size: 17px; font-weight: 700; color: #eef0f6; margin-bottom: 8px; }
+.step-desc { font-size: 14px; color: #8a8faa; line-height: 1.6; }
+.step-highlight { color: #00d4ff; font-weight: 500; }
+
+/* CTA Section */
+.cta-section { margin-bottom: 48px; }
+.cta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.cta-card { background: linear-gradient(135deg, rgba(14, 17, 38, 0.9), rgba(10, 13, 31, 0.95)); border: 1px solid rgba(124, 108, 255, 0.08); border-radius: 16px; padding: 28px; text-align: center; transition: transform .2s, border-color .2s, box-shadow .2s; }
+.cta-card:hover { transform: translateY(-4px); border-color: rgba(124, 108, 255, 0.2); box-shadow: 0 12px 40px rgba(124, 108, 255, 0.1); }
+.cta-card.discord { border-color: rgba(88, 101, 242, 0.2); }
+.cta-card.discord:hover { border-color: rgba(88, 101, 242, 0.4); box-shadow: 0 12px 40px rgba(88, 101, 242, 0.1); }
+.cta-icon { font-size: 36px; margin-bottom: 12px; }
+.cta-title { font-size: 16px; font-weight: 700; color: #eef0f6; margin-bottom: 8px; }
+.cta-desc { font-size: 13px; color: #8a8faa; margin-bottom: 16px; }
+.cta-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 10px; background: rgba(124, 108, 255, 0.15); border: 1px solid rgba(124, 108, 255, 0.3); color: #a89cff; font-size: 14px; font-weight: 600; transition: all .2s; cursor: pointer; min-height: 44px; }
+.cta-btn:hover { background: rgba(124, 108, 255, 0.25); border-color: rgba(124, 108, 255, 0.5); color: #c8bfff; }
+.cta-card.discord .cta-btn { background: rgba(88, 101, 242, 0.15); border-color: rgba(88, 101, 242, 0.3); color: #7289da; }
+.cta-card.discord .cta-btn:hover { background: rgba(88, 101, 242, 0.25); border-color: rgba(88, 101, 242, 0.5); color: #9ca3ef; }
+
+/* Rewards Section */
+.rewards-section { margin-bottom: 48px; }
+.rewards-card { background: linear-gradient(135deg, rgba(233, 69, 96, 0.08), rgba(249, 115, 22, 0.05)); border: 1px solid rgba(233, 69, 96, 0.15); border-radius: 16px; padding: 28px; }
+.rewards-title { font-size: 18px; font-weight: 700; color: #eef0f6; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.rewards-list { list-style: none; padding: 0; margin: 0; }
+.rewards-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+.rewards-item:last-child { border-bottom: none; padding-bottom: 0; }
+.rewards-item:first-child { padding-top: 0; }
+.rewards-icon { font-size: 18px; flex-shrink: 0; }
+.rewards-text { font-size: 14px; color: #c8cdd5; line-height: 1.5; }
+.rewards-text strong { color: #eef0f6; }
+
+/* Platforms Section */
+.platforms-section { margin-bottom: 48px; }
+.platforms-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.platform-card { background: rgba(14, 17, 38, 0.8); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 20px; text-align: center; transition: all .2s; }
+.platform-card:hover { border-color: rgba(124, 108, 255, 0.2); transform: translateY(-2px); }
+.platform-icon { font-size: 28px; margin-bottom: 8px; }
+.platform-name { font-size: 14px; font-weight: 600; color: #eef0f6; }
+.platform-desc { font-size: 11px; color: #6a6f8a; margin-top: 4px; }
+
+/* Navigation */
+.nav-links { text-align: center; display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
+.nav-links a { display: inline-flex; align-items: center; gap: 6px; padding: 12px 24px; border-radius: 10px; background: rgba(124, 108, 255, 0.08); border: 1px solid rgba(124, 108, 255, 0.15); font-size: 14px; font-weight: 500; transition: all .2s; min-height: 44px; }
+.nav-links a:hover { background: rgba(124, 108, 255, 0.15); border-color: rgba(124, 108, 255, 0.3); color: #a89cff; }
+
+/* Responsive - Mobile Optimization */
+@media (max-width: 768px) {
+  .container { padding: 24px 16px 60px; }
+  .hero { margin-bottom: 36px; }
+  .hero h1 { font-size: 26px; margin-bottom: 12px; }
+  .hero p { font-size: 15px; }
+  .hero-badge { font-size: 11px; padding: 5px 14px; margin-bottom: 16px; }
+  
+  .section-title { font-size: 13px; margin-bottom: 18px; }
+  
+  .steps-section, .cta-section, .rewards-section, .platforms-section { margin-bottom: 36px; }
+  
+  .step-card { padding: 20px; gap: 16px; border-radius: 14px; }
+  .step-number { width: 42px; height: 42px; font-size: 18px; border-radius: 10px; }
+  .step-title { font-size: 16px; }
+  .step-desc { font-size: 14px; }
+  
+  .cta-grid { grid-template-columns: 1fr; gap: 14px; }
+  .cta-card { padding: 22px; border-radius: 14px; }
+  .cta-icon { font-size: 32px; margin-bottom: 10px; }
+  .cta-title { font-size: 15px; }
+  .cta-desc { font-size: 13px; }
+  .cta-btn { padding: 12px 20px; font-size: 14px; width: 100%; justify-content: center; min-height: 48px; }
+  
+  .rewards-card { padding: 22px; border-radius: 14px; }
+  .rewards-title { font-size: 16px; margin-bottom: 14px; }
+  .rewards-item { padding: 10px 0; }
+  .rewards-icon { font-size: 16px; }
+  .rewards-text { font-size: 13px; }
+  
+  .platforms-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .platform-card { padding: 16px 10px; border-radius: 10px; }
+  .platform-icon { font-size: 24px; margin-bottom: 6px; }
+  .platform-name { font-size: 12px; }
+  .platform-desc { font-size: 10px; display: none; }
+  
+  .nav-links { flex-direction: column; gap: 12px; }
+  .nav-links a { width: 100%; justify-content: center; padding: 14px 20px; font-size: 14px; min-height: 48px; }
+}
+
+@media (max-width: 480px) {
+  .container { padding: 20px 14px 50px; }
+  .hero h1 { font-size: 24px; }
+  .hero p { font-size: 14px; }
+  
+  .step-card { padding: 16px; gap: 12px; }
+  .step-number { width: 38px; height: 38px; font-size: 16px; }
+  .step-title { font-size: 15px; margin-bottom: 6px; }
+  .step-desc { font-size: 13px; line-height: 1.5; }
+  
+  .cta-card { padding: 18px; }
+  .cta-icon { font-size: 28px; }
+  
+  .platforms-grid { grid-template-columns: repeat(2, 1fr); }
+  
+  .rewards-card { padding: 18px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="hero">
+    <div class="hero-badge">🎯 KOC Promotion Guide</div>
+    <h1>How to <span class="gradient-text">Promote Books</span></h1>
+    <p>A step-by-step guide to sharing books and earning rewards through the NovelFlow KOC program.</p>
+  </div>
+
+  <!-- Steps -->
+  <div class="steps-section">
+    <div class="section-title">Getting Started</div>
+    <div class="steps-list">
+      <div class="step-card">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <div class="step-title">Submit Your Book Recommendation</div>
+          <div class="step-desc">Go to the <span class="step-highlight">Submit page</span> and fill in the book details you want to recommend. Include the book name and your preferred promotion method.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <div class="step-title">Wait for Your Referral Link</div>
+          <div class="step-desc">Our system will create your unique <span class="step-highlight">referral link</span> and <span class="step-highlight">promo code</span>. This usually takes <span class="step-highlight">3 minutes or less</span>.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <div class="step-title">Check the Recommendation Wall</div>
+          <div class="step-desc">Visit the <span class="step-highlight">Recommendation Wall</span> to find your unique referral link, code, and ready-to-use promo copy. Click to expand your user card.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <div class="step-title">Share on Social Platforms</div>
+          <div class="step-desc">Copy your link, code, and promo text. Share them on <span class="step-highlight">Facebook Groups</span>, <span class="step-highlight">Discord</span>, <span class="step-highlight">TikTok</span>, or any platform where readers gather.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-number">5</div>
+        <div class="step-content">
+          <div class="step-title">Earn Rewards!</div>
+          <div class="step-desc">When new users sign up through your <span class="step-highlight">referral link</span>, you'll earn rewards! Keep track of your referrals and enjoy the benefits.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA Links -->
+  <div class="cta-section">
+    <div class="section-title">Quick Links</div>
+    <div class="cta-grid">
+      <div class="cta-card discord">
+        <div class="cta-icon">💬</div>
+        <div class="cta-title">Join Our Discord</div>
+        <div class="cta-desc">Get support, connect with other KOCs, and stay updated on new features.</div>
+        <a href="https://discord.gg/xrDJEqFF" target="_blank" class="cta-btn">
+          Join Discord ↗
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rewards -->
+  <div class="rewards-section">
+    <div class="section-title">Rewards Program</div>
+    <div class="rewards-card">
+      <div class="rewards-title">🎁 What You Can Earn</div>
+      <ul class="rewards-list">
+        <li class="rewards-item">
+          <span class="rewards-icon">💰</span>
+          <span class="rewards-text"><strong>Per Referral:</strong> Earn rewards for every new user who signs up through your unique referral link.</span>
+        </li>
+        <li class="rewards-item">
+          <span class="rewards-icon">🎯</span>
+          <span class="rewards-text"><strong>Performance Bonuses:</strong> Top performers receive additional bonuses and exclusive rewards.</span>
+        </li>
+        <li class="rewards-item">
+          <span class="rewards-icon">⭐</span>
+          <span class="rewards-text"><strong>Early Access:</strong> Be the first to know about new books and promotion campaigns.</span>
+        </li>
+        <li class="rewards-item">
+          <span class="rewards-icon">🏅</span>
+          <span class="rewards-text"><strong>Badges & Recognition:</strong> Earn badges for your contributions and get featured in our community.</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Platforms -->
+  <div class="platforms-section">
+    <div class="section-title">Best Platforms for Promotion</div>
+    <div class="platforms-grid">
+      <div class="platform-card">
+        <div class="platform-icon">👥</div>
+        <div class="platform-name">Facebook</div>
+        <div class="platform-desc">Book lovers communities</div>
+      </div>
+      <div class="platform-card">
+        <div class="platform-icon">💬</div>
+        <div class="platform-name">Discord</div>
+        <div class="platform-desc">Server communities</div>
+      </div>
+      <div class="platform-card">
+        <div class="platform-icon">🎵</div>
+        <div class="platform-name">TikTok</div>
+        <div class="platform-desc">Short-form videos</div>
+      </div>
+      <div class="platform-card">
+        <div class="platform-icon">📘</div>
+        <div class="platform-name">Twitter/X</div>
+        <div class="platform-desc">Social sharing</div>
+      </div>
+      <div class="platform-card">
+        <div class="platform-icon">📸</div>
+        <div class="platform-name">Instagram</div>
+        <div class="platform-desc">Stories & reels</div>
+      </div>
+      <div class="platform-card">
+        <div class="platform-icon">📺</div>
+        <div class="platform-name">Reddit</div>
+        <div class="platform-desc">Book subreddits</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <div style="margin-top: 48px;">
+    <div class="nav-links">
+      <a href="https://tinyurl.com/ypbru28w">📖 Recommendation Wall</a>
+      <a href="https://tinyurl.com/4ajvzsec">➕ Submit a Book</a>
+    </div>
+  </div>
+</div>
+</body>
+</html>
