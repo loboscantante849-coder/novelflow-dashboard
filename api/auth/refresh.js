@@ -19,7 +19,7 @@ const {
   clearAuthCookies
 } = require('../_lib/auth');
 
-const { setCORSHeaders } = require('../../_lib/cors');
+const { setCORSHeaders } = require('../_lib/cors');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -40,7 +40,6 @@ module.exports = async (req, res) => {
     const payload = verifyJWT(refreshToken);
 
     if (!payload || !payload._refresh) {
-      // Invalid or not a refresh token
       clearAuthCookies(res);
       return res.status(401).json({ error: 'Invalid refresh token', code: 'INVALID_REFRESH' });
     }
@@ -52,8 +51,6 @@ module.exports = async (req, res) => {
     const userInfo = extractUserInfo(payload);
 
     setAuthCookies(res, newAccessToken, newRefreshToken, userInfo);
-
-    console.log('[auth/refresh] Refreshed session for:', userInfo.username);
 
     return res.status(200).json({
       success: true,
