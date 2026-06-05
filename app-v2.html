@@ -3200,7 +3200,7 @@
 
     <script>
 // Global fetch timeout - no API call can block the page
-(function(){var _f=window.fetch;window.fetch=function(u,o){o=o||{};if(o.signal)return _f(u,o);var c=new AbortController(),t=setTimeout(function(){c.abort()},o.timeout||8000),n=Object.assign({},o,{signal:c.signal});return _f(u,n).then(function(r){clearTimeout(t);return r}).catch(function(e){clearTimeout(t);if(e.name==='AbortError'){return new Response(JSON.stringify({error:'timeout',offline:true}),{status:504,headers:{'Content-Type':'application/json'}})}throw e})}})();
+(function(){var _f=window.fetch;window.fetch=function(u,o){o=o||{};if(o.signal)return _f(u,o);var c=new AbortController(),t=setTimeout(function(){c.abort()},o.timeout||15000),n=Object.assign({},o,{signal:c.signal});return _f(u,n).then(function(r){clearTimeout(t);return r}).catch(function(e){clearTimeout(t);if(e.name==='AbortError'){return new Response(JSON.stringify({error:'timeout',offline:true}),{status:504,headers:{'Content-Type':'application/json'}})}throw e})}})();
 // NovelFlow v2.4.2 - China access fix - 2026-06-05
         // ========== Global State ==========
         const AppState = {
@@ -4649,6 +4649,7 @@
 
             try {
                 const response = await fetch('/api/confirm', {
+                    timeout: 30000,
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -4657,6 +4658,7 @@
                         bookTitle: currentRecommendBook.title,
                         bookAuthor: currentRecommendBook.author || '',
                         lang: currentRecommendBook.languageCode || 'en'
+                        discordUsername: AppState.user?.username || 'Anonymous'
                     })
                 });
 
@@ -4933,6 +4935,7 @@
 
             try {
                 const response = await fetch('/api/confirm', {
+                    timeout: 30000,
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -4941,6 +4944,7 @@
                         bookTitle: book.title,
                         bookAuthor: book.author || '',
                         lang: AppState.searchLang
+                        discordUsername: AppState.user?.username || 'Anonymous'
                     })
                 });
 
@@ -5424,6 +5428,7 @@ function renderMyBooks() {
             
             try {
                 const response = await fetch('/api/confirm', {
+                    timeout: 30000,
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -5432,6 +5437,7 @@ function renderMyBooks() {
                         bookTitle: book.title,
                         bookAuthor: book.author || '',
                         lang: book.languageCode || 'en'
+                        discordUsername: AppState.user?.username || 'Anonymous'
                     })
                 });
                 
