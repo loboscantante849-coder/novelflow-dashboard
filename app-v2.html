@@ -3180,8 +3180,8 @@
             
             <div class="modal-result modal-error" id="modalError" style="display:none;">
                 <div class="modal-error-icon">⚠️</div>
-                <div class="modal-error-title">Unable to create link</div>
-                <div class="modal-error-text">This book is not available for promotion yet. Try another one!</div>
+                <div class="modal-error-title" id="modalErrorTitle">Unable to create link</div>
+                <div class="modal-error-text" id="modalErrorText">This book is not available for promotion yet. Try another one!</div>
                 <button class="modal-done-btn" onclick="closeModal()" data-i18n="try_another">Try Another Book</button>
             </div>
             
@@ -4705,15 +4705,24 @@
                     // API failed or returned no real data - show error, NEVER fake data
                     if (modalLoading) modalLoading.style.display = 'none';
                     if (modalError) modalError.style.display = 'block';
+                    var errTitle = document.getElementById('modalErrorTitle');
+                    var errText = document.getElementById('modalErrorText');
+                    var errMsg = result.message || result.error || 'API did not return valid data.';
+                    if (errTitle) errTitle.textContent = 'Link Creation Failed';
+                    if (errText) errText.textContent = errMsg;
                     btn.disabled = false;
                     btn.textContent = 'Start Earning';
-                    showToast('Link creation failed: ' + (result.message || result.error || 'API did not return valid data.'), 'error');
+                    showToast('Link creation failed: ' + errMsg, 'error');
                 }
             } catch (e) {
                 clearInterval(countdownInterval);
                 clearTimeout(timeoutWarning);
                 if (modalLoading) modalLoading.style.display = 'none';
                 if (modalError) modalError.style.display = 'block';
+                var errTitle = document.getElementById('modalErrorTitle');
+                var errText = document.getElementById('modalErrorText');
+                if (errTitle) errTitle.textContent = 'Connection Error';
+                if (errText) errText.textContent = e.message || 'Failed to connect to server';
                 btn.disabled = false;
                 btn.textContent = 'Start Earning';
                 showToast('Failed: ' + e.message, 'error');
