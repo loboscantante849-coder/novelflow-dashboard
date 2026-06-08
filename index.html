@@ -5296,6 +5296,33 @@
                 if (data.links && !data.books) data.books = data.links;
                 UserStats.data = data;
                 
+                // Merge API books into AppState.myBooks (cloud-sourced)
+                if (data.books && data.books.length > 0) {
+                    let changed = false;
+                    for (const apiBook of data.books) {
+                        const exists = AppState.myBooks.find(b => 
+                            (b.linkId && b.linkId === apiBook.linkId) ||
+                            (b.code && String(b.code) === String(apiBook.code)) ||
+                            (b.link && b.link === apiBook.link)
+                        );
+                        if (!exists) {
+                            AppState.myBooks.push({
+                                bookId: apiBook.bookId,
+                                title: apiBook.bookName || apiBook.title,
+                                code: apiBook.code,
+                                link: apiBook.link,
+                                linkId: apiBook.linkId,
+                                cover: apiBook.cover || "",
+                                recommendText: apiBook.recommendText || ""
+                            });
+                            changed = true;
+                        }
+                    }
+                    if (changed) {
+                        saveMyBooks();
+                    }
+                }
+                
                 // Update overview
                 updateStatsOverview(data);
                 
