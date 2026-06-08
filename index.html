@@ -5288,11 +5288,11 @@
             }
 
             try {
-                const response = await fetch(`/api/per-link-stats?username=${encodeURIComponent(username)}`);
+                const response = await fetch(`/api/my-stats?t=${Date.now()}&username=${encodeURIComponent(username)}`);
                 if (!response.ok) throw new Error('Failed to fetch stats');
                 
                 const data = await response.json();
-                // per-link-stats returns 'links' instead of 'books' — normalize for renderMyBooks
+                // my-stats returns 'links' instead of 'books' — normalize for renderMyBooks
                 if (data.links && !data.books) data.books = data.links;
                 UserStats.data = data;
                 
@@ -5306,12 +5306,11 @@
                 console.error('Error loading stats:', error);
                 UserStats.data = null;
                 // Show coming soon message
+                // Still show the overview panel with $0.00
+                const overview = document.getElementById('statsOverview');
+                if (overview) overview.style.display = 'grid';
                 const loadingArea = document.getElementById('statsLoadingArea');
-                if (loadingArea) {
-                    loadingArea.innerHTML = `
-                        <div class="stats-coming-soon">Stats coming soon...</div>
-                    `;
-                }
+                if (loadingArea) loadingArea.innerHTML = '';
             } finally {
                 UserStats.loading = false;
             }
@@ -5332,6 +5331,14 @@
             // Show overview
             if (overview) overview.style.display = 'grid';
             if (loadingArea) loadingArea.innerHTML = '';
+            // Show last updated time
+            const lastUpdatedEl = document.getElementById('statsLastUpdated');
+            const lastUpdatedTimeEl = document.getElementById('statsLastUpdatedTime');
+            if (lastUpdatedEl && lastUpdatedTimeEl) {
+                const now = new Date();
+                lastUpdatedTimeEl.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+                lastUpdatedEl.style.display = 'block';
+            }
             
             // Update values
             const incomeEl = document.getElementById('totalIncome');
@@ -6254,7 +6261,7 @@ function renderMyBooks() {
             if (perfData) perfData.style.display = 'block';
             
             try {
-                const resp = await fetch('/api/per-link-stats?username=' + encodeURIComponent(AppState.user.username));
+                const resp = await fetch('/api/my-stats?t=' + Date.now() + '&username=' + encodeURIComponent(AppState.user.username));
                 if (!resp.ok) throw new Error('Failed');
                 const data = await resp.json();
                 // Convert daily format: { date: {visits, unique_users, new_users, income} }
