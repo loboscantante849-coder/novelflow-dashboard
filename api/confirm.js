@@ -102,8 +102,13 @@ module.exports = async (req, res) => {
     });
 
     if (!putResponse.ok) {
-      console.error('GitHub save error');
-      return res.status(500).json({ error: 'Failed to save submission' });
+      const putErrorBody = await putResponse.text().catch(() => 'N/A');
+      console.error('GitHub save error:', putResponse.status, putErrorBody);
+      return res.status(500).json({ 
+        error: 'Failed to save submission', 
+        details: `GitHub PUT ${putResponse.status}: ${putErrorBody.substring(0, 200)}`,
+        githubTokenSet: !!GITHUB_TOKEN
+      });
     }
 
     // Update SHA for subsequent updates
@@ -116,6 +121,11 @@ module.exports = async (req, res) => {
     let finalCode = null;
     if (BOOKSTORE_TOKEN) {
       finalCode = await createCode(bookId, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID);
+    } else {
+      console.error('No BOOKSTORE_TOKEN available - cannot create code');
+      console.error('OIDC_USERNAME set:', !!process.env.OIDC_USERNAME);
+      console.error('OIDC_PASSWORD set:', !!process.env.OIDC_PASSWORD);
+      console.error('NOVELSPA_TOKEN set:', !!process.env.NOVELSPA_TOKEN);
     }
 
     if (!finalCode) {
@@ -125,12 +135,20 @@ module.exports = async (req, res) => {
         error: BOOKSTORE_TOKEN ? 'Code creation failed' : 'NOVELSPA_TOKEN not configured in Vercel env vars'
       }, apiBase, GITHUB_TOKEN, newSha);
 
+      const diagInfo = {
+        hasBookstoreToken: !!BOOKSTORE_TOKEN,
+        hasOidcCreds: !!(process.env.OIDC_USERNAME && process.env.OIDC_PASSWORD),
+        oidcUsername: process.env.OIDC_USERNAME || 'NOT_SET',
+        githubTokenSet: !!GITHUB_TOKEN,
+        envKeys: Object.keys(process.env).filter(k => !k.startsWith('VC_') && !k.startsWith('VERCEL')).sort()
+      };
       return res.status(200).json({
         success: true,
         submissionId,
         status: 'pending',
         matchedBookName: bookTitle || bookName,
-        message: 'Submission saved! Search code will be created when NOVELSPA_TOKEN is configured.'
+        message: 'Code creation failed. Diagnostics: ' + JSON.stringify(diagInfo),
+        diagnostics: diagInfo
       });
     }
 

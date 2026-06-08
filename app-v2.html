@@ -4707,7 +4707,7 @@
                     if (modalError) modalError.style.display = 'block';
                     btn.disabled = false;
                     btn.textContent = 'Start Earning';
-                    showToast('Link creation failed. API did not return valid data.', 'error');
+                    showToast('Link creation failed: ' + (result.message || result.error || 'API did not return valid data.'), 'error');
                 }
             } catch (e) {
                 clearInterval(countdownInterval);
@@ -5003,7 +5003,7 @@
                     await updateStep(3, 'failed');
                     await updateStep(4, 'failed');
                     processingStatus.classList.remove('show');
-                    showToast('Link creation failed. API did not return valid data.', 'error');
+                    showToast('Link creation failed: ' + (result.message || result.error || 'API did not return valid data.'), 'error');
                 }
             } catch (e) {
                 await updateStep(3, 'failed');
