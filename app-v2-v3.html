@@ -4096,7 +4096,7 @@
             const overview = document.getElementById('statsOverview');
             const loadingArea = document.getElementById('statsLoadingArea');
             
-            if (!data || data.total_income === 0) {
+            if (!data) {
                 if (overview) overview.style.display = 'none';
                 if (loadingArea) loadingArea.innerHTML = `
                     <div class="stats-coming-soon">Stats coming soon... Keep promoting books!</div>

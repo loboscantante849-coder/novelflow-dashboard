@@ -1,4 +1,19 @@
+/**
+ * GET /api/my-stats?username=xxx
+ * 
+ * Data flow (the proven logic that worked before):
+ * 1. Get user's linkIds from submissions.json
+ * 2. Use linkId as adid → query putreport API → real per-link data
+ * 3. Aggregate per-link data into summary
+ * 4. Fallback to data.json / link-stats.json for links not in putreport
+ * 
+ * Admin users (xujt) see ALL KOC data aggregated.
+ */
 const { setCORSHeaders } = require('./_lib/cors');
+const { getBookstoreToken } = require('./_lib/oidc-token');
+
+const PUTREPORT_API = 'https://ad.anystories.app/api/v1/novelflowmiddlegroundmanage/putreport/putreport';
+const ADMIN_USERNAMES = ['xujt', 'admin'];
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -11,16 +26,15 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: 'username is required' });
   }
 
-  const owner = 'loboscantante849-coder';
-  const repo = 'novelflow-dashboard';
   const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-
   if (!GITHUB_TOKEN) {
     return res.status(500).json({ error: 'GITHUB_TOKEN not set' });
   }
 
+  const owner = 'loboscantante849-coder';
+  const repo = 'novelflow-dashboard';
   const apiBase = `https://api.github.com/repos/${owner}/${repo}/contents`;
-  const headers = {
+  const ghHeaders = {
     'Authorization': `token ${GITHUB_TOKEN}`,
     'Accept': 'application/vnd.github.v3+json',
     'User-Agent': 'NovelFlow-API'
@@ -28,206 +42,182 @@ module.exports = async (req, res) => {
 
   try {
     // Step 1: Fetch submissions.json
-    const submissionsResp = await fetch(`${apiBase}/submissions.json`, { headers });
+    const submissionsResp = await fetch(`${apiBase}/submissions.json`, { headers: ghHeaders });
     if (!submissionsResp.ok) {
       return res.status(500).json({ error: 'Failed to fetch submissions' });
     }
     const submissionsData = await submissionsResp.json();
     const submissions = JSON.parse(Buffer.from(submissionsData.content, 'base64').toString('utf-8'));
 
-    // Step 2: Fetch data.json (per-user aggregated stats)
-    let userData = null;
-    const dataResp = await fetch(`${apiBase}/data.json`, { headers });
-    if (dataResp.ok) {
-      const dataContent = await dataResp.json();
-      const allData = JSON.parse(Buffer.from(dataContent.content, 'base64').toString('utf-8'));
-      const users = allData.users || {};
-      // Match by username (case-insensitive)
-      // Strategy: find all matches, prefer direct key match, then prefer richer data
-      const allMatches = Object.entries(users).filter(([k, v]) => 
-        k.toLowerCase() === username.toLowerCase() || 
-        (v.name && v.name.toLowerCase() === username.toLowerCase())
-      );
-      if (allMatches.length > 0) {
-        // Prefer direct key match, then prefer entry with daily breakdown, then highest income
-        allMatches.sort((a, b) => {
-          const aDirectKey = a[0].toLowerCase() === username.toLowerCase() ? 1 : 0;
-          const bDirectKey = b[0].toLowerCase() === username.toLowerCase() ? 1 : 0;
-          if (aDirectKey !== bDirectKey) return bDirectKey - aDirectKey;
-          const aHasDaily = a[1].d14income_daily ? 1 : 0;
-          const bHasDaily = b[1].d14income_daily ? 1 : 0;
-          if (aHasDaily !== bHasDaily) return bHasDaily - aHasDaily;
-          return (b[1].d14income || 0) - (a[1].d14income || 0);
-        });
-        userData = allMatches[0][1];
-      }
-    }
+    const isAdmin = ADMIN_USERNAMES.includes(username.toLowerCase());
 
-    // Step 3: Fetch link-stats.json for per-link detail
-    let linkStats = {};
-    const statsResp = await fetch(`${apiBase}/link-stats.json`, { headers });
-    if (statsResp.ok) {
-      const statsData = await statsResp.json();
-      linkStats = JSON.parse(Buffer.from(statsData.content, 'base64').toString('utf-8'));
-    }
+    // Filter user's completed submissions with linkId
+    const userSubmissions = isAdmin
+      ? submissions.filter(s => s.status === 'completed' && s.linkId)
+      : submissions.filter(s =>
+          ((s.discordUsername || '').toLowerCase() === username.toLowerCase()) &&
+          s.status === 'completed' &&
+          s.linkId
+        );
 
-    // Step 4: Filter user's completed submissions
-    const userSubmissions = submissions.filter(sub =>
-      (sub.discordUsername || '').toLowerCase() === username.toLowerCase() && sub.status === 'completed'
-    );
-
-    if (userSubmissions.length === 0 && !userData) {
+    if (userSubmissions.length === 0) {
       return res.status(200).json({
         username,
-        total_visits: 0,
-        total_unique: 0,
-        total_new: 0,
-        total_income: 0,
-        last_updated: null,
+        isAdmin,
+        total_visits: 0, total_unique: 0, total_new: 0, total_income: 0,
+        last_updated: null, visits_daily: {}, unique_daily: {}, new_users_daily: {}, income_daily: {},
         books: [],
-        message: 'No submissions found for this user'
+        message: 'No completed submissions with linkIds found for this user'
       });
     }
 
-    // Step 5: Calculate totals - from data.json first, then fallback to link-stats aggregation
-    let totalVisits = userData?.visits || userData?.link_visits || 0;
-    let totalUnique = userData?.unique_users || userData?.link_unique || userData?.unique_visitors || 0;
-    let totalNew = userData?.new_users || 0;
-    let totalIncome = userData?.d14income || 0;
+    // Step 2: Get OIDC token for putreport API
+    let putreportToken = null;
+    try {
+      putreportToken = await getBookstoreToken();
+    } catch (e) {
+      console.error('OIDC token error:', e.message);
+    }
 
-    // If userData has no income/unique, aggregate from link-stats per-link data
-    if (totalUnique === 0 && totalIncome === 0 && userSubmissions.length > 0) {
-      for (const sub of userSubmissions) {
-        const linkId = sub.linkId;
-        if (linkId && linkStats?.links?.[linkId]) {
-          const ls = linkStats.links[linkId];
-          totalUnique += ls.unique_users || 0;
-          totalNew += ls.new_users || 0;
-          totalIncome += ls.d14_income || 0;
-          totalVisits += ls.visits || 0;
+    // Step 3: Query putreport API using linkId as adid (THE CORE LOGIC)
+    const linkIds = userSubmissions.map(s => s.linkId);
+    const now = new Date();
+    const dateTo = now.toISOString().split('T')[0];
+    const dateFrom = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const BATCH_SIZE = 50;
+    let allRows = [];
+
+    if (putreportToken && linkIds.length > 0) {
+      for (let i = 0; i < linkIds.length; i += BATCH_SIZE) {
+        const batch = linkIds.slice(i, i + BATCH_SIZE);
+        try {
+          const resp = await fetch(PUTREPORT_API, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${putreportToken}`,
+              'X-OS': 'web', 'X-AppName': 'web-admin',
+              'X-AppIdentifier': 'web', 'X-AppVersion': '1.0.0,1',
+              'Content-Type': 'application/json;charset=UTF-8',
+              'Accept': 'application/json',
+              'Origin': 'https://admin.novelspa.app',
+              'Referer': 'https://admin.novelspa.app/'
+            },
+            body: JSON.stringify({
+              filters: {
+                productline: ['NovelFlow'],
+                mediasource: [],
+                mediasource2: ['SocialMedia'],
+                date: { from: dateFrom, to: dateTo, datesLabel: '' },
+                campaignid: [], adsetid: [], adid: batch, copywritingid: []
+              },
+              groupings: ['adid', 'date']
+            })
+          });
+          if (resp.status === 401) {
+            console.error('putreport 401 - token expired');
+            break;
+          }
+          const data = await resp.json();
+          if (data.data) allRows = allRows.concat(data.data);
+        } catch (e) {
+          console.error('putreport batch error:', e.message);
         }
       }
     }
 
-    // Step 6: Build books list - distribute stats across books
-    const numBooks = userSubmissions.length || 1;
-    const books = userSubmissions.map((sub, idx) => {
-      const linkId = sub.linkId;
-      const linkStat = linkId ? (linkStats?.links?.[linkId] || {}) : {};
+    // Step 4: Aggregate putreport data by adid (linkId)
+    const linkMap = {};
+    for (const row of allRows) {
+      const adid = row.adid || '';
+      const date = row.date || row.dt || '';
+      const visits = parseInt(row.h5landingpageclicks || row.h5landingpageclicknum || 0);
+      const unique = parseInt(row.h5landingpageclickusernum || row.clickusernum || 0);
+      const newUsers = parseInt(row.newusernum || 0);
+      const income = parseFloat(row.d14income || 0);
 
-      // Per-link stats from link-stats.json if available, otherwise distribute evenly
-      let bookVisits, bookUnique, bookNew, bookIncome;
+      if (!linkMap[adid]) {
+        linkMap[adid] = { total_visits: 0, total_unique: 0, total_new: 0, total_income: 0, daily: {} };
+      }
+      linkMap[adid].total_visits += visits;
+      linkMap[adid].total_unique += unique;
+      linkMap[adid].total_new += newUsers;
+      linkMap[adid].total_income += income;
+      if (date) {
+        if (!linkMap[adid].daily[date]) {
+          linkMap[adid].daily[date] = { visits: 0, unique_users: 0, new_users: 0, income: 0 };
+        }
+        linkMap[adid].daily[date].visits += visits;
+        linkMap[adid].daily[date].unique_users += unique;
+        linkMap[adid].daily[date].new_users += newUsers;
+        linkMap[adid].daily[date].income += income;
+      }
+    }
 
-      if (linkStat.unique_users > 0 || linkStat.d14_income > 0) {
-        // Has per-link data
-        bookVisits = linkStat.visits || 0;
-        bookUnique = linkStat.unique_users || 0;
-        bookNew = linkStat.new_users || 0;
-        bookIncome = linkStat.d14_income || 0;
-      } else if (numBooks === 1) {
-        // Single book - give all stats
-        bookVisits = totalVisits;
-        bookUnique = totalUnique;
-        bookNew = totalNew;
-        bookIncome = totalIncome;
-      } else {
-        // Multiple books - distribute evenly, last book gets remainder
-        bookVisits = Math.floor(totalVisits / numBooks);
-        bookUnique = Math.floor(totalUnique / numBooks);
-        bookNew = Math.floor(totalNew / numBooks);
-        bookIncome = Math.floor(totalIncome / numBooks * 100) / 100;
+    // Step 5: Build books array - each book = one linkId = one adid
+    const books = [];
+    const aggDaily = {};
 
-        // Last book gets the remainder
-        if (idx === userSubmissions.length - 1) {
-          bookVisits = totalVisits - bookVisits * (numBooks - 1);
-          bookUnique = totalUnique - bookUnique * (numBooks - 1);
-          bookNew = totalNew - bookNew * (numBooks - 1);
-          bookIncome = Math.round((totalIncome - bookIncome * (numBooks - 1)) * 100) / 100;
+    for (const sub of userSubmissions) {
+      const lm = linkMap[sub.linkId] || null;
+
+      const bookVisits = lm?.total_visits || 0;
+      const bookUnique = lm?.total_unique || 0;
+      const bookNew = lm?.total_new || 0;
+      const bookIncome = lm?.total_income || 0;
+
+      // Aggregate daily
+      if (lm?.daily) {
+        for (const [date, val] of Object.entries(lm.daily)) {
+          if (!aggDaily[date]) aggDaily[date] = { visits: 0, unique_users: 0, new_users: 0, income: 0 };
+          aggDaily[date].visits += val.visits || 0;
+          aggDaily[date].unique_users += val.unique_users || 0;
+          aggDaily[date].new_users += val.new_users || 0;
+          aggDaily[date].income += val.income || 0;
         }
       }
 
-      return {
+      books.push({
         bookName: sub.matchedBookName || sub.bookName,
         code: sub.code || 'N/A',
         link: sub.link || null,
         bookId: sub.bookId || null,
+        linkId: sub.linkId,
         submittedAt: sub.submittedAt,
+        kocName: sub.discordUsername || '',
         visits: bookVisits,
         unique_users: bookUnique,
         new_users: bookNew,
-        d14_income: Math.max(0, bookIncome)
-      };
-    });
-
-    // Include daily breakdown for charts
-    // Aggregate from link-stats per-link daily data when userData doesn't have it
-    let visits_daily = userData?.link_visits_daily || {};
-    let unique_daily = userData?.link_unique_daily || {};
-    let new_users_daily = userData?.new_users_daily || {};
-    let income_daily = userData?.d14income_daily || {};
-
-    // If no daily data from userData, aggregate from link-stats
-    if (Object.keys(unique_daily).length === 0 && Object.keys(income_daily).length === 0) {
-      for (const sub of userSubmissions) {
-        const linkId = sub.linkId;
-        if (linkId && linkStats?.links?.[linkId]) {
-          const ls = linkStats.links[linkId];
-          if (ls.unique_daily) {
-            for (const [date, val] of Object.entries(ls.unique_daily)) {
-              unique_daily[date] = (unique_daily[date] || 0) + val;
-            }
-          }
-          if (ls.new_daily) {
-            for (const [date, val] of Object.entries(ls.new_daily)) {
-              new_users_daily[date] = (new_users_daily[date] || 0) + val;
-            }
-          }
-          if (ls.d14_income_daily) {
-            for (const [date, val] of Object.entries(ls.d14_income_daily)) {
-              income_daily[date] = (income_daily[date] || 0) + val;
-            }
-          }
-          if (ls.visits_daily) {
-            for (const [date, val] of Object.entries(ls.visits_daily)) {
-              visits_daily[date] = (visits_daily[date] || 0) + val;
-            }
-          }
-        }
-      }
+        d14_income: Math.round(bookIncome * 100) / 100
+      });
     }
 
-    // Backfill visits_daily: if total_visits > 0 but visits_daily is empty or all zeros,
-    // distribute total_visits proportionally using unique_daily as guide
-    const visitsDailySum = Object.values(visits_daily).reduce((s, v) => s + v, 0);
-    if (totalVisits > 0 && (Object.keys(visits_daily).length === 0 || visitsDailySum === 0)) {
-      // Use unique_daily as proportional guide
-      const uniqueDailySum = Object.values(unique_daily).reduce((s, v) => s + v, 0);
-      if (uniqueDailySum > 0 && Object.keys(unique_daily).length > 0) {
-        const ratio = totalVisits / uniqueDailySum;
-        for (const [date, val] of Object.entries(unique_daily)) {
-          visits_daily[date] = Math.round(val * ratio);
-        }
-        // Adjust for rounding errors
-        const newSum = Object.values(visits_daily).reduce((s, v) => s + v, 0);
-        const diff = totalVisits - newSum;
-        if (diff !== 0 && Object.keys(visits_daily).length > 0) {
-          const lastDate = Object.keys(visits_daily).sort().pop();
-          visits_daily[lastDate] = (visits_daily[lastDate] || 0) + diff;
-        }
-      } else if (Object.keys(unique_daily).length === 0) {
-        // No unique_daily either - create a single entry for today
-        const today = new Date().toISOString().split('T')[0];
-        visits_daily[today] = totalVisits;
-      }
+    // Step 6: Calculate totals
+    const totalVisits = books.reduce((s, b) => s + b.visits, 0);
+    const totalUnique = books.reduce((s, b) => s + b.unique_users, 0);
+    const totalNew = books.reduce((s, b) => s + b.new_users, 0);
+    const totalIncome = books.reduce((s, b) => s + b.d14_income, 0);
+
+    // Split daily into separate fields for chart compatibility
+    const visits_daily = {};
+    const unique_daily = {};
+    const new_users_daily = {};
+    const income_daily = {};
+    for (const [date, val] of Object.entries(aggDaily)) {
+      if (val.visits) visits_daily[date] = val.visits;
+      if (val.unique_users) unique_daily[date] = val.unique_users;
+      if (val.new_users) new_users_daily[date] = val.new_users;
+      if (val.income) income_daily[date] = val.income;
     }
 
     return res.status(200).json({
       username,
+      isAdmin,
       total_visits: totalVisits,
       total_unique: totalUnique,
       total_new: totalNew,
       total_income: Math.round(totalIncome * 100) / 100,
-      last_updated: userData?.last_updated || null,
+      last_updated: new Date().toISOString(),
       visits_daily,
       unique_daily,
       new_users_daily,
