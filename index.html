@@ -2968,7 +2968,6 @@
                 </div>
 
                 <button class="logout-btn" id="logoutBtn" onclick="handleLogout()">Logout</button>
-                <button class="logout-btn show" id="migrateBtn" onclick="window.location.href='/migrate.html'" style='background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;margin-top:8px;'>🔄 Migrate Data</button>
             </div>
 
             <!-- Stats Overview (Earnings/Users/Visits) -->
@@ -5694,8 +5693,6 @@ function renderMyBooks() {
                 uid.textContent = AppState.user.username ? '@' + AppState.user.username : 'Logged In';
                 loginForm.style.display = 'none';
                 logoutBtn.classList.add('show');
-                const migrateBtn = document.getElementById('migrateBtn');
-                if(migrateBtn) migrateBtn.classList.add('show');
                 // Auto-fill and hide username field when logged in
                 const usernameInput = document.getElementById('discordUsername');
                 const usernameGroup = usernameInput ? usernameInput.closest('.form-group') : null;
@@ -5709,8 +5706,6 @@ function renderMyBooks() {
                 uid.textContent = 'Login to unlock more features';
                 loginForm.style.display = 'block';
                 logoutBtn.classList.remove('show');
-                const migrateBtn = document.getElementById('migrateBtn');
-                if(migrateBtn) migrateBtn.classList.remove('show');
                 // Show username field when not logged in
                 const usernameInput = document.getElementById('discordUsername');
                 const usernameGroup = usernameInput ? usernameInput.closest('.form-group') : null;
