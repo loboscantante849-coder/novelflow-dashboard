@@ -5234,26 +5234,26 @@
                         localStorage.setItem(getUserKey('vip_days'), String(cloud.vip_days));
                     }
 
-                    // MyBooks: merge by book ID (union, deduplicated)
+                    // MyBooks: merge by code (union, deduplicated)
+                    // Same book can have multiple promotion codes - each code is a unique link
                     const localBooks = AppState.myBooks || [];
                     if (cloud.myBooks && Array.isArray(cloud.myBooks)) {
                         const bookMap = new Map();
-                        // Add local books first
+                        // Add local books first, key by code (each code = unique link)
                         for (const b of localBooks) {
-                            const id = b.id || b.bookId || b.title;
-                            if (id) bookMap.set(id, b);
+                            const key = b.code ? String(b.code) : (b.id || b.bookId || b.title);
+                            if (key) bookMap.set(key, b);
                         }
-                        // Cloud books overwrite on conflict (newer data)
+                        // Cloud books merge on conflict (keep richer data)
                         for (const b of cloud.myBooks) {
-                            const id = b.id || b.bookId || b.title;
-                            if (id) {
-                                if (!bookMap.has(id)) {
-                                    bookMap.set(id, b);
+                            const key = b.code ? String(b.code) : (b.id || b.bookId || b.title);
+                            if (key) {
+                                if (!bookMap.has(key)) {
+                                    bookMap.set(key, b);
                                 } else {
-                                    // Keep the one with more data (more properties)
-                                    const existing = bookMap.get(id);
+                                    const existing = bookMap.get(key);
                                     const merged = { ...existing, ...b };
-                                    bookMap.set(id, merged);
+                                    bookMap.set(key, merged);
                                 }
                             }
                         }
@@ -5264,6 +5264,9 @@
                     // Reload all data into AppState
                     loadCheckinData();
                     updatePointsDisplay();
+                    // Update UI after myBooks merge
+                    updateStats();
+                    renderMyBooks();
                     
                     console.log('[CloudSync] Pull & merge OK');
                     // Push merged data back to ensure cloud has latest union
@@ -5375,6 +5378,7 @@
                     }
                     if (changed) {
                         saveMyBooks();
+                        updateStats(); // Update LINKS count after merging API books
                     }
                 }
                 
