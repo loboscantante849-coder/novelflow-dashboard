@@ -2,11 +2,17 @@
  * GET /api/per-link-stats?username=xxx
  * Single-phase query: all links (legacy + v1 + app-v2) are in submissions.json
  * Query putreport by user's linkIds, aggregate and return
+ * 
+ * Admin users (xujt) see ALL KOC data aggregated
+ * Regular KOC users only see their own data
  */
 const { setCORSHeaders } = require('./_lib/cors');
 const { getBookstoreToken } = require('./_lib/oidc-token');
 
 const PUTREPORT_API = 'https://ad.anystories.app/api/v1/novelflowmiddlegroundmanage/putreport/putreport';
+
+// Admin usernames that can see all KOC data
+const ADMIN_USERNAMES = ['xujt', 'admin'];
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -34,11 +40,16 @@ module.exports = async (req, res) => {
     const subData = await subResp.json();
     const submissions = JSON.parse(Buffer.from(subData.content, 'base64').toString('utf-8'));
 
-    const userSubs = submissions.filter(s =>
-      ((s.discordUsername || '').toLowerCase() === username.toLowerCase()) &&
-      s.status === 'completed' &&
-      s.linkId
-    );
+    const isAdmin = ADMIN_USERNAMES.includes(username.toLowerCase());
+    
+    // Admin sees all completed submissions; regular user sees only their own
+    const userSubs = isAdmin
+      ? submissions.filter(s => s.status === 'completed' && s.linkId)
+      : submissions.filter(s =>
+          ((s.discordUsername || '').toLowerCase() === username.toLowerCase()) &&
+          s.status === 'completed' &&
+          s.linkId
+        );
 
     // Step 2: Get putreport token
     const token = await getBookstoreToken();
@@ -134,6 +145,7 @@ module.exports = async (req, res) => {
         link: sub.link,
         linkId: sub.linkId,
         submittedAt: sub.submittedAt,
+        kocName: sub.discordUsername || '',
         visits: ls.total_visits,
         unique_users: ls.total_unique,
         new_users: ls.total_new,
@@ -172,6 +184,7 @@ module.exports = async (req, res) => {
 
     return res.status(200).json({
       username,
+      isAdmin,
       total_visits: totalVisits,
       total_unique: totalUnique,
       total_new: totalNew,
