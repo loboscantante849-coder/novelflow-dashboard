@@ -2481,14 +2481,14 @@
         </div>
         <div class="splash-form">
             <input type="text" class="splash-input" id="splashUsername" data-i18n-placeholder="username" placeholder="Your username" oninput="checkSplashPasswordNeeded()">
-            <input type="password" class="splash-input" id="splashPassword" data-i18n-placeholder="password_placeholder" placeholder="Password (optional)" style="display:none;">
+            <input type="password" class="splash-input" id="splashPassword" data-i18n-placeholder="password_placeholder" placeholder="Password (min 4 characters)">
             <button class="splash-btn" onclick="handleSplashLogin()" data-i18n="start_earning"><span data-i18n="start_earning_btn">Start Earning</span></button>
-            <div class="splash-tip" id="splashTip" data-i18n="splash_tip">Enter your username to login or create account. Set a password to protect your data.</div>
-            <div style="text-align:center;margin-top:12px;"><a href="mailto:LobosCantante849@gmail.com" style="font-size:12px;color:var(--ink-mute);text-decoration:none;" data-i18n="email_support">📧 Email Support</a></div>
+            <div class="splash-tip" id="splashTip" data-i18n="splash_tip">Enter your username and password to login or create account.</div>
+
             <div class="splash-error" id="splashError"></div>
         </div>
         
-        <button class="splash-skip" onclick="skipLogin()">Skip for now →</button>
+
     </div>
 
     <div class="app-container">
@@ -5820,6 +5820,12 @@ function renderMyBooks() {
                 const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Please enter a username';
                 return;
             }
+            if (!password || password.length < 4) {
+                const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Password is required (min 4 characters)';
+                const passField = document.getElementById('splashPassword');
+                if (passField) { passField.style.display = ''; passField.placeholder = 'Password (required)'; }
+                return;
+            }
             
             try {
                 const controller = new AbortController();
@@ -7412,7 +7418,7 @@ function renderMyBooks() {
             const passField = document.getElementById('splashPassword');
             const tipEl = document.getElementById('splashTip');
             if (!username || username.length < 2) {
-                if (passField) passField.style.display = 'none';
+                if (passField) passField.placeholder = 'Password (min 4 characters)';
                 return;
             }
             // Debounce
@@ -7426,15 +7432,14 @@ function renderMyBooks() {
                     });
                     const result = await resp.json();
                     if (result.hasPassword) {
-                        if (passField) { passField.style.display = ''; passField.placeholder = 'Password (required)'; }
+                        if (passField) { passField.placeholder = 'Enter your password'; }
                         if (tipEl) tipEl.textContent = 'This account has a password. Enter it to login.';
                     } else {
-                        if (passField) { passField.style.display = ''; passField.placeholder = 'Set a password (optional)'; }
-                        if (tipEl) tipEl.textContent = 'No password set yet. You can add one to protect your account.';
+                        if (passField) { passField.placeholder = 'Set a password (min 4 chars)'; }
+                        if (tipEl) tipEl.textContent = 'New account? Set a password to get started.';
                     }
                 } catch(e) {
-                    // Silently fail - show password field as optional
-                    if (passField) { passField.style.display = ''; passField.placeholder = 'Password (optional)'; }
+                    if (passField) { passField.placeholder = 'Password (min 4 characters)'; }
                 }
             }, 500);
         }
