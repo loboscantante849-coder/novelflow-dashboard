@@ -4543,6 +4543,7 @@
                 
                 if (data.loggedIn) {
                     const prevUser = AppState.user?.username;
+                    const wasLoggedIn = AppState.isLoggedIn;
                     AppState.isLoggedIn = true;
                     AppState.user = {
                         username: data.username || 'User',
@@ -4554,6 +4555,12 @@
                         loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo();
                         loadMyBooks();
                     }
+                    // If we just restored login from cookie (wasLoggedIn was false), load stats
+                    if (!wasLoggedIn) {
+                        loadUserStats(AppState.user.username);
+                        claimAnonymousLinks();
+                    }
+                    updateProfileUI();
                     return;
                 }
 
@@ -4564,6 +4571,7 @@
                         // Reload per-user data after refresh
                         loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI();
                         loadMyBooks();
+                        loadUserStats(AppState.user.username);
                         return;
                     }
                 }
