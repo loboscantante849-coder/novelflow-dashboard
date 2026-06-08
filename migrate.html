@@ -7,86 +7,269 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-.card{background:#fff;border-radius:16px;padding:40px;max-width:500px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
-h1{color:#333;margin-bottom:10px;font-size:24px}
-p{color:#666;margin-bottom:20px;line-height:1.6}
-.btn{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;padding:14px 28px;border-radius:10px;font-size:16px;cursor:pointer;width:100%;transition:transform 0.2s}
+.card{background:#fff;border-radius:16px;padding:32px;max-width:520px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+h1{color:#333;margin-bottom:6px;font-size:22px}
+.sub{color:#888;font-size:13px;margin-bottom:20px}
+.step{background:#f8f9fa;border-radius:10px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;font-size:14px;color:#555}
+.step .icon{font-size:20px;flex-shrink:0}
+.step .label{flex:1}
+.step .status{font-size:12px;font-weight:600;flex-shrink:0}
+.step.done{background:#e8f5e9;color:#2e7d32}
+.step.fail{background:#fde8e8;color:#c62828}
+.step.running{background:#e3f2fd;color:#1565c0}
+.step.pending{opacity:0.5}
+#dataPreview{background:#f0f0f0;border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;max-height:120px;overflow-y:auto;display:none;white-space:pre-wrap;color:#333}
+.btn{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;padding:14px 28px;border-radius:10px;font-size:16px;cursor:pointer;width:100%;transition:transform 0.2s,opacity 0.2s;font-weight:600}
 .btn:hover{transform:scale(1.02)}
-.btn:disabled{opacity:0.6;cursor:not-allowed}
-#result{margin-top:20px;padding:15px;background:#f5f5f5;border-radius:8px;white-space:pre-wrap;font-size:13px;display:none;color:#333;max-height:400px;overflow-y:auto}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.pwd-row{display:none;margin-bottom:12px;gap:8px;align-items:center}
+.pwd-row input{flex:1;padding:10px 14px;border:2px solid #ddd;border-radius:8px;font-size:14px;outline:none}
+.pwd-row input:focus{border-color:#667eea}
+.note{margin-top:16px;padding:12px;background:#fff3e0;border-radius:8px;font-size:12px;color:#e65100;line-height:1.5}
 </style>
 </head>
 <body>
 <div class="card">
 <h1>🔄 Data Migration</h1>
-<p>Migrate your NovelFlow data. This will sync all your links and claim any Anonymous entries.</p>
-<button class="btn" onclick="migrate()" id="migrateBtn">Migrate My Data</button>
-<div id="result"></div>
+<p class="sub">Sync your old site data to the new site (novelflow.top)</p>
+
+<div id="dataPreview"></div>
+
+<div class="step" id="s1">
+  <span class="icon">1️⃣</span>
+  <span class="label">Detect local data</span>
+  <span class="status" id="s1s">pending</span>
 </div>
+<div class="step" id="s2">
+  <span class="icon">2️⃣</span>
+  <span class="label">Login to get auth token</span>
+  <span class="status" id="s2s">pending</span>
+</div>
+<div class="step" id="s3">
+  <span class="icon">3️⃣</span>
+  <span class="label">Upload data to cloud (KV)</span>
+  <span class="status" id="s3s">pending</span>
+</div>
+<div class="step" id="s4">
+  <span class="icon">4️⃣</span>
+  <span class="label">Claim Anonymous links</span>
+  <span class="status" id="s4s">pending</span>
+</div>
+
+<div class="pwd-row" id="pwdRow">
+  <input type="password" id="pwdInput" placeholder="Enter your password (if set)">
+</div>
+
+<button class="btn" onclick="doMigrate()" id="migrateBtn">Start Migration</button>
+
+<div class="note">
+  ⚠️ After migration, visit <b>novelflow.top</b> and log in — your data will be there.<br>
+  This page reads your browser's local data and uploads it to the cloud.
+</div>
+</div>
+
 <script>
-async function migrate(){
-  const btn=document.getElementById('migrateBtn');
-  const result=document.getElementById('result');
-  btn.disabled=true;btn.textContent='Migrating...';
-  result.style.display='block';result.textContent='Starting migration...\n';
+let detectedUser=null, detectedBooks=null, needPassword=false;
+
+function setStep(n,state,detail){
+  const el=document.getElementById('s'+n);
+  const st=document.getElementById('s'+n+'s');
+  el.className='step '+state;
+  st.textContent=detail||state;
+}
+function log(msg){
+  const el=document.getElementById('dataPreview');
+  el.style.display='block';
+  el.textContent+=msg+'\n';
+  el.scrollTop=el.scrollHeight;
+}
+
+// Step 1: Detect data
+function detectData(){
+  // Find username from nf_user cookie or localStorage
+  let username=null;
   
-  try{
-    // 1. Find username
-    let username=localStorage.getItem('novelflow_last_user');
-    if(!username){
-      for(let i=0;i<localStorage.length;i++){
-        const key=localStorage.key(i);
-        if(key.startsWith('novelflow_login_')){
-          try{const d=JSON.parse(localStorage.getItem(key));if(d&&d.username){username=d.username;break}}catch(e){}
-        }
+  // Try nf_user cookie (not HttpOnly)
+  const userCookie=document.cookie.match(/nf_user=([^;]+)/);
+  if(userCookie){
+    try{const u=JSON.parse(decodeURIComponent(userCookie[1]));if(u.username)username=u.username}catch(e){}
+  }
+  
+  // Try localStorage
+  if(!username){
+    username=localStorage.getItem('novelflow_last_user');
+  }
+  if(!username){
+    for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i);
+      if(key.startsWith('novelflow_login_')){
+        try{const d=JSON.parse(localStorage.getItem(key));if(d&&d.username){username=d.username;break}}catch(e){}
       }
     }
-    if(!username){result.textContent+='\n❌ Not logged in.';btn.disabled=false;btn.textContent='Migrate My Data';return}
-    result.textContent+='✅ User: '+username+'\n';
-    
-    // 2. Get myBooks
-    let booksRaw=localStorage.getItem('novelflow_mybooks_'+username)||localStorage.getItem('novelflow_mybooks');
-    if(!booksRaw){result.textContent+='❌ No books found.';btn.disabled=false;btn.textContent='Migrate My Data';return}
-    const books=JSON.parse(booksRaw);
-    const codes=books.map(b=>String(b.code)).filter(c=>c&&c!=='undefined'&&c!=='null');
-    result.textContent+='✅ '+books.length+' books, '+codes.length+' codes\n';
-    result.textContent+='Codes: '+codes.join(', ')+'\n\n';
-    
-    // 3. Get auth token from cookie
-    const token=document.cookie.match(/nf_token=([^;]+)/)?.[1];
-    if(!token){result.textContent+='❌ Not authenticated. Log in first.\n';btn.disabled=false;btn.textContent='Migrate My Data';return}
-    
-    // 4. Claim Anonymous links (relative URL - works on same domain)
-    result.textContent+='Claiming Anonymous links...\n';
-    try{
-      const claimResp=await fetch('/api/claim-links',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-        body:JSON.stringify({username,codes})
-      });
-      const claimResult=await claimResp.json();
-      result.textContent+='Claim: '+JSON.stringify(claimResult)+'\n';
-    }catch(e){result.textContent+='Claim error: '+e.message+'\n'}
-    
-    // 5. Sync to KV
-    result.textContent+='Syncing to cloud...\n';
-    try{
-      const syncResp=await fetch('/api/user-data',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-        body:JSON.stringify({data:{myBooks:books,lastSyncAt:Date.now()}})
-      });
-      const syncResult=await syncResp.json();
-      result.textContent+='Sync: '+JSON.stringify(syncResult)+'\n';
-    }catch(e){result.textContent+='Sync error: '+e.message+'\n'}
-    
-    result.textContent+='\n✅ Done! Visit novelflow.top to see your data.';
-    btn.textContent='✅ Done!';
-  }catch(e){
-    result.textContent+='\n❌ Error: '+e.message;
-    btn.disabled=false;btn.textContent='Migrate My Data';
   }
+  
+  if(!username){
+    setStep(1,'fail','No user found');
+    return false;
+  }
+  detectedUser=username;
+  
+  // Find books
+  let booksRaw=localStorage.getItem('novelflow_mybooks_'+username)||localStorage.getItem('novelflow_mybooks');
+  if(!booksRaw){
+    setStep(1,'fail','No books data');
+    return false;
+  }
+  
+  try{
+    detectedBooks=JSON.parse(booksRaw);
+  }catch(e){
+    setStep(1,'fail','Invalid data');
+    return false;
+  }
+  
+  const codes=detectedBooks.map(b=>String(b.code)).filter(c=>c&&c!=='undefined'&&c!=='null');
+  setStep(1,'done',username+' | '+detectedBooks.length+' books, '+codes.length+' codes');
+  log('User: '+username);
+  log('Books: '+detectedBooks.length+', Codes: '+codes.length);
+  log('Codes: '+codes.join(', '));
+  return true;
 }
+
+async function doMigrate(){
+  const btn=document.getElementById('migrateBtn');
+  btn.disabled=true;btn.textContent='Migrating...';
+  
+  // Reset steps
+  for(let i=1;i<=4;i++)setStep(i,'pending','');
+  document.getElementById('dataPreview').style.display='none';
+  document.getElementById('dataPreview').textContent='';
+  
+  // Step 1: Detect
+  setStep(1,'running','detecting...');
+  if(!detectData()){
+    btn.disabled=false;btn.textContent='Start Migration';
+    return;
+  }
+  
+  // Step 2: Login
+  setStep(2,'running','logging in...');
+  let loginOk=false;
+  const pwd=document.getElementById('pwdInput').value||'';
+  try{
+    const loginResp=await fetch('/api/auth/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      credentials:'include',
+      body:JSON.stringify({username:detectedUser,password:pwd})
+    });
+    const loginData=await loginResp.json();
+    if(loginResp.ok&&loginData.success){
+      loginOk=true;
+      setStep(2,'done','OK');
+      log('Login: OK ('+detectedUser+')');
+    }else if(loginData.needPassword){
+      setStep(2,'fail','Need password');
+      document.getElementById('pwdRow').style.display='flex';
+      document.getElementById('pwdInput').focus();
+      btn.disabled=false;btn.textContent='Start Migration';
+      log('Login: password required');
+      return;
+    }else{
+      setStep(2,'fail',loginData.error||'Failed');
+      log('Login failed: '+JSON.stringify(loginData));
+      btn.disabled=false;btn.textContent='Start Migration';
+      return;
+    }
+  }catch(e){
+    setStep(2,'fail',e.message);
+    log('Login error: '+e.message);
+    btn.disabled=false;btn.textContent='Start Migration';
+    return;
+  }
+  
+  // Step 3: Upload to KV
+  setStep(3,'running','uploading '+detectedBooks.length+' books...');
+  try{
+    // First get existing KV data to merge
+    let existingData={myBooks:[]};
+    try{
+      const getResp=await fetch('/api/user-data?username='+detectedUser,{
+        credentials:'include'
+      });
+      const getData=await getResp.json();
+      if(getData.exists&&getData.data&&getData.data.myBooks){
+        existingData=getData.data;
+      }
+    }catch(e){}
+    
+    // Merge: dedup by code
+    const existingCodes=new Set((existingData.myBooks||[]).map(b=>String(b.code)).filter(c=>c&&c!=='undefined'));
+    let merged=[...(existingData.myBooks||[])];
+    for(const book of detectedBooks){
+      const code=String(book.code);
+      if(!existingCodes.has(code)){
+        merged.push(book);
+        existingCodes.add(code);
+      }
+    }
+    
+    log('Merge: existing '+existingData.myBooks.length+' + new '+(merged.length-existingData.myBooks.length)+' = '+merged.length+' total');
+    
+    const syncResp=await fetch('/api/user-data',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      credentials:'include',
+      body:JSON.stringify({data:{myBooks:merged,lastSyncAt:Date.now()}})
+    });
+    const syncData=await syncResp.json();
+    if(syncResp.ok&&syncData.success){
+      setStep(3,'done',merged.length+' books synced');
+      log('KV sync: OK ('+merged.length+' books)');
+    }else{
+      setStep(3,'fail',syncData.error||'Failed');
+      log('KV sync failed: '+JSON.stringify(syncData));
+    }
+  }catch(e){
+    setStep(3,'fail',e.message);
+    log('KV error: '+e.message);
+  }
+  
+  // Step 4: Claim Anonymous
+  setStep(4,'running','claiming...');
+  const codes=detectedBooks.map(b=>String(b.code)).filter(c=>c&&c!=='undefined'&&c!=='null');
+  try{
+    const claimResp=await fetch('/api/claim-links',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      credentials:'include',
+      body:JSON.stringify({username:detectedUser,codes})
+    });
+    const claimData=await claimResp.json();
+    if(claimResp.ok&&claimData.success){
+      setStep(4,'done',claimData.changed+' claimed');
+      log('Claim: '+claimData.changed+' Anonymous entries reassigned to '+detectedUser);
+      if(claimData.claimed&&claimData.claimed.length>0){
+        log('Claimed codes: '+claimData.claimed.join(', '));
+      }
+    }else{
+      setStep(4,'fail',claimData.error||'None');
+      log('Claim: '+JSON.stringify(claimData));
+    }
+  }catch(e){
+    setStep(4,'fail',e.message);
+    log('Claim error: '+e.message);
+  }
+  
+  btn.textContent='✅ Done!';
+  log('\n✅ Migration complete! Visit novelflow.top to see your data.');
+}
+
+// Auto-detect on load
+window.addEventListener('load',()=>{
+  setStep(1,'running','detecting...');
+  detectData();
+});
 </script>
 </body>
 </html>
