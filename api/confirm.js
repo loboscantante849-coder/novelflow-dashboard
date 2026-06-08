@@ -346,3 +346,5 @@ async function updateSubmission(submissionId, fields, apiBase, GITHUB_TOKEN, cur
     console.error('Update failed:', err.message);
   }
 }
+
+// JWT_SECRET fix deployed
