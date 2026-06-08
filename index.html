@@ -5253,6 +5253,8 @@
                     updatePointsDisplay();
                     
                     console.log('[CloudSync] Pull & merge OK');
+                    // Push merged data back to ensure cloud has latest union
+                    await this.push();
                 } catch (e) {
                     console.warn('[CloudSync] Pull failed:', e.message);
                 }
