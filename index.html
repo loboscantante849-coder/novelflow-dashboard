@@ -5821,10 +5821,25 @@ function renderMyBooks() {
                 return;
             }
             if (!password || password.length < 4) {
-                const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Password is required (min 4 characters)';
-                const passField = document.getElementById('splashPassword');
-                if (passField) { passField.style.display = ''; passField.placeholder = 'Password (required)'; }
-                return;
+                // Check if this is an old user without password - if so, allow login
+                try {
+                    const cpResp = await fetch('/api/auth/check-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username })
+                    });
+                    const cpResult = await cpResp.json();
+                    if (!cpResult.hasPassword && cpResult.userExists) {
+                        // Old user without password - allow login, will prompt to set password
+                    } else {
+                        // New user or user with password - must enter password
+                        const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = cpResult.hasPassword ? 'Password is required' : 'Password is required (min 4 characters)';
+                        return;
+                    }
+                } catch(e) {
+                    const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Password is required (min 4 characters)';
+                    return;
+                }
             }
             
             try {
@@ -5870,6 +5885,13 @@ function renderMyBooks() {
                 showToast('Welcome, ' + username + '!', 'success');
                 checkAndPromptSetPassword(username);
                 CloudSync.enable();
+                
+                // Force show set password modal if backend says user needs one
+                if (result.mustSetPassword) {
+                    setTimeout(() => {
+                        showSetPasswordModal();
+                    }, 1500);
+                }
             } catch(e) {
                 console.error('Login error:', e);
                 // Fallback: allow offline login (API unreachable or timed out)
@@ -7434,9 +7456,14 @@ function renderMyBooks() {
                     if (result.hasPassword) {
                         if (passField) { passField.placeholder = 'Enter your password'; }
                         if (tipEl) tipEl.textContent = 'This account has a password. Enter it to login.';
+                    } else if (result.userExists) {
+                        // Old user without password - can login directly
+                        if (passField) { passField.placeholder = 'Set a password (optional)'; }
+                        if (tipEl) tipEl.textContent = 'Welcome back! You can set a password after login.';
                     } else {
+                        // New user - must set password
                         if (passField) { passField.placeholder = 'Set a password (min 4 chars)'; }
-                        if (tipEl) tipEl.textContent = 'New account? Set a password to get started.';
+                        if (tipEl) tipEl.textContent = 'New here? Set a password to create your account.';
                     }
                 } catch(e) {
                     if (passField) { passField.placeholder = 'Password (min 4 characters)'; }

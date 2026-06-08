@@ -17,12 +17,20 @@ module.exports = async (req, res) => {
     if (!username) return res.status(400).json({ error: 'Username is required' });
 
     const redis = getRedis();
-    if (!redis) return res.status(200).json({ hasPassword: false });
+    if (!redis) return res.status(200).json({ hasPassword: false, userExists: false });
 
-    const storedHash = await redis.get('nf_user_pass:' + username.trim());
-    return res.status(200).json({ hasPassword: !!storedHash });
+    const cleanName = username.trim();
+    const [storedHash, userData] = await Promise.all([
+      redis.get('nf_user_pass:' + cleanName),
+      redis.get('nf_user_data:' + cleanName)
+    ]);
+
+    const hasPassword = !!storedHash;
+    const userExists = !!(storedHash || userData);
+
+    return res.status(200).json({ hasPassword, userExists });
   } catch (error) {
     console.error('Check password error:', error);
-    return res.status(200).json({ hasPassword: false });
+    return res.status(200).json({ hasPassword: false, userExists: false });
   }
 };

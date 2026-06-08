@@ -51,7 +51,12 @@ module.exports = async (req, res) => {
 
     // Check if user already has a password set
     if (redis) {
-      const storedHash = await redis.get('nf_user_pass:' + cleanUsername);
+      const [storedHash, userData] = await Promise.all([
+        redis.get('nf_user_pass:' + cleanUsername),
+        redis.get('nf_user_data:' + cleanUsername)
+      ]);
+      const userExists = !!(storedHash || userData);
+
       if (storedHash) {
         // User exists with password - must verify
         if (!password) {
@@ -61,8 +66,29 @@ module.exports = async (req, res) => {
         if (inputHash !== storedHash) {
           return res.status(401).json({ error: 'Wrong password', needPassword: true });
         }
+      } else if (userExists) {
+        // Old user without password (has data but no pass) - allow login, prompt to set password
+        if (!password) {
+          const userPayload = buildUserPayload({ type: 'local', username: cleanUsername });
+          const accessToken = signAccessToken(userPayload);
+          const refreshToken = signRefreshToken(userPayload);
+          const userInfo = extractUserInfo(userPayload);
+          setAuthCookies(res, accessToken, refreshToken, userInfo);
+          return res.status(200).json({
+            success: true,
+            username: cleanUsername,
+            isNewUser: false,
+            mustSetPassword: true
+          });
+        }
+        // User provided a password - set it
+        if (password.length < 4) {
+          return res.status(400).json({ error: 'Password must be at least 4 characters', needPassword: true, mustSetPassword: true });
+        }
+        const newHash = hashPassword(password);
+        await redis.set('nf_user_pass:' + cleanUsername, newHash);
       } else {
-        // New user or existing user without password - MUST set a password
+        // Brand new user - must set password
         if (!password || password.length < 4) {
           return res.status(400).json({ error: 'Password required (min 4 characters)', needPassword: true, mustSetPassword: true });
         }
@@ -70,7 +96,7 @@ module.exports = async (req, res) => {
         await redis.set('nf_user_pass:' + cleanUsername, newHash);
       }
     } else {
-      // No Redis - still require password
+      // No Redis - still require password for new users
       if (!password || password.length < 4) {
         return res.status(400).json({ error: 'Password required (min 4 characters)', needPassword: true, mustSetPassword: true });
       }
