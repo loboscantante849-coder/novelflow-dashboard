@@ -61,10 +61,18 @@ module.exports = async (req, res) => {
         if (inputHash !== storedHash) {
           return res.status(401).json({ error: 'Wrong password', needPassword: true });
         }
-      } else if (password && password.length >= 4) {
-        // New user setting a password, or existing user adding password
+      } else {
+        // New user or existing user without password - MUST set a password
+        if (!password || password.length < 4) {
+          return res.status(400).json({ error: 'Password required (min 4 characters)', needPassword: true, mustSetPassword: true });
+        }
         const newHash = hashPassword(password);
         await redis.set('nf_user_pass:' + cleanUsername, newHash);
+      }
+    } else {
+      // No Redis - still require password
+      if (!password || password.length < 4) {
+        return res.status(400).json({ error: 'Password required (min 4 characters)', needPassword: true, mustSetPassword: true });
       }
     }
 

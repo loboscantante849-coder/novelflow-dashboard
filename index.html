@@ -2962,7 +2962,7 @@
                     <h3 data-i18n="register_login">Login / Register</h3>
                     <p>Enter username to login or create account</p>
                     <input type="text" class="login-input" id="regUsername" placeholder="Your username" maxlength="50" oninput="checkRegPasswordNeeded()">
-                    <input type="password" class="login-input" id="regPassword" placeholder="Password (if set)" style="display:none;margin-top:8px;">
+                    <input type="password" class="login-input" id="regPassword" placeholder="Password (min 4 characters)" style="margin-top:8px;">
                     <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()" data-i18n="confirm_btn">Confirm</button>
                     <div class="login-tip">Set a password in Profile to protect your account</div>
                 </div>
@@ -5729,6 +5729,10 @@ function renderMyBooks() {
                 showToast('Please enter a username', 'error');
                 return;
             }
+            if (!password || password.length < 4) {
+                showToast('Password is required (min 4 characters)', 'error');
+                return;
+            }
 
             try {
                 const response = await fetch('/api/auth/register', {
@@ -5764,7 +5768,7 @@ function renderMyBooks() {
                     (document.getElementById('regPassword') || {}).value = '';
                     const passField = document.getElementById('regPassword');
                     if (passField) passField.style.display = 'none';
-                    checkAndPromptSetPassword(username);
+                    updatePasswordCardUI(true);
                 } else {
                     const errMsg = result.error || 'Login failed (HTTP ' + response.status + ')';
                     showToast(errMsg, 'error');
@@ -7436,26 +7440,25 @@ function renderMyBooks() {
         }
 
         async function checkRegPasswordNeeded() {
-            const username = document.getElementById('regUsername')?.value?.trim();
+            // Password is always required now
             const passField = document.getElementById('regPassword');
-            if (!username || username.length < 2) {
-                if (passField) passField.style.display = 'none';
-                return;
-            }
-            try {
-                const resp = await fetch('/api/auth/check-password', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username })
-                });
-                const result = await resp.json();
-                if (result.hasPassword) {
-                    if (passField) { passField.style.display = ''; passField.placeholder = 'Password (required)'; }
+            const username = document.getElementById('regUsername')?.value?.trim();
+            if (passField) {
+                passField.style.display = '';
+                if (username && username.length >= 2) {
+                    // Check if existing user to adjust placeholder
+                    try {
+                        const resp = await fetch('/api/auth/check-password', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username })
+                        });
+                        const result = await resp.json();
+                        passField.placeholder = result.hasPassword ? 'Enter your password' : 'Set a password (min 4 chars)';
+                    } catch(e) {}
                 } else {
-                    if (passField) passField.style.display = 'none';
+                    passField.placeholder = 'Password (min 4 characters)';
                 }
-            } catch(e) {
-                if (passField) passField.style.display = 'none';
             }
         }
 
