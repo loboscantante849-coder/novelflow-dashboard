@@ -2962,7 +2962,7 @@
                     <h3 data-i18n="register_login">Login / Register</h3>
                     <p>Enter username to login or create account</p>
                     <input type="text" class="login-input" id="regUsername" placeholder="Your username" maxlength="50" oninput="checkRegPasswordNeeded()">
-                    <input type="password" class="login-input" id="regPassword" placeholder="Password (min 4 characters)" style="margin-top:8px;">
+                    <input type="password" class="login-input" id="regPassword" placeholder="Password (if set)" style="display:none;margin-top:8px;">
                     <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()" data-i18n="confirm_btn">Confirm</button>
                     <div class="login-tip">Set a password in Profile to protect your account</div>
                 </div>
@@ -5631,10 +5631,6 @@ function renderMyBooks() {
 
             if (!username) {
                 showToast('Please enter a username', 'error');
-                return;
-            }
-            if (!password || password.length < 4) {
-                showToast('Password is required (min 4 characters)', 'error');
                 return;
             }
 
