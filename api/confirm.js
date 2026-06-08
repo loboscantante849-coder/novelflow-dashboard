@@ -49,9 +49,15 @@ module.exports = async (req, res) => {
   const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
   const languageCode = lang === 'es' ? 'es' : 'en';
   // Get bookstore token (auto-refreshes via OIDC if expired)
+  // FALLBACK: If env vars are missing, use hardcoded credentials
+  
+  
+  
   const BOOKSTORE_TOKEN = await getBookstoreToken();
   if (!BOOKSTORE_TOKEN) {
     console.warn('No bookstore token available - code creation will be skipped');
+    console.warn('OIDC_USERNAME:', process.env.OIDC_USERNAME);
+    console.warn('OIDC_PASSWORD set:', !!process.env.OIDC_PASSWORD);
   }
 
   // Generate submission ID locally
