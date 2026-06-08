@@ -2,8 +2,12 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/",
-      "destination": "/app-v2-v3.html"
+      "source": "/app-v2-v3",
+      "destination": "/"
+    },
+    {
+      "source": "/app-v2",
+      "destination": "/"
     }
   ],
   "headers": [
