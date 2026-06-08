@@ -13,15 +13,13 @@ p{color:#666;margin-bottom:20px;line-height:1.6}
 .btn{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;padding:14px 28px;border-radius:10px;font-size:16px;cursor:pointer;width:100%;transition:transform 0.2s}
 .btn:hover{transform:scale(1.02)}
 .btn:disabled{opacity:0.6;cursor:not-allowed}
-#result{margin-top:20px;padding:15px;background:#f5f5f5;border-radius:8px;white-space:pre-wrap;font-size:13px;display:none;color:#333}
-.success{color:#2ecc71;font-weight:bold}
-.error{color:#e74c3c;font-weight:bold}
+#result{margin-top:20px;padding:15px;background:#f5f5f5;border-radius:8px;white-space:pre-wrap;font-size:13px;display:none;color:#333;max-height:400px;overflow-y:auto}
 </style>
 </head>
 <body>
 <div class="card">
 <h1>🔄 Data Migration</h1>
-<p>Migrate your NovelFlow data from the old site to the new one. Click the button below to sync all your links and stats.</p>
+<p>Migrate your NovelFlow data. This will sync all your links and claim any Anonymous entries.</p>
 <button class="btn" onclick="migrate()" id="migrateBtn">Migrate My Data</button>
 <div id="result"></div>
 </div>
@@ -29,53 +27,37 @@ p{color:#666;margin-bottom:20px;line-height:1.6}
 async function migrate(){
   const btn=document.getElementById('migrateBtn');
   const result=document.getElementById('result');
-  btn.disabled=true;
-  btn.textContent='Migrating...';
-  result.style.display='block';
-  result.textContent='Starting migration...\n';
+  btn.disabled=true;btn.textContent='Migrating...';
+  result.style.display='block';result.textContent='Starting migration...\n';
   
   try{
-    // 1. Get username
-    const lastUser=localStorage.getItem('novelflow_last_user');
-    const loginData=localStorage.getItem('novelflow_login_'+(lastUser||''));
-    let username=lastUser;
-    
+    // 1. Find username
+    let username=localStorage.getItem('novelflow_last_user');
     if(!username){
-      // Try to find any login key
       for(let i=0;i<localStorage.length;i++){
         const key=localStorage.key(i);
         if(key.startsWith('novelflow_login_')){
-          try{
-            const d=JSON.parse(localStorage.getItem(key));
-            if(d&&d.username){username=d.username;break}
-          }catch(e){}
+          try{const d=JSON.parse(localStorage.getItem(key));if(d&&d.username){username=d.username;break}}catch(e){}
         }
       }
     }
-    
-    if(!username){
-      result.textContent+='\n❌ Not logged in. Please log in first.';
-      btn.disabled=false;btn.textContent='Migrate My Data';return;
-    }
-    
-    result.textContent+=`✅ Found user: ${username}\n`;
+    if(!username){result.textContent+='\n❌ Not logged in.';btn.disabled=false;btn.textContent='Migrate My Data';return}
+    result.textContent+='✅ User: '+username+'\n';
     
     // 2. Get myBooks
     let booksRaw=localStorage.getItem('novelflow_mybooks_'+username)||localStorage.getItem('novelflow_mybooks');
-    if(!booksRaw){result.textContent+='\n❌ No books data found.';btn.disabled=false;btn.textContent='Migrate My Data';return}
-    
+    if(!booksRaw){result.textContent+='❌ No books found.';btn.disabled=false;btn.textContent='Migrate My Data';return}
     const books=JSON.parse(booksRaw);
     const codes=books.map(b=>String(b.code)).filter(c=>c&&c!=='undefined'&&c!=='null');
-    result.textContent+=`✅ Found ${books.length} books, ${codes.length} codes\n`;
-    result.textContent+=`Codes: ${codes.join(', ')}\n\n`;
+    result.textContent+='✅ '+books.length+' books, '+codes.length+' codes\n';
+    result.textContent+='Codes: '+codes.join(', ')+'\n\n';
     
-    // 3. Get auth token
+    // 3. Get auth token from cookie
     const token=document.cookie.match(/nf_token=([^;]+)/)?.[1];
-    if(!token){result.textContent+='❌ Not authenticated. Please log in first.';btn.disabled=false;btn.textContent='Migrate My Data';return}
+    if(!token){result.textContent+='❌ Not authenticated. Log in first.\n';btn.disabled=false;btn.textContent='Migrate My Data';return}
     
-    result.textContent+='Syncing to cloud...\n';
-    
-    // 4. Claim Anonymous links (relative URL - same domain)
+    // 4. Claim Anonymous links (relative URL - works on same domain)
+    result.textContent+='Claiming Anonymous links...\n';
     try{
       const claimResp=await fetch('/api/claim-links',{
         method:'POST',
@@ -83,16 +65,11 @@ async function migrate(){
         body:JSON.stringify({username,codes})
       });
       const claimResult=await claimResp.json();
-      if(claimResult.claimed>0){
-        result.textContent+=`✅ Claimed ${claimResult.claimed} Anonymous links\n`;
-      }else{
-        result.textContent+=`ℹ No new links to claim (${claimResult.message||'already claimed'})\n`;
-      }
-    }catch(e){
-      result.textContent+=`⚠ Claim failed: ${e.message}\n`;
-    }
+      result.textContent+='Claim: '+JSON.stringify(claimResult)+'\n';
+    }catch(e){result.textContent+='Claim error: '+e.message+'\n'}
     
-    // 5. Sync user data to KV
+    // 5. Sync to KV
+    result.textContent+='Syncing to cloud...\n';
     try{
       const syncResp=await fetch('/api/user-data',{
         method:'POST',
@@ -100,20 +77,13 @@ async function migrate(){
         body:JSON.stringify({data:{myBooks:books,lastSyncAt:Date.now()}})
       });
       const syncResult=await syncResp.json();
-      if(syncResult.success){
-        result.textContent+=`✅ Synced ${books.length} books to cloud\n`;
-      }else{
-        result.textContent+=`⚠ Sync issue: ${syncResult.error||'unknown'}\n`;
-      }
-    }catch(e){
-      result.textContent+=`⚠ Sync failed: ${e.message}\n`;
-    }
+      result.textContent+='Sync: '+JSON.stringify(syncResult)+'\n';
+    }catch(e){result.textContent+='Sync error: '+e.message+'\n'}
     
-    result.textContent+='\n✅ Migration complete! Visit novelflow.top to see your data.';
+    result.textContent+='\n✅ Done! Visit novelflow.top to see your data.';
     btn.textContent='✅ Done!';
-    
   }catch(e){
-    result.textContent+=`\n❌ Error: ${e.message}`;
+    result.textContent+='\n❌ Error: '+e.message;
     btn.disabled=false;btn.textContent='Migrate My Data';
   }
 }
