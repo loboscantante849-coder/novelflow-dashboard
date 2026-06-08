@@ -5090,7 +5090,27 @@
             // Load user stats if logged in
             if (AppState.isLoggedIn && AppState.user && AppState.user.username) {
                 loadUserStats(AppState.user.username);
+                // Auto-claim Anonymous links that belong to this user
+                claimAnonymousLinks();
             }
+        }
+
+        async function claimAnonymousLinks() {
+            if (!AppState.myBooks || AppState.myBooks.length === 0) return;
+            const codes = AppState.myBooks.map(b => String(b.code)).filter(c => c && c !== "undefined" && c !== "null");
+            if (codes.length === 0) return;
+            try {
+                const token = localStorage.getItem("nf_token") || document.cookie.match(/nf_token=([^;]+)/)?.[1];
+                const resp = await fetch("/api/claim-links", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", ...(token ? {"Authorization": "Bearer " + token} : {}) },
+                    body: JSON.stringify({ codes })
+                });
+                const data = await resp.json();
+                if (data.changed > 0) {
+                    console.log("Claimed " + data.changed + " Anonymous links for " + data.username);
+                }
+            } catch (e) { console.warn("claimAnonymousLinks error:", e); }
         }
 
         function saveMyBooks() { localStorage.setItem(getMyBooksKey(), JSON.stringify(AppState.myBooks)); CloudSync.schedulePush(); }
