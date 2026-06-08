@@ -7440,7 +7440,7 @@ function renderMyBooks() {
             const passField = document.getElementById('splashPassword');
             const tipEl = document.getElementById('splashTip');
             if (!username || username.length < 2) {
-                if (passField) passField.placeholder = 'Password (min 4 characters)';
+                if (passField) { passField.style.display = ''; passField.placeholder = 'Password (min 4 characters)'; }
                 return;
             }
             // Debounce
@@ -7454,19 +7454,19 @@ function renderMyBooks() {
                     });
                     const result = await resp.json();
                     if (result.hasPassword) {
-                        if (passField) { passField.placeholder = 'Enter your password'; }
+                        if (passField) { passField.style.display = ''; passField.placeholder = 'Enter your password'; }
                         if (tipEl) tipEl.textContent = 'This account has a password. Enter it to login.';
                     } else if (result.userExists) {
-                        // Old user without password - can login directly
-                        if (passField) { passField.placeholder = 'Set a password (optional)'; }
-                        if (tipEl) tipEl.textContent = 'Welcome back! You can set a password after login.';
+                        // Old user without password - hide password field, let them just click
+                        if (passField) { passField.style.display = 'none'; passField.value = ''; }
+                        if (tipEl) tipEl.textContent = 'Welcome back! Just click Start Earning →';
                     } else {
                         // New user - must set password
-                        if (passField) { passField.placeholder = 'Set a password (min 4 chars)'; }
+                        if (passField) { passField.style.display = ''; passField.placeholder = 'Set a password (min 4 chars)'; }
                         if (tipEl) tipEl.textContent = 'New here? Set a password to create your account.';
                     }
                 } catch(e) {
-                    if (passField) { passField.placeholder = 'Password (min 4 characters)'; }
+                    if (passField) { passField.style.display = ''; passField.placeholder = 'Password (min 4 characters)'; }
                 }
             }, 500);
         }
