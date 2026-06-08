@@ -7,6 +7,8 @@ const ALLOWED_ORIGINS = [
   'https://loboscantante849-coder.github.io',
   'https://dash.novelflow.app',
   'https://novelflow.app',
+  'https://novelflow.top',
+  'https://www.novelflow.top',
   'http://localhost:3000',
   'http://localhost:8080'
 ];

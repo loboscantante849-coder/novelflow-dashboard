@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NF Data Migration</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#fff;border-radius:16px;padding:40px;max-width:500px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+h1{color:#333;margin-bottom:10px;font-size:24px}
+p{color:#666;margin-bottom:20px;line-height:1.6}
+.btn{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;padding:14px 28px;border-radius:10px;font-size:16px;cursor:pointer;width:100%;transition:transform 0.2s}
+.btn:hover{transform:scale(1.02)}
+.btn:disabled{opacity:0.6;cursor:not-allowed}
+#result{margin-top:20px;padding:15px;background:#f5f5f5;border-radius:8px;white-space:pre-wrap;font-size:13px;display:none;color:#333;max-height:400px;overflow-y:auto}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>🔄 Data Migration</h1>
+<p>Migrate your NovelFlow data. This will sync all your links and claim any Anonymous entries.</p>
+<button class="btn" onclick="migrate()" id="migrateBtn">Migrate My Data</button>
+<div id="result"></div>
+</div>
+<script>
+async function migrate(){
+  const btn=document.getElementById('migrateBtn');
+  const result=document.getElementById('result');
+  btn.disabled=true;btn.textContent='Migrating...';
+  result.style.display='block';result.textContent='Starting migration...\n';
+  
+  try{
+    // 1. Find username
+    let username=localStorage.getItem('novelflow_last_user');
+    if(!username){
+      for(let i=0;i<localStorage.length;i++){
+        const key=localStorage.key(i);
+        if(key.startsWith('novelflow_login_')){
+          try{const d=JSON.parse(localStorage.getItem(key));if(d&&d.username){username=d.username;break}}catch(e){}
+        }
+      }
+    }
+    if(!username){result.textContent+='\n❌ Not logged in.';btn.disabled=false;btn.textContent='Migrate My Data';return}
+    result.textContent+='✅ User: '+username+'\n';
+    
+    // 2. Get myBooks
+    let booksRaw=localStorage.getItem('novelflow_mybooks_'+username)||localStorage.getItem('novelflow_mybooks');
+    if(!booksRaw){result.textContent+='❌ No books found.';btn.disabled=false;btn.textContent='Migrate My Data';return}
+    const books=JSON.parse(booksRaw);
+    const codes=books.map(b=>String(b.code)).filter(c=>c&&c!=='undefined'&&c!=='null');
+    result.textContent+='✅ '+books.length+' books, '+codes.length+' codes\n';
+    result.textContent+='Codes: '+codes.join(', ')+'\n\n';
+    
+    // 3. Get auth token from cookie
+    const token=document.cookie.match(/nf_token=([^;]+)/)?.[1];
+    if(!token){result.textContent+='❌ Not authenticated. Log in first.\n';btn.disabled=false;btn.textContent='Migrate My Data';return}
+    
+    // 4. Claim Anonymous links (relative URL - works on same domain)
+    result.textContent+='Claiming Anonymous links...\n';
+    try{
+      const claimResp=await fetch('/api/claim-links',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+        body:JSON.stringify({username,codes})
+      });
+      const claimResult=await claimResp.json();
+      result.textContent+='Claim: '+JSON.stringify(claimResult)+'\n';
+    }catch(e){result.textContent+='Claim error: '+e.message+'\n'}
+    
+    // 5. Sync to KV
+    result.textContent+='Syncing to cloud...\n';
+    try{
+      const syncResp=await fetch('/api/user-data',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+        body:JSON.stringify({data:{myBooks:books,lastSyncAt:Date.now()}})
+      });
+      const syncResult=await syncResp.json();
+      result.textContent+='Sync: '+JSON.stringify(syncResult)+'\n';
+    }catch(e){result.textContent+='Sync error: '+e.message+'\n'}
+    
+    result.textContent+='\n✅ Done! Visit novelflow.top to see your data.';
+    btn.textContent='✅ Done!';
+  }catch(e){
+    result.textContent+='\n❌ Error: '+e.message;
+    btn.disabled=false;btn.textContent='Migrate My Data';
+  }
+}
+</script>
+</body>
+</html>

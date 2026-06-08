@@ -8,13 +8,11 @@ const OIDC_CLIENT_ID = 'AuthClient';
 
 let cachedToken = null;
 let cachedTokenExp = 0;
-let cachedCreds = null; // Cache credentials from KV
+let cachedCreds = null;
 
 async function getCredentials() {
-  // Check cache first
   if (cachedCreds) return cachedCreds;
   
-  // Check env vars
   const envUsername = process.env.OIDC_USERNAME;
   const envPassword = process.env.OIDC_PASSWORD;
   if (envUsername && envPassword) {
@@ -22,7 +20,6 @@ async function getCredentials() {
     return cachedCreds;
   }
   
-  // Try KV store
   try {
     const { Redis } = require('@upstash/redis');
     if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
@@ -64,7 +61,8 @@ async function getFreshToken() {
     });
 
     if (!resp.ok) {
-      console.error('OIDC token refresh failed:', resp.status);
+      const body = await resp.text();
+      console.error('OIDC token refresh failed:', resp.status, body.slice(0, 200));
       return null;
     }
 
@@ -80,10 +78,17 @@ async function getFreshToken() {
 }
 
 async function getBookstoreToken() {
+  // Check memory cache first
   if (cachedToken && Date.now() < cachedTokenExp) {
     return cachedToken;
   }
 
+  // Always prefer getting a fresh token via OIDC
+  // (env var NOVELSPA_TOKEN may be expired or empty at runtime)
+  const freshToken = await getFreshToken();
+  if (freshToken) return freshToken;
+
+  // Last resort: try NOVELSPA_TOKEN env var
   const envToken = process.env.NOVELSPA_TOKEN;
   if (envToken) {
     try {
@@ -97,12 +102,9 @@ async function getBookstoreToken() {
         }
       }
     } catch (e) {
-      // Can't decode, try using it anyway
+      // Can't decode
     }
   }
-
-  const freshToken = await getFreshToken();
-  if (freshToken) return freshToken;
 
   return envToken || null;
 }
