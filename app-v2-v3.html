@@ -4065,7 +4065,7 @@
             }
 
             try {
-                const response = await fetch(`/api/my-stats?username=${encodeURIComponent(username)}`);
+                const response = await fetch(`/api/my-stats?t=${Date.now()}&username=${encodeURIComponent(username)}`);
                 if (!response.ok) throw new Error('Failed to fetch stats');
                 
                 const data = await response.json();
@@ -4410,7 +4410,7 @@ function renderMyBooks() {
             // Simple username login - verify against API if possible
             let hasRealData = false;
             try {
-                const response = await fetch('/api/my-stats?username=' + encodeURIComponent(username));
+                const response = await fetch('/api/my-stats?t=' + Date.now() + '&username=' + encodeURIComponent(username));
                 if (response.ok) {
                     const data = await response.json();
                     if ((data.total_visits && data.total_visits > 0) || (data.total_income && data.total_income > 0) || (data.books && data.books.length > 0)) {
@@ -4463,7 +4463,7 @@ function renderMyBooks() {
             
             // Quick local login with API verification
             let hasRealData = false;
-            fetch('/api/my-stats?username=' + encodeURIComponent(username))
+            fetch('/api/my-stats?t=' + Date.now() + '&username=' + encodeURIComponent(username))
                 .then(r => r.ok ? r.json() : null)
                 .then(data => {
                     if (data && ((data.total_visits && data.total_visits > 0) || (data.total_income && data.total_income > 0) || (data.books && data.books.length > 0))) {
