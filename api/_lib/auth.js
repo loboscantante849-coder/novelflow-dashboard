@@ -10,7 +10,7 @@ const crypto = require('crypto');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-const ACCESS_MAX_AGE = 24 * 60 * 60;        // 24 hours
+const ACCESS_MAX_AGE = 7 * 24 * 60 * 60;    // 7 days
 const REFRESH_MAX_AGE = 30 * 24 * 60 * 60;   // 30 days
 
 function getSecret() {
