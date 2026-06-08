@@ -11,6 +11,7 @@
  */
 const { setCORSHeaders } = require('./_lib/cors');
 const { getBookstoreToken } = require('./_lib/oidc-token');
+const { Redis } = require('@upstash/redis');
 
 const PUTREPORT_API = 'https://ad.anystories.app/api/v1/novelflowmiddlegroundmanage/putreport/putreport';
 const ADMIN_USERNAMES = ['xujt', 'admin'];
@@ -48,7 +49,7 @@ module.exports = async (req, res) => {
       debugLog.push(`submissions fetch failed: ${submissionsResp.status}`);
       return res.status(200).json({
         username, total_visits: 0, total_unique: 0, total_new: 0, total_income: 0,
-        books: [], debug: debugLog, version: 'v2-putreport'
+        books: [], debug: debugLog, version: 'v3-putreport+kv'
       });
     }
     const submissionsData = await submissionsResp.json();
@@ -68,13 +69,50 @@ module.exports = async (req, res) => {
 
     debugLog.push(`user subs: ${userSubmissions.length} for ${username}`);
 
+    // Also check KV for additional books not in submissions.json
+    // (e.g., from CloudSync before submissions.json was updated)
+    const existingLinkIds = new Set(userSubmissions.map(s => s.linkId).filter(Boolean));
+    const existingCodes = new Set(userSubmissions.map(s => String(s.code)).filter(c => c && c !== 'undefined'));
+    
+    try {
+      const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+      const kvData = await redis.get(`nf_user_data:${username}`);
+      if (kvData && kvData.myBooks && Array.isArray(kvData.myBooks)) {
+        for (const book of kvData.myBooks) {
+          const bookCode = book.code ? String(book.code) : null;
+          const bookLinkId = book.linkId || null;
+          // Add if not already in userSubmissions (by code or linkId)
+          const isDuplicate = (bookLinkId && existingLinkIds.has(bookLinkId)) || 
+                              (bookCode && existingCodes.has(bookCode));
+          if (!isDuplicate && (bookLinkId || bookCode)) {
+            userSubmissions.push({
+              discordUsername: username,
+              status: 'completed',
+              code: book.code || bookCode,
+              linkId: bookLinkId,
+              bookId: book.bookId || null,
+              matchedBookName: book.title || book.bookName || 'Unknown',
+              bookName: book.title || book.bookName || 'Unknown',
+              link: book.link || null,
+              submittedAt: book.createdAt ? new Date(book.createdAt).toISOString() : null
+            });
+            if (bookLinkId) existingLinkIds.add(bookLinkId);
+            if (bookCode) existingCodes.add(bookCode);
+          }
+        }
+        debugLog.push(`after KV merge: ${userSubmissions.length} total subs`);
+      }
+    } catch (e) {
+      debugLog.push(`KV lookup skipped: ${e.message}`);
+    }
+
     if (userSubmissions.length === 0) {
       return res.status(200).json({
         username, isAdmin,
         total_visits: 0, total_unique: 0, total_new: 0, total_income: 0,
         last_updated: null,
         visits_daily: {}, unique_daily: {}, new_users_daily: {}, income_daily: {},
-        books: [], debug: debugLog, version: 'v2-putreport'
+        books: [], debug: debugLog, version: 'v3-putreport+kv'
       });
     }
 
@@ -242,7 +280,7 @@ module.exports = async (req, res) => {
       income_daily,
       books,
       debug: debugLog,
-      version: 'v2-putreport'
+      version: 'v3-putreport+kv'
     });
 
   } catch (error) {
@@ -253,8 +291,9 @@ module.exports = async (req, res) => {
       total_visits: 0, total_unique: 0, total_new: 0, total_income: 0,
       books: [],
       debug: [...debugLog, `FATAL: ${error.message}`],
-      version: 'v2-putreport',
+      version: 'v3-putreport+kv',
       error: error.message
     });
   }
 };
+
