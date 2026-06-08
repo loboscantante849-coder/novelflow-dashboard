@@ -5156,6 +5156,13 @@
                         const result = await resp.json();
                         this._lastSyncAt = result.lastSyncAt || Date.now();
                         console.log('[CloudSync] Push OK');
+                    } else if (resp.status === 401) {
+                        console.log('[CloudSync] Token expired, refreshing...');
+                        const refreshed = await this.refreshAuth();
+                        if (refreshed) {
+                            this._syncing = false;
+                            return this.push();
+                        }
                     }
                 } catch (e) {
                     console.warn('[CloudSync] Push failed:', e.message);
@@ -5172,6 +5179,12 @@
                         method: 'GET',
                         credentials: 'include'
                     });
+                    if (resp.status === 401) {
+                        console.log('[CloudSync] Token expired, refreshing...');
+                        const refreshed = await this.refreshAuth();
+                        if (refreshed) return this.pull();
+                        return;
+                    }
                     if (!resp.ok) {
                         console.warn('[CloudSync] Pull failed:', resp.status);
                         return;
@@ -5257,6 +5270,26 @@
                     await this.push();
                 } catch (e) {
                     console.warn('[CloudSync] Pull failed:', e.message);
+                }
+            },
+
+            // Refresh auth token via /api/auth/refresh
+            async refreshAuth() {
+                try {
+                    const resp = await fetch('/api/auth/refresh', {
+                        method: 'POST',
+                        credentials: 'include'
+                    });
+                    if (resp.ok) {
+                        console.log('[CloudSync] Token refreshed');
+                        return true;
+                    }
+                    console.warn('[CloudSync] Token refresh failed');
+                    this._enabled = false;
+                    return false;
+                } catch (e) {
+                    console.warn('[CloudSync] Refresh error:', e.message);
+                    return false;
                 }
             },
 
