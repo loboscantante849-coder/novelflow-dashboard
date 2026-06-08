@@ -16,19 +16,13 @@ module.exports = async (req, res) => {
   const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
   try {
     const allKeys = await redis.keys('*');
-    const userDataKeys = allKeys.filter(k => k.startsWith('nf_user_data:'));
-    const allData = {};
-    for (const key of userDataKeys) {
+    const result = {};
+    for (const key of allKeys) {
+      if (key.startsWith('oidc:') || key.startsWith('trending:')) continue;
       const val = await redis.get(key);
-      allData[key.replace('nf_user_data:', '')] = val;
+      result[key] = val;
     }
-    return res.status(200).json({ 
-      success: true, 
-      totalKeys: allKeys.length,
-      allKeyPrefixes: [...new Set(allKeys.map(k => k.split(':')[0] + ':'))],
-      users: Object.keys(allData).length, 
-      data: allData 
-    });
+    return res.status(200).json({ success: true, keys: Object.keys(result).length, data: result });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
