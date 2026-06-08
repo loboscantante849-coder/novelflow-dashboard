@@ -1,12 +1,12 @@
 /**
  * GET /api/my-stats?username=xxx
  * 
- * Data flow (the proven logic that worked before):
+ * Data flow:
  * 1. Get user's linkIds from submissions.json
- * 2. Use linkId as adid → query putreport API → real per-link data
+ * 2. Use linkId as adid → query putreport API → real per-link data  
  * 3. Aggregate per-link data into summary
- * 4. Fallback to data.json / link-stats.json for links not in putreport
  * 
+ * Always returns valid JSON even if putreport fails.
  * Admin users (xujt) see ALL KOC data aggregated.
  */
 const { setCORSHeaders } = require('./_lib/cors');
@@ -17,9 +17,7 @@ const ADMIN_USERNAMES = ['xujt', 'admin'];
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
-  if (req.method !== 'GET' && req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
   const username = req.query.username || (req.body && req.body.username);
   if (!username) {
@@ -40,14 +38,22 @@ module.exports = async (req, res) => {
     'User-Agent': 'NovelFlow-API'
   };
 
+  const debugLog = [];
+
   try {
     // Step 1: Fetch submissions.json
+    debugLog.push('fetching submissions');
     const submissionsResp = await fetch(`${apiBase}/submissions.json`, { headers: ghHeaders });
     if (!submissionsResp.ok) {
-      return res.status(500).json({ error: 'Failed to fetch submissions' });
+      debugLog.push(`submissions fetch failed: ${submissionsResp.status}`);
+      return res.status(200).json({
+        username, total_visits: 0, total_unique: 0, total_new: 0, total_income: 0,
+        books: [], debug: debugLog, version: 'v2-putreport'
+      });
     }
     const submissionsData = await submissionsResp.json();
     const submissions = JSON.parse(Buffer.from(submissionsData.content, 'base64').toString('utf-8'));
+    debugLog.push(`submissions: ${submissions.length} total`);
 
     const isAdmin = ADMIN_USERNAMES.includes(username.toLowerCase());
 
@@ -60,14 +66,15 @@ module.exports = async (req, res) => {
           s.linkId
         );
 
+    debugLog.push(`user subs: ${userSubmissions.length} for ${username}`);
+
     if (userSubmissions.length === 0) {
       return res.status(200).json({
-        username,
-        isAdmin,
+        username, isAdmin,
         total_visits: 0, total_unique: 0, total_new: 0, total_income: 0,
-        last_updated: null, visits_daily: {}, unique_daily: {}, new_users_daily: {}, income_daily: {},
-        books: [],
-        message: 'No completed submissions with linkIds found for this user'
+        last_updated: null,
+        visits_daily: {}, unique_daily: {}, new_users_daily: {}, income_daily: {},
+        books: [], debug: debugLog, version: 'v2-putreport'
       });
     }
 
@@ -75,11 +82,12 @@ module.exports = async (req, res) => {
     let putreportToken = null;
     try {
       putreportToken = await getBookstoreToken();
+      debugLog.push(putreportToken ? 'got OIDC token' : 'OIDC token is null');
     } catch (e) {
-      console.error('OIDC token error:', e.message);
+      debugLog.push(`OIDC error: ${e.message}`);
     }
 
-    // Step 3: Query putreport API using linkId as adid (THE CORE LOGIC)
+    // Step 3: Query putreport API using linkId as adid
     const linkIds = userSubmissions.map(s => s.linkId);
     const now = new Date();
     const dateTo = now.toISOString().split('T')[0];
@@ -89,6 +97,7 @@ module.exports = async (req, res) => {
     let allRows = [];
 
     if (putreportToken && linkIds.length > 0) {
+      debugLog.push(`querying putreport: ${linkIds.length} linkIds in ${Math.ceil(linkIds.length / BATCH_SIZE)} batches`);
       for (let i = 0; i < linkIds.length; i += BATCH_SIZE) {
         const batch = linkIds.slice(i, i + BATCH_SIZE);
         try {
@@ -115,16 +124,23 @@ module.exports = async (req, res) => {
             })
           });
           if (resp.status === 401) {
-            console.error('putreport 401 - token expired');
+            debugLog.push(`putreport 401 at batch ${i}`);
             break;
           }
           const data = await resp.json();
-          if (data.data) allRows = allRows.concat(data.data);
+          if (data.data) {
+            allRows = allRows.concat(data.data);
+          }
+          debugLog.push(`batch ${i}: got ${data.data ? data.data.length : 0} rows`);
         } catch (e) {
-          console.error('putreport batch error:', e.message);
+          debugLog.push(`putreport batch ${i} error: ${e.message}`);
         }
       }
+    } else {
+      debugLog.push('skipping putreport: no token or no linkIds');
     }
+
+    debugLog.push(`total putreport rows: ${allRows.length}`);
 
     // Step 4: Aggregate putreport data by adid (linkId)
     const linkMap = {};
@@ -154,7 +170,7 @@ module.exports = async (req, res) => {
       }
     }
 
-    // Step 5: Build books array - each book = one linkId = one adid
+    // Step 5: Build books array
     const books = [];
     const aggDaily = {};
 
@@ -210,6 +226,8 @@ module.exports = async (req, res) => {
       if (val.income) income_daily[date] = val.income;
     }
 
+    debugLog.push(`final: income=$${totalIncome.toFixed(2)}, unique=${totalUnique}, books=${books.length}`);
+
     return res.status(200).json({
       username,
       isAdmin,
@@ -222,11 +240,21 @@ module.exports = async (req, res) => {
       unique_daily,
       new_users_daily,
       income_daily,
-      books
+      books,
+      debug: debugLog,
+      version: 'v2-putreport'
     });
 
   } catch (error) {
     console.error('my-stats error:', error);
-    return res.status(500).json({ error: 'Internal server error: ' + error.message });
+    // Always return valid JSON, never let the API crash
+    return res.status(200).json({
+      username,
+      total_visits: 0, total_unique: 0, total_new: 0, total_income: 0,
+      books: [],
+      debug: [...debugLog, `FATAL: ${error.message}`],
+      version: 'v2-putreport',
+      error: error.message
+    });
   }
 };
