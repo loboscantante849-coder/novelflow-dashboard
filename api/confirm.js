@@ -94,7 +94,8 @@ module.exports = async (req, res) => {
         if (hint) startCode = Math.max(STARTING_CODE, parseInt(hint) || STARTING_CODE);
       }
 
-      for (let tryCode = startCode; tryCode < MAX_CODE; tryCode++) {
+      const MAX_ATTEMPTS = 50; // Try at most 50 codes before giving up
+      for (let tryCode = startCode, attempts = 0; tryCode < MAX_CODE && attempts < MAX_ATTEMPTS; tryCode++, attempts++) {
         const codeResp = await fetch(`${BOOKSTORE_API_BASE}/book/savebookpromotionkeywords`, {
           method: 'POST',
           headers: {
@@ -109,7 +110,8 @@ module.exports = async (req, res) => {
             bookId: bookId,
             channel: 'FB',
             isEnable: true
-          })
+          }),
+          signal: AbortSignal.timeout(8000) // 8s per attempt
         });
 
         if (codeResp.status === 401) {
