@@ -4555,9 +4555,9 @@
                         loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo();
                         loadMyBooks();
                     }
-                    // If we just restored login from cookie (wasLoggedIn was false), load stats
+                    // Always load stats when logged in (wasLoggedIn guard removed - caused stats to not load when localStorage had cached login)
+                    loadUserStats(AppState.user.username);
                     if (!wasLoggedIn) {
-                        loadUserStats(AppState.user.username);
                         claimAnonymousLinks();
                     }
                     updateProfileUI();
@@ -5275,6 +5275,10 @@
                     // Update UI after myBooks merge
                     updateStats();
                     renderMyBooks();
+                    // Refresh stats overview with latest data
+                    if (AppState.user && AppState.user.username) {
+                        loadUserStats(AppState.user.username);
+                    }
                     
                     console.log('[CloudSync] Pull & merge OK');
                     // Push merged data back to ensure cloud has latest union
