@@ -18,7 +18,7 @@ const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage';
 const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
 const NOVELFLOW_CAMPAIGN_ID = '699ef7b8194eb218db3c2270';
 const STARTING_CODE = 4900;
-const CODE_RANGE = 3000;
+const MAX_CODE = 99999;
 const RATE_LIMIT = 5;
 const RATE_WINDOW = 3600; // 1 hour in seconds
 
@@ -94,7 +94,7 @@ module.exports = async (req, res) => {
         if (hint) startCode = Math.max(STARTING_CODE, parseInt(hint) || STARTING_CODE);
       }
 
-      for (let tryCode = startCode; tryCode < STARTING_CODE + CODE_RANGE; tryCode++) {
+      for (let tryCode = startCode; tryCode < MAX_CODE; tryCode++) {
         const codeResp = await fetch(`${BOOKSTORE_API_BASE}/book/savebookpromotionkeywords`, {
           method: 'POST',
           headers: {
