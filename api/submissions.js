@@ -23,7 +23,7 @@ module.exports = async (req, res) => {
     let submissions = [];
     for (let i = 0; i < allFields.length; i += BATCH) {
       const batch = allFields.slice(i, i + BATCH);
-      const values = await redis.hmget('nf_subs', ...batch);
+      const values = await Promise.all(batch.map(k => redis.hget('nf_subs', k)));
       for (const v of values) {
         if (v) {
           try { submissions.push(typeof v === 'string' ? JSON.parse(v) : v); }

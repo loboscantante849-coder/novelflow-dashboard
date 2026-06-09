@@ -35,7 +35,7 @@ module.exports = async (req, res) => {
   try {
     // Collect all codes to look up
     const allCodes = assignments.flatMap(a => a.codes.map(c => String(c)));
-    const values = await redis.hmget('nf_subs', ...allCodes);
+    const values = await Promise.all(allCodes.map(c => redis.hget('nf_subs', c)));
 
     let totalAssigned = 0;
     const results = [];

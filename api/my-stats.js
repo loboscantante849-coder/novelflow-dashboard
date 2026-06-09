@@ -55,12 +55,12 @@ module.exports = async (req, res) => {
     }
 
     // Step 2: Batch-get submissions from KV hash
-    // HMGET returns values in same order as fields; null for missing
+    // Use individual hget (more reliable than hmget across SDK versions)
     const BATCH = 50;
     let userSubmissions = [];
     for (let i = 0; i < subKeys.length; i += BATCH) {
       const batchKeys = subKeys.slice(i, i + BATCH);
-      const values = await redis.hmget('nf_subs', ...batchKeys);
+      const values = await Promise.all(batchKeys.map(k => redis.hget('nf_subs', k)));
       for (const v of values) {
         if (v) {
           try {

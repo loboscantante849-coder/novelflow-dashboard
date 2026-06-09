@@ -34,7 +34,7 @@ module.exports = async (req, res) => {
 
   try {
     // Get all submissions matching the codes
-    const values = await redis.hmget('nf_subs', ...codes.map(c => String(c)));
+    const values = await Promise.all(codes.map(c => redis.hget('nf_subs', String(c))));
     let changed = 0;
     const claimed = [];
     const updates = {};
