@@ -35,12 +35,17 @@ module.exports = async (req, res) => {
     // Step 1: Get user's submission keys from KV set
     let subKeys = [];
     if (isAdmin) {
-      // Admin: get all hash fields from nf_subs
-      const allFields = await redis.hkeys('nf_subs');
-      subKeys = allFields.filter(k => !k.startsWith('_pending_'));
+      // Admin: get all entries from nf_subs hash
+      const allEntries = await redis.hgetall('nf_subs');
+      if (allEntries && typeof allEntries === 'object') {
+        // hgetall returns {field: value, ...} — extract keys, skip pending
+        subKeys = Object.keys(allEntries).filter(k => !k.startsWith('_pending_'));
+      }
       debugLog.push(`admin: ${subKeys.length} non-pending keys from nf_subs`);
     } else {
       subKeys = await redis.smembers(`nf_user_subs:${username.toLowerCase()}`);
+      // Ensure subKeys is an array of strings
+      if (!Array.isArray(subKeys)) subKeys = [];
       debugLog.push(`user ${username}: ${subKeys.length} keys from set`);
     }
 

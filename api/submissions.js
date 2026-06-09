@@ -13,22 +13,16 @@ module.exports = async (req, res) => {
   const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
 
   try {
-    const allFields = await redis.hkeys('nf_subs');
-    if (!allFields || allFields.length === 0) {
+    const allEntries = await redis.hgetall('nf_subs');
+    if (!allEntries || typeof allEntries !== 'object') {
       return res.status(200).json([]);
     }
 
-    // Batch-get all submissions
-    const BATCH = 50;
     let submissions = [];
-    for (let i = 0; i < allFields.length; i += BATCH) {
-      const batch = allFields.slice(i, i + BATCH);
-      const values = await Promise.all(batch.map(k => redis.hget('nf_subs', k)));
-      for (const v of values) {
-        if (v) {
-          try { submissions.push(typeof v === 'string' ? JSON.parse(v) : v); }
-          catch (e) { /* skip */ }
-        }
+    for (const [key, v] of Object.entries(allEntries)) {
+      if (v) {
+        try { submissions.push(typeof v === 'string' ? JSON.parse(v) : v); }
+        catch (e) { /* skip */ }
       }
     }
 
