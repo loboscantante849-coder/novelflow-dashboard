@@ -42,8 +42,10 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Username is required' });
     }
 
-    const cleanUsername = username.trim().substring(0, 50);
-    if (!cleanUsername) {
+    const rawUsername = username.trim().substring(0, 50);
+    // XSS prevention: strip HTML tags
+    const cleanUsername = rawUsername.replace(/<[^>]*>/g, '').replace(/[<>]/g, '');
+    if (!cleanUsername || cleanUsername.length < 1) {
       return res.status(400).json({ error: 'Invalid username' });
     }
 

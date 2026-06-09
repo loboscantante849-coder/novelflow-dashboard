@@ -2,14 +2,17 @@
  * POST /api/admin-bulk-assign — Bulk assign Anonymous entries to users
  * Body: { assignments: [{ username: "xxx", codes: ["1234","5678"] }] }
  * Admin only (xujt or admin)
+ * Uses KV (no GitHub API).
  */
 const { setCORSHeaders } = require('./_lib/cors');
 const { verifyJWT } = require('./_lib/jwt');
+const { Redis } = require('@upstash/redis');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
+  // Auth check
   const cookieHeader = req.headers.cookie || '';
   const cookieMatch = cookieHeader.match(/nf_token=([^;]+)/);
   const authHeader = req.headers.authorization;
@@ -27,27 +30,30 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: 'Missing assignments array' });
   }
 
-  try {
-    const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-    if (!GITHUB_TOKEN) return res.status(503).json({ error: 'GITHUB_TOKEN not configured' });
+  const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
 
-    // Get current submissions.json from GitHub
-    const getResp = await fetch(`https://api.github.com/repos/loboscantante849-coder/novelflow-dashboard/contents/submissions.json`, {
-      headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
-    });
-    const fileData = await getResp.json();
-    const content = Buffer.from(fileData.content, 'base64').toString('utf-8');
-    const submissions = JSON.parse(content);
+  try {
+    // Collect all codes to look up
+    const allCodes = assignments.flatMap(a => a.codes.map(c => String(c)));
+    const values = await redis.hmget('nf_subs', ...allCodes);
 
     let totalAssigned = 0;
     const results = [];
+    const updates = {};
+    const setOps = []; // { type: 'sadd'|'srem', key, member }
 
     for (const { username: targetUser, codes } of assignments) {
       let assigned = 0;
       for (const code of codes) {
-        const entry = submissions.find(s => s.code === String(code) && s.discordUsername === 'Anonymous');
-        if (entry) {
-          entry.discordUsername = targetUser;
+        const idx = allCodes.indexOf(String(code));
+        const raw = idx >= 0 ? values[idx] : null;
+        if (!raw) continue;
+        const sub = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if ((sub.discordUsername || '').toLowerCase() === 'anonymous') {
+          sub.discordUsername = targetUser;
+          updates[String(code)] = JSON.stringify(sub);
+          setOps.push({ type: 'sadd', key: `nf_user_subs:${targetUser.toLowerCase()}`, member: String(code) });
+          setOps.push({ type: 'srem', key: 'nf_user_subs:anonymous', member: String(code) });
           assigned++;
           totalAssigned++;
         }
@@ -59,23 +65,11 @@ module.exports = async (req, res) => {
       return res.status(200).json({ success: true, assigned: 0, message: 'No new assignments needed', results });
     }
 
-    // Push updated submissions.json to GitHub
-    const newContent = JSON.stringify(submissions, indent=2).replace(/"indent=2"/g, '');
-    const newContentStr = JSON.stringify(submissions, null, 2);
-    
-    const pushResp = await fetch(`https://api.github.com/repos/loboscantante849-coder/novelflow-dashboard/contents/submissions.json`, {
-      method: 'PUT',
-      headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: `data: bulk assign ${totalAssigned} Anonymous entries`,
-        content: Buffer.from(newContentStr, 'utf-8').toString('base64'),
-        sha: fileData.sha
-      })
-    });
-
-    if (!pushResp.ok) {
-      const errData = await pushResp.json();
-      return res.status(500).json({ error: 'GitHub push failed', details: errData });
+    // Batch update KV
+    await redis.hset('nf_subs', updates);
+    for (const op of setOps) {
+      if (op.type === 'sadd') await redis.sadd(op.key, op.member);
+      else await redis.srem(op.key, op.member);
     }
 
     return res.status(200).json({ success: true, assigned: totalAssigned, results });

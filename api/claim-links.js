@@ -1,15 +1,13 @@
 /**
  * POST /api/claim-links
  * 
- * Auto-migration: When a KOC user logs in on the new site, their localStorage 
- * has myBooks with codes that may be stored as "Anonymous" in submissions.json.
- * This endpoint reassigns those codes to the correct user.
- * 
- * Body: { username: string, codes: string[] }
+ * Reassign Anonymous entries in KV to the authenticated user.
+ * Body: { codes: string[] }
  * Auth: JWT token matching username
  */
 const { setCORSHeaders } = require('./_lib/cors');
 const { verifyJWT } = require('./_lib/jwt');
+const { Redis } = require('@upstash/redis');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -21,16 +19,10 @@ module.exports = async (req, res) => {
   const cookieMatch = cookieHeader.match(/nf_token=([^;]+)/);
   const authHeader = req.headers.authorization;
   let username = null;
-  
-  if (cookieMatch) {
-    const payload = verifyJWT(cookieMatch[1]);
-    if (payload?.username) username = payload.username;
-  }
-  if (!username && authHeader?.startsWith('Bearer ')) {
-    const payload = verifyJWT(authHeader.slice(7));
-    if (payload?.username) username = payload.username;
-  }
-  
+
+  if (cookieMatch) { const p = verifyJWT(cookieMatch[1]); if (p?.username) username = p.username; }
+  if (!username && authHeader?.startsWith('Bearer ')) { const p = verifyJWT(authHeader.slice(7)); if (p?.username) username = p.username; }
+
   if (!username) return res.status(401).json({ error: 'Not authenticated' });
 
   const { codes } = req.body || {};
@@ -38,34 +30,29 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: 'codes array required' });
   }
 
-  const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-  if (!GITHUB_TOKEN) return res.status(500).json({ error: 'GITHUB_TOKEN not set' });
-
-  const owner = 'loboscantante849-coder';
-  const repo = 'novelflow-dashboard';
-  const apiBase = `https://api.github.com/repos/${owner}/${repo}/contents/submissions.json`;
-  const ghHeaders = {
-    'Authorization': `token ${GITHUB_TOKEN}`,
-    'Accept': 'application/vnd.github.v3+json',
-    'User-Agent': 'NovelFlow-API'
-  };
+  const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
 
   try {
-    // Fetch current submissions
-    const getResp = await fetch(apiBase, { headers: ghHeaders });
-    if (!getResp.ok) return res.status(500).json({ error: 'Failed to fetch submissions' });
-    const fileData = await getResp.json();
-    const sha = fileData.sha;
-    const submissions = JSON.parse(Buffer.from(fileData.content, 'base64').toString('utf-8'));
-
-    // Reassign Anonymous entries matching the provided codes
+    // Get all submissions matching the codes
+    const values = await redis.hmget('nf_subs', ...codes.map(c => String(c)));
     let changed = 0;
     const claimed = [];
-    for (const s of submissions) {
-      if (s.discordUsername === 'Anonymous' && codes.includes(String(s.code))) {
-        s.discordUsername = username;
+    const updates = {};
+
+    for (let i = 0; i < codes.length; i++) {
+      const code = String(codes[i]);
+      const raw = values[i];
+      if (!raw) continue;
+      const sub = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if ((sub.discordUsername || '').toLowerCase() === 'anonymous') {
+        sub.discordUsername = username;
+        updates[code] = JSON.stringify(sub);
+        claimed.push(code);
         changed++;
-        claimed.push(s.code);
+        // Also add to user's set
+        await redis.sadd(`nf_user_subs:${username.toLowerCase()}`, code);
+        // Remove from anonymous set
+        await redis.srem('nf_user_subs:anonymous', code);
       }
     }
 
@@ -73,21 +60,8 @@ module.exports = async (req, res) => {
       return res.status(200).json({ success: true, changed: 0, message: 'No Anonymous entries to claim' });
     }
 
-    // Push updated file
-    const newContent = Buffer.from(JSON.stringify(submissions, null, 2)).toString('base64');
-    const updateResp = await fetch(apiBase, {
-      method: 'PUT',
-      headers: ghHeaders,
-      body: JSON.stringify({
-        message: `claim-links: ${username} claimed ${changed} Anonymous entries (${claimed.join(',')})`,
-        content: newContent,
-        sha
-      })
-    });
-
-    if (!updateResp.ok) {
-      return res.status(500).json({ error: 'Failed to update submissions', details: updateResp.status });
-    }
+    // Update all claimed entries in one HSET
+    await redis.hset('nf_subs', updates);
 
     return res.status(200).json({ success: true, changed, claimed, username });
   } catch (error) {
