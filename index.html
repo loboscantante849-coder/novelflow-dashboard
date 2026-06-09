@@ -2881,7 +2881,7 @@
                         <div class="mission-icon">📚</div>
                         <div class="mission-info">
                             <div class="mission-name" data-i18n="mission_share1">Share First Book</div>
-                            <div class="mission-points">+200 <span data-i18n="pts">pts</span></div>
+                            <div class="mission-points">+20 <span data-i18n="pts">pts</span></div>
                             <div class="mission-progress-bar"><div class="mission-progress-fill" id="task1Progress" style="width:0%"></div></div>
                         </div>
                     </div>
@@ -2895,7 +2895,8 @@
                         <div class="mission-icon">📖</div>
                         <div class="mission-info">
                             <div class="mission-name" data-i18n="mission_share3">Share 3 Books</div>
-                            <div class="mission-points">+300 <span data-i18n="pts">pts</span></div>
+                            <div class="mission-points"
+
                             <div class="mission-progress-bar"><div class="mission-progress-fill" id="task2Progress" style="width:0%"></div></div>
                         </div>
                     </div>
@@ -2910,7 +2911,7 @@
                         <div class="mission-info">
                             <div class="mission-name" data-i18n="mission_bind">Bind NovelFlow ID</div>
                             <div class="mission-desc" data-i18n="mission_bind_desc">Open NovelFlow app → Profile → Copy ID</div>
-                            <div class="mission-points">+500 <span data-i18n="pts">pts</span></div>
+                            <div class="mission-points">+30 <span data-i18n="pts">pts</span></div>
                             <div class="mission-bind-row" id="bindIdRow" style="display:none;">
                                 <input type="text" id="novelflowIdInput" placeholder="Paste your NovelFlow ID" style="flex:1;padding:6px 8px;border:1px solid var(--hairline);border-radius:6px;font-size:12px;font-family:inherit;">
                                 <button onclick="submitBindId()" style="padding:6px 10px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;" data-i18n="bind_btn">Bind</button>
@@ -2927,9 +2928,10 @@
                     <div class="mission-left">
                         <div class="mission-icon">📣</div>
                         <div class="mission-info">
-                            <div class="mission-name" data-i18n="mission_share_app">Share & Earn 300 pts</div>
+                            <div class="mission-name" data-i18n="mission_share_app">Share & Earn 50 pts</div>
                             <div class="mission-desc" data-i18n="mission_share_app_desc">Share NovelFlow on social media</div>
-                            <div class="mission-points">+300 <span data-i18n="pts">pts</span></div>
+                            <div class="mission-points"
+
                         </div>
                     </div>
                     <button class="mission-claim-btn" id="taskShareAppClaimBtn" onclick="openShareAppModal()" disabled>
@@ -3118,7 +3120,7 @@
                     <button id="shareAppDownloadBtn" onclick="downloadSharePoster()" style="padding:6px 16px;background:var(--ruby);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;width:100%;" data-i18n="download_poster">📥 Download Poster</button>
                 </div>
 
-                <div style="font-size:11px;color:var(--ink-mute);" id="shareAppStatus" data-i18n="share_app_hint">Complete both actions to earn 300 pts</div>
+                <div style="font-size:11px;color:var(--ink-mute);" id="shareAppStatus" data-i18n="share_app_hint">Complete both actions to earn 50 pts</div>
             </div>
         </div>
     </div>
@@ -3377,7 +3379,7 @@
                 daily_missions: '🎯 Daily Missions',
                 my_copy_text: 'My Copy Text',
                 my_links: 'My Links',
-                mission_share_app: 'Share & Earn 300 pts',
+                mission_share_app: 'Share & Earn 50 pts',
                 mission_share_app_desc: 'Share NovelFlow on social media',
                 share_app_title: '📣 Share NovelFlow',
                 share_app_subtitle: 'Share novels, earn money & read free!',
@@ -3385,7 +3387,7 @@
                 share_copy_label: '📋 Copy this text:',
                 share_poster_label: '🖼️ Download promoter poster:',
                 download_poster: '📥 Download Poster',
-                share_app_hint: 'Complete both actions to earn 300 pts',
+                share_app_hint: 'Complete both actions to earn 50 pts',
                 copy_btn: 'Copy',
                 pts: 'pts',
                 checkin_streak: '🔥 Check-in Streak',
@@ -3559,7 +3561,7 @@
                 daily_missions: '🎯 Misiones Diarias',
                 my_copy_text: 'Mis Textos',
                 my_links: 'Mis Enlaces',
-                mission_share_app: 'Compartir y Ganar 300 pts',
+                mission_share_app: 'Compartir y Ganar 50 pts',
                 mission_share_app_desc: 'Comparte NovelFlow en redes sociales',
                 share_app_title: '📣 Comparte NovelFlow',
                 share_app_subtitle: '¡Comparte novelas, gana dinero y lee gratis!',
@@ -3567,7 +3569,7 @@
                 share_copy_label: '📋 Copia este texto:',
                 share_poster_label: '🖼️ Descarga el póster de promotor:',
                 download_poster: '📥 Descargar Póster',
-                share_app_hint: 'Completa ambas acciones para ganar 300 pts',
+                share_app_hint: 'Completa ambas acciones para ganar 50 pts',
                 copy_btn: 'Copiar',
                 pts: 'pts',
                 checkin_streak: '🔥 Racha de Check-in',
@@ -4047,7 +4049,7 @@
             const current = getUserPoints();
             const newPts = current + pts;
             // Sanity check: cap points to prevent obvious localStorage tampering
-            const MAX_POINTS = 50000;
+            const MAX_POINTS = 5000;
             if (newPts > MAX_POINTS) {
                 console.warn('Points capped at', MAX_POINTS);
                 localStorage.setItem(getUserKey('points'), MAX_POINTS);
@@ -4117,7 +4119,7 @@
 
         // ========== Milestone Track Renderer ==========
         // Check-in streak points: day1=5, day2=5, day3=5, day4=5, day5=5, day6=10, day7=15 (total=50)
-        const STREAK_POINTS = [50, 50, 50, 50, 50, 100, 200];
+        const STREAK_POINTS = [5, 5, 5, 5, 5, 10, 15];
         
         function renderMilestoneTrack() {
             const track = document.getElementById('milestoneTrack');
@@ -4207,10 +4209,10 @@
         function claimMission(missionId) {
             if (isMissionClaimed(missionId)) return;
             let pts = 0;
-            if (missionId === 'share1') pts = 200;
-            else if (missionId === 'share3') pts = 300;
-            else if (missionId === 'bindId') pts = 500;
-            else if (missionId === 'shareApp') pts = 300;
+            if (missionId === 'share1') pts = 20;
+            else if (missionId === 'share3') pts = 50;
+            else if (missionId === 'bindId') pts = 30;
+            else if (missionId === 'shareApp') pts = 50;
             else return;
             
             markMissionClaimed(missionId);
@@ -6700,7 +6702,7 @@ function renderMyBooks() {
             const statusEl = document.getElementById('shareAppStatus');
             const bothDone = shareAppCopied && shareAppDownloaded;
             if (bothDone) {
-                statusEl.textContent = '✅ Both done! Rewarding 300 pts in 10 seconds...';
+                statusEl.textContent = '✅ Both done! Rewarding 50 pts in 10 seconds...';
                 statusEl.style.color = '#059669';
                 // Start 10 second countdown then auto-claim
                 if (shareAppTimer) clearTimeout(shareAppTimer);
