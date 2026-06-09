@@ -55,7 +55,7 @@ module.exports = async (req, res) => {
         total_visits: 0, total_unique: 0, total_new: 0, total_income: 0,
         last_updated: null,
         visits_daily: {}, unique_daily: {}, new_users_daily: {}, income_daily: {},
-        books: [], debug: debugLog, version: 'v4-kv'
+        books: [], debug: debugLog, version: 'v5-covers'
       });
     }
 
@@ -120,7 +120,7 @@ module.exports = async (req, res) => {
         total_visits: 0, total_unique: 0, total_new: 0, total_income: 0,
         last_updated: null,
         visits_daily: {}, unique_daily: {}, new_users_daily: {}, income_daily: {},
-        books: [], debug: debugLog, version: 'v4-kv'
+        books: [], debug: debugLog, version: 'v5-covers'
       });
     }
 
@@ -202,6 +202,22 @@ module.exports = async (req, res) => {
       }
     }
 
+    // Step 6.5: Batch-fetch covers from KV
+    const bookIds = [...new Set(userSubmissions.map(s => s.bookId).filter(Boolean).map(String))];
+    const coversMap = {};
+    if (bookIds.length > 0 && redis) {
+      try {
+        const coverValues = await Promise.all(bookIds.map(bid => redis.hget('nf_book_covers', bid)));
+        for (let i = 0; i < bookIds.length; i++) {
+          const cv = coverValues[i];
+          if (cv) coversMap[bookIds[i]] = cv;
+        }
+        debugLog.push(`covers: ${Object.keys(coversMap).length}/${bookIds.length} found in KV`);
+      } catch (e) {
+        debugLog.push(`cover lookup failed: ${e.message}`);
+      }
+    }
+
     // Step 7: Build books array
     const books = [];
     const aggDaily = {};
@@ -224,6 +240,7 @@ module.exports = async (req, res) => {
         linkId: sub.linkId,
         submittedAt: sub.submittedAt,
         kocName: sub.discordUsername || '',
+        cover: coversMap[sub.bookId] || '',
         visits: lm?.total_visits || 0,
         unique_users: lm?.total_unique || 0,
         new_users: lm?.total_new || 0,
@@ -254,7 +271,7 @@ module.exports = async (req, res) => {
       total_income: Math.round(totalIncome * 100) / 100,
       last_updated: new Date().toISOString(),
       visits_daily, unique_daily, new_users_daily, income_daily,
-      books, debug: debugLog, version: 'v4-kv'
+      books, debug: debugLog, version: 'v5-covers'
     });
 
   } catch (error) {
@@ -264,7 +281,7 @@ module.exports = async (req, res) => {
       total_visits: 0, total_unique: 0, total_new: 0, total_income: 0,
       books: [],
       debug: [`FATAL: ${error.message}`],
-      version: 'v4-kv',
+      version: 'v5-covers',
       error: error.message
     });
   }
