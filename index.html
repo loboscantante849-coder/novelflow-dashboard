@@ -2922,21 +2922,7 @@
                     </button>
                 </div>
 
-                <!-- Share App Mission -->
-                <div class="mission-card" id="missionShareApp">
-                    <div class="mission-left">
-                        <div class="mission-icon">📣</div>
-                        <div class="mission-info">
-                            <div class="mission-name" data-i18n="mission_share_app">Share & Earn 50 pts</div>
-                            <div class="mission-desc" data-i18n="mission_share_app_desc">Share NovelFlow on social media</div>
-                            <div class="mission-points">+50 <span data-i18n="pts">pts</span></div>
-                    </div>
-                    </div>
-                    <button class="mission-claim-btn" id="taskShareAppClaimBtn" onclick="openShareAppModal()" disabled>
-                        <span class="mission-claim-text" data-i18n="claim">Claim</span>
-                    </button>
-                </div>
-
+                
                 <!-- VIP Exchange -->
                 <div class="vip-exchange-card" id="vipExchangeCard">
                     <div class="vip-icon">👑</div>
@@ -3088,41 +3074,7 @@
     </div>
 
     <!-- Share App Modal -->
-    <div class="modal-overlay" id="shareAppModal" style="z-index:1001;">
-        <div class="modal" style="max-width:380px;">
-            <div class="modal-header">
-                <button class="modal-close-btn" onclick="closeShareAppModal()" aria-label="Close">×</button>
-                <div class="modal-title" data-i18n="share_app_title">📣 Share NovelFlow</div>
-                <div style="width:32px;"></div>
-            </div>
-            <div class="modal-body" style="padding:16px;text-align:center;">
-                <div style="font-size:14px;font-weight:600;margin-bottom:8px;color:var(--ink);" data-i18n="share_app_subtitle">Share novels, earn money & read free!</div>
-                <div style="font-size:12px;color:var(--ink-mute);margin-bottom:16px;line-height:1.6;" data-i18n="share_app_desc">NovelFlow lets you discover amazing stories, share them with friends, and earn real money for every reader you bring. Join thousands of promoters already earning!</div>
-                
-                <!-- Copy Text Section -->
-                <div style="background:var(--canvas-soft);border-radius:10px;padding:12px;margin-bottom:12px;text-align:left;position:relative;">
-                    <div style="font-size:11px;font-weight:600;color:var(--ink-mute);margin-bottom:6px;" data-i18n="share_copy_label">📋 Copy this text:</div>
-                    <div id="shareAppText" style="font-size:12px;line-height:1.5;color:var(--ink);padding-right:40px;">🚀 Join NovelFlow - Read novels for FREE & earn money by sharing! 💰 Start now: https://novelflow-dashboard.vercel.app/app-v2</div>
-                    <button id="shareAppCopyBtn" onclick="copyShareAppText()" style="position:absolute;top:12px;right:12px;padding:4px 10px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;" data-i18n="copy_btn">Copy</button>
-                </div>
-
-                <!-- Poster Image Section -->
-                <div style="background:var(--canvas-soft);border-radius:10px;padding:12px;margin-bottom:12px;text-align:center;">
-                    <div style="font-size:11px;font-weight:600;color:var(--ink-mute);margin-bottom:8px;" data-i18n="share_poster_label">🖼️ Download promoter poster:</div>
-                    <div style="width:100%;aspect-ratio:9/16;max-height:200px;background:linear-gradient(135deg,#ff6b9d,#c44dff,#6c5ce7);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;margin-bottom:8px;overflow:hidden;">
-                        <div style="font-size:24px;font-weight:800;letter-spacing:-1px;">NovelFlow</div>
-                        <div style="font-size:11px;margin-top:4px;opacity:0.9;">Read Free · Share · Earn</div>
-                        <div style="font-size:20px;margin-top:12px;">📚💰</div>
-                        <div style="font-size:10px;margin-top:8px;opacity:0.8;">Join Now →</div>
-                    </div>
-                    <button id="shareAppDownloadBtn" onclick="downloadSharePoster()" style="padding:6px 16px;background:var(--ruby);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;width:100%;" data-i18n="download_poster">📥 Download Poster</button>
-                </div>
-
-                <div style="font-size:11px;color:var(--ink-mute);" id="shareAppStatus" data-i18n="share_app_hint">Complete both actions to earn 50 pts</div>
-            </div>
-        </div>
-    </div>
-
+    
     <!-- Recommend Modal -->
     <div class="modal-overlay" id="recommendModal">
         <div class="modal">
@@ -4210,7 +4162,6 @@
             if (missionId === 'share1') pts = 20;
             else if (missionId === 'share3') pts = 50;
             else if (missionId === 'bindId') pts = 30;
-            else if (missionId === 'shareApp') pts = 50;
             else return;
             
             markMissionClaimed(missionId);
@@ -4333,17 +4284,6 @@
             }
             
             // Share App
-            const shareAppBtn = document.getElementById('taskShareAppClaimBtn');
-            if (shareAppBtn) {
-                if (isMissionClaimed('shareApp')) {
-                    shareAppBtn.disabled = true;
-                    shareAppBtn.classList.add('claimed');
-                    shareAppBtn.innerHTML = '<span class="mission-claim-text">✓</span>';
-                    const c = document.getElementById('missionShareApp'); if (c) c.classList.add('completed');
-                } else {
-                    // Always enable the claim button (opens modal, doesn't auto-claim)
-                    shareAppBtn.disabled = false;
-                    shareAppBtn.textContent = getText('claim');
                 }
             }
             
@@ -6622,111 +6562,11 @@ function renderMyBooks() {
         }
 
         // ========== Share App Modal ==========
-        let shareAppCopied = false;
-        let shareAppDownloaded = false;
-        let shareAppTimer = null;
 
-        function openShareAppModal() {
-            if (isMissionClaimed('shareApp')) {
-                showToast('Already claimed!', 'info');
-                return;
-            }
-            shareAppCopied = false;
-            shareAppDownloaded = false;
-            document.getElementById('shareAppModal').classList.add('show');
-            updateShareAppStatus();
-        }
 
-        function closeShareAppModal() {
-            document.getElementById('shareAppModal').classList.remove('show');
-        }
 
-        function copyShareAppText() {
-            const text = document.getElementById('shareAppText').textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                shareAppCopied = true;
-                document.getElementById('shareAppCopyBtn').textContent = '✓';
-                document.getElementById('shareAppCopyBtn').style.background = '#059669';
-                showToast('Copied!', 'success');
-                updateShareAppStatus();
-            });
-        }
 
-        function downloadSharePoster() {
-            // Create a canvas-based poster download
-            const canvas = document.createElement('canvas');
-            canvas.width = 540;
-            canvas.height = 960;
-            const ctx = canvas.getContext('2d');
-            // Background gradient
-            const grad = ctx.createLinearGradient(0, 0, 540, 960);
-            grad.addColorStop(0, '#ff6b9d');
-            grad.addColorStop(0.5, '#c44dff');
-            grad.addColorStop(1, '#6c5ce7');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, 540, 960);
-            // Title
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 48px Arial, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('NovelFlow', 270, 300);
-            // Subtitle
-            ctx.font = '22px Arial, sans-serif';
-            ctx.fillText('Read Free · Share · Earn', 270, 350);
-            // Icons
-            ctx.font = '60px Arial';
-            ctx.fillText('📚💰', 270, 460);
-            // CTA
-            ctx.font = 'bold 26px Arial, sans-serif';
-            ctx.fillText('Join Now →', 270, 560);
-            // URL
-            ctx.font = '16px Arial, sans-serif';
-            ctx.fillStyle = 'rgba(255,255,255,0.8)';
-            ctx.fillText('novelflow-dashboard.vercel.app', 270, 620);
-            // Download
-            const link = document.createElement('a');
-            link.download = 'NovelFlow-Promoter-Poster.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-            
-            shareAppDownloaded = true;
-            document.getElementById('shareAppDownloadBtn').textContent = '✓ Downloaded';
-            document.getElementById('shareAppDownloadBtn').style.background = '#059669';
-            showToast('Poster downloaded!', 'success');
-            updateShareAppStatus();
-        }
 
-        function updateShareAppStatus() {
-            const statusEl = document.getElementById('shareAppStatus');
-            const bothDone = shareAppCopied && shareAppDownloaded;
-            if (bothDone) {
-                statusEl.textContent = '✅ Both done! Rewarding 50 pts in 10 seconds...';
-                statusEl.style.color = '#059669';
-                // Start 10 second countdown then auto-claim
-                if (shareAppTimer) clearTimeout(shareAppTimer);
-                shareAppTimer = setTimeout(() => {
-                    if (!isMissionClaimed('shareApp')) {
-                        markMissionClaimed('shareApp');
-                        addUserPoints(50);
-                        const btn = document.getElementById('taskShareAppClaimBtn');
-                        if (btn) {
-                            btn.disabled = true;
-                            btn.classList.add('claimed');
-                            btn.innerHTML = '<span class="mission-claim-text">✓</span>';
-                        }
-                        const card = document.getElementById('missionShareApp');
-                        if (card) card.classList.add('completed');
-                        showMilestoneCelebration(0, 50);
-                        closeShareAppModal();
-                    }
-                }, 10000);
-            } else {
-                const copied = shareAppCopied ? '✅' : '⬜';
-                const downloaded = shareAppDownloaded ? '✅' : '⬜';
-                statusEl.textContent = copied + ' Copy text  ' + downloaded + ' Download poster';
-                statusEl.style.color = 'var(--ink-mute)';
-            }
-        }
 
         // ========== AC Reels - Real API ==========
         function saveACToken(token) {
