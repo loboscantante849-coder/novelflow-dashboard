@@ -589,28 +589,6 @@ a:hover { color: #a89cff; }
   color: white;
 }
 
-/* ===== Discord Banner ===== */
-.discord-banner {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  background: rgba(88, 101, 242, 0.08);
-  border: 1px solid rgba(88, 101, 242, 0.2);
-  border-radius: 14px;
-  padding: 20px 24px;
-  margin-top: 24px;
-}
-.discord-banner .db-icon {
-  font-size: 28px;
-  flex-shrink: 0;
-}
-.discord-banner .db-text {
-  font-size: 14px;
-  color: #9a9fba;
-}
-.discord-banner .db-text strong {
-  color: #5865f2;
-}
 
 /* ===== Week Goals ===== */
 .goals-grid {
@@ -773,52 +751,6 @@ a:hover { color: #a89cff; }
   background-clip: text;
 }
 
-/* Discord section in poster */
-.poster-discord {
-  margin-top: 4px;
-  text-align: center;
-}
-.pd-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #d0d4e8;
-  line-height: 1.4;
-  margin-bottom: 8px;
-}
-.pd-desc {
-  font-size: 11px;
-  color: #6a6f8a;
-  line-height: 1.5;
-  margin-bottom: 14px;
-}
-.discord-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  padding: 11px 14px;
-  border: none;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #5865f2, #4752c4);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
-  font-family: 'Inter', sans-serif;
-  text-decoration: none;
-  cursor: pointer;
-  transition: transform .2s, box-shadow .2s, background .2s;
-  box-shadow: 0 4px 20px rgba(88, 101, 242, 0.3);
-}
-.discord-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 28px rgba(88, 101, 242, 0.5);
-  background: linear-gradient(135deg, #6b73f5, #5865f2);
-  color: #fff;
-}
-.discord-btn svg {
-  flex-shrink: 0;
-}
 
 /* ===== Responsive ===== */
 @media (max-width: 1200px) {
@@ -851,15 +783,6 @@ a:hover { color: #a89cff; }
   .apply-card { padding: 28px 20px; }
   .apply-card h2 { font-size: 22px; }
   .principles-grid { grid-template-columns: 1fr; }
-  .discord-banner {
-    background: rgba(88, 101, 242, 0.14);
-    border-color: rgba(88, 101, 242, 0.35);
-    padding: 16px 18px;
-    gap: 12px;
-  }
-  .discord-banner .db-icon { font-size: 32px; }
-  .discord-banner .db-text { font-size: 14px; }
-  .discord-banner .db-text strong { font-size: 15px; }
   .card table, .platform-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .mobile-nav-toggle { width: 48px; height: 48px; font-size: 22px; }
 }
@@ -879,7 +802,6 @@ a:hover { color: #a89cff; }
   .apply-card h2 { font-size: 20px; }
   .btn-primary { padding: 14px 28px; font-size: 14px; min-height: 48px; }
   .highlight-box { padding: 18px 20px; }
-  .discord-btn { padding: 14px; font-size: 14px; min-height: 48px; }
 }
 
 /* ===== Intersection Observer Animation ===== */
@@ -914,7 +836,6 @@ a:hover { color: #a89cff; }
     <li><a href="#platform-strategy"><span class="nav-icon">📱</span> Platform Strategy</a></li>
     <li><a href="#fb-groups"><span class="nav-icon">📍</span> Facebook Groups</a></li>
     <li><a href="#fb-pages"><span class="nav-icon">📍</span> Facebook Pages</a></li>
-    <li><a href="#discord"><span class="nav-icon">📍</span> Discord</a></li>
     <li><a href="#tiktok"><span class="nav-icon">📍</span> TikTok / Reels</a></li>
     <li><a href="#copywriting"><span class="nav-icon">✍️</span> Copywriting Guide</a></li>
     <li><a href="#principles"><span class="nav-icon">💡</span> Core Principles</a></li>
@@ -968,7 +889,7 @@ a:hover { color: #a89cff; }
       </div>
       <div class="step-card">
         <div class="step-number">3</div>
-        <p><strong>Share it where readers hang out</strong> — Facebook, TikTok, Discord, WhatsApp...</p>
+        <p><strong>Share it where readers hang out</strong> — Facebook, TikTok, WhatsApp...</p>
       </div>
     </div>
   </section>
@@ -994,12 +915,7 @@ a:hover { color: #a89cff; }
         <span class="tool-usage">Use where links are NOT clickable</span>
       </div>
     </div>
-    <div class="discord-banner">
-      <div class="db-icon">💬</div>
-      <div class="db-text">
-        Join our <strong><a href="https://discord.gg/xrDJEqFF" target="_blank">Official Discord Community</a></strong> to connect with fellow recommenders, get tips, and ask questions anytime!
-      </div>
-    </div>
+
   </section>
 
   <!-- Platform Strategy -->
@@ -1025,11 +941,7 @@ a:hover { color: #a89cff; }
           <td><span class="link-badge">🔗 Referral Link</span></td>
           <td>Send the link in chats. Clickable directly.</td>
         </tr>
-        <tr>
-          <td><strong style="color:#c0c4dc">Discord</strong></td>
-          <td><span class="link-badge">🔗 Referral Link</span></td>
-          <td>Share in reading channels. Links are clickable.</td>
-        </tr>
+
         <tr>
           <td><strong style="color:#c0c4dc">Reddit</strong></td>
           <td><span class="link-badge">🔗 Referral Link</span></td>
@@ -1110,27 +1022,6 @@ a:hover { color: #a89cff; }
     </ul>
   </section>
 
-  <!-- Channel 3: Discord -->
-  <section class="card" id="discord">
-    <div class="card-header">
-      <div class="card-icon green">📍</div>
-      <h2>Channel 3: Discord Communities</h2>
-    </div>
-    <span class="channel-tag growing">Community Driven</span>
-
-    <h3>Find Active Reading Discords</h3>
-    <ul>
-      <li>Search: <strong style="color:#c0c4dc">NovelFlow Discord, Romance Readers Discord, Web Fiction Discord</strong></li>
-      <li>We also have an <a href="https://discord.gg/xrDJEqFF" target="_blank">official Discord community</a> where you can connect with like-minded readers</li>
-    </ul>
-
-    <h3>Promotion Methods</h3>
-    <ul>
-      <li>Share books you're reading in recommendation channels</li>
-      <li>Participate in book discussions and naturally mention NovelFlow</li>
-      <li>Don't drop links the moment you join — participate in the community first to build trust</li>
-    </ul>
-  </section>
 
   <!-- Channel 4: TikTok / Reels -->
   <section class="card" id="tiktok">
@@ -1309,7 +1200,7 @@ a:hover { color: #a89cff; }
       <tbody>
         <tr><td>🌅 Morning</td><td>Post recommendations in 2-3 Facebook groups</td></tr>
         <tr><td>☀️ Noon</td><td>Reply to all comments and DMs</td></tr>
-        <tr><td>🌤 Afternoon</td><td>Engage in Discord / other communities</td></tr>
+        <tr><td>🌤 Afternoon</td><td>Engage in other communities</td></tr>
         <tr><td>🌆 Evening</td><td>Prepare tomorrow's content (screenshots, copy)</td></tr>
         <tr><td>🔄 All Day</td><td>Respond to new comments anytime, keep posts active</td></tr>
       </tbody>
@@ -1351,7 +1242,7 @@ a:hover { color: #a89cff; }
   <!-- Footer -->
   <footer class="page-footer">
     <span class="footer-brand">NovelFlow</span> — Book Recommender Promotion Playbook<br>
-    <span style="font-size:11px;">Questions? Join our <a href="https://discord.gg/xrDJEqFF" target="_blank">Discord</a> community</span>
+    <span style="font-size:11px;"></span>
   </footer>
 
 </main>
@@ -1379,15 +1270,6 @@ a:hover { color: #a89cff; }
     <div class="poster-divider"></div>
     <div class="poster-cta"><span>Start Earning Today →</span></div>
     <div class="poster-divider"></div>
-    <div class="poster-discord">
-      <div class="pd-title">Join Our Community &amp; Start Earning</div>
-      <div class="pd-desc">Connect with fellow recommenders, get tips, and grow your earnings together.</div>
-      <a href="https://discord.gg/xrDJEqFF" target="_blank" class="discord-btn">
-        <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M6.44 5.72a.86.86 0 110 1.72.86.86 0 010-1.72zm3.14 0a.86.86 0 110 1.72.86.86 0 010-1.72z"/><path d="M13.16.66A12.6 12.6 0 009.99.14a.05.05 0 00-.05.03c-.19.33-.39.76-.53 1.1a11.67 11.67 0 00-3.82 0c-.15-.35-.36-.77-.55-1.1A.05.05 0 005 .14 12.57 12.57 0 001.83.66a.05.05 0 00-.03.02C-.53 3.66-.08 6.59.3 8.98a.05.05 0 00.02.04 12.68 12.68 0 003.83 2.04.05.05 0 00.06-.02c.3-.4.56-.83.8-1.29a.05.05 0 00-.03-.07 8.35 8.35 0 01-1.15-.55.05.05 0 01-.01-.08l.23-.18a.05.05 0 01.05-.01c2.42 1.1 5.04 1.1 7.43 0a.05.05 0 01.05.01l.23.18a.05.05 0 01-.01.08c-.37.22-.75.4-1.15.55a.05.05 0 00-.03.07c.24.46.5.89.8 1.29a.05.05 0 00.06.02 12.64 12.64 0 003.85-2.04.05.05 0 00.02-.04c.48-2.83.08-5.13-1.28-8.3a.04.04 0 00-.02-.02z"/></svg>
-        Join Discord →
-      </a>
-    </div>
-  </div>
 </aside>
 
 <!-- ===== JavaScript ===== -->
