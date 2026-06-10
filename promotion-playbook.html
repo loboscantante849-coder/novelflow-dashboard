@@ -400,7 +400,7 @@ a:hover { color: #a89cff; }
 /* ===== Tools Grid ===== */
 .tools-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
   margin-top: 20px;
 }
@@ -439,6 +439,60 @@ a:hover { color: #a89cff; }
   color: #5cc8e8;
   font-size: 11px;
   font-weight: 600;
+}
+
+/* ===== Platform Strategy Table ===== */
+.platform-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 16px 0;
+  font-size: 14px;
+}
+.platform-table thead th {
+  background: rgba(0, 212, 130, 0.1);
+  color: #00d482;
+  font-weight: 600;
+  padding: 14px 16px;
+  text-align: left;
+  border-bottom: 1px solid rgba(0, 212, 130, 0.15);
+}
+.platform-table thead th:first-child { border-radius: 10px 0 0 0; }
+.platform-table thead th:last-child { border-radius: 0 10px 0 0; }
+.platform-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  color: #b0b4cc;
+}
+.platform-table tbody tr:last-child td { border-bottom: none; }
+.platform-table tbody tr:last-child td:first-child { border-radius: 0 0 0 10px; }
+.platform-table tbody tr:last-child td:last-child { border-radius: 0 0 10px 0; }
+.platform-table .code-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(255, 170, 50, 0.15);
+  color: #ffaa32;
+  font-size: 12px;
+  font-weight: 700;
+}
+.platform-table .link-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(124, 108, 255, 0.15);
+  color: #a89cff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.platform-table .both-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(0, 212, 130, 0.15);
+  color: #00d482;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 /* ===== Earnings Compound Table ===== */
@@ -512,31 +566,6 @@ a:hover { color: #a89cff; }
   color: #9a9fba;
   max-width: 500px;
   margin: 0 auto 28px;
-}
-.form-questions {
-  text-align: left;
-  max-width: 520px;
-  margin: 0 auto 32px;
-}
-.form-questions .fq-item {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 12px;
-  font-size: 14px;
-  color: #a0a4c0;
-}
-.form-questions .fq-num {
-  flex-shrink: 0;
-  width: 24px; height: 24px;
-  border-radius: 7px;
-  background: rgba(124, 108, 255, 0.15);
-  color: #7c6cff;
-  font-size: 11px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 2px;
 }
 .btn-primary {
   display: inline-flex;
@@ -831,7 +860,7 @@ a:hover { color: #a89cff; }
   .discord-banner .db-icon { font-size: 32px; }
   .discord-banner .db-text { font-size: 14px; }
   .discord-banner .db-text strong { font-size: 15px; }
-  .card table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .card table, .platform-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .mobile-nav-toggle { width: 48px; height: 48px; font-size: 22px; }
 }
 @media (max-width: 480px) {
@@ -882,15 +911,16 @@ a:hover { color: #a89cff; }
     <li><a href="#quick-start" class="active"><span class="nav-icon">🚀</span> Quick Start</a></li>
     <li><a href="#earnings"><span class="nav-icon">💰</span> Earnings</a></li>
     <li><a href="#tools"><span class="nav-icon">🛠</span> Your Tools</a></li>
+    <li><a href="#platform-strategy"><span class="nav-icon">📱</span> Platform Strategy</a></li>
     <li><a href="#fb-groups"><span class="nav-icon">📍</span> Facebook Groups</a></li>
     <li><a href="#fb-pages"><span class="nav-icon">📍</span> Facebook Pages</a></li>
     <li><a href="#discord"><span class="nav-icon">📍</span> Discord</a></li>
     <li><a href="#tiktok"><span class="nav-icon">📍</span> TikTok / Reels</a></li>
+    <li><a href="#copywriting"><span class="nav-icon">✍️</span> Copywriting Guide</a></li>
     <li><a href="#principles"><span class="nav-icon">💡</span> Core Principles</a></li>
     <li><a href="#maximize"><span class="nav-icon">📊</span> Maximize Earnings</a></li>
     <li><a href="#schedule"><span class="nav-icon">📅</span> Daily Schedule</a></li>
     <li><a href="#first-week"><span class="nav-icon">🔥</span> First Week Goals</a></li>
-    <li><a href="https://tinyurl.com/hs5ku9at" target="_blank"><span class="nav-icon">🏆</span> Leaderboard</a></li>
   </ul>
 </nav>
 
@@ -907,8 +937,8 @@ a:hover { color: #a89cff; }
   <!-- Earnings Banner -->
   <section class="earnings-banner" id="earnings">
     <div class="earnings-card">
-      <div class="ec-value">100%</div>
-      <div class="ec-label">Revenue share for the first 7 days after each new reader signs up</div>
+      <div class="ec-value">80%</div>
+      <div class="ec-label">Commission on what your referred readers spend in their first 14 days</div>
     </div>
     <div class="earnings-card">
       <div class="ec-value">$50–500+</div>
@@ -930,15 +960,15 @@ a:hover { color: #a89cff; }
     <div class="steps-grid">
       <div class="step-card">
         <div class="step-number">1</div>
-        <p><strong>Get your unique referral link</strong> — We'll send it after you're approved</p>
+        <p><strong>Log in to your dashboard</strong> → <a href="https://novelflow.top/" target="_blank">novelflow.top</a> (username = your Discord name)</p>
       </div>
       <div class="step-card">
         <div class="step-number">2</div>
-        <p><strong>Choose your promotion channels</strong> — Pick what you're best at</p>
+        <p><strong>Pick a book you love</strong> and click "Create Link" to get your unique referral URL</p>
       </div>
       <div class="step-card">
         <div class="step-number">3</div>
-        <p><strong>Win over readers</strong> — Share genuine experiences and keep driving traffic</p>
+        <p><strong>Share it where readers hang out</strong> — Facebook, TikTok, Discord, WhatsApp...</p>
       </div>
     </div>
   </section>
@@ -949,32 +979,77 @@ a:hover { color: #a89cff; }
       <div class="card-icon blue">🛠</div>
       <h2>Your Recommender Toolkit</h2>
     </div>
-    <p style="color:#8a8faa;margin-bottom:4px;">Three powerful tools to track and convert your readers:</p>
+    <p style="color:#8a8faa;margin-bottom:4px;">Two powerful tools to track and convert your readers:</p>
     <div class="tools-grid">
       <div class="tool-card">
         <div class="tool-icon">🔗</div>
         <h4>Referral Link</h4>
-        <p>Share this in your posts. Readers click and download the app directly.</p>
-        <span class="tool-usage">Use where links are allowed</span>
+        <p>Share this in your posts. Readers click → download the app → you get credited for their spending in the first 14 days.</p>
+        <span class="tool-usage">Use where links are clickable</span>
       </div>
       <div class="tool-card">
-        <div class="tool-icon">🔍</div>
-        <h4>Search Code</h4>
-        <p>Readers search this code in the NovelFlow app to find the recommended book.</p>
-        <span class="tool-usage">Use where links are banned</span>
-      </div>
-      <div class="tool-card">
-        <div class="tool-icon">🎁</div>
-        <h4>Reward Code</h4>
-        <p>Readers enter this for free reading credits — and you earn credit too.</p>
-        <span class="tool-usage">DM only</span>
+        <div class="tool-icon">🔢</div>
+        <h4>Promo Code</h4>
+        <p>Readers enter this code in the NovelFlow app to find the recommended book and get started.</p>
+        <span class="tool-usage">Use where links are NOT clickable</span>
       </div>
     </div>
     <div class="discord-banner">
       <div class="db-icon">💬</div>
       <div class="db-text">
-        Join our <strong><a href="https://discord.gg/4NQ6xRJfqf" target="_blank">Official Discord Community</a></strong> to connect with fellow recommenders, get tips, and ask questions anytime!
+        Join our <strong><a href="https://discord.gg/xrDJEqFF" target="_blank">Official Discord Community</a></strong> to connect with fellow recommenders, get tips, and ask questions anytime!
       </div>
+    </div>
+  </section>
+
+  <!-- Platform Strategy -->
+  <section class="card" id="platform-strategy">
+    <div class="card-header">
+      <div class="card-icon green">📱</div>
+      <h2>Platform Strategy: Link vs. Code</h2>
+    </div>
+    <p style="color:#8a8faa;margin-bottom:8px;">Not all platforms treat links the same. Use the right tool for each platform:</p>
+
+    <table class="platform-table">
+      <thead>
+        <tr><th>Platform</th><th>What to Use</th><th>How</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong style="color:#c0c4dc">Facebook (Groups)</strong></td>
+          <td><span class="link-badge">🔗 Referral Link</span></td>
+          <td>Paste your link in posts or comments. Readers can click directly.</td>
+        </tr>
+        <tr>
+          <td><strong style="color:#c0c4dc">WhatsApp / Telegram</strong></td>
+          <td><span class="link-badge">🔗 Referral Link</span></td>
+          <td>Send the link in chats. Clickable directly.</td>
+        </tr>
+        <tr>
+          <td><strong style="color:#c0c4dc">Discord</strong></td>
+          <td><span class="link-badge">🔗 Referral Link</span></td>
+          <td>Share in reading channels. Links are clickable.</td>
+        </tr>
+        <tr>
+          <td><strong style="color:#c0c4dc">Reddit</strong></td>
+          <td><span class="link-badge">🔗 Referral Link</span></td>
+          <td>Include in your post or comment.</td>
+        </tr>
+        <tr>
+          <td><strong style="color:#c0c4dc">TikTok</strong></td>
+          <td><span class="code-badge">🔢 Promo Code</span></td>
+          <td>TikTok does NOT allow clickable links in videos or comments. Show your code in the video + description. Readers enter it in the app.</td>
+        </tr>
+        <tr>
+          <td><strong style="color:#c0c4dc">Instagram</strong></td>
+          <td><span class="both-badge">🔢 Code + 🔗 Bio</span></td>
+          <td>In Reels/Stories: show the code on screen. In your profile: put the link in your bio. In captions: mention the code.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="highlight-box" style="margin-top:20px;">
+      💡 <span class="hb-emphasis">Rule of thumb:</span> If the platform allows clickable links → use your <strong style="color:#a89cff">referral link</strong>. If NOT → use your <strong style="color:#ffaa32">promo code</strong>.
     </div>
   </section>
 
@@ -1046,7 +1121,7 @@ a:hover { color: #a89cff; }
     <h3>Find Active Reading Discords</h3>
     <ul>
       <li>Search: <strong style="color:#c0c4dc">NovelFlow Discord, Romance Readers Discord, Web Fiction Discord</strong></li>
-      <li>We also have an <a href="https://discord.gg/4NQ6xRJfqf" target="_blank">official Discord community</a> where you can connect with like-minded readers</li>
+      <li>We also have an <a href="https://discord.gg/xrDJEqFF" target="_blank">official Discord community</a> where you can connect with like-minded readers</li>
     </ul>
 
     <h3>Promotion Methods</h3>
@@ -1078,8 +1153,71 @@ a:hover { color: #a89cff; }
     <h3>Key Points</h3>
     <ul>
       <li>The first <strong style="color:#c0c4dc">3 seconds</strong> must have a hook</li>
+      <li><strong style="color:#ffaa32">Show your PROMO CODE in the video</strong> — links don't work on TikTok!</li>
       <li>Pin your referral link in the comments</li>
       <li>Use trending hashtags: <strong style="color:#c0c4dc">#BookTok #WerewolfRomance #WebFiction #RomanceBooks</strong></li>
+    </ul>
+  </section>
+
+  <!-- Copywriting Guide -->
+  <section class="card" id="copywriting">
+    <div class="card-header">
+      <div class="card-icon pink">✍️</div>
+      <h2>Copywriting Guide: Posts That Convert</h2>
+    </div>
+
+    <h3>🎯 The Hook Formula</h3>
+    <p style="color:#8a8faa;margin-bottom:16px;">Your post has 3 seconds to stop the scroll. Use these proven hooks:</p>
+
+    <h4>1. Sensory Hook — Activate the senses</h4>
+    <blockquote>"The sheets were cold against her skin when he whispered my name..."</blockquote>
+    <p style="color:#8a8faa;font-size:13px;margin-bottom:12px;">→ Works because the reader <strong style="color:#c0c4dc">FEELS</strong> the scene before knowing what it's about.</p>
+
+    <h4>2. Desire Hook — Promise an experience</h4>
+    <blockquote>"If you love bad boys who kneel ONLY for you... this book is your next obsession."</blockquote>
+    <p style="color:#8a8faa;font-size:13px;margin-bottom:12px;">→ Works because it tells the reader <strong style="color:#c0c4dc">EXACTLY</strong> what emotion they'll feel.</p>
+
+    <h4>3. Curiosity Hook — Leave a question unanswered</h4>
+    <blockquote>"She had to choose between her soulmate... and the man who destroyed her. What would YOU do?"</blockquote>
+    <p style="color:#8a8faa;font-size:13px;margin-bottom:12px;">→ Works because the brain <strong style="color:#c0c4dc">CANNOT</strong> skip an unanswered question.</p>
+
+    <h4>4. Contrast Hook — Surprise with opposites</h4>
+    <blockquote>"He's the most feared Alpha in the pack. And tonight, he's begging for me."</blockquote>
+    <p style="color:#8a8faa;font-size:13px;margin-bottom:12px;">→ Works because contrast creates tension. Tension = interest.</p>
+
+    <h4>5. Personal Hook — Share your real experience</h4>
+    <blockquote>"I started reading at 11pm. By 3am I was on chapter 40. I can't stop."</blockquote>
+    <p style="color:#8a8faa;font-size:13px;margin-bottom:16px;">→ Works because authenticity sells more than any description.</p>
+
+    <h3>📝 The Perfect Post Structure (6 Layers)</h3>
+    <ol>
+      <li><strong style="color:#c0c4dc">🪝 HOOK</strong> — One line that stops the scroll (use the formulas above)</li>
+      <li><strong style="color:#c0c4dc">💥 CONTEXT</strong> — 1-2 sentences that deepen the hook's emotion</li>
+      <li><strong style="color:#c0c4dc">📖 PREVIEW</strong> — A scene or detail from the book (no full spoilers)</li>
+      <li><strong style="color:#c0c4dc">🔥 WHY</strong> — Your personal opinion on why they'll love it</li>
+      <li><strong style="color:#c0c4dc">👉 CTA</strong> — "Read now" + your link/code</li>
+      <li><strong style="color:#c0c4dc">🏷️ HASHTAGS</strong> — 3-5 relevant ones (#DarkRomance #WerewolfRomance #BookTok)</li>
+    </ol>
+
+    <h3>Full Example Post</h3>
+    <blockquote>
+      🪝 "He bought me for 10 million. I thought I was the victim... until he kissed me and I realized I was the prize."<br><br>
+      💥 Ava never asked to be auctioned. But when the most dangerous Alpha placed the highest bid, her world changed forever.<br><br>
+      📖 There's a scene in Chapter 12 where he says: "I didn't buy you to own you. I bought you because nobody else deserved to touch you." MY MIND EXPLODED.<br><br>
+      🔥 If you like possessive Alphas who are soft ONLY for her, this book will keep you up until 4am. I know from personal experience 😅<br><br>
+      👉 Read FREE now → https://novelflow.top/<br>
+      Promo code: 4900 (enter it in the app to start)<br><br>
+      #DarkRomance #AlphaRomance #BookTok #WerewolfRomance #MustRead
+    </blockquote>
+
+    <h3>🔑 Extra Tips for Better Results</h3>
+    <ul>
+      <li>📱 Use <strong style="color:#c0c4dc">EMOJIS</strong> — they break the text wall and guide the reader's eye</li>
+      <li>📸 Pair with <strong style="color:#c0c4dc">IMAGES</strong> — screenshot of the book, a quote, or you reading</li>
+      <li>⏰ Post during <strong style="color:#c0c4dc">PEAK HOURS</strong> — 7-9am, 12-1pm, 8-11pm (your audience's timezone)</li>
+      <li>🔄 <strong style="color:#c0c4dc">ROTATE</strong> your posts — don't repeat the same text, cycle through different hooks</li>
+      <li>💬 <strong style="color:#c0c4dc">REPLY</strong> to comments — interaction boosts post reach</li>
+      <li>📊 <strong style="color:#c0c4dc">TEST & ADJUST</strong> — if a hook works, use it more. If not, switch it up.</li>
     </ul>
   </section>
 
@@ -1124,7 +1262,7 @@ a:hover { color: #a89cff; }
 
     <h3>Boost Conversion Rates</h3>
     <ol>
-      <li><strong style="color:#c0c4dc">Guide users to register, not just download</strong> — Make sure users register through your link so you get credited for their sign-up within the 7-day window</li>
+      <li><strong style="color:#c0c4dc">Guide users to register, not just download</strong> — Make sure users register through your link so you get credited for their sign-up within the 14-day window</li>
       <li><strong style="color:#c0c4dc">Recommend books with plenty of free chapters</strong> — Once readers get hooked on free content, they'll naturally upgrade to VIP</li>
       <li><strong style="color:#c0c4dc">Recommend ongoing series</strong> — Readers following ongoing stories are more likely to maintain subscriptions</li>
       <li><strong style="color:#c0c4dc">Teach users how to use the app</strong> — Some users don't know how to register/recharge; help them out</li>
@@ -1210,18 +1348,10 @@ a:hover { color: #a89cff; }
     </div>
   </section>
 
-  <!-- View Leaderboard -->
-  <section class="apply-card" id="apply">
-    <h2>Check Your Ranking</h2>
-    <p class="apply-desc">See how you stack up against other top recommenders! Track your clicks, signups, and earnings in real-time on the leaderboard.</p>
-    <a href="https://tinyurl.com/hs5ku9at" target="_blank" class="btn-primary">🏆 View Leaderboard</a>
-    <p style="color:#9a9fba;font-size:14px;margin-top:16px;">See how you rank among our top recommenders →</p>
-  </section>
-
   <!-- Footer -->
   <footer class="page-footer">
     <span class="footer-brand">NovelFlow</span> — Book Recommender Promotion Playbook<br>
-    <span style="font-size:11px;">Questions? Join our <a href="https://discord.gg/4NQ6xRJfqf" target="_blank">Discord</a> community</span>
+    <span style="font-size:11px;">Questions? Join our <a href="https://discord.gg/xrDJEqFF" target="_blank">Discord</a> community</span>
   </footer>
 
 </main>
@@ -1234,8 +1364,8 @@ a:hover { color: #a89cff; }
     <div class="poster-divider"></div>
     <div class="poster-benefits">
       <div class="poster-benefit">
-        <div class="pb-value">100%</div>
-        <div class="pb-label">Revenue Share</div>
+        <div class="pb-value">80%</div>
+        <div class="pb-label">Commission Rate</div>
       </div>
       <div class="poster-benefit">
         <div class="pb-value">$50–500</div>
@@ -1252,7 +1382,7 @@ a:hover { color: #a89cff; }
     <div class="poster-discord">
       <div class="pd-title">Join Our Community &amp; Start Earning</div>
       <div class="pd-desc">Connect with fellow recommenders, get tips, and grow your earnings together.</div>
-      <a href="https://discord.gg/4NQ6xRJfqf" target="_blank" class="discord-btn">
+      <a href="https://discord.gg/xrDJEqFF" target="_blank" class="discord-btn">
         <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M6.44 5.72a.86.86 0 110 1.72.86.86 0 010-1.72zm3.14 0a.86.86 0 110 1.72.86.86 0 010-1.72z"/><path d="M13.16.66A12.6 12.6 0 009.99.14a.05.05 0 00-.05.03c-.19.33-.39.76-.53 1.1a11.67 11.67 0 00-3.82 0c-.15-.35-.36-.77-.55-1.1A.05.05 0 005 .14 12.57 12.57 0 001.83.66a.05.05 0 00-.03.02C-.53 3.66-.08 6.59.3 8.98a.05.05 0 00.02.04 12.68 12.68 0 003.83 2.04.05.05 0 00.06-.02c.3-.4.56-.83.8-1.29a.05.05 0 00-.03-.07 8.35 8.35 0 01-1.15-.55.05.05 0 01-.01-.08l.23-.18a.05.05 0 01.05-.01c2.42 1.1 5.04 1.1 7.43 0a.05.05 0 01.05.01l.23.18a.05.05 0 01-.01.08c-.37.22-.75.4-1.15.55a.05.05 0 00-.03.07c.24.46.5.89.8 1.29a.05.05 0 00.06.02 12.64 12.64 0 003.85-2.04.05.05 0 00.02-.04c.48-2.83.08-5.13-1.28-8.3a.04.04 0 00-.02-.02z"/></svg>
         Join Discord →
       </a>
