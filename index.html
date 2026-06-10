@@ -4790,10 +4790,10 @@
                 return [];
             }
             
-            const searchLang = AppState.searchLang || 'en';
+            const searchLang = '';  // Search all languages, don't filter by UI lang
             
             try {
-                const response = await fetch(`/api/books/search?keyword=${encodeURIComponent(query.trim())}&lang=${searchLang}&pageSize=10`, {
+                const response = await fetch(`/api/books/search?keyword=${encodeURIComponent(query.trim())}&pageSize=10`, {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' }
                 });
@@ -6846,8 +6846,7 @@ function renderMyBooks() {
             const container = document.getElementById('xmpBookResults');
             if (!query || query.length < 2) { container.innerHTML = ''; return; }
             try {
-                const searchLang = AppState.searchLang || 'en';
-                const resp = await fetch('/api/books/search?keyword=' + encodeURIComponent(query) + '&lang=' + searchLang + '&pageSize=5');
+                const resp = await fetch('/api/books/search?keyword=' + encodeURIComponent(query) + '&pageSize=5');
                 const data = await resp.json();
                 const books = data.data || data.books || [];
                 if (books.length === 0) {
@@ -6936,8 +6935,7 @@ function renderMyBooks() {
             const container = document.getElementById('reelBookResults');
             if (!query || query.length < 2) { container.innerHTML = ''; return; }
             try {
-                const searchLang = AppState.searchLang || 'en';
-                const resp = await fetch('/api/books/search?keyword=' + encodeURIComponent(query) + '&lang=' + searchLang + '&pageSize=10');
+                const resp = await fetch('/api/books/search?keyword=' + encodeURIComponent(query) + '&pageSize=10');
                 const data = await resp.json();
                 const books = data.books || data.data || [];
                 if (books.length === 0) {
