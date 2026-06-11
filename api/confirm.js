@@ -16,7 +16,8 @@ const { Redis } = require('@upstash/redis');
 
 const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage';
 const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
-const NOVELFLOW_CAMPAIGN_ID = '699ef7b8194eb218db3c2270';
+const DEFAULT_CHANNEL_NAME = 'NovelFlow_SocialMedia_Facebook-grounp_Facebook_xujt';
+const DEFAULT_CHANNEL_NAME_ID = '699ef7b8194eb218db3c2270';
 const STARTING_CODE = 4900;
 const MAX_CODE = 99999;
 const RATE_LIMIT = 5;
@@ -38,6 +39,106 @@ function sanitizeUsername(username) {
 function sanitizeText(text, maxLen = 500) {
   if (!text) return '';
   return text.replace(/<[^>]*>/g, '').trim().substring(0, maxLen);
+}
+
+/**
+ * Look up CPS channel config for a user from KV.
+ * Returns {channelCode, channelNameId, fullChannelCode} or null.
+ */
+async function getCpsChannel(redis, username) {
+  if (!redis || !username) return null;
+  const raw = await redis.hget('nf_cps_channels', username.toLowerCase());
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+/**
+ * Auto-create a CPS channel config if user doesn't have one yet.
+ * Returns {channelCode, channelNameId, fullChannelCode}.
+ */
+async function ensureCpsChannel(redis, username, bookstoreToken) {
+  if (!username || username === 'Anonymous') return null;
+
+  // 1. Check KV cache first
+  const existing = await getCpsChannel(redis, username);
+  if (existing) return existing;
+
+  // 2. Sanitize username to a valid channelCode (alphanumeric + underscore)
+  const channelCode = username.replace(/[^a-zA-Z0-9_]/g, '').substring(0, 50) || 'user';
+  const fullChannelCode = `NovelFlow_SocialMedia_CPS_${channelCode}`;
+
+  // 3. Check if channel already exists in bookstore (might have been created manually)
+  if (bookstoreToken) {
+    try {
+      const listResp = await fetch(
+        `https://admin.novelspa.app/api/v1/novelmanage/SocialMediaChannelConfig?productLine=NovelFlow&channelSource=CPS&channelNumber=${encodeURIComponent(channelCode)}&page=1&pageSize=10`,
+        {
+          headers: {
+            'Authorization': `Bearer ${bookstoreToken}`,
+            'X-OS': 'web', 'X-AppName': 'web-admin',
+            'X-AppIdentifier': 'web', 'X-AppVersion': '1.0.0,1',
+            'Origin': 'https://admin.novelspa.app'
+          }
+        }
+      );
+      if (listResp.ok) {
+        const listData = await listResp.json();
+        if (listData.data?.data?.length > 0) {
+          const existingCh = listData.data.data.find(ch => ch.channelCode === channelCode);
+          if (existingCh) {
+            const info = {
+              channelCode: existingCh.channelCode,
+              channelNameId: existingCh.id,
+              fullChannelCode: existingCh.fullChannelCode
+            };
+            // Cache in KV
+            await redis.hset('nf_cps_channels', { [username.toLowerCase()]: JSON.stringify(info) });
+            return info;
+          }
+        }
+      }
+    } catch (e) { console.error('[ensureCpsChannel] List lookup failed:', e.message); }
+  }
+
+  // 4. Create new channel config
+  if (bookstoreToken) {
+    try {
+      const createResp = await fetch('https://admin.novelspa.app/api/v1/novelmanage/SocialMediaChannelConfig/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${bookstoreToken}`,
+          'Content-Type': 'application/json',
+          'X-OS': 'web', 'X-AppName': 'web-admin',
+          'X-AppIdentifier': 'web', 'X-AppVersion': '1.0.0,1',
+          'Origin': 'https://admin.novelspa.app',
+          'Referer': 'https://admin.novelspa.app/'
+        },
+        body: JSON.stringify({
+          applicationId: BOOKSTORE_APP_ID,
+          applicationName: 'NovelFlow',
+          channelName: 'SocialMedia',
+          channelSource: 'CPS',
+          channelCode,
+          fullChannelCode,
+          isEnabled: true
+        })
+      });
+      if (createResp.ok) {
+        const createData = await createResp.json();
+        if (createData.code === 200 && createData.data) {
+          const info = { channelCode, channelNameId: createData.data, fullChannelCode };
+          // Cache in KV
+          if (redis) await redis.hset('nf_cps_channels', { [username.toLowerCase()]: JSON.stringify(info) });
+          console.log(`[ensureCpsChannel] Created channel for ${username}: ${fullChannelCode} (${createData.data})`);
+          return info;
+        }
+      }
+    } catch (e) { console.error('[ensureCpsChannel] Create failed:', e.message); }
+  }
+
+  return null;
 }
 
 /** KV-based rate limiter (persists across cold starts) */
@@ -157,10 +258,13 @@ module.exports = async (req, res) => {
       });
     }
 
+    // Step 1.5: Get CPS channel for this user
+    const cpsChannel = await ensureCpsChannel(redis, cleanUsername, BOOKSTORE_TOKEN);
+
     // Step 2: Create short link
     let linkResult = null;
     if (BOOKSTORE_TOKEN) {
-      linkResult = await createLink(bookId, cleanBookTitle || cleanBookName, finalCode, BOOKSTORE_TOKEN, languageCode);
+      linkResult = await createLink(bookId, cleanBookTitle || cleanBookName, finalCode, BOOKSTORE_TOKEN, languageCode, cpsChannel);
     }
 
     // Step 3: Save completed submission to KV
@@ -188,6 +292,7 @@ module.exports = async (req, res) => {
       }
       if (linkResult.linkId) completedSub.linkId = linkResult.linkId;
       if (linkResult.campaignId) completedSub.campaignId = linkResult.campaignId;
+      if (cpsChannel) completedSub.cpsChannelCode = cpsChannel.channelCode;
     }
 
     if (redis) {
@@ -218,8 +323,12 @@ module.exports = async (req, res) => {
 
 // ============ Create Short Link ============
 
-async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, languageCode) {
-  const linkName = `${code}${bookTitle}-书籍详情页-FB`;
+async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, languageCode, cpsChannel) {
+  const linkName = `${code}${bookTitle}-书籍详情页-CPS`;
+
+  // Use CPS channel if available, otherwise fall back to default
+  const channelName = cpsChannel ? cpsChannel.fullChannelCode : DEFAULT_CHANNEL_NAME;
+  const channelNameId = cpsChannel ? cpsChannel.channelNameId : DEFAULT_CHANNEL_NAME_ID;
 
   const linkResp = await fetch(`${BOOKSTORE_API_BASE}/SocialMediaLinkConfig`, {
     method: 'POST',
@@ -233,8 +342,8 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, languageCode
       linkName,
       applicationId: BOOKSTORE_APP_ID,
       mediaSource: 'SocialMedia',
-      channelName: 'NovelFlow_SocialMedia_Facebook-grounp_Facebook_xujt',
-      channelNameId: '699ef7b8194eb218db3c2270',
+      channelName,
+      channelNameId,
       contentType: 1,
       contentNameOrSku: bookId,
       contentName: bookTitle,
@@ -272,10 +381,10 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, languageCode
             }
           }
         } catch (e) { console.error('Link detail fetch failed:', e.message); }
-        return { shortUrl, linkId: responseLinkId, campaignId: NOVELFLOW_CAMPAIGN_ID };
+        return { shortUrl, linkId: responseLinkId, campaignId: channelNameId };
       }
       if (typeof linkData.data === 'object' && linkData.data.shortUrl) {
-        return { shortUrl: linkData.data.shortUrl, linkId: null, campaignId: NOVELFLOW_CAMPAIGN_ID };
+        return { shortUrl: linkData.data.shortUrl, linkId: null, campaignId: channelNameId };
       }
     }
   }
