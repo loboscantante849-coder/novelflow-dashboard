@@ -66,7 +66,12 @@ async function ensureCpsChannel(redis, username, bookstoreToken) {
   if (existing) return existing;
 
   // 2. Sanitize username to a valid channelCode (alphanumeric + underscore)
-  const channelCode = username.replace(/[^a-zA-Z0-9_]/g, '').substring(0, 50) || 'user';
+  //    If no ASCII chars remain, use CPS + auto-incrementing number from KV
+  let channelCode = username.replace(/[^a-zA-Z0-9_]/g, '').substring(0, 50);
+  if (!channelCode) {
+    const nextNum = await redis.incr('nf_cps_next_num');
+    channelCode = `CPS${String(nextNum).padStart(3, '0')}`;
+  }
   const fullChannelCode = `NovelFlow_SocialMedia_CPS_${channelCode}`;
 
   // 3. Check if channel already exists in bookstore (might have been created manually)
