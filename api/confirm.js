@@ -209,7 +209,7 @@ module.exports = async (req, res) => {
             applicationId: BOOKSTORE_APP_ID,
             keyword: String(tryCode),
             bookId: bookId,
-            channel: 'FB',
+            channel: 'CPS',
             isEnable: true
           }),
           signal: AbortSignal.timeout(8000) // 8s per attempt
