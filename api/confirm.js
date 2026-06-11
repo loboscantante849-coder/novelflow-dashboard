@@ -66,11 +66,12 @@ async function ensureCpsChannel(redis, username, bookstoreToken) {
   if (existing) return existing;
 
   // 2. Sanitize username to a valid channelCode (alphanumeric + underscore)
-  //    If no ASCII chars remain, use CPS + auto-incrementing number from KV
   let channelCode = username.replace(/[^a-zA-Z0-9_]/g, '').substring(0, 50);
   if (!channelCode) {
-    const nextNum = await redis.incr('nf_cps_next_num');
-    channelCode = `CPS${String(nextNum).padStart(3, '0')}`;
+    // No ASCII chars in username — can't auto-generate a readable channelCode.
+    // Fall back to default channel; admin should manually create a CPS channel for this user.
+    console.warn(`[ensureCpsChannel] Non-ASCII username "${username}" has no CPS channel mapping, falling back to default`);
+    return null;
   }
   const fullChannelCode = `NovelFlow_SocialMedia_CPS_${channelCode}`;
 
