@@ -4,26 +4,28 @@
  */
 
 const REELS_DAILY_LIMIT = 5;
-const reelsDailyCounts = new Map(); // key: ip:date, value: count
 
-function checkReelsDailyLimit(ip) {
-  const today = new Date().toISOString().split('T')[0];
-  const key = ip + ':' + today;
-  const count = reelsDailyCounts.get(key) || 0;
-  if (count >= REELS_DAILY_LIMIT) return { allowed: false, count };
-  // Don't increment yet - wait until creation succeeds
-  return { allowed: true, count, key };
+function getLADateString() {
+  const now = new Date();
+  const laNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+  const y = laNow.getFullYear();
+  const m = String(laNow.getMonth() + 1).padStart(2, '0');
+  const d = String(laNow.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + d;
 }
 
-function incrementReelsDailyCount(key) {
-  const today = new Date().toISOString().split('T')[0];
-  const count = reelsDailyCounts.get(key) || 0;
-  reelsDailyCounts.set(key, count + 1);
-  // Clean up old entries (keep only today's)
-  for (const [k] of reelsDailyCounts) {
-    if (!k.endsWith(today)) reelsDailyCounts.delete(k);
-  }
-  return count + 1;
+async function getReelsCount(redis, username, today) {
+  try {
+    const key = 'reels_count:' + username + ':' + today;
+    const val = await redis.get(key);
+    return parseInt(val) || 0;
+  } catch(e) { return 0; }
+}
+
+async function setReelsCount(redis, username, today, count) {
+  const key = 'reels_count:' + username + ':' + today;
+  // TTL: 48 hours (2 days) to auto-expire old counts
+  await redis.set(key, count, { ex: 172800 });
 }
 
 const AC_BASE = 'https://ac.beidou.win/api/v1';
@@ -37,14 +39,18 @@ module.exports = async (req, res) => {
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Use server-stored AC token: KV first → env var → header
-  let token = null;
+  let redis = null;
   try {
     const { Redis } = require('@upstash/redis');
     if (process.env.KV_REST_API_URL) {
-      const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
-      token = await redis.get('ac_token');
+      redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
     }
+  } catch(e) {}
+
+  // Use server-stored AC token: KV first → env var → header
+  let token = null;
+  try {
+    if (redis) token = await redis.get('ac_token');
   } catch(e) {}
   if (!token) token = process.env.AC_TOKEN || req.headers['x-ac-token'] ||
     (req.headers['authorization'] && req.headers['authorization'].replace('Bearer ', ''));
@@ -53,11 +59,16 @@ module.exports = async (req, res) => {
   const body = req.body || {};
   if (!body.book_id) return res.status(400).json({ error: 'book_id required' });
 
-  // Server-side daily limit (5 per username per day, fallback to IP)
-  // Pre-check only - increment happens after successful creation
-  const limitKey = req.body.username || req.headers['x-forwarded-for']?.split(',')[0] || req.connection?.remoteAddress || 'unknown';
-  const limitCheck = checkReelsDailyLimit(limitKey);
-  if (!limitCheck.allowed) return res.status(429).json({ error: 'Daily limit reached (5 reels/day). Try again tomorrow.', remaining: 0 });
+  // Server-side daily limit (5 per username per day, LA timezone, KV-persisted)
+  const username = body.username || req.headers['x-forwarded-for']?.split(',')[0] || req.connection?.remoteAddress || 'unknown';
+  const today = getLADateString();
+  let currentCount = 0;
+  if (redis) {
+    currentCount = await getReelsCount(redis, username, today);
+  }
+  if (currentCount >= REELS_DAILY_LIMIT) {
+    return res.status(429).json({ error: 'Daily limit reached (5 reels/day). Try again tomorrow.', remaining: 0 });
+  }
 
   // Use prompt as fallback for ad_copy (advanced mode sends prompt field)
   const adCopy = body.ad_copy || body.prompt || '';
@@ -97,23 +108,22 @@ module.exports = async (req, res) => {
     const data = await r.json().catch(() => null);
 
     // Auto-rotate: save new token to Upstash Redis for next request
-    if (newToken) {
+    if (newToken && redis) {
       try {
-        const { Redis } = require('@upstash/redis');
-        if (process.env.KV_REST_API_URL) {
-          const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
-          await redis.set('ac_token', newToken);
-          console.log('AC token rotated in Upstash');
-        }
+        await redis.set('ac_token', newToken);
+        console.log('AC token rotated in Upstash');
       } catch(e) { console.warn('Redis save failed:', e.message); }
     }
 
     // Only increment daily count if creation succeeded
+    let remaining = REELS_DAILY_LIMIT - currentCount;
     if (r.status >= 200 && r.status < 300) {
-      incrementReelsDailyCount(limitCheck.key);
+      currentCount++;
+      if (redis) {
+        await setReelsCount(redis, username, today, currentCount);
+      }
+      remaining = REELS_DAILY_LIMIT - currentCount;
     }
-
-    const remaining = REELS_DAILY_LIMIT - (reelsDailyCounts.get(limitCheck.key) || 0);
 
     res.setHeader('x-ac-token', newToken || '');
     
