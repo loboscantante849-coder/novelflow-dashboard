@@ -4,7 +4,7 @@
  * When keyword provided, searches both API and featured-books.json
  */
 
-const RATE_LIMIT = 10;
+const RATE_LIMIT = 30;
 const RATE_WINDOW = 60 * 1000;
 const rateLimits = new Map();
 const fs = require('fs');
