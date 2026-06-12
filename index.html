@@ -2658,7 +2658,7 @@
                 <!-- AI Mode -->
                 <div id="reelAIMode">
                     <div style="padding:0 16px 8px;">
-                        <input type="text" class="reels-token-input" id="reelBookSearch" data-i18n-placeholder="reel_search" placeholder="Search book name to create reels..." style="width:calc(100% - 24px);padding:10px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;" oninput="debounceReelBookSearch(this.value)">
+                        <input type="text" class="reels-token-input" id="reelBookSearch" data-i18n-placeholder="reel_search" placeholder="Search book name to create reels..." style="width:calc(100% - 24px);padding:10px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:13px;font-family:inherit;" oninput="searchReelBooks(this.value)">
                         <div id="reelBookResults" style="max-height:150px;overflow-y:auto;"></div>
                         <div id="reelOptions" style="display:none;margin-top:8px;">
                             <div style="font-size:11px;color:var(--ink-mute);padding:4px 0;" data-i18n="min_15_note">⏱ Video generation takes ~25 minutes. Check My Reels for progress.</div>
@@ -6485,12 +6485,14 @@ function renderMyBooks() {
                     if (currentUser && item.book_name && myBookNames.includes(item.book_name.toLowerCase())) return true;
                     return false;
                 });
+                const quickActive = filteredItems.filter(item => { const s = item.status || ''; return s !== 'failed' && s !== -1 && s !== 'fail'; });
                 if (!result.success || filteredItems.length === 0) {
                     el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;">' + getText('no_reels') + '</div>';
                     return;
                 }
+                if (quickActive.length === 0) { el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;">No active reels</div>'; return; }
                 // Fetch results for completed items
-                const enriched = await Promise.all(filteredItems.slice(0, 5).map(async (item) => {
+                const enriched = await Promise.all(quickActive.slice(0, 5).map(async (item) => {
                     const status = item.status || '';
                     const isDone = (status === 'completed' || status === 2 || status === 'done');
                     let videoUrl = '', coverUrl = '';
@@ -6768,12 +6770,25 @@ function renderMyBooks() {
                     return false;
                 });
 
+                // Template name mapping for display
+                const TEMPLATE_NAMES = {'PPT_Porn':'Spicy & Steamy','PPT_Porn_Loop_Video':'Spicy Loop','Ad_Plot_Video_V2':'Plot Video','Ad_Plot_Seedance':'Seedance 2.0','Dialogue':'Dialogue','PPT_Multi':'Multi-Page','Comic':'Comic','Digital':'Digital','Extract':'Extract'};
+                // Separate failed from active items
+                const activeItems = filteredItems.filter(item => {
+                    const s = item.status || '';
+                    return s !== 'failed' && s !== -1 && s !== 'fail';
+                });
+                const failedItems = filteredItems.filter(item => {
+                    const s = item.status || '';
+                    return s === 'failed' || s === -1 || s === 'fail';
+                });
+
                 if (filteredItems.length > 0) {
                     if (emptyEl) emptyEl.style.display = 'none';
-                    const enrichedItems = await Promise.all(filteredItems.slice(0, 10).map(async (item) => {
+
+                    // Enrich active items only
+                    const enrichedItems = activeItems.length > 0 ? await Promise.all(activeItems.slice(0, 10).map(async (item) => {
                         const status = item.status || '';
                         const isDone = (status === 'completed' || status === 2 || status === 'done');
-                        const isFail = (status === 'failed' || status === -1 || status === 'fail');
                         let videoUrl = '', coverUrl = '', creativeText = '';
                         if (isDone && item.thread_id) {
                             try {
@@ -6794,13 +6809,13 @@ function renderMyBooks() {
                                 }
                             } catch(e) { console.warn('Failed to fetch result for', item.thread_id, e); }
                         }
-                        return { ...item, isDone, isFail, videoUrl, coverUrl, creativeText };
-                    }));
+                        return { ...item, isDone, videoUrl, coverUrl, creativeText };
+                    })) : [];
 
-                    listEl.innerHTML = enrichedItems.map(item => {
+                    // Render active items
+                    let activeHtml = enrichedItems.map(item => {
                         let statusText = '';
                         if (item.isDone) statusText = '✅ Ready';
-                        else if (item.isFail) statusText = '❌ Failed';
                         else statusText = '⏳ Processing...';
 
                         const thumb = item.coverUrl || '';
@@ -6819,7 +6834,6 @@ function renderMyBooks() {
                             actionsHtml += '</div>';
                         }
                         let copyTextHtml = '';
-                        // Fallback: use book description if no creativeText
                         const reelMeta = JSON.parse(localStorage.getItem(getUserKey('reel_meta')) || '{}');
                         const meta = reelMeta[item.id] || {};
                         const fallbackText = meta.description || '';
@@ -6828,8 +6842,29 @@ function renderMyBooks() {
                             copyTextHtml = '<div class="reels-item-copy" data-raw="' + escapeHtml(stripHtml(displayText)) + '">' + escapeHtml(stripHtml(displayText)) + '</div>';
                         }
 
-                        return '<div class="reels-item">' + thumbHtml + '<div class="reels-item-body"><div class="reels-item-title">' + escapeHtml(item.book_name || item.title || 'Untitled') + '</div><div class="reels-item-status ' + (item.isDone ? 'done' : (item.isFail ? 'fail' : '')) + '">' + statusText + '</div>' + actionsHtml + copyTextHtml + '</div></div>';
+                        return '<div class="reels-item">' + thumbHtml + '<div class="reels-item-body"><div class="reels-item-title">' + escapeHtml(item.book_name || item.title || 'Untitled') + '</div><div class="reels-item-status ' + (item.isDone ? 'done' : '') + '">' + statusText + '</div>' + actionsHtml + copyTextHtml + '</div></div>';
                     }).join('');
+
+                    // Build failed section HTML
+                    let failedHtml = '';
+                    if (failedItems.length > 0) {
+                        const failedListHtml = failedItems.map(item => {
+                            const tmplName = TEMPLATE_NAMES[item.template] || item.template || 'Unknown';
+                            const tmplEmoji = ({'PPT_Porn':'🔥','PPT_Porn_Loop_Video':'🔥','Ad_Plot_Video_V2':'🎥','Ad_Plot_Seedance':'🎬','Dialogue':'💬','PPT_Multi':'📑','Comic':'🖼','Digital':'🤖','Extract':'🧊'})[item.template] || '📖';
+                            const timeStr = item.create_time ? item.create_time.split(' ')[1] || item.create_time : '';
+                            return '<div class="reels-item" style="opacity:0.65;">' +
+                                '<div style="width:40px;height:54px;border-radius:6px;background:linear-gradient(135deg, #ff475733, #ff6b8133);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">' + tmplEmoji + '</div>' +
+                                '<div class="reels-item-body"><div class="reels-item-title" style="font-size:12px;">' + escapeHtml(item.book_name || item.title || 'Untitled') + '</div>' +
+                                '<div class="reels-item-status fail" style="font-size:10px;">❌ ' + escapeHtml(tmplName) + (timeStr ? ' · ' + timeStr : '') + '</div></div></div>';
+                        }).join('');
+
+                        failedHtml = '<div style="margin-top:8px;border-top:1px solid var(--hairline);">' +
+                            '<div onclick="document.getElementById(\'failedReelsList\').style.display=document.getElementById(\'failedReelsList\').style.display===\'none\'?\'block\':\'none\';this.querySelector(\'.failed-arrow\').textContent=document.getElementById(\'failedReelsList\').style.display===\'none\'?\'▸\':\'▾\'" style="padding:8px 4px;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-mute);user-select:none;">' +
+                            '<span class="failed-arrow">▸</span><span>❌ Failed (' + failedItems.length + ')</span></div>' +
+                            '<div id="failedReelsList" style="display:none;padding:0 0 4px;">' + failedListHtml + '</div></div>';
+                    }
+
+                    listEl.innerHTML = activeHtml + failedHtml;
                 } else {
                     listEl.innerHTML = '';
                     if (emptyEl) emptyEl.style.display = '';
@@ -6929,12 +6964,6 @@ function renderMyBooks() {
             } else {
                 container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--ink-mute);font-size:13px;">No assets found</div>';
             }
-        }
-
-        let reelBookDebounceTimer = null;
-        function debounceReelBookSearch(val) {
-            clearTimeout(reelBookDebounceTimer);
-            reelBookDebounceTimer = setTimeout(() => searchReelBooks(val), 500);
         }
 
         // Search books for reels section
