@@ -6477,12 +6477,10 @@ function renderMyBooks() {
                 // Filter: only show reels belonging to this user
                 const currentUser = AppState.user?.username || '';
                 const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
-                const myBookNames = (AppState.myBooks || []).map(b => (b.title || b.bookName || '').toLowerCase());
                 const filteredItems = items.filter(item => {
                     const itemId = String(item.id || item.task_id || '');
                     if (myReelIds.includes(itemId)) return true;
                     if (item.remark && item.remark.startsWith('nf_' + currentUser + '_')) return true;
-                    if (currentUser && item.book_name && myBookNames.includes(item.book_name.toLowerCase())) return true;
                     return false;
                 });
                 const quickActive = filteredItems.filter(item => { const s = item.status || ''; return s !== 'failed' && s !== -1 && s !== 'fail'; });
@@ -6761,12 +6759,10 @@ function renderMyBooks() {
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
                 const currentUser = AppState.user?.username || '';
                 const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
-                const myBookNames = (AppState.myBooks || []).map(b => (b.title || b.bookName || '').toLowerCase());
                 const filteredItems = items.filter(item => {
                     const itemId = String(item.id || item.task_id || '');
                     if (myReelIds.includes(itemId)) return true;
                     if (item.remark && item.remark.startsWith('nf_' + currentUser + '_')) return true;
-                    if (currentUser && item.book_name && myBookNames.includes(item.book_name.toLowerCase())) return true;
                     return false;
                 });
 
@@ -7185,13 +7181,11 @@ function renderMyBooks() {
                 // Filter: only show reels belonging to this user
                 const currentUser = AppState.user?.username || '';
                 const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
-                const myBookNames = (AppState.myBooks || []).map(b => (b.title || b.bookName || '').toLowerCase());
                 const filteredItems = items.filter(item => {
                     const itemId = String(item.id || item.task_id || '');
                     // Match by: stored task ID, remark prefix, or book name in myBooks
                     if (myReelIds.includes(itemId)) return true;
                     if (item.remark && item.remark.startsWith('nf_' + currentUser + '_')) return true;
-                    if (currentUser && item.book_name && myBookNames.includes(item.book_name.toLowerCase())) return true;
                     return false;
                 });
                 if (result.success && filteredItems.length > 0) {
