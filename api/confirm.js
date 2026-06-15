@@ -347,7 +347,7 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, languageCode
     body: JSON.stringify({
       linkName,
       applicationId: BOOKSTORE_APP_ID,
-      mediaSource: 'SocialMedia',
+      mediaSource: cpsChannel ? cpsChannel.fullChannelCode : 'SocialMedia',
       channelName,
       channelNameId,
       contentType: 1,
