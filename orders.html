@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>订单管理 - NovelFlow</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a12; color: #e0e0e0; min-height: 100vh; }
+
+/* Header */
+.header { background: linear-gradient(180deg, #12121e 0%, #0a0a12 100%); padding: 24px 20px 16px; text-align: center; }
+.header h1 { font-size: 22px; color: #fff; font-weight: 700; letter-spacing: 1px; }
+.header p { font-size: 13px; color: #555; margin-top: 4px; }
+
+/* Container */
+.container { max-width: 640px; margin: 0 auto; padding: 0 16px 32px; }
+
+/* Tabs */
+.tabs { display: flex; gap: 0; margin: 16px 0; background: #16162a; border-radius: 12px; overflow: hidden; border: 1px solid #222; }
+.tab { flex: 1; padding: 14px; text-align: center; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; color: #666; }
+.tab.active { background: #6c5ce7; color: #fff; }
+
+/* Form */
+.form-card { background: #12121e; border-radius: 16px; padding: 24px; border: 1px solid #1e1e35; }
+.form-group { margin-bottom: 20px; }
+.form-group label { display: block; font-size: 13px; color: #777; margin-bottom: 8px; font-weight: 500; }
+.form-group input, .form-group select {
+  width: 100%; padding: 14px 16px; background: #0a0a12; border: 1px solid #222; border-radius: 10px;
+  color: #fff; font-size: 15px; outline: none; transition: border-color 0.2s;
+}
+.form-group input:focus, .form-group select:focus { border-color: #6c5ce7; }
+.form-group select option { background: #12121e; }
+
+.plan-options { display: flex; flex-direction: column; gap: 10px; }
+.plan-option {
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+  background: #0a0a12; border: 1px solid #1e1e35; border-radius: 10px;
+  cursor: pointer; transition: all 0.2s;
+}
+.plan-option:has(input:checked) { border-color: #6c5ce7; background: #1a0f35; }
+.plan-option input { width: 18px; height: 18px; accent-color: #6c5ce7; }
+.plan-option .plan-name { font-size: 14px; color: #ddd; }
+.plan-option .plan-price { margin-left: auto; color: #6c5ce7; font-weight: 600; font-size: 14px; }
+
+.submit-btn {
+  width: 100%; padding: 16px; background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+  border: none; border-radius: 12px; color: #fff; font-size: 16px; font-weight: 700;
+  cursor: pointer; margin-top: 4px; transition: opacity 0.2s;
+}
+.submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Section cards */
+.section-card {
+  background: #12121e; border-radius: 16px; padding: 20px;
+  border: 1px solid #1e1e35; margin-bottom: 16px;
+}
+.section-title {
+  font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* Big number stats */
+.stat-row { display: flex; gap: 12px; margin-bottom: 16px; }
+.stat-block {
+  flex: 1; background: #0a0a12; border-radius: 12px; padding: 16px 12px;
+  text-align: center; border: 1px solid #1e1e35;
+}
+.stat-label { font-size: 11px; color: #666; margin-bottom: 6px; letter-spacing: 0.5px; }
+.stat-num { font-size: 28px; font-weight: 800; line-height: 1; }
+.stat-num.white { color: #e0e0e0; }
+.stat-num.red { color: #ff6b6b; }
+.stat-num.green { color: #00b894; }
+.stat-num.purple { color: #a29bfe; }
+.stat-num.gold { color: #ffd700; }
+.stat-num.yellow { color: #fdcb6e; }
+
+/* === Personal Panel Hero === */
+.hero-panel {
+  background: linear-gradient(135deg, #1a0f35 0%, #12121e 50%, #0f1a12 100%);
+  border-radius: 16px; padding: 24px 20px; border: 1px solid #2a1f45;
+  margin-bottom: 16px; position: relative; overflow: hidden;
+}
+.hero-panel::before {
+  content: '¥'; position: absolute; right: -10px; top: -20px;
+  font-size: 120px; font-weight: 900; color: rgba(108,92,231,0.06);
+  pointer-events: none; line-height: 1;
+}
+.hero-name { font-size: 14px; color: #777; margin-bottom: 4px; }
+.hero-big { font-size: 44px; font-weight: 900; color: #00e676; line-height: 1.1; margin-bottom: 2px; }
+.hero-big .currency { font-size: 24px; color: #00c853; margin-right: 2px; }
+.hero-sub { font-size: 12px; color: #555; margin-bottom: 20px; }
+
+.hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hero-item {
+  background: rgba(10,10,18,0.6); border-radius: 10px; padding: 12px;
+  text-align: center; border: 1px solid rgba(42,31,69,0.5);
+}
+.hero-item.full { grid-column: 1 / -1; }
+.hero-item-label { font-size: 10px; color: #555; margin-bottom: 4px; letter-spacing: 0.5px; }
+.hero-item-val { font-size: 18px; font-weight: 800; }
+.hero-item-val.g { color: #00e676; }
+.hero-item-val.y { color: #ffd700; }
+.hero-item-val.r { color: #ff6b6b; }
+.hero-item-val.p { color: #a29bfe; }
+.hero-item-val.w { color: #ddd; }
+.hero-item-val.o { color: #ff9800; }
+
+/* Fee callout */
+.fee-callout {
+  background: linear-gradient(135deg, #2a1a0a, #1a0f0f);
+  border: 1px solid #ff9800; border-radius: 12px; padding: 14px 16px;
+  margin-top: 12px; display: flex; justify-content: space-between; align-items: center;
+}
+.fee-callout .fc-label { font-size: 13px; color: #ff9800; font-weight: 600; }
+.fee-callout .fc-val { font-size: 22px; font-weight: 900; color: #ff9800; }
+.fee-callout .fc-hint { font-size: 10px; color: #b36b00; margin-top: 2px; }
+
+/* Profit callout */
+.profit-callout {
+  background: linear-gradient(135deg, #0a2a1a, #0f1a12);
+  border: 1px solid #00e676; border-radius: 12px; padding: 14px 16px;
+  margin-top: 10px; display: flex; justify-content: space-between; align-items: center;
+}
+.profit-callout .pc-label { font-size: 13px; color: #00e676; font-weight: 600; }
+.profit-callout .pc-val { font-size: 22px; font-weight: 900; color: #00e676; }
+
+/* Money grid */
+.money-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.money-item { background: #0a0a12; border-radius: 10px; padding: 12px; text-align: center; border: 1px solid #1a1a2e; }
+.money-label { font-size: 10px; color: #555; margin-bottom: 4px; }
+.money-value { font-size: 16px; font-weight: 700; }
+
+/* Search + Filter */
+.search-wrap { margin-bottom: 12px; }
+.search-input {
+  width: 100%; padding: 12px 16px 12px 40px; background: #12121e; border: 1px solid #1e1e35;
+  border-radius: 10px; color: #fff; font-size: 14px; outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23666' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 10-1.397 1.398h-.001l3.85 3.85a1 1 0 001.415-1.414l-3.85-3.85zm-5.242.156a5 5 0 110-10 5 5 0 010 10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: 14px center;
+}
+.search-input:focus { border-color: #6c5ce7; }
+.search-input::placeholder { color: #444; }
+
+.status-filters { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+.sf-chip {
+  padding: 8px 14px; background: #12121e; border: 1px solid #1e1e35; border-radius: 20px;
+  cursor: pointer; font-size: 13px; transition: all 0.2s; color: #666;
+}
+.sf-chip.active { border-color: #6c5ce7; color: #fff; background: #1a0f35; }
+
+.creator-tabs { display:flex; gap:6px; margin:12px 0; overflow-x:auto; padding-bottom:4px; }
+.ctab { padding:8px 18px; border-radius:20px; border:1px solid #333; background:#1a1a1a; color:#888; font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap; transition:all .15s; }
+.ctab:hover { border-color:#555; color:#bbb; }
+.ctab.active { border-color:#6c5ce7; color:#fff; background:#1a0f35; }
+
+/* Order list */
+.order-item {
+  background: #0a0a12; border-radius: 12px; padding: 16px; margin-bottom: 10px;
+  border: 1px solid #1a1a2e; transition: border-color 0.2s;
+}
+.order-item:hover { border-color: #333; }
+.order-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.order-plan { font-size: 15px; font-weight: 600; }
+.order-amount { font-size: 15px; color: #ffd700; font-weight: 700; }
+.order-phone { font-size: 13px; color: #666; margin-bottom: 10px; }
+
+/* Breakdown */
+.breakdown { border-top: 1px solid #1a1a2e; padding-top: 10px; }
+.bk-row { display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; color: #777; }
+.bk-row.cost { color: #555; }
+.bk-row.fee { color: #ff6b6b; }
+.bk-row.total { color: #ddd; font-weight: 600; font-size: 13px; border-top: 1px solid #222; margin-top: 6px; padding-top: 8px; }
+.bk-split { padding-left: 20px; }
+.bk-split .bk-row { color: #999; font-size: 12px; }
+.bk-row.mr { color: #a29bfe; }
+.bk-row.mine { color: #00b894; font-weight: 600; font-size: 13px; }
+
+/* Status */
+.status-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #1a1a2e; }
+.status-label { font-size: 12px; color: #666; }
+.status-select {
+  padding: 6px 10px; background: #12121e; border: 1px solid #222;
+  border-radius: 8px; color: #fff; font-size: 12px; flex: 1;
+}
+.lock-badge { font-size: 11px; color: #00b894; background: #0a2a1a; padding: 4px 10px; border-radius: 6px; }
+
+.order-time { font-size: 11px; color: #444; margin-top: 8px; }
+
+.empty { text-align: center; padding: 48px 20px; color: #444; font-size: 14px; }
+.toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #00b894; color: #fff; padding: 12px 28px; border-radius: 10px; font-size: 14px; font-weight: 600; z-index: 999; display: none; }
+.toast.error { background: #e74c3c; }
+
+/* Draft order */
+.draft-item {
+  background: #0a0a12; border-radius: 12px; padding: 14px 16px; margin-bottom: 8px;
+  border: 1px solid #e17055; display: flex; align-items: center; justify-content: space-between;
+}
+.draft-info { display: flex; flex-direction: column; gap: 2px; }
+.draft-main { font-size: 14px; color: #ddd; }
+.draft-sub { font-size: 12px; color: #666; }
+.draft-actions { display: flex; gap: 8px; }
+.draft-btn {
+  padding: 8px 14px; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.draft-btn.confirm { background: #00b894; color: #fff; }
+.draft-btn.delete { background: #2d2d3f; color: #e17055; }
+
+/* Count-up animation */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.anim-in { animation: fadeUp 0.4s ease-out; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📋 订单管理</h1>
+  <p>NovelFlow 内部订单</p>
+</div>
+
+<div class="container">
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('summary')">订单汇总</div>
+    <div class="tab" onclick="switchTab('daily')">日维度</div>
+  </div>
+
+  <!-- Add Order Modal -->
+  <div id="addModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:100;overflow-y:auto">
+    <div style="max-width:440px;margin:40px auto;background:#12121e;border-radius:16px;border:1px solid #1e1e35;overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #1e1e35">
+        <span style="font-size:16px;font-weight:700;color:#fff">新增订单</span>
+        <span style="font-size:20px;color:#555;cursor:pointer;padding:4px 8px" onclick="closeAddModal()">✕</span>
+      </div>
+      <div style="padding:20px">
+        <div class="form-group">
+          <label>开单人</label>
+          <select id="creator">
+            <option value="">选择开单人</option>
+            <option value="波比">波比</option>
+            <option value="迷人">迷人</option>
+            <option value="老师">老师</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>订单手机号</label>
+          <input type="tel" id="phone" placeholder="输入手机号" maxlength="11">
+        </div>
+        <div class="form-group">
+          <label>选择版本</label>
+          <div class="plan-options">
+            <label class="plan-option">
+              <input type="radio" name="plan" value="个人高阶版" data-price="70" data-cost="45">
+              <span class="plan-name">个人高阶版</span>
+              <span class="plan-price">¥70</span>
+            </label>
+            <label class="plan-option">
+              <input type="radio" name="plan" value="个人旗舰版" data-price="125" data-cost="89">
+              <span class="plan-name">个人旗舰版</span>
+              <span class="plan-price">¥125</span>
+            </label>
+            <label class="plan-option">
+              <input type="radio" name="plan" value="高阶年卡" data-price="0" data-cost="0">
+              <span class="plan-name">高阶年卡</span>
+              <span class="plan-price">¥0</span>
+            </label>
+            <label class="plan-option">
+              <input type="radio" name="plan" value="旗舰年卡" data-price="0" data-cost="0">
+              <span class="plan-name">旗舰年卡</span>
+              <span class="plan-price">¥0</span>
+            </label>
+            <label class="plan-option">
+              <input type="radio" name="plan" value="个人尊享版" data-price="0" data-cost="0">
+              <span class="plan-name">个人尊享版</span>
+              <span class="plan-price">待定</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>订单金额 (元)</label>
+          <input type="number" id="amount" placeholder="选版本后自动填入" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>备注 (选填)</label>
+          <select id="remark">
+            <option value="">无</option>
+            <option value="波比垫资给周">波比垫资给周</option>
+            <option value="迷人垫资给周">迷人垫资给周</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>是否投流单</label>
+          <select id="isAdOrder">
+            <option value="否">否</option>
+            <option value="是">是（闲鱼投流）</option>
+          </select>
+        </div>
+        <button class="submit-btn" id="submitBtn" onclick="submitOrder()">提交订单</button>
+      </div>
+    </div>
+  </div>
+  <!-- FAB button -->
+  <div id="addFab" style="position:fixed;bottom:28px;right:28px;width:52px;height:52px;background:linear-gradient(135deg,#6c5ce7,#a29bfe);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 16px rgba(108,92,231,0.4);z-index:99;font-size:26px;color:#fff;font-weight:300;transition:transform 0.2s" onclick="window.open('https://s.novelflow.top/coze','_blank')" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">+</div>
+
+  <div id="dailyPanel" style="display:none">
+    <div class="creator-tabs" id="dailyFilterBar"></div>
+    <div id="dailyContent"></div>
+  </div>
+
+  <div id="summaryPanel">
+    <div id="draftSection" style="display:none">
+      <div class="section-card" style="border-color:#e17055">
+        <div class="section-title">📝 拟定订单 <span style="font-size:11px;color:#e17055;font-weight:400">（待确认，不参与统计）</span></div>
+        <div id="draftList"></div>
+      </div>
+    </div>
+
+    <!-- Search + Status Filter -->
+    <div class="search-wrap">
+      <input class="search-input" id="phoneSearch" placeholder="搜索手机号..." oninput="renderSummary()">
+    </div>
+    <div class="status-filters" id="statusFilters">
+      <div class="sf-chip active" data-status="all" onclick="setStatusFilter('all')">全部</div>
+      <div class="sf-chip" data-status="未收货" onclick="setStatusFilter('未收货')">⏳ 未收货</div>
+      <div class="sf-chip" data-status="已收货" onclick="setStatusFilter('已收货')">✅ 已收货</div>
+      <div class="sf-chip" data-status="已交付" onclick="setStatusFilter('已交付')">💰 已交付</div>
+    </div>
+
+    <div class="creator-tabs" id="creatorTabs"></div>
+    <div id="summaryContent"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '/api/orders';
+let orders = [];
+let statusFilter = 'all';
+
+// Page init: load data immediately
+loadSummary();
+
+const PLAN_INFO = {
+  '个人高阶版': { price: 70, cost: 45 },
+  '个人旗舰版': { price: 125, cost: 89 },
+  '个人尊享版': { price: 0, cost: 0 },
+  '高阶年卡': { price: 0, cost: 739, mrRate: 0.2 },
+  '旗舰年卡': { price: 0, cost: 0, mrRate: 0.2 }
+};
+
+const FEE_RATE = {
+  '波比': 0.016,
+  '周众': 0.006,
+  '周众（孙尚香人柱力）': 0.006,
+  '周总': 0.006,
+  '迷人': 0.016,
+  '老师': 0
+};
+
+const DISPLAY_NAME = {
+  '周众（孙尚香人柱力）': '周众',
+  '周总': '周众'
+};
+
+const HIDDEN_CREATORS = new Set(['周众']);
+function getDisplayName(c) { return DISPLAY_NAME[c] || c; }
+function getFeeCreator(c) {
+  // Normalize for fee lookup
+  if (c === '周众（孙尚香人柱力）' || c === '周总') return '周众';
+  return c;
+}
+
+const MR_RATE = 0.30;
+let selectedCreator = 'all'; // 'all' or specific creator name
+
+document.querySelectorAll('input[name="plan"]').forEach(el => {
+  el.addEventListener('change', () => {
+    const price = parseInt(el.dataset.price);
+    if (price > 0) document.getElementById('amount').value = price;
+  });
+});
+
+function calcBreakdown(amount, creator, plan, costOverride, mrRateOverride) {
+  const cost = costOverride !== undefined ? costOverride : ((PLAN_INFO[plan] && PLAN_INFO[plan].cost) || 0);
+  const feeRate = FEE_RATE[creator] || FEE_RATE[getFeeCreator(creator)] || 0;
+  const fee = amount * feeRate;
+  const profit = amount - cost - fee;
+  const mrRate = mrRateOverride !== undefined ? mrRateOverride : ((PLAN_INFO[plan] && PLAN_INFO[plan].mrRate) || MR_RATE);
+  const mrCut = profit > 0 ? profit * mrRate : 0;
+  const myIncome = profit > 0 ? profit * (1 - mrRate) : 0;
+  return { cost, fee, feeRate, profit, mrCut, myIncome, mrRate };
+}
+
+function normalizeOrders(arr) {
+  return arr.map(o => {
+    o.amount = Number(o.amount) || 0;
+    const planDefault = PLAN_INFO[o.plan];
+    if (o.cost === undefined || o.cost === null || o.cost === '') {
+      o.cost = (planDefault && planDefault.cost) || 0;
+    } else {
+      o.cost = Number(o.cost) || 0;
+      if (o.cost === 0 && planDefault && planDefault.cost) o.cost = planDefault.cost;
+    }
+    if (o.mrRate !== undefined) o.mrRate = Number(o.mrRate);
+    else if (planDefault && planDefault.mrRate) o.mrRate = planDefault.mrRate;
+    return o;
+  });
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('summaryPanel').style.display = 'none';
+  document.getElementById('dailyPanel').style.display = 'none';
+  if (tab === 'summary') {
+    document.querySelectorAll('.tab')[0].classList.add('active');
+    document.getElementById('summaryPanel').style.display = '';
+    loadSummary();
+  } else if (tab === 'daily') {
+    document.querySelectorAll('.tab')[1].classList.add('active');
+    document.getElementById('dailyPanel').style.display = '';
+    loadDaily();
+  }
+}
+
+function openAddModal() {
+  document.getElementById('addModal').style.display = '';
+}
+function closeAddModal() {
+  document.getElementById('addModal').style.display = 'none';
+}
+
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (isError ? ' error' : '');
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2500);
+}
+
+function setStatusFilter(status) {
+  statusFilter = status;
+  document.querySelectorAll('.sf-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.status === status);
+  });
+  renderSummary();
+}
+
+async function submitOrder() {
+  const creator = document.getElementById('creator').value;
+  const phone = document.getElementById('phone').value.trim();
+  const planEl = document.querySelector('input[name="plan"]:checked');
+  const amount = document.getElementById('amount').value;
+  if (!creator) return showToast('请选择开单人', true);
+  if (!phone) return showToast('请输入手机号', true);
+  if (!planEl) return showToast('请选择版本', true);
+  if (!amount) return showToast('请输入金额', true);
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true; btn.textContent = '提交中...';
+  try {
+    const remark = document.getElementById('remark').value;
+    const res = await fetch(API, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ creator, phone, plan: planEl.value, amount: parseFloat(amount), remark: remark || undefined, isAdOrder: document.getElementById('isAdOrder').value })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    showToast('订单提交成功！');
+    document.getElementById('creator').value = '';
+    document.getElementById('phone').value = '';
+    document.querySelectorAll('input[name="plan"]').forEach(r => r.checked = false);
+    document.getElementById('amount').value = '';
+    document.getElementById('remark').value = '';
+    document.getElementById('isAdOrder').value = '否';
+    closeAddModal();
+  } catch (e) {
+    showToast('提交失败: ' + e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = '提交订单';
+  }
+}
+
+const CREATOR_COLORS = {
+  '波比': { bg: '#1a3520', border: '#00e676', text: '#00e676' },
+  '周众': { bg: '#1a2040', border: '#448aff', text: '#448aff' },
+  '周众（孙尚香人柱力）': { bg: '#1a2040', border: '#448aff', text: '#448aff' },
+  '周总': { bg: '#1a2040', border: '#448aff', text: '#448aff' },
+  '迷人': { bg: '#2a1a35', border: '#a29bfe', text: '#a29bfe' },
+  '老师': { bg: '#1a2530', border: '#4dd0e1', text: '#4dd0e1' }
+};
+
+function getCreatorColor(c) { return CREATOR_COLORS[c] || { bg: '#1a0f35', border: '#6c5ce7', text: '#fff' }; }
+
+function renderCreatorTabs() {
+  const rawCreators = [...new Set(orders.filter(o => o.status !== 'draft').map(o => o.creator))];
+  // Merge by display name (e.g. "周众（孙尚香人柱力）" and "周众" both show as "周众")
+  const displayNameSet = [...new Set(rawCreators.map(c => getDisplayName(c)))].filter(c => !HIDDEN_CREATORS.has(c));
+  const bar = document.getElementById('creatorTabs');
+  let html = `<div class="ctab ${selectedCreator==='all'?'active':''}" onclick="selectCreator('all')">👥 全部</div>`;
+  displayNameSet.forEach(name => {
+    const cc = getCreatorColor(name);
+    const active = selectedCreator === name;
+    html += `<div class="ctab ${active?'active':''}" style="${active?`background:${cc.bg};border-color:${cc.border};color:${cc.text}`:''}" onclick="selectCreator('${name}')">${name}</div>`;
+  });
+  bar.innerHTML = html;
+}
+
+function selectCreator(c) {
+  selectedCreator = c;
+  renderCreatorTabs();
+  renderSummary();
+}
+
+function toggleFilter(creator, checked) {
+  selectedCreator = checked ? creator : 'all';
+  renderCreatorTabs();
+  renderSummary();
+}
+
+function getFilteredOrders() {
+  return orders.filter(o => {
+    if (o.status === 'draft') return false;
+    if (selectedCreator !== 'all' && getDisplayName(o.creator) !== selectedCreator) return false;
+    if (statusFilter !== 'all' && o.status !== statusFilter) return false;
+    const search = (document.getElementById('phoneSearch').value || '').trim();
+    if (search && !o.phone.includes(search)) return false;
+    return true;
+  }).sort((a, b) => {
+    const ta = new Date(a.createdAt).getTime() || 0;
+    const tb = new Date(b.createdAt).getTime() || 0;
+    return tb - ta; // 最新下单在前
+  });
+}
+
+// Animated counter
+function animNum(el, target, prefix = '', suffix = '', duration = 800) {
+  const start = 0;
+  const startTime = performance.now();
+  function tick(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+    const current = start + (target - start) * eased;
+    el.textContent = prefix + (Number.isInteger(target) ? Math.round(current) : current.toFixed(2)) + suffix;
+    if (progress < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function renderSummary() {
+  const container = document.getElementById('summaryContent');
+  const filtered = getFilteredOrders();
+
+  if (!filtered.length) {
+    container.innerHTML = '<div class="empty">暂无匹配订单</div>';
+    return;
+  }
+
+  let html = '';
+
+  // Only show global overview when "all" selected
+  if (selectedCreator === 'all') {
+  let gTotal = 0, gCost = 0, gFee = 0, gProfit = 0, gMr = 0, gIncome = 0;
+  let gReceived = 0, gPending = 0, gDelivered = 0, gDeliveredCount = 0, gMrPaid = 0;
+  let gConfirmedIncome = 0, gConfirmedMr = 0; // 已收货+已交付
+  let gPendingIncome = 0, gPendingMr = 0; // 未收货（待确认）
+  let gTotalCount = 0, gDoneCount = 0, gActiveCount = 0;
+  let gRecCount = 0, gPenCount = 0;
+  filtered.forEach(o => {
+    const b = calcBreakdown(o.amount, o.creator, o.plan, o.cost, o.mrRate);
+    gTotal += o.amount; gCost += b.cost; gFee += b.fee;
+    gProfit += b.profit; gMr += b.mrCut; gIncome += b.myIncome;
+    gTotalCount++;
+    if (o.status === '已交付') {
+      gDelivered += o.amount; gDeliveredCount++; gMrPaid += b.mrCut; gDoneCount++;
+      gConfirmedIncome += b.myIncome;
+    } else if (o.status === '已收货') {
+      gReceived += o.amount; gRecCount++; gActiveCount++;
+      gConfirmedIncome += b.myIncome; gConfirmedMr += b.mrCut;
+    } else {
+      gPending += o.amount; gPenCount++; gActiveCount++;
+      gPendingIncome += b.myIncome; gPendingMr += b.mrCut;
+    }
+  });
+
+  html += `<div class="section-card">
+    <div class="section-title">📊 总览</div>
+    <div class="stat-row">
+      <div class="stat-block"><div class="stat-label">总订单</div><div class="stat-num white">${gTotalCount}</div></div>
+      <div class="stat-block"><div class="stat-label">🔴 进行中</div><div class="stat-num red">${gActiveCount}</div></div>
+      <div class="stat-block"><div class="stat-label">🟢 已完结</div><div class="stat-num green">${gDoneCount}</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0">
+      <div style="background:#0d2a1a;border:1px solid #00e676;border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:#00e676;margin-bottom:4px">💚 总到手利润</div>
+        <div style="font-size:22px;font-weight:700;color:#00e676">¥${gConfirmedIncome.toFixed(2)}</div>
+        <div style="font-size:9px;color:#555;margin-top:2px">已收货+已交付</div>
+      </div>
+      <div style="background:#2a1a0a;border:1px solid #ff6b35;border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:#ff6b35;margin-bottom:4px">🔥 总待付技术服务费</div>
+        <div style="font-size:22px;font-weight:700;color:#ff6b35">¥${gConfirmedMr.toFixed(2)}</div>
+        <div style="font-size:9px;color:#555;margin-top:2px">仅已收货</div>
+      </div>
+      <div style="background:#1a1a0a;border:1px solid #fdcb6e;border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:#fdcb6e;margin-bottom:4px">⏳ 总未到手的</div>
+        <div style="font-size:22px;font-weight:700;color:#fdcb6e">¥${gPendingIncome.toFixed(2)}</div>
+        <div style="font-size:9px;color:#555;margin-top:2px">未收货</div>
+      </div>
+      <div style="background:#1a0f0a;border:1px solid #b36b00;border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:#b36b00;margin-bottom:4px">⏳ 总未要付的</div>
+        <div style="font-size:22px;font-weight:700;color:#b36b00">¥${gPendingMr.toFixed(2)}</div>
+        <div style="font-size:9px;color:#555;margin-top:2px">未收货</div>
+      </div>
+    </div>
+    <div class="money-grid">
+      <div class="money-item"><div class="money-label">订单总额</div><div class="money-value" style="color:#ffd700">¥${gTotal.toFixed(0)}</div></div>
+      <div class="money-item"><div class="money-label">⏳ 待收货 (${gPenCount}单)</div><div class="money-value" style="color:#fdcb6e">¥${gPending.toFixed(0)}</div></div>
+      <div class="money-item"><div class="money-label">✅ 已收货 (${gRecCount}单)</div><div class="money-value" style="color:#00b894">¥${gReceived.toFixed(0)}</div></div>
+      <div class="money-item"><div class="money-label">💰 已交付 (${gDeliveredCount}单)</div><div class="money-value" style="color:#a29bfe">¥${gDelivered.toFixed(0)}</div></div>
+      <div class="money-item"><div class="money-label">💵 已分润(已交付)</div><div class="money-value" style="color:#fdcb6e">¥${gMrPaid.toFixed(2)}</div></div>
+    </div>
+  </div>`;
+  } // end if selectedCreator === 'all'
+
+  // === Per-creator hero panel ===
+  const groups = {};
+  filtered.forEach(o => {
+    const key = getDisplayName(o.creator);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(o);
+  });
+
+  for (const [displayName, list] of Object.entries(groups)) {
+    const creator = list[0].creator; // raw name for fee calc
+    let cTotal = 0, cCost = 0, cFee = 0, cProfit = 0, cMr = 0, cIncome = 0;
+    let cReceived = 0, cPending = 0, cDelivered = 0, cRecCount = 0, cDeliveredCount = 0, cMrPaid = 0;
+    let cTotalCount = 0, cDoneCount = 0, cActiveCount = 0, cPenCount = 0;
+    let cConfirmedIncome = 0, cConfirmedMr = 0; // 已收货+已交付
+    let cPendingIncome = 0, cPendingMr = 0; // 未收货
+    list.forEach(o => {
+      const b = calcBreakdown(o.amount, o.creator, o.plan, o.cost, o.mrRate);
+      cTotal += o.amount; cCost += b.cost; cFee += b.fee;
+      cProfit += b.profit; cMr += b.mrCut; cIncome += b.myIncome;
+      cTotalCount++;
+      if (o.status === '已交付') {
+        cDelivered += o.amount; cDeliveredCount++; cMrPaid += b.mrCut; cDoneCount++;
+        cConfirmedIncome += b.myIncome;
+      } else if (o.status === '已收货') {
+        cReceived += o.amount; cRecCount++; cActiveCount++;
+        cConfirmedIncome += b.myIncome; cConfirmedMr += b.mrCut;
+      } else {
+        cPending += o.amount; cPenCount++; cActiveCount++;
+        cPendingIncome += b.myIncome; cPendingMr += b.mrCut;
+      }
+    });
+
+    const feeRate = FEE_RATE[creator] || FEE_RATE[getFeeCreator(creator)] || 0;
+    const cc = getCreatorColor(displayName);
+
+    html += `<div class="hero-panel anim-in" style="border-top:3px solid ${cc.border}">
+      <div class="hero-name">👤 ${displayName} <span style="font-size:11px;color:#555">${cTotalCount}单</span></div>
+      <div class="hero-big"><span class="currency">¥</span>${cConfirmedIncome.toFixed(2)}</div>
+      <div class="hero-sub" style="color:${cc.text}">到手利润（已收货+已交付的钱）</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0 12px">
+        <div style="background:#0d2a1a;border:1px solid #00e676;border-radius:12px;padding:12px;text-align:center">
+          <div style="font-size:11px;color:#00e676;margin-bottom:4px">💚 到手利润</div>
+          <div style="font-size:22px;font-weight:700;color:#00e676">¥${cConfirmedIncome.toFixed(2)}</div>
+          <div style="font-size:9px;color:#555;margin-top:2px">已收货+已交付</div>
+        </div>
+        <div style="background:#2a1a0a;border:1px solid #ff6b35;border-radius:12px;padding:12px;text-align:center">
+          <div style="font-size:11px;color:#ff6b35;margin-bottom:4px">🔥 要付给迷人的</div>
+          <div style="font-size:22px;font-weight:700;color:#ff6b35">¥${cConfirmedMr.toFixed(2)}</div>
+          <div style="font-size:9px;color:#555;margin-top:2px">仅已收货（已交付=已付过）</div>
+        </div>
+        <div style="background:#1a1a0a;border:1px solid #fdcb6e;border-radius:12px;padding:12px;text-align:center">
+          <div style="font-size:11px;color:#fdcb6e;margin-bottom:4px">⏳ 还没到手的利润</div>
+          <div style="font-size:22px;font-weight:700;color:#fdcb6e">¥${cPendingIncome.toFixed(2)}</div>
+          <div style="font-size:9px;color:#555;margin-top:2px">未收货，到了再加</div>
+        </div>
+        <div style="background:#1a0f0a;border:1px solid #b36b00;border-radius:12px;padding:12px;text-align:center">
+          <div style="font-size:11px;color:#b36b00;margin-bottom:4px">⏳ 还没要付的</div>
+          <div style="font-size:22px;font-weight:700;color:#b36b00">¥${cPendingMr.toFixed(2)}</div>
+          <div style="font-size:9px;color:#555;margin-top:2px">未收货，收货后再付</div>
+        </div>
+      </div>
+
+      <div class="hero-grid">
+        <div class="hero-item"><div class="hero-item-label">订单总额</div><div class="hero-item-val y">¥${cTotal.toFixed(0)}</div></div>
+        <div class="hero-item"><div class="hero-item-label">成本</div><div class="hero-item-val w">¥${cCost.toFixed(0)}</div></div>
+        <div class="hero-item"><div class="hero-item-label">手续费拨出</div><div class="hero-item-val r">-¥${cFee.toFixed(2)}</div></div>
+        <div class="hero-item"><div class="hero-item-label">💵 已分润(已交付)</div><div class="hero-item-val o">¥${cMrPaid.toFixed(2)}</div></div>
+      </div>
+    </div>`;
+
+    // Orders list
+    html += `<div class="section-card"><div class="section-title">📋 ${displayName} 的订单</div>`;
+    list.forEach(o => {
+      const b = calcBreakdown(o.amount, o.creator, o.plan, o.cost, o.mrRate);
+      const statusIcon = o.status === '已交付' ? '💰' : o.status === '已收货' ? '✅' : '⏳';
+      html += `<div class="order-item">
+        <div class="order-head">
+          <span class="order-plan">${statusIcon} ${o.plan}</span>
+          <span class="order-amount">¥${o.amount.toFixed(0)}</span>${o.status!=='已交付'?'<span style="font-size:10px;color:#ff6b6b;background:#2a1515;padding:3px 8px;border-radius:4px;margin-left:6px;white-space:nowrap">⚠️ 请确认交付</span>':''}</div>
+        <div class="order-phone">📱 ${o.phone}${o.isAdOrder==='是'?'<span style="font-size:10px;color:#ff9800;background:#2a1a0a;padding:3px 8px;border-radius:4px;margin-left:6px">📢 投流单</span>':''}</div>
+        <div class="breakdown">
+          <div class="bk-row cost"><span>成本</span><span>-¥${b.cost.toFixed(0)}</span></div>
+          <div class="bk-row fee"><span>咸鱼手续费(${(b.feeRate*100).toFixed(1)}%) 拨出</span><span>-¥${b.fee.toFixed(2)}</span></div>
+          <div class="bk-row total"><span>可分配利润</span><span>¥${b.profit.toFixed(2)}</span></div>
+          <div class="bk-split">
+            <div class="bk-row mr"><span>├ 迷人技术支持 30%</span><span>¥${b.mrCut.toFixed(2)}</span></div>
+            <div class="bk-row mine"><span>└ 💰 我的收入 70%</span><span>¥${b.myIncome.toFixed(2)}</span></div>
+          </div>
+        </div>
+        <div class="status-row">
+          <span class="status-label">状态</span>
+          <select class="status-select" onchange="updateStatus('${o.id}', this.value)" ${o.status==='已交付'?'disabled':''}>
+            <option value="未收货" ${o.status==='未收货'?'selected':''}>📦 未收货</option>
+            <option value="已收货" ${o.status==='已收货'?'selected':''}>✅ 已收货</option>
+            <option value="已交付" ${o.status==='已交付'?'selected':''}>💰 已交付（已分钱）</option>
+          </select>
+          ${o.status==='已交付'?'<span class="lock-badge">🔒 已锁定</span>':''}
+        </div>
+        ${o.remark ? `<div class="order-phone" style="color:#ffaa32;">📝 ${o.remark}</div>` : ''}
+        <div class="order-time">${new Date(o.createdAt).toLocaleString('zh-CN')}</div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  container.innerHTML = html;
+
+  // Animate hero numbers
+  document.querySelectorAll('.hero-big').forEach(el => {
+    const text = el.textContent.replace(/[¥,]/g, '');
+    const target = parseFloat(text);
+    if (!isNaN(target)) {
+      el.innerHTML = '<span class="currency">¥</span><span class="countup">0</span>';
+      const span = el.querySelector('.countup');
+      animNum(span, target, '', '', 1000);
+    }
+  });
+}
+
+async function loadSummary() {
+  try {
+    const res = await fetch(API);
+    orders = normalizeOrders(await res.json());
+  } catch (e) {
+    orders = [];
+  }
+  renderDrafts();
+  renderCreatorTabs();
+  renderSummary();
+}
+
+function renderDrafts() {
+  const drafts = orders.filter(o => o.status === 'draft');
+  const section = document.getElementById('draftSection');
+  const list = document.getElementById('draftList');
+  if (!drafts.length) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  list.innerHTML = drafts.map(d => {
+    const displayName = getDisplayName(d.creator);
+    return `<div class="draft-item">
+      <div class="draft-info">
+        <div class="draft-main">📝 ${displayName} · ${d.plan} · ¥${d.amount}</div>
+        <div class="draft-sub">📱 ${d.phone} · ${new Date(d.createdAt).toLocaleString('zh-CN')}</div>
+      </div>
+      <div class="draft-actions">
+        <button class="draft-btn confirm" onclick="confirmDraft('${d.id}')">✅ 确认</button>
+        <button class="draft-btn delete" onclick="deleteDraft('${d.id}')">🗑 删除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function confirmDraft(id) {
+  try {
+    const res = await fetch(API, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status: '未收货' })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    showToast('拟定订单已确认');
+    const o = orders.find(x => x.id === id);
+    if (o) o.status = '未收货';
+    renderDrafts();
+    renderCreatorTabs();
+    renderSummary();
+  } catch (e) {
+    showToast('确认失败: ' + e.message, true);
+  }
+}
+
+async function deleteDraft(id) {
+  if (!confirm('确定删除这条拟定订单？')) return;
+  try {
+    const res = await fetch(API, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    showToast('拟定订单已删除');
+    orders = orders.filter(o => o.id !== id);
+    renderDrafts();
+    renderCreatorTabs();
+    renderSummary();
+  } catch (e) {
+    showToast('删除失败: ' + e.message, true);
+  }
+}
+
+async function updateStatus(id, status) {
+  const order = orders.find(o => o.id === id);
+  if (order && order.status === '已交付') {
+    showToast('已交付订单不可修改', true);
+    renderSummary();
+    return;
+  }
+  try {
+    const res = await fetch(API, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    showToast('状态已更新');
+    const o = orders.find(x => x.id === id);
+    if (o) o.status = status;
+    renderSummary();
+  } catch (e) {
+    showToast('更新失败: ' + e.message, true);
+  }
+}
+
+// ========== Daily View ==========
+let dailySelectedCreator = 'all';
+
+function loadDaily() {
+  if (!orders.length) {
+    fetch(API).then(r => r.json()).then(data => {
+      orders = normalizeOrders(data);
+      renderDailyTabs();
+      renderDaily();
+    }).catch(() => {});
+  } else {
+    renderDailyTabs();
+    renderDaily();
+  }
+}
+
+function renderDailyTabs() {
+  const rawCreators = [...new Set(orders.filter(o => o.status !== 'draft').map(o => o.creator))];
+  const displayNameSet = [...new Set(rawCreators.map(c => getDisplayName(c)))].filter(c => !HIDDEN_CREATORS.has(c));
+  const bar = document.getElementById('dailyFilterBar');
+  let html = `<div class="ctab ${dailySelectedCreator==='all'?'active':''}" onclick="selectDailyCreator('all')">👥 全部</div>`;
+  displayNameSet.forEach(name => {
+    const cc = getCreatorColor(name);
+    const active = dailySelectedCreator === name;
+    html += `<div class="ctab ${active?'active':''}" style="${active?`background:${cc.bg};border-color:${cc.border};color:${cc.text}`:''}" onclick="selectDailyCreator('${name}')">${name}</div>`;
+  });
+  bar.innerHTML = html;
+}
+
+function selectDailyCreator(c) {
+  dailySelectedCreator = c;
+  renderDailyTabs();
+  renderDaily();
+}
+
+function toggleDailyFilter(creator, checked) {
+  dailySelectedCreator = checked ? creator : 'all';
+  renderDailyTabs();
+  renderDaily();
+}
+
+function renderDaily() {
+  const container = document.getElementById('dailyContent');
+  const filtered = orders.filter(o => {
+    if (o.status === 'draft') return false;
+    if (dailySelectedCreator !== 'all' && getDisplayName(o.creator) !== dailySelectedCreator) return false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    container.innerHTML = '<div class="empty">暂无订单</div>';
+    return;
+  }
+
+  const byDate = {};
+  filtered.forEach(o => {
+    const d = new Date(o.createdAt);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (!byDate[key]) byDate[key] = [];
+    byDate[key].push(o);
+  });
+
+  const sortedDates = Object.keys(byDate).sort().reverse();
+  let html = '';
+
+  sortedDates.forEach(dateKey => {
+    const dayOrders = byDate[dateKey];
+    const weekday = ['日','一','二','三','四','五','六'][new Date(dateKey).getDay()];
+
+    const byCreator = {};
+    dayOrders.forEach(o => {
+      if (!byCreator[o.creator]) byCreator[o.creator] = { count: 0, total: 0, pending: 0, received: 0, delivered: 0, income: 0 };
+      byCreator[o.creator].count++;
+      byCreator[o.creator].total += o.amount;
+      const b = calcBreakdown(o.amount, o.creator, o.plan, o.cost, o.mrRate);
+      byCreator[o.creator].income += b.myIncome;
+      if (o.status === '未收货') byCreator[o.creator].pending++;
+      else if (o.status === '已收货') byCreator[o.creator].received++;
+      else if (o.status === '已交付') byCreator[o.creator].delivered++;
+    });
+
+    html += `<div class="section-card">
+      <div class="section-title">📅 ${dateKey} <span style="font-size:12px;color:#555;font-weight:400">周${weekday} · ${dayOrders.length}单</span></div>`;
+
+    Object.entries(byCreator).forEach(([creator, stat]) => {
+      const dn = getDisplayName(creator);
+      const parts = [];
+      if (stat.pending) parts.push(`⏳${stat.pending}`);
+      if (stat.received) parts.push(`✅${stat.received}`);
+      if (stat.delivered) parts.push(`💰${stat.delivered}`);
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1a1a2e">
+        <span style="font-size:13px;color:#ddd">${dn} <span style="font-size:11px;color:#666">${stat.count}单 ${parts.join(' ')}</span></span>
+        <div>
+          <span style="font-size:14px;color:#ffd700;font-weight:700">¥${stat.total.toFixed(0)}</span>
+          <span style="font-size:12px;color:#00e676;margin-left:8px;font-weight:700">💰到手¥${stat.income.toFixed(2)}</span>
+        </div>
+      </div>`;
+    });
+
+    dayOrders.forEach(o => {
+      const b = calcBreakdown(o.amount, o.creator, o.plan, o.cost, o.mrRate);
+      const statusIcon = o.status === '已交付' ? '💰' : o.status === '已收货' ? '✅' : '⏳';
+      const dn = getDisplayName(o.creator);
+      html += `<div class="order-item">
+        <div class="order-head">
+          <span class="order-plan">${statusIcon} ${dn} · ${o.plan}</span>
+          <div style="display:flex;align-items:center">
+            <span class="order-amount">¥${o.amount.toFixed(0)}</span>
+            ${o.status!=='已交付'?'<span style="font-size:10px;color:#ff6b6b;background:#2a1515;padding:3px 8px;border-radius:4px;margin-left:6px;white-space:nowrap">⚠️ 请确认交付</span>':''}
+          </div>
+        </div>
+        <div class="order-phone">📱 ${o.phone}${o.isAdOrder==='是'?'<span style="font-size:10px;color:#ff9800;background:#2a1a0a;padding:3px 8px;border-radius:4px;margin-left:6px">📢 投流单</span>':''}</div>
+        <div class="status-row">
+          <span class="status-label">状态</span>
+          <select class="status-select" onchange="updateStatus('${o.id}', this.value)" ${o.status==='已交付'?'disabled':''}>
+            <option value="未收货" ${o.status==='未收货'?'selected':''}>📦 未收货</option>
+            <option value="已收货" ${o.status==='已收货'?'selected':''}>✅ 已收货</option>
+            <option value="已交付" ${o.status==='已交付'?'selected':''}>💰 已交付（已分钱）</option>
+          </select>
+          ${o.status==='已交付'?'<span class="lock-badge">🔒 已锁定</span>':''}
+        </div>
+      </div>`;
+    });
+
+    html += '</div>';
+  });
+
+  container.innerHTML = html;
+}
+</script>
+</body>
+</html>
