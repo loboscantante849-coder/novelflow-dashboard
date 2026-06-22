@@ -350,25 +350,13 @@ const PLAN_INFO = {
 
 const FEE_RATE = {
   '波比': 0.016,
-  '周众': 0.006,
-  '周众（孙尚香人柱力）': 0.006,
-  '周总': 0.006,
   '迷人': 0.016,
   '老师': 0
 };
 
-const DISPLAY_NAME = {
-  '周众（孙尚香人柱力）': '周众',
-  '周总': '周众'
-};
-
-const HIDDEN_CREATORS = new Set(['周众']);
-function getDisplayName(c) { return DISPLAY_NAME[c] || c; }
-function getFeeCreator(c) {
-  // Normalize for fee lookup
-  if (c === '周众（孙尚香人柱力）' || c === '周总') return '周众';
-  return c;
-}
+const HIDDEN_CREATORS = new Set([]);
+function getDisplayName(c) { return c; }
+function getFeeCreator(c) { return c; }
 
 const MR_RATE = 0.30;
 let selectedCreator = 'all'; // 'all' or specific creator name
@@ -481,9 +469,6 @@ async function submitOrder() {
 
 const CREATOR_COLORS = {
   '波比': { bg: '#1a3520', border: '#00e676', text: '#00e676' },
-  '周众': { bg: '#1a2040', border: '#448aff', text: '#448aff' },
-  '周众（孙尚香人柱力）': { bg: '#1a2040', border: '#448aff', text: '#448aff' },
-  '周总': { bg: '#1a2040', border: '#448aff', text: '#448aff' },
   '迷人': { bg: '#2a1a35', border: '#a29bfe', text: '#a29bfe' },
   '老师': { bg: '#1a2530', border: '#4dd0e1', text: '#4dd0e1' }
 };
@@ -492,7 +477,7 @@ function getCreatorColor(c) { return CREATOR_COLORS[c] || { bg: '#1a0f35', borde
 
 function renderCreatorTabs() {
   const rawCreators = [...new Set(orders.filter(o => o.status !== 'draft').map(o => o.creator))];
-  // Merge by display name (e.g. "周众（孙尚香人柱力）" and "周众" both show as "周众")
+  // Build creator tab list from active orders
   const displayNameSet = [...new Set(rawCreators.map(c => getDisplayName(c)))].filter(c => !HIDDEN_CREATORS.has(c));
   const bar = document.getElementById('creatorTabs');
   let html = `<div class="ctab ${selectedCreator==='all'?'active':''}" onclick="selectCreator('all')">👥 全部</div>`;
