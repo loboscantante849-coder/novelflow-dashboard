@@ -3,7 +3,7 @@
  * 创建AC视频任务
  */
 
-const REELS_DAILY_LIMIT = 5;
+const REELS_DAILY_LIMIT = 7;
 
 function getLADateString() {
   const now = new Date();
@@ -16,14 +16,14 @@ function getLADateString() {
 
 async function getReelsCount(redis, username, today) {
   try {
-    const key = 'reels_count:' + username + ':' + today;
+    const key = 'reels_count_v2:' + username + ':' + today;
     const val = await redis.get(key);
     return parseInt(val) || 0;
   } catch(e) { return 0; }
 }
 
 async function setReelsCount(redis, username, today, count) {
-  const key = 'reels_count:' + username + ':' + today;
+  const key = 'reels_count_v2:' + username + ':' + today;
   // TTL: 48 hours (2 days) to auto-expire old counts
   await redis.set(key, count, { ex: 172800 });
 }
