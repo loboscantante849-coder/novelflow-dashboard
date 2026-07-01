@@ -2645,7 +2645,8 @@
                 <div class="reels-header">
                     <span class="reels-header-title">🎬 Video Creator</span>
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="font-size:11px;color:var(--ink-mute);" id="reelsDailyInfo">3 left today</span>
+                        <span style="font-size:11px;color:var(--ink-mute);" id="reelsDailyInfo">7 left today</span>
+                        <span style="font-size:10px;color:var(--ink-mute);" id="reelsCountdown">⏰ resets in --:--:--</span>
                         <button class="reels-adv-toggle" id="reelAdvToggle" onclick="toggleAdvMode()">⚙️ Switch to Advanced</button>
                     </div>
                 </div>
@@ -2968,6 +2969,7 @@
                 </div>
 
                 <button class="logout-btn" id="logoutBtn" onclick="handleLogout()">Logout</button>
+                <button class="logout-btn show" id="migrateBtn" onclick="window.location.href='/migrate.html'" style='background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;margin-top:8px;'>🔄 Migrate to novelflow.top</button>
             </div>
 
             <!-- Stats Overview (Earnings/Users/Visits) -->
@@ -3180,8 +3182,8 @@
             
             <div class="modal-result modal-error" id="modalError" style="display:none;">
                 <div class="modal-error-icon">⚠️</div>
-                <div class="modal-error-title">Unable to create link</div>
-                <div class="modal-error-text">This book is not available for promotion yet. Try another one!</div>
+                <div class="modal-error-title" id="modalErrorTitle">Unable to create link</div>
+                <div class="modal-error-text" id="modalErrorText">This book is not available for promotion yet. Try another one!</div>
                 <button class="modal-done-btn" onclick="closeModal()" data-i18n="try_another">Try Another Book</button>
             </div>
             
@@ -4705,15 +4707,24 @@
                     // API failed or returned no real data - show error, NEVER fake data
                     if (modalLoading) modalLoading.style.display = 'none';
                     if (modalError) modalError.style.display = 'block';
+                    var errTitle = document.getElementById('modalErrorTitle');
+                    var errText = document.getElementById('modalErrorText');
+                    var errMsg = result.message || result.error || 'API did not return valid data.';
+                    if (errTitle) errTitle.textContent = 'Link Creation Failed';
+                    if (errText) errText.textContent = errMsg;
                     btn.disabled = false;
                     btn.textContent = 'Start Earning';
-                    showToast('Link creation failed. API did not return valid data.', 'error');
+                    showToast('Link creation failed: ' + errMsg, 'error');
                 }
             } catch (e) {
                 clearInterval(countdownInterval);
                 clearTimeout(timeoutWarning);
                 if (modalLoading) modalLoading.style.display = 'none';
                 if (modalError) modalError.style.display = 'block';
+                var errTitle = document.getElementById('modalErrorTitle');
+                var errText = document.getElementById('modalErrorText');
+                if (errTitle) errTitle.textContent = 'Connection Error';
+                if (errText) errText.textContent = e.message || 'Failed to connect to server';
                 btn.disabled = false;
                 btn.textContent = 'Start Earning';
                 showToast('Failed: ' + e.message, 'error');
@@ -5003,7 +5014,7 @@
                     await updateStep(3, 'failed');
                     await updateStep(4, 'failed');
                     processingStatus.classList.remove('show');
-                    showToast('Link creation failed. API did not return valid data.', 'error');
+                    showToast('Link creation failed: ' + (result.message || result.error || 'API did not return valid data.'), 'error');
                 }
             } catch (e) {
                 await updateStep(3, 'failed');
@@ -5312,7 +5323,7 @@
             const overview = document.getElementById('statsOverview');
             const loadingArea = document.getElementById('statsLoadingArea');
             
-            if (!data || data.total_income === 0) {
+            if (!data) {
                 if (overview) overview.style.display = 'none';
                 if (loadingArea) loadingArea.innerHTML = `
                     <div class="stats-coming-soon">Stats coming soon... Keep promoting books!</div>
@@ -5591,6 +5602,8 @@ function renderMyBooks() {
                 uid.textContent = AppState.user.username ? '@' + AppState.user.username : 'Logged In';
                 loginForm.style.display = 'none';
                 logoutBtn.classList.add('show');
+                const migrateBtn = document.getElementById('migrateBtn');
+                if(migrateBtn) migrateBtn.classList.add('show');
                 // Auto-fill and hide username field when logged in
                 const usernameInput = document.getElementById('discordUsername');
                 const usernameGroup = usernameInput ? usernameInput.closest('.form-group') : null;
@@ -5604,6 +5617,8 @@ function renderMyBooks() {
                 uid.textContent = 'Login to unlock more features';
                 loginForm.style.display = 'block';
                 logoutBtn.classList.remove('show');
+                const migrateBtn = document.getElementById('migrateBtn');
+                if(migrateBtn) migrateBtn.classList.remove('show');
                 // Show username field when not logged in
                 const usernameInput = document.getElementById('discordUsername');
                 const usernameGroup = usernameInput ? usernameInput.closest('.form-group') : null;
@@ -6575,7 +6590,7 @@ function renderMyBooks() {
         function getReelsDailyCount() {
             const today = new Date().toISOString().split('T')[0];
             const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || 'guest';
-            const saved = localStorage.getItem(getUserKey('reels_count'));
+            const saved = localStorage.getItem(getUserKey('reels_count_v2'));
             if (!saved) return 0;
             try {
                 const data = JSON.parse(saved);
@@ -6589,7 +6604,7 @@ function renderMyBooks() {
             const today = new Date().toISOString().split('T')[0];
             const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || 'guest';
             const count = getReelsDailyCount() + 1;
-            localStorage.setItem(getUserKey('reels_count'), JSON.stringify({ date: today, username: username, count: count }));
+            localStorage.setItem(getUserKey('reels_count_v2'), JSON.stringify({ date: today, username: username, count: count }));
             updateReelsDailyInfo(); updateReelsStatusBar();
             return count;
         }
@@ -6598,6 +6613,7 @@ function renderMyBooks() {
             if (el) {
                 const remaining = REELS_DAILY_LIMIT - getReelsDailyCount();
                 el.textContent = remaining + getText('reels_left');
+                updateReelsCountdown();
             }
         }
         const REELS_DAILY_LIMIT = 7;
@@ -6614,6 +6630,26 @@ function renderMyBooks() {
                 statusEl.textContent = '🎬 ' + total + ' reel' + (total > 1 ? 's' : '') + ' · ' + remaining + ' left today';
             }
         }
+
+
+        function updateReelsCountdown() {
+            const el = document.getElementById('reelsCountdown');
+            if (!el) return;
+            try {
+                const now = new Date();
+                const laStr = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+                const laNow = new Date(laStr);
+                const laMidnight = new Date(laNow);
+                laMidnight.setHours(24, 0, 0, 0);
+                const diff = laMidnight - laNow;
+                if (diff <= 0) { el.textContent = '· resetting...'; return; }
+                const h = Math.floor(diff / 3600000);
+                const m = Math.floor((diff % 3600000) / 60000);
+                const s = Math.floor((diff % 60000) / 1000);
+                el.textContent = '⏰ resets in ' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+            } catch(e) { el.textContent = ''; }
+        }
+        setInterval(updateReelsCountdown, 1000);
 
         let reelSelectedBook = null;
 
