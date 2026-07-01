@@ -2646,6 +2646,7 @@
                     <span class="reels-header-title">🎬 Video Creator</span>
                     <div style="display:flex;align-items:center;gap:8px;">
                         <span style="font-size:11px;color:var(--ink-mute);" id="reelsDailyInfo">3 left today</span>
+                        <span style="font-size:10px;color:var(--ink-mute);" id="reelsCountdown">⏰ resets in --:--:--</span>
                         <button class="reels-adv-toggle" id="reelAdvToggle" onclick="toggleAdvMode()">⚙️ Switch to Advanced</button>
                     </div>
                 </div>
@@ -6575,7 +6576,7 @@ function renderMyBooks() {
         function getReelsDailyCount() {
             const today = getLADateString();
             const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || 'guest';
-            const saved = localStorage.getItem(getUserKey('reels_count'));
+            const saved = localStorage.getItem(getUserKey('reels_count_v2'));
             if (!saved) return 0;
             try {
                 const data = JSON.parse(saved);
@@ -6596,7 +6597,7 @@ function renderMyBooks() {
             const today = getLADateString();
             const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || 'guest';
             const count = getReelsDailyCount() + 1;
-            localStorage.setItem(getUserKey('reels_count'), JSON.stringify({ date: today, username: username, count: count }));
+            localStorage.setItem(getUserKey('reels_count_v2'), JSON.stringify({ date: today, username: username, count: count }));
             updateReelsDailyInfo(); updateReelsStatusBar();
             return count;
         }
@@ -6604,7 +6605,7 @@ function renderMyBooks() {
             const today = getLADateString();
             const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || 'guest';
             const count = Math.max(0, getReelsDailyCount() - 1);
-            localStorage.setItem(getUserKey('reels_count'), JSON.stringify({ date: today, username: username, count: count }));
+            localStorage.setItem(getUserKey('reels_count_v2'), JSON.stringify({ date: today, username: username, count: count }));
             updateReelsDailyInfo(); updateReelsStatusBar();
             return count;
         }
@@ -6613,9 +6614,10 @@ function renderMyBooks() {
             if (el) {
                 const remaining = REELS_DAILY_LIMIT - getReelsDailyCount();
                 el.textContent = remaining + getText('reels_left');
+                updateReelsCountdown();
             }
         }
-        const REELS_DAILY_LIMIT = 5;
+        const REELS_DAILY_LIMIT = 7;
 
         function updateReelsStatusBar() {
             const statusEl = document.getElementById('reelsStatusText');
@@ -6629,6 +6631,26 @@ function renderMyBooks() {
                 statusEl.textContent = '🎬 ' + total + ' reel' + (total > 1 ? 's' : '') + ' · ' + remaining + ' left today';
             }
         }
+
+
+        function updateReelsCountdown() {
+            const el = document.getElementById('reelsCountdown');
+            if (!el) return;
+            try {
+                const now = new Date();
+                const laStr = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+                const laNow = new Date(laStr);
+                const laMidnight = new Date(laNow);
+                laMidnight.setHours(24, 0, 0, 0);
+                const diff = laMidnight - laNow;
+                if (diff <= 0) { el.textContent = '· resetting...'; return; }
+                const h = Math.floor(diff / 3600000);
+                const m = Math.floor((diff % 3600000) / 60000);
+                const s = Math.floor((diff % 60000) / 1000);
+                el.textContent = '⏰ resets in ' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+            } catch(e) { el.textContent = ''; }
+        }
+        setInterval(updateReelsCountdown, 1000);
 
         let reelSelectedBook = null;
 
