@@ -1364,13 +1364,24 @@
         .my-book-info { flex: 1; min-width: 0; }
         .my-book-title { font-size: 13px; font-weight: 300; letter-spacing: -0.13px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
         .my-book-code { font-size: 12px; color: var(--primary); font-weight: 400; font-feature-settings: "tnum"; }
+        .my-book-actions {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 4px; flex-shrink: 0;
+        }
         .my-book-copy {
             padding: 6px 14px; background: var(--primary);
             border: none; border-radius: var(--r-pill);
             color: var(--on-primary); font-size: 12px; font-weight: 400;
-            cursor: pointer; flex-shrink: 0; transition: background 0.15s;
+            cursor: pointer; transition: background 0.15s;
         }
         .my-book-copy:hover { background: var(--primary-deep); }
+        .my-book-delete {
+            padding: 4px 8px; background: transparent;
+            border: 1px solid var(--hairline); border-radius: var(--r-sm);
+            font-size: 10px; cursor: pointer; transition: all 0.15s;
+            opacity: 0.6;
+        }
+        .my-book-delete:hover { opacity: 1; border-color: var(--danger); background: rgba(234, 34, 97, 0.05); }
 
         /* Expanded My Book Item */
         .my-book-expanded-item {
@@ -2646,7 +2657,6 @@
                     <span class="reels-header-title">🎬 Video Creator</span>
                     <div style="display:flex;align-items:center;gap:8px;">
                         <span style="font-size:11px;color:var(--ink-mute);" id="reelsDailyInfo">3 left today</span>
-                        <span style="font-size:10px;color:var(--ink-mute);" id="reelsCountdown">⏰ resets in --:--:--</span>
                         <button class="reels-adv-toggle" id="reelAdvToggle" onclick="toggleAdvMode()">⚙️ Switch to Advanced</button>
                     </div>
                 </div>
@@ -3018,20 +3028,6 @@
                     </div>
                 </div>
 
-                <!-- My Copy Text Quick Access -->
-                <div style="background:var(--canvas-soft);border-radius:12px;margin-bottom:8px;overflow:hidden;">
-                    <div onclick="toggleQuickSection('quickCopyText')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;">
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <span style="font-size:16px;">📋</span>
-                            <span style="font-size:13px;font-weight:600;color:var(--ink);" data-i18n="my_copy_text">My Copy Text</span>
-                        </div>
-                        <span id="quickCopyTextArrow" style="font-size:10px;color:var(--ink-mute);transition:transform 0.2s;">▼</span>
-                    </div>
-                    <div id="quickCopyText" style="display:none;padding:0 12px 12px;max-height:300px;overflow-y:auto;">
-                        <div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;" data-i18n="login_to_see">Login to see your stats</div>
-                    </div>
-                </div>
-
                 <!-- My Links Quick Access -->
                 <div style="background:var(--canvas-soft);border-radius:12px;margin-bottom:8px;overflow:hidden;">
                     <div onclick="toggleQuickSection('quickLinks')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;">
@@ -3305,7 +3301,7 @@
                 
                 // Toasts
                 toast_select_style: '🎬 Select a style and create your reel!',
-                toast_daily_limit: 'Daily limit reached (5 reels/day). Try again tomorrow!',
+                toast_daily_limit: 'Daily limit reached (7 reels/day). Try again tomorrow!',
                 toast_creating: 'Creating...',
                 status_ready: 'Ready to share',
                 status_failed: 'Failed',
@@ -3328,7 +3324,6 @@
                 no_desc: 'No description available.',
                 no_books_cat: 'No books found for this category',
                 daily_missions: '🎯 Daily Missions',
-                my_copy_text: 'My Copy Text',
                 my_links: 'My Links',
                 mission_share_app: 'Share & Earn 50 pts',
                 mission_share_app_desc: 'Share NovelFlow on social media',
@@ -3484,7 +3479,7 @@
                 
                 // Toasts
                 toast_select_style: '🎬 ¡Elige un estilo y crea tu reel!',
-                toast_daily_limit: 'Límite diario alcanzado (5 vídeos/día). ¡Inténtalo mañana!',
+                toast_daily_limit: 'Límite diario alcanzado (7 reels/día). ¡Inténtalo mañana!',
                 toast_creating: 'Creando...',
                 status_ready: 'Listo para compartir',
                 status_failed: 'Fallido',
@@ -3510,7 +3505,6 @@
                 no_desc: 'Sin descripción disponible.',
                 no_books_cat: 'No se encontraron libros en esta categoría',
                 daily_missions: '🎯 Misiones Diarias',
-                my_copy_text: 'Mis Textos',
                 my_links: 'Mis Enlaces',
                 mission_share_app: 'Compartir y Ganar 50 pts',
                 mission_share_app_desc: 'Comparte NovelFlow en redes sociales',
@@ -5469,7 +5463,10 @@ function renderMyBooks() {
                                 <span class="my-book-stat income ${incomeFmt.isZero ? 'zero' : ''}">${incomeFmt.text}</span>
                             </div>
                         </div>
-                        <button class="my-book-copy" onclick="copyBookLink('${escapeHtml(book.link).replace(/'/g, "\'")}')">Copy</button>
+                        <div class="my-book-actions">
+                            <button class="my-book-copy" onclick="copyBookLink('${escapeHtml(book.link).replace(/'/g, "\'")}')">Copy</button>
+                            <button class="my-book-delete" onclick="deleteBook('${escapeHtml(book.bookId)}', '${escapeHtml(book.code)}')" title="Delete">🗑️</button>
+                        </div>
                     </div>
                 `;
             }).join('');
@@ -5483,6 +5480,39 @@ function renderMyBooks() {
             navigator.clipboard.writeText(link).then(() => {
                 showToast('Copied to clipboard', 'success');
             });
+        }
+
+        // ========== Delete Book ==========
+        function deleteBook(bookId, code) {
+            // Find the book to confirm it exists
+            const book = AppState.myBooks.find(b => b.bookId === bookId || (code && b.code === code));
+            if (!book) {
+                showToast('Book not found', 'error');
+                return;
+            }
+
+            // Show confirmation dialog
+            const bookTitle = book.title || 'this book';
+            if (!confirm(`Are you sure you want to delete "${bookTitle}"?\n\nThis will also remove its link from "My Links".`)) {
+                return;
+            }
+
+            // Remove from myBooks array
+            const index = AppState.myBooks.findIndex(b => b.bookId === bookId || (code && b.code === code));
+            if (index > -1) {
+                AppState.myBooks.splice(index, 1);
+            }
+
+            // Save to localStorage and sync to cloud
+            saveMyBooks();
+
+            // Re-render the book list
+            renderMyBooks();
+
+            // Update My Links (loadQuickLinks reads from AppState.myBooks)
+            loadQuickLinks();
+
+            showToast('Book deleted', 'success');
         }
         
         // ========== Re-create Link for Pending Books ==========
@@ -6478,20 +6508,20 @@ function renderMyBooks() {
                 // Filter: only show reels belonging to this user
                 const currentUser = AppState.user?.username || '';
                 const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
+                const myBookNames = (AppState.myBooks || []).map(b => (b.title || b.bookName || '').toLowerCase());
                 const filteredItems = items.filter(item => {
                     const itemId = String(item.id || item.task_id || '');
                     if (myReelIds.includes(itemId)) return true;
                     if (item.remark && item.remark.startsWith('nf_' + currentUser + '_')) return true;
+                    if (currentUser && item.book_name && myBookNames.includes(item.book_name.toLowerCase())) return true;
                     return false;
                 });
-                const quickActive = filteredItems.filter(item => { const s = item.status || ''; return s !== 'failed' && s !== -1 && s !== 'fail'; });
                 if (!result.success || filteredItems.length === 0) {
                     el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;">' + getText('no_reels') + '</div>';
                     return;
                 }
-                if (quickActive.length === 0) { el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;">No active reels</div>'; return; }
                 // Fetch results for completed items
-                const enriched = await Promise.all(quickActive.slice(0, 5).map(async (item) => {
+                const enriched = await Promise.all(filteredItems.slice(0, 5).map(async (item) => {
                     const status = item.status || '';
                     const isDone = (status === 'completed' || status === 2 || status === 'done');
                     let videoUrl = '', coverUrl = '';
@@ -6574,38 +6604,23 @@ function renderMyBooks() {
         
         // ========== Reels Daily Limit ==========
         function getReelsDailyCount() {
-            const today = getLADateString();
+            const today = new Date().toISOString().split('T')[0];
             const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || 'guest';
-            const saved = localStorage.getItem(getUserKey('reels_count_v2'));
+            const saved = localStorage.getItem(getUserKey('reels_count'));
             if (!saved) return 0;
             try {
                 const data = JSON.parse(saved);
                 if (data.date === today && data.username === username) return data.count || 0;
+                // Fallback: check by date only (username may have been set differently)
                 if (data.date === today) return data.count || 0;
                 return 0;
             } catch(e) { return 0; }
         }
-        function getLADateString() {
-            const now = new Date();
-            const laNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-            const y = laNow.getFullYear();
-            const m = String(laNow.getMonth() + 1).padStart(2, '0');
-            const d = String(laNow.getDate()).padStart(2, '0');
-            return y + '-' + m + '-' + d;
-        }
         function incrementReelsCount() {
-            const today = getLADateString();
+            const today = new Date().toISOString().split('T')[0];
             const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || 'guest';
             const count = getReelsDailyCount() + 1;
-            localStorage.setItem(getUserKey('reels_count_v2'), JSON.stringify({ date: today, username: username, count: count }));
-            updateReelsDailyInfo(); updateReelsStatusBar();
-            return count;
-        }
-        function decrementReelsCount() {
-            const today = getLADateString();
-            const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || 'guest';
-            const count = Math.max(0, getReelsDailyCount() - 1);
-            localStorage.setItem(getUserKey('reels_count_v2'), JSON.stringify({ date: today, username: username, count: count }));
+            localStorage.setItem(getUserKey('reels_count'), JSON.stringify({ date: today, username: username, count: count }));
             updateReelsDailyInfo(); updateReelsStatusBar();
             return count;
         }
@@ -6614,7 +6629,6 @@ function renderMyBooks() {
             if (el) {
                 const remaining = REELS_DAILY_LIMIT - getReelsDailyCount();
                 el.textContent = remaining + getText('reels_left');
-                updateReelsCountdown();
             }
         }
         const REELS_DAILY_LIMIT = 7;
@@ -6631,26 +6645,6 @@ function renderMyBooks() {
                 statusEl.textContent = '🎬 ' + total + ' reel' + (total > 1 ? 's' : '') + ' · ' + remaining + ' left today';
             }
         }
-
-
-        function updateReelsCountdown() {
-            const el = document.getElementById('reelsCountdown');
-            if (!el) return;
-            try {
-                const now = new Date();
-                const laStr = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
-                const laNow = new Date(laStr);
-                const laMidnight = new Date(laNow);
-                laMidnight.setHours(24, 0, 0, 0);
-                const diff = laMidnight - laNow;
-                if (diff <= 0) { el.textContent = '· resetting...'; return; }
-                const h = Math.floor(diff / 3600000);
-                const m = Math.floor((diff % 3600000) / 60000);
-                const s = Math.floor((diff % 60000) / 1000);
-                el.textContent = '⏰ resets in ' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
-            } catch(e) { el.textContent = ''; }
-        }
-        setInterval(updateReelsCountdown, 1000);
 
         let reelSelectedBook = null;
 
@@ -6796,32 +6790,21 @@ function renderMyBooks() {
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
                 const currentUser = AppState.user?.username || '';
                 const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
+                const myBookNames = (AppState.myBooks || []).map(b => (b.title || b.bookName || '').toLowerCase());
                 const filteredItems = items.filter(item => {
                     const itemId = String(item.id || item.task_id || '');
                     if (myReelIds.includes(itemId)) return true;
                     if (item.remark && item.remark.startsWith('nf_' + currentUser + '_')) return true;
+                    if (currentUser && item.book_name && myBookNames.includes(item.book_name.toLowerCase())) return true;
                     return false;
-                });
-
-                // Template name mapping for display
-                const TEMPLATE_NAMES = {'PPT_Porn':'Spicy & Steamy','PPT_Porn_Loop_Video':'Spicy Loop','Ad_Plot_Video_V2':'Plot Video','Ad_Plot_Seedance':'Seedance 2.0','Dialogue':'Dialogue','PPT_Multi':'Multi-Page','Comic':'Comic','Digital':'Digital','Extract':'Extract'};
-                // Separate failed from active items
-                const activeItems = filteredItems.filter(item => {
-                    const s = item.status || '';
-                    return s !== 'failed' && s !== -1 && s !== 'fail';
-                });
-                const failedItems = filteredItems.filter(item => {
-                    const s = item.status || '';
-                    return s === 'failed' || s === -1 || s === 'fail';
                 });
 
                 if (filteredItems.length > 0) {
                     if (emptyEl) emptyEl.style.display = 'none';
-
-                    // Enrich active items only
-                    const enrichedItems = activeItems.length > 0 ? await Promise.all(activeItems.slice(0, 10).map(async (item) => {
+                    const enrichedItems = await Promise.all(filteredItems.slice(0, 10).map(async (item) => {
                         const status = item.status || '';
                         const isDone = (status === 'completed' || status === 2 || status === 'done');
+                        const isFail = (status === 'failed' || status === -1 || status === 'fail');
                         let videoUrl = '', coverUrl = '', creativeText = '';
                         if (isDone && item.thread_id) {
                             try {
@@ -6842,13 +6825,13 @@ function renderMyBooks() {
                                 }
                             } catch(e) { console.warn('Failed to fetch result for', item.thread_id, e); }
                         }
-                        return { ...item, isDone, videoUrl, coverUrl, creativeText };
-                    })) : [];
+                        return { ...item, isDone, isFail, videoUrl, coverUrl, creativeText };
+                    }));
 
-                    // Render active items
-                    let activeHtml = enrichedItems.map(item => {
+                    listEl.innerHTML = enrichedItems.map(item => {
                         let statusText = '';
                         if (item.isDone) statusText = '✅ Ready';
+                        else if (item.isFail) statusText = '❌ Failed';
                         else statusText = '⏳ Processing...';
 
                         const thumb = item.coverUrl || '';
@@ -6867,6 +6850,7 @@ function renderMyBooks() {
                             actionsHtml += '</div>';
                         }
                         let copyTextHtml = '';
+                        // Fallback: use book description if no creativeText
                         const reelMeta = JSON.parse(localStorage.getItem(getUserKey('reel_meta')) || '{}');
                         const meta = reelMeta[item.id] || {};
                         const fallbackText = meta.description || '';
@@ -6875,29 +6859,8 @@ function renderMyBooks() {
                             copyTextHtml = '<div class="reels-item-copy" data-raw="' + escapeHtml(stripHtml(displayText)) + '">' + escapeHtml(stripHtml(displayText)) + '</div>';
                         }
 
-                        return '<div class="reels-item">' + thumbHtml + '<div class="reels-item-body"><div class="reels-item-title">' + escapeHtml(item.book_name || item.title || 'Untitled') + '</div><div class="reels-item-status ' + (item.isDone ? 'done' : '') + '">' + statusText + '</div>' + actionsHtml + copyTextHtml + '</div></div>';
+                        return '<div class="reels-item">' + thumbHtml + '<div class="reels-item-body"><div class="reels-item-title">' + escapeHtml(item.book_name || item.title || 'Untitled') + '</div><div class="reels-item-status ' + (item.isDone ? 'done' : (item.isFail ? 'fail' : '')) + '">' + statusText + '</div>' + actionsHtml + copyTextHtml + '</div></div>';
                     }).join('');
-
-                    // Build failed section HTML
-                    let failedHtml = '';
-                    if (failedItems.length > 0) {
-                        const failedListHtml = failedItems.map(item => {
-                            const tmplName = TEMPLATE_NAMES[item.template] || item.template || 'Unknown';
-                            const tmplEmoji = ({'PPT_Porn':'🔥','PPT_Porn_Loop_Video':'🔥','Ad_Plot_Video_V2':'🎥','Ad_Plot_Seedance':'🎬','Dialogue':'💬','PPT_Multi':'📑','Comic':'🖼','Digital':'🤖','Extract':'🧊'})[item.template] || '📖';
-                            const timeStr = item.create_time ? item.create_time.split(' ')[1] || item.create_time : '';
-                            return '<div class="reels-item" style="opacity:0.65;">' +
-                                '<div style="width:40px;height:54px;border-radius:6px;background:linear-gradient(135deg, #ff475733, #ff6b8133);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">' + tmplEmoji + '</div>' +
-                                '<div class="reels-item-body"><div class="reels-item-title" style="font-size:12px;">' + escapeHtml(item.book_name || item.title || 'Untitled') + '</div>' +
-                                '<div class="reels-item-status fail" style="font-size:10px;">❌ ' + escapeHtml(tmplName) + (timeStr ? ' · ' + timeStr : '') + '</div></div></div>';
-                        }).join('');
-
-                        failedHtml = '<div style="margin-top:8px;border-top:1px solid var(--hairline);">' +
-                            '<div onclick="document.getElementById(\'failedReelsList\').style.display=document.getElementById(\'failedReelsList\').style.display===\'none\'?\'block\':\'none\';this.querySelector(\'.failed-arrow\').textContent=document.getElementById(\'failedReelsList\').style.display===\'none\'?\'▸\':\'▾\'" style="padding:8px 4px;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-mute);user-select:none;">' +
-                            '<span class="failed-arrow">▸</span><span>❌ Failed (' + failedItems.length + ')</span></div>' +
-                            '<div id="failedReelsList" style="display:none;padding:0 0 4px;">' + failedListHtml + '</div></div>';
-                    }
-
-                    listEl.innerHTML = activeHtml + failedHtml;
                 } else {
                     listEl.innerHTML = '';
                     if (emptyEl) emptyEl.style.display = '';
@@ -7218,32 +7181,22 @@ function renderMyBooks() {
                 // Filter: only show reels belonging to this user
                 const currentUser = AppState.user?.username || '';
                 const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
+                const myBookNames = (AppState.myBooks || []).map(b => (b.title || b.bookName || '').toLowerCase());
                 const filteredItems = items.filter(item => {
                     const itemId = String(item.id || item.task_id || '');
                     // Match by: stored task ID, remark prefix, or book name in myBooks
                     if (myReelIds.includes(itemId)) return true;
                     if (item.remark && item.remark.startsWith('nf_' + currentUser + '_')) return true;
+                    if (currentUser && item.book_name && myBookNames.includes(item.book_name.toLowerCase())) return true;
                     return false;
                 });
                 if (result.success && filteredItems.length > 0) {
                     let hasProcessing = false;
                     // For completed items, fetch their results to get video URLs
-                    // Quota refund: track failed reel IDs and refund quota once
-                    const refundedKey = getUserKey('reels_refunded');
-                    const refundedIds = JSON.parse(localStorage.getItem(refundedKey) || '[]');
-                    let newFailCount = 0;
-
                     const enrichedItems = await Promise.all(filteredItems.slice(0, 5).map(async (item) => {
                         const status = item.status || '';
                         const isDone = (status === 'completed' || status === 2 || status === 'done');
                         const isFail = (status === 'failed' || status === -1 || status === 'fail');
-                        if (isFail) {
-                            const itemId = String(item.id || item.task_id || item.thread_id || '');
-                            if (itemId && !refundedIds.includes(itemId)) {
-                                refundedIds.push(itemId);
-                                newFailCount++;
-                            }
-                        }
                         let videoUrl = '', coverUrl = '', creativeText = '';
                         if (isDone && item.thread_id) {
                             try {
@@ -7267,13 +7220,6 @@ function renderMyBooks() {
                         }
                         return { ...item, isDone, isFail, videoUrl, coverUrl, creativeText };
                     }));
-
-                    // Apply quota refunds for newly detected failures
-                    if (newFailCount > 0) {
-                        localStorage.setItem(refundedKey, JSON.stringify(refundedIds));
-                        for (let i = 0; i < newFailCount; i++) decrementReelsCount();
-                        console.log('🔄 Refunded ' + newFailCount + ' quota for failed reels');
-                    }
 
                     listEl.innerHTML = enrichedItems.map(item => {
                         let statusText = '';
