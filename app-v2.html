@@ -3104,7 +3104,7 @@
                 <!-- Copy Text Section -->
                 <div style="background:var(--canvas-soft);border-radius:10px;padding:12px;margin-bottom:12px;text-align:left;position:relative;">
                     <div style="font-size:11px;font-weight:600;color:var(--ink-mute);margin-bottom:6px;" data-i18n="share_copy_label">📋 Copy this text:</div>
-                    <div id="shareAppText" style="font-size:12px;line-height:1.5;color:var(--ink);padding-right:40px;">🚀 Join NovelFlow - Read novels for FREE & earn money by sharing! 💰 Start now: https://novelflow-dashboard.vercel.app/app-v2</div>
+                    <div id="shareAppText" style="font-size:12px;line-height:1.5;color:var(--ink);padding-right:40px;">🚀 Join NovelFlow - Read novels for FREE & earn money by sharing! 💰 Start now: https://novelflow.top/app-v2</div>
                     <button id="shareAppCopyBtn" onclick="copyShareAppText()" style="position:absolute;top:12px;right:12px;padding:4px 10px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;" data-i18n="copy_btn">Copy</button>
                 </div>
 
@@ -6534,7 +6534,7 @@ function renderMyBooks() {
             // URL
             ctx.font = '16px Arial, sans-serif';
             ctx.fillStyle = 'rgba(255,255,255,0.8)';
-            ctx.fillText('novelflow-dashboard.vercel.app', 270, 620);
+            ctx.fillText('novelflow.top', 270, 620);
             // Download
             const link = document.createElement('a');
             link.download = 'NovelFlow-Promoter-Poster.png';
@@ -6743,12 +6743,11 @@ function renderMyBooks() {
             overlay.id = 'reelSuccessOverlay';
             overlay.className = 'reel-success-overlay';
             overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-            const earnLink = 'https://novelflow-dashboard.vercel.app/app-v2';
             overlay.innerHTML = '<div class="reel-success-card">' +
                 '<div class="reel-success-icon">🎉</div>' +
                 '<div class="reel-success-title">Congratulations!</div>' +
                 '<div class="reel-success-sub">Video for &quot;' + escapeHtml(taskName) + '&quot; created successfully!<br>You can find it in My Reels.</div>' +
-                '<a class="reel-success-cta" href="' + earnLink + '#submit" onclick="document.getElementById(\'reelSuccessOverlay\').remove()">Upload Video & Earn Now 💰</a>' +
+                '<button class="reel-success-cta" onclick="document.getElementById(\'reelSuccessOverlay\').remove();switchTab(\'submit\')">Upload Video & Earn Now 💰</button>' +
                 '<div style="font-size:10px;color:var(--ink-mute);margin-top:8px;">Share your video + link to earn commission</div>' +
                 '<button class="reel-success-close" onclick="document.getElementById(\'reelSuccessOverlay\').remove()">Close</button>' +
                 '</div>';
