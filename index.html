@@ -6738,12 +6738,7 @@ function renderMyBooks() {
             overlay.id = 'reelSuccessOverlay';
             overlay.className = 'reel-success-overlay';
             overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-<<<<<<< HEAD
-            const earnLink = '/app-v2';
             overlay.innerHTML = '<div class="reel-success-card">' +
-=======
-                        overlay.innerHTML = '<div class="reel-success-card">' +
->>>>>>> b3e2f1e (fix: remove earnLink redirect, use switchTab instead of navigating to app-v2#submit)
                 '<div class="reel-success-icon">🎉</div>' +
                 '<div class="reel-success-title">Congratulations!</div>' +
                 '<div class="reel-success-sub">Video for &quot;' + escapeHtml(taskName) + '&quot; created successfully!<br>You can find it in My Reels.</div>' +
