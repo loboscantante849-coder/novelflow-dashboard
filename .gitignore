@@ -8,3 +8,15 @@
 __pycache__/
 *.pyc
 node_modules/
+
+# Local analysis artifacts
+*.bak*
+*.csv
+*.xlsx
+code_funnel_*
+unified_funnel_*
+promoter_income_detail*
+sanyecao_new_links*
+promoter-sanyecao.html
+node_modules/
+package-lock.json
