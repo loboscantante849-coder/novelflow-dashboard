@@ -984,6 +984,134 @@
         .vip-exchange-btn:not(:disabled):hover { transform: scale(1.05); }
 
         /* Milestone celebration overlay */
+
+        /* ===== v2.5.0: Campaign missions + Bonus styles ===== */
+        .tasks-top-row { display: flex; gap: 10px; margin-bottom: 14px; }
+        .bonus-mini-card {
+            flex: 1;
+            background: linear-gradient(135deg, #FED7AA, #C084FC, #F472B6);
+            border-radius: 14px;
+            padding: 10px 12px;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-width: 0;
+        }
+        .bonus-mini-label { font-size: 10px; opacity: 0.9; font-weight: 500; }
+        .bonus-mini-value { font-size: 18px; font-weight: 800; font-feature-settings: "tnum"; margin-top: 2px; }
+        .milestone-big-prize { font-size: 10px; color: #FFD700; font-weight: 700; margin-top: 2px; text-align: center; }
+        .campaigns-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin: 16px 0 10px 0;
+        }
+        .campaigns-title { font-size: 14px; font-weight: 700; color: var(--ink); }
+        .campaign-scroll-list {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 4px 2px 12px 2px;
+            -webkit-overflow-scrolling: touch;
+            scroll-snap-type: x proximity;
+        }
+        .campaign-scroll-list::-webkit-scrollbar { height: 4px; }
+        .campaign-scroll-list::-webkit-scrollbar-thumb { background: rgba(255,107,157,0.3); border-radius: 2px; }
+        .campaign-card {
+            flex: 0 0 168px;
+            background: white;
+            border: 1px solid var(--hairline);
+            border-radius: 14px;
+            padding: 0;
+            overflow: hidden;
+            position: relative;
+            scroll-snap-align: start;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+        .campaign-card:active { transform: scale(0.98); }
+        .campaign-card.completed { opacity: 0.6; }
+        .campaign-card.locked { opacity: 0.75; }
+        .campaign-banner {
+            height: 80px;
+            background: linear-gradient(135deg, #FF6B9D, #C084FC);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 36px; position: relative;
+        }
+        .campaign-card.completed .campaign-banner { background: linear-gradient(135deg, #94a3b8, #64748b); }
+        .campaign-card.locked .campaign-banner { background: linear-gradient(135deg, #cbd5e1, #94a3b8); }
+        .campaign-ribbon {
+            position: absolute;
+            top: 8px; right: -28px;
+            background: rgba(220,38,38,0.85);
+            color: white;
+            font-size: 9px; font-weight: 800;
+            padding: 2px 30px;
+            transform: rotate(40deg);
+            letter-spacing: 0.5px;
+        }
+        .campaign-ribbon.finished { background: rgba(100,116,139,0.85); }
+        .campaign-ribbon.locked { background: rgba(148,163,184,0.9); }
+        .campaign-ribbon.claimed { background: rgba(16,185,129,0.9); }
+        .campaign-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+        .campaign-name { font-size: 12px; font-weight: 700; color: var(--ink); line-height: 1.3; min-height: 30px; }
+        .campaign-reward { font-size: 11px; color: var(--ink-secondary); font-weight: 600; }
+        .campaign-reward .amt { color: #e11d48; font-weight: 800; }
+        .campaign-status { font-size: 10px; color: var(--ink-mute); margin-top: auto; }
+        .campaign-cta {
+            margin-top: 4px;
+            width: 100%; padding: 7px 0;
+            border: none; border-radius: 8px;
+            font-size: 11px; font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            background: linear-gradient(135deg, #FF6B9D, #C084FC);
+            color: white;
+        }
+        .campaign-cta:disabled { background: rgba(0,0,0,0.08); color: var(--ink-mute); cursor: not-allowed; }
+        .campaign-cta:not(:disabled):active { transform: scale(0.96); }
+        .bonus-profile-card {
+            margin: 10px var(--sp-lg) 0;
+            background: linear-gradient(135deg, #FED7AA, #C084FC, #F472B6);
+            border-radius: 14px;
+            padding: 12px 14px;
+            color: white;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .bonus-profile-icon { font-size: 24px; }
+        .bonus-profile-text { flex: 1; }
+        .bonus-profile-label { font-size: 11px; opacity: 0.9; }
+        .bonus-profile-value { font-size: 20px; font-weight: 800; font-feature-settings: "tnum"; }
+        .bonus-profile-sub { font-size: 10px; opacity: 0.85; margin-top: 2px; }
+        .milestone-dot.grand { background: linear-gradient(135deg, #FFD700, #F59E0B); border-color: #FFD700; color: #7c2d12; box-shadow: 0 0 16px rgba(255,215,0,0.6); }
+        .milestone-dot.grand.active { background: linear-gradient(135deg, #FFD700, #F59E0B); border-color: #FFD700; color: #7c2d12; }
+        .milestone-grand-label { font-size: 8px; color: #FFD700; font-weight: 700; text-align: center; line-height: 1.1; }
+        .streak-claim-btn {
+            width: 100%; margin-top: 10px; padding: 9px;
+            background: linear-gradient(135deg, #FFD700, #F59E0B);
+            border: none; border-radius: 10px; color: #7c2d12;
+            font-size: 13px; font-weight: 800; font-family: inherit; cursor: pointer;
+        }
+        .streak-claim-btn:disabled { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.4); cursor: not-allowed; }
+        .streak-claim-btn:not(:disabled):active { transform: scale(0.98); }
+        .streak-claim-hint { font-size: 10px; color: rgba(255,255,255,0.65); text-align: center; margin-top: 6px; line-height: 1.3; }
+        .vip-mini-card {
+            display: flex; align-items: center; gap: 8px;
+            background: linear-gradient(135deg, #1a1a2e, #2d1b69);
+            border-radius: 12px; padding: 10px 12px; margin-top: 10px; color: white;
+        }
+        .vip-mini-icon { font-size: 20px; }
+        .vip-mini-info { flex: 1; min-width: 0; }
+        .vip-mini-title { font-size: 12px; font-weight: 700; }
+        .vip-mini-sub { font-size: 10px; color: rgba(255,255,255,0.65); }
+        .vip-mini-btn {
+            padding: 7px 12px; border: none; border-radius: 8px;
+            font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit;
+            background: linear-gradient(135deg, #FFD700, #FF6B9D); color: white; flex-shrink: 0;
+        }
+        .vip-mini-btn:disabled { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.3); cursor: not-allowed; }
+
         .milestone-overlay { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); animation: fadeIn 0.3s; }
         .milestone-popup { background: linear-gradient(135deg, #1a1a2e, #2d1b69); border-radius: 20px; padding: 32px 24px; text-align: center; color: white; max-width: 280px; animation: milestonePop 0.5s ease; }
         @keyframes milestonePop { 0% { transform: scale(0.5); opacity: 0; } 50% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
@@ -2864,84 +2992,67 @@
         <div class="tab-content" id="tab-tasks">
             <!-- Top Banner -->
 
-            <!-- Daily Missions Section - Redesigned -->
+            <!-- Tasks v2.5.0: Checkin + Campaigns + Bonus -->
             <div class="missions-section">
                 <div class="missions-header">
-                    <span data-i18n="daily_missions">🎯 Daily Missions</span>
+                    <span>🎯 Tasks & Rewards</span>
                     <div class="points-badge" id="pointsBadge">0 <span data-i18n="pts">pts</span></div>
                 </div>
-                
-                <!-- Check-in Milestone Track -->
-                <div class="checkin-milestone-card">
-                    <div class="milestone-title-row">
-                        <div class="milestone-title" data-i18n="checkin_streak">🔥 Check-in Streak</div>
-                        <div class="milestone-total">7 days = 50 <span data-i18n="pts">pts</span></div>
-                    </div>
-                    <div class="milestone-track" id="milestoneTrack">
-                        <!-- 7 milestone nodes rendered by JS -->
-                    </div>
-                    <button class="milestone-checkin-btn" id="milestoneCheckinBtn" onclick="doCheckinV2()">
-                        <span class="checkin-v2-btn-text" data-i18n="check_in">Check In</span>
-                        <span class="checkin-v2-btn-done" style="display:none;" data-i18n="claimed">✓ Claimed</span>
-                    </button>
-                </div>
 
-                <!-- Mission Cards -->
-                <div class="mission-card" id="missionShare1">
-                    <div class="mission-left">
-                        <div class="mission-icon">📚</div>
-                        <div class="mission-info">
-                            <div class="mission-name" data-i18n="mission_share1">Share First Book</div>
-                            <div class="mission-points">+20 <span data-i18n="pts">pts</span></div>
-                            <div class="mission-progress-bar"><div class="mission-progress-fill" id="task1Progress" style="width:0%"></div></div>
-                        </div>
-                    </div>
-                    <button class="mission-claim-btn" id="task1ClaimBtn" onclick="claimMission('share1')" disabled>
-                        <span class="mission-claim-text" data-i18n="claim">Claim</span>
-                    </button>
-                </div>
-
-                <div class="mission-card" id="missionShare3">
-                    <div class="mission-left">
-                        <div class="mission-icon">📖</div>
-                        <div class="mission-info">
-                            <div class="mission-name" data-i18n="mission_share3">Share 3 Books</div>
-                            <div class="mission-points">+50 <span data-i18n="pts">pts</span></div>
-                            <div class="mission-progress-bar"><div class="mission-progress-fill" id="task2Progress" style="width:0%"></div></div>
-                        </div>
-                    </div>
-                    <button class="mission-claim-btn" id="task2ClaimBtn" onclick="claimMission('share3')" disabled>
-                        <span class="mission-claim-text" data-i18n="claim">Claim</span>
-                    </button>
-                </div>
-
-                <div class="mission-card" id="missionBindId">
-                    <div class="mission-left">
-                        <div class="mission-icon">🔗</div>
-                        <div class="mission-info">
-                            <div class="mission-name" data-i18n="mission_bind">Bind NovelFlow ID</div>
-                            <div class="mission-desc" data-i18n="mission_bind_desc">Open NovelFlow app → Profile → Copy ID</div>
-                            <div class="mission-points">+30 <span data-i18n="pts">pts</span></div>
-                            <div class="mission-bind-row" id="bindIdRow" style="display:none;">
-                                <input type="text" id="novelflowIdInput" placeholder="Paste your NovelFlow ID" style="flex:1;padding:6px 8px;border:1px solid var(--hairline);border-radius:6px;font-size:12px;font-family:inherit;">
-                                <button onclick="submitBindId()" style="padding:6px 10px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;" data-i18n="bind_btn">Bind</button>
+                <!-- Top row: Check-in card + Bonus mini card -->
+                <div class="tasks-top-row">
+                    <div style="flex: 1.6; min-width: 0;">
+                        <div class="checkin-milestone-card" style="margin-bottom:0;">
+                            <div class="milestone-title-row">
+                                <div class="milestone-title">🔥 Daily Check-in</div>
+                                <div class="milestone-total">7 days = 50 pts + 2 VIP + $0.5</div>
                             </div>
+                            <div class="milestone-track" id="milestoneTrack">
+                                <!-- rendered by JS -->
+                            </div>
+                            <button class="milestone-checkin-btn" id="milestoneCheckinBtn" onclick="doCheckinV2()">
+                                <span class="checkin-v2-btn-text" data-i18n="check_in">Check In</span>
+                                <span class="checkin-v2-btn-done" style="display:none;" data-i18n="claimed">✓ Claimed</span>
+                            </button>
+                            <button class="streak-claim-btn" id="streakGrandClaimBtn" onclick="claimStreakGrandPrize()" disabled>
+                                🎁 Claim 7-Day Prize (2 VIP + $0.5)
+                            </button>
+                            <div class="streak-claim-hint" id="streakGrandHint">Sign in 7 days in a row to unlock</div>
                         </div>
                     </div>
-                    <button class="mission-claim-btn" id="taskBindClaimBtn" onclick="claimMission('bindId')" disabled>
-                        <span class="mission-claim-text" data-i18n="claim">Claim</span>
-                    </button>
+                    <div class="bonus-mini-card" onclick="switchTab('profile')" style="cursor:pointer;">
+                        <div class="bonus-mini-label">🎁 Bonus Balance</div>
+                        <div class="bonus-mini-value" id="tasksBonusValue">$0.00</div>
+                        <div style="font-size:9px;opacity:0.85;margin-top:2px;">Tap for details</div>
+                    </div>
                 </div>
 
-                
-                <!-- VIP Exchange -->
-                <div class="vip-exchange-card" id="vipExchangeCard">
-                    <div class="vip-icon">👑</div>
-                    <div class="vip-info">
-                        <div class="vip-title" data-i18n="vip_exchange">1000 pts → 3 Days VIP</div>
-                        <div class="vip-subtitle" data-i18n="vip_subtitle">Unlock premium novels & ad-free reading</div>
+                <!-- VIP Exchange (slim card) -->
+                <div class="vip-mini-card">
+                    <div class="vip-mini-icon">👑</div>
+                    <div class="vip-mini-info">
+                        <div class="vip-mini-title">1000 pts → 3 Days VIP</div>
+                        <div class="vip-mini-sub">Unlock premium novels & ad-free reading</div>
                     </div>
-                    <button class="vip-exchange-btn" id="vipExchangeBtn" onclick="exchangeVIP()" disabled data-i18n="exchange">Exchange</button>
+                    <button class="vip-mini-btn" id="vipExchangeBtn" onclick="exchangeVIP()" disabled>Exchange</button>
+                </div>
+
+                <!-- Bind ID (collapsed - kept functional but visually slim) -->
+                <div id="bindIdRow" style="display:none;margin-top:10px;background:var(--canvas-soft);border-radius:10px;padding:10px;">
+                    <div style="font-size:11px;font-weight:600;color:var(--ink);margin-bottom:6px;">🔗 Bind NovelFlow ID <span style="font-weight:400;color:var(--ink-mute);">(required for VIP exchange)</span></div>
+                    <div style="display:flex;gap:6px;">
+                        <input type="text" id="novelflowIdInput" placeholder="Paste your NovelFlow ID" style="flex:1;padding:7px 10px;border:1px solid var(--hairline);border-radius:8px;font-size:12px;font-family:inherit;">
+                        <button onclick="submitBindId()" style="padding:7px 12px;background:var(--ruby);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Bind</button>
+                    </div>
+                </div>
+
+                <!-- Campaign Missions (horizontal scroll) -->
+                <div class="campaigns-header">
+                    <div class="campaigns-title">🎯 Campaign Missions</div>
+                    <div style="font-size:11px;color:var(--ink-mute);">Swipe →</div>
+                </div>
+                <div class="campaign-scroll-list" id="campaignList">
+                    <!-- rendered by renderCampaigns() -->
                 </div>
             </div>
             
@@ -2983,6 +3094,14 @@
                     <div class="stats-overview-icon">&#127381;</div>
                     <div class="stats-overview-value" id="totalNew">0</div>
                     <div class="stats-overview-label">New Users</div>
+                </div>
+            </div>
+            <div class="bonus-profile-card" id="bonusProfileCard" style="display:none;">
+                <div class="bonus-profile-icon">🎁</div>
+                <div class="bonus-profile-text">
+                    <div class="bonus-profile-label">Bonus Balance (campaign & streak rewards)</div>
+                    <div class="bonus-profile-value" id="profileBonusValue">$0.00</div>
+                    <div class="bonus-profile-sub">Separate from CPS earnings — paid out via bonus channels</div>
                 </div>
             </div>
             <div id="statsLoadingArea"></div>
@@ -3150,7 +3269,7 @@
     <script>
 // Global fetch timeout - no API call can block the page
 (function(){var _f=window.fetch;window.fetch=function(u,o){o=o||{};if(o.signal)return _f(u,o);var c=new AbortController(),t=setTimeout(function(){c.abort()},o.timeout||15000),n=Object.assign({},o,{signal:c.signal});return _f(u,n).then(function(r){clearTimeout(t);return r}).catch(function(e){clearTimeout(t);if(e.name==='AbortError'){return new Response(JSON.stringify({error:'timeout',offline:true}),{status:504,headers:{'Content-Type':'application/json'}})}throw e})}})();
-// NovelFlow v2.4.2 - China access fix - 2026-06-05
+// NovelFlow v2.5.0 - Tasks & Bonus redesign - 2026-07-06
         // ========== Global State ==========
         const AppState = {
             currentTab: 'home',
@@ -4125,6 +4244,8 @@
                 btn.disabled = false;
                 
                 renderMilestoneTrack();
+                updateStreakGrandBtn();
+                updateBonusUI();
                 
                 // Show milestone celebration
                 showMilestoneCelebration(CheckinData.streak, dayPts);
@@ -4138,7 +4259,7 @@
             let icon = '🎉';
             let title = getText('checkin_complete');
             let sub = '';
-            if (day === 7) { icon = '🏆'; title = getText('milestone_7day'); sub = getText('milestone_7day_sub'); }
+            if (day === 7) { icon = '👑'; title = '7-Day Streak Complete!'; sub = 'Claim 2 VIP days + $0.50 bonus below'; }
             else if (day >= 4) { icon = '🔥'; title = getText('milestone_streak'); sub = day + ' ' + getText('days_streak'); }
             overlay.innerHTML = '<div class="milestone-popup">' +
                 '<div class="milestone-popup-icon">' + icon + '</div>' +
@@ -4291,8 +4412,263 @@
             
             renderMilestoneTrack();
             updatePointsDisplay();
+            if (typeof renderCampaigns === 'function') renderCampaigns();
+            if (typeof updateStreakGrandBtn === 'function') updateStreakGrandBtn();
+            if (typeof updateBonusUI === 'function') updateBonusUI();
         }
         
+
+        // ============================================================
+        // ========== v2.5.0: Bonus Balance, Campaigns, Streak Prize ===
+        // ============================================================
+        function getBonusBalance() {
+            return parseFloat(localStorage.getItem(getUserKey('bonus_balance')) || '0');
+        }
+        function addBonus(amount, reason) {
+            if (!amount || amount <= 0) return getBonusBalance();
+            const cur = getBonusBalance();
+            const next = Math.round((cur + amount) * 100) / 100;
+            localStorage.setItem(getUserKey('bonus_balance'), String(next));
+            CloudSync.schedulePush();
+            updateBonusUI();
+            console.log('[Bonus] +$' + amount.toFixed(2) + ' (' + reason + ') = $' + next.toFixed(2));
+            return next;
+        }
+        function updateBonusUI() {
+            const bal = getBonusBalance();
+            const txt = '$' + bal.toFixed(2);
+            const t = document.getElementById('tasksBonusValue'); if (t) t.textContent = txt;
+            const p = document.getElementById('profileBonusValue'); if (p) p.textContent = txt;
+            const card = document.getElementById('bonusProfileCard');
+            if (card) {
+                // Only show bonus card when logged in (statsOverview visible)
+                const overview = document.getElementById('statsOverview');
+                card.style.display = (overview && overview.style.display !== 'none' && AppState.isLoggedIn) ? 'flex' : 'none';
+            }
+        }
+
+        // One-time initialization: $9.00 for campaign #1 winners (idempotent)
+        function initCampaign1Bonus() {
+            if (!AppState.user || !AppState.user.username) return;
+            const flagKey = getUserKey('bonus_campaign1_claimed');
+            if (localStorage.getItem(flagKey) === '1') return;
+            const uname = (AppState.user.username || '').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+            let winner = null;
+            if (uname.includes('cons')) winner = 'cons_espher';
+            else if (uname.includes('eliza')) winner = 'eliza_stellar';
+            else if (uname.includes('dras') || uname.includes('drac')) winner = 'dras';
+            else if (uname.includes('dehni')) winner = 'dehni_salem';
+            if (winner) {
+                addBonus(9.00, 'Campaign #1 reward - ' + winner);
+                localStorage.setItem(flagKey, '1');
+                CloudSync.schedulePush();
+                showToast('🎉 Campaign #1 reward $9.00 credited to Bonus!', 'success');
+            } else {
+                // Mark as checked for non-winners so we don't re-evaluate every load
+                localStorage.setItem(flagKey, '0');
+            }
+        }
+
+        function canonicalUsername() {
+            if (!AppState.user || !AppState.user.username) return '';
+            return (AppState.user.username || '').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+        }
+        function isCampaign1Winner() {
+            const u = canonicalUsername();
+            return u.includes('cons') || u.includes('eliza') || u.includes('dras') || u.includes('drac') || u.includes('dehni');
+        }
+        function hasAnyTaskClaim() {
+            try {
+                const c = JSON.parse(localStorage.getItem(getUserKey('claimed')) || '{}');
+                return Object.keys(c).length > 0;
+            } catch(e) { return false; }
+        }
+        function hasStreakGrandClaimed() {
+            return localStorage.getItem(getUserKey('streak_grand_claimed')) !== null;
+        }
+
+        const CAMPAIGNS = [
+            {
+                id: 'campaign1',
+                name: 'Social Share Campaign',
+                desc: 'Share books on social media',
+                icon: '📣',
+                reward: '$9.00 or 21d VIP',
+                rewardAmt: 9.00,
+                status: 'completed',
+                ctaLabel: 'Finished',
+                ribbon: 'COMPLETED',
+            },
+            {
+                id: 'campaign2',
+                name: 'Campaign #2',
+                desc: 'Bigger rewards, new missions',
+                icon: '🚀',
+                reward: 'TBD',
+                rewardAmt: 0,
+                status: 'locked',
+                startDate: '2026-07-10',
+                ctaLabel: 'Coming Soon',
+                ribbon: 'LOCKED',
+            }
+        ];
+
+        function renderCampaigns() {
+            const list = document.getElementById('campaignList');
+            if (!list) return;
+            const now = new Date();
+            list.innerHTML = CAMPAIGNS.map(c => {
+                let status = c.status;
+                let ribbonClass = 'finished';
+                let ctaDisabled = true;
+                let ctaLabel = c.ctaLabel;
+                let ctaAction = '';
+                let extraBadge = '';
+
+                if (c.id === 'campaign2') {
+                    const start = new Date(c.startDate + 'T00:00:00');
+                    if (now >= start) {
+                        status = 'ongoing';
+                        ribbonClass = '';
+                        ctaDisabled = false;
+                        ctaLabel = 'Join Now';
+                        ctaAction = "joinCampaign('campaign2')";
+                    } else {
+                        status = 'locked';
+                        ribbonClass = 'locked';
+                        ctaDisabled = true;
+                        ctaLabel = '🔒 Starts July 10';
+                        ctaAction = "showToast('Campaign starts July 10, 2026', 'info')";
+                    }
+                }
+                if (c.id === 'campaign1' && isCampaign1Winner()) {
+                    ribbonClass = 'claimed';
+                    c.ribbon = 'CLAIMED';
+                    extraBadge = '<div style="font-size:10px;color:#059669;font-weight:700;margin-top:2px;">🎉 $9.00 Claimed</div>';
+                }
+
+                return '' +
+                    '<div class="campaign-card ' + status + '">' +
+                        '<div class="campaign-banner">' +
+                            '<span>' + c.icon + '</span>' +
+                            '<div class="campaign-ribbon ' + ribbonClass + '">' + c.ribbon + '</div>' +
+                        '</div>' +
+                        '<div class="campaign-body">' +
+                            '<div class="campaign-name">' + c.name + '</div>' +
+                            '<div class="campaign-reward">Reward: <span class="amt">' + c.reward + '</span></div>' +
+                            extraBadge +
+                            '<div class="campaign-status">' + (status === 'locked' ? '🔒 Starts July 10' : (status === 'completed' ? '✓ Finished' : '🔥 Ongoing')) + '</div>' +
+                            '<button class="campaign-cta" ' + (ctaDisabled ? 'disabled' : '') + ' onclick="' + (ctaAction || 'return false;') + '">' + ctaLabel + '</button>' +
+                        '</div>' +
+                    '</div>';
+            }).join('');
+        }
+
+        function joinCampaign(id) {
+            if (id === 'campaign2') {
+                showToast('🚀 Campaign #2 details will be announced on July 10 — stay tuned!', 'info');
+            }
+        }
+
+        function claimStreakGrandPrize() {
+            if (CheckinData.streak < 7) {
+                showToast('Complete 7-day streak first!', 'error');
+                return;
+            }
+            const hasLink = AppState.myBooks && AppState.myBooks.length >= 1;
+            const hasTask = hasAnyTaskClaim();
+            if (!hasLink || !hasTask) {
+                showToast('Complete 1 link creation + 1 task first', 'error');
+                return;
+            }
+            if (hasStreakGrandClaimed()) {
+                showToast('Already claimed this streak reward', 'info');
+                return;
+            }
+            // Award: $0.5 bonus + 2 VIP days
+            addBonus(0.50, '7-day streak grand prize');
+            const vipDays = parseInt(localStorage.getItem(getUserKey('vip_days')) || '0');
+            localStorage.setItem(getUserKey('vip_days'), String(vipDays + 2));
+            localStorage.setItem(getUserKey('streak_grand_claimed'), new Date().toISOString().slice(0,10));
+            CloudSync.schedulePush();
+            updateStreakGrandBtn();
+            updateBonusUI();
+            // Celebration popup
+            const overlay = document.createElement('div');
+            overlay.className = 'milestone-overlay';
+            overlay.onclick = () => overlay.remove();
+            overlay.innerHTML = '<div class="milestone-popup">' +
+                '<div class="milestone-popup-icon">👑</div>' +
+                '<div class="milestone-popup-title">7-Day Streak Unlocked!</div>' +
+                '<div class="milestone-popup-points" style="color:#FFD700;">+2 VIP days &nbsp; +$0.50</div>' +
+                '<div class="milestone-popup-sub">VIP credited to your account within 24h · Bonus in Balance</div>' +
+                '<button class="milestone-popup-btn" onclick="this.closest(\'.milestone-overlay\').remove()">Awesome</button>' +
+                '</div>';
+            document.body.appendChild(overlay);
+        }
+
+        function updateStreakGrandBtn() {
+            const btn = document.getElementById('streakGrandClaimBtn');
+            const hint = document.getElementById('streakGrandHint');
+            if (!btn || !hint) return;
+            if (hasStreakGrandClaimed()) {
+                btn.disabled = true;
+                btn.textContent = '✓ Grand Prize Claimed';
+                hint.textContent = 'Come back next streak cycle!';
+                return;
+            }
+            const hasLink = AppState.myBooks && AppState.myBooks.length >= 1;
+            const hasTask = hasAnyTaskClaim();
+            if (CheckinData.streak >= 7 && hasLink && hasTask) {
+                btn.disabled = false;
+                btn.textContent = '🎁 Claim 7-Day Prize (2 VIP + $0.5)';
+                hint.textContent = 'Ready to claim!';
+            } else {
+                btn.disabled = true;
+                if (CheckinData.streak < 7) {
+                    btn.textContent = '🎁 Claim 7-Day Prize (2 VIP + $0.5)';
+                    hint.textContent = (7 - CheckinData.streak) + ' more check-in' + ((7-CheckinData.streak)===1?'':'s') + ' to unlock';
+                } else {
+                    const missing = [];
+                    if (!hasLink) missing.push('1 link');
+                    if (!hasTask) missing.push('1 task');
+                    btn.textContent = '🎁 Claim 7-Day Prize (2 VIP + $0.5)';
+                    hint.textContent = 'Complete ' + missing.join(' + ') + ' first';
+                }
+            }
+        }
+
+        // Override renderMilestoneTrack to highlight day 7 grand prize
+        const _origRenderMilestoneTrack = renderMilestoneTrack;
+        renderMilestoneTrack = function() {
+            const track = document.getElementById('milestoneTrack');
+            if (!track) return;
+            const streak = CheckinData.streak;
+            let html = '<div class="milestone-track-fill" style="width:' + (streak >= 7 ? '100' : (streak / 7 * 100)) + '%"></div>';
+            for (let i = 1; i <= 7; i++) {
+                const isActive = i <= streak;
+                const isCurrent = i === streak + 1 && !isCheckedInToday();
+                const isGrand = i === 7;
+                const dotClass = (isActive ? 'active' : (isCurrent ? 'current' : '')) + (isGrand ? ' grand' : '');
+                const labelClass = isActive ? 'active' : '';
+                let inner;
+                let labelContent = 'D' + i;
+                let pointsContent = '+' + STREAK_POINTS[i-1];
+                if (isGrand) {
+                    inner = isActive ? '👑' : '👑';
+                    pointsContent = 'VIP+$';
+                } else {
+                    inner = isActive ? '✓' : i;
+                }
+                html += '<div class="milestone-node">' +
+                    '<div class="milestone-dot ' + dotClass + '">' + inner + '</div>' +
+                    '<div class="milestone-label ' + labelClass + '">' + labelContent + '</div>' +
+                    '<div class="' + (isGrand ? 'milestone-grand-label' : 'milestone-points') + '">' + pointsContent + '</div>' +
+                    '</div>';
+            }
+            track.innerHTML = html;
+        };
+
         function updateCheckinV2UI() {
             // Update milestone checkin button
             const btn = document.getElementById('milestoneCheckinBtn');
@@ -5076,6 +5452,9 @@
                     claimed: JSON.parse(localStorage.getItem(getUserKey('claimed')) || 'null'),
                     bind_id: localStorage.getItem(getUserKey('bind_id')) || null,
                     vip_days: parseInt(localStorage.getItem(getUserKey('vip_days')) || '0'),
+                    bonus_balance: parseFloat(localStorage.getItem(getUserKey('bonus_balance')) || '0'),
+                    bonus_campaign1_claimed: localStorage.getItem(getUserKey('bonus_campaign1_claimed')) === '1',
+                    streak_grand_claimed: localStorage.getItem(getUserKey('streak_grand_claimed')) || null,
                     lastSyncAt: Date.now()
                 };
             },
@@ -5174,6 +5553,20 @@
                         localStorage.setItem(getUserKey('vip_days'), String(cloud.vip_days));
                     }
 
+                    // Bonus balance: take max
+                    const localBonus = parseFloat(localStorage.getItem(getUserKey('bonus_balance')) || '0');
+                    if (cloud.bonus_balance !== undefined && cloud.bonus_balance > localBonus) {
+                        localStorage.setItem(getUserKey('bonus_balance'), String(cloud.bonus_balance));
+                    }
+                    // Bonus flags: keep local truthy or cloud truthy
+                    if (cloud.bonus_campaign1_claimed) {
+                        localStorage.setItem(getUserKey('bonus_campaign1_claimed'), '1');
+                    }
+                    if (cloud.streak_grand_claimed) {
+                        const localStreakClaim = localStorage.getItem(getUserKey('streak_grand_claimed'));
+                        if (!localStreakClaim) localStorage.setItem(getUserKey('streak_grand_claimed'), cloud.streak_grand_claimed);
+                    }
+
                     // MyBooks: merge by code (union, deduplicated)
                     // Same book can have multiple promotion codes - each code is a unique link
                     const localBooks = AppState.myBooks || [];
@@ -5212,6 +5605,9 @@
                         loadUserStats(AppState.user.username);
                     }
                     
+                    if (typeof renderCampaigns === 'function') renderCampaigns();
+                    if (typeof updateBonusUI === 'function') updateBonusUI();
+                    if (typeof updateStreakGrandBtn === 'function') updateStreakGrandBtn();
                     console.log('[CloudSync] Pull & merge OK');
                     // Push merged data back to ensure cloud has latest union
                     await this.push();
@@ -5395,6 +5791,7 @@
             if (incomeEl) incomeEl.textContent = '$' + (data.total_income || 0).toFixed(2);
             if (usersEl) usersEl.textContent = fmtNum(data.total_unique || data.total_visits || 0);
             if (newEl) newEl.textContent = fmtNum(data.total_new || 0);
+            if (typeof updateBonusUI === 'function') updateBonusUI();
         }
 
         function refreshUserStats() {
@@ -5445,9 +5842,8 @@ function renderMyBooks() {
                 const stats = statsMap[key] || {};
                 
                 const visits = stats.visits || 0;
-                const unique = stats.unique_users || 0;
-                /* newUsers hidden from user view */
-                const income = stats.d14_income || 0;
+                const newUsers = stats.newUsers || stats.new_users || 0;
+                const income = stats.income || stats.dn_income || stats.d14_income || 0;
                 const incomeFmt = fmtIncome(income);
                 
                 return `
@@ -5458,8 +5854,8 @@ function renderMyBooks() {
                             <div class="my-book-code">CODE: ${escapeHtml(book.code) || 'N/A'}</div>
                             <div class="my-book-link" onclick="copyBookLink('${escapeHtml(book.link).replace(/'/g, "\'")}')" title="Click to copy">${escapeHtml(book.link) || 'No link'}</div>
                             <div class="my-book-stats">
-                                <span class="my-book-stat">&#128065; ${fmtNum(visits)}</span>
-                                <span class="my-book-stat">&#128101; ${fmtNum(unique)}</span>
+                                <span class="my-book-stat" title="Visits">&#128065; ${fmtNum(visits)}</span>
+                                <span class="my-book-stat" title="New Users">&#128100; ${fmtNum(newUsers)}</span>
                                 <span class="my-book-stat income ${incomeFmt.isZero ? 'zero' : ''}">${incomeFmt.text}</span>
                             </div>
                         </div>
@@ -5613,8 +6009,8 @@ function renderMyBooks() {
                 const key = book.link || (book.code && String(book.code)) || book.title;
                 const stats = statsMap[key] || {};
                 const visits = stats.visits || 0;
-                const unique = stats.unique_users || 0;
-                const income = stats.d14_income || 0;
+                const newUsers = stats.newUsers || stats.new_users || 0;
+                const income = stats.income || stats.dn_income || stats.d14_income || 0;
                 const incomeFmt = fmtIncome(income);
                 const hasData = book.code && book.link;
                 const isPending = !book.code && !book.link;
@@ -5641,9 +6037,9 @@ function renderMyBooks() {
                                 <div class="my-book-expanded-stat-value">${fmtNum(visits)}</div>
                             </div>
                             <div class="my-book-expanded-stat">
-                                <div class="my-book-expanded-stat-icon">&#128101;</div>
-                                <div class="my-book-expanded-stat-label">Unique</div>
-                                <div class="my-book-expanded-stat-value">${fmtNum(unique)}</div>
+                                <div class="my-book-expanded-stat-icon">&#128100;</div>
+                                <div class="my-book-expanded-stat-label">New Users</div>
+                                <div class="my-book-expanded-stat-value">${fmtNum(newUsers)}</div>
                             </div>
                             <div class="my-book-expanded-stat income">
                                 <div class="my-book-expanded-stat-icon">&#128176;</div>
@@ -5675,6 +6071,10 @@ function renderMyBooks() {
                 }
             }
             updateProfileUI();
+            if (typeof initCampaign1Bonus === 'function') initCampaign1Bonus();
+            if (typeof updateBonusUI === 'function') updateBonusUI();
+            if (typeof renderCampaigns === 'function') renderCampaigns();
+            if (typeof updateStreakGrandBtn === 'function') updateStreakGrandBtn();
         }
 
         function updateProfileUI() {
@@ -6454,7 +6854,7 @@ function renderMyBooks() {
                 const el = document.getElementById('homeLoading');
                 if (el && el.style.display !== 'none') { el.style.display = 'none'; hideLoadingAndShowContent(); }
             }, 3000);
-            loadBooks(); checkLocalLogin(); loadCheckinData(); verifyPointsIntegrity(); updateCheckinUI(); loadMyBooks(); updateStats(); checkLoginStatus(); updateMissionsUI(); updatePointsDisplay();
+            loadBooks(); checkLocalLogin(); loadCheckinData(); verifyPointsIntegrity(); updateCheckinUI(); loadMyBooks(); updateStats(); checkLoginStatus(); updateMissionsUI(); updatePointsDisplay(); if (typeof renderCampaigns === "function") renderCampaigns(); if (typeof updateBonusUI === "function") updateBonusUI(); if (typeof updateStreakGrandBtn === "function") updateStreakGrandBtn();
             if (typeof loadPerformanceDashboard === 'function') setTimeout(() => { loadPerformanceDashboard(); if (typeof initChartTooltip === 'function') setTimeout(initChartTooltip, 200); }, 1000);
             document.getElementById('recommendModal').addEventListener('click', e => {
                 if (e.target.classList.contains('modal-overlay')) closeModal();
