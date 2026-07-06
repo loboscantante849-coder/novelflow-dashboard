@@ -8134,15 +8134,22 @@ function renderMyBooks() {
 
   function getUsername() {
     try {
-      if (window.AppState && AppState.user && AppState.user.username) return AppState.user.username;
+      const u = localStorage.getItem('novelflow_last_user');
+      if (u) return u;
     } catch(e){}
-    return localStorage.getItem('novelflow_last_user') || '';
+    try {
+      const s = localStorage.getItem('novelflow_user');
+      if (s) {
+        const o = JSON.parse(s);
+        if (o && o.username) return o.username;
+      }
+    } catch(e){}
+    return '';
   }
 
   window.openEarningsModal = function() {
     const u = getUsername();
-    const isLoggedIn = !!(window.AppState && AppState.isLoggedIn && AppState.user && AppState.user.username);
-    if (!isLoggedIn || !u) {
+    if (!u) {
       if (typeof showToast === 'function') showToast('Please log in first', 'error');
       if (typeof switchTab === 'function') switchTab('profile');
       return;
