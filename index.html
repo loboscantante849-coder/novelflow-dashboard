@@ -2980,9 +2980,9 @@
                     <div class="stats-overview-label">Unique Users</div>
                 </div>
                 <div class="stats-overview-card">
-                    <div class="stats-overview-icon">&#128065;</div>
-                    <div class="stats-overview-value" id="totalVisits">0</div>
-                    <div class="stats-overview-label">Total Visits</div>
+                    <div class="stats-overview-icon">&#127381;</div>
+                    <div class="stats-overview-value" id="totalNew">0</div>
+                    <div class="stats-overview-label">New Users</div>
                 </div>
             </div>
             <div id="statsLoadingArea"></div>
@@ -5390,11 +5390,11 @@
             // Update values
             const incomeEl = document.getElementById('totalIncome');
             const usersEl = document.getElementById('totalUsers');
-            const visitsEl = document.getElementById('totalVisits');
+            const newEl = document.getElementById('totalNew');
             
             if (incomeEl) incomeEl.textContent = '$' + (data.total_income || 0).toFixed(2);
-            if (usersEl) usersEl.textContent = fmtNum(data.total_unique || data.total_new || 0);
-            if (visitsEl) visitsEl.textContent = fmtNum(data.total_visits || 0);
+            if (usersEl) usersEl.textContent = fmtNum(data.total_unique || data.total_visits || 0);
+            if (newEl) newEl.textContent = fmtNum(data.total_new || 0);
         }
 
         function refreshUserStats() {
