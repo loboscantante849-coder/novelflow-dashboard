@@ -1,228 +1,276 @@
 /**
  * GET /api/per-link-stats?username=xxx
- * 
- * Data sources (in priority order):
- * 1. putreport API by linkId (real-time, per-link)
- * 2. KV user data (CloudSync books)
- * 3. data.json + link-stats.json (cron pre-aggregated, campaign-level) — fallback
- * 
- * Admin users (xujt) see ALL KOC data aggregated.
+ *
+ * v6-unified-funnel
+ *
+ * Per-link granularity view. Same data strategy as my-stats.js:
+ *   - Primary: ad_id_details.json (covers link + code channels, dn_income, no putreport).
+ *   - Redis: nf_subs / nf_user_subs / nf_user_data / nf_book_covers for metadata.
+ *   - Fallback: legacy link-stats.json + data.json from GitHub.
+ *
+ * Backward-compatible response shape:
+ *   { username, isAdmin, total_visits, total_unique, total_new, total_income,
+ *     daily: { dt: {visits, unique_users, new_users, income} },
+ *     links:  [ { bookName, bookId, code, link, linkId, submittedAt, kocName,
+ *                 visits, unique_users, new_users, d14_income, dn_income, channel,
+ *                 daily: { dt: {visits, unique_users, new_users, income} } } ] }
  */
 const { setCORSHeaders } = require('./_lib/cors');
-const { getBookstoreToken } = require('./_lib/oidc-token');
-const { Redis } = require('@upstash/redis');
-
-const PUTREPORT_API = 'https://ad.anystories.app/api/v1/novelflowmiddlegroundmanage/putreport/putreport';
-const ADMIN_USERNAMES = ['xujt', 'admin'];
-
-function getRedis() {
-  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
-  return new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
-}
+const {
+  getRedis, canonize, resolvePromoterKey, isAdmin,
+  getAdIdDetails, getLegacyLinkStats,
+  loadSubmissions, loadCovers,
+  buildAdIdLookup, zeroStats, r2,
+} = require('./_lib/stats-data');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const username = req.query.username;
+  const username = req.query.username || (req.body && req.body.username);
   if (!username) return res.status(400).json({ error: 'username is required' });
 
+  const debugLog = [];
   const redis = getRedis();
-  if (!redis) return res.status(500).json({ error: 'KV not configured' });
+
+  const empty = () => res.status(200).json({
+    username, isAdmin: isAdmin(username),
+    total_visits: 0, total_unique: 0, total_new: 0, total_income: 0,
+    last_updated: null,
+    daily: {}, links: [], debug: debugLog, version: 'v6-unified-funnel',
+  });
 
   try {
-    const isAdmin = ADMIN_USERNAMES.includes(username.toLowerCase());
+    const admin = isAdmin(username);
+    let usernameCanon = null;
 
-    // Step 1: Get user's submissions from KV
-    let subKeys = [];
-    if (isAdmin) {
-      const allEntries = await redis.hgetall('nf_subs');
-      if (allEntries && typeof allEntries === 'object') {
-        subKeys = Object.keys(allEntries).filter(k => !k.startsWith('_pending_'));
-      }
-    } else {
-      subKeys = await redis.smembers(`nf_user_subs:${username.toLowerCase()}`);
-      if (!Array.isArray(subKeys)) subKeys = [];
+    const adData = await getAdIdDetails(debugLog);
+    if (!admin) {
+      usernameCanon = resolvePromoterKey(username, adData);
+      debugLog.push(`username "${username}" → canon="${usernameCanon}"`);
     }
+    const submissions = redis ? await loadSubmissions(redis, username, admin, debugLog) : [];
+    const bookIds = submissions.map(s => s.bookId).filter(Boolean);
+    const covers = redis ? await loadCovers(redis, bookIds, debugLog) : {};
 
-    let userSubs = [];
-    const values = await Promise.all(subKeys.map(k => redis.hget('nf_subs', k)));
-    for (const v of values) {
-      if (v) {
-        try {
-          const sub = typeof v === 'string' ? JSON.parse(v) : v;
-          if (sub.linkId) userSubs.push(sub);
-        } catch (e) {}
-      }
-    }
+    // =================== PRIMARY PATH ===================
+    if (adData) {
+      const { byAdId, promoterEntries } = buildAdIdLookup(adData, usernameCanon, admin);
 
-    // Also check KV user data for CloudSync books
-    const existingLinkIds = new Set(userSubs.map(s => s.linkId));
-    const existingCodes = new Set(userSubs.map(s => String(s.code)).filter(c => c && c !== 'undefined'));
-    try {
-      const kvData = await redis.get(`nf_user_data:${username}`);
-      if (kvData?.myBooks) {
-        for (const book of kvData.myBooks) {
-          const bookCode = book.code ? String(book.code) : null;
-          const bookLinkId = book.linkId || null;
-          const isDup = (bookLinkId && existingLinkIds.has(bookLinkId)) || (bookCode && existingCodes.has(bookCode));
-          if (!isDup && (bookLinkId || bookCode)) {
-            userSubs.push({
-              discordUsername: username, status: 'completed',
-              code: book.code || bookCode, linkId: bookLinkId,
-              bookId: book.bookId || null, matchedBookName: book.title || book.bookName || 'Unknown',
-              bookName: book.title || book.bookName || 'Unknown',
-              link: book.link || null,
-              submittedAt: book.createdAt ? new Date(book.createdAt).toISOString() : null
+      const links = [];
+      const aggDaily = {};
+
+      if (admin) {
+        // Admin: build one record per ad_id across all promoters, joined with nf_subs metadata.
+        const nfSubsByAdId = new Map();
+        for (const sub of submissions) {
+          if (sub.linkId) nfSubsByAdId.set(String(sub.linkId), sub);
+          if (sub.code) nfSubsByAdId.set(String(sub.code), sub);
+        }
+        for (const [pCanon, pEntry] of Object.entries(promoterEntries || {})) {
+          const adIds = [...(pEntry.links || []), ...(pEntry.codes || [])];
+          for (const adIdRaw of adIds) {
+            const adId = String(adIdRaw);
+            const st = byAdId[adId] || zeroStats();
+            const sub = nfSubsByAdId.get(adId) || {};
+            const channel = st.channel || (pEntry.links?.includes(adIdRaw) ? 'link' : 'code');
+            const bookName = sub.matchedBookName || sub.bookName || st.book_name ||
+              (pEntry.books || []).find(b => (b.ad_ids || []).map(String).includes(adId))?.name ||
+              'Unknown';
+            const bookId = sub.bookId || null;
+
+            const daily = {};
+            for (const [dt, dv] of Object.entries(st.daily || {})) {
+              daily[dt] = {
+                visits: dv.pull_uv || 0,
+                unique_users: dv.pull_uv || 0,
+                new_users: dv.new_uv || 0,
+                income: r2(dv.dn_income || 0),
+              };
+              if (!aggDaily[dt]) aggDaily[dt] = { visits: 0, unique_users: 0, new_users: 0, income: 0 };
+              aggDaily[dt].visits += daily[dt].visits;
+              aggDaily[dt].unique_users += daily[dt].unique_users;
+              aggDaily[dt].new_users += daily[dt].new_users;
+              aggDaily[dt].income += daily[dt].income;
+            }
+            const dn = r2(st.dn_income);
+            links.push({
+              bookName,
+              bookId,
+              code: sub.code || (channel === 'code' ? adId : 'N/A'),
+              link: sub.link || (channel === 'link' ? `https://s.novelflow.top/${adId}` : null),
+              linkId: sub.linkId || (channel === 'link' ? adId : null),
+              submittedAt: sub.submittedAt || null,
+              kocName: sub.discordUsername || pEntry.display_name || pCanon,
+              cover: bookId ? (covers[bookId] || '') : '',
+              visits: st.pull_uv || 0,
+              unique_users: st.pull_uv || 0,
+              new_users: st.new_uv || 0,
+              d14_income: dn,
+              dn_income: dn,
+              channel,
+              daily,
             });
-            if (bookLinkId) existingLinkIds.add(bookLinkId);
-            if (bookCode) existingCodes.add(bookCode);
           }
         }
-      }
-    } catch (e) {}
+      } else {
+        // Normal user: iterate submissions, lookup per-ad_id stats.
+        for (const sub of submissions) {
+          const linkId = sub.linkId ? String(sub.linkId) : null;
+          const code = sub.code ? String(sub.code) : null;
 
-    // Step 2: Fallback — read data.json and link-stats.json from GitHub
-    let dataJson = { users: {} };
-    let linkStats = { links: {} };
-    const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-    if (GITHUB_TOKEN) {
-      const ghHeaders = { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'NovelFlow-API' };
-      const apiBase = 'https://api.github.com/repos/loboscantante849-coder/novelflow-dashboard/contents';
-      try {
-        const r = await fetch(`${apiBase}/data.json`, { headers: ghHeaders, signal: AbortSignal.timeout(5000) });
-        if (r.ok) dataJson = JSON.parse(Buffer.from((await r.json()).content, 'base64').toString('utf-8'));
-      } catch (e) {}
-      try {
-        const r = await fetch(`${apiBase}/link-stats.json`, { headers: ghHeaders, signal: AbortSignal.timeout(5000) });
-        if (r.ok) linkStats = JSON.parse(Buffer.from((await r.json()).content, 'base64').toString('utf-8'));
-      } catch (e) {}
-    }
+          let adIdKey = null;
+          let st = null;
+          if (linkId && byAdId[linkId]) { adIdKey = linkId; st = byAdId[linkId]; }
+          else if (code && byAdId[code]) { adIdKey = code; st = byAdId[code]; }
 
-    // Step 3: Query putreport API
-    const token = await getBookstoreToken();
-    const now = new Date();
-    const dateTo = now.toISOString().split('T')[0];
-    const dateFrom = new Date(now.getTime() - 365*24*60*60*1000).toISOString().split('T')[0];
-    let allRows = [];
+          if (!st) st = zeroStats();
+          const channel = st.channel || (adIdKey && code === adIdKey ? 'code' : 'link');
+          const bookName = sub.matchedBookName || sub.bookName || st.book_name || 'Unknown';
+          const bookId = sub.bookId || null;
 
-    if (userSubs.length > 0 && token) {
-      const linkIds = userSubs.map(s => s.linkId).filter(Boolean);
-      for (let i = 0; i < linkIds.length; i += 50) {
-        const batch = linkIds.slice(i, i+50);
-        try {
-          const resp = await fetch(PUTREPORT_API, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'X-OS': 'web', 'X-AppName': 'web-admin', 'X-AppIdentifier': 'web', 'X-AppVersion': '1.0.0,1', 'Content-Type': 'application/json;charset=UTF-8', 'Accept': 'application/json', 'Origin': 'https://admin.novelspa.app', 'Referer': 'https://admin.novelspa.app/' },
-            body: JSON.stringify({ filters: { productline: ['NovelFlow'], mediasource: [], mediasource2: ['SocialMedia'], date: { from: dateFrom, to: dateTo, datesLabel: '' }, campaignid: [], adsetid: [], adid: batch, copywritingid: [] }, groupings: ['adid', 'date'] })
+          const daily = {};
+          for (const [dt, dv] of Object.entries(st.daily || {})) {
+            daily[dt] = {
+              visits: dv.pull_uv || 0,
+              unique_users: dv.pull_uv || 0,
+              new_users: dv.new_uv || 0,
+              income: r2(dv.dn_income || 0),
+            };
+            if (!aggDaily[dt]) aggDaily[dt] = { visits: 0, unique_users: 0, new_users: 0, income: 0 };
+            aggDaily[dt].visits += daily[dt].visits;
+            aggDaily[dt].unique_users += daily[dt].unique_users;
+            aggDaily[dt].new_users += daily[dt].new_users;
+            aggDaily[dt].income += daily[dt].income;
+          }
+          const dn = r2(st.dn_income);
+          links.push({
+            bookName, bookId,
+            code: sub.code || code || 'N/A',
+            link: sub.link || (linkId ? `https://s.novelflow.top/${linkId}` : null),
+            linkId: sub.linkId || linkId || null,
+            submittedAt: sub.submittedAt || null,
+            kocName: sub.discordUsername || username,
+            cover: bookId ? (covers[bookId] || '') : '',
+            visits: st.pull_uv || 0,
+            unique_users: st.pull_uv || 0,
+            new_users: st.new_uv || 0,
+            d14_income: dn,
+            dn_income: dn,
+            channel,
+            daily,
           });
-          if (resp.status === 401) break;
-          const data = await resp.json();
-          if (data.data) allRows = allRows.concat(data.data);
-        } catch (e) {}
+        }
       }
-    }
 
-    // Step 4: Aggregate putreport by adid
-    const linkMap = {};
-    for (const row of allRows) {
-      const adid = row.adid || '';
-      const date = row.date || row.dt || '';
-      const visits = parseInt(row.h5landingpageclicks || row.h5landingpageclicknum || 0);
-      const unique = parseInt(row.h5landingpageclickusernum || row.clickusernum || 0);
-      const newUsers = parseInt(row.newusernum || 0);
-      const income = parseFloat(row.d14income || 0);
-      if (!linkMap[adid]) linkMap[adid] = { total_visits: 0, total_unique: 0, total_new: 0, total_income: 0, daily: {} };
-      linkMap[adid].total_visits += visits;
-      linkMap[adid].total_unique += unique;
-      linkMap[adid].total_new += newUsers;
-      linkMap[adid].total_income += income;
-      if (date) linkMap[adid].daily[date] = { visits, unique_users: unique, new_users: newUsers, income };
-    }
+      const totalVisits = links.reduce((s, l) => s + l.visits, 0);
+      const totalNew = links.reduce((s, l) => s + l.new_users, 0);
+      const totalIncome = r2(links.reduce((s, l) => s + l.dn_income, 0));
 
-    // Step 5: Build links array
-    const links = [];
-    for (const sub of userSubs) {
-      let ls = linkMap[sub.linkId] || null;
-      let cronLinkData = sub.linkId && linkStats.links?.[sub.linkId] || null;
-
-      const merged = {
-        total_visits: ls?.total_visits || cronLinkData?.visits || 0,
-        total_unique: ls?.total_unique || cronLinkData?.unique_users || 0,
-        total_new: ls?.total_new || cronLinkData?.new_users || 0,
-        total_income: ls?.total_income || cronLinkData?.d14_income || 0,
-        daily: {}
-      };
-      if (ls?.daily) Object.assign(merged.daily, ls.daily);
-      if (cronLinkData && !ls?.daily) {
-        if (cronLinkData.unique_daily) for (const [d, v] of Object.entries(cronLinkData.unique_daily)) { if (!merged.daily[d]) merged.daily[d] = { visits:0, unique_users:v, new_users:0, income:0 }; }
-        if (cronLinkData.d14_income_daily) for (const [d, v] of Object.entries(cronLinkData.d14_income_daily)) { if (!merged.daily[d]) merged.daily[d] = { visits:0, unique_users:0, new_users:0, income:v }; }
+      // Round aggregated daily income
+      const daily = {};
+      for (const [dt, v] of Object.entries(aggDaily)) {
+        daily[dt] = {
+          visits: v.visits,
+          unique_users: v.unique_users,
+          new_users: v.new_users,
+          income: r2(v.income),
+        };
       }
-      links.push({
-        bookName: sub.matchedBookName || sub.bookName, bookId: sub.bookId,
-        code: sub.code, link: sub.link, linkId: sub.linkId,
-        submittedAt: sub.submittedAt, kocName: sub.discordUsername || '',
-        visits: merged.total_visits, unique_users: merged.total_unique,
-        new_users: merged.total_new, d14_income: Math.round(merged.total_income*100)/100,
-        daily: merged.daily, isLegacy: sub.isLegacy || false
+
+      debugLog.push(`primary path: ${links.length} link rows, income=$${totalIncome.toFixed(2)}`);
+
+      return res.status(200).json({
+        username, isAdmin: admin,
+        total_visits: totalVisits,
+        total_unique: totalVisits,
+        total_new: totalNew,
+        total_income: totalIncome,
+        last_updated: adData.last_updated || new Date().toISOString(),
+        daily, links,
+        debug: debugLog, version: 'v6-unified-funnel',
       });
     }
 
-    if (links.length === 0) {
-      return res.status(200).json({ username, total_visits: 0, total_unique: 0, total_new: 0, total_income: 0, daily: {}, links: [], message: 'No completed submissions with linkIds' });
-    }
+    // =================== FALLBACK: link-stats.json ===================
+    debugLog.push('primary ad_id_details unavailable — using legacy link-stats.json fallback');
+    const linkStats = await getLegacyLinkStats(debugLog);
+    const linkStatsLinks = (linkStats && linkStats.links) || {};
 
-    // Step 6: Campaign-level fallback for 0-income users
-    let totalVisits = links.reduce((s,l) => s+l.visits, 0);
-    let totalUnique = links.reduce((s,l) => s+l.unique_users, 0);
-    let totalNew = links.reduce((s,l) => s+l.new_users, 0);
-    let totalIncome = links.reduce((s,l) => s+l.d14_income, 0);
+    const links = [];
+    const aggDaily = {};
+    for (const sub of submissions) {
+      const linkId = sub.linkId ? String(sub.linkId) : null;
+      const code = sub.code ? String(sub.code) : null;
+      const cron = (linkId && linkStatsLinks[linkId]) || (code && linkStatsLinks[code]) || null;
 
-    if (!isAdmin && totalIncome === 0 && totalUnique === 0) {
-      const dataUsers = dataJson.users || {};
-      let matchedUserData = null;
-      for (const [key, udata] of Object.entries(dataUsers)) {
-        if (key.toLowerCase() === username.toLowerCase() || (udata.name?.toLowerCase() === username.toLowerCase())) {
-          if (!matchedUserData || (udata.d14income||0) > (matchedUserData.d14income||0)) matchedUserData = udata;
-        }
-      }
-      if (matchedUserData) {
-        totalVisits = matchedUserData.link_visits || matchedUserData.visits || totalVisits;
-        totalUnique = matchedUserData.link_unique || matchedUserData.unique_visitors || matchedUserData.unique_users || totalUnique;
-        totalNew = matchedUserData.new_users || totalNew;
-        totalIncome = matchedUserData.d14income || matchedUserData.subscription_revenue || totalIncome;
-        const dailyAgg = {};
-        if (matchedUserData.link_unique_daily) for (const [d,v] of Object.entries(matchedUserData.link_unique_daily)) { if (!dailyAgg[d]) dailyAgg[d] = {visits:0,unique_users:0,new_users:0,income:0}; dailyAgg[d].unique_users = v; }
-        if (matchedUserData.d14income_daily) for (const [d,v] of Object.entries(matchedUserData.d14income_daily)) { if (!dailyAgg[d]) dailyAgg[d] = {visits:0,unique_users:0,new_users:0,income:0}; dailyAgg[d].income = v; }
-        if (links.length > 0) {
-          const perLink = { visits: Math.floor(totalVisits/links.length), unique: Math.floor(totalUnique/links.length), new_users: Math.floor(totalNew/links.length), income: Math.round(totalIncome/links.length*100)/100 };
-          let av=0,au=0,an=0,ai=0;
-          for (let i=0; i<links.length; i++) {
-            if (i < links.length-1) { links[i].visits=perLink.visits; links[i].unique_users=perLink.unique; links[i].new_users=perLink.new_users; links[i].d14_income=perLink.income; av+=perLink.visits; au+=perLink.unique; an+=perLink.new_users; ai+=perLink.income; }
-            else { links[i].visits=totalVisits-av; links[i].unique_users=totalUnique-au; links[i].new_users=totalNew-an; links[i].d14_income=Math.round((totalIncome-ai)*100)/100; }
-            links[i].daily = dailyAgg;
+      const daily = {};
+      let visits = 0, unique = 0, newUsers = 0, income = 0;
+      if (cron) {
+        visits = +cron.total_visits || +cron.visits || +cron.unique_visitors || 0;
+        unique = +cron.unique_visitors || +cron.unique_users || visits;
+        newUsers = +cron.new_users || 0;
+        income = r2(+cron.dn || +cron.dn_income || +cron.d14_income || +cron.revenue || 0);
+        if (cron.daily && typeof cron.daily === 'object') {
+          for (const [dt, v] of Object.entries(cron.daily)) {
+            daily[dt] = {
+              visits: +v.pull_uv || +v.visits || 0,
+              unique_users: +v.pull_uv || +v.unique_users || +v.visits || 0,
+              new_users: +v.new_uv || +v.new_users || 0,
+              income: r2(+v.dn_income || +v.dn || 0),
+            };
           }
         }
       }
+      for (const [dt, v] of Object.entries(daily)) {
+        if (!aggDaily[dt]) aggDaily[dt] = { visits:0, unique_users:0, new_users:0, income:0 };
+        aggDaily[dt].visits += v.visits;
+        aggDaily[dt].unique_users += v.unique_users;
+        aggDaily[dt].new_users += v.new_users;
+        aggDaily[dt].income += v.income;
+      }
+      links.push({
+        bookName: sub.matchedBookName || sub.bookName || cron?.book_name || 'Unknown',
+        bookId: sub.bookId || null,
+        code: sub.code || code || 'N/A',
+        link: sub.link || (linkId ? `https://s.novelflow.top/${linkId}` : null),
+        linkId: sub.linkId || linkId || null,
+        submittedAt: sub.submittedAt || null,
+        kocName: sub.discordUsername || username,
+        cover: sub.bookId ? (covers[sub.bookId] || '') : '',
+        visits, unique_users: unique, new_users: newUsers,
+        d14_income: income, dn_income: income,
+        channel: cron?.channel || 'link',
+        daily,
+      });
     }
 
-    const dailyAgg = {};
-    for (const l of links) for (const [date,val] of Object.entries(l.daily||{})) { if (!dailyAgg[date]) dailyAgg[date]={visits:0,unique_users:0,new_users:0,income:0}; dailyAgg[date].visits+=val.visits||0; dailyAgg[date].unique_users+=val.unique_users||0; dailyAgg[date].new_users+=val.new_users||0; dailyAgg[date].income+=val.income||0; }
-
-    totalVisits = links.reduce((s,l) => s+l.visits, 0);
-    totalUnique = links.reduce((s,l) => s+l.unique_users, 0);
-    totalNew = links.reduce((s,l) => s+l.new_users, 0);
-    totalIncome = links.reduce((s,l) => s+l.d14_income, 0);
+    const totalVisits = links.reduce((s,l)=>s+l.visits,0);
+    const totalNew = links.reduce((s,l)=>s+l.new_users,0);
+    const totalIncome = r2(links.reduce((s,l)=>s+l.dn_income,0));
+    const daily = {};
+    for (const [dt,v] of Object.entries(aggDaily)) {
+      daily[dt] = { visits: v.visits, unique_users: v.unique_users, new_users: v.new_users, income: r2(v.income) };
+    }
 
     return res.status(200).json({
-      username, isAdmin,
-      total_visits: totalVisits, total_unique: totalUnique,
-      total_new: totalNew, total_income: Math.round(totalIncome*100)/100,
-      daily: dailyAgg, links
+      username, isAdmin: admin,
+      total_visits: totalVisits, total_unique: totalVisits,
+      total_new: totalNew, total_income: totalIncome,
+      last_updated: linkStats.last_updated || new Date().toISOString(),
+      daily, links,
+      debug: debugLog, version: 'v6-unified-funnel',
     });
 
   } catch (error) {
-    console.error('per-link-stats error:', error);
-    return res.status(500).json({ error: 'Internal server error: ' + error.message });
+    console.error('[per-link-stats] Error:', error);
+    debugLog.push(`FATAL: ${error.message}`);
+    return res.status(200).json({
+      username, isAdmin: isAdmin(username),
+      total_visits: 0, total_unique: 0, total_new: 0, total_income: 0,
+      daily: {}, links: [],
+      debug: debugLog, version: 'v6-unified-funnel',
+      error: error.message,
+    });
   }
 };
