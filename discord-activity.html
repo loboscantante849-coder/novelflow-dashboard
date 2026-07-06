@@ -661,7 +661,7 @@
                 console.error('Login check failed:', e);
                 updateProfileUI();
             }
-        }; AppState.isLoggedIn = true; } updateProfileUI(); } catch (e) { console.error('Login check failed:', e); updateProfileUI(); } }
+        }
         function updateProfileUI() { const avatar = document.getElementById('profileAvatar'); const name = document.getElementById('profileName'); const uid = document.getElementById('profileUid'); const loginBtn = document.getElementById('loginBtn'); const logoutBtn = document.getElementById('logoutBtn'); const status = document.getElementById('profileStatus'); if (AppState.isLoggedIn && AppState.user) { const username = AppState.user.global_name || AppState.user.username; const avatarUrl = AppState.user.avatar ? 'https://cdn.discordapp.com/avatars/' + AppState.user.id + '/' + AppState.user.avatar + '.png?size=128' : 'https://cdn.discordapp.com/embed/avatars/0.png'; avatar.innerHTML = '<img src="' + avatarUrl + '" alt="" onerror="this.parentElement.textContent=\'' + (username.charAt(0).toUpperCase()) + '\'">'; name.textContent = username; uid.textContent = 'Discord ID: ' + AppState.user.id; loginBtn.style.display = 'none'; logoutBtn.style.display = 'inline-flex'; status.style.display = 'block'; } else { avatar.textContent = '?'; name.textContent = '未登录'; uid.textContent = '登录后解锁更多功能'; loginBtn.style.display = 'inline-flex'; logoutBtn.style.display = 'none'; status.style.display = 'none'; } }
         
         // ========== Discord 检测 ==========

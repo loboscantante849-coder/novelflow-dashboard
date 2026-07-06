@@ -6738,12 +6738,11 @@ function renderMyBooks() {
             overlay.id = 'reelSuccessOverlay';
             overlay.className = 'reel-success-overlay';
             overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-            const earnLink = '/app-v2';
             overlay.innerHTML = '<div class="reel-success-card">' +
                 '<div class="reel-success-icon">🎉</div>' +
                 '<div class="reel-success-title">Congratulations!</div>' +
                 '<div class="reel-success-sub">Video for &quot;' + escapeHtml(taskName) + '&quot; created successfully!<br>You can find it in My Reels.</div>' +
-                '<a class="reel-success-cta" href="' + earnLink + '#submit" onclick="document.getElementById(\'reelSuccessOverlay\').remove()">Upload Video & Earn Now 💰</a>' +
+                '<button class="reel-success-cta" onclick="document.getElementById(\'reelSuccessOverlay\').remove(); switchTab(\'submit\');">Upload Video & Earn Now 💰</button>' +
                 '<div style="font-size:10px;color:var(--ink-mute);margin-top:8px;">Share your video + link to earn commission</div>' +
                 '<button class="reel-success-close" onclick="document.getElementById(\'reelSuccessOverlay\').remove()">Close</button>' +
                 '</div>';

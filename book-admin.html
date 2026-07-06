@@ -786,7 +786,7 @@ tbody tr:last-child td {
   </div>
 </div>
 
-<script>
+<script type="module">
 // Config
 // SHA-256 hash of 'novelflow2026' - more secure than plain text
 const ADMIN_PASSWORD_HASH = 'a36ef0c5a1dd9c4212a13ea9564d9cb2fe49e87cbb99aaaa9feb7226714f4842';
@@ -814,7 +814,7 @@ let fileSha = null;
 // ===== Two-Step Login Flow =====
 
 // Step 1: Password verification
-document.getElementById('loginForm').addEventListener('submit', (e) => {
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const password = document.getElementById('password').value;
   const inputHash = await sha256(password);
