@@ -65,7 +65,7 @@ module.exports = async (req, res) => {
       }
 
       // Validate data structure - only allow known fields
-      const allowedKeys = ['myBooks', 'checkin', 'points', 'claimed', 'bind_id', 'vip_days', 'lastSyncAt'];
+      const allowedKeys = ['myBooks', 'checkin', 'points', 'claimed', 'bind_id', 'vip_days', 'lastSyncAt', 'bonus_balance', 'bonus_campaign1_claimed', 'streak_grand_claimed', 'total_income_override'];
       const cleanData = {};
       for (const key of allowedKeys) {
         if (data[key] !== undefined) {
