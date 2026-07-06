@@ -69,9 +69,15 @@ function getRedis() {
  * Canonicalize a promoter username the same way the pipeline does.
  */
 function canonize(name) {
-  return String(name || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
+  // Normalize a promoter display name for lookup in by_promoter.
+  // Keep CJK / accented Latin / alphanumerics; collapse runs of whitespace / punctuation
+  // to a single underscore and trim leading/trailing underscores. This ensures Chinese
+  // handles like "英语" survive (the old regex [^a-z0-9] would strip them to '').
+  const raw = String(name || '').toLowerCase().trim();
+  if (!raw) return '';
+  return raw
+    .replace(/[\s\-–—.·@#$%^&*()+=[\]{};:'"<>/\|!?~`]+/g, '_')
+    .replace(/__+/g, '_')
     .replace(/^_|_$/g, '');
 }
 
