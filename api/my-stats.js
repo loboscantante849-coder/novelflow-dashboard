@@ -118,7 +118,7 @@ module.exports = async (req, res) => {
               bookId,
               linkId: sub.linkId || (channel === 'link' ? adId : null),
               submittedAt: sub.submittedAt || null,
-              kocName: sub.discordUsername || pEntry.display_name || pCanon,
+              kocName: pEntry.display_name || pCanon,
               cover: bookId ? (covers[bookId] || '') : '',
               visits: st.pull_uv || 0,
               unique_users: st.pull_uv || 0,
