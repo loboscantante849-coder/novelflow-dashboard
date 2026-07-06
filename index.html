@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- v2.5.1 - Security P0 fixes + Promotion Earnings rename - 2026-07-06 -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -984,6 +985,134 @@
         .vip-exchange-btn:not(:disabled):hover { transform: scale(1.05); }
 
         /* Milestone celebration overlay */
+
+        /* ===== v2.5.0: Campaign missions + Bonus styles ===== */
+        .tasks-top-row { display: flex; gap: 10px; margin-bottom: 14px; }
+        .bonus-mini-card {
+            flex: 1;
+            background: linear-gradient(135deg, #FED7AA, #C084FC, #F472B6);
+            border-radius: 14px;
+            padding: 10px 12px;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-width: 0;
+        }
+        .bonus-mini-label { font-size: 10px; opacity: 0.9; font-weight: 500; }
+        .bonus-mini-value { font-size: 18px; font-weight: 800; font-feature-settings: "tnum"; margin-top: 2px; }
+        .milestone-big-prize { font-size: 10px; color: #FFD700; font-weight: 700; margin-top: 2px; text-align: center; }
+        .campaigns-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin: 16px 0 10px 0;
+        }
+        .campaigns-title { font-size: 14px; font-weight: 700; color: var(--ink); }
+        .campaign-scroll-list {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 4px 2px 12px 2px;
+            -webkit-overflow-scrolling: touch;
+            scroll-snap-type: x proximity;
+        }
+        .campaign-scroll-list::-webkit-scrollbar { height: 4px; }
+        .campaign-scroll-list::-webkit-scrollbar-thumb { background: rgba(255,107,157,0.3); border-radius: 2px; }
+        .campaign-card {
+            flex: 0 0 168px;
+            background: white;
+            border: 1px solid var(--hairline);
+            border-radius: 14px;
+            padding: 0;
+            overflow: hidden;
+            position: relative;
+            scroll-snap-align: start;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+        .campaign-card:active { transform: scale(0.98); }
+        .campaign-card.completed { opacity: 0.6; }
+        .campaign-card.locked { opacity: 0.75; }
+        .campaign-banner {
+            height: 80px;
+            background: linear-gradient(135deg, #FF6B9D, #C084FC);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 36px; position: relative;
+        }
+        .campaign-card.completed .campaign-banner { background: linear-gradient(135deg, #94a3b8, #64748b); }
+        .campaign-card.locked .campaign-banner { background: linear-gradient(135deg, #cbd5e1, #94a3b8); }
+        .campaign-ribbon {
+            position: absolute;
+            top: 8px; right: -28px;
+            background: rgba(220,38,38,0.85);
+            color: white;
+            font-size: 9px; font-weight: 800;
+            padding: 2px 30px;
+            transform: rotate(40deg);
+            letter-spacing: 0.5px;
+        }
+        .campaign-ribbon.finished { background: rgba(100,116,139,0.85); }
+        .campaign-ribbon.locked { background: rgba(148,163,184,0.9); }
+        .campaign-ribbon.claimed { background: rgba(16,185,129,0.9); }
+        .campaign-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+        .campaign-name { font-size: 12px; font-weight: 700; color: var(--ink); line-height: 1.3; min-height: 30px; }
+        .campaign-reward { font-size: 11px; color: var(--ink-secondary); font-weight: 600; }
+        .campaign-reward .amt { color: #e11d48; font-weight: 800; }
+        .campaign-status { font-size: 10px; color: var(--ink-mute); margin-top: auto; }
+        .campaign-cta {
+            margin-top: 4px;
+            width: 100%; padding: 7px 0;
+            border: none; border-radius: 8px;
+            font-size: 11px; font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            background: linear-gradient(135deg, #FF6B9D, #C084FC);
+            color: white;
+        }
+        .campaign-cta:disabled { background: rgba(0,0,0,0.08); color: var(--ink-mute); cursor: not-allowed; }
+        .campaign-cta:not(:disabled):active { transform: scale(0.96); }
+        .bonus-profile-card {
+            margin: 10px var(--sp-lg) 0;
+            background: linear-gradient(135deg, #FED7AA, #C084FC, #F472B6);
+            border-radius: 14px;
+            padding: 12px 14px;
+            color: white;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .bonus-profile-icon { font-size: 24px; }
+        .bonus-profile-text { flex: 1; }
+        .bonus-profile-label { font-size: 11px; opacity: 0.9; }
+        .bonus-profile-value { font-size: 20px; font-weight: 800; font-feature-settings: "tnum"; }
+        .bonus-profile-sub { font-size: 10px; opacity: 0.85; margin-top: 2px; }
+        .milestone-dot.grand { background: linear-gradient(135deg, #FFD700, #F59E0B); border-color: #FFD700; color: #7c2d12; box-shadow: 0 0 16px rgba(255,215,0,0.6); }
+        .milestone-dot.grand.active { background: linear-gradient(135deg, #FFD700, #F59E0B); border-color: #FFD700; color: #7c2d12; }
+        .milestone-grand-label { font-size: 8px; color: #FFD700; font-weight: 700; text-align: center; line-height: 1.1; }
+        .streak-claim-btn {
+            width: 100%; margin-top: 10px; padding: 9px;
+            background: linear-gradient(135deg, #FFD700, #F59E0B);
+            border: none; border-radius: 10px; color: #7c2d12;
+            font-size: 13px; font-weight: 800; font-family: inherit; cursor: pointer;
+        }
+        .streak-claim-btn:disabled { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.4); cursor: not-allowed; }
+        .streak-claim-btn:not(:disabled):active { transform: scale(0.98); }
+        .streak-claim-hint { font-size: 10px; color: rgba(255,255,255,0.65); text-align: center; margin-top: 6px; line-height: 1.3; }
+        .vip-mini-card {
+            display: flex; align-items: center; gap: 8px;
+            background: linear-gradient(135deg, #1a1a2e, #2d1b69);
+            border-radius: 12px; padding: 10px 12px; margin-top: 10px; color: white;
+        }
+        .vip-mini-icon { font-size: 20px; }
+        .vip-mini-info { flex: 1; min-width: 0; }
+        .vip-mini-title { font-size: 12px; font-weight: 700; }
+        .vip-mini-sub { font-size: 10px; color: rgba(255,255,255,0.65); }
+        .vip-mini-btn {
+            padding: 7px 12px; border: none; border-radius: 8px;
+            font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit;
+            background: linear-gradient(135deg, #FFD700, #FF6B9D); color: white; flex-shrink: 0;
+        }
+        .vip-mini-btn:disabled { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.3); cursor: not-allowed; }
+
         .milestone-overlay { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); animation: fadeIn 0.3s; }
         .milestone-popup { background: linear-gradient(135deg, #1a1a2e, #2d1b69); border-radius: 20px; padding: 32px 24px; text-align: center; color: white; max-width: 280px; animation: milestonePop 0.5s ease; }
         @keyframes milestonePop { 0% { transform: scale(0.5); opacity: 0; } 50% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
@@ -1364,13 +1493,24 @@
         .my-book-info { flex: 1; min-width: 0; }
         .my-book-title { font-size: 13px; font-weight: 300; letter-spacing: -0.13px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
         .my-book-code { font-size: 12px; color: var(--primary); font-weight: 400; font-feature-settings: "tnum"; }
+        .my-book-actions {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 4px; flex-shrink: 0;
+        }
         .my-book-copy {
             padding: 6px 14px; background: var(--primary);
             border: none; border-radius: var(--r-pill);
             color: var(--on-primary); font-size: 12px; font-weight: 400;
-            cursor: pointer; flex-shrink: 0; transition: background 0.15s;
+            cursor: pointer; transition: background 0.15s;
         }
         .my-book-copy:hover { background: var(--primary-deep); }
+        .my-book-delete {
+            padding: 4px 8px; background: transparent;
+            border: 1px solid var(--hairline); border-radius: var(--r-sm);
+            font-size: 10px; cursor: pointer; transition: all 0.15s;
+            opacity: 0.6;
+        }
+        .my-book-delete:hover { opacity: 1; border-color: var(--danger); background: rgba(234, 34, 97, 0.05); }
 
         /* Expanded My Book Item */
         .my-book-expanded-item {
@@ -2459,90 +2599,65 @@
     /* Fix iOS input zoom */
     input[type="text"], input[type="password"], textarea { font-size: 16px; }
         
-        /* ========== Earnings & Withdrawal Modal (v2.6.0) ========== */
-        .earn-modal .modal { max-height: 92vh; border-radius: 20px 20px 0 0; }
-        .earn-modal .modal-body { padding: 0; display:flex; flex-direction:column; max-height: calc(92vh - 56px); }
-        .earn-top-cards {
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
-            padding: 14px 16px 10px;
-            background: linear-gradient(180deg, rgba(83,58,253,0.06) 0%, rgba(83,58,253,0) 100%);
-        }
-        .earn-top-card {
-            background: var(--canvas); border: 1px solid var(--hairline); border-radius: 12px;
-            padding: 10px 8px; text-align: center; position: relative;
-        }
-        .earn-top-card.primary {
-            background: linear-gradient(135deg, #533afd 0%, #7b5cff 100%);
-            border-color: transparent; color: #fff;
-        }
-        .earn-top-card.primary .earn-top-val { color: #fff; }
-        .earn-top-card.primary .earn-top-label { color: rgba(255,255,255,0.85); }
-        .earn-top-val { font-size: 18px; font-weight: 700; color: #FF6B00; font-feature-settings: "tnum"; letter-spacing: -0.3px; }
-        .earn-top-label { font-size: 10px; color: var(--ink-mute); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 500; }
-        .earn-top-soon { position:absolute; top:6px; right:6px; font-size:8px; background:rgba(0,0,0,0.06); color:var(--ink-mute); padding:1px 5px; border-radius:8px; font-weight:600; }
-        .earn-top-card.primary .earn-top-soon { background: rgba(255,255,255,0.2); color: rgba(255,255,255,0.85); }
-
-        .earn-tabs { display:flex; border-bottom: 1px solid var(--hairline); padding: 0 16px; background: var(--canvas); position: sticky; top: 0; z-index: 5; }
-        .earn-tab { flex:1; text-align:center; padding: 12px 0; font-size: 13px; font-weight: 500; color: var(--ink-mute); cursor:pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+        /* ========== Earnings Center v2.6.0 (earn- prefixed, isolated) ========== */
+        #earningsModal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13,37,61,0.55); display: none; align-items: flex-start; justify-content: center; z-index: 10002; padding: 20px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        #earningsModal.show { display: flex; }
+        .earn-panel { background: var(--canvas); border-radius: 16px; width: 100%; max-width: 480px; margin: auto; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); display: flex; flex-direction: column; animation: earnFadeIn 0.2s ease; }
+        @keyframes earnFadeIn { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .earn-header { padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--hairline); position: sticky; top: 0; background: var(--canvas); z-index: 5; border-radius: 16px 16px 0 0; }
+        .earn-title { font-size: 16px; font-weight: 600; color: var(--ink); letter-spacing: -0.16px; }
+        .earn-close { width: 30px; height: 30px; border-radius: 50%; border: none; background: var(--canvas-soft); color: var(--ink-mute); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+        .earn-close:hover { background: var(--hairline); color: var(--ink); }
+        .earn-body { padding: 0; overflow-y: auto; flex: 1; }
+        .earn-stats { display: flex; gap: 8px; padding: 14px 16px 10px; background: linear-gradient(180deg, rgba(83,58,253,0.06) 0%, rgba(83,58,253,0) 100%); }
+        .earn-stat { flex: 1; background: var(--canvas); border: 1px solid var(--hairline); border-radius: 12px; padding: 10px 8px; text-align: center; position: relative; }
+        .earn-stat.primary { background: linear-gradient(135deg, #533afd 0%, #7b5cff 100%); border-color: transparent; color: #fff; }
+        .earn-stat.primary .earn-stat-val { color: #fff; }
+        .earn-stat.primary .earn-stat-label { color: rgba(255,255,255,0.85); }
+        .earn-stat-val { font-size: 18px; font-weight: 700; color: var(--ink); font-feature-settings: "tnum"; letter-spacing: -0.3px; }
+        .earn-stat-label { font-size: 10px; color: var(--ink-mute); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 500; }
+        .earn-stat-soon { position: absolute; top: 6px; right: 6px; font-size: 8px; background: rgba(0,0,0,0.06); color: var(--ink-mute); padding: 1px 5px; border-radius: 8px; font-weight: 600; }
+        .earn-stat.primary .earn-stat-soon { background: rgba(255,255,255,0.2); color: rgba(255,255,255,0.9); }
+        #earnBonusBanner { margin: 0 16px 10px; padding: 10px 14px; background: linear-gradient(135deg,#FEF3C7,#FDE68A); border-radius: 12px; display: none; align-items: center; justify-content: space-between; color: #78350f; }
+        .earn-bonus-left { display: flex; align-items: center; gap: 8px; }
+        .earn-bonus-tag { font-size: 10px; color: #92400e; font-weight: 700; background: rgba(146,64,14,0.1); padding: 2px 6px; border-radius: 6px; letter-spacing: 0.3px; }
+        .earn-bonus-sub { font-size: 11px; color: #92400e; margin-top: 2px; }
+        .earn-bonus-val { font-size: 16px; font-weight: 700; color: #b45309; font-feature-settings: "tnum"; }
+        .earn-tabs { display: flex; border-bottom: 1px solid var(--hairline); padding: 0 16px; background: var(--canvas); position: sticky; top: 48px; z-index: 4; }
+        .earn-tab { flex: 1; text-align: center; padding: 12px 0; font-size: 13px; font-weight: 500; color: var(--ink-mute); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
         .earn-tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
-
-        .earn-tab-panel { display:none; padding: 12px 16px 8px; overflow-y:auto; flex:1; -webkit-overflow-scrolling: touch; }
-        .earn-tab-panel.active { display:block; }
-
-        .earn-list { }
-        .earn-list-item {
-            display:flex; justify-content:space-between; align-items:center;
-            padding: 10px 0; border-bottom: 1px solid var(--hairline);
-        }
+        .earn-tab-panel { display: none; padding: 10px 16px 4px; }
+        .earn-tab-panel.active { display: block; }
+        .earn-list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--hairline); }
         .earn-list-item:last-child { border-bottom: none; }
-        .earn-list-left { min-width: 0; flex:1; }
-        .earn-list-title { font-size: 13px; color: var(--ink); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .earn-list-left { min-width: 0; flex: 1; }
+        .earn-list-title { font-size: 13px; color: var(--ink); font-weight: 500; }
         .earn-list-sub { font-size: 11px; color: var(--ink-mute); margin-top: 2px; }
-        .earn-list-right { text-align:right; flex-shrink:0; margin-left:10px; }
-        .earn-list-amount { font-size: 14px; font-weight: 700; color: #FF6B00; font-feature-settings: "tnum"; }
-        .earn-list-status { font-size: 10px; margin-top: 2px; font-weight: 600; }
-        .earn-list-status.pending { color: #f59e0b; }
-        .earn-list-status.approved { color: #10b981; }
-        .earn-list-status.rejected { color: #ef4444; }
-
-        .earn-form-area {
-            border-top: 1px solid var(--hairline);
-            padding: 14px 16px 16px;
-            background: var(--canvas);
-        }
-        .earn-form-title { font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 10px; display:flex; align-items:center; gap:6px; }
+        .earn-list-right { text-align: right; flex-shrink: 0; margin-left: 10px; }
+        .earn-list-amount { font-size: 14px; font-weight: 700; color: #10b981; font-feature-settings: "tnum"; }
+        .earn-list-amount.neg { color: var(--ink); }
+        .earn-status { display: inline-block; font-size: 9px; margin-top: 3px; padding: 2px 7px; border-radius: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+        .earn-status.pending { background: rgba(245,158,11,0.12); color: #f59e0b; }
+        .earn-status.approved { background: rgba(16,185,129,0.12); color: #10b981; }
+        .earn-status.rejected { background: rgba(239,68,68,0.12); color: #ef4444; }
+        .earn-empty { text-align: center; padding: 28px 0; color: var(--ink-mute); font-size: 13px; }
+        .earn-form { border-top: 1px solid var(--hairline); padding: 14px 16px 18px; background: var(--canvas); position: relative; }
+        .earn-form-title { font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+        .earn-fee-badge { display: inline-block; background: rgba(16,185,129,0.12); color: #10b981; font-size: 10px; padding: 2px 7px; border-radius: 6px; font-weight: 700; letter-spacing: 0.3px; }
+        .earn-form-hint { font-size: 11px; color: var(--ink-mute); margin-bottom: 12px; line-height: 1.5; }
         .earn-field { margin-bottom: 10px; }
-        .earn-field label { display:block; font-size: 11px; color: var(--ink-mute); margin-bottom: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px; }
-        .earn-field input {
-            width: 100%; padding: 11px 12px; border: 1px solid var(--hairline); border-radius: 10px;
-            font-size: 14px; font-family: inherit; background: var(--canvas); color: var(--ink);
-            transition: border 0.15s; box-sizing: border-box;
-        }
+        .earn-field label { display: block; font-size: 11px; color: var(--ink-mute); margin-bottom: 5px; font-weight: 500; }
+        .earn-field input { width: 100%; padding: 11px 12px; border: 1px solid var(--hairline); border-radius: 10px; font-size: 14px; font-family: inherit; background: var(--canvas); color: var(--ink); transition: border 0.15s; box-sizing: border-box; }
         .earn-field input:focus { outline: none; border-color: var(--primary); }
-        .earn-field .earn-input-wrap { position: relative; }
-        .earn-field .earn-currency {
-            position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-            font-size: 14px; color: var(--ink-mute); font-weight: 600;
-        }
-        .earn-field .earn-input-amount { padding-left: 28px; font-feature-settings: "tnum"; font-weight: 600; }
-        .earn-field .earn-quick-row { display:flex; gap:6px; margin-top:6px; }
-        .earn-quick-chip {
-            flex:1; padding: 6px 0; border: 1px solid var(--hairline); background: var(--canvas-soft);
-            border-radius: 8px; font-size: 12px; color: var(--ink); text-align:center; cursor:pointer; font-weight:500;
-        }
-        .earn-quick-chip:active { background: var(--hairline); }
-
-        .earn-submit-btn {
-            width:100%; padding: 13px; border: none; border-radius: 12px;
-            background: linear-gradient(135deg, #533afd, #7b5cff);
-            color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
-            font-family: inherit; transition: opacity 0.15s; margin-top: 4px;
-        }
-        .earn-submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .earn-hint { font-size: 11px; color: var(--ink-mute); text-align:center; margin-top: 10px; line-height: 1.5; }
-        .earn-fee-tag { display:inline-block; background: rgba(16,185,129,0.1); color: #10b981; font-size:10px; padding: 2px 6px; border-radius: 6px; font-weight:600; margin-left: 6px; }
-        .earn-empty { text-align:center; padding: 30px 0; color: var(--ink-mute); font-size: 13px; }
-        .earn-badge-acct { display:inline-block; font-size:10px; padding: 2px 6px; border-radius: 4px; background: var(--canvas-soft); color: var(--ink-mute); margin-left: 4px; font-weight: 600; }
+        .earn-amount-wrap { position: relative; }
+        .earn-currency { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 14px; color: var(--ink-mute); font-weight: 600; }
+        #earnAmountInput { padding-left: 28px; font-feature-settings: "tnum"; font-weight: 600; }
+        .earn-quick-row { display: flex; gap: 6px; margin-top: 6px; }
+        .earn-quick-btn { flex: 1; padding: 7px 0; border: 1px solid var(--hairline); background: var(--canvas-soft); border-radius: 8px; font-size: 12px; color: var(--ink); text-align: center; cursor: pointer; font-weight: 500; font-family: inherit; transition: all 0.15s; }
+        .earn-quick-btn:active { background: var(--hairline); }
+        .earn-submit { width: 100%; padding: 13px; border: none; border-radius: 12px; background: linear-gradient(135deg, #533afd, #7b5cff); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; transition: opacity 0.15s; margin-top: 4px; }
+        .earn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+        .earn-err { font-size: 11px; color: #ef4444; text-align: center; margin-top: 8px; min-height: 14px; }
 
 </style>
 
@@ -2567,14 +2682,14 @@
         </div>
         <div class="splash-form">
             <input type="text" class="splash-input" id="splashUsername" data-i18n-placeholder="username" placeholder="Your username" oninput="checkSplashPasswordNeeded()">
-            <input type="password" class="splash-input" id="splashPassword" data-i18n-placeholder="password_placeholder" placeholder="Password (optional)" style="display:none;">
+            <input type="password" class="splash-input" id="splashPassword" data-i18n-placeholder="password_placeholder" placeholder="Password (min 4 characters)">
             <button class="splash-btn" onclick="handleSplashLogin()" data-i18n="start_earning"><span data-i18n="start_earning_btn">Start Earning</span></button>
-            <div class="splash-tip" id="splashTip" data-i18n="splash_tip">Enter your username to login or create account. Set a password to protect your data.</div>
-            <div style="text-align:center;margin-top:12px;"><a href="mailto:LobosCantante849@gmail.com" style="font-size:12px;color:var(--ink-mute);text-decoration:none;" data-i18n="email_support">📧 Email Support</a></div>
+            <div class="splash-tip" id="splashTip" data-i18n="splash_tip">Enter your username and password to login or create account.</div>
+
             <div class="splash-error" id="splashError"></div>
         </div>
         
-        <button class="splash-skip" onclick="skipLogin()">Skip for now →</button>
+
     </div>
 
     <div class="app-container">
@@ -2731,8 +2846,7 @@
                 <div class="reels-header">
                     <span class="reels-header-title">🎬 Video Creator</span>
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="font-size:11px;color:var(--ink-mute);" id="reelsDailyInfo">7 left today</span>
-                        <span style="font-size:10px;color:var(--ink-mute);" id="reelsCountdown">⏰ resets in --:--:--</span>
+                        <span style="font-size:11px;color:var(--ink-mute);" id="reelsDailyInfo">3 left today</span>
                         <button class="reels-adv-toggle" id="reelAdvToggle" onclick="toggleAdvMode()">⚙️ Switch to Advanced</button>
                     </div>
                 </div>
@@ -2940,98 +3054,67 @@
         <div class="tab-content" id="tab-tasks">
             <!-- Top Banner -->
 
-            <!-- Daily Missions Section - Redesigned -->
+            <!-- Tasks v2.5.0: Checkin + Campaigns + Bonus -->
             <div class="missions-section">
                 <div class="missions-header">
-                    <span data-i18n="daily_missions">🎯 Daily Missions</span>
+                    <span>🎯 Tasks & Rewards</span>
                     <div class="points-badge" id="pointsBadge">0 <span data-i18n="pts">pts</span></div>
                 </div>
-                
-                <!-- Check-in Milestone Track -->
-                <div class="checkin-milestone-card">
-                    <div class="milestone-title-row">
-                        <div class="milestone-title" data-i18n="checkin_streak">🔥 Check-in Streak</div>
-                        <div class="milestone-total">7 days = 50 <span data-i18n="pts">pts</span></div>
-                    </div>
-                    <div class="milestone-track" id="milestoneTrack">
-                        <!-- 7 milestone nodes rendered by JS -->
-                    </div>
-                    <button class="milestone-checkin-btn" id="milestoneCheckinBtn" onclick="doCheckinV2()">
-                        <span class="checkin-v2-btn-text" data-i18n="check_in">Check In</span>
-                        <span class="checkin-v2-btn-done" style="display:none;" data-i18n="claimed">✓ Claimed</span>
-                    </button>
-                </div>
 
-                <!-- Mission Cards -->
-                <div class="mission-card" id="missionShare1">
-                    <div class="mission-left">
-                        <div class="mission-icon">📚</div>
-                        <div class="mission-info">
-                            <div class="mission-name" data-i18n="mission_share1">Share First Book</div>
-                            <div class="mission-points">+20 <span data-i18n="pts">pts</span></div>
-                            <div class="mission-progress-bar"><div class="mission-progress-fill" id="task1Progress" style="width:0%"></div></div>
-                        </div>
-                    </div>
-                    <button class="mission-claim-btn" id="task1ClaimBtn" onclick="claimMission('share1')" disabled>
-                        <span class="mission-claim-text" data-i18n="claim">Claim</span>
-                    </button>
-                </div>
-
-                <div class="mission-card" id="missionShare3">
-                    <div class="mission-left">
-                        <div class="mission-icon">📖</div>
-                        <div class="mission-info">
-                            <div class="mission-name" data-i18n="mission_share3">Share 3 Books</div>
-                            <div class="mission-points">+50 <span data-i18n="pts">pts</span></div>
-                            <div class="mission-progress-bar"><div class="mission-progress-fill" id="task2Progress" style="width:0%"></div></div>
-                        </div>
-                    </div>
-                    <button class="mission-claim-btn" id="task2ClaimBtn" onclick="claimMission('share3')" disabled>
-                        <span class="mission-claim-text" data-i18n="claim">Claim</span>
-                    </button>
-                </div>
-
-                <div class="mission-card" id="missionBindId">
-                    <div class="mission-left">
-                        <div class="mission-icon">🔗</div>
-                        <div class="mission-info">
-                            <div class="mission-name" data-i18n="mission_bind">Bind NovelFlow ID</div>
-                            <div class="mission-desc" data-i18n="mission_bind_desc">Open NovelFlow app → Profile → Copy ID</div>
-                            <div class="mission-points">+30 <span data-i18n="pts">pts</span></div>
-                            <div class="mission-bind-row" id="bindIdRow" style="display:none;">
-                                <input type="text" id="novelflowIdInput" placeholder="Paste your NovelFlow ID" style="flex:1;padding:6px 8px;border:1px solid var(--hairline);border-radius:6px;font-size:12px;font-family:inherit;">
-                                <button onclick="submitBindId()" style="padding:6px 10px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;" data-i18n="bind_btn">Bind</button>
+                <!-- Top row: Check-in card + Bonus mini card -->
+                <div class="tasks-top-row">
+                    <div style="flex: 1.6; min-width: 0;">
+                        <div class="checkin-milestone-card" style="margin-bottom:0;">
+                            <div class="milestone-title-row">
+                                <div class="milestone-title">🔥 Daily Check-in</div>
+                                <div class="milestone-total">7 days = 50 pts + 2 VIP + $0.5</div>
                             </div>
+                            <div class="milestone-track" id="milestoneTrack">
+                                <!-- rendered by JS -->
+                            </div>
+                            <button class="milestone-checkin-btn" id="milestoneCheckinBtn" onclick="doCheckinV2()">
+                                <span class="checkin-v2-btn-text" data-i18n="check_in">Check In</span>
+                                <span class="checkin-v2-btn-done" style="display:none;" data-i18n="claimed">✓ Claimed</span>
+                            </button>
+                            <button class="streak-claim-btn" id="streakGrandClaimBtn" onclick="claimStreakGrandPrize()" disabled>
+                                🎁 Claim 7-Day Prize (2 VIP + $0.5)
+                            </button>
+                            <div class="streak-claim-hint" id="streakGrandHint">Sign in 7 days in a row to unlock</div>
                         </div>
                     </div>
-                    <button class="mission-claim-btn" id="taskBindClaimBtn" onclick="claimMission('bindId')" disabled>
-                        <span class="mission-claim-text" data-i18n="claim">Claim</span>
-                    </button>
+                    <div class="bonus-mini-card" onclick="switchTab('profile')" style="cursor:pointer;">
+                        <div class="bonus-mini-label">🎁 Bonus Balance</div>
+                        <div class="bonus-mini-value" id="tasksBonusValue">$0.00</div>
+                        <div style="font-size:9px;opacity:0.85;margin-top:2px;">Tap for details</div>
+                    </div>
                 </div>
 
-                <!-- Share App Mission -->
-                <div class="mission-card" id="missionShareApp">
-                    <div class="mission-left">
-                        <div class="mission-icon">📣</div>
-                        <div class="mission-info">
-                            <div class="mission-name" data-i18n="mission_share_app">Share & Earn 50 pts</div>
-                            <div class="mission-desc" data-i18n="mission_share_app_desc">Share NovelFlow on social media</div>
-                            <div class="mission-points">+50 <span data-i18n="pts">pts</span></div>
-                        </div>
+                <!-- VIP Exchange (slim card) -->
+                <div class="vip-mini-card">
+                    <div class="vip-mini-icon">👑</div>
+                    <div class="vip-mini-info">
+                        <div class="vip-mini-title">1000 pts → 3 Days VIP</div>
+                        <div class="vip-mini-sub">Unlock premium novels & ad-free reading</div>
                     </div>
-                    <button class="mission-claim-btn" id="taskShareAppClaimBtn" onclick="openShareAppModal()" disabled>
-                        <span class="mission-claim-text" data-i18n="claim">Claim</span>
-                    </button>
+                    <button class="vip-mini-btn" id="vipExchangeBtn" onclick="exchangeVIP()" disabled>Exchange</button>
                 </div>
 
-                <!-- VIP Exchange -->
-                <div class="vip-exchange-card" id="vipExchangeCard">
-                    <div class="vip-icon">👑</div>
-                    <div class="vip-info">
-                        <div class="vip-title" data-i18n="vip_exchange">100 pts → 3 Days VIP</div>
-                        <div class="vip-subtitle" data-i18n="vip_subtitle">Unlock premium novels & ad-free reading</div>
+                <!-- Bind ID (collapsed - kept functional but visually slim) -->
+                <div id="bindIdRow" style="display:none;margin-top:10px;background:var(--canvas-soft);border-radius:10px;padding:10px;">
+                    <div style="font-size:11px;font-weight:600;color:var(--ink);margin-bottom:6px;">🔗 Bind NovelFlow ID <span style="font-weight:400;color:var(--ink-mute);">(required for VIP exchange)</span></div>
+                    <div style="display:flex;gap:6px;">
+                        <input type="text" id="novelflowIdInput" placeholder="Paste your NovelFlow ID" style="flex:1;padding:7px 10px;border:1px solid var(--hairline);border-radius:8px;font-size:12px;font-family:inherit;">
+                        <button onclick="submitBindId()" style="padding:7px 12px;background:var(--ruby);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Bind</button>
                     </div>
-                    <button class="vip-exchange-btn" id="vipExchangeBtn" onclick="exchangeVIP()" disabled data-i18n="exchange">Exchange</button>
+                </div>
+
+                <!-- Campaign Missions (horizontal scroll) -->
+                <div class="campaigns-header">
+                    <div class="campaigns-title">🎯 Campaign Missions</div>
+                    <div style="font-size:11px;color:var(--ink-mute);">Swipe →</div>
+                </div>
+                <div class="campaign-scroll-list" id="campaignList">
+                    <!-- rendered by renderCampaigns() -->
                 </div>
             </div>
             
@@ -3049,7 +3132,7 @@
                     <h3 data-i18n="register_login">Login / Register</h3>
                     <p>Enter username to login or create account</p>
                     <input type="text" class="login-input" id="regUsername" placeholder="Your username" maxlength="50" oninput="checkRegPasswordNeeded()">
-                    <input type="password" class="login-input" id="regPassword" placeholder="Password (if set)" style="display:none;margin-top:8px;">
+                    <input type="password" class="login-input" id="regPassword" placeholder="Password (min 4 characters)" style="margin-top:8px;">
                     <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()" data-i18n="confirm_btn">Confirm</button>
                     <div class="login-tip">Set a password in Profile to protect your account</div>
                 </div>
@@ -3062,7 +3145,7 @@
                 <div class="stats-overview-card gold">
                     <div class="stats-overview-icon">&#128176;</div>
                     <div class="stats-overview-value" id="totalIncome">$0.00</div>
-                    <div class="stats-overview-label">Total Earnings</div>
+                    <div class="stats-overview-label">Promotion Earnings</div>
                 </div>
                 <div class="stats-overview-card">
                     <div class="stats-overview-icon">&#128101;</div>
@@ -3070,9 +3153,17 @@
                     <div class="stats-overview-label">Unique Users</div>
                 </div>
                 <div class="stats-overview-card">
-                    <div class="stats-overview-icon">&#128065;</div>
-                    <div class="stats-overview-value" id="totalVisits">0</div>
-                    <div class="stats-overview-label">Total Visits</div>
+                    <div class="stats-overview-icon">&#127381;</div>
+                    <div class="stats-overview-value" id="totalNew">0</div>
+                    <div class="stats-overview-label">New Users</div>
+                </div>
+            </div>
+            <div class="bonus-profile-card" id="bonusProfileCard" style="display:none;">
+                <div class="bonus-profile-icon">🎁</div>
+                <div class="bonus-profile-text">
+                    <div class="bonus-profile-label">Bonus Balance (campaign & streak rewards)</div>
+                    <div class="bonus-profile-value" id="profileBonusValue">$0.00</div>
+                    <div class="bonus-profile-sub">Separate from CPS earnings — paid out via bonus channels</div>
                 </div>
             </div>
             <div id="statsLoadingArea"></div>
@@ -3084,8 +3175,8 @@
             </div>
 
             <div class="profile-grid">
-                <div class="profile-card" onclick="openEarningsModal()">
-                    <div class="profile-card-icon" style="color:#FF6B00;">&#128179;</div><div class="profile-card-title">Earnings & Withdraw</div><div class="profile-card-desc" style="color:#FF6B00;font-size:10px;font-weight:600;" id="earnCardBalance">$0.00 available</div>
+                <div class="profile-card" id="earnCard" onclick="openEarningsModal()">
+                    <div class="profile-card-icon" style="color:var(--primary);">&#128181;</div><div class="profile-card-title">Earnings &amp; Withdraw</div><div class="profile-card-desc" id="earnCardBalance" style="font-size:10px;">Tap to view</div>
                 </div>
                 <div class="profile-card" id="setPasswordCard" onclick="showSetPasswordModal()">
                     <div class="profile-card-icon">&#128274;</div><div class="profile-card-title" id="setPasswordTitle">Set Password</div><div class="profile-card-desc" id="setPasswordDesc">Protect your account</div>
@@ -3114,20 +3205,6 @@
                         <span id="quickReelsArrow" style="font-size:10px;color:var(--ink-mute);transition:transform 0.2s;">▼</span>
                     </div>
                     <div id="quickReels" style="display:none;padding:0 12px 12px;max-height:300px;overflow-y:auto;">
-                        <div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;" data-i18n="login_to_see">Login to see your stats</div>
-                    </div>
-                </div>
-
-                <!-- My Copy Text Quick Access -->
-                <div style="background:var(--canvas-soft);border-radius:12px;margin-bottom:8px;overflow:hidden;">
-                    <div onclick="toggleQuickSection('quickCopyText')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;">
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <span style="font-size:16px;">📋</span>
-                            <span style="font-size:13px;font-weight:600;color:var(--ink);" data-i18n="my_copy_text">My Copy Text</span>
-                        </div>
-                        <span id="quickCopyTextArrow" style="font-size:10px;color:var(--ink-mute);transition:transform 0.2s;">▼</span>
-                    </div>
-                    <div id="quickCopyText" style="display:none;padding:0 12px 12px;max-height:300px;overflow-y:auto;">
                         <div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;" data-i18n="login_to_see">Login to see your stats</div>
                     </div>
                 </div>
@@ -3175,41 +3252,7 @@
     </div>
 
     <!-- Share App Modal -->
-    <div class="modal-overlay" id="shareAppModal" style="z-index:1001;">
-        <div class="modal" style="max-width:380px;">
-            <div class="modal-header">
-                <button class="modal-close-btn" onclick="closeShareAppModal()" aria-label="Close">×</button>
-                <div class="modal-title" data-i18n="share_app_title">📣 Share NovelFlow</div>
-                <div style="width:32px;"></div>
-            </div>
-            <div class="modal-body" style="padding:16px;text-align:center;">
-                <div style="font-size:14px;font-weight:600;margin-bottom:8px;color:var(--ink);" data-i18n="share_app_subtitle">Share novels, earn money & read free!</div>
-                <div style="font-size:12px;color:var(--ink-mute);margin-bottom:16px;line-height:1.6;" data-i18n="share_app_desc">NovelFlow lets you discover amazing stories, share them with friends, and earn real money for every reader you bring. Join thousands of promoters already earning!</div>
-                
-                <!-- Copy Text Section -->
-                <div style="background:var(--canvas-soft);border-radius:10px;padding:12px;margin-bottom:12px;text-align:left;position:relative;">
-                    <div style="font-size:11px;font-weight:600;color:var(--ink-mute);margin-bottom:6px;" data-i18n="share_copy_label">📋 Copy this text:</div>
-                    <div id="shareAppText" style="font-size:12px;line-height:1.5;color:var(--ink);padding-right:40px;">🚀 Join NovelFlow - Read novels for FREE & earn money by sharing! 💰 Start now: https://novelflow.top/app-v2</div>
-                    <button id="shareAppCopyBtn" onclick="copyShareAppText()" style="position:absolute;top:12px;right:12px;padding:4px 10px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;" data-i18n="copy_btn">Copy</button>
-                </div>
-
-                <!-- Poster Image Section -->
-                <div style="background:var(--canvas-soft);border-radius:10px;padding:12px;margin-bottom:12px;text-align:center;">
-                    <div style="font-size:11px;font-weight:600;color:var(--ink-mute);margin-bottom:8px;" data-i18n="share_poster_label">🖼️ Download promoter poster:</div>
-                    <div style="width:100%;aspect-ratio:9/16;max-height:200px;background:linear-gradient(135deg,#ff6b9d,#c44dff,#6c5ce7);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;margin-bottom:8px;overflow:hidden;">
-                        <div style="font-size:24px;font-weight:800;letter-spacing:-1px;">NovelFlow</div>
-                        <div style="font-size:11px;margin-top:4px;opacity:0.9;">Read Free · Share · Earn</div>
-                        <div style="font-size:20px;margin-top:12px;">📚💰</div>
-                        <div style="font-size:10px;margin-top:8px;opacity:0.8;">Join Now →</div>
-                    </div>
-                    <button id="shareAppDownloadBtn" onclick="downloadSharePoster()" style="padding:6px 16px;background:var(--ruby);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;width:100%;" data-i18n="download_poster">📥 Download Poster</button>
-                </div>
-
-                <div style="font-size:11px;color:var(--ink-mute);" id="shareAppStatus" data-i18n="share_app_hint">Complete both actions to earn 50 pts</div>
-            </div>
-        </div>
-    </div>
-
+    
     <!-- Recommend Modal -->
     <div class="modal-overlay" id="recommendModal">
         <div class="modal">
@@ -3286,9 +3329,11 @@
     </div>
 
     <script>
+        // v2.5.1: Global HTML escape for XSS protection
+        function escapeHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
 // Global fetch timeout - no API call can block the page
 (function(){var _f=window.fetch;window.fetch=function(u,o){o=o||{};if(o.signal)return _f(u,o);var c=new AbortController(),t=setTimeout(function(){c.abort()},o.timeout||15000),n=Object.assign({},o,{signal:c.signal});return _f(u,n).then(function(r){clearTimeout(t);return r}).catch(function(e){clearTimeout(t);if(e.name==='AbortError'){return new Response(JSON.stringify({error:'timeout',offline:true}),{status:504,headers:{'Content-Type':'application/json'}})}throw e})}})();
-// NovelFlow v2.4.2 - China access fix - 2026-06-05
+// NovelFlow v2.5.0 - Tasks & Bonus redesign - 2026-07-06
         // ========== Global State ==========
         const AppState = {
             currentTab: 'home',
@@ -3462,7 +3507,6 @@
                 no_desc: 'No description available.',
                 no_books_cat: 'No books found for this category',
                 daily_missions: '🎯 Daily Missions',
-                my_copy_text: 'My Copy Text',
                 my_links: 'My Links',
                 mission_share_app: 'Share & Earn 50 pts',
                 mission_share_app_desc: 'Share NovelFlow on social media',
@@ -3484,7 +3528,7 @@
                 mission_bind: 'Bind NovelFlow ID',
                 mission_bind_desc: 'Open NovelFlow app → Profile → Copy ID',
                 bind_btn: 'Bind',
-                vip_exchange: '100 pts → 3 Days VIP',
+                vip_exchange: '1000 pts → 3 Days VIP',
                 vip_subtitle: 'Unlock premium novels & ad-free reading',
                 exchange: 'Exchange',
                 checkin_complete: 'Check-in Complete!',
@@ -3496,7 +3540,7 @@
                 toast_already_checkin: 'Already checked in today!',
                 toast_invalid_id: 'Please enter a valid NovelFlow ID',
                 toast_id_bound: 'NovelFlow ID bound successfully!',
-                toast_not_enough: 'Not enough points (need 100)',
+                toast_not_enough: 'Not enough points (need 1000)',
                 toast_vip_activated: '🎉 VIP activated for 3 days!',
                 nav_home: 'Home',
                 nav_tasks: 'Tasks',
@@ -3644,7 +3688,6 @@
                 no_desc: 'Sin descripción disponible.',
                 no_books_cat: 'No se encontraron libros en esta categoría',
                 daily_missions: '🎯 Misiones Diarias',
-                my_copy_text: 'Mis Textos',
                 my_links: 'Mis Enlaces',
                 mission_share_app: 'Compartir y Ganar 50 pts',
                 mission_share_app_desc: 'Comparte NovelFlow en redes sociales',
@@ -3666,7 +3709,7 @@
                 mission_bind: 'Vincular ID NovelFlow',
                 mission_bind_desc: 'Abre la app NovelFlow → Perfil → Copiar ID',
                 bind_btn: 'Vincular',
-                vip_exchange: '50 pts → 3 Días VIP',
+                vip_exchange: '1000 pts → 3 Días VIP',
                 vip_subtitle: 'Desbloquea novelas premium y lectura sin anuncios',
                 exchange: 'Canjear',
                 checkin_complete: '¡Check-in Completado!',
@@ -3678,7 +3721,7 @@
                 toast_already_checkin: '¡Ya hiciste check-in hoy!',
                 toast_invalid_id: 'Ingresa un ID de NovelFlow válido',
                 toast_id_bound: '¡ID de NovelFlow vinculado exitosamente!',
-                toast_not_enough: 'Puntos insuficientes (necesitas 50)',
+                toast_not_enough: 'Puntos insuficientes (necesitas 1000)',
                 toast_vip_activated: '🎉 ¡VIP activado por 3 días!',
                 nav_home: 'Inicio',
                 nav_tasks: 'Tareas',
@@ -3896,7 +3939,7 @@
                 ).join('');
 
                 return `
-                    <div class="book-item" onclick="openRecommendModal('${escapeHtml(book.bookId)}')"><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
+                    <div class="book-item" onclick='openRecommendModal(${JSON.stringify(book.bookId||"")})'><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
                         <img class="book-item-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjgiIGhlaWdodD0iOTIiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY4IiBoZWlnaHQ9IjkyIiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMzQiIHk9IjUwIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
                         <div class="book-item-content">
                             <div class="book-item-title">${escapeHtml(book.title)}</div>
@@ -3906,7 +3949,7 @@
                             <div class="book-item-tags">${tags}</div>
                             <div class="book-item-desc">${escapeHtml(book.description) || 'No description available.'}</div>
                             <div class="book-item-action">
-                                <button class="book-item-btn" onclick="event.stopPropagation(); openRecommendModal('${escapeHtml(book.bookId)}')">${getText('recommend_btn')}</button>
+                                <button class="book-item-btn" onclick='event.stopPropagation(); openRecommendModal(${JSON.stringify(book.bookId||"")})'>${getText('recommend_btn')}</button>
                             </div>
                         </div>
                     </div>
@@ -3932,7 +3975,7 @@
                 const tags = (book.tags || []).slice(0, 2).filter(t => typeof t === 'string').map(t => `<span class="book-tag">${escapeHtml(t)}</span>`).join('');
 
                 return `
-                    <div class="book-scroll-card" style="position:relative" onclick="openRecommendModal('${escapeHtml(book.bookId)}')"><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
+                    <div class="book-scroll-card" style="position:relative" onclick='openRecommendModal(${JSON.stringify(book.bookId||"")})'><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
                         <img class="book-scroll-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTM2IiBoZWlnaHQ9IjE3NiIgZmlsbD0iI2Y2ZjlmYyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTM2IiBoZWlnaHQ9IjE3NiIgZmlsbD0iI2Y2ZjlmYyIvPjx0ZXh0IHg9IjY4IiB5PSI5MCIgZm9udC1zaXplPSIzMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk0YTNiOCI+8J+OpfCDgvY8L3RleHQ+PC9zdmc+'">
                         <div class="book-scroll-info">
                             <div class="book-scroll-card-title">${escapeHtml(book.title)}</div>
@@ -3960,7 +4003,7 @@
                 else if (i === 2) numClass = 'top3';
 
                 return `
-                    <div class="rank-item" onclick="openRecommendModal('${escapeHtml(book.bookId)}')">
+                    <div class="rank-item" onclick='openRecommendModal(${JSON.stringify(book.bookId||"")})'>
                         <div class="rank-num ${numClass}">${i + 1}</div>
                         <img class="rank-cover" src="${escapeHtml(book.cover)}" alt="" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzQiIGhlaWdodD0iNDYiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjM0IiBoZWlnaHQ9IjQ2IiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMTciIHk9IjI4IiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
                         <div class="rank-info">
@@ -4150,7 +4193,7 @@
             const badge = document.getElementById('pointsBadge');
             if (badge) badge.innerHTML = getUserPoints() + ' <span data-i18n="pts">' + getText('pts') + '</span>';
             const vipBtn = document.getElementById('vipExchangeBtn');
-            if (vipBtn) vipBtn.disabled = getUserPoints() < 100;
+            if (vipBtn) vipBtn.disabled = getUserPoints() < 1000;
         }
 
         // ========== Claimed Missions Tracker ==========
@@ -4265,6 +4308,8 @@
                 btn.disabled = false;
                 
                 renderMilestoneTrack();
+                updateStreakGrandBtn();
+                updateBonusUI();
                 
                 // Show milestone celebration
                 showMilestoneCelebration(CheckinData.streak, dayPts);
@@ -4278,7 +4323,7 @@
             let icon = '🎉';
             let title = getText('checkin_complete');
             let sub = '';
-            if (day === 7) { icon = '🏆'; title = getText('milestone_7day'); sub = getText('milestone_7day_sub'); }
+            if (day === 7) { icon = '👑'; title = '7-Day Streak Complete!'; sub = 'Claim 2 VIP days + $0.50 bonus below'; }
             else if (day >= 4) { icon = '🔥'; title = getText('milestone_streak'); sub = day + ' ' + getText('days_streak'); }
             overlay.innerHTML = '<div class="milestone-popup">' +
                 '<div class="milestone-popup-icon">' + icon + '</div>' +
@@ -4297,7 +4342,6 @@
             if (missionId === 'share1') pts = 20;
             else if (missionId === 'share3') pts = 50;
             else if (missionId === 'bindId') pts = 30;
-            else if (missionId === 'shareApp') pts = 50;
             else return;
             
             markMissionClaimed(missionId);
@@ -4337,7 +4381,7 @@
 
         function exchangeVIP() {
             const pts = getUserPoints();
-            const VIP_COST = currentLang === 'es' ? 50 : 100;
+            const VIP_COST = 1000;
             if (pts < VIP_COST) {
                 showToast(getText('toast_not_enough'), 'error');
                 return;
@@ -4418,21 +4462,7 @@
                     tBb.disabled = false;
                 }
             }
-            
-            // Share App
-            const shareAppBtn = document.getElementById('taskShareAppClaimBtn');
-            if (shareAppBtn) {
-                if (isMissionClaimed('shareApp')) {
-                    shareAppBtn.disabled = true;
-                    shareAppBtn.classList.add('claimed');
-                    shareAppBtn.innerHTML = '<span class="mission-claim-text">✓</span>';
-                    const c = document.getElementById('missionShareApp'); if (c) c.classList.add('completed');
-                } else {
-                    // Always enable the claim button (opens modal, doesn't auto-claim)
-                    shareAppBtn.disabled = false;
-                    shareAppBtn.textContent = getText('claim');
-                }
-            }
+
             
             // Checkin button
             const checkinBtn = document.getElementById('milestoneCheckinBtn');
@@ -4446,8 +4476,263 @@
             
             renderMilestoneTrack();
             updatePointsDisplay();
+            if (typeof renderCampaigns === 'function') renderCampaigns();
+            if (typeof updateStreakGrandBtn === 'function') updateStreakGrandBtn();
+            if (typeof updateBonusUI === 'function') updateBonusUI();
         }
         
+
+        // ============================================================
+        // ========== v2.5.0: Bonus Balance, Campaigns, Streak Prize ===
+        // ============================================================
+        function getBonusBalance() {
+            return parseFloat(localStorage.getItem(getUserKey('bonus_balance')) || '0');
+        }
+        function addBonus(amount, reason) {
+            if (!amount || amount <= 0) return getBonusBalance();
+            const cur = getBonusBalance();
+            const next = Math.round((cur + amount) * 100) / 100;
+            localStorage.setItem(getUserKey('bonus_balance'), String(next));
+            CloudSync.schedulePush();
+            updateBonusUI();
+            console.log('[Bonus] +$' + amount.toFixed(2) + ' (' + reason + ') = $' + next.toFixed(2));
+            return next;
+        }
+        function updateBonusUI() {
+            const bal = getBonusBalance();
+            const txt = '$' + bal.toFixed(2);
+            const t = document.getElementById('tasksBonusValue'); if (t) t.textContent = txt;
+            const p = document.getElementById('profileBonusValue'); if (p) p.textContent = txt;
+            const card = document.getElementById('bonusProfileCard');
+            if (card) {
+                // Only show bonus card when logged in (statsOverview visible)
+                const overview = document.getElementById('statsOverview');
+                card.style.display = (overview && overview.style.display !== 'none' && AppState.isLoggedIn) ? 'flex' : 'none';
+            }
+        }
+
+        // One-time initialization: $9.00 for campaign #1 winners (idempotent)
+        function initCampaign1Bonus() {
+            if (!AppState.user || !AppState.user.username) return;
+            const flagKey = getUserKey('bonus_campaign1_claimed');
+            if (localStorage.getItem(flagKey) === '1') return;
+            const uname = (AppState.user.username || '').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+            let winner = null;
+            if (uname.includes('cons')) winner = 'cons_espher';
+            else if (uname.includes('eliza')) winner = 'eliza_stellar';
+            else if (uname.includes('dras') || uname.includes('drac')) winner = 'dras';
+            else if (uname.includes('dehni')) winner = 'dehni_salem';
+            if (winner) {
+                addBonus(9.00, 'Campaign #1 reward - ' + winner);
+                localStorage.setItem(flagKey, '1');
+                CloudSync.schedulePush();
+                showToast('🎉 Campaign #1 reward $9.00 credited to Bonus!', 'success');
+            } else {
+                // Mark as checked for non-winners so we don't re-evaluate every load
+                localStorage.setItem(flagKey, '0');
+            }
+        }
+
+        function canonicalUsername() {
+            if (!AppState.user || !AppState.user.username) return '';
+            return (AppState.user.username || '').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+        }
+        function isCampaign1Winner() {
+            const u = canonicalUsername();
+            return u.includes('cons') || u.includes('eliza') || u.includes('dras') || u.includes('drac') || u.includes('dehni');
+        }
+        function hasAnyTaskClaim() {
+            try {
+                const c = JSON.parse(localStorage.getItem(getUserKey('claimed')) || '{}');
+                return Object.keys(c).length > 0;
+            } catch(e) { return false; }
+        }
+        function hasStreakGrandClaimed() {
+            return localStorage.getItem(getUserKey('streak_grand_claimed')) !== null;
+        }
+
+        const CAMPAIGNS = [
+            {
+                id: 'campaign1',
+                name: 'Social Share Campaign',
+                desc: 'Share books on social media',
+                icon: '📣',
+                reward: '$9.00 or 21d VIP',
+                rewardAmt: 9.00,
+                status: 'completed',
+                ctaLabel: 'Finished',
+                ribbon: 'COMPLETED',
+            },
+            {
+                id: 'campaign2',
+                name: 'Campaign #2',
+                desc: 'Bigger rewards, new missions',
+                icon: '🚀',
+                reward: 'TBD',
+                rewardAmt: 0,
+                status: 'locked',
+                startDate: '2026-07-10',
+                ctaLabel: 'Coming Soon',
+                ribbon: 'LOCKED',
+            }
+        ];
+
+        function renderCampaigns() {
+            const list = document.getElementById('campaignList');
+            if (!list) return;
+            const now = new Date();
+            list.innerHTML = CAMPAIGNS.map(c => {
+                let status = c.status;
+                let ribbonClass = 'finished';
+                let ctaDisabled = true;
+                let ctaLabel = c.ctaLabel;
+                let ctaAction = '';
+                let extraBadge = '';
+
+                if (c.id === 'campaign2') {
+                    const start = new Date(c.startDate + 'T00:00:00');
+                    if (now >= start) {
+                        status = 'ongoing';
+                        ribbonClass = '';
+                        ctaDisabled = false;
+                        ctaLabel = 'Join Now';
+                        ctaAction = "joinCampaign('campaign2')";
+                    } else {
+                        status = 'locked';
+                        ribbonClass = 'locked';
+                        ctaDisabled = true;
+                        ctaLabel = '🔒 Starts July 10';
+                        ctaAction = "showToast('Campaign starts July 10, 2026', 'info')";
+                    }
+                }
+                if (c.id === 'campaign1' && isCampaign1Winner()) {
+                    ribbonClass = 'claimed';
+                    c.ribbon = 'CLAIMED';
+                    extraBadge = '<div style="font-size:10px;color:#059669;font-weight:700;margin-top:2px;">🎉 $9.00 Claimed</div>';
+                }
+
+                return '' +
+                    '<div class="campaign-card ' + status + '">' +
+                        '<div class="campaign-banner">' +
+                            '<span>' + c.icon + '</span>' +
+                            '<div class="campaign-ribbon ' + ribbonClass + '">' + c.ribbon + '</div>' +
+                        '</div>' +
+                        '<div class="campaign-body">' +
+                            '<div class="campaign-name">' + c.name + '</div>' +
+                            '<div class="campaign-reward">Reward: <span class="amt">' + c.reward + '</span></div>' +
+                            extraBadge +
+                            '<div class="campaign-status">' + (status === 'locked' ? '🔒 Starts July 10' : (status === 'completed' ? '✓ Finished' : '🔥 Ongoing')) + '</div>' +
+                            '<button class="campaign-cta" ' + (ctaDisabled ? 'disabled' : '') + ' onclick="' + (ctaAction || 'return false;') + '">' + ctaLabel + '</button>' +
+                        '</div>' +
+                    '</div>';
+            }).join('');
+        }
+
+        function joinCampaign(id) {
+            if (id === 'campaign2') {
+                showToast('🚀 Campaign #2 details will be announced on July 10 — stay tuned!', 'info');
+            }
+        }
+
+        function claimStreakGrandPrize() {
+            if (CheckinData.streak < 7) {
+                showToast('Complete 7-day streak first!', 'error');
+                return;
+            }
+            const hasLink = AppState.myBooks && AppState.myBooks.length >= 1;
+            const hasTask = hasAnyTaskClaim();
+            if (!hasLink || !hasTask) {
+                showToast('Complete 1 link creation + 1 task first', 'error');
+                return;
+            }
+            if (hasStreakGrandClaimed()) {
+                showToast('Already claimed this streak reward', 'info');
+                return;
+            }
+            // Award: $0.5 bonus + 2 VIP days
+            addBonus(0.50, '7-day streak grand prize');
+            const vipDays = parseInt(localStorage.getItem(getUserKey('vip_days')) || '0');
+            localStorage.setItem(getUserKey('vip_days'), String(vipDays + 2));
+            localStorage.setItem(getUserKey('streak_grand_claimed'), new Date().toISOString().slice(0,10));
+            CloudSync.schedulePush();
+            updateStreakGrandBtn();
+            updateBonusUI();
+            // Celebration popup
+            const overlay = document.createElement('div');
+            overlay.className = 'milestone-overlay';
+            overlay.onclick = () => overlay.remove();
+            overlay.innerHTML = '<div class="milestone-popup">' +
+                '<div class="milestone-popup-icon">👑</div>' +
+                '<div class="milestone-popup-title">7-Day Streak Unlocked!</div>' +
+                '<div class="milestone-popup-points" style="color:#FFD700;">+2 VIP days &nbsp; +$0.50</div>' +
+                '<div class="milestone-popup-sub">VIP credited to your account within 24h · Bonus in Balance</div>' +
+                '<button class="milestone-popup-btn" onclick="this.closest(\'.milestone-overlay\').remove()">Awesome</button>' +
+                '</div>';
+            document.body.appendChild(overlay);
+        }
+
+        function updateStreakGrandBtn() {
+            const btn = document.getElementById('streakGrandClaimBtn');
+            const hint = document.getElementById('streakGrandHint');
+            if (!btn || !hint) return;
+            if (hasStreakGrandClaimed()) {
+                btn.disabled = true;
+                btn.textContent = '✓ Grand Prize Claimed';
+                hint.textContent = 'Come back next streak cycle!';
+                return;
+            }
+            const hasLink = AppState.myBooks && AppState.myBooks.length >= 1;
+            const hasTask = hasAnyTaskClaim();
+            if (CheckinData.streak >= 7 && hasLink && hasTask) {
+                btn.disabled = false;
+                btn.textContent = '🎁 Claim 7-Day Prize (2 VIP + $0.5)';
+                hint.textContent = 'Ready to claim!';
+            } else {
+                btn.disabled = true;
+                if (CheckinData.streak < 7) {
+                    btn.textContent = '🎁 Claim 7-Day Prize (2 VIP + $0.5)';
+                    hint.textContent = (7 - CheckinData.streak) + ' more check-in' + ((7-CheckinData.streak)===1?'':'s') + ' to unlock';
+                } else {
+                    const missing = [];
+                    if (!hasLink) missing.push('1 link');
+                    if (!hasTask) missing.push('1 task');
+                    btn.textContent = '🎁 Claim 7-Day Prize (2 VIP + $0.5)';
+                    hint.textContent = 'Complete ' + missing.join(' + ') + ' first';
+                }
+            }
+        }
+
+        // Override renderMilestoneTrack to highlight day 7 grand prize
+        const _origRenderMilestoneTrack = renderMilestoneTrack;
+        renderMilestoneTrack = function() {
+            const track = document.getElementById('milestoneTrack');
+            if (!track) return;
+            const streak = CheckinData.streak;
+            let html = '<div class="milestone-track-fill" style="width:' + (streak >= 7 ? '100' : (streak / 7 * 100)) + '%"></div>';
+            for (let i = 1; i <= 7; i++) {
+                const isActive = i <= streak;
+                const isCurrent = i === streak + 1 && !isCheckedInToday();
+                const isGrand = i === 7;
+                const dotClass = (isActive ? 'active' : (isCurrent ? 'current' : '')) + (isGrand ? ' grand' : '');
+                const labelClass = isActive ? 'active' : '';
+                let inner;
+                let labelContent = 'D' + i;
+                let pointsContent = '+' + STREAK_POINTS[i-1];
+                if (isGrand) {
+                    inner = isActive ? '👑' : '👑';
+                    pointsContent = 'VIP+$';
+                } else {
+                    inner = isActive ? '✓' : i;
+                }
+                html += '<div class="milestone-node">' +
+                    '<div class="milestone-dot ' + dotClass + '">' + inner + '</div>' +
+                    '<div class="milestone-label ' + labelClass + '">' + labelContent + '</div>' +
+                    '<div class="' + (isGrand ? 'milestone-grand-label' : 'milestone-points') + '">' + pointsContent + '</div>' +
+                    '</div>';
+            }
+            track.innerHTML = html;
+        };
+
         function updateCheckinV2UI() {
             // Update milestone checkin button
             const btn = document.getElementById('milestoneCheckinBtn');
@@ -4630,6 +4915,7 @@
                 
                 if (data.loggedIn) {
                     const prevUser = AppState.user?.username;
+                    const wasLoggedIn = AppState.isLoggedIn;
                     AppState.isLoggedIn = true;
                     AppState.user = {
                         username: data.username || 'User',
@@ -4641,6 +4927,12 @@
                         loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo();
                         loadMyBooks();
                     }
+                    // Always load stats when logged in (wasLoggedIn guard removed - caused stats to not load when localStorage had cached login)
+                    loadUserStats(AppState.user.username);
+                    if (!wasLoggedIn) {
+                        claimAnonymousLinks();
+                    }
+                    updateProfileUI();
                     return;
                 }
 
@@ -4651,6 +4943,7 @@
                         // Reload per-user data after refresh
                         loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI();
                         loadMyBooks();
+                        loadUserStats(AppState.user.username);
                         return;
                     }
                 }
@@ -5177,7 +5470,27 @@
             // Load user stats if logged in
             if (AppState.isLoggedIn && AppState.user && AppState.user.username) {
                 loadUserStats(AppState.user.username);
+                // Auto-claim Anonymous links that belong to this user
+                claimAnonymousLinks();
             }
+        }
+
+        async function claimAnonymousLinks() {
+            if (!AppState.myBooks || AppState.myBooks.length === 0) return;
+            const codes = AppState.myBooks.map(b => String(b.code)).filter(c => c && c !== "undefined" && c !== "null");
+            if (codes.length === 0) return;
+            try {
+                const token = localStorage.getItem("nf_token") || document.cookie.match(/nf_token=([^;]+)/)?.[1];
+                const resp = await fetch("/api/claim-links", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", ...(token ? {"Authorization": "Bearer " + token} : {}) },
+                    body: JSON.stringify({ codes })
+                });
+                const data = await resp.json();
+                if (data.changed > 0) {
+                    console.log("Claimed " + data.changed + " Anonymous links for " + data.username);
+                }
+            } catch (e) { console.warn("claimAnonymousLinks error:", e); }
         }
 
         function saveMyBooks() { localStorage.setItem(getMyBooksKey(), JSON.stringify(AppState.myBooks)); CloudSync.schedulePush(); }
@@ -5203,6 +5516,9 @@
                     claimed: JSON.parse(localStorage.getItem(getUserKey('claimed')) || 'null'),
                     bind_id: localStorage.getItem(getUserKey('bind_id')) || null,
                     vip_days: parseInt(localStorage.getItem(getUserKey('vip_days')) || '0'),
+                    bonus_balance: parseFloat(localStorage.getItem(getUserKey('bonus_balance')) || '0'),
+                    bonus_campaign1_claimed: localStorage.getItem(getUserKey('bonus_campaign1_claimed')) === '1',
+                    streak_grand_claimed: localStorage.getItem(getUserKey('streak_grand_claimed')) || null,
                     lastSyncAt: Date.now()
                 };
             },
@@ -5223,6 +5539,13 @@
                         const result = await resp.json();
                         this._lastSyncAt = result.lastSyncAt || Date.now();
                         console.log('[CloudSync] Push OK');
+                    } else if (resp.status === 401) {
+                        console.log('[CloudSync] Token expired, refreshing...');
+                        const refreshed = await this.refreshAuth();
+                        if (refreshed) {
+                            this._syncing = false;
+                            return this.push();
+                        }
                     }
                 } catch (e) {
                     console.warn('[CloudSync] Push failed:', e.message);
@@ -5239,6 +5562,12 @@
                         method: 'GET',
                         credentials: 'include'
                     });
+                    if (resp.status === 401) {
+                        console.log('[CloudSync] Token expired, refreshing...');
+                        const refreshed = await this.refreshAuth();
+                        if (refreshed) return this.pull();
+                        return;
+                    }
                     if (!resp.ok) {
                         console.warn('[CloudSync] Pull failed:', resp.status);
                         return;
@@ -5288,26 +5617,40 @@
                         localStorage.setItem(getUserKey('vip_days'), String(cloud.vip_days));
                     }
 
-                    // MyBooks: merge by book ID (union, deduplicated)
+                    // Bonus balance: take max
+                    const localBonus = parseFloat(localStorage.getItem(getUserKey('bonus_balance')) || '0');
+                    if (cloud.bonus_balance !== undefined && cloud.bonus_balance > localBonus) {
+                        localStorage.setItem(getUserKey('bonus_balance'), String(cloud.bonus_balance));
+                    }
+                    // Bonus flags: keep local truthy or cloud truthy
+                    if (cloud.bonus_campaign1_claimed) {
+                        localStorage.setItem(getUserKey('bonus_campaign1_claimed'), '1');
+                    }
+                    if (cloud.streak_grand_claimed) {
+                        const localStreakClaim = localStorage.getItem(getUserKey('streak_grand_claimed'));
+                        if (!localStreakClaim) localStorage.setItem(getUserKey('streak_grand_claimed'), cloud.streak_grand_claimed);
+                    }
+
+                    // MyBooks: merge by code (union, deduplicated)
+                    // Same book can have multiple promotion codes - each code is a unique link
                     const localBooks = AppState.myBooks || [];
                     if (cloud.myBooks && Array.isArray(cloud.myBooks)) {
                         const bookMap = new Map();
-                        // Add local books first
+                        // Add local books first, key by code (each code = unique link)
                         for (const b of localBooks) {
-                            const id = b.id || b.bookId || b.title;
-                            if (id) bookMap.set(id, b);
+                            const key = b.code ? String(b.code) : (b.id || b.bookId || b.title);
+                            if (key) bookMap.set(key, b);
                         }
-                        // Cloud books overwrite on conflict (newer data)
+                        // Cloud books merge on conflict (keep richer data)
                         for (const b of cloud.myBooks) {
-                            const id = b.id || b.bookId || b.title;
-                            if (id) {
-                                if (!bookMap.has(id)) {
-                                    bookMap.set(id, b);
+                            const key = b.code ? String(b.code) : (b.id || b.bookId || b.title);
+                            if (key) {
+                                if (!bookMap.has(key)) {
+                                    bookMap.set(key, b);
                                 } else {
-                                    // Keep the one with more data (more properties)
-                                    const existing = bookMap.get(id);
+                                    const existing = bookMap.get(key);
                                     const merged = { ...existing, ...b };
-                                    bookMap.set(id, merged);
+                                    bookMap.set(key, merged);
                                 }
                             }
                         }
@@ -5318,10 +5661,42 @@
                     // Reload all data into AppState
                     loadCheckinData();
                     updatePointsDisplay();
+                    // Update UI after myBooks merge
+                    updateStats();
+                    renderMyBooks();
+                    // Refresh stats overview with latest data
+                    if (AppState.user && AppState.user.username) {
+                        loadUserStats(AppState.user.username);
+                    }
                     
+                    if (typeof renderCampaigns === 'function') renderCampaigns();
+                    if (typeof updateBonusUI === 'function') updateBonusUI();
+                    if (typeof updateStreakGrandBtn === 'function') updateStreakGrandBtn();
                     console.log('[CloudSync] Pull & merge OK');
+                    // Push merged data back to ensure cloud has latest union
+                    await this.push();
                 } catch (e) {
                     console.warn('[CloudSync] Pull failed:', e.message);
+                }
+            },
+
+            // Refresh auth token via /api/auth/refresh
+            async refreshAuth() {
+                try {
+                    const resp = await fetch('/api/auth/refresh', {
+                        method: 'POST',
+                        credentials: 'include'
+                    });
+                    if (resp.ok) {
+                        console.log('[CloudSync] Token refreshed');
+                        return true;
+                    }
+                    console.warn('[CloudSync] Token refresh failed');
+                    this._enabled = false;
+                    return false;
+                } catch (e) {
+                    console.warn('[CloudSync] Refresh error:', e.message);
+                    return false;
                 }
             },
 
@@ -5375,14 +5750,59 @@
             }
 
             try {
-                const response = await fetch(`/api/per-link-stats?username=${encodeURIComponent(username)}`);
+                const response = await fetch(`/api/my-stats?t=${Date.now()}&username=${encodeURIComponent(username)}`);
                 if (!response.ok) throw new Error('Failed to fetch stats');
                 
                 const data = await response.json();
-                // per-link-stats returns 'links' instead of 'books' — normalize for renderMyBooks
+                // my-stats returns 'links' instead of 'books' — normalize for renderMyBooks
                 if (data.links && !data.books) data.books = data.links;
                 UserStats.data = data;
                 
+                // Merge API books into AppState.myBooks (cloud-sourced)
+                if (data.books && data.books.length > 0) {
+                    let changed = false;
+                    for (const apiBook of data.books) {
+                        const exists = AppState.myBooks.find(b => 
+                            (b.linkId && b.linkId === apiBook.linkId) ||
+                            (b.code && String(b.code) === String(apiBook.code)) ||
+                            (b.link && b.link === apiBook.link)
+                        );
+                        if (!exists) {
+                            AppState.myBooks.push({
+                                bookId: apiBook.bookId,
+                                title: apiBook.bookName || apiBook.title,
+                                code: apiBook.code,
+                                link: apiBook.link,
+                                linkId: apiBook.linkId,
+                                cover: apiBook.cover || "",
+                                recommendText: apiBook.recommendText || ""
+                            });
+                            changed = true;
+                        }
+                    }
+                    if (changed) {
+                        saveMyBooks();
+                        updateStats(); // Update LINKS count after merging API books
+                    }
+                }
+                
+                // Update covers from API data
+                if (data.books) {
+                    let coverUpdated = false;
+                    for (const apiBook of data.books) {
+                        if (!apiBook.cover) continue;
+                        const local = AppState.myBooks.find(b =>
+                            (b.linkId && b.linkId === apiBook.linkId) ||
+                            (b.code && String(b.code) === String(apiBook.code))
+                        );
+                        if (local && !local.cover) {
+                            local.cover = apiBook.cover;
+                            coverUpdated = true;
+                        }
+                    }
+                    if (coverUpdated) saveMyBooks();
+                }
+
                 // Update overview
                 updateStatsOverview(data);
                 
@@ -5393,12 +5813,11 @@
                 console.error('Error loading stats:', error);
                 UserStats.data = null;
                 // Show coming soon message
+                // Still show the overview panel with $0.00
+                const overview = document.getElementById('statsOverview');
+                if (overview) overview.style.display = 'grid';
                 const loadingArea = document.getElementById('statsLoadingArea');
-                if (loadingArea) {
-                    loadingArea.innerHTML = `
-                        <div class="stats-coming-soon">Stats coming soon...</div>
-                    `;
-                }
+                if (loadingArea) loadingArea.innerHTML = '';
             } finally {
                 UserStats.loading = false;
             }
@@ -5419,15 +5838,24 @@
             // Show overview
             if (overview) overview.style.display = 'grid';
             if (loadingArea) loadingArea.innerHTML = '';
+            // Show last updated time
+            const lastUpdatedEl = document.getElementById('statsLastUpdated');
+            const lastUpdatedTimeEl = document.getElementById('statsLastUpdatedTime');
+            if (lastUpdatedEl && lastUpdatedTimeEl) {
+                const now = new Date();
+                lastUpdatedTimeEl.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+                lastUpdatedEl.style.display = 'block';
+            }
             
             // Update values
             const incomeEl = document.getElementById('totalIncome');
             const usersEl = document.getElementById('totalUsers');
-            const visitsEl = document.getElementById('totalVisits');
+            const newEl = document.getElementById('totalNew');
             
             if (incomeEl) incomeEl.textContent = '$' + (data.total_income || 0).toFixed(2);
-            if (usersEl) usersEl.textContent = fmtNum(data.total_unique || data.total_new || 0);
-            if (visitsEl) visitsEl.textContent = fmtNum(data.total_visits || 0);
+            if (usersEl) usersEl.textContent = fmtNum(data.total_unique || data.total_visits || 0);
+            if (newEl) newEl.textContent = fmtNum(data.total_new || 0);
+            if (typeof updateBonusUI === 'function') updateBonusUI();
         }
 
         function refreshUserStats() {
@@ -5478,9 +5906,8 @@ function renderMyBooks() {
                 const stats = statsMap[key] || {};
                 
                 const visits = stats.visits || 0;
-                const unique = stats.unique_users || 0;
-                /* newUsers hidden from user view */
-                const income = stats.d14_income || 0;
+                const newUsers = stats.newUsers || stats.new_users || 0;
+                const income = stats.income || stats.dn_income || stats.d14_income || 0;
                 const incomeFmt = fmtIncome(income);
                 
                 return `
@@ -5489,14 +5916,17 @@ function renderMyBooks() {
                         <div class="my-book-info">
                             <div class="my-book-title">${escapeHtml(book.title)}</div>
                             <div class="my-book-code">CODE: ${escapeHtml(book.code) || 'N/A'}</div>
-                            <div class="my-book-link" onclick="copyBookLink('${escapeHtml(book.link).replace(/'/g, "\'")}')" title="Click to copy">${escapeHtml(book.link) || 'No link'}</div>
+                            <div class="my-book-link" onclick='copyBookLink(${JSON.stringify(book.link||"")})' title="Click to copy">${escapeHtml(book.link) || 'No link'}</div>
                             <div class="my-book-stats">
-                                <span class="my-book-stat">&#128065; ${fmtNum(visits)}</span>
-                                <span class="my-book-stat">&#128101; ${fmtNum(unique)}</span>
+                                <span class="my-book-stat" title="Visits">&#128065; ${fmtNum(visits)}</span>
+                                <span class="my-book-stat" title="New Users">&#128100; ${fmtNum(newUsers)}</span>
                                 <span class="my-book-stat income ${incomeFmt.isZero ? 'zero' : ''}">${incomeFmt.text}</span>
                             </div>
                         </div>
-                        <button class="my-book-copy" onclick="copyBookLink('${escapeHtml(book.link).replace(/'/g, "\'")}')">Copy</button>
+                        <div class="my-book-actions">
+                            <button class="my-book-copy" onclick='copyBookLink(${JSON.stringify(book.link||"")})'>Copy</button>
+                            <button class="my-book-delete" onclick='deleteBook(${JSON.stringify(book.bookId||"")}, ${JSON.stringify(book.code==null?"":String(book.code))})' title="Delete">🗑️</button>
+                        </div>
                     </div>
                 `;
             }).join('');
@@ -5510,6 +5940,39 @@ function renderMyBooks() {
             navigator.clipboard.writeText(link).then(() => {
                 showToast('Copied to clipboard', 'success');
             });
+        }
+
+        // ========== Delete Book ==========
+        function deleteBook(bookId, code) {
+            // Find the book to confirm it exists
+            const book = AppState.myBooks.find(b => b.bookId === bookId || (code && b.code === code));
+            if (!book) {
+                showToast('Book not found', 'error');
+                return;
+            }
+
+            // Show confirmation dialog
+            const bookTitle = book.title || 'this book';
+            if (!confirm(`Are you sure you want to delete "${bookTitle}"?\n\nThis will also remove its link from "My Links".`)) {
+                return;
+            }
+
+            // Remove from myBooks array
+            const index = AppState.myBooks.findIndex(b => b.bookId === bookId || (code && b.code === code));
+            if (index > -1) {
+                AppState.myBooks.splice(index, 1);
+            }
+
+            // Save to localStorage and sync to cloud
+            saveMyBooks();
+
+            // Re-render the book list
+            renderMyBooks();
+
+            // Update My Links (loadQuickLinks reads from AppState.myBooks)
+            loadQuickLinks();
+
+            showToast('Book deleted', 'success');
         }
         
         // ========== Re-create Link for Pending Books ==========
@@ -5610,8 +6073,8 @@ function renderMyBooks() {
                 const key = book.link || (book.code && String(book.code)) || book.title;
                 const stats = statsMap[key] || {};
                 const visits = stats.visits || 0;
-                const unique = stats.unique_users || 0;
-                const income = stats.d14_income || 0;
+                const newUsers = stats.newUsers || stats.new_users || 0;
+                const income = stats.income || stats.dn_income || stats.d14_income || 0;
                 const incomeFmt = fmtIncome(income);
                 const hasData = book.code && book.link;
                 const isPending = !book.code && !book.link;
@@ -5619,15 +6082,15 @@ function renderMyBooks() {
                 return `
                     <div class="my-book-expanded-item">
                         <div class="my-book-expanded-header">
-                            <img class="my-book-expanded-cover" src="${book.cover}" alt="${book.title}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNjQiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMjQiIHk9IjM4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
+                            <img class="my-book-expanded-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNjQiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMjQiIHk9IjM4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
                             <div class="my-book-expanded-info">
-                                <div class="my-book-expanded-title">${book.title}</div>
+                                <div class="my-book-expanded-title">${escapeHtml(book.title)}</div>
                                 ${isPending ? `
                                     <div class="my-book-expanded-code" style="color: var(--ink-mute);">CODE: Pending</div>
-                                    <button class="my-book-expanded-copy" onclick="recreateLink('${book.bookId}')" style="background: var(--ruby); margin-top: 4px;">Try Again ↻</button>
+                                    <button class="my-book-expanded-copy" onclick='recreateLink(${JSON.stringify(book.bookId||"")})' style="background: var(--ruby); margin-top: 4px;">Try Again ↻</button>
                                 ` : `
-                                    <div class="my-book-expanded-code">CODE: ${book.code || 'Pending'}</div>
-                                    ${hasData ? `<button class="my-book-expanded-copy" onclick="copyBookLink('${(book.link || '').replace(/'/g, "\\'")}')">Copy Link</button>` : ''}
+                                    <div class="my-book-expanded-code">CODE: ${escapeHtml(book.code || 'Pending')}</div>
+                                    ${hasData ? `<button class="my-book-expanded-copy" onclick='copyBookLink(${JSON.stringify(book.link||"")})'>Copy Link</button>` : ''}
                                 `}
                             </div>
                         </div>
@@ -5638,9 +6101,9 @@ function renderMyBooks() {
                                 <div class="my-book-expanded-stat-value">${fmtNum(visits)}</div>
                             </div>
                             <div class="my-book-expanded-stat">
-                                <div class="my-book-expanded-stat-icon">&#128101;</div>
-                                <div class="my-book-expanded-stat-label">Unique</div>
-                                <div class="my-book-expanded-stat-value">${fmtNum(unique)}</div>
+                                <div class="my-book-expanded-stat-icon">&#128100;</div>
+                                <div class="my-book-expanded-stat-label">New Users</div>
+                                <div class="my-book-expanded-stat-value">${fmtNum(newUsers)}</div>
                             </div>
                             <div class="my-book-expanded-stat income">
                                 <div class="my-book-expanded-stat-icon">&#128176;</div>
@@ -5672,6 +6135,10 @@ function renderMyBooks() {
                 }
             }
             updateProfileUI();
+            if (typeof initCampaign1Bonus === 'function') initCampaign1Bonus();
+            if (typeof updateBonusUI === 'function') updateBonusUI();
+            if (typeof renderCampaigns === 'function') renderCampaigns();
+            if (typeof updateStreakGrandBtn === 'function') updateStreakGrandBtn();
         }
 
         function updateProfileUI() {
@@ -5687,7 +6154,7 @@ function renderMyBooks() {
                 uid.textContent = AppState.user.username ? '@' + AppState.user.username : 'Logged In';
                 loginForm.style.display = 'none';
                 logoutBtn.classList.add('show');
-// Auto-fill and hide username field when logged in
+                // Auto-fill and hide username field when logged in
                 const usernameInput = document.getElementById('discordUsername');
                 const usernameGroup = usernameInput ? usernameInput.closest('.form-group') : null;
                 if (usernameInput) {
@@ -5700,7 +6167,7 @@ function renderMyBooks() {
                 uid.textContent = 'Login to unlock more features';
                 loginForm.style.display = 'block';
                 logoutBtn.classList.remove('show');
-// Show username field when not logged in
+                // Show username field when not logged in
                 const usernameInput = document.getElementById('discordUsername');
                 const usernameGroup = usernameInput ? usernameInput.closest('.form-group') : null;
                 if (usernameGroup) usernameGroup.style.display = '';
@@ -5713,6 +6180,10 @@ function renderMyBooks() {
 
             if (!username) {
                 showToast('Please enter a username', 'error');
+                return;
+            }
+            if (!password || password.length < 4) {
+                showToast('Password is required (min 4 characters)', 'error');
                 return;
             }
 
@@ -5750,7 +6221,7 @@ function renderMyBooks() {
                     (document.getElementById('regPassword') || {}).value = '';
                     const passField = document.getElementById('regPassword');
                     if (passField) passField.style.display = 'none';
-                    checkAndPromptSetPassword(username);
+                    updatePasswordCardUI(true);
                 } else {
                     const errMsg = result.error || 'Login failed (HTTP ' + response.status + ')';
                     showToast(errMsg, 'error');
@@ -5802,6 +6273,27 @@ function renderMyBooks() {
                 const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Please enter a username';
                 return;
             }
+            if (!password || password.length < 4) {
+                // Check if this is an old user without password - if so, allow login
+                try {
+                    const cpResp = await fetch('/api/auth/check-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username })
+                    });
+                    const cpResult = await cpResp.json();
+                    if (!cpResult.hasPassword && cpResult.userExists) {
+                        // Old user without password - allow login, will prompt to set password
+                    } else {
+                        // New user or user with password - must enter password
+                        const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = cpResult.hasPassword ? 'Password is required' : 'Password is required (min 4 characters)';
+                        return;
+                    }
+                } catch(e) {
+                    const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Password is required (min 4 characters)';
+                    return;
+                }
+            }
             
             try {
                 const controller = new AbortController();
@@ -5846,6 +6338,13 @@ function renderMyBooks() {
                 showToast('Welcome, ' + username + '!', 'success');
                 checkAndPromptSetPassword(username);
                 CloudSync.enable();
+                
+                // Force show set password modal if backend says user needs one
+                if (result.mustSetPassword) {
+                    setTimeout(() => {
+                        showSetPasswordModal();
+                    }, 1500);
+                }
             } catch(e) {
                 console.error('Login error:', e);
                 // Fallback: allow offline login (API unreachable or timed out)
@@ -5954,17 +6453,17 @@ function renderMyBooks() {
                 const commissionText = type === 'heat' ? book.orders + ' orders' : book.commission + '%';
                 
                 return `
-                    <div class="leaderboard-item" onclick="openRecommendModal('${book.bookId}')">
+                    <div class="leaderboard-item" onclick='openRecommendModal(${JSON.stringify(book.bookId||"")})'>
                         <div class="leaderboard-rank ${rankClass}">${i + 1}</div>
-                        <img class="leaderboard-cover" src="${book.cover}" alt="${book.title}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDUiIGhlaWdodD0iNjAiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ1IiBoZWlnaHQ9IjYwIiBmaWxsPSIjZjZmOWZjIi8+PC9zdmc+'">
+                        <img class="leaderboard-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDUiIGhlaWdodD0iNjAiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ1IiBoZWlnaHQ9IjYwIiBmaWxsPSIjZjZmOWZjIi8+PC9zdmc+'">
                         <div class="leaderboard-info">
-                            <div class="leaderboard-title-text">${book.title}</div>
+                            <div class="leaderboard-title-text">${escapeHtml(book.title)}</div>
                             <div class="leaderboard-meta">Share to earn up to 80%</div>
                         </div>
                         <div class="leaderboard-earnings">
-                            <div class="leaderboard-commission">${commissionText}</div>
+                            <div class="leaderboard-commission">${escapeHtml(commissionText)}</div>
                             <div class="leaderboard-label">${type === 'heat' ? '🔥 Hot' : '💰 80%'}</div>
-                            <button class="leaderboard-share-btn" onclick="event.stopPropagation(); openRecommendModal('${book.bookId}')">Share →</button>
+                            <button class="leaderboard-share-btn" onclick='event.stopPropagation(); openRecommendModal(${JSON.stringify(book.bookId||"")})'>Share →</button>
                         </div>
                     </div>
                 `;
@@ -6341,7 +6840,7 @@ function renderMyBooks() {
             if (perfData) perfData.style.display = 'block';
             
             try {
-                const resp = await fetch('/api/per-link-stats?username=' + encodeURIComponent(AppState.user.username));
+                const resp = await fetch('/api/my-stats?t=' + Date.now() + '&username=' + encodeURIComponent(AppState.user.username));
                 if (!resp.ok) throw new Error('Failed');
                 const data = await resp.json();
                 // Convert daily format: { date: {visits, unique_users, new_users, income} }
@@ -6419,7 +6918,7 @@ function renderMyBooks() {
                 const el = document.getElementById('homeLoading');
                 if (el && el.style.display !== 'none') { el.style.display = 'none'; hideLoadingAndShowContent(); }
             }, 3000);
-            loadBooks(); checkLocalLogin(); loadCheckinData(); verifyPointsIntegrity(); updateCheckinUI(); loadMyBooks(); updateStats(); checkLoginStatus(); updateMissionsUI(); updatePointsDisplay();
+            loadBooks(); checkLocalLogin(); loadCheckinData(); verifyPointsIntegrity(); updateCheckinUI(); loadMyBooks(); updateStats(); checkLoginStatus(); updateMissionsUI(); updatePointsDisplay(); if (typeof renderCampaigns === "function") renderCampaigns(); if (typeof updateBonusUI === "function") updateBonusUI(); if (typeof updateStreakGrandBtn === "function") updateStreakGrandBtn();
             if (typeof loadPerformanceDashboard === 'function') setTimeout(() => { loadPerformanceDashboard(); if (typeof initChartTooltip === 'function') setTimeout(initChartTooltip, 200); }, 1000);
             document.getElementById('recommendModal').addEventListener('click', e => {
                 if (e.target.classList.contains('modal-overlay')) closeModal();
@@ -6513,7 +7012,7 @@ function renderMyBooks() {
                     const templateLabel = ({'PPT_Porn':'🔥','PPT_Porn_Loop_Video':'🔥','Ad_Plot_Video_V2':'🎥','Ad_Plot_Seedance':'🎬','Dialogue':'💬','PPT_Multi':'📑','Comic':'🖼','Digital':'🤖','Extract':'🧊'})[item.template] || '📖';
                     const statusText = item.isDone ? '✅' : '⏳';
                     const thumbHtml = item.coverUrl
-                        ? '<img src="' + item.coverUrl + '" style="width:48px;height:64px;border-radius:6px;object-fit:cover;" onerror="this.style.display=\'none\'">'
+                        ? '<img src="' + escapeHtml(item.coverUrl) + '" style="width:48px;height:64px;border-radius:6px;object-fit:cover;" onerror="this.style.display=\'none\'">'
                         : '<div style="width:48px;height:64px;border-radius:6px;background:var(--canvas-soft);display:flex;align-items:center;justify-content:center;font-size:18px;">' + templateLabel + '</div>';
                     const saveBtn = item.isDone && item.videoUrl
                         ? '<a href="' + item.videoUrl + '" download target="_blank" style="padding:4px 10px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;text-decoration:none;">💾</a>'
@@ -6536,7 +7035,7 @@ function renderMyBooks() {
             el.innerHTML = myBooks.slice(0, 5).map(book => {
                 const shortTitle = (book.title || 'Untitled').substring(0, 30);
                 const text = book.recommendText || 'Check out "' + (book.title || '') + '" - an amazing read! ' + (book.link || '');
-                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--hairline);"><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;">' + escapeHtml(shortTitle) + '</div><div style="font-size:10px;color:var(--ink-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(text.substring(0, 60)) + '...</div></div><button onclick="navigator.clipboard.writeText(\'' + text.replace(/'/g, "\\'") + '\');showToast(\'Copied!\',\'success\')" style="padding:4px 8px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;cursor:pointer;flex-shrink:0;">📋</button></div>';
+                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--hairline);"><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;">' + escapeHtml(shortTitle) + '</div><div style="font-size:10px;color:var(--ink-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(text.substring(0, 60)) + '...</div></div><button onclick="navigator.clipboard.writeText(\'' + escapeHtml(text).replace(/'/g, "\\'") + '\');showToast(\'Copied!\',\'success\')" style="padding:4px 8px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;cursor:pointer;flex-shrink:0;">📋</button></div>';
             }).join('');
         }
 
@@ -6550,116 +7049,16 @@ function renderMyBooks() {
             }
             el.innerHTML = myBooks.filter(b => b.link).slice(0, 5).map(book => {
                 const shortTitle = (book.title || 'Untitled').substring(0, 30);
-                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--hairline);"><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;">' + escapeHtml(shortTitle) + '</div><div style="font-size:10px;color:var(--ruby);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(book.link) + '</div></div><button onclick="navigator.clipboard.writeText(\'' + (book.link || '').replace(/'/g, "\\'") + '\');showToast(\'Link copied!\',\'success\')" style="padding:4px 8px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;cursor:pointer;flex-shrink:0;">📋</button></div>';
+                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--hairline);"><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;">' + escapeHtml(shortTitle) + '</div><div style="font-size:10px;color:var(--ruby);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(book.link) + '</div></div><button onclick="navigator.clipboard.writeText(\'' + escapeHtml(book.link || '').replace(/'/g, "\\'") + '\');showToast(\'Link copied!\',\'success\')" style="padding:4px 8px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;cursor:pointer;flex-shrink:0;">📋</button></div>';
             }).join('');
         }
 
         // ========== Share App Modal ==========
-        let shareAppCopied = false;
-        let shareAppDownloaded = false;
-        let shareAppTimer = null;
 
-        function openShareAppModal() {
-            if (isMissionClaimed('shareApp')) {
-                showToast('Already claimed!', 'info');
-                return;
-            }
-            shareAppCopied = false;
-            shareAppDownloaded = false;
-            document.getElementById('shareAppModal').classList.add('show');
-            updateShareAppStatus();
-        }
 
-        function closeShareAppModal() {
-            document.getElementById('shareAppModal').classList.remove('show');
-        }
 
-        function copyShareAppText() {
-            const text = document.getElementById('shareAppText').textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                shareAppCopied = true;
-                document.getElementById('shareAppCopyBtn').textContent = '✓';
-                document.getElementById('shareAppCopyBtn').style.background = '#059669';
-                showToast('Copied!', 'success');
-                updateShareAppStatus();
-            });
-        }
 
-        function downloadSharePoster() {
-            // Create a canvas-based poster download
-            const canvas = document.createElement('canvas');
-            canvas.width = 540;
-            canvas.height = 960;
-            const ctx = canvas.getContext('2d');
-            // Background gradient
-            const grad = ctx.createLinearGradient(0, 0, 540, 960);
-            grad.addColorStop(0, '#ff6b9d');
-            grad.addColorStop(0.5, '#c44dff');
-            grad.addColorStop(1, '#6c5ce7');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, 540, 960);
-            // Title
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 48px Arial, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('NovelFlow', 270, 300);
-            // Subtitle
-            ctx.font = '22px Arial, sans-serif';
-            ctx.fillText('Read Free · Share · Earn', 270, 350);
-            // Icons
-            ctx.font = '60px Arial';
-            ctx.fillText('📚💰', 270, 460);
-            // CTA
-            ctx.font = 'bold 26px Arial, sans-serif';
-            ctx.fillText('Join Now →', 270, 560);
-            // URL
-            ctx.font = '16px Arial, sans-serif';
-            ctx.fillStyle = 'rgba(255,255,255,0.8)';
-            ctx.fillText('novelflow.top', 270, 620);
-            // Download
-            const link = document.createElement('a');
-            link.download = 'NovelFlow-Promoter-Poster.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-            
-            shareAppDownloaded = true;
-            document.getElementById('shareAppDownloadBtn').textContent = '✓ Downloaded';
-            document.getElementById('shareAppDownloadBtn').style.background = '#059669';
-            showToast('Poster downloaded!', 'success');
-            updateShareAppStatus();
-        }
 
-        function updateShareAppStatus() {
-            const statusEl = document.getElementById('shareAppStatus');
-            const bothDone = shareAppCopied && shareAppDownloaded;
-            if (bothDone) {
-                statusEl.textContent = '✅ Both done! Rewarding 50 pts in 10 seconds...';
-                statusEl.style.color = '#059669';
-                // Start 10 second countdown then auto-claim
-                if (shareAppTimer) clearTimeout(shareAppTimer);
-                shareAppTimer = setTimeout(() => {
-                    if (!isMissionClaimed('shareApp')) {
-                        markMissionClaimed('shareApp');
-                        addUserPoints(50);
-                        const btn = document.getElementById('taskShareAppClaimBtn');
-                        if (btn) {
-                            btn.disabled = true;
-                            btn.classList.add('claimed');
-                            btn.innerHTML = '<span class="mission-claim-text">✓</span>';
-                        }
-                        const card = document.getElementById('missionShareApp');
-                        if (card) card.classList.add('completed');
-                        showMilestoneCelebration(0, 50);
-                        closeShareAppModal();
-                    }
-                }, 10000);
-            } else {
-                const copied = shareAppCopied ? '✅' : '⬜';
-                const downloaded = shareAppDownloaded ? '✅' : '⬜';
-                statusEl.textContent = copied + ' Copy text  ' + downloaded + ' Download poster';
-                statusEl.style.color = 'var(--ink-mute)';
-            }
-        }
 
         // ========== AC Reels - Real API ==========
         function saveACToken(token) {
@@ -6671,7 +7070,7 @@ function renderMyBooks() {
         function getReelsDailyCount() {
             const today = new Date().toISOString().split('T')[0];
             const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || 'guest';
-            const saved = localStorage.getItem(getUserKey('reels_count_v2'));
+            const saved = localStorage.getItem(getUserKey('reels_count'));
             if (!saved) return 0;
             try {
                 const data = JSON.parse(saved);
@@ -6685,7 +7084,7 @@ function renderMyBooks() {
             const today = new Date().toISOString().split('T')[0];
             const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || 'guest';
             const count = getReelsDailyCount() + 1;
-            localStorage.setItem(getUserKey('reels_count_v2'), JSON.stringify({ date: today, username: username, count: count }));
+            localStorage.setItem(getUserKey('reels_count'), JSON.stringify({ date: today, username: username, count: count }));
             updateReelsDailyInfo(); updateReelsStatusBar();
             return count;
         }
@@ -6694,7 +7093,6 @@ function renderMyBooks() {
             if (el) {
                 const remaining = REELS_DAILY_LIMIT - getReelsDailyCount();
                 el.textContent = remaining + getText('reels_left');
-                updateReelsCountdown();
             }
         }
         const REELS_DAILY_LIMIT = 7;
@@ -6711,26 +7109,6 @@ function renderMyBooks() {
                 statusEl.textContent = '🎬 ' + total + ' reel' + (total > 1 ? 's' : '') + ' · ' + remaining + ' left today';
             }
         }
-
-
-        function updateReelsCountdown() {
-            const el = document.getElementById('reelsCountdown');
-            if (!el) return;
-            try {
-                const now = new Date();
-                const laStr = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
-                const laNow = new Date(laStr);
-                const laMidnight = new Date(laNow);
-                laMidnight.setHours(24, 0, 0, 0);
-                const diff = laMidnight - laNow;
-                if (diff <= 0) { el.textContent = '· resetting...'; return; }
-                const h = Math.floor(diff / 3600000);
-                const m = Math.floor((diff % 3600000) / 60000);
-                const s = Math.floor((diff % 60000) / 1000);
-                el.textContent = '⏰ resets in ' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
-            } catch(e) { el.textContent = ''; }
-        }
-        setInterval(updateReelsCountdown, 1000);
 
         let reelSelectedBook = null;
 
@@ -6810,7 +7188,7 @@ function renderMyBooks() {
                 const wrap = document.createElement('div');
                 wrap.className = 'ref-img-thumb-wrap';
                 wrap.style.cssText = 'position:relative;display:inline-block;';
-                wrap.innerHTML = '<img src="' + url + '" class="ref-img-thumb"><button class="ref-img-remove" onclick="removeRefImg(' + i + ')">✕</button>';
+                wrap.innerHTML = '<img src="' + escapeHtml(url) + '" class="ref-img-thumb"><button class="ref-img-remove" onclick="removeRefImg(' + i + ')">✕</button>';
                 if (addBtn) grid.insertBefore(wrap, addBtn);
                 else grid.appendChild(wrap);
             });
@@ -6828,7 +7206,7 @@ function renderMyBooks() {
                 '<div class="reel-success-icon">🎉</div>' +
                 '<div class="reel-success-title">Congratulations!</div>' +
                 '<div class="reel-success-sub">Video for &quot;' + escapeHtml(taskName) + '&quot; created successfully!<br>You can find it in My Reels.</div>' +
-                '<button class="reel-success-cta" onclick="document.getElementById(\'reelSuccessOverlay\').remove();switchTab(\'submit\')">Upload Video & Earn Now 💰</button>' +
+                '<button class="reel-success-cta" onclick="document.getElementById(\'reelSuccessOverlay\').remove(); switchTab(\'submit\');">Upload Video & Earn Now 💰</button>' +
                 '<div style="font-size:10px;color:var(--ink-mute);margin-top:8px;">Share your video + link to earn commission</div>' +
                 '<button class="reel-success-close" onclick="document.getElementById(\'reelSuccessOverlay\').remove()">Close</button>' +
                 '</div>';
@@ -6921,16 +7299,16 @@ function renderMyBooks() {
 
                         const thumb = item.coverUrl || '';
                         const playOverlay = item.videoUrl ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25);border-radius:8px;"><div style="width:22px;height:22px;background:rgba(255,255,255,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;">▶</div></div>' : '';
-                        const thumbClickAction = item.videoUrl ? ' onclick="playReelVideo(\'' + item.videoUrl.replace(/'/g, "\\'") + '\')"' : '';
+                        const thumbClickAction = item.videoUrl ? ' onclick="playReelVideo(\'' + escapeHtml(item.videoUrl).replace(/'/g, "\\'") + '\')"' : '';
                         const placeholderGrad = 'linear-gradient(135deg, #FF6B9D33, #C084FC33)';
                         const thumbHtml = thumb
-                            ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;"' + thumbClickAction + '><img src="' + thumb + '" style="width:100%;height:100%;object-fit:cover;">' + playOverlay + '</div>'
+                            ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;"' + thumbClickAction + '><img src="' + escapeHtml(thumb) + '" style="width:100%;height:100%;object-fit:cover;">' + playOverlay + '</div>'
                             : '<div style="width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;' + (item.videoUrl ? 'cursor:pointer;"' + thumbClickAction : '"') + '>🎬</div>';
 
                         let actionsHtml = '';
                         if (item.isDone) {
                             actionsHtml = '<div class="reels-item-actions">';
-                            if (item.videoUrl) actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + item.videoUrl + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">Save</a>';
+                            if (item.videoUrl) actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + escapeHtml(item.videoUrl) + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">Save</a>';
                             if (item.creativeText) actionsHtml += '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)">Copy</button>';
                             actionsHtml += '</div>';
                         }
@@ -6972,8 +7350,8 @@ function renderMyBooks() {
                 }
                 container.innerHTML = books.slice(0, 5).map(b =>
                     '<div class="reel-book-option" data-bookid="' + (b.bookId || b.id) + '" onclick="selectXMPBook(this)" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--hairline);font-size:13px;display:flex;gap:8px;align-items:center;">' +
-                    '<img src="' + (b.cover || '') + '" style="width:30px;height:40px;border-radius:4px;object-fit:cover;" onerror="this.style.display=\'none\'">' +
-                    '<div><div style="font-weight:500;">' + (b.title || 'Untitled') + '</div><div style="font-size:11px;color:var(--ink-mute);">' + (b.author || '') + '</div></div></div>'
+                    '<img src="' + escapeHtml(b.cover || '') + '" style="width:30px;height:40px;border-radius:4px;object-fit:cover;" onerror="this.style.display=\'none\'">' +
+                    '<div><div style="font-weight:500;">' + escapeHtml(b.title || 'Untitled') + '</div><div style="font-size:11px;color:var(--ink-mute);">' + escapeHtml(b.author || '') + '</div></div></div>'
                 ).join('');
             } catch(e) { container.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--ink-mute);">Search failed</div>'; }
         }
@@ -7038,9 +7416,9 @@ function renderMyBooks() {
                 container.innerHTML = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">' + videos.map(m => {
                         const thumb = m.url || m.file_url || '';
                         const fallbackIcon = '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:24px;">🎬</div>';
-                        let inner = thumb ? '<img src="' + thumb + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div style="display:none;align-items:center;justify-content:center;height:100%;font-size:24px;">🎬</div>' : fallbackIcon;
+                        let inner = thumb ? '<img src="' + escapeHtml(thumb) + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div style="display:none;align-items:center;justify-content:center;height:100%;font-size:24px;">🎬</div>' : fallbackIcon;
                         return '<div style="position:relative;border-radius:10px;overflow:hidden;background:var(--canvas-soft);cursor:pointer;aspect-ratio:9/16;border:2px solid rgba(255,107,157,0.2);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all 0.2s;" onmouseover="this.style.borderColor=\'#FF6B9D\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.borderColor=\'rgba(255,107,157,0.2)\';this.style.transform=\'none\'"' +
-                            (m.file_url ? ' onclick="window.open(\'' + m.file_url + '\', \'_blank\')"' : '') + '>' + inner + '</div>';
+                            (m.file_url ? ' onclick="window.open(\'' + escapeHtml(m.file_url).replace(/'/g, "\\'") + '\', \'_blank\')"' : '') + '>' + inner + '</div>';
                     }).join('') + '</div>';
             } else {
                 container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--ink-mute);font-size:13px;">No assets found</div>';
@@ -7061,9 +7439,9 @@ function renderMyBooks() {
                     return;
                 }
                 container.innerHTML = books.slice(0, 5).map(b => 
-                    '<div class="reel-book-option" data-bookid="' + (b.bookId || b.id || b.book_id) + '" onclick="selectReelBook(this)" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--hairline);font-size:13px;display:flex;gap:8px;align-items:center;">' +
-                    '<img src="' + (b.cover || '') + '" style="width:30px;height:40px;border-radius:4px;object-fit:cover;" onerror="this.style.display=\'none\'">' +
-                    '<div><div style="font-weight:500;">' + (b.title || 'Untitled') + '</div><div style="font-size:11px;color:var(--ink-mute);">' + (b.author || '') + '</div></div></div>'
+                    '<div class="reel-book-option" data-bookid="' + escapeHtml(b.bookId || b.id || b.book_id || '') + '" onclick="selectReelBook(this)" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--hairline);font-size:13px;display:flex;gap:8px;align-items:center;">' +
+                    '<img src="' + escapeHtml(b.cover || '') + '" style="width:30px;height:40px;border-radius:4px;object-fit:cover;" onerror="this.style.display=\'none\'">' +
+                    '<div><div style="font-weight:500;">' + escapeHtml(b.title || 'Untitled') + '</div><div style="font-size:11px;color:var(--ink-mute);">' + escapeHtml(b.author || '') + '</div></div></div>'
                 ).join('');
             } catch(e) { container.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--ink-mute);">Search failed</div>'; }
         }
@@ -7320,17 +7698,17 @@ function renderMyBooks() {
                         // Thumbnail: show video cover image with play overlay
                         const thumb = item.coverUrl || '';
                         const playOverlay = item.videoUrl ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25);border-radius:8px;"><div style="width:22px;height:22px;background:rgba(255,255,255,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;">▶</div></div>' : '';
-                        const thumbClickAction = item.videoUrl ? ' onclick="playReelVideo(\'' + item.videoUrl.replace(/'/g, "\\'") + '\')"' : '';
+                        const thumbClickAction = item.videoUrl ? ' onclick="playReelVideo(\'' + escapeHtml(item.videoUrl).replace(/'/g, "\\'") + '\')"' : '';
                         const placeholderGrad = 'linear-gradient(135deg, #FF6B9D33, #C084FC33)';
                         const thumbHtml = thumb
-                            ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;"' + thumbClickAction + '><img src="' + thumb + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML=\'<div style=\'\' + \'width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;\' + (\'' + item.videoUrl + '\' ? \'cursor:pointer;\' : \'\') + \'\'>🎬</div>\'">' + playOverlay + '</div>'
+                            ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;"' + thumbClickAction + '><img src="' + escapeHtml(thumb) + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML=\'<div style=\'\' + \'width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;\' + (\'' + item.videoUrl + '\' ? \'cursor:pointer;\' : \'\') + \'\'>🎬</div>\'">' + playOverlay + '</div>'
                             : '<div style="width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;' + (item.videoUrl ? 'cursor:pointer;"' + thumbClickAction : '"') + '>🎬</div>';
                         
                         let actionsHtml = '';
                         if (item.isDone) {
                             actionsHtml = '<div class="reels-item-actions">';
                             if (item.videoUrl) {
-                                actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + item.videoUrl + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">' + getText('save_video') + '</a>';
+                                actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + escapeHtml(item.videoUrl) + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">' + getText('save_video') + '</a>';
                             }
                             if (item.creativeText) {
                                 actionsHtml += '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)">' + getText('copy_text') + '</button>';
@@ -7414,7 +7792,7 @@ function renderMyBooks() {
             const passField = document.getElementById('splashPassword');
             const tipEl = document.getElementById('splashTip');
             if (!username || username.length < 2) {
-                if (passField) passField.style.display = 'none';
+                if (passField) { passField.style.display = ''; passField.placeholder = 'Password (min 4 characters)'; }
                 return;
             }
             // Debounce
@@ -7428,40 +7806,43 @@ function renderMyBooks() {
                     });
                     const result = await resp.json();
                     if (result.hasPassword) {
-                        if (passField) { passField.style.display = ''; passField.placeholder = 'Password (required)'; }
+                        if (passField) { passField.style.display = ''; passField.placeholder = 'Enter your password'; }
                         if (tipEl) tipEl.textContent = 'This account has a password. Enter it to login.';
+                    } else if (result.userExists) {
+                        // Old user without password - hide password field, let them just click
+                        if (passField) { passField.style.display = 'none'; passField.value = ''; }
+                        if (tipEl) tipEl.textContent = 'Welcome back! Just click Start Earning →';
                     } else {
-                        if (passField) { passField.style.display = ''; passField.placeholder = 'Set a password (optional)'; }
-                        if (tipEl) tipEl.textContent = 'No password set yet. You can add one to protect your account.';
+                        // New user - must set password
+                        if (passField) { passField.style.display = ''; passField.placeholder = 'Set a password (min 4 chars)'; }
+                        if (tipEl) tipEl.textContent = 'New here? Set a password to create your account.';
                     }
                 } catch(e) {
-                    // Silently fail - show password field as optional
-                    if (passField) { passField.style.display = ''; passField.placeholder = 'Password (optional)'; }
+                    if (passField) { passField.style.display = ''; passField.placeholder = 'Password (min 4 characters)'; }
                 }
             }, 500);
         }
 
         async function checkRegPasswordNeeded() {
-            const username = document.getElementById('regUsername')?.value?.trim();
+            // Password is always required now
             const passField = document.getElementById('regPassword');
-            if (!username || username.length < 2) {
-                if (passField) passField.style.display = 'none';
-                return;
-            }
-            try {
-                const resp = await fetch('/api/auth/check-password', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username })
-                });
-                const result = await resp.json();
-                if (result.hasPassword) {
-                    if (passField) { passField.style.display = ''; passField.placeholder = 'Password (required)'; }
+            const username = document.getElementById('regUsername')?.value?.trim();
+            if (passField) {
+                passField.style.display = '';
+                if (username && username.length >= 2) {
+                    // Check if existing user to adjust placeholder
+                    try {
+                        const resp = await fetch('/api/auth/check-password', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username })
+                        });
+                        const result = await resp.json();
+                        passField.placeholder = result.hasPassword ? 'Enter your password' : 'Set a password (min 4 chars)';
+                    } catch(e) {}
                 } else {
-                    if (passField) passField.style.display = 'none';
+                    passField.placeholder = 'Password (min 4 characters)';
                 }
-            } catch(e) {
-                if (passField) passField.style.display = 'none';
             }
         }
 
@@ -7646,93 +8027,6 @@ function renderMyBooks() {
             </div>
         </div>
     </div>
-    
-    <!-- Earnings & Withdrawal Modal (v2.6.0) -->
-    <div class="modal-overlay earn-modal" id="earningsModal" style="z-index:10002;">
-        <div class="modal">
-            <div class="modal-header">
-                <button class="modal-close-btn" onclick="closeEarningsModal()" aria-label="Close">×</button>
-                <div class="modal-title" style="text-align:center;">Earnings &amp; Withdrawal</div>
-                <div style="width:32px;"></div>
-            </div>
-            <div class="modal-body">
-                <!-- Top stat cards -->
-                <div class="earn-top-cards">
-                    <div class="earn-top-card primary">
-                        <div class="earn-top-val" id="earnAvailable">$0.00</div>
-                        <div class="earn-top-label">Available</div>
-                    </div>
-                    <div class="earn-top-card">
-                        <div class="earn-top-val" id="earnTotal">$0.00</div>
-                        <div class="earn-top-label">Total Earned</div>
-                    </div>
-                    <div class="earn-top-card">
-                        <span class="earn-top-soon">soon</span>
-                        <div class="earn-top-val" style="color:var(--ink-mute);" id="earnPending">$0.00</div>
-                        <div class="earn-top-label">Pending</div>
-                    </div>
-                </div>
-                <div id="earnBonusBanner" class="earn-bonus-banner" style="margin:12px 16px 0;padding:10px 14px;background:linear-gradient(135deg,#FEF3C7,#FDE68A);border-radius:12px;display:none;align-items:center;justify-content:space-between;">
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="font-size:18px;">🎁</span>
-                        <div>
-                            <div style="font-size:11px;color:#92400e;font-weight:600;">PLATFORM BONUS</div>
-                            <div style="font-size:13px;color:#78350f;">Promotion reward, withdrawable immediately</div>
-                        </div>
-                    </div>
-                    <div id="earnBonusVal" style="font-size:18px;font-weight:700;color:#b45309;">$0.00</div>
-                </div>
-
-                <!-- Tabs -->
-                <div class="earn-tabs">
-                    <div class="earn-tab active" data-ern-tab="detail" onclick="switchEarnTab('detail')">Earnings Detail</div>
-                    <div class="earn-tab" data-ern-tab="history" onclick="switchEarnTab('history')">Withdrawal History</div>
-                </div>
-
-                <!-- Tab: earnings detail (per-day revenue) -->
-                <div class="earn-tab-panel active" id="earnPanelDetail">
-                    <div id="earnDetailList" class="earn-list">
-                        <div class="earn-empty">Loading...</div>
-                    </div>
-                </div>
-
-                <!-- Tab: withdrawal history -->
-                <div class="earn-tab-panel" id="earnPanelHistory">
-                    <div id="earnHistoryList" class="earn-list">
-                        <div class="earn-empty">Loading...</div>
-                    </div>
-                </div>
-
-                <!-- Withdrawal form (sticky bottom inside modal-body) -->
-                <div class="earn-form-area">
-                    <div class="earn-form-title">
-                        &#128179; Request Withdrawal
-                        <span class="earn-fee-tag">0% FEE</span>
-                    </div>
-                    <div class="earn-field">
-                        <label>Amount (USD) · Min $10</label>
-                        <div class="earn-input-wrap">
-                            <span class="earn-currency">$</span>
-                            <input type="number" id="earnAmount" class="earn-input-amount" inputmode="decimal" min="10" step="0.01" placeholder="0.00" oninput="validateEarnForm()">
-                        </div>
-                        <div class="earn-quick-row">
-                            <div class="earn-quick-chip" onclick="setEarnAmount(10)">$10</div>
-                            <div class="earn-quick-chip" onclick="setEarnAmount(25)">$25</div>
-                            <div class="earn-quick-chip" onclick="setEarnAmount(50)">$50</div>
-                            <div class="earn-quick-chip" onclick="setEarnAmount('max')">MAX</div>
-                        </div>
-                    </div>
-                    <div class="earn-field">
-                        <label>PayPal / Payoneer Email</label>
-                        <input type="email" id="earnAccount" placeholder="your@email.com" oninput="validateEarnForm()">
-                    </div>
-                    <button class="earn-submit-btn" id="earnSubmitBtn" onclick="submitWithdrawal()" disabled>Submit Request</button>
-                    <div class="earn-hint" id="earnHint">We process withdrawals to your PayPal/Payoneer within 3–5 business days.</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Set Password Modal -->
     <div id="setPasswordModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;">
         <div style="background:white;border-radius:16px;padding:24px;width:320px;max-width:90vw;">
@@ -7756,170 +8050,276 @@ function renderMyBooks() {
         </div>
     </div>
 
-    <script>
-    /* ========== Earnings & Withdrawal v2.6.0 ========== */
-    let _earnData = null;
+<!-- Earnings Center v2.6.0 -->
+<div id="earningsModal" onclick="if(event.target===this)closeEarningsModal()">
+  <div class="earn-panel" role="dialog" aria-modal="true" aria-label="Earnings Center">
+    <div class="earn-header">
+      <button class="earn-close" onclick="closeEarningsModal()" aria-label="Close">×</button>
+      <div class="earn-title">Earnings Center</div>
+      <div style="width:30px;"></div>
+    </div>
+    <div class="earn-body">
+      <div class="earn-stats">
+        <div class="earn-stat primary">
+          <div class="earn-stat-val" id="earnAvailVal">$0.00</div>
+          <div class="earn-stat-label">Available Balance</div>
+        </div>
+        <div class="earn-stat">
+          <div class="earn-stat-val" id="earnTotalVal">$0.00</div>
+          <div class="earn-stat-label">Total Earned</div>
+        </div>
+        <div class="earn-stat">
+          <span class="earn-stat-soon">Soon</span>
+          <div class="earn-stat-val" id="earnPendingVal">$0.00</div>
+          <div class="earn-stat-label">Pending Settlement</div>
+        </div>
+      </div>
+      <div id="earnBonusBanner">
+        <div class="earn-bonus-left">
+          <span style="font-size:20px;">🎁</span>
+          <div>
+            <div class="earn-bonus-tag">PLATFORM BONUS</div>
+            <div class="earn-bonus-sub">Promotional reward, withdrawable</div>
+          </div>
+        </div>
+        <div class="earn-bonus-val" id="earnBonusVal">$0.00</div>
+      </div>
+      <div class="earn-tabs">
+        <div class="earn-tab active" data-earn-tab="detail" onclick="switchEarnTab('detail')">Earnings Detail</div>
+        <div class="earn-tab" data-earn-tab="history" onclick="switchEarnTab('history')">Withdrawal History</div>
+      </div>
+      <div class="earn-tab-panel active" id="earnTabDetail">
+        <div id="earnDetailList"><div class="earn-empty">Loading…</div></div>
+      </div>
+      <div class="earn-tab-panel" id="earnTabHistory">
+        <div id="earnHistoryList"><div class="earn-empty">Loading…</div></div>
+      </div>
+      <div class="earn-form">
+        <div class="earn-form-title">
+          💵 Request Withdrawal
+          <span class="earn-fee-badge">0% FEE</span>
+        </div>
+        <div class="earn-form-hint">Minimum $10 · 0% fee · Processed in 3–5 business days via PayPal/Payoneer</div>
+        <div class="earn-field">
+          <label for="earnAmountInput">Amount (USD)</label>
+          <div class="earn-amount-wrap">
+            <span class="earn-currency">$</span>
+            <input type="number" id="earnAmountInput" min="10" step="0.01" placeholder="Enter amount USD" inputmode="decimal" oninput="earnValidateForm()">
+          </div>
+          <div class="earn-quick-row">
+            <button type="button" class="earn-quick-btn" onclick="earnSetQuick(10)">$10</button>
+            <button type="button" class="earn-quick-btn" onclick="earnSetQuick(25)">$25</button>
+            <button type="button" class="earn-quick-btn" onclick="earnSetQuick(50)">$50</button>
+            <button type="button" class="earn-quick-btn" onclick="earnSetQuick('max')">MAX</button>
+          </div>
+        </div>
+        <div class="earn-field">
+          <label for="earnEmailInput">Payment Email</label>
+          <input type="email" id="earnEmailInput" placeholder="PayPal/Payoneer email" oninput="earnValidateForm()">
+        </div>
+        <button type="button" class="earn-submit" id="earnSubmitBtn" onclick="submitWithdrawal()" disabled>Submit Request</button>
+        <div class="earn-err" id="earnFormErr"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
-    function openEarningsModal() {
-        if (!AppState.isLoggedIn || !AppState.user) {
-            showToast('Please log in first', 'error');
-            switchTab('profile');
-            return;
-        }
-        const m = document.getElementById('earningsModal');
-        if (!m) return;
-        m.style.display = 'flex';
-        switchEarnTab('detail');
-        loadEarningsData();
+<script>
+/* ========== Earnings Center v2.6.0 JS ========== */
+(function(){
+  let _earnData = null;
+  const $ = (id) => document.getElementById(id);
+  const fmt$ = (v) => '$' + Number(v||0).toFixed(2);
+  const escapeHtml = (s) => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  function getUsername() {
+    try {
+      if (window.AppState && AppState.user && AppState.user.username) return AppState.user.username;
+    } catch(e){}
+    return localStorage.getItem('novelflow_last_user') || '';
+  }
+
+  window.openEarningsModal = function() {
+    const u = getUsername();
+    const isLoggedIn = !!(window.AppState && AppState.isLoggedIn && AppState.user && AppState.user.username);
+    if (!isLoggedIn || !u) {
+      if (typeof showToast === 'function') showToast('Please log in first', 'error');
+      if (typeof switchTab === 'function') switchTab('profile');
+      return;
     }
-    function closeEarningsModal() {
-        const m = document.getElementById('earningsModal');
-        if (m) m.style.display = 'none';
-    }
+    const m = $('earningsModal');
+    if (!m) return;
+    m.classList.add('show');
+    document.body.style.overflow = 'hidden';
+    switchEarnTab('detail');
+    loadEarningsData();
+  };
 
-    function switchEarnTab(tab) {
-        document.querySelectorAll('.earn-tab').forEach(el => {
-            el.classList.toggle('active', el.dataset.ernTab === tab);
-        });
-        document.getElementById('earnPanelDetail').classList.toggle('active', tab === 'detail');
-        document.getElementById('earnPanelHistory').classList.toggle('active', tab === 'history');
-    }
+  window.closeEarningsModal = function() {
+    const m = $('earningsModal');
+    if (m) m.classList.remove('show');
+    document.body.style.overflow = '';
+  };
 
-    async function loadEarningsData() {
-        const username = AppState.user?.username;
-        if (!username) return;
-        try {
-            const r = await fetch('/api/withdrawals?username=' + encodeURIComponent(username), { headers: { 'X-OS': 'web' } });
-            const data = await r.json();
-            if (!r.ok) throw new Error(data.error || 'Failed to load');
-            _earnData = data;
-            renderEarnings(data);
-        } catch (e) {
-            document.getElementById('earnDetailList').innerHTML = '<div class="earn-empty">Failed to load: ' + e.message + '</div>';
-            document.getElementById('earnHistoryList').innerHTML = '<div class="earn-empty">—</div>';
-        }
-    }
-
-    function fmt$(v) { return '$' + Number(v||0).toFixed(2); }
-    function escHtml(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-    function renderEarnings(data) {
-        document.getElementById('earnAvailable').textContent = fmt$(data.available_balance);
-        document.getElementById('earnTotal').textContent = fmt$(data.total_earned);
-        document.getElementById('earnPending').textContent = fmt$(data.pending_settlement||0);
-        // Bonus banner
-        const bonus = Number(data.bonus_balance)||0;
-        const bonusBanner = document.getElementById('earnBonusBanner');
-        const bonusVal = document.getElementById('earnBonusVal');
-        if(bonusVal) bonusVal.textContent = fmt$(bonus);
-        if(bonusBanner) bonusBanner.style.display = bonus > 0 ? 'flex' : 'none';
-        // Profile-card small label
-        const lbl = document.getElementById('earnCardBalance');
-        if (lbl) lbl.textContent = fmt$(data.available_balance) + ' available';
-
-        // Detail list: per-day earnings (reverse chronological)
-        const detail = document.getElementById('earnDetailList');
-        const daily = Array.isArray(data.earnings_detail) ? data.earnings_detail : [];
-        if (!daily.length) {
-            detail.innerHTML = '<div class="earn-empty">No earnings yet. Share your book links to start earning!</div>';
-        } else {
-            detail.innerHTML = daily.map(d => {
-                const dt = new Date(d.date);
-                const label = dt.toLocaleDateString('en-US', { month:'short', day:'numeric' });
-                return '<div class="earn-list-item">' +
-                    '<div class="earn-list-left"><div class="earn-list-title">Promotion Revenue</div><div class="earn-list-sub">' + escHtml(label) + '</div></div>' +
-                    '<div class="earn-list-right"><div class="earn-list-amount">+' + fmt$(d.amount) + '</div></div>' +
-                    '</div>';
-            }).join('');
-            // summary row showing total
-            detail.insertAdjacentHTML('afterbegin',
-                '<div class="earn-list-item" style="border-bottom:1px solid var(--hairline);padding-bottom:12px;margin-bottom:4px;">' +
-                '<div class="earn-list-left"><div class="earn-list-title" style="font-weight:700;">Promotion Earnings (DN)</div></div>' +
-                '<div class="earn-list-right"><div class="earn-list-amount">' + fmt$(data.total_dn_income) + '</div></div>' +
-                '</div>');
-        }
-
-        // History list
-        const hist = document.getElementById('earnHistoryList');
-        const wds = Array.isArray(data.withdrawals) ? data.withdrawals : [];
-        if (!wds.length) {
-            hist.innerHTML = '<div class="earn-empty">No withdrawal requests yet.</div>';
-        } else {
-            hist.innerHTML = wds.map(w => {
-                const dt = new Date(w.created_at);
-                const when = dt.toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
-                const acct = w.payment_account ? w.payment_account.replace(/(.{2}).*(@.*)/, '$1***$2') : '';
-                return '<div class="earn-list-item">' +
-                    '<div class="earn-list-left"><div class="earn-list-title">Withdrawal <span class="earn-badge-acct">' + escHtml(acct) + '</span></div><div class="earn-list-sub">' + escHtml(when) + ' · ' + escHtml(w.id||'') + '</div></div>' +
-                    '<div class="earn-list-right"><div class="earn-list-amount">-' + fmt$(w.amount) + '</div><div class="earn-list-status ' + escHtml(w.status) + '">' + (w.status||'pending').toUpperCase() + '</div></div>' +
-                    '</div>';
-            }).join('');
-        }
-        validateEarnForm();
-    }
-
-    function setEarnAmount(v) {
-        if (!_earnData) return;
-        const max = Number(_earnData.available_balance) || 0;
-        let val;
-        if (v === 'max') val = Math.floor(max * 100) / 100;
-        else val = Number(v);
-        document.getElementById('earnAmount').value = val.toFixed(2);
-        validateEarnForm();
-    }
-
-    function validateEarnForm() {
-        const btn = document.getElementById('earnSubmitBtn');
-        const hint = document.getElementById('earnHint');
-        const amt = parseFloat(document.getElementById('earnAmount').value);
-        const acct = (document.getElementById('earnAccount').value || '').trim();
-        const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const available = Number(_earnData?.available_balance) || 0;
-        let err = '';
-        if (!amt || amt < 10) err = 'Minimum withdrawal is $10';
-        else if (amt > available + 0.001) err = 'Insufficient balance (available ' + fmt$(available) + ')';
-        else if (!emailRe.test(acct)) err = 'Enter a valid PayPal/Payoneer email';
-
-        btn.disabled = !!err;
-        if (err) {
-            hint.style.color = 'var(--danger, #ef4444)';
-            hint.textContent = err;
-        } else {
-            hint.style.color = '';
-            hint.textContent = "We'll send the payment to your PayPal/Payoneer within 3–5 business days. 0% processing fee.";
-        }
-    }
-
-    async function submitWithdrawal() {
-        const btn = document.getElementById('earnSubmitBtn');
-        const amt = parseFloat(document.getElementById('earnAmount').value);
-        const acct = (document.getElementById('earnAccount').value || '').trim();
-        if (btn.disabled) return;
-        btn.disabled = true; btn.textContent = 'Submitting...';
-        try {
-            const r = await fetch('/api/withdrawals', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-OS': 'web' },
-                body: JSON.stringify({ username: AppState.user.username, amount: amt, payment_account: acct })
-            });
-            const data = await r.json();
-            if (!r.ok) throw new Error(data.error || 'Submit failed');
-            showToast('Withdrawal request submitted!', 'success');
-            document.getElementById('earnAmount').value = '';
-            document.getElementById('earnAccount').value = '';
-            // reload to show new record + updated balance
-            await loadEarningsData();
-        } catch(e) {
-            showToast(e.message, 'error');
-            btn.disabled = false; btn.textContent = 'Submit Request';
-        }
-    }
-
-    // Tap outside modal to close
-    document.addEventListener('click', (e) => {
-        if (e.target && e.target.id === 'earningsModal') closeEarningsModal();
+  window.switchEarnTab = function(tab) {
+    document.querySelectorAll('.earn-tab').forEach(el => {
+      el.classList.toggle('active', el.dataset.earnTab === tab);
     });
-    </script>
+    const d = $('earnTabDetail'), h = $('earnTabHistory');
+    if (d) d.classList.toggle('active', tab === 'detail');
+    if (h) h.classList.toggle('active', tab === 'history');
+  };
+
+  async function loadEarningsData() {
+    const u = getUsername();
+    if (!u) return;
+    try {
+      const r = await fetch('/api/withdrawals?username=' + encodeURIComponent(u), { headers: { 'X-OS': 'web' } });
+      const data = await r.json();
+      if (!r.ok || !data.success) throw new Error(data.error || 'Failed to load earnings');
+      _earnData = data;
+      renderEarnings(data);
+    } catch(e) {
+      const de = $('earnDetailList'); if (de) de.innerHTML = '<div class="earn-empty">Failed to load: ' + escapeHtml(e.message) + '</div>';
+      const he = $('earnHistoryList'); if (he) he.innerHTML = '<div class="earn-empty">—</div>';
+    }
+  }
+
+  function renderEarnings(data) {
+    const avail = Number(data.available_balance)||0;
+    const total = Number(data.total_earned)||0;
+    const pend  = Number(data.pending_settlement)||0;
+    const bonus = Number(data.bonus_balance)||0;
+    if ($('earnAvailVal')) $('earnAvailVal').textContent = fmt$(avail);
+    if ($('earnTotalVal')) $('earnTotalVal').textContent = fmt$(total);
+    if ($('earnPendingVal')) $('earnPendingVal').textContent = fmt$(pend);
+    const bb = $('earnBonusBanner');
+    if (bb) bb.style.display = bonus > 0 ? 'flex' : 'none';
+    if ($('earnBonusVal')) $('earnBonusVal').textContent = fmt$(bonus);
+    const cb = $('earnCardBalance');
+    if (cb) cb.textContent = fmt$(avail) + ' available';
+
+    const de = $('earnDetailList');
+    const daily = Array.isArray(data.earnings_detail) ? data.earnings_detail.slice() : [];
+    daily.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+    if (!daily.length) {
+      de.innerHTML = '<div class="earn-empty">No earnings yet</div>';
+    } else {
+      de.innerHTML = daily.map(d => {
+        let label = d.date || '';
+        try {
+          const dt = new Date(d.date);
+          if (!isNaN(dt)) label = dt.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+        } catch(e){}
+        return '<div class="earn-list-item">' +
+          '<div class="earn-list-left"><div class="earn-list-title">CPS Earnings</div><div class="earn-list-sub">' + escapeHtml(label) + '</div></div>' +
+          '<div class="earn-list-right"><div class="earn-list-amount">+' + fmt$(d.amount) + '</div></div>' +
+          '</div>';
+      }).join('');
+    }
+
+    const he = $('earnHistoryList');
+    const wds = Array.isArray(data.withdrawals) ? data.withdrawals.slice() : [];
+    wds.sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''));
+    if (!wds.length) {
+      he.innerHTML = '<div class="earn-empty">No withdrawals yet</div>';
+    } else {
+      he.innerHTML = wds.map(w => {
+        let when = w.created_at || '';
+        try {
+          const dt = new Date(w.created_at);
+          if (!isNaN(dt)) when = dt.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+        } catch(e){}
+        const acct = w.payment_account ? escapeHtml(w.payment_account) : '';
+        const status = (w.status || 'pending').toLowerCase();
+        return '<div class="earn-list-item">' +
+          '<div class="earn-list-left">' +
+            '<div class="earn-list-title">Withdrawal</div>' +
+            '<div class="earn-list-sub">' + escapeHtml(when) + (acct ? ' · ' + acct : '') + '</div>' +
+          '</div>' +
+          '<div class="earn-list-right">' +
+            '<div class="earn-list-amount neg">-' + fmt$(w.amount) + '</div>' +
+            '<span class="earn-status ' + escapeHtml(status) + '">' + escapeHtml(status) + '</span>' +
+          '</div>' +
+          '</div>';
+      }).join('');
+    }
+    earnValidateForm();
+  }
+
+  window.earnSetQuick = function(v) {
+    if (!_earnData) return;
+    const max = Number(_earnData.available_balance)||0;
+    let val;
+    if (v === 'max') val = Math.floor(max*100)/100;
+    else val = Number(v);
+    const inp = $('earnAmountInput');
+    inp.value = val.toFixed(2);
+    earnValidateForm();
+    inp.focus();
+  };
+
+  window.earnValidateForm = function() {
+    const btn = $('earnSubmitBtn');
+    const errBox = $('earnFormErr');
+    const amtRaw = $('earnAmountInput').value;
+    const amt = parseFloat(amtRaw);
+    const email = ($('earnEmailInput').value || '').trim();
+    const avail = Number(_earnData?.available_balance)||0;
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    let err = '';
+    if (!amtRaw || isNaN(amt)) err = 'Enter an amount';
+    else if (amt < 10) err = 'Minimum withdrawal is $10';
+    else if (amt > avail + 0.001) err = 'Amount exceeds available balance (' + fmt$(avail) + ')';
+    else if (!email) err = 'Enter your PayPal/Payoneer email';
+    else if (!emailRe.test(email)) err = 'Enter a valid email address';
+
+    if (btn) btn.disabled = !!err;
+    if (errBox) errBox.textContent = err || '';
+    return !err;
+  };
+
+  window.submitWithdrawal = async function() {
+    if (!earnValidateForm()) return;
+    const btn = $('earnSubmitBtn');
+    const amt = parseFloat($('earnAmountInput').value);
+    const email = ($('earnEmailInput').value || '').trim();
+    const u = getUsername();
+    btn.disabled = true;
+    const origText = btn.textContent;
+    btn.textContent = 'Submitting…';
+    try {
+      const r = await fetch('/api/withdrawals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-OS': 'web' },
+        body: JSON.stringify({ username: u, amount: amt, payment_account: email })
+      });
+      const data = await r.json();
+      if (!r.ok || !data.success) throw new Error(data.error || 'Submit failed');
+      if (typeof showToast === 'function') showToast("Request submitted! We'll process within 3-5 days", 'success');
+      $('earnAmountInput').value = '';
+      $('earnEmailInput').value = '';
+      $('earnFormErr').textContent = '';
+      await loadEarningsData();
+    } catch(e) {
+      if (typeof showToast === 'function') showToast(e.message || 'Submit failed', 'error');
+      else if ($('earnFormErr')) $('earnFormErr').textContent = e.message || 'Submit failed';
+    } finally {
+      btn.textContent = origText;
+      earnValidateForm();
+    }
+  };
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' || e.keyCode === 27) {
+      const m = $('earningsModal');
+      if (m && m.classList.contains('show')) closeEarningsModal();
+    }
+  });
+
+  window._earnRefresh = loadEarningsData;
+})();
+</script>
 
 </body>
 </html>
