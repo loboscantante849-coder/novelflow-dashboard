@@ -209,6 +209,61 @@ module.exports = async (req, res) => {
         });
       }
 
+      // ---------- ORPHAN AD_ID SYNC: surface pipeline-mapped ad_ids missing from Redis subs ----------
+      // Older nf_subs entries sometimes don't have corresponding nf_user_subs:<user> set membership
+      // (legacy bug), so by_promoter may contain ad_ids that belong to this user but aren't in
+      // Redis submissions. Emit synthetic rows for them so the user sees their full earnings.
+      if (promoterEntry) {
+        const knownAdIds = new Set();
+        for (const b of books) {
+          if (b.linkId) knownAdIds.add(String(b.linkId));
+          if (b.code && b.code !== 'N/A') knownAdIds.add(String(b.code));
+        }
+        const promoAdIds = [
+          ...(promoterEntry.links || []).map(String),
+          ...(promoterEntry.codes || []).map(String),
+        ];
+        let orphanCount = 0;
+        for (const adId of promoAdIds) {
+          if (knownAdIds.has(adId)) continue;
+          const st = byAdId[adId];
+          if (!st) continue;
+          const isCode = (promoterEntry.codes || []).map(String).includes(adId);
+          const channel = isCode ? 'code' : 'link';
+          // Try to recover a display book name from promoterEntry.books
+          let bookName = st.book_name || 'Unknown';
+          for (const pb of (promoterEntry.books || [])) {
+            if ((pb.ad_ids || []).map(String).includes(adId)) { bookName = pb.name; break; }
+          }
+          const dn = r2(st.dn_income);
+          for (const [dt, dv] of Object.entries(st.daily || {})) {
+            if (!aggDaily[dt]) aggDaily[dt] = { visits: 0, unique_users: 0, new_users: 0, income: 0 };
+            aggDaily[dt].visits += dv.pull_uv || 0;
+            aggDaily[dt].unique_users += dv.pull_uv || 0;
+            aggDaily[dt].new_users += dv.new_uv || 0;
+            aggDaily[dt].income += dv.dn_income || 0;
+          }
+          books.push({
+            bookName,
+            code: isCode ? adId : 'N/A',
+            link: isCode ? null : `https://s.novelflow.top/${adId}`,
+            bookId: null,
+            linkId: isCode ? null : adId,
+            submittedAt: null,
+            kocName: username,
+            cover: '',
+            visits: st.pull_uv || 0,
+            unique_users: st.pull_uv || 0,
+            new_users: st.new_uv || 0,
+            d14_income: dn,
+            dn_income: dn,
+            channel: channel + ' (synced)',
+          });
+          orphanCount++;
+        }
+        if (orphanCount) debugLog.push(`synced ${orphanCount} orphan ad_id(s) from pipeline mapping not present in Redis subs`);
+      }
+
       // If user has submissions but promoter entry wasn't found, log it. It can mean the
       // username is new or not yet mapped; per-row stats will already be 0 where appropriate.
       if (!promoterEntry) {

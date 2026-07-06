@@ -163,6 +163,67 @@ module.exports = async (req, res) => {
         }
       }
 
+      // ---------- ORPHAN AD_ID SYNC (same reasoning as my-stats.js) ----------
+      const promoterEntry = (() => {
+        if (!adData || !adData.by_promoter || admin) return null;
+        return adData.by_promoter[usernameCanon] || null;
+      })();
+      if (promoterEntry) {
+        const knownAdIds = new Set();
+        for (const l of links) {
+          if (l.linkId) knownAdIds.add(String(l.linkId));
+          if (l.code && l.code !== 'N/A') knownAdIds.add(String(l.code));
+        }
+        const promoAdIds = [
+          ...(promoterEntry.links || []).map(String),
+          ...(promoterEntry.codes || []).map(String),
+        ];
+        let orphanCount = 0;
+        for (const adId of promoAdIds) {
+          if (knownAdIds.has(adId)) continue;
+          const st = byAdId[adId];
+          if (!st) continue;
+          const isCode = (promoterEntry.codes || []).map(String).includes(adId);
+          const channel = (isCode ? 'code' : 'link') + ' (synced)';
+          let bookName = st.book_name || 'Unknown';
+          for (const pb of (promoterEntry.books || [])) {
+            if ((pb.ad_ids || []).map(String).includes(adId)) { bookName = pb.name; break; }
+          }
+          const dn = r2(st.dn_income);
+          const dailyRow = {};
+          for (const [dt, dv] of Object.entries(st.daily || {})) {
+            if (!aggDaily[dt]) aggDaily[dt] = { visits:0, unique_users:0, new_users:0, income:0 };
+            aggDaily[dt].visits += dv.pull_uv || 0;
+            aggDaily[dt].unique_users += dv.pull_uv || 0;
+            aggDaily[dt].new_users += dv.new_uv || 0;
+            aggDaily[dt].income += dv.dn_income || 0;
+            dailyRow[dt] = {
+              visits: dv.pull_uv || 0,
+              unique_users: dv.pull_uv || 0,
+              new_users: dv.new_uv || 0,
+              income: r2(dv.dn_income || 0),
+            };
+          }
+          links.push({
+            bookName, bookId: null,
+            code: isCode ? adId : 'N/A',
+            link: isCode ? null : `https://s.novelflow.top/${adId}`,
+            linkId: isCode ? null : adId,
+            submittedAt: null,
+            kocName: username,
+            cover: '',
+            visits: st.pull_uv || 0,
+            unique_users: st.pull_uv || 0,
+            new_users: st.new_uv || 0,
+            d14_income: dn, dn_income: dn,
+            channel,
+            daily: dailyRow,
+          });
+          orphanCount++;
+        }
+        if (orphanCount) debugLog.push(`synced ${orphanCount} orphan ad_id(s) from pipeline mapping`);
+      }
+
       const totalVisits = links.reduce((s, l) => s + l.visits, 0);
       const totalNew = links.reduce((s, l) => s + l.new_users, 0);
       const totalIncome = r2(links.reduce((s, l) => s + l.dn_income, 0));
