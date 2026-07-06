@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- v2.5.1 - Security P0 fixes + Promotion Earnings rename - 2026-07-06 -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -3083,7 +3084,7 @@
                 <div class="stats-overview-card gold">
                     <div class="stats-overview-icon">&#128176;</div>
                     <div class="stats-overview-value" id="totalIncome">$0.00</div>
-                    <div class="stats-overview-label">Total Earnings</div>
+                    <div class="stats-overview-label">Promotion Earnings</div>
                 </div>
                 <div class="stats-overview-card">
                     <div class="stats-overview-icon">&#128101;</div>
@@ -3267,6 +3268,8 @@
     </div>
 
     <script>
+        // v2.5.1: Global HTML escape for XSS protection
+        function escapeHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
 // Global fetch timeout - no API call can block the page
 (function(){var _f=window.fetch;window.fetch=function(u,o){o=o||{};if(o.signal)return _f(u,o);var c=new AbortController(),t=setTimeout(function(){c.abort()},o.timeout||15000),n=Object.assign({},o,{signal:c.signal});return _f(u,n).then(function(r){clearTimeout(t);return r}).catch(function(e){clearTimeout(t);if(e.name==='AbortError'){return new Response(JSON.stringify({error:'timeout',offline:true}),{status:504,headers:{'Content-Type':'application/json'}})}throw e})}})();
 // NovelFlow v2.5.0 - Tasks & Bonus redesign - 2026-07-06
@@ -3875,7 +3878,7 @@
                 ).join('');
 
                 return `
-                    <div class="book-item" onclick="openRecommendModal('${escapeHtml(book.bookId)}')"><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
+                    <div class="book-item" onclick='openRecommendModal(${JSON.stringify(book.bookId||"")})'><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
                         <img class="book-item-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjgiIGhlaWdodD0iOTIiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY4IiBoZWlnaHQ9IjkyIiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMzQiIHk9IjUwIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
                         <div class="book-item-content">
                             <div class="book-item-title">${escapeHtml(book.title)}</div>
@@ -3885,7 +3888,7 @@
                             <div class="book-item-tags">${tags}</div>
                             <div class="book-item-desc">${escapeHtml(book.description) || 'No description available.'}</div>
                             <div class="book-item-action">
-                                <button class="book-item-btn" onclick="event.stopPropagation(); openRecommendModal('${escapeHtml(book.bookId)}')">${getText('recommend_btn')}</button>
+                                <button class="book-item-btn" onclick='event.stopPropagation(); openRecommendModal(${JSON.stringify(book.bookId||"")})'>${getText('recommend_btn')}</button>
                             </div>
                         </div>
                     </div>
@@ -3911,7 +3914,7 @@
                 const tags = (book.tags || []).slice(0, 2).filter(t => typeof t === 'string').map(t => `<span class="book-tag">${escapeHtml(t)}</span>`).join('');
 
                 return `
-                    <div class="book-scroll-card" style="position:relative" onclick="openRecommendModal('${escapeHtml(book.bookId)}')"><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
+                    <div class="book-scroll-card" style="position:relative" onclick='openRecommendModal(${JSON.stringify(book.bookId||"")})'><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
                         <img class="book-scroll-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTM2IiBoZWlnaHQ9IjE3NiIgZmlsbD0iI2Y2ZjlmYyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTM2IiBoZWlnaHQ9IjE3NiIgZmlsbD0iI2Y2ZjlmYyIvPjx0ZXh0IHg9IjY4IiB5PSI5MCIgZm9udC1zaXplPSIzMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk0YTNiOCI+8J+OpfCDgvY8L3RleHQ+PC9zdmc+'">
                         <div class="book-scroll-info">
                             <div class="book-scroll-card-title">${escapeHtml(book.title)}</div>
@@ -3939,7 +3942,7 @@
                 else if (i === 2) numClass = 'top3';
 
                 return `
-                    <div class="rank-item" onclick="openRecommendModal('${escapeHtml(book.bookId)}')">
+                    <div class="rank-item" onclick='openRecommendModal(${JSON.stringify(book.bookId||"")})'>
                         <div class="rank-num ${numClass}">${i + 1}</div>
                         <img class="rank-cover" src="${escapeHtml(book.cover)}" alt="" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzQiIGhlaWdodD0iNDYiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjM0IiBoZWlnaHQ9IjQ2IiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMTciIHk9IjI4IiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
                         <div class="rank-info">
@@ -5852,7 +5855,7 @@ function renderMyBooks() {
                         <div class="my-book-info">
                             <div class="my-book-title">${escapeHtml(book.title)}</div>
                             <div class="my-book-code">CODE: ${escapeHtml(book.code) || 'N/A'}</div>
-                            <div class="my-book-link" onclick="copyBookLink('${escapeHtml(book.link).replace(/'/g, "\'")}')" title="Click to copy">${escapeHtml(book.link) || 'No link'}</div>
+                            <div class="my-book-link" onclick='copyBookLink(${JSON.stringify(book.link||"")})' title="Click to copy">${escapeHtml(book.link) || 'No link'}</div>
                             <div class="my-book-stats">
                                 <span class="my-book-stat" title="Visits">&#128065; ${fmtNum(visits)}</span>
                                 <span class="my-book-stat" title="New Users">&#128100; ${fmtNum(newUsers)}</span>
@@ -5860,8 +5863,8 @@ function renderMyBooks() {
                             </div>
                         </div>
                         <div class="my-book-actions">
-                            <button class="my-book-copy" onclick="copyBookLink('${escapeHtml(book.link).replace(/'/g, "\'")}')">Copy</button>
-                            <button class="my-book-delete" onclick="deleteBook('${escapeHtml(book.bookId)}', '${escapeHtml(book.code)}')" title="Delete">🗑️</button>
+                            <button class="my-book-copy" onclick='copyBookLink(${JSON.stringify(book.link||"")})'>Copy</button>
+                            <button class="my-book-delete" onclick='deleteBook(${JSON.stringify(book.bookId||"")}, ${JSON.stringify(book.code==null?"":String(book.code))})' title="Delete">🗑️</button>
                         </div>
                     </div>
                 `;
@@ -6018,15 +6021,15 @@ function renderMyBooks() {
                 return `
                     <div class="my-book-expanded-item">
                         <div class="my-book-expanded-header">
-                            <img class="my-book-expanded-cover" src="${book.cover}" alt="${book.title}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNjQiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMjQiIHk9IjM4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
+                            <img class="my-book-expanded-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNjQiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMjQiIHk9IjM4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
                             <div class="my-book-expanded-info">
-                                <div class="my-book-expanded-title">${book.title}</div>
+                                <div class="my-book-expanded-title">${escapeHtml(book.title)}</div>
                                 ${isPending ? `
                                     <div class="my-book-expanded-code" style="color: var(--ink-mute);">CODE: Pending</div>
-                                    <button class="my-book-expanded-copy" onclick="recreateLink('${book.bookId}')" style="background: var(--ruby); margin-top: 4px;">Try Again ↻</button>
+                                    <button class="my-book-expanded-copy" onclick='recreateLink(${JSON.stringify(book.bookId||"")})' style="background: var(--ruby); margin-top: 4px;">Try Again ↻</button>
                                 ` : `
-                                    <div class="my-book-expanded-code">CODE: ${book.code || 'Pending'}</div>
-                                    ${hasData ? `<button class="my-book-expanded-copy" onclick="copyBookLink('${(book.link || '').replace(/'/g, "\\'")}')">Copy Link</button>` : ''}
+                                    <div class="my-book-expanded-code">CODE: ${escapeHtml(book.code || 'Pending')}</div>
+                                    ${hasData ? `<button class="my-book-expanded-copy" onclick='copyBookLink(${JSON.stringify(book.link||"")})'>Copy Link</button>` : ''}
                                 `}
                             </div>
                         </div>
@@ -6389,17 +6392,17 @@ function renderMyBooks() {
                 const commissionText = type === 'heat' ? book.orders + ' orders' : book.commission + '%';
                 
                 return `
-                    <div class="leaderboard-item" onclick="openRecommendModal('${book.bookId}')">
+                    <div class="leaderboard-item" onclick='openRecommendModal(${JSON.stringify(book.bookId||"")})'>
                         <div class="leaderboard-rank ${rankClass}">${i + 1}</div>
-                        <img class="leaderboard-cover" src="${book.cover}" alt="${book.title}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDUiIGhlaWdodD0iNjAiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ1IiBoZWlnaHQ9IjYwIiBmaWxsPSIjZjZmOWZjIi8+PC9zdmc+'">
+                        <img class="leaderboard-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDUiIGhlaWdodD0iNjAiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ1IiBoZWlnaHQ9IjYwIiBmaWxsPSIjZjZmOWZjIi8+PC9zdmc+'">
                         <div class="leaderboard-info">
-                            <div class="leaderboard-title-text">${book.title}</div>
+                            <div class="leaderboard-title-text">${escapeHtml(book.title)}</div>
                             <div class="leaderboard-meta">Share to earn up to 80%</div>
                         </div>
                         <div class="leaderboard-earnings">
-                            <div class="leaderboard-commission">${commissionText}</div>
+                            <div class="leaderboard-commission">${escapeHtml(commissionText)}</div>
                             <div class="leaderboard-label">${type === 'heat' ? '🔥 Hot' : '💰 80%'}</div>
-                            <button class="leaderboard-share-btn" onclick="event.stopPropagation(); openRecommendModal('${book.bookId}')">Share →</button>
+                            <button class="leaderboard-share-btn" onclick='event.stopPropagation(); openRecommendModal(${JSON.stringify(book.bookId||"")})'>Share →</button>
                         </div>
                     </div>
                 `;
@@ -6948,7 +6951,7 @@ function renderMyBooks() {
                     const templateLabel = ({'PPT_Porn':'🔥','PPT_Porn_Loop_Video':'🔥','Ad_Plot_Video_V2':'🎥','Ad_Plot_Seedance':'🎬','Dialogue':'💬','PPT_Multi':'📑','Comic':'🖼','Digital':'🤖','Extract':'🧊'})[item.template] || '📖';
                     const statusText = item.isDone ? '✅' : '⏳';
                     const thumbHtml = item.coverUrl
-                        ? '<img src="' + item.coverUrl + '" style="width:48px;height:64px;border-radius:6px;object-fit:cover;" onerror="this.style.display=\'none\'">'
+                        ? '<img src="' + escapeHtml(item.coverUrl) + '" style="width:48px;height:64px;border-radius:6px;object-fit:cover;" onerror="this.style.display=\'none\'">'
                         : '<div style="width:48px;height:64px;border-radius:6px;background:var(--canvas-soft);display:flex;align-items:center;justify-content:center;font-size:18px;">' + templateLabel + '</div>';
                     const saveBtn = item.isDone && item.videoUrl
                         ? '<a href="' + item.videoUrl + '" download target="_blank" style="padding:4px 10px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;text-decoration:none;">💾</a>'
@@ -6971,7 +6974,7 @@ function renderMyBooks() {
             el.innerHTML = myBooks.slice(0, 5).map(book => {
                 const shortTitle = (book.title || 'Untitled').substring(0, 30);
                 const text = book.recommendText || 'Check out "' + (book.title || '') + '" - an amazing read! ' + (book.link || '');
-                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--hairline);"><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;">' + escapeHtml(shortTitle) + '</div><div style="font-size:10px;color:var(--ink-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(text.substring(0, 60)) + '...</div></div><button onclick="navigator.clipboard.writeText(\'' + text.replace(/'/g, "\\'") + '\');showToast(\'Copied!\',\'success\')" style="padding:4px 8px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;cursor:pointer;flex-shrink:0;">📋</button></div>';
+                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--hairline);"><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;">' + escapeHtml(shortTitle) + '</div><div style="font-size:10px;color:var(--ink-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(text.substring(0, 60)) + '...</div></div><button onclick="navigator.clipboard.writeText(\'' + escapeHtml(text).replace(/'/g, "\\'") + '\');showToast(\'Copied!\',\'success\')" style="padding:4px 8px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;cursor:pointer;flex-shrink:0;">📋</button></div>';
             }).join('');
         }
 
@@ -6985,7 +6988,7 @@ function renderMyBooks() {
             }
             el.innerHTML = myBooks.filter(b => b.link).slice(0, 5).map(book => {
                 const shortTitle = (book.title || 'Untitled').substring(0, 30);
-                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--hairline);"><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;">' + escapeHtml(shortTitle) + '</div><div style="font-size:10px;color:var(--ruby);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(book.link) + '</div></div><button onclick="navigator.clipboard.writeText(\'' + (book.link || '').replace(/'/g, "\\'") + '\');showToast(\'Link copied!\',\'success\')" style="padding:4px 8px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;cursor:pointer;flex-shrink:0;">📋</button></div>';
+                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--hairline);"><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;">' + escapeHtml(shortTitle) + '</div><div style="font-size:10px;color:var(--ruby);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(book.link) + '</div></div><button onclick="navigator.clipboard.writeText(\'' + escapeHtml(book.link || '').replace(/'/g, "\\'") + '\');showToast(\'Link copied!\',\'success\')" style="padding:4px 8px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;cursor:pointer;flex-shrink:0;">📋</button></div>';
             }).join('');
         }
 
@@ -7124,7 +7127,7 @@ function renderMyBooks() {
                 const wrap = document.createElement('div');
                 wrap.className = 'ref-img-thumb-wrap';
                 wrap.style.cssText = 'position:relative;display:inline-block;';
-                wrap.innerHTML = '<img src="' + url + '" class="ref-img-thumb"><button class="ref-img-remove" onclick="removeRefImg(' + i + ')">✕</button>';
+                wrap.innerHTML = '<img src="' + escapeHtml(url) + '" class="ref-img-thumb"><button class="ref-img-remove" onclick="removeRefImg(' + i + ')">✕</button>';
                 if (addBtn) grid.insertBefore(wrap, addBtn);
                 else grid.appendChild(wrap);
             });
@@ -7235,16 +7238,16 @@ function renderMyBooks() {
 
                         const thumb = item.coverUrl || '';
                         const playOverlay = item.videoUrl ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25);border-radius:8px;"><div style="width:22px;height:22px;background:rgba(255,255,255,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;">▶</div></div>' : '';
-                        const thumbClickAction = item.videoUrl ? ' onclick="playReelVideo(\'' + item.videoUrl.replace(/'/g, "\\'") + '\')"' : '';
+                        const thumbClickAction = item.videoUrl ? ' onclick="playReelVideo(\'' + escapeHtml(item.videoUrl).replace(/'/g, "\\'") + '\')"' : '';
                         const placeholderGrad = 'linear-gradient(135deg, #FF6B9D33, #C084FC33)';
                         const thumbHtml = thumb
-                            ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;"' + thumbClickAction + '><img src="' + thumb + '" style="width:100%;height:100%;object-fit:cover;">' + playOverlay + '</div>'
+                            ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;"' + thumbClickAction + '><img src="' + escapeHtml(thumb) + '" style="width:100%;height:100%;object-fit:cover;">' + playOverlay + '</div>'
                             : '<div style="width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;' + (item.videoUrl ? 'cursor:pointer;"' + thumbClickAction : '"') + '>🎬</div>';
 
                         let actionsHtml = '';
                         if (item.isDone) {
                             actionsHtml = '<div class="reels-item-actions">';
-                            if (item.videoUrl) actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + item.videoUrl + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">Save</a>';
+                            if (item.videoUrl) actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + escapeHtml(item.videoUrl) + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">Save</a>';
                             if (item.creativeText) actionsHtml += '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)">Copy</button>';
                             actionsHtml += '</div>';
                         }
@@ -7286,8 +7289,8 @@ function renderMyBooks() {
                 }
                 container.innerHTML = books.slice(0, 5).map(b =>
                     '<div class="reel-book-option" data-bookid="' + (b.bookId || b.id) + '" onclick="selectXMPBook(this)" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--hairline);font-size:13px;display:flex;gap:8px;align-items:center;">' +
-                    '<img src="' + (b.cover || '') + '" style="width:30px;height:40px;border-radius:4px;object-fit:cover;" onerror="this.style.display=\'none\'">' +
-                    '<div><div style="font-weight:500;">' + (b.title || 'Untitled') + '</div><div style="font-size:11px;color:var(--ink-mute);">' + (b.author || '') + '</div></div></div>'
+                    '<img src="' + escapeHtml(b.cover || '') + '" style="width:30px;height:40px;border-radius:4px;object-fit:cover;" onerror="this.style.display=\'none\'">' +
+                    '<div><div style="font-weight:500;">' + escapeHtml(b.title || 'Untitled') + '</div><div style="font-size:11px;color:var(--ink-mute);">' + escapeHtml(b.author || '') + '</div></div></div>'
                 ).join('');
             } catch(e) { container.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--ink-mute);">Search failed</div>'; }
         }
@@ -7352,9 +7355,9 @@ function renderMyBooks() {
                 container.innerHTML = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">' + videos.map(m => {
                         const thumb = m.url || m.file_url || '';
                         const fallbackIcon = '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:24px;">🎬</div>';
-                        let inner = thumb ? '<img src="' + thumb + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div style="display:none;align-items:center;justify-content:center;height:100%;font-size:24px;">🎬</div>' : fallbackIcon;
+                        let inner = thumb ? '<img src="' + escapeHtml(thumb) + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div style="display:none;align-items:center;justify-content:center;height:100%;font-size:24px;">🎬</div>' : fallbackIcon;
                         return '<div style="position:relative;border-radius:10px;overflow:hidden;background:var(--canvas-soft);cursor:pointer;aspect-ratio:9/16;border:2px solid rgba(255,107,157,0.2);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all 0.2s;" onmouseover="this.style.borderColor=\'#FF6B9D\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.borderColor=\'rgba(255,107,157,0.2)\';this.style.transform=\'none\'"' +
-                            (m.file_url ? ' onclick="window.open(\'' + m.file_url + '\', \'_blank\')"' : '') + '>' + inner + '</div>';
+                            (m.file_url ? ' onclick="window.open(\'' + escapeHtml(m.file_url).replace(/'/g, "\\'") + '\', \'_blank\')"' : '') + '>' + inner + '</div>';
                     }).join('') + '</div>';
             } else {
                 container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--ink-mute);font-size:13px;">No assets found</div>';
@@ -7375,9 +7378,9 @@ function renderMyBooks() {
                     return;
                 }
                 container.innerHTML = books.slice(0, 5).map(b => 
-                    '<div class="reel-book-option" data-bookid="' + (b.bookId || b.id || b.book_id) + '" onclick="selectReelBook(this)" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--hairline);font-size:13px;display:flex;gap:8px;align-items:center;">' +
-                    '<img src="' + (b.cover || '') + '" style="width:30px;height:40px;border-radius:4px;object-fit:cover;" onerror="this.style.display=\'none\'">' +
-                    '<div><div style="font-weight:500;">' + (b.title || 'Untitled') + '</div><div style="font-size:11px;color:var(--ink-mute);">' + (b.author || '') + '</div></div></div>'
+                    '<div class="reel-book-option" data-bookid="' + escapeHtml(b.bookId || b.id || b.book_id || '') + '" onclick="selectReelBook(this)" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--hairline);font-size:13px;display:flex;gap:8px;align-items:center;">' +
+                    '<img src="' + escapeHtml(b.cover || '') + '" style="width:30px;height:40px;border-radius:4px;object-fit:cover;" onerror="this.style.display=\'none\'">' +
+                    '<div><div style="font-weight:500;">' + escapeHtml(b.title || 'Untitled') + '</div><div style="font-size:11px;color:var(--ink-mute);">' + escapeHtml(b.author || '') + '</div></div></div>'
                 ).join('');
             } catch(e) { container.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--ink-mute);">Search failed</div>'; }
         }
@@ -7634,17 +7637,17 @@ function renderMyBooks() {
                         // Thumbnail: show video cover image with play overlay
                         const thumb = item.coverUrl || '';
                         const playOverlay = item.videoUrl ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25);border-radius:8px;"><div style="width:22px;height:22px;background:rgba(255,255,255,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;">▶</div></div>' : '';
-                        const thumbClickAction = item.videoUrl ? ' onclick="playReelVideo(\'' + item.videoUrl.replace(/'/g, "\\'") + '\')"' : '';
+                        const thumbClickAction = item.videoUrl ? ' onclick="playReelVideo(\'' + escapeHtml(item.videoUrl).replace(/'/g, "\\'") + '\')"' : '';
                         const placeholderGrad = 'linear-gradient(135deg, #FF6B9D33, #C084FC33)';
                         const thumbHtml = thumb
-                            ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;"' + thumbClickAction + '><img src="' + thumb + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML=\'<div style=\'\' + \'width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;\' + (\'' + item.videoUrl + '\' ? \'cursor:pointer;\' : \'\') + \'\'>🎬</div>\'">' + playOverlay + '</div>'
+                            ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;"' + thumbClickAction + '><img src="' + escapeHtml(thumb) + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML=\'<div style=\'\' + \'width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;\' + (\'' + item.videoUrl + '\' ? \'cursor:pointer;\' : \'\') + \'\'>🎬</div>\'">' + playOverlay + '</div>'
                             : '<div style="width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;' + (item.videoUrl ? 'cursor:pointer;"' + thumbClickAction : '"') + '>🎬</div>';
                         
                         let actionsHtml = '';
                         if (item.isDone) {
                             actionsHtml = '<div class="reels-item-actions">';
                             if (item.videoUrl) {
-                                actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + item.videoUrl + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">' + getText('save_video') + '</a>';
+                                actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + escapeHtml(item.videoUrl) + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">' + getText('save_video') + '</a>';
                             }
                             if (item.creativeText) {
                                 actionsHtml += '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)">' + getText('copy_text') + '</button>';
