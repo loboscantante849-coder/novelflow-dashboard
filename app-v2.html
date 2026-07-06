@@ -2458,7 +2458,93 @@
     button, .nav-item, .reels-btn, .book-item-btn { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
     /* Fix iOS input zoom */
     input[type="text"], input[type="password"], textarea { font-size: 16px; }
-        </style>
+        
+        /* ========== Earnings & Withdrawal Modal (v2.6.0) ========== */
+        .earn-modal .modal { max-height: 92vh; border-radius: 20px 20px 0 0; }
+        .earn-modal .modal-body { padding: 0; display:flex; flex-direction:column; max-height: calc(92vh - 56px); }
+        .earn-top-cards {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+            padding: 14px 16px 10px;
+            background: linear-gradient(180deg, rgba(83,58,253,0.06) 0%, rgba(83,58,253,0) 100%);
+        }
+        .earn-top-card {
+            background: var(--canvas); border: 1px solid var(--hairline); border-radius: 12px;
+            padding: 10px 8px; text-align: center; position: relative;
+        }
+        .earn-top-card.primary {
+            background: linear-gradient(135deg, #533afd 0%, #7b5cff 100%);
+            border-color: transparent; color: #fff;
+        }
+        .earn-top-card.primary .earn-top-val { color: #fff; }
+        .earn-top-card.primary .earn-top-label { color: rgba(255,255,255,0.85); }
+        .earn-top-val { font-size: 18px; font-weight: 700; color: #FF6B00; font-feature-settings: "tnum"; letter-spacing: -0.3px; }
+        .earn-top-label { font-size: 10px; color: var(--ink-mute); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 500; }
+        .earn-top-soon { position:absolute; top:6px; right:6px; font-size:8px; background:rgba(0,0,0,0.06); color:var(--ink-mute); padding:1px 5px; border-radius:8px; font-weight:600; }
+        .earn-top-card.primary .earn-top-soon { background: rgba(255,255,255,0.2); color: rgba(255,255,255,0.85); }
+
+        .earn-tabs { display:flex; border-bottom: 1px solid var(--hairline); padding: 0 16px; background: var(--canvas); position: sticky; top: 0; z-index: 5; }
+        .earn-tab { flex:1; text-align:center; padding: 12px 0; font-size: 13px; font-weight: 500; color: var(--ink-mute); cursor:pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+        .earn-tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+
+        .earn-tab-panel { display:none; padding: 12px 16px 8px; overflow-y:auto; flex:1; -webkit-overflow-scrolling: touch; }
+        .earn-tab-panel.active { display:block; }
+
+        .earn-list { }
+        .earn-list-item {
+            display:flex; justify-content:space-between; align-items:center;
+            padding: 10px 0; border-bottom: 1px solid var(--hairline);
+        }
+        .earn-list-item:last-child { border-bottom: none; }
+        .earn-list-left { min-width: 0; flex:1; }
+        .earn-list-title { font-size: 13px; color: var(--ink); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .earn-list-sub { font-size: 11px; color: var(--ink-mute); margin-top: 2px; }
+        .earn-list-right { text-align:right; flex-shrink:0; margin-left:10px; }
+        .earn-list-amount { font-size: 14px; font-weight: 700; color: #FF6B00; font-feature-settings: "tnum"; }
+        .earn-list-status { font-size: 10px; margin-top: 2px; font-weight: 600; }
+        .earn-list-status.pending { color: #f59e0b; }
+        .earn-list-status.approved { color: #10b981; }
+        .earn-list-status.rejected { color: #ef4444; }
+
+        .earn-form-area {
+            border-top: 1px solid var(--hairline);
+            padding: 14px 16px 16px;
+            background: var(--canvas);
+        }
+        .earn-form-title { font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 10px; display:flex; align-items:center; gap:6px; }
+        .earn-field { margin-bottom: 10px; }
+        .earn-field label { display:block; font-size: 11px; color: var(--ink-mute); margin-bottom: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px; }
+        .earn-field input {
+            width: 100%; padding: 11px 12px; border: 1px solid var(--hairline); border-radius: 10px;
+            font-size: 14px; font-family: inherit; background: var(--canvas); color: var(--ink);
+            transition: border 0.15s; box-sizing: border-box;
+        }
+        .earn-field input:focus { outline: none; border-color: var(--primary); }
+        .earn-field .earn-input-wrap { position: relative; }
+        .earn-field .earn-currency {
+            position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+            font-size: 14px; color: var(--ink-mute); font-weight: 600;
+        }
+        .earn-field .earn-input-amount { padding-left: 28px; font-feature-settings: "tnum"; font-weight: 600; }
+        .earn-field .earn-quick-row { display:flex; gap:6px; margin-top:6px; }
+        .earn-quick-chip {
+            flex:1; padding: 6px 0; border: 1px solid var(--hairline); background: var(--canvas-soft);
+            border-radius: 8px; font-size: 12px; color: var(--ink); text-align:center; cursor:pointer; font-weight:500;
+        }
+        .earn-quick-chip:active { background: var(--hairline); }
+
+        .earn-submit-btn {
+            width:100%; padding: 13px; border: none; border-radius: 12px;
+            background: linear-gradient(135deg, #533afd, #7b5cff);
+            color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+            font-family: inherit; transition: opacity 0.15s; margin-top: 4px;
+        }
+        .earn-submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .earn-hint { font-size: 11px; color: var(--ink-mute); text-align:center; margin-top: 10px; line-height: 1.5; }
+        .earn-fee-tag { display:inline-block; background: rgba(16,185,129,0.1); color: #10b981; font-size:10px; padding: 2px 6px; border-radius: 6px; font-weight:600; margin-left: 6px; }
+        .earn-empty { text-align:center; padding: 30px 0; color: var(--ink-mute); font-size: 13px; }
+        .earn-badge-acct { display:inline-block; font-size:10px; padding: 2px 6px; border-radius: 4px; background: var(--canvas-soft); color: var(--ink-mute); margin-left: 4px; font-weight: 600; }
+
+</style>
 
 <!-- VERSION: 20260518-204300 --></head>
 <body>
@@ -2999,8 +3085,8 @@
             </div>
 
             <div class="profile-grid">
-                <div class="profile-card" onclick="alert('Coming soon! PayPal withdrawal is under development.')">
-                    <div class="profile-card-icon">&#128179;</div><div class="profile-card-title">PayPal Withdrawal</div><div class="profile-card-desc" style="color:var(--ink-mute);font-size:10px;">In development 🚧</div>
+                <div class="profile-card" onclick="openEarningsModal()">
+                    <div class="profile-card-icon" style="color:#FF6B00;">&#128179;</div><div class="profile-card-title">Earnings & Withdraw</div><div class="profile-card-desc" style="color:#FF6B00;font-size:10px;font-weight:600;" id="earnCardBalance">$0.00 available</div>
                 </div>
                 <div class="profile-card" id="setPasswordCard" onclick="showSetPasswordModal()">
                     <div class="profile-card-icon">&#128274;</div><div class="profile-card-title" id="setPasswordTitle">Set Password</div><div class="profile-card-desc" id="setPasswordDesc">Protect your account</div>
@@ -7565,6 +7651,83 @@ function renderMyBooks() {
             </div>
         </div>
     </div>
+    
+    <!-- Earnings & Withdrawal Modal (v2.6.0) -->
+    <div class="modal-overlay earn-modal" id="earningsModal" style="z-index:10002;">
+        <div class="modal">
+            <div class="modal-header">
+                <button class="modal-close-btn" onclick="closeEarningsModal()" aria-label="Close">×</button>
+                <div class="modal-title" style="text-align:center;">Earnings &amp; Withdrawal</div>
+                <div style="width:32px;"></div>
+            </div>
+            <div class="modal-body">
+                <!-- Top stat cards -->
+                <div class="earn-top-cards">
+                    <div class="earn-top-card primary">
+                        <div class="earn-top-val" id="earnAvailable">$0.00</div>
+                        <div class="earn-top-label">Available</div>
+                    </div>
+                    <div class="earn-top-card">
+                        <div class="earn-top-val" id="earnTotal">$0.00</div>
+                        <div class="earn-top-label">Total Earned</div>
+                    </div>
+                    <div class="earn-top-card">
+                        <span class="earn-top-soon">soon</span>
+                        <div class="earn-top-val" style="color:var(--ink-mute);" id="earnPending">$0.00</div>
+                        <div class="earn-top-label">Pending</div>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="earn-tabs">
+                    <div class="earn-tab active" data-ern-tab="detail" onclick="switchEarnTab('detail')">Earnings Detail</div>
+                    <div class="earn-tab" data-ern-tab="history" onclick="switchEarnTab('history')">Withdrawal History</div>
+                </div>
+
+                <!-- Tab: earnings detail (per-day revenue) -->
+                <div class="earn-tab-panel active" id="earnPanelDetail">
+                    <div id="earnDetailList" class="earn-list">
+                        <div class="earn-empty">Loading...</div>
+                    </div>
+                </div>
+
+                <!-- Tab: withdrawal history -->
+                <div class="earn-tab-panel" id="earnPanelHistory">
+                    <div id="earnHistoryList" class="earn-list">
+                        <div class="earn-empty">Loading...</div>
+                    </div>
+                </div>
+
+                <!-- Withdrawal form (sticky bottom inside modal-body) -->
+                <div class="earn-form-area">
+                    <div class="earn-form-title">
+                        &#128179; Request Withdrawal
+                        <span class="earn-fee-tag">0% FEE</span>
+                    </div>
+                    <div class="earn-field">
+                        <label>Amount (USD) · Min $10</label>
+                        <div class="earn-input-wrap">
+                            <span class="earn-currency">$</span>
+                            <input type="number" id="earnAmount" class="earn-input-amount" inputmode="decimal" min="10" step="0.01" placeholder="0.00" oninput="validateEarnForm()">
+                        </div>
+                        <div class="earn-quick-row">
+                            <div class="earn-quick-chip" onclick="setEarnAmount(10)">$10</div>
+                            <div class="earn-quick-chip" onclick="setEarnAmount(25)">$25</div>
+                            <div class="earn-quick-chip" onclick="setEarnAmount(50)">$50</div>
+                            <div class="earn-quick-chip" onclick="setEarnAmount('max')">MAX</div>
+                        </div>
+                    </div>
+                    <div class="earn-field">
+                        <label>PayPal / Payoneer Email</label>
+                        <input type="email" id="earnAccount" placeholder="your@email.com" oninput="validateEarnForm()">
+                    </div>
+                    <button class="earn-submit-btn" id="earnSubmitBtn" onclick="submitWithdrawal()" disabled>Submit Request</button>
+                    <div class="earn-hint" id="earnHint">We process withdrawals to your PayPal/Payoneer within 3–5 business days.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Set Password Modal -->
     <div id="setPasswordModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;">
         <div style="background:white;border-radius:16px;padding:24px;width:320px;max-width:90vw;">
@@ -7587,5 +7750,165 @@ function renderMyBooks() {
             </div>
         </div>
     </div>
+
+    <script>
+    /* ========== Earnings & Withdrawal v2.6.0 ========== */
+    let _earnData = null;
+
+    function openEarningsModal() {
+        if (!AppState.isLoggedIn || !AppState.user) {
+            showToast('Please log in first', 'error');
+            switchTab('profile');
+            return;
+        }
+        const m = document.getElementById('earningsModal');
+        if (!m) return;
+        m.style.display = 'flex';
+        switchEarnTab('detail');
+        loadEarningsData();
+    }
+    function closeEarningsModal() {
+        const m = document.getElementById('earningsModal');
+        if (m) m.style.display = 'none';
+    }
+
+    function switchEarnTab(tab) {
+        document.querySelectorAll('.earn-tab').forEach(el => {
+            el.classList.toggle('active', el.dataset.ernTab === tab);
+        });
+        document.getElementById('earnPanelDetail').classList.toggle('active', tab === 'detail');
+        document.getElementById('earnPanelHistory').classList.toggle('active', tab === 'history');
+    }
+
+    async function loadEarningsData() {
+        const username = AppState.user?.username;
+        if (!username) return;
+        try {
+            const r = await fetch('/api/withdrawals?username=' + encodeURIComponent(username), { headers: { 'X-OS': 'web' } });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || 'Failed to load');
+            _earnData = data;
+            renderEarnings(data);
+        } catch (e) {
+            document.getElementById('earnDetailList').innerHTML = '<div class="earn-empty">Failed to load: ' + e.message + '</div>';
+            document.getElementById('earnHistoryList').innerHTML = '<div class="earn-empty">—</div>';
+        }
+    }
+
+    function fmt$(v) { return '$' + Number(v||0).toFixed(2); }
+    function escHtml(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    function renderEarnings(data) {
+        document.getElementById('earnAvailable').textContent = fmt$(data.available_balance);
+        document.getElementById('earnTotal').textContent = fmt$(data.total_earned);
+        document.getElementById('earnPending').textContent = fmt$(data.pending_settlement||0);
+        // Profile-card small label
+        const lbl = document.getElementById('earnCardBalance');
+        if (lbl) lbl.textContent = fmt$(data.available_balance) + ' available';
+
+        // Detail list: per-day earnings (reverse chronological)
+        const detail = document.getElementById('earnDetailList');
+        const daily = Array.isArray(data.earnings_detail) ? data.earnings_detail : [];
+        if (!daily.length) {
+            detail.innerHTML = '<div class="earn-empty">No earnings yet. Share your book links to start earning!</div>';
+        } else {
+            detail.innerHTML = daily.map(d => {
+                const dt = new Date(d.date);
+                const label = dt.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+                return '<div class="earn-list-item">' +
+                    '<div class="earn-list-left"><div class="earn-list-title">Promotion Revenue</div><div class="earn-list-sub">' + escHtml(label) + '</div></div>' +
+                    '<div class="earn-list-right"><div class="earn-list-amount">+' + fmt$(d.amount) + '</div></div>' +
+                    '</div>';
+            }).join('');
+            // summary row showing total
+            detail.insertAdjacentHTML('afterbegin',
+                '<div class="earn-list-item" style="border-bottom:1px solid var(--hairline);padding-bottom:12px;margin-bottom:4px;">' +
+                '<div class="earn-list-left"><div class="earn-list-title" style="font-weight:700;">Total DN Revenue</div><div class="earn-list-sub">Bonus balance: ' + fmt$(data.bonus_balance) + '</div></div>' +
+                '<div class="earn-list-right"><div class="earn-list-amount">' + fmt$(data.total_dn_income) + '</div></div>' +
+                '</div>');
+        }
+
+        // History list
+        const hist = document.getElementById('earnHistoryList');
+        const wds = Array.isArray(data.withdrawals) ? data.withdrawals : [];
+        if (!wds.length) {
+            hist.innerHTML = '<div class="earn-empty">No withdrawal requests yet.</div>';
+        } else {
+            hist.innerHTML = wds.map(w => {
+                const dt = new Date(w.created_at);
+                const when = dt.toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+                const acct = w.payment_account ? w.payment_account.replace(/(.{2}).*(@.*)/, '$1***$2') : '';
+                return '<div class="earn-list-item">' +
+                    '<div class="earn-list-left"><div class="earn-list-title">Withdrawal <span class="earn-badge-acct">' + escHtml(acct) + '</span></div><div class="earn-list-sub">' + escHtml(when) + ' · ' + escHtml(w.id||'') + '</div></div>' +
+                    '<div class="earn-list-right"><div class="earn-list-amount">-' + fmt$(w.amount) + '</div><div class="earn-list-status ' + escHtml(w.status) + '">' + (w.status||'pending').toUpperCase() + '</div></div>' +
+                    '</div>';
+            }).join('');
+        }
+        validateEarnForm();
+    }
+
+    function setEarnAmount(v) {
+        if (!_earnData) return;
+        const max = Number(_earnData.available_balance) || 0;
+        let val;
+        if (v === 'max') val = Math.floor(max * 100) / 100;
+        else val = Number(v);
+        document.getElementById('earnAmount').value = val.toFixed(2);
+        validateEarnForm();
+    }
+
+    function validateEarnForm() {
+        const btn = document.getElementById('earnSubmitBtn');
+        const hint = document.getElementById('earnHint');
+        const amt = parseFloat(document.getElementById('earnAmount').value);
+        const acct = (document.getElementById('earnAccount').value || '').trim();
+        const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const available = Number(_earnData?.available_balance) || 0;
+        let err = '';
+        if (!amt || amt < 10) err = 'Minimum withdrawal is $10';
+        else if (amt > available + 0.001) err = 'Insufficient balance (available ' + fmt$(available) + ')';
+        else if (!emailRe.test(acct)) err = 'Enter a valid PayPal/Payoneer email';
+
+        btn.disabled = !!err;
+        if (err) {
+            hint.style.color = 'var(--danger, #ef4444)';
+            hint.textContent = err;
+        } else {
+            hint.style.color = '';
+            hint.textContent = "We'll send the payment to your PayPal/Payoneer within 3–5 business days. 0% processing fee.";
+        }
+    }
+
+    async function submitWithdrawal() {
+        const btn = document.getElementById('earnSubmitBtn');
+        const amt = parseFloat(document.getElementById('earnAmount').value);
+        const acct = (document.getElementById('earnAccount').value || '').trim();
+        if (btn.disabled) return;
+        btn.disabled = true; btn.textContent = 'Submitting...';
+        try {
+            const r = await fetch('/api/withdrawals', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-OS': 'web' },
+                body: JSON.stringify({ username: AppState.user.username, amount: amt, payment_account: acct })
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || 'Submit failed');
+            showToast('Withdrawal request submitted!', 'success');
+            document.getElementById('earnAmount').value = '';
+            document.getElementById('earnAccount').value = '';
+            // reload to show new record + updated balance
+            await loadEarningsData();
+        } catch(e) {
+            showToast(e.message, 'error');
+            btn.disabled = false; btn.textContent = 'Submit Request';
+        }
+    }
+
+    // Tap outside modal to close
+    document.addEventListener('click', (e) => {
+        if (e.target && e.target.id === 'earningsModal') closeEarningsModal();
+    });
+    </script>
+
 </body>
 </html>
