@@ -3055,7 +3055,6 @@
                 </div>
 
                 <button class="logout-btn" id="logoutBtn" onclick="handleLogout()">Logout</button>
-                <button class="logout-btn show" id="migrateBtn" onclick="window.location.href='/migrate.html'" style='background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;margin-top:8px;'>🔄 Migrate to novelflow.top</button>
             </div>
 
             <!-- Stats Overview (Earnings/Users/Visits) -->
@@ -5688,9 +5687,7 @@ function renderMyBooks() {
                 uid.textContent = AppState.user.username ? '@' + AppState.user.username : 'Logged In';
                 loginForm.style.display = 'none';
                 logoutBtn.classList.add('show');
-                const migrateBtn = document.getElementById('migrateBtn');
-                if(migrateBtn) migrateBtn.classList.add('show');
-                // Auto-fill and hide username field when logged in
+// Auto-fill and hide username field when logged in
                 const usernameInput = document.getElementById('discordUsername');
                 const usernameGroup = usernameInput ? usernameInput.closest('.form-group') : null;
                 if (usernameInput) {
@@ -5703,9 +5700,7 @@ function renderMyBooks() {
                 uid.textContent = 'Login to unlock more features';
                 loginForm.style.display = 'block';
                 logoutBtn.classList.remove('show');
-                const migrateBtn = document.getElementById('migrateBtn');
-                if(migrateBtn) migrateBtn.classList.remove('show');
-                // Show username field when not logged in
+// Show username field when not logged in
                 const usernameInput = document.getElementById('discordUsername');
                 const usernameGroup = usernameInput ? usernameInput.closest('.form-group') : null;
                 if (usernameGroup) usernameGroup.style.display = '';
@@ -7677,6 +7672,16 @@ function renderMyBooks() {
                         <div class="earn-top-label">Pending</div>
                     </div>
                 </div>
+                <div id="earnBonusBanner" class="earn-bonus-banner" style="margin:12px 16px 0;padding:10px 14px;background:linear-gradient(135deg,#FEF3C7,#FDE68A);border-radius:12px;display:none;align-items:center;justify-content:space-between;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:18px;">🎁</span>
+                        <div>
+                            <div style="font-size:11px;color:#92400e;font-weight:600;">PLATFORM BONUS</div>
+                            <div style="font-size:13px;color:#78350f;">Promotion reward, withdrawable immediately</div>
+                        </div>
+                    </div>
+                    <div id="earnBonusVal" style="font-size:18px;font-weight:700;color:#b45309;">$0.00</div>
+                </div>
 
                 <!-- Tabs -->
                 <div class="earn-tabs">
@@ -7802,6 +7807,12 @@ function renderMyBooks() {
         document.getElementById('earnAvailable').textContent = fmt$(data.available_balance);
         document.getElementById('earnTotal').textContent = fmt$(data.total_earned);
         document.getElementById('earnPending').textContent = fmt$(data.pending_settlement||0);
+        // Bonus banner
+        const bonus = Number(data.bonus_balance)||0;
+        const bonusBanner = document.getElementById('earnBonusBanner');
+        const bonusVal = document.getElementById('earnBonusVal');
+        if(bonusVal) bonusVal.textContent = fmt$(bonus);
+        if(bonusBanner) bonusBanner.style.display = bonus > 0 ? 'flex' : 'none';
         // Profile-card small label
         const lbl = document.getElementById('earnCardBalance');
         if (lbl) lbl.textContent = fmt$(data.available_balance) + ' available';
@@ -7823,7 +7834,7 @@ function renderMyBooks() {
             // summary row showing total
             detail.insertAdjacentHTML('afterbegin',
                 '<div class="earn-list-item" style="border-bottom:1px solid var(--hairline);padding-bottom:12px;margin-bottom:4px;">' +
-                '<div class="earn-list-left"><div class="earn-list-title" style="font-weight:700;">Total DN Revenue</div><div class="earn-list-sub">Bonus balance: ' + fmt$(data.bonus_balance) + '</div></div>' +
+                '<div class="earn-list-left"><div class="earn-list-title" style="font-weight:700;">Promotion Earnings (DN)</div></div>' +
                 '<div class="earn-list-right"><div class="earn-list-amount">' + fmt$(data.total_dn_income) + '</div></div>' +
                 '</div>');
         }
