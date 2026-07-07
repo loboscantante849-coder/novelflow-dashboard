@@ -1,5 +1,6 @@
 module.exports = async (req, res) => {
-  // 不调用任何cors helper，也不设任何CORS头
+  // Test: explicitly set a bogus origin
+  res.setHeader('Access-Control-Allow-Origin', 'https://test.example');
   res.setHeader('Content-Type', 'text/plain');
   res.status(200).send('pong');
 };
