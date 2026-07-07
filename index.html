@@ -6180,9 +6180,36 @@ function renderMyBooks() {
                 showToast('Please enter a username', 'error');
                 return;
             }
-            if (!password || password.length < 4) {
-                showToast('Password is required (min 4 characters)', 'error');
+            if (password && password.length < 4) {
+                showToast('Password must be at least 4 characters', 'error');
                 return;
+            }
+            // If no password provided, check if this is an old user without password (same logic as splash login)
+            if (!password) {
+                try {
+                    const cpResp = await fetch('/api/auth/check-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ username })
+                    });
+                    const cpResult = await cpResp.json().catch(() => ({}));
+                    if (!cpResult.hasPassword && cpResult.userExists) {
+                        // Old user without password - allow login, register API will accept
+                    } else if (cpResult.hasPassword) {
+                        showToast('This account requires a password', 'error');
+                        const passField = document.getElementById('regPassword');
+                        if (passField) { passField.style.display = ''; passField.placeholder = 'Password (required)'; }
+                        return;
+                    } else {
+                        // Brand new user - need password to register
+                        showToast('Please set a password (min 4 characters) to create your account', 'error');
+                        return;
+                    }
+                } catch(e) {
+                    showToast('Connection error, please try again', 'error');
+                    return;
+                }
             }
 
             try {
