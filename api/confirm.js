@@ -215,7 +215,18 @@ module.exports = async (req, res) => {
       if (cached) {
         try {
           const c = typeof cached === 'string' ? JSON.parse(cached) : cached;
-          if (c && c.code) { existingCode = String(c.code); existingLink = c.link || null; existingLinkId = c.linkId || null; }
+          if (c && (c.code || c.pending)) {
+            if (c.pending) {
+              return res.status(200).json({
+                success: true,
+                status: 'pending',
+                submissionId: c.submissionId || null,
+                matchedBookName: cleanBookTitle || cleanBookName,
+                message: 'Link is being created for this book'
+              });
+            }
+            existingCode = String(c.code); existingLink = c.link || null; existingLinkId = c.linkId || null;
+          }
         } catch { if (typeof cached === 'string' && /^\d+$/.test(cached)) existingCode = cached; }
       }
     } catch {}
@@ -312,6 +323,10 @@ module.exports = async (req, res) => {
         };
         await redis.hset('nf_subs', { [`_pending_${submissionId}`]: JSON.stringify(pendingSub) });
         await redis.sadd(`nf_user_subs:${cleanUsername.toLowerCase()}`, `_pending_${submissionId}`);
+        // Record dedup key even for pending, so user can't spam-create pending entries
+        try {
+          await redis.set(dedupKey, JSON.stringify({ code: null, link: null, linkId: null, pending: true, submissionId }), { ex: 86400 });
+        } catch (e) { console.error('[confirm] dedupKey write failed (pending):', e.message); }
       }
       return res.status(200).json({
         success: true, submissionId, status: 'pending',
