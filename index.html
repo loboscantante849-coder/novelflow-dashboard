@@ -8106,9 +8106,9 @@ function renderMyBooks() {
       <div class="earn-form">
         <div class="earn-form-title">
           💵 Request Withdrawal
-          <span class="earn-fee-badge">0% FEE</span>
+          <span class="earn-fee-badge">5% FEE</span>
         </div>
-        <div class="earn-form-hint">Minimum $10 · 0% fee · Processed in 3–5 business days via PayPal</div>
+        <div class="earn-form-hint">Minimum $10 · 5% fee · Net paid to your PayPal within 3–5 days</div>
         <div class="earn-field">
           <label for="earnAmountInput">Amount (USD)</label>
           <div class="earn-amount-wrap">
@@ -8123,9 +8123,10 @@ function renderMyBooks() {
           </div>
         </div>
         <div class="earn-field">
-          <label for="earnEmailInput">Payment Email</label>
-          <input type="email" id="earnEmailInput" placeholder="PayPal email" oninput="earnValidateForm()">
+          <label for="earnEmailInput">PayPal Account</label>
+          <input type="email" id="earnEmailInput" placeholder="your@email.com" oninput="earnValidateForm()">
         </div>
+        <div class="earn-fee-preview" id="earnFeePreview" style="display:none;font-size:12px;color:var(--ink-mute);text-align:center;margin:6px 0 0;padding:6px 8px;background:var(--canvas-soft);border-radius:8px;"></div>
         <button type="button" class="earn-submit" id="earnSubmitBtn" onclick="submitWithdrawal()" disabled>Submit Request</button>
         <div class="earn-err" id="earnFormErr"></div>
       </div>
@@ -8226,17 +8227,42 @@ function renderMyBooks() {
     if (!daily.length) {
       de.innerHTML = '<div class="earn-empty">No earnings yet</div>';
     } else {
-      de.innerHTML = daily.map(d => {
-        let label = d.date || '';
-        try {
-          const dt = new Date(d.date);
-          if (!isNaN(dt)) label = dt.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
-        } catch(e){}
-        return '<div class="earn-list-item">' +
-          '<div class="earn-list-left"><div class="earn-list-title">CPS Earnings</div><div class="earn-list-sub">' + escapeHtml(label) + '</div></div>' +
-          '<div class="earn-list-right"><div class="earn-list-amount">+' + fmt$(d.amount) + '</div></div>' +
-          '</div>';
-      }).join('');
+      function mondayOf(dateStr) {
+        const dt = new Date(dateStr + 'T00:00:00');
+        if (isNaN(dt)) return null;
+        const day = (dt.getDay() + 6) % 7;
+        const m = new Date(dt); m.setDate(dt.getDate() - day);
+        return m.toISOString().slice(0,10);
+      }
+      function fmtRange(monKey) {
+        if (monKey === 'earlier') return 'Earlier';
+        const m = new Date(monKey + 'T00:00:00');
+        const s = new Date(m); s.setDate(m.getDate() + 6);
+        const f = d => d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+        return f(m) + ' – ' + f(s);
+      }
+      const groups = {};
+      const recent = daily.slice(0, 28);
+      const older = daily.slice(28);
+      for (const d of recent) {
+        const k = mondayOf(d.date) || 'earlier';
+        groups[k] = (groups[k] || 0) + (Number(d.amount) || 0);
+      }
+      let olderSum = 0;
+      for (const d of older) olderSum += (Number(d.amount) || 0);
+      const items = [];
+      const keys = Object.keys(groups).filter(k => k !== 'earlier').sort().reverse();
+      for (const k of keys) {
+        if (groups[k] > 0) items.push({ label: fmtRange(k), amount: groups[k] });
+      }
+      const earlierTotal = olderSum + (groups['earlier'] || 0);
+      if (earlierTotal > 0) items.push({ label: 'Earlier', amount: earlierTotal });
+      de.innerHTML = items.map(it =>
+        '<div class="earn-list-item">' +
+          '<div class="earn-list-left"><div class="earn-list-title">CPS Earnings</div><div class="earn-list-sub">' + escapeHtml(it.label) + '</div></div>' +
+          '<div class="earn-list-right"><div class="earn-list-amount">+' + fmt$(it.amount) + '</div></div>' +
+        '</div>'
+      ).join('');
     }
 
     const he = $('earnHistoryList');
@@ -8253,29 +8279,31 @@ function renderMyBooks() {
         } catch(e){}
         const acct = w.payment_account ? escapeHtml(w.payment_account) : '';
         const status = (w.status || 'pending').toLowerCase();
+        const hasFee = w.fee !== undefined || w.net_amount !== undefined;
+        const feeAmt = hasFee ? (Number(w.fee) || 0) : Number(w.amount) * 0.05;
+        const netAmt = hasFee ? (Number(w.net_amount) || (Number(w.amount) - feeAmt)) : (Number(w.amount) - feeAmt);
+        const amtLabel = status === 'pending' && hasFee
+          ? ('Net $' + netAmt.toFixed(2))
+          : ('-' + fmt$(w.amount));
         return '<div class="earn-list-item">' +
           '<div class="earn-list-left">' +
             '<div class="earn-list-title">Withdrawal</div>' +
             '<div class="earn-list-sub">' + escapeHtml(when) + (acct ? ' · ' + acct : '') + '</div>' +
           '</div>' +
           '<div class="earn-list-right">' +
-            '<div class="earn-list-amount neg">-' + fmt$(w.amount) + '</div>' +
+            '<div class="earn-list-amount' + (status === 'pending' && hasFee ? '' : ' neg') + '">' + amtLabel + '</div>' +
             '<span class="earn-status ' + escapeHtml(status) + '">' + escapeHtml(status) + '</span>' +
           '</div>' +
           '</div>';
       }).join('');
     }
-    // Update MAX button label to show available balance
     const maxBtn = document.querySelector('button.earn-quick-btn[onclick*="max"]');
     if (maxBtn) maxBtn.textContent = avail >= 10 ? ('MAX $' + avail.toFixed(2)) : 'MAX';
-
-    // Pre-fill PayPal email if user already has one saved from past withdrawals
     const emailInp = $('earnEmailInput');
     if (emailInp && !emailInp.value) {
       const lastWd = Array.isArray(data.withdrawals) ? data.withdrawals.find(w => w && w.payment_account) : null;
       if (lastWd) emailInp.value = lastWd.payment_account;
     }
-
     earnValidateForm();
   }
 
@@ -8294,11 +8322,13 @@ function renderMyBooks() {
   window.earnValidateForm = function() {
     const btn = $('earnSubmitBtn');
     const errBox = $('earnFormErr');
+    const feeBox = $('earnFeePreview');
     const amtRaw = $('earnAmountInput').value;
     const amt = parseFloat(amtRaw);
     const email = ($('earnEmailInput').value || '').trim();
     const avail = Number(_earnData?.available_balance)||0;
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const FEE = 0.05;
     let err = '';
     if (!amtRaw || isNaN(amt)) err = 'Enter an amount';
     else if (amt < 10) err = 'Minimum withdrawal is $10';
@@ -8308,6 +8338,16 @@ function renderMyBooks() {
 
     if (btn) btn.disabled = !!err;
     if (errBox) errBox.textContent = err || '';
+    if (feeBox) {
+      if (!err && amt >= 10) {
+        const fee = amt * FEE;
+        const net = amt - fee;
+        feeBox.textContent = 'Fee (5%): -$' + fee.toFixed(2) + '  ·  You receive: $' + net.toFixed(2);
+        feeBox.style.display = 'block';
+      } else {
+        feeBox.style.display = 'none';
+      }
+    }
     return !err;
   };
 
@@ -8330,7 +8370,7 @@ function renderMyBooks() {
       });
       const data = await r.json();
       if (!r.ok || !data.success) throw new Error(data.error || 'Submit failed');
-      if (typeof showToast === 'function') showToast("Request submitted! We'll process within 3-5 days", 'success');
+      if (typeof showToast === 'function') showToast(data.message || "Request submitted! We'll process within 3-5 days", 'success');
       $('earnAmountInput').value = '';
       $('earnEmailInput').value = '';
       $('earnFormErr').textContent = '';

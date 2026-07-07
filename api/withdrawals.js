@@ -149,7 +149,7 @@ module.exports = async (req, res) => {
         ...balances,
         earnings_detail: daily,
         min_withdrawal: 10,
-        fee_percent: 0,
+        fee_percent: 5,
         currency: 'USD',
         payment_methods: ['paypal'],
       });
@@ -203,9 +203,14 @@ module.exports = async (req, res) => {
         });
       }
 
+      const FEE_PCT = 0.05;
+      const feeAmount = Number((amt * FEE_PCT).toFixed(2));
+      const netAmount = Number((amt - feeAmount).toFixed(2));
       const request = {
         id: makeId(),
-        amount: Number(amt.toFixed(2)),
+        amount: Number(amt.toFixed(2)),     // gross requested (deducted from balance)
+        fee: feeAmount,                     // 5% platform fee
+        net_amount: netAmount,              // actual PayPal payout
         payment_account: account,
         status: 'pending',
         created_at: new Date().toISOString(),
@@ -219,8 +224,10 @@ module.exports = async (req, res) => {
       return res.status(200).json({
         success: true,
         request_id: request.id,
-        message: 'Withdrawal request submitted. We will process it within 3-5 business days.',
+        message: `Withdrawal request submitted. $${netAmount.toFixed(2)} will be sent to your PayPal after 5% fee within 3-5 business days.`,
         request,
+        fee_percent: 5,
+        net_amount: netAmount,
         available_balance: balances.available_balance,
       });
     }
