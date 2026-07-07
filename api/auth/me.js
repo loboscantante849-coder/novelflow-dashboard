@@ -15,12 +15,11 @@ const {
   extractUserInfo
 } = require('../_lib/auth');
 
-const { setCORSHeaders } = require('../_lib/cors');
+const { handlePreflight } = require('../_lib/cors');
 
 module.exports = async (req, res) => {
-  setCORSHeaders(req, res, { credentials: true });
+  if (handlePreflight(req, res, { credentials: true })) return;
 
-  if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {

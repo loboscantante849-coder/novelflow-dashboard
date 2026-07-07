@@ -8,7 +8,7 @@
  * by the client. Client may only write safe UI-state fields.
  * Use /api/rewards for all reward/balance mutations.
  */
-const { setCORSHeaders } = require('./_lib/cors');
+const { handlePreflight } = require('./_lib/cors');
 const { verifyJWT } = require('./_lib/jwt');
 const { Redis } = require('@upstash/redis');
 
@@ -38,9 +38,9 @@ function getUserFromRequest(req) {
 const CLIENT_WRITABLE_FIELDS = ['myBooks', 'claimed', 'lastSyncAt'];
 
 module.exports = async (req, res) => {
-  setCORSHeaders(req, res, { credentials: true });
+  if (handlePreflight(req, res, { credentials: true })) return;
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  
 
   const redis = getRedis();
   if (!redis) {

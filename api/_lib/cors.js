@@ -1,10 +1,15 @@
 /**
- * CORS helper - restricts API access to known origins only.
+ * CORS helper - v2.6.2 security hardening
+ * 
+ * Problem: Vercel edge layer forces "Access-Control-Allow-Origin: *" on all 
+ * Serverless Function responses, creating a dangerous "*" + "credentials:true" combo.
  *
- * v2.6.2: Vercel edge layer may inject a fallback '*' Allow-Origin on responses that don't set one.
- * To avoid the dangerous '*' + 'credentials:true' combo, we explicitly set Allow-Origin
- * on every response. Non-whitelisted origins get a fake opaque origin that browsers won't match.
- * We also never emit 'credentials:true' for non-whitelisted origins.
+ * Solution (defense in depth):
+ * 1. For non-whitelisted origins: return 403 immediately, blocking any data leak.
+ *    This is more reliable than CORS headers because Vercel overrides them.
+ * 2. For same-origin/no-origin requests (normal browser use): allow normally.
+ * 3. For whitelisted cross-origin: set proper CORS headers + credentials.
+ * 4. Explicitly set Allow-Origin to override Vercel's * as best-effort.
  */
 
 const ALLOWED_ORIGINS = [
@@ -19,25 +24,21 @@ const LOCALHOST_RE = /^http:\/\/localhost:\d{1,5}$/;
 
 function getAllowedOrigin(req) {
   const origin = (req.headers && req.headers.origin) || '';
-  if (!origin) return null;
+  if (!origin) return null;  // No Origin = same-origin (safe)
   if (ALLOWED_ORIGINS.indexOf(origin) !== -1) return origin;
   if (LOCALHOST_RE.test(origin)) return origin;
-  return null;
+  return 'DENY';  // Explicit origin but not whitelisted
 }
 
 function setCORSHeaders(req, res, { methods = 'GET, POST, OPTIONS', credentials = false } = {}) {
-  const clientOrigin = getAllowedOrigin(req);
+  const origin = getAllowedOrigin(req);
 
-  // IMPORTANT: Always set Allow-Origin explicitly to prevent Vercel/edge from injecting '*'.
-  // Vercel edge injects '*' on responses without Allow-Origin, which combined with credentials:true
-  // is a critical CORS misconfiguration.
-  if (clientOrigin) {
-    res.setHeader('Access-Control-Allow-Origin', clientOrigin);
+  // Best-effort: set proper Allow-Origin (may be overridden by Vercel edge, but works for same-origin)
+  if (origin && origin !== 'DENY') {
+    res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
-  } else {
-    // For non-whitelisted origins, set an unmatchable origin. Browsers will block the cross-origin read.
-    // Using a non-wildcard, non-null value prevents edge layers from injecting '*'.
-    res.setHeader('Access-Control-Allow-Origin', 'https://_cors_deny_.invalid');
+  } else if (origin === 'DENY') {
+    res.setHeader('Access-Control-Allow-Origin', 'https://_blocked_.invalid');
     res.setHeader('Vary', 'Origin');
   }
 
@@ -45,14 +46,27 @@ function setCORSHeaders(req, res, { methods = 'GET, POST, OPTIONS', credentials 
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Max-Age', '600');
 
-  // CRITICAL: Only emit credentials for whitelisted origins. Never combine '*' with credentials.
-  if (credentials && clientOrigin) {
+  if (credentials && origin && origin !== 'DENY') {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
 }
 
+/**
+ * Handle CORS preflight + origin validation.
+ * Returns true if caller should end the response (either OPTIONS handled, or 403 for bad origin).
+ */
 function handlePreflight(req, res, opts) {
   setCORSHeaders(req, res, opts);
+
+  const origin = getAllowedOrigin(req);
+
+  // Block non-whitelisted cross-origin requests immediately
+  if (origin === 'DENY') {
+    res.statusCode = 403;
+    res.end(JSON.stringify({ error: 'Origin not allowed' }));
+    return true;
+  }
+
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
     res.end();

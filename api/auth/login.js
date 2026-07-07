@@ -10,7 +10,7 @@ const {
   extractUserInfo,
   setAuthCookies,
 } = require('../_lib/auth');
-const { setCORSHeaders } = require('../_lib/cors');
+const { handlePreflight } = require('../_lib/cors');
 const { getRedis, checkRateLimit, validateString, stripHtml, getClientIp } = require('../_lib/security');
 const crypto = require('crypto');
 
@@ -19,9 +19,8 @@ function hashPassword(password) {
 }
 
 module.exports = async (req, res) => {
-  setCORSHeaders(req, res, { credentials: true });
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (handlePreflight(req, res, { credentials: true })) return;
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
     const rawUser = req.body && req.body.username;
