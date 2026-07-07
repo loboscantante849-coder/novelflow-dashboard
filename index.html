@@ -8108,7 +8108,7 @@ function renderMyBooks() {
           💵 Request Withdrawal
           <span class="earn-fee-badge">0% FEE</span>
         </div>
-        <div class="earn-form-hint">Minimum $10 · 0% fee · Processed in 3–5 business days via PayPal/Payoneer</div>
+        <div class="earn-form-hint">Minimum $10 · 0% fee · Processed in 3–5 business days via PayPal</div>
         <div class="earn-field">
           <label for="earnAmountInput">Amount (USD)</label>
           <div class="earn-amount-wrap">
@@ -8124,7 +8124,7 @@ function renderMyBooks() {
         </div>
         <div class="earn-field">
           <label for="earnEmailInput">Payment Email</label>
-          <input type="email" id="earnEmailInput" placeholder="PayPal/Payoneer email" oninput="earnValidateForm()">
+          <input type="email" id="earnEmailInput" placeholder="PayPal email" oninput="earnValidateForm()">
         </div>
         <button type="button" class="earn-submit" id="earnSubmitBtn" onclick="submitWithdrawal()" disabled>Submit Request</button>
         <div class="earn-err" id="earnFormErr"></div>
@@ -8190,12 +8190,17 @@ function renderMyBooks() {
     const u = getUsername();
     if (!u) return;
     try {
-      const r = await fetch('/api/withdrawals?username=' + encodeURIComponent(u), { headers: { 'X-OS': 'web' } });
+      const token = localStorage.getItem('nf_token') || document.cookie.match(/nf_token=([^;]+)/)?.[1];
+      const r = await fetch('/api/withdrawals?username=' + encodeURIComponent(u), {
+        credentials: 'include',
+        headers: { 'X-OS': 'web', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) }
+      });
       const data = await r.json();
-      if (!r.ok || !data.success) throw new Error(data.error || 'Failed to load earnings');
+      if (!r.ok) throw new Error(data.error || ('Failed to load earnings (' + r.status + ')'));
       _earnData = data;
       renderEarnings(data);
     } catch(e) {
+      console.error('[Earnings] load failed:', e);
       const de = $('earnDetailList'); if (de) de.innerHTML = '<div class="earn-empty">Failed to load: ' + escapeHtml(e.message) + '</div>';
       const he = $('earnHistoryList'); if (he) he.innerHTML = '<div class="earn-empty">—</div>';
     }
@@ -8260,6 +8265,17 @@ function renderMyBooks() {
           '</div>';
       }).join('');
     }
+    // Update MAX button label to show available balance
+    const maxBtn = document.querySelector('button.earn-quick-btn[onclick*="max"]');
+    if (maxBtn) maxBtn.textContent = avail >= 10 ? ('MAX $' + avail.toFixed(2)) : 'MAX';
+
+    // Pre-fill PayPal email if user already has one saved from past withdrawals
+    const emailInp = $('earnEmailInput');
+    if (emailInp && !emailInp.value) {
+      const lastWd = Array.isArray(data.withdrawals) ? data.withdrawals.find(w => w && w.payment_account) : null;
+      if (lastWd) emailInp.value = lastWd.payment_account;
+    }
+
     earnValidateForm();
   }
 
@@ -8287,7 +8303,7 @@ function renderMyBooks() {
     if (!amtRaw || isNaN(amt)) err = 'Enter an amount';
     else if (amt < 10) err = 'Minimum withdrawal is $10';
     else if (amt > avail + 0.001) err = 'Amount exceeds available balance (' + fmt$(avail) + ')';
-    else if (!email) err = 'Enter your PayPal/Payoneer email';
+    else if (!email) err = 'Enter your PayPal email';
     else if (!emailRe.test(email)) err = 'Enter a valid email address';
 
     if (btn) btn.disabled = !!err;
@@ -8305,9 +8321,11 @@ function renderMyBooks() {
     const origText = btn.textContent;
     btn.textContent = 'Submitting…';
     try {
+      const token = localStorage.getItem('nf_token') || document.cookie.match(/nf_token=([^;]+)/)?.[1];
       const r = await fetch('/api/withdrawals', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-OS': 'web' },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-OS': 'web', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) },
         body: JSON.stringify({ username: u, amount: amt, payment_account: email })
       });
       const data = await r.json();

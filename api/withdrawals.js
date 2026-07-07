@@ -144,12 +144,14 @@ module.exports = async (req, res) => {
       }
 
       return res.status(200).json({
+        success: true,
         username: targetUser,
         ...balances,
         earnings_detail: daily,
         min_withdrawal: 10,
         fee_percent: 0,
         currency: 'USD',
+        payment_methods: ['paypal'],
       });
     }
 
@@ -172,7 +174,7 @@ module.exports = async (req, res) => {
 
       const account = String(payment_account || '').trim();
       if (!EMAIL_RE.test(account)) {
-        return res.status(400).json({ error: 'Please provide a valid PayPal/Payoneer email address' });
+        return res.status(400).json({ error: 'Please provide a valid PayPal email address' });
       }
 
       const redisKey = `nf_user_data:${targetUser}`;
