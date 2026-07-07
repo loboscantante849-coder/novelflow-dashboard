@@ -1,10 +1,10 @@
 /**
- * CORS helper - v2.6.2
- * 
- * Security fix: Vercel auto-injects Access-Control-Allow-Origin: * on API responses.
- * We MUST override this on every response with an explicit value (even for bad origins).
- * Empty string or no header gets replaced by *; "null" also might not work.
- * Use an invalid/unmatchable origin for non-whitelisted requests so browsers block cross-origin reads.
+ * CORS helper - restricts API access to known origins only.
+ *
+ * v2.6.2: Vercel edge layer may inject a fallback '*' Allow-Origin on responses that don't set one.
+ * To avoid the dangerous '*' + 'credentials:true' combo, we explicitly set Allow-Origin
+ * on every response. Non-whitelisted origins get a fake opaque origin that browsers won't match.
+ * We also never emit 'credentials:true' for non-whitelisted origins.
  */
 
 const ALLOWED_ORIGINS = [
@@ -16,7 +16,6 @@ const ALLOWED_ORIGINS = [
 ];
 
 const LOCALHOST_RE = /^http:\/\/localhost:\d{1,5}$/;
-const DENY_ORIGIN = 'https://deny.invalid';
 
 function getAllowedOrigin(req) {
   const origin = (req.headers && req.headers.origin) || '';
@@ -27,17 +26,27 @@ function getAllowedOrigin(req) {
 }
 
 function setCORSHeaders(req, res, { methods = 'GET, POST, OPTIONS', credentials = false } = {}) {
-  const origin = getAllowedOrigin(req);
-  const effectiveOrigin = origin || DENY_ORIGIN;
+  const clientOrigin = getAllowedOrigin(req);
 
-  res.setHeader('Access-Control-Allow-Origin', effectiveOrigin);
-  res.setHeader('Vary', 'Origin');
+  // IMPORTANT: Always set Allow-Origin explicitly to prevent Vercel/edge from injecting '*'.
+  // Vercel edge injects '*' on responses without Allow-Origin, which combined with credentials:true
+  // is a critical CORS misconfiguration.
+  if (clientOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', clientOrigin);
+    res.setHeader('Vary', 'Origin');
+  } else {
+    // For non-whitelisted origins, set an unmatchable origin. Browsers will block the cross-origin read.
+    // Using a non-wildcard, non-null value prevents edge layers from injecting '*'.
+    res.setHeader('Access-Control-Allow-Origin', 'https://_cors_deny_.invalid');
+    res.setHeader('Vary', 'Origin');
+  }
+
   res.setHeader('Access-Control-Allow-Methods', methods);
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Max-Age', '600');
 
-  // Only emit credentials when origin is whitelisted
-  if (credentials && origin) {
+  // CRITICAL: Only emit credentials for whitelisted origins. Never combine '*' with credentials.
+  if (credentials && clientOrigin) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
 }
