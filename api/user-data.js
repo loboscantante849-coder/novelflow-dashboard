@@ -1,9 +1,12 @@
 /**
- * GET /api/user-data?username=xxx — Load user data from Redis
- * POST /api/user-data — Save user data to Redis
- * 
- * Syncs localStorage data across devices using Upstash Redis.
- * Authentication: JWT via nf_token cookie or Authorization header
+ * GET /api/user-data — Load user data from Redis
+ * POST /api/user-data — Save CLIENT-WRITABLE-ONLY user data to Redis
+ *
+ * Security fix 2026-07-07: Sensitive fields (points, bonus_balance, vip_days,
+ * bind_id, checkin, bonus_campaign1_claimed, streak_grand_claimed, disabled,
+ * accountType, total_income_override) are SERVER-MANAGED and cannot be written
+ * by the client. Client may only write safe UI-state fields.
+ * Use /api/rewards for all reward/balance mutations.
  */
 const { setCORSHeaders } = require('./_lib/cors');
 const { verifyJWT } = require('./_lib/jwt');
@@ -15,14 +18,12 @@ function getRedis() {
 }
 
 function getUserFromRequest(req) {
-  // Try cookie first
   const cookieHeader = req.headers.cookie || '';
   const match = cookieHeader.match(/nf_token=([^;]+)/);
   if (match) {
     const payload = verifyJWT(match[1]);
     if (payload && payload.username) return payload.username;
   }
-  // Try Authorization header
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const payload = verifyJWT(authHeader.slice(7));
@@ -30,6 +31,11 @@ function getUserFromRequest(req) {
   }
   return null;
 }
+
+// CLIENT_WRITABLE_FIELDS: Only UI-state fields the client may sync.
+// All financial/balance/auth fields are SERVER-ONLY and must be changed via
+// admin tools or the /api/rewards endpoint with server-side validation.
+const CLIENT_WRITABLE_FIELDS = ['myBooks', 'claimed', 'lastSyncAt'];
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res, { credentials: true });
@@ -46,7 +52,7 @@ module.exports = async (req, res) => {
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
-  const redisKey = `nf_user_data:${username}`;
+  const redisKey = `nf_user_data:${String(username).toLowerCase()}`;
 
   try {
     if (req.method === 'GET') {
@@ -54,26 +60,73 @@ module.exports = async (req, res) => {
       if (!data) {
         return res.status(200).json({ exists: false, data: null });
       }
-      return res.status(200).json({ exists: true, data });
+      // Parse if string
+      let parsed = data;
+      if (typeof data === 'string') {
+        try { parsed = JSON.parse(data); } catch { parsed = {}; }
+      }
+      return res.status(200).json({ exists: true, data: parsed });
     }
 
     if (req.method === 'POST') {
       const { data } = req.body;
-      if (!data) {
+      if (!data || typeof data !== 'object') {
         return res.status(400).json({ error: 'No data provided' });
       }
 
-      // Validate data structure - only allow known fields
-      const allowedKeys = ['myBooks', 'checkin', 'points', 'claimed', 'bind_id', 'vip_days', 'lastSyncAt', 'bonus_balance', 'bonus_campaign1_claimed', 'streak_grand_claimed', 'total_income_override'];
-      const cleanData = {};
-      for (const key of allowedKeys) {
+      // Fetch existing server data first (merge strategy: client cannot overwrite server-managed fields)
+      let existing = await redis.get(redisKey);
+      if (existing) {
+        if (typeof existing === 'string') {
+          try { existing = JSON.parse(existing); } catch { existing = {}; }
+        }
+      }
+      if (!existing || typeof existing !== 'object') existing = {};
+
+      // Build cleanData by copying ONLY client-writable fields from the request
+      const cleanData = { ...existing };
+      for (const key of CLIENT_WRITABLE_FIELDS) {
         if (data[key] !== undefined) {
-          cleanData[key] = data[key];
+          // Deep-merge myBooks by code (union, deduplicated)
+          if (key === 'myBooks' && Array.isArray(data[key]) && Array.isArray(existing.myBooks)) {
+            const bookMap = new Map();
+            for (const b of existing.myBooks) {
+              const k = b.code ? String(b.code) : (b.id || b.bookId || b.title);
+              if (k) bookMap.set(k, b);
+            }
+            for (const b of data[key]) {
+              const k = b.code ? String(b.code) : (b.id || b.bookId || b.title);
+              if (k) {
+                if (bookMap.has(k)) {
+                  bookMap.set(k, { ...bookMap.get(k), ...b });
+                } else {
+                  bookMap.set(k, b);
+                }
+              }
+            }
+            cleanData.myBooks = Array.from(bookMap.values());
+          }
+          // Merge claimed (union of keys)
+          else if (key === 'claimed' && typeof data[key] === 'object' && existing.claimed) {
+            cleanData.claimed = { ...existing.claimed, ...data[key] };
+          }
+          else {
+            cleanData[key] = data[key];
+          }
         }
       }
       cleanData.lastSyncAt = Date.now();
 
-      // Store as JSON string to preserve types
+      // Ensure server-managed fields are preserved and cannot be tampered with
+      const SERVER_MANAGED = ['points', 'bonus_balance', 'vip_days', 'bind_id', 'checkin',
+        'bonus_campaign1_claimed', 'streak_grand_claimed', 'disabled', 'accountType',
+        'total_income_override', 'withdrawals'];
+      for (const sf of SERVER_MANAGED) {
+        if (existing[sf] !== undefined) {
+          cleanData[sf] = existing[sf];
+        }
+      }
+
       await redis.set(redisKey, JSON.stringify(cleanData));
 
       return res.status(200).json({ success: true, lastSyncAt: cleanData.lastSyncAt });
