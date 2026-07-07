@@ -22,8 +22,7 @@ const {
 const { setCORSHeaders } = require('../_lib/cors');
 
 module.exports = async (req, res) => {
-  setCORSHeaders(req, res);
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  setCORSHeaders(req, res, { credentials: true });
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });

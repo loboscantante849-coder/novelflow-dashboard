@@ -32,8 +32,7 @@ function getUserFromRequest(req) {
 }
 
 module.exports = async (req, res) => {
-  setCORSHeaders(req, res);
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  setCORSHeaders(req, res, { credentials: true });
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 

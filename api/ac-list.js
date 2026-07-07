@@ -5,14 +5,24 @@
 const AC_BASE = 'https://ac.beidou.win/api/v1';
 
 const { setCORSHeaders } = require('./_lib/cors');
+const { getAuthPayload, getRedis, isAdminUser } = require('./_lib/security');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
   if (req.method === 'OPTIONS') {
-    // CORS handled by setCORSHeaders;
     return res.status(200).end();
   }
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  // ---- AUTH: Admin only (M-04 fix 2026-07-07) ----
+  const payload = getAuthPayload(req);
+  if (!payload) {
+    return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+  }
+  const redis = getRedis();
+  if (!(await isAdminUser(redis, payload.username))) {
+    return res.status(403).json({ error: 'Admin only', code: 'ADMIN_ONLY' });
+  }
 
   // Use KV first → env var → header
   let token = null;
