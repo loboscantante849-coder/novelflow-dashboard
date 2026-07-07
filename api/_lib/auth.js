@@ -138,7 +138,7 @@ function setAuthCookies(res, accessToken, refreshToken, userInfo) {
   res.setHeader('Set-Cookie', [
     `nf_token=${accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${ACCESS_MAX_AGE}`,
     `nf_refresh=${refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/api/auth; Max-Age=${REFRESH_MAX_AGE}`,
-    `nf_user=${encodeURIComponent(JSON.stringify(userInfo))}; Path=/; Max-Age=${REFRESH_MAX_AGE}`
+    `nf_user=${encodeURIComponent(JSON.stringify(userInfo))}; Secure; SameSite=Lax; Path=/; Max-Age=${REFRESH_MAX_AGE}`
   ]);
 }
 
@@ -146,7 +146,7 @@ function clearAuthCookies(res) {
   res.setHeader('Set-Cookie', [
     'nf_token=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0',
     'nf_refresh=; HttpOnly; Secure; SameSite=Lax; Path=/api/auth; Max-Age=0',
-    'nf_user=; Path=/; Max-Age=0'
+    'nf_user=; Secure; SameSite=Lax; Path=/; Max-Age=0'
   ]);
 }
 

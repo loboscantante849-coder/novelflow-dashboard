@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- v2.5.1 - Security P0 fixes + Promotion Earnings rename - 2026-07-06 -->
+    <!-- v2.6.3 - Security P0 fixes (login rate-limit, dedup, input validation) + Promotion Earnings rename - 2026-07-06 -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -2598,7 +2598,7 @@
     button, .nav-item, .reels-btn, .book-item-btn { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
     /* Fix iOS input zoom */
     input[type="text"], input[type="password"], textarea { font-size: 16px; }
-                /* ========== Earnings Center v2.6.0 (earn- prefixed, isolated) ========== */
+                /* ========== Earnings Center v2.6.3 (earn- prefixed, isolated) ========== */
         #earningsModal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13,37,61,0.55); display: none; align-items: flex-start; justify-content: center; z-index: 10002; padding: 20px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         #earningsModal.show { display: flex; }
         .earn-panel { background: var(--canvas); border-radius: 16px; width: 100%; max-width: 480px; margin: auto; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); display: flex; flex-direction: column; animation: earnFadeIn 0.2s ease; }
@@ -2680,7 +2680,7 @@
         </div>
         <div class="splash-form">
             <input type="text" class="splash-input" id="splashUsername" data-i18n-placeholder="username" placeholder="Your username" oninput="checkSplashPasswordNeeded()">
-            <input type="password" class="splash-input" id="splashPassword" data-i18n-placeholder="password_placeholder" placeholder="Password (min 4 characters)">
+            <input type="password" class="splash-input" id="splashPassword" data-i18n-placeholder="password_placeholder" placeholder="Password (min 8, letter+digit)">
             <button class="splash-btn" onclick="handleSplashLogin()" data-i18n="start_earning"><span data-i18n="start_earning_btn">Start Earning</span></button>
             <div class="splash-tip" id="splashTip" data-i18n="splash_tip">Enter your username and password to login or create account.</div>
 
@@ -3130,9 +3130,9 @@
                     <h3 data-i18n="register_login">Login / Register</h3>
                     <p>Enter username to login or create account</p>
                     <input type="text" class="login-input" id="regUsername" placeholder="Your username" maxlength="50" oninput="checkRegPasswordNeeded()">
-                    <input type="password" class="login-input" id="regPassword" placeholder="Password (min 4 characters)" style="margin-top:8px;">
+                    <input type="password" class="login-input" id="regPassword" placeholder="Password (min 8, letter+digit)" style="margin-top:8px;">
                     <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()" data-i18n="confirm_btn">Confirm</button>
-                    <div class="login-tip">Set a password in Profile to protect your account</div>
+                    <div class="login-tip">Set a strong password (8+ chars, letter+digit) to protect your account</div>
                 </div>
 
                 <button class="logout-btn" id="logoutBtn" onclick="handleLogout()">Logout</button>
@@ -6164,8 +6164,8 @@ function renderMyBooks() {
                 showToast('Please enter a username', 'error');
                 return;
             }
-            if (password && password.length < 4) {
-                showToast('Password must be at least 4 characters', 'error');
+            if (password && !/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d\W_]{8,}$/.test(password)) {
+                showToast('Password must be at least 8 characters with a letter and a digit', 'error');
                 return;
             }
             // If no password provided, check if this is an old user without password (same logic as splash login)
@@ -6187,7 +6187,7 @@ function renderMyBooks() {
                         return;
                     } else {
                         // Brand new user - need password to register
-                        showToast('Please set a password (min 4 characters) to create your account', 'error');
+                        showToast('Please set a password (min 8, letter+digit) to create your account', 'error');
                         return;
                     }
                 } catch(e) {
@@ -6282,7 +6282,7 @@ function renderMyBooks() {
                 const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Please enter a username';
                 return;
             }
-            if (!password || password.length < 4) {
+            if (!password || (password.length < 8) || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
                 // Check if this is an old user without password - if so, allow login
                 try {
                     const cpResp = await fetch('/api/auth/check-password', {
@@ -6295,11 +6295,11 @@ function renderMyBooks() {
                         // Old user without password - allow login, will prompt to set password
                     } else {
                         // New user or user with password - must enter password
-                        const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = cpResult.hasPassword ? 'Password is required' : 'Password is required (min 4 characters)';
+                        const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = cpResult.hasPassword ? 'Password is required' : 'Password is required (min 8, letter+digit)';
                         return;
                     }
                 } catch(e) {
-                    const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Password is required (min 4 characters)';
+                    const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Password is required (min 8, letter+digit)';
                     return;
                 }
             }
@@ -7801,7 +7801,7 @@ function renderMyBooks() {
             const passField = document.getElementById('splashPassword');
             const tipEl = document.getElementById('splashTip');
             if (!username || username.length < 2) {
-                if (passField) { passField.style.display = ''; passField.placeholder = 'Password (min 4 characters)'; }
+                if (passField) { passField.style.display = ''; passField.placeholder = 'Password (min 8, letter+digit)'; }
                 return;
             }
             // Debounce
@@ -7823,11 +7823,11 @@ function renderMyBooks() {
                         if (tipEl) tipEl.textContent = 'Welcome back! Just click Start Earning →';
                     } else {
                         // New user - must set password
-                        if (passField) { passField.style.display = ''; passField.placeholder = 'Set a password (min 4 chars)'; }
+                        if (passField) { passField.style.display = ''; passField.placeholder = 'Set a password (min 8, letter+digit)'; }
                         if (tipEl) tipEl.textContent = 'New here? Set a password to create your account.';
                     }
                 } catch(e) {
-                    if (passField) { passField.style.display = ''; passField.placeholder = 'Password (min 4 characters)'; }
+                    if (passField) { passField.style.display = ''; passField.placeholder = 'Password (min 8, letter+digit)'; }
                 }
             }, 500);
         }
@@ -7847,10 +7847,10 @@ function renderMyBooks() {
                             body: JSON.stringify({ username })
                         });
                         const result = await resp.json();
-                        passField.placeholder = result.hasPassword ? 'Enter your password' : 'Set a password (min 4 chars)';
+                        passField.placeholder = result.hasPassword ? 'Enter your password' : 'Set a password (min 8, letter+digit)';
                     } catch(e) {}
                 } else {
-                    passField.placeholder = 'Password (min 4 characters)';
+                    passField.placeholder = 'Password (min 8, letter+digit)';
                 }
             }
         }
@@ -7881,8 +7881,8 @@ function renderMyBooks() {
             const confirmPass = document.getElementById('setConfirmPassword')?.value || '';
             const oldRow = document.getElementById('setPasswordOldRow');
 
-            if (!newPass || newPass.length < 4) {
-                showToast('Password must be at least 4 characters', 'error');
+            if (!newPass || !/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d\W_]{8,}$/.test(newPass)) {
+                showToast('Password must be at least 8 characters with a letter and a digit', 'error');
                 return;
             }
             if (newPass !== confirmPass) {
@@ -7941,7 +7941,7 @@ function renderMyBooks() {
                 if (!result.hasPassword) {
                     // Show gentle prompt after 2 seconds
                     setTimeout(() => {
-                        showToast('💡 Tip: Set a password in Profile to protect your account!', 'info');
+                        showToast('💡 Tip: Set a strong password (8+ chars, letter+digit) to protect your account!', 'info');
                     }, 2000);
                 }
             } catch(e) {
@@ -8059,7 +8059,7 @@ function renderMyBooks() {
         </div>
     </div>
 
-<!-- Earnings Center v2.6.0 -->
+<!-- Earnings Center v2.6.3 -->
 <div id="earningsModal" onclick="if(event.target===this)closeEarningsModal()">
   <div class="earn-panel" role="dialog" aria-modal="true" aria-label="Earnings Center">
     <div class="earn-header">
@@ -8134,7 +8134,7 @@ function renderMyBooks() {
 </div>
 
 <script>
-/* ========== Earnings Center v2.6.0 JS ========== */
+/* ========== Earnings Center v2.6.3 JS ========== */
 (function(){
   let _earnData = null;
   const $ = (id) => document.getElementById(id);

@@ -203,25 +203,45 @@ module.exports = async (req, res) => {
   const languageCode = (lang === 'es' ? 'es' : 'en');
   const bookId = vBookId.value; // already validated as string ≤64
 
-  // Per-user daily cap
+  // -------- DEDUP CHECK (before consuming any rate limit quota) --------
+  // Primary: fast direct key (username,bookId) → code
+  const dedupKey = `nf_confirm_dedup:${cleanUsername.toLowerCase()}:${bookId}`;
+  let existingCode = null;
+  let existingLink = null;
+  let existingLinkId = null;
+  if (redis) {
+    try {
+      const cached = await redis.get(dedupKey);
+      if (cached) {
+        try {
+          const c = typeof cached === 'string' ? JSON.parse(cached) : cached;
+          if (c && c.code) { existingCode = String(c.code); existingLink = c.link || null; existingLinkId = c.linkId || null; }
+        } catch { if (typeof cached === 'string' && /^\d+$/.test(cached)) existingCode = cached; }
+      }
+    } catch {}
+  }
+  // Fallback: scan-based lookup (for entries created before dedupKey was added)
+  if (!existingCode) {
+    const existing = await findExistingForBook(redis, cleanUsername, bookId);
+    if (existing) { existingCode = existing.code; existingLink = existing.link; existingLinkId = existing.linkId; }
+  }
+  if (existingCode) {
+    return res.status(200).json({
+      success: true,
+      status: 'existing',
+      code: existingCode,
+      link: existingLink,
+      linkId: existingLinkId,
+      message: 'Link already exists for this book'
+    });
+  }
+
+  // Per-user daily cap (only counted for NEW submissions, not dedup hits)
   if (redis) {
     const userDailyKey = `nf_rate:confirm_user:${cleanUsername.toLowerCase()}:${new Date().toISOString().slice(0,10)}`;
     if (!await checkRateLimit(redis, userDailyKey, USER_DAILY_LIMIT, DAILY_WINDOW)) {
       return res.status(429).json({ error: 'Daily limit reached (50/day)', code: 'DAILY_LIMIT' });
     }
-  }
-
-  // Dedup check
-  const existing = await findExistingForBook(redis, cleanUsername, bookId);
-  if (existing) {
-    return res.status(200).json({
-      success: true,
-      status: 'existing',
-      code: existing.code,
-      link: existing.link,
-      linkId: existing.linkId,
-      message: 'Link already exists for this book'
-    });
   }
 
   const submissionId = 'sub_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -335,6 +355,14 @@ module.exports = async (req, res) => {
     if (redis) {
       await redis.hset('nf_subs', { [String(finalCode)]: JSON.stringify(completedSub) });
       await redis.sadd(`nf_user_subs:${cleanUsername.toLowerCase()}`, String(finalCode));
+      // Fast dedup key: (username, bookId) → {code, link, linkId}
+      try {
+        await redis.set(dedupKey, JSON.stringify({
+          code: String(finalCode),
+          link: completedSub.link || null,
+          linkId: completedSub.linkId || null
+        }));
+      } catch (e) { console.error('[confirm] dedupKey write failed:', e.message); }
       // Also add to nf_user_data:<u>.myBooks if we can merge
       try {
         const rawUd = await redis.get(`nf_user_data:${cleanUsername.toLowerCase()}`);

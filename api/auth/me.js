@@ -18,7 +18,9 @@ const {
 const { handlePreflight } = require('../_lib/cors');
 
 module.exports = async (req, res) => {
-  if (handlePreflight(req, res, { credentials: true })) return;
+  // me is read by the same-origin frontend via credentials; no cross-origin credentialed reads allowed.
+  // Do NOT enable Access-Control-Allow-Credentials (M-01 fix).
+  if (handlePreflight(req, res, { credentials: false })) return;
 
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
