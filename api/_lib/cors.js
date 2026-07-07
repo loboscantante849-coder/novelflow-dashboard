@@ -2,11 +2,14 @@
  * CORS helper - restricts API access to known origins only.
  *
  * v2.6.2 security fix:
- *   - Explicitly set Access-Control-Allow-Origin on every response (even non-whitelisted origins)
- *     to override Vercel's default '*' header, which would otherwise create the dangerous
- *     '*' + credentials:true combination.
- *   - Non-whitelisted origins get Allow-Origin: null and NO credentials header.
- *   - OPTIONS preflight ends the response after headers are set.
+ *   Vercel auto-injects Access-Control-Allow-Origin: * on all API responses.
+ *   We MUST explicitly set Allow-Origin on EVERY response to override this default,
+ *   otherwise the dangerous '*' + 'credentials:true' combo leaks to evil origins.
+ *
+ *   Strategy:
+ *   - Whitelisted origin → reflect it back + allow credentials
+ *   - Non-whitelisted origin / no origin → set "null" (opaque origin, browsers block cross-origin reads)
+ *   - The vercel.json also pre-sets Allow-Origin to "" for /api/* as defense-in-depth
  */
 
 const ALLOWED_ORIGINS = [
@@ -17,7 +20,6 @@ const ALLOWED_ORIGINS = [
   'https://novelflow-dashboard.vercel.app',
 ];
 
-// Dev origins (any http://localhost:xxxx)
 const LOCALHOST_RE = /^http:\/\/localhost:\d{1,5}$/;
 
 function getAllowedOrigin(req) {
@@ -32,12 +34,11 @@ function setCORSHeaders(req, res, { methods = 'GET, POST, OPTIONS', credentials 
   const origin = getAllowedOrigin(req);
 
   if (origin) {
-    // Whitelisted origin: reflect it back + Vary
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
   } else {
-    // Non-whitelisted / no origin: explicitly deny to override Vercel default '*'
-    // Browsers treat "null" as a non-wildcard opaque origin that doesn't match any real site
+    // Explicitly set to "null" to override Vercel's default "*"
+    // Browsers treat the string "null" as an opaque origin that doesn't match any real site
     res.setHeader('Access-Control-Allow-Origin', 'null');
     res.setHeader('Vary', 'Origin');
   }
@@ -46,7 +47,8 @@ function setCORSHeaders(req, res, { methods = 'GET, POST, OPTIONS', credentials 
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Max-Age', '600');
 
-  // Credentials ONLY when BOTH requested AND origin is whitelisted
+  // Remove any previously-set credentials header, then add only if origin is whitelisted
+  res.removeHeader('Access-Control-Allow-Credentials');
   if (credentials && origin) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
