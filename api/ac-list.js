@@ -5,7 +5,7 @@
 const AC_BASE = 'https://ac.beidou.win/api/v1';
 
 const { setCORSHeaders } = require('./_lib/cors');
-const { getAuthPayload, getRedis, isAdminUser } = require('./_lib/security');
+const { getAuthPayload, getRedis } = require('./_lib/security');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -14,15 +14,13 @@ module.exports = async (req, res) => {
   }
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  // ---- AUTH: Admin only (M-04 fix 2026-07-07) ----
+  // ---- AUTH: Any logged-in user can list their own reels ----
   const payload = getAuthPayload(req);
   if (!payload) {
     return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
   }
-  const redis = getRedis();
-  if (!(await isAdminUser(redis, payload.username))) {
-    return res.status(403).json({ error: 'Admin only', code: 'ADMIN_ONLY' });
-  }
+  const currentUser = payload.username;
+  // (isAdminUser removed — regular users need this endpoint to see their own reels)
 
   // Use KV first → env var → header
   let token = null;
@@ -61,6 +59,40 @@ module.exports = async (req, res) => {
 
     // CORS handled by setCORSHeaders;
     res.setHeader('x-ac-token', newToken || '');
+
+    // Server-side filter: only return items belonging to the current user.
+    // Match by remark prefix ("nf_{username}_") so we never leak other users' reels.
+    // Admins see everything.
+    if (r.status >= 200 && r.status < 300 && data) {
+      try {
+        let isAdm = false;
+        try {
+          const { isAdminUser } = require('./_lib/security');
+          const { Redis } = require('@upstash/redis');
+          const r2 = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+          isAdm = await isAdminUser(r2, currentUser);
+        } catch(e) { isAdm = false; }
+
+        if (!isAdm) {
+          const prefix = 'nf_' + currentUser + '_';
+          // data shape: { data: { items: [...] } } OR { items: [...] } OR an array
+          const bucket = (data.data && Array.isArray(data.data.items)) ? data.data.items
+                       : (data.data && Array.isArray(data.data.data)) ? data.data.data
+                       : Array.isArray(data.data) ? data.data
+                       : Array.isArray(data.items) ? data.items
+                       : Array.isArray(data) ? data : [];
+          const filtered = bucket.filter(it => it && it.remark && String(it.remark).startsWith(prefix));
+          // Write back preserving shape
+          if (data.data && Array.isArray(data.data.items)) { data.data.items = filtered; data.data.total = filtered.length; }
+          else if (data.data && Array.isArray(data.data.data)) { data.data.data = filtered; data.data.total = filtered.length; }
+          else if (Array.isArray(data.data)) { data.data = filtered; }
+          else if (Array.isArray(data.items)) { data.items = filtered; }
+        }
+      } catch (e) {
+        console.warn('[ac-list] server-side filter failed:', e.message);
+      }
+    }
+
     return res.status(r.status).json({ success: r.status >= 200 && r.status < 300, data, newToken: newToken || undefined });
   } catch (e) {
     return res.status(502).json({ error: 'AC API unreachable', detail: e.message });
