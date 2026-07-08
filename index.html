@@ -7037,17 +7037,7 @@ function renderMyBooks() {
                     // server failed: use only local
                     enriched.push(...quickCards);
                 }
-                el.innerHTML = enriched.map(item => {
-                    const templateLabel = ({'PPT_Porn':'🔥','PPT_Porn_Loop_Video':'🔥','Ad_Plot_Video_V2':'🎥','Ad_Plot_Seedance':'🎬','Dialogue':'💬','PPT_Multi':'📑','Comic':'🖼','Digital':'🤖','Extract':'🧊'})[item.template] || '📖';
-                    const statusText = item.isDone ? '✅' : (item.isFail ? '❌' : '⏳');
-                    const thumbHtml = item.coverUrl
-                        ? '<img src="' + escapeHtml(item.coverUrl) + '" style="width:48px;height:64px;border-radius:6px;object-fit:cover;" onerror="this.style.display=\'none\'">'
-                        : '<div style="width:48px;height:64px;border-radius:6px;background:var(--canvas-soft);display:flex;align-items:center;justify-content:center;font-size:18px;">' + templateLabel + '</div>';
-                    const saveBtn = item.isDone && item.videoUrl
-                        ? '<a href="' + item.videoUrl + '" download target="_blank" style="padding:4px 10px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;text-decoration:none;">💾</a>'
-                        : '';
-                    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--hairline);">' + thumbHtml + '<div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(item.book_name || item.title || 'Untitled') + '</div><div style="font-size:10px;color:var(--ink-mute);">' + statusText + '</div></div>' + saveBtn + '</div>';
-                }).join('');
+el.innerHTML = enriched.map(renderReelCardHtml).join('');
             } catch(e) {
                 el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--danger);font-size:12px;">Failed to load</div>';
             }
@@ -7321,40 +7311,6 @@ function renderMyBooks() {
                         }
                         return { ...item, isDone, isFail, videoUrl, coverUrl, creativeText };
                     }));
-
-                    listEl.innerHTML = enrichedItems.map(item => {
-                        let statusText = '';
-                        if (item.isDone) statusText = '✅ Ready';
-                        else if (item.isFail) statusText = '❌ Failed';
-                        else statusText = '⏳ Processing...';
-
-                        const thumb = item.coverUrl || '';
-                        const playOverlay = item.videoUrl ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25);border-radius:8px;"><div style="width:22px;height:22px;background:rgba(255,255,255,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;">▶</div></div>' : '';
-                        const thumbClickAction = item.videoUrl ? ' onclick="playReelVideo(\'' + escapeHtml(item.videoUrl).replace(/'/g, "\\'") + '\')"' : '';
-                        const placeholderGrad = 'linear-gradient(135deg, #FF6B9D33, #C084FC33)';
-                        const thumbHtml = thumb
-                            ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;"' + thumbClickAction + '><img src="' + escapeHtml(thumb) + '" style="width:100%;height:100%;object-fit:cover;">' + playOverlay + '</div>'
-                            : '<div style="width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;' + (item.videoUrl ? 'cursor:pointer;"' + thumbClickAction : '"') + '>🎬</div>';
-
-                        let actionsHtml = '';
-                        if (item.isDone) {
-                            actionsHtml = '<div class="reels-item-actions">';
-                            if (item.videoUrl) actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + escapeHtml(item.videoUrl) + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">Save</a>';
-                            if (item.creativeText) actionsHtml += '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)">Copy</button>';
-                            actionsHtml += '</div>';
-                        }
-                        let copyTextHtml = '';
-                        // Fallback: use book description if no creativeText
-                        const reelMeta = JSON.parse(localStorage.getItem(getUserKey('reel_meta')) || '{}');
-                        const meta = reelMeta[item.id] || {};
-                        const fallbackText = meta.description || '';
-                        const displayText = item.creativeText || fallbackText;
-                        if (item.isDone && displayText) {
-                            copyTextHtml = '<div class="reels-item-copy" data-raw="' + escapeHtml(stripHtml(displayText)) + '">' + escapeHtml(stripHtml(displayText)) + '</div>';
-                        }
-
-                        return '<div class="reels-item">' + thumbHtml + '<div class="reels-item-body"><div class="reels-item-title">' + escapeHtml(item.book_name || item.title || 'Untitled') + '</div><div class="reels-item-status ' + (item.isDone ? 'done' : (item.isFail ? 'fail' : '')) + '">' + statusText + '</div>' + actionsHtml + copyTextHtml + '</div></div>';
-                    }).join('');
                 }
                 // Fallback: local pending
                 const knownIds2 = (typeof filteredItems !== 'undefined' && filteredItems) ? filteredItems.map(it => String(it.id || it.task_id || '')) : [];
@@ -7802,60 +7758,6 @@ function renderMyBooks() {
                         }
                         return { ...item, isDone, isFail, videoUrl, coverUrl, creativeText };
                     }));
-
-                    listEl.innerHTML = enrichedItems.map(item => {
-                        let statusText = '';
-                        if (item.isDone) {
-                            statusText = '✅ ' + getText('status_ready');
-                        } else if (item.isFail) {
-                            statusText = '❌ ' + getText('status_failed');
-                        } else {
-                            statusText = '⏳ ' + getText('status_creating');
-                            hasProcessing = true;
-                        }
-
-                        // Thumbnail: show video cover image with play overlay
-                        const thumb = item.coverUrl || '';
-                        const playOverlay = item.videoUrl ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25);border-radius:8px;"><div style="width:22px;height:22px;background:rgba(255,255,255,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;">▶</div></div>' : '';
-                        const thumbClickAction = item.videoUrl ? ' onclick="playReelVideo(\'' + escapeHtml(item.videoUrl).replace(/'/g, "\\'") + '\')"' : '';
-                        const placeholderGrad = 'linear-gradient(135deg, #FF6B9D33, #C084FC33)';
-                        const thumbHtml = thumb
-                            ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;"' + thumbClickAction + '><img src="' + escapeHtml(thumb) + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML=\'<div style=\'\' + \'width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;\' + (\'' + item.videoUrl + '\' ? \'cursor:pointer;\' : \'\') + \'\'>🎬</div>\'">' + playOverlay + '</div>'
-                            : '<div style="width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;' + (item.videoUrl ? 'cursor:pointer;"' + thumbClickAction : '"') + '>🎬</div>';
-                        
-                        let actionsHtml = '';
-                        if (item.isDone) {
-                            actionsHtml = '<div class="reels-item-actions">';
-                            if (item.videoUrl) {
-                                actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + escapeHtml(item.videoUrl) + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">' + getText('save_video') + '</a>';
-                            }
-                            if (item.creativeText) {
-                                actionsHtml += '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)">' + getText('copy_text') + '</button>';
-                            }
-                            actionsHtml += '</div>';
-                        }
-                        
-                        let copyTextHtml = '';
-                        // Fallback: use book description if no creativeText
-                        const reelMeta = JSON.parse(localStorage.getItem(getUserKey('reel_meta')) || '{}');
-                        const meta = reelMeta[item.id] || {};
-                        const fallbackText = meta.description || '';
-                        const displayText = item.creativeText || fallbackText;
-                        if (item.isDone && displayText) {
-                            copyTextHtml = '<div class="reels-item-copy" data-raw="' + escapeHtml(stripHtml(displayText)) + '">' + escapeHtml(stripHtml(displayText)) + '</div>';
-                        }
-
-                        return '<div class="reels-item">' +
-                            thumbHtml +
-                            '<div class="reels-item-body">' +
-                            '<div class="reels-item-title">' + escapeHtml(item.book_name || item.title || 'Untitled') + '</div>' +
-                            '<div class="reels-item-status ' + (item.isDone ? 'done' : (item.isFail ? 'fail' : '')) + '">' + statusText + '</div>' +
-                            actionsHtml +
-                            copyTextHtml +
-                            '</div></div>';
-                    }).join('');
-                    
-                    if (hasProcessing) { _reelsPollTimer = setTimeout(() => listMyReels(), 30000); }
                 }
                 // Fallback: show local pending reels from localStorage if server list is empty/failed
                 const knownIds = (typeof filteredItems !== 'undefined' && filteredItems) ? filteredItems.map(it => String(it.id || it.task_id || '')) : [];
