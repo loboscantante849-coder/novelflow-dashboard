@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- v2.6.4 - Password validation fix: remove frontend password strength checks; backend handles all validation - 2026-07-08 -->
+    <!-- v2.6.6 - MyBooks sort toggle; My Reels filter only completed; remove Unique chart dup; add New Users chart; remove My Books btn; admin wallet balance sync - 2026-07-08 -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -2731,11 +2731,6 @@
                             <div class="perf-stat-change flat" id="perfIncomeChange">—</div>
                         </div>
                         <div class="perf-stat">
-                            <div class="perf-stat-value" id="perfUnique">0</div>
-                            <div class="perf-stat-label" data-i18n="perf_label_unique">Unique</div>
-                            <div class="perf-stat-change flat" id="perfUniqueChange">—</div>
-                        </div>
-                        <div class="perf-stat">
                             <div class="perf-stat-value" id="perfNewUsers">0</div>
                             <div class="perf-stat-label" data-i18n="perf_label_new">New Users</div>
                             <div class="perf-stat-change flat" id="perfNewChange">—</div>
@@ -2760,7 +2755,7 @@
                             <span class="perf-chart-title" data-i18n="perf_chart_trend">📈 14-Day Trend</span>
                             <div class="perf-chart-tabs">
                                 <button class="perf-chart-tab active" onclick="switchChartMode('visits')" id="chartTabVisits" data-i18n="perf_tab_visits">Visits</button>
-                                <button class="perf-chart-tab" onclick="switchChartMode('unique')" id="chartTabUnique" data-i18n="perf_tab_unique">Unique</button>
+                                <button class="perf-chart-tab" onclick="switchChartMode('newusers')" id="chartTabNewusers" data-i18n="perf_tab_new">New Users</button>
                                 <button class="perf-chart-tab" onclick="switchChartMode('income')" id="chartTabIncome" data-i18n="perf_tab_income">Income</button>
                             </div>
                         </div>
@@ -3179,10 +3174,6 @@
                 <div class="profile-card" id="setPasswordCard" onclick="showSetPasswordModal()">
                     <div class="profile-card-icon">&#128274;</div><div class="profile-card-title" id="setPasswordTitle">Set Password</div><div class="profile-card-desc" id="setPasswordDesc">Protect your account</div>
                 </div>
-                <div class="profile-card" id="myBooksCard" onclick="toggleMyBooksExpand()">
-                    <div class="profile-card-icon">&#128176;</div><div class="profile-card-title">My Books</div><div class="profile-card-desc" id="profileMyBooksCount">0 books promoted</div>
-                    <div class="profile-card-arrow" id="myBooksArrow">▼</div>
-                </div>
                 <div class="profile-card" onclick="showGuideModal()">
                     <div class="profile-card-icon">&#9432;</div><div class="profile-card-title">Guide</div><div class="profile-card-desc">For beginners</div>
                 </div>
@@ -3228,7 +3219,10 @@
                         <div class="section-title">My Book List</div>
                         <div class="section-subtitle">Books you're currently promoting</div>
                     </div>
-                    <button class="stats-refresh-btn" id="refreshStatsBtn" onclick="refreshUserStats()">&#8635; Refresh</button>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <button class="stats-refresh-btn" id="bookSortBtn" onclick="toggleBookSort()" style="font-size:12px;padding:5px 10px;">🕐 Newest</button>
+                        <button class="stats-refresh-btn" id="refreshStatsBtn" onclick="refreshUserStats()">&#8635; Refresh</button>
+                    </div>
                 </div>
                 <div id="myBooksList">
                     <div class="empty-state" style="padding: 30px 20px; background: var(--canvas-soft); border-radius: var(--r-lg);">
@@ -5862,6 +5856,14 @@ function escapeHtml(text) {
     return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
+let _bookSortDesc = true;
+function toggleBookSort() {
+    _bookSortDesc = !_bookSortDesc;
+    const btn = document.getElementById('bookSortBtn');
+    if (btn) btn.textContent = _bookSortDesc ? '🕐 Newest' : '🕐 Oldest';
+    renderMyBooks();
+}
+
 function renderMyBooks() {
             const container = document.getElementById('myBooksList');
 
@@ -5874,6 +5876,13 @@ function renderMyBooks() {
                 return;
             }
 
+            // Sort by created time (newest/oldest toggle)
+            const sortedBooks = [...AppState.myBooks].sort((a, b) => {
+                const ta = a.createdAt || a.addedAt || 0;
+                const tb = b.createdAt || b.addedAt || 0;
+                return _bookSortDesc ? tb - ta : ta - tb;
+            });
+
             // Build stats map from UserStats.data - match by link, code, linkId, bookName
             const statsMap = {};
             if (UserStats.data && UserStats.data.books) {
@@ -5883,7 +5892,7 @@ function renderMyBooks() {
                     keys.forEach(k => { if (!statsMap[k]) statsMap[k] = book; });
                 });
             }
-            container.innerHTML = AppState.myBooks.map(book => {
+            container.innerHTML = sortedBooks.map(book => {
                 const key = book.link || (book.code && String(book.code)) || book.title;
                 const stats = statsMap[key] || {};
                 
@@ -6533,7 +6542,7 @@ function renderMyBooks() {
 
             const modeDataMap = {
                 'income': data.income_daily || {},
-                'unique': data.unique_daily || {},
+                'newusers': data.new_users_daily || {},
                 'visits': data.visits_daily || {}
             };
             // Check if current mode has no meaningful data
@@ -6541,7 +6550,7 @@ function renderMyBooks() {
             const currentNonZero = Object.values(currentData).filter(v => v > 0).length;
             // Auto-select only on first load (not after user explicitly picks a tab)
             if (!_userSelectedChart && (Object.keys(currentData).length === 0 || currentNonZero === 0)) {
-                const modes = ['visits', 'unique', 'income'];
+                const modes = ['visits', 'newusers', 'income'];
                 let bestMode = _chartMode;
                 let bestNonZero = 0;
                 for (const m of modes) {
@@ -6562,9 +6571,9 @@ function renderMyBooks() {
             if (_chartMode === 'income') {
                 dailyData = data.income_daily || {};
                 color = '#FFD700';
-            } else if (_chartMode === 'unique') {
-                dailyData = data.unique_daily || {};
-                color = '#C084FC';
+            } else if (_chartMode === 'newusers') {
+                dailyData = data.new_users_daily || {};
+                color = '#10B981';
             } else {
                 dailyData = data.visits_daily || {};
                 color = '#60a5fa';
@@ -6851,23 +6860,20 @@ function renderMyBooks() {
                 
                 // Update perf stats
                 const pv = document.getElementById('perfVisits');
-                const pu = document.getElementById('perfUnique');
                 const pi = document.getElementById('perfIncome');
                 const pb = document.getElementById('perfBooks');
                 const pn = document.getElementById('perfNewUsers');
                 const pl = document.getElementById('perfLinks');
                 
                 const income = data.total_income || 0;
-                if (pv) { const pvVal = data.total_visits || 0; pv.textContent = pvVal; pv.className = 'perf-stat-value' + (pvVal ? '' : ' zero'); }
-                if (pu) { pu.textContent = data.total_unique || 0; pu.className = 'perf-stat-value' + (data.total_unique ? '' : ' zero'); }
+                if (pv) { const pvVal = data.total_visits || 0; pv.textContent = pvVal.toLocaleString(); pv.className = 'perf-stat-value' + (pvVal ? '' : ' zero'); }
                 if (pi) { pi.textContent = '$' + income.toFixed(2); pi.className = 'perf-stat-value' + (income ? '' : ' zero'); }
                 if (pb) { pb.textContent = (data.links || data.books || []).length; }
-                if (pn) { pn.textContent = data.total_new || 0; pn.className = 'perf-stat-value' + (data.total_new ? '' : ' zero'); }
+                if (pn) { const nv = data.total_new || 0; pn.textContent = nv.toLocaleString(); pn.className = 'perf-stat-value' + (nv ? '' : ' zero'); }
                 if (pl) { pl.textContent = (data.links || data.books || []).length; }
                 
                 // Calculate and render changes
                 renderChangeEl('perfIncomeChange', calcChange(data.income_daily));
-                renderChangeEl('perfUniqueChange', calcChange(data.unique_daily));
                 renderChangeEl('perfNewChange', calcChange(data.new_users_daily));
                 renderChangeEl('perfVisitsChange', calcChange(data.visits_daily || {}));
                 
@@ -6959,25 +6965,24 @@ function renderMyBooks() {
                 const result = await resp.json();
                 if (result.newToken) saveACToken(result.newToken);
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
-                // Filter: only show reels belonging to this user
-                // Server already filters by JWT username - trust server result
-                const filteredItems = items;
+                // Filter for "My" page: only show SUCCESSFULLY COMPLETED reels (pending/failed stay on creator page)
+                const completedItems = items.filter(it => {
+                    const st = (it.status || '').toString().toLowerCase();
+                    return st === 'completed' || st === 'done' || st === '2' || st === 'success';
+                });
+                const filteredItems = completedItems;
                 const knownIdsQ = filteredItems.map(it => String(it.id || it.task_id || ''));
                 let quickCards = [];
-                if (result.success && filteredItems.length > 0) {
-                    // enriched below
-                } else {
-                    quickCards = buildLocalPendingReels([]).slice(0, 5);
-                }
+                // "My" page: no local pending reels (those show only on creator page)
                 if ((!result.success || filteredItems.length === 0) && quickCards.length === 0) {
-                    el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;">' + getText('no_reels') + '</div>';
+                    el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;">No completed reels yet. 🎬 Create one from the Make tab!</div>';
                     return;
                 }
                 // Fetch results for completed items
                 const enriched = await Promise.all(filteredItems.map(async (item) => {
                     const status = item.status || '';
-                    const isDone = (status === 'completed' || status === 2 || status === 'done');
-                    const isFail = (status === 'failed' || status === -1 || status === 'fail');
+                    const isDone = true; // already filtered to completed
+                    const isFail = false;
                     let videoUrl = '', coverUrl = '';
                     if (isDone && item.thread_id) {
                         try {
@@ -7000,16 +7005,6 @@ function renderMyBooks() {
                     }
                     return { ...item, isDone, isFail, videoUrl, coverUrl };
                 }));
-                // Merge local pending
-                if (quickCards.length === 0) {
-                    const sIds = new Set(enriched.map(c => String(c.id||c.task_id||'')));
-                    for (const p of buildLocalPendingReels(knownIdsQ).slice(0,5)) {
-                        if (!sIds.has(String(p.id))) { enriched.unshift(p); sIds.add(String(p.id)); }
-                    }
-                } else {
-                    // server failed: use only local
-                    enriched.push(...quickCards);
-                }
 el.innerHTML = enriched.map(renderReelCardHtml).join('');
             } catch(e) {
                 el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--danger);font-size:12px;">Failed to load</div>';
