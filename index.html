@@ -6974,7 +6974,7 @@ function renderMyBooks() {
                 const headers = {};
                 const savedToken = localStorage.getItem('novelflow_ac_token');
                 if (savedToken) headers['x-ac-token'] = savedToken;
-                const resp = await fetch('/api/ac-list', { headers });
+                const resp = await fetch('/api/ac-list?pageSize=50', { headers });
                 const result = await resp.json();
                 if (result.newToken) saveACToken(result.newToken);
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
@@ -7001,7 +7001,7 @@ function renderMyBooks() {
                     return;
                 }
                 // Fetch results for completed items
-                const enriched = await Promise.all(filteredItems.slice(0, 5).map(async (item) => {
+                const enriched = await Promise.all(filteredItems.map(async (item) => {
                     const status = item.status || '';
                     const isDone = (status === 'completed' || status === 2 || status === 'done');
                     const isFail = (status === 'failed' || status === -1 || status === 'fail');
@@ -7276,7 +7276,7 @@ function renderMyBooks() {
                 const headers = {};
                 const savedToken = localStorage.getItem('novelflow_ac_token');
                 if (savedToken) headers['x-ac-token'] = savedToken;
-                const resp = await fetch('/api/ac-list', { headers });
+                const resp = await fetch('/api/ac-list?pageSize=50', { headers });
                 const result = await resp.json();
                 if (result.newToken) { saveACToken(result.newToken); }
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
@@ -7293,7 +7293,7 @@ function renderMyBooks() {
 
                 if (filteredItems.length > 0) {
                     if (emptyEl) emptyEl.style.display = 'none';
-                    const enrichedItems = await Promise.all(filteredItems.slice(0, 10).map(async (item) => {
+                    const enrichedItems = await Promise.all(filteredItems.map(async (item) => {
                         const status = item.status || '';
                         const isDone = (status === 'completed' || status === 2 || status === 'done');
                         const isFail = (status === 'failed' || status === -1 || status === 'fail');
@@ -7755,7 +7755,7 @@ function renderMyBooks() {
                 const headers = {};
                 const savedToken = localStorage.getItem('novelflow_ac_token');
                 if (savedToken) headers['x-ac-token'] = savedToken;
-                const resp = await fetch('/api/ac-list', { headers });
+                const resp = await fetch('/api/ac-list?pageSize=50', { headers });
                 const result = await resp.json();
                 if (result.newToken) { saveACToken(result.newToken); }
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
@@ -7774,7 +7774,7 @@ function renderMyBooks() {
                 if (result.success && filteredItems.length > 0) {
                     let hasProcessing = false;
                     // For completed items, fetch their results to get video URLs
-                    const enrichedItems = await Promise.all(filteredItems.slice(0, 5).map(async (item) => {
+                    const enrichedItems = await Promise.all(filteredItems.map(async (item) => {
                         const status = item.status || '';
                         const isDone = (status === 'completed' || status === 2 || status === 'done');
                         const isFail = (status === 'failed' || status === -1 || status === 'fail');
