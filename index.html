@@ -6989,7 +6989,14 @@ function renderMyBooks() {
                     if (currentUser && item.book_name && myBookNames.includes(item.book_name.toLowerCase())) return true;
                     return false;
                 });
-                if (!result.success || filteredItems.length === 0) {
+                const knownIdsQ = filteredItems.map(it => String(it.id || it.task_id || ''));
+                let quickCards = [];
+                if (result.success && filteredItems.length > 0) {
+                    // enriched below
+                } else {
+                    quickCards = buildLocalPendingReels([]).slice(0, 5);
+                }
+                if ((!result.success || filteredItems.length === 0) && quickCards.length === 0) {
                     el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;">' + getText('no_reels') + '</div>';
                     return;
                 }
@@ -6997,29 +7004,42 @@ function renderMyBooks() {
                 const enriched = await Promise.all(filteredItems.slice(0, 5).map(async (item) => {
                     const status = item.status || '';
                     const isDone = (status === 'completed' || status === 2 || status === 'done');
+                    const isFail = (status === 'failed' || status === -1 || status === 'fail');
                     let videoUrl = '', coverUrl = '';
                     if (isDone && item.thread_id) {
                         try {
                             const rHeaders = {};
                             if (savedToken) rHeaders['x-ac-token'] = savedToken;
                             const rResp = await fetch('/api/ac-result?threadId=' + item.thread_id, { headers: rHeaders });
-                            const rResult = await rResp.json();
-                            if (rResult.newToken) saveACToken(rResult.newToken);
-                            const rData = rResult.data || {};
-                            const finalResults = Array.isArray(rData.final_result) ? rData.final_result : [];
-                            const materials = rData.materials || rData.items || rData.results || [];
-                            const allResults = finalResults.length > 0 ? finalResults : materials;
-                            if (allResults.length > 0) {
-                                videoUrl = allResults[0].video_url || '';
-                                coverUrl = allResults[0].cover_image_url || '';
+                            if (rResp.ok && rResp.status !== 204) {
+                                const rResult = await rResp.json().catch(() => ({data:{}}));
+                                if (rResult.newToken) saveACToken(rResult.newToken);
+                                const rData = rResult.data || {};
+                                const finalResults = Array.isArray(rData.final_result) ? rData.final_result : [];
+                                const materials = rData.materials || rData.items || rData.results || [];
+                                const allResults = finalResults.length > 0 ? finalResults : materials;
+                                if (allResults.length > 0) {
+                                    videoUrl = allResults[0].video_url || '';
+                                    coverUrl = allResults[0].cover_image_url || '';
+                                }
                             }
                         } catch(e) {}
                     }
-                    return { ...item, isDone, videoUrl, coverUrl };
+                    return { ...item, isDone, isFail, videoUrl, coverUrl };
                 }));
+                // Merge local pending
+                if (quickCards.length === 0) {
+                    const sIds = new Set(enriched.map(c => String(c.id||c.task_id||'')));
+                    for (const p of buildLocalPendingReels(knownIdsQ).slice(0,5)) {
+                        if (!sIds.has(String(p.id))) { enriched.unshift(p); sIds.add(String(p.id)); }
+                    }
+                } else {
+                    // server failed: use only local
+                    enriched.push(...quickCards);
+                }
                 el.innerHTML = enriched.map(item => {
                     const templateLabel = ({'PPT_Porn':'🔥','PPT_Porn_Loop_Video':'🔥','Ad_Plot_Video_V2':'🎥','Ad_Plot_Seedance':'🎬','Dialogue':'💬','PPT_Multi':'📑','Comic':'🖼','Digital':'🤖','Extract':'🧊'})[item.template] || '📖';
-                    const statusText = item.isDone ? '✅' : '⏳';
+                    const statusText = item.isDone ? '✅' : (item.isFail ? '❌' : '⏳');
                     const thumbHtml = item.coverUrl
                         ? '<img src="' + escapeHtml(item.coverUrl) + '" style="width:48px;height:64px;border-radius:6px;object-fit:cover;" onerror="this.style.display=\'none\'">'
                         : '<div style="width:48px;height:64px;border-radius:6px;background:var(--canvas-soft);display:flex;align-items:center;justify-content:center;font-size:18px;">' + templateLabel + '</div>';
@@ -7283,17 +7303,19 @@ function renderMyBooks() {
                                 const rHeaders = {};
                                 if (savedToken) rHeaders['x-ac-token'] = savedToken;
                                 const rResp = await fetch('/api/ac-result?threadId=' + item.thread_id, { headers: rHeaders });
-                                const rResult = await rResp.json();
-                                if (rResult.newToken) saveACToken(rResult.newToken);
-                                const rData = rResult.data || {};
-                                const finalResults = Array.isArray(rData.final_result) ? rData.final_result : [];
-                                const materials = rData.materials || rData.items || rData.results || [];
-                                const allResults = finalResults.length > 0 ? finalResults : materials;
-                                if (allResults.length > 0) {
-                                    const first = allResults[0];
-                                    videoUrl = first.video_url || '';
-                                    coverUrl = first.cover_image_url || '';
-                                    creativeText = first.creative_text || first.dialogue_content || first.landing_page_copy || '';
+                                if (rResp.ok && rResp.status !== 204) {
+                                    const rResult = await rResp.json().catch(() => ({data:{}}));
+                                    if (rResult.newToken) saveACToken(rResult.newToken);
+                                    const rData = rResult.data || {};
+                                    const finalResults = Array.isArray(rData.final_result) ? rData.final_result : [];
+                                    const materials = rData.materials || rData.items || rData.results || [];
+                                    const allResults = finalResults.length > 0 ? finalResults : materials;
+                                    if (allResults.length > 0) {
+                                        const first = allResults[0];
+                                        videoUrl = first.video_url || '';
+                                        coverUrl = first.cover_image_url || '';
+                                        creativeText = first.creative_text || first.dialogue_content || first.landing_page_copy || '';
+                                    }
                                 }
                             } catch(e) { console.warn('Failed to fetch result for', item.thread_id, e); }
                         }
@@ -7333,13 +7355,30 @@ function renderMyBooks() {
 
                         return '<div class="reels-item">' + thumbHtml + '<div class="reels-item-body"><div class="reels-item-title">' + escapeHtml(item.book_name || item.title || 'Untitled') + '</div><div class="reels-item-status ' + (item.isDone ? 'done' : (item.isFail ? 'fail' : '')) + '">' + statusText + '</div>' + actionsHtml + copyTextHtml + '</div></div>';
                     }).join('');
+                }
+                // Fallback: local pending
+                const knownIds2 = (typeof filteredItems !== 'undefined' && filteredItems) ? filteredItems.map(it => String(it.id || it.task_id || '')) : [];
+                const myCards = (typeof enrichedItems !== 'undefined' && enrichedItems) ? enrichedItems : buildLocalPendingReels(knownIds2);
+                const serverIds2 = new Set(myCards.map(c => String(c.id || c.task_id || '')));
+                for (const p of buildLocalPendingReels(knownIds2)) {
+                    if (!serverIds2.has(String(p.id))) { myCards.push(p); serverIds2.add(String(p.id)); }
+                }
+                if (myCards.length > 0) {
+                    if (emptyEl) emptyEl.style.display = 'none';
+                    listEl.innerHTML = myCards.map(renderReelCardHtml).join('');
                 } else {
                     listEl.innerHTML = '';
                     if (emptyEl) emptyEl.style.display = '';
                 }
             } catch(e) {
                 console.error('loadMyReelsAssets error:', e);
-                listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">Failed to load reels</div>';
+                const pending = buildLocalPendingReels([]);
+                if (pending.length > 0) {
+                    if (emptyEl) emptyEl.style.display = 'none';
+                    listEl.innerHTML = pending.map(renderReelCardHtml).join('');
+                } else {
+                    listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">Failed to load reels. Tap Refresh to retry.</div>';
+                }
             }
         }
 
@@ -7634,6 +7673,76 @@ function renderMyBooks() {
             document.body.appendChild(overlay);
         }
 
+
+        // ---- Helper: build processing placeholder cards from localStorage (fallback when /api/ac-list fails or returns 0) ----
+        function buildLocalPendingReels(knownIds) {
+            try {
+                const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
+                const reelMeta = JSON.parse(localStorage.getItem(getUserKey('reel_meta')) || '{}');
+                const known = new Set((knownIds || []).map(id => String(id)));
+                const cards = [];
+                // recent first (last 10)
+                const recent = myReelIds.slice(-10).reverse();
+                for (const rid of recent) {
+                    if (known.has(String(rid))) continue;
+                    const meta = reelMeta[rid] || {};
+                    const title = meta.title || 'Your reel';
+                    cards.push({
+                        id: String(rid),
+                        book_name: title,
+                        isDone: false, isFail: false,
+                        videoUrl: '', coverUrl: '', creativeText: '',
+                        _local: true
+                    });
+                }
+                return cards;
+            } catch(e) { return []; }
+        }
+        function renderReelCardHtml(item) {
+            let statusText = '';
+            if (item.isDone) statusText = '✅ ' + getText('status_ready');
+            else if (item.isFail) statusText = '❌ ' + getText('status_failed');
+            else statusText = '⏳ ' + getText('status_creating') + (item._local ? ' (~25 min)' : '');
+            const placeholderGrad = 'linear-gradient(135deg, #FF6B9D33, #C084FC33)';
+            const playOverlay = item.videoUrl ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25);border-radius:8px;"><div style="width:22px;height:22px;background:rgba(255,255,255,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;">▶</div></div>' : '';
+            const vidAttrEsc = item.videoUrl ? escapeHtml(item.videoUrl).replace(/'/g, "\'") : '';
+            const thumbClickAction = item.videoUrl ? ' onclick="playReelVideo(\'' + vidAttrEsc + '\')"' : '';
+            const thumb = item.coverUrl || '';
+            const thumbHtml = thumb
+                ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;"' + thumbClickAction + '><img src="' + escapeHtml(thumb) + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\'">' + playOverlay + '</div>'
+                : '<div style="width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;"' + thumbClickAction + '>🎬</div>';
+            let actionsHtml = '';
+            if (item.isDone) {
+                actionsHtml = '<div class="reels-item-actions">';
+                if (item.videoUrl) actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + escapeHtml(item.videoUrl) + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">' + getText('save_video') + '</a>';
+                if (item.creativeText) actionsHtml += '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)">' + getText('copy_text') + '</button>';
+                actionsHtml += '</div>';
+            } else if (item.isFail && item.thread_id) {
+                actionsHtml = '<div class="reels-item-actions"><button class="reels-action-btn" style="background:#fee;color:#c33;" onclick="retryReel(\'' + escapeHtml(item.thread_id).replace(/'/g,"\'") + '\')">Retry</button></div>';
+            }
+            let copyTextHtml = '';
+            const reelMeta = JSON.parse(localStorage.getItem(getUserKey('reel_meta')) || '{}');
+            const meta = reelMeta[item.id] || {};
+            const fallbackText = meta.description || '';
+            const displayText = item.creativeText || fallbackText;
+            if (item.isDone && displayText) {
+                copyTextHtml = '<div class="reels-item-copy" data-raw="' + escapeHtml(stripHtml(displayText)) + '">' + escapeHtml(stripHtml(displayText)) + '</div>';
+            }
+            return '<div class="reels-item">' + thumbHtml + '<div class="reels-item-body"><div class="reels-item-title">' + escapeHtml(item.book_name || item.title || 'Untitled') + '</div><div class="reels-item-status ' + (item.isDone ? 'done' : (item.isFail ? 'fail' : '')) + '">' + statusText + '</div>' + actionsHtml + copyTextHtml + '</div></div>';
+        }
+        async function retryReel(threadId) {
+            try {
+                const headers = {};
+                const savedToken = localStorage.getItem('novelflow_ac_token');
+                if (savedToken) headers['x-ac-token'] = savedToken;
+                const resp = await fetch('/api/ac-retry', { method:'POST', headers: {...headers, 'Content-Type':'application/json'}, body: JSON.stringify({threadId}) });
+                const result = await resp.json();
+                if (result.newToken) saveACToken(result.newToken);
+                showToast(result.success ? 'Retrying...' : ('Retry failed: ' + (result.error||'unknown')), result.success?'success':'error');
+                if (result.success) setTimeout(()=>listMyReels(), 2000);
+            } catch(e) { showToast('Retry failed: ' + e.message, 'error'); }
+        }
+
         let _reelsPollTimer = null;
         async function listMyReels() {
             const listEl = document.getElementById('reelsList');
@@ -7675,18 +7784,19 @@ function renderMyBooks() {
                                 const rHeaders = {};
                                 if (savedToken) rHeaders['x-ac-token'] = savedToken;
                                 const rResp = await fetch('/api/ac-result?threadId=' + item.thread_id, { headers: rHeaders });
-                                const rResult = await rResp.json();
-                                if (rResult.newToken) saveACToken(rResult.newToken);
-                                const rData = rResult.data || {};
-                                // AC API returns: { final_result: [{video_url, cover_image_url, creative_text}], base_info: {...} }
-                                const finalResults = Array.isArray(rData.final_result) ? rData.final_result : [];
-                                const materials = rData.materials || rData.items || rData.results || [];
-                                const allResults = finalResults.length > 0 ? finalResults : materials;
-                                if (allResults.length > 0) {
-                                    const first = allResults[0];
-                                    videoUrl = first.video_url || '';
-                                    coverUrl = first.cover_image_url || '';
-                                    creativeText = first.creative_text || first.dialogue_content || first.landing_page_copy || '';
+                                if (rResp.ok && rResp.status !== 204) {
+                                    const rResult = await rResp.json().catch(() => ({data:{}}));
+                                    if (rResult.newToken) saveACToken(rResult.newToken);
+                                    const rData = rResult.data || {};
+                                    const finalResults = Array.isArray(rData.final_result) ? rData.final_result : [];
+                                    const materials = rData.materials || rData.items || rData.results || [];
+                                    const allResults = finalResults.length > 0 ? finalResults : materials;
+                                    if (allResults.length > 0) {
+                                        const first = allResults[0];
+                                        videoUrl = first.video_url || '';
+                                        coverUrl = first.cover_image_url || '';
+                                        creativeText = first.creative_text || first.dialogue_content || first.landing_page_copy || '';
+                                    }
                                 }
                             } catch(e) { console.warn('Failed to fetch result for', item.thread_id, e); }
                         }
@@ -7746,11 +7856,32 @@ function renderMyBooks() {
                     }).join('');
                     
                     if (hasProcessing) { _reelsPollTimer = setTimeout(() => listMyReels(), 30000); }
+                }
+                // Fallback: show local pending reels from localStorage if server list is empty/failed
+                const knownIds = (typeof filteredItems !== 'undefined' && filteredItems) ? filteredItems.map(it => String(it.id || it.task_id || '')) : [];
+                const pendingLocal = (typeof enrichedItems !== 'undefined' && enrichedItems) ? [] : buildLocalPendingReels(knownIds);
+                const allCards = (typeof enrichedItems !== 'undefined' && enrichedItems) ? enrichedItems : pendingLocal;
+                // Merge: server cards first, then any local-only pending not already shown
+                const serverIds = new Set(allCards.map(c => String(c.id || c.task_id || '')));
+                for (const p of pendingLocal) {
+                    if (!serverIds.has(String(p.id))) { allCards.push(p); serverIds.add(String(p.id)); }
+                }
+                if (allCards.length > 0) {
+                    let hasProcessing = allCards.some(c => !c.isDone && !c.isFail);
+                    listEl.innerHTML = allCards.map(renderReelCardHtml).join('');
+                    if (hasProcessing) { _reelsPollTimer = setTimeout(() => listMyReels(), 30000); }
                 } else {
                     listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">' + getText('no_reels') + '</div>';
                 }
             } catch (e) {
-                listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--danger);font-size:13px;">Failed to load reels</div>';
+                console.warn('listMyReels error, falling back to local:', e);
+                const pendingLocal = buildLocalPendingReels([]);
+                if (pendingLocal.length > 0) {
+                    listEl.innerHTML = pendingLocal.map(renderReelCardHtml).join('');
+                    _reelsPollTimer = setTimeout(() => listMyReels(), 30000);
+                } else {
+                    listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--danger);font-size:13px;">Failed to load reels. Tap Refresh to retry.</div>';
+                }
             }
         }
 
