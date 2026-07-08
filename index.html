@@ -6979,16 +6979,8 @@ function renderMyBooks() {
                 if (result.newToken) saveACToken(result.newToken);
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
                 // Filter: only show reels belonging to this user
-                const currentUser = AppState.user?.username || '';
-                const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
-                const myBookNames = (AppState.myBooks || []).map(b => (b.title || b.bookName || '').toLowerCase());
-                const filteredItems = items.filter(item => {
-                    const itemId = String(item.id || item.task_id || '');
-                    if (myReelIds.includes(itemId)) return true;
-                    if (item.remark && item.remark.startsWith('nf_' + currentUser + '_')) return true;
-                    if (currentUser && item.book_name && myBookNames.includes(item.book_name.toLowerCase())) return true;
-                    return false;
-                });
+                // Server already filters by JWT username - trust server result
+                const filteredItems = items;
                 const knownIdsQ = filteredItems.map(it => String(it.id || it.task_id || ''));
                 let quickCards = [];
                 if (result.success && filteredItems.length > 0) {
@@ -7270,16 +7262,8 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 const result = await resp.json();
                 if (result.newToken) { saveACToken(result.newToken); }
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
-                const currentUser = AppState.user?.username || '';
-                const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
-                const myBookNames = (AppState.myBooks || []).map(b => (b.title || b.bookName || '').toLowerCase());
-                const filteredItems = items.filter(item => {
-                    const itemId = String(item.id || item.task_id || '');
-                    if (myReelIds.includes(itemId)) return true;
-                    if (item.remark && item.remark.startsWith('nf_' + currentUser + '_')) return true;
-                    if (currentUser && item.book_name && myBookNames.includes(item.book_name.toLowerCase())) return true;
-                    return false;
-                });
+                // Server already filters by JWT username - trust server result
+                const filteredItems = items;
 
                 if (filteredItems.length > 0) {
                     if (emptyEl) emptyEl.style.display = 'none';
@@ -7658,7 +7642,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             let statusText = '';
             if (item.isDone) statusText = '✅ ' + getText('status_ready');
             else if (item.isFail) statusText = '❌ ' + getText('status_failed');
-            else statusText = '⏳ ' + getText('status_creating') + (item._local ? ' (~25 min)' : '');
+            else statusText = '⏳ ' + getText('status_creating');
             const placeholderGrad = 'linear-gradient(135deg, #FF6B9D33, #C084FC33)';
             const playOverlay = item.videoUrl ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25);border-radius:8px;"><div style="width:22px;height:22px;background:rgba(255,255,255,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;">▶</div></div>' : '';
             const vidAttrEsc = item.videoUrl ? escapeHtml(item.videoUrl).replace(/'/g, "\'") : '';
@@ -7715,18 +7699,8 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 const result = await resp.json();
                 if (result.newToken) { saveACToken(result.newToken); }
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
-                // Filter: only show reels belonging to this user
-                const currentUser = AppState.user?.username || '';
-                const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
-                const myBookNames = (AppState.myBooks || []).map(b => (b.title || b.bookName || '').toLowerCase());
-                const filteredItems = items.filter(item => {
-                    const itemId = String(item.id || item.task_id || '');
-                    // Match by: stored task ID, remark prefix, or book name in myBooks
-                    if (myReelIds.includes(itemId)) return true;
-                    if (item.remark && item.remark.startsWith('nf_' + currentUser + '_')) return true;
-                    if (currentUser && item.book_name && myBookNames.includes(item.book_name.toLowerCase())) return true;
-                    return false;
-                });
+                // Server already filters by JWT username - trust server result
+                const filteredItems = items;
                 if (result.success && filteredItems.length > 0) {
                     let hasProcessing = false;
                     // For completed items, fetch their results to get video URLs
