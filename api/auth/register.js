@@ -4,7 +4,7 @@
  * POST /api/auth/register
  * 
  * Security fixes (v2.6.3):
- *  - Username regex whitelist: ^[a-zA-Z0-9_]{3,24}$ (blocks injections/spaces/special chars)
+ *  - Username regex: allow letters/CJK/digits/_.@ -/space, 1-50 chars; blocks HTML/SQL injection chars
  *  - Password min 8 chars, must contain letter + digit
  *  - IP rate limit: 10 attempts / 15 min (prevents brute force)
  *  - Account lockout: 5 failed attempts / 15 min per username
@@ -54,7 +54,7 @@ async function rlCheck(redis, key, limit, windowSec) {
   } catch { return { allowed: true }; }
 }
 
-const USERNAME_RE = /^[a-zA-Z0-9_]{3,24}$/;
+const USERNAME_RE = /^[\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9_.@\- ]{1,50}$/;
 const PASSWORD_MIN = 8;
 function isValidPassword(p) {
   if (typeof p !== 'string' || p.length < PASSWORD_MIN) return false;
@@ -83,7 +83,7 @@ module.exports = async (req, res) => {
     const cleanUsername = username.trim();
     if (!USERNAME_RE.test(cleanUsername)) {
       return res.status(400).json({
-        error: 'Username must be 3-24 characters, using letters, numbers, and underscore only'
+        error: 'Invalid username (use letters, numbers, Chinese chars, underscore, dot, @, space, hyphen; 1-50 chars)'
       });
     }
 
