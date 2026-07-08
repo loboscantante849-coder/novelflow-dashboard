@@ -1,6 +1,14 @@
 /**
  * GET  /api/withdrawals?username=xxx  — KOC earnings + withdrawal history
+ * GET  /api/withdrawals?admin_list=pending[&status=pending|approved|rejected|all] — Admin: list all withdrawal requests
  * POST /api/withdrawals                — Submit a new withdrawal request
+ * PATCH /api/withdrawals               — Admin approve/reject a request
+ *
+ * v2.6.5 — Withdrawal freeze + admin review (2026-07-08)
+ *   - available_balance now DEDUCTS pending withdrawals (frozen while under review)
+ *   - New PATCH endpoint for admin approve/reject
+ *   - New admin_list query param for admin to scan all pending requests via Redis SCAN
+ *   - Rejected requests release funds back to available_balance automatically
  *
  * v2.6.1 — Security P0 fixes 2026-07-07
  *   - JWT auth REQUIRED for all operations. Non-admin can only access own account.
@@ -10,7 +18,7 @@
  * Redis layout:
  *   nf_user_data:<username>  (STRING, JSON) contains:
  *     bonus_balance: number (USD, platform cash bonus) — server-managed only
- *     withdrawals:   [{id, amount, payment_account, status, created_at, processed_at?}]
+ *     withdrawals:   [{id, amount, fee, net_amount, payment_account, status, created_at, processed_at?, processed_by?, admin_note?}]
  *        status: 'pending' | 'approved' | 'rejected'
  */
 const path = require('path');
@@ -74,15 +82,23 @@ function computeBalances(userData, totalDnIncome) {
   const pendingTotal = withdrawals
     .filter(w => w && w.status === 'pending')
     .reduce((s, w) => s + (Number(w.amount) || 0), 0);
-  const available = Math.max(0, bonus + totalDnIncome - approvedTotal);
+  const rejectedTotal = withdrawals
+    .filter(w => w && w.status === 'rejected')
+    .reduce((s, w) => s + (Number(w.amount) || 0), 0);
+  // Frozen = pending (申请审核中，已从可用余额扣除)
+  // Available = total earned - approved(已打款) - pending(冻结中)
+  // rejected 不计入扣减（被拒绝后钱回到可用余额）
+  const available = Math.max(0, bonus + totalDnIncome - approvedTotal - pendingTotal);
   return {
     bonus_balance: Number(bonus.toFixed(2)),
     total_earned: Number((bonus + totalDnIncome).toFixed(2)),
     total_dn_income: Number(totalDnIncome.toFixed(2)),
     approved_total: Number(approvedTotal.toFixed(2)),
     pending_total: Number(pendingTotal.toFixed(2)),
+    frozen_total: Number(pendingTotal.toFixed(2)),
+    rejected_total: Number(rejectedTotal.toFixed(2)),
     available_balance: Number(available.toFixed(2)),
-    pending_settlement: 0,
+    pending_settlement: Number(pendingTotal.toFixed(2)),
     withdrawals: withdrawals.slice().sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))),
   };
 }
@@ -109,6 +125,65 @@ module.exports = async (req, res) => {
 
   try {
     if (req.method === 'GET') {
+      // ----- ADMIN: list all withdrawals across users -----
+      const adminList = req.query.admin_list;
+      if (adminList) {
+        if (!isAdmin) {
+          return res.status(403).json({ error: 'Admin only', code: 'ADMIN_ONLY' });
+        }
+        const wantStatus = String(req.query.status || 'pending').toLowerCase();
+        if (!['pending', 'approved', 'rejected', 'all'].includes(wantStatus)) {
+          return res.status(400).json({ error: 'Invalid status filter; use pending|approved|rejected|all' });
+        }
+        if (!redis) return res.status(500).json({ error: 'Redis not configured' });
+
+        // SCAN all nf_user_data:* keys
+        const all = [];
+        let cursor = '0';
+        do {
+          const [next, keys] = await redis.scan(cursor, { match: 'nf_user_data:*', count: 200 });
+          cursor = next;
+          if (keys && keys.length) {
+            // Pipeline GET to be fast
+            const values = await redis.mget(...keys);
+            keys.forEach((k, i) => {
+              const v = values[i];
+              if (!v) return;
+              let ud = v;
+              if (typeof v === 'string') { try { ud = JSON.parse(v); } catch(_) { return; } }
+              if (!ud || typeof ud !== 'object' || !Array.isArray(ud.withdrawals)) return;
+              const uname = k.replace(/^nf_user_data:/, '');
+              for (const w of ud.withdrawals) {
+                if (!w || !w.id) continue;
+                const st = (w.status || 'pending').toLowerCase();
+                if (wantStatus !== 'all' && st !== wantStatus) continue;
+                all.push({
+                  username: uname,
+                  ...w,
+                  dn_income: Number(getPromoterDnIncome(uname)).toFixed(2),
+                });
+              }
+            });
+          }
+        } while (cursor !== '0');
+
+        all.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+
+        // Summary stats
+        const pendingAmt = all.filter(w => (w.status || 'pending').toLowerCase() === 'pending')
+          .reduce((s, w) => s + (Number(w.amount) || 0), 0);
+        const pendingCount = all.filter(w => (w.status || 'pending').toLowerCase() === 'pending').length;
+
+        return res.status(200).json({
+          success: true,
+          filter: wantStatus,
+          total: all.length,
+          pending_count: pendingCount,
+          pending_total_amount: Number(pendingAmt.toFixed(2)),
+          withdrawals: all,
+        });
+      }
+
       let targetUser = canonizeUser(req.query.username);
       // If no username specified, default to JWT user
       if (!targetUser) targetUser = jwtUsername;
@@ -232,7 +307,58 @@ module.exports = async (req, res) => {
       });
     }
 
-    res.setHeader('Allow', 'GET, POST, OPTIONS');
+    // ========== ADMIN APPROVE/REJECT (PATCH) ==========
+    if (req.method === 'PATCH') {
+      if (!isAdmin) {
+        return res.status(403).json({ error: 'Admin only', code: 'ADMIN_ONLY' });
+      }
+      const { username: targetUserRaw, request_id, action, note } = req.body || {};
+      const targetUser = canonizeUser(targetUserRaw);
+      if (!targetUser || !request_id || !['approve', 'reject'].includes(action)) {
+        return res.status(400).json({ error: 'Required fields: username, request_id, action (approve|reject)' });
+      }
+
+      const redisKey = `nf_user_data:${targetUser}`;
+      let userData;
+      try {
+        const raw = await redis.get(redisKey);
+        userData = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+      } catch (e) {
+        return res.status(500).json({ error: 'Failed to load user data', detail: e.message });
+      }
+      if (!userData || typeof userData !== 'object') userData = {};
+      if (!Array.isArray(userData.withdrawals)) userData.withdrawals = [];
+
+      const wIdx = userData.withdrawals.findIndex(w => w && w.id === request_id);
+      if (wIdx < 0) {
+        return res.status(404).json({ error: 'Withdrawal request not found' });
+      }
+      const wd = userData.withdrawals[wIdx];
+      if (wd.status !== 'pending') {
+        return res.status(400).json({ error: `Request already ${wd.status}`, current_status: wd.status });
+      }
+
+      wd.status = action === 'approve' ? 'approved' : 'rejected';
+      wd.processed_at = new Date().toISOString();
+      wd.processed_by = jwtUsername;
+      if (note) wd.admin_note = String(note).slice(0, 500);
+
+      // rejected 时钱自动回到 available_balance（因为 pendingTotal 已不再计入）
+      // approved 时钱从 pending → approved（available_balance 也会自然下降）
+      await redis.set(redisKey, JSON.stringify(userData));
+
+      const dnIncome = getPromoterDnIncome(targetUser);
+      const newBalances = computeBalances(userData, dnIncome);
+
+      return res.status(200).json({
+        success: true,
+        message: `Withdrawal ${wd.status}`,
+        request: wd,
+        balances: newBalances,
+      });
+    }
+
+    res.setHeader('Allow', 'GET, POST, PATCH, OPTIONS');
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error('[withdrawals] error:', err);
