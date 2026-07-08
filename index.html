@@ -2680,7 +2680,7 @@
         </div>
         <div class="splash-form">
             <input type="text" class="splash-input" id="splashUsername" data-i18n-placeholder="username" placeholder="Your username" oninput="checkSplashPasswordNeeded()">
-            <input type="password" class="splash-input" id="splashPassword" data-i18n-placeholder="password_placeholder" placeholder="Password (min 8, letter+digit)">
+            <input type="password" class="splash-input" id="splashPassword" data-i18n-placeholder="password_placeholder" placeholder="Password">
             <button class="splash-btn" onclick="handleSplashLogin()" data-i18n="start_earning"><span data-i18n="start_earning_btn">Start Earning</span></button>
             <div class="splash-tip" id="splashTip" data-i18n="splash_tip">Enter your username and password to login or create account.</div>
 
@@ -3130,7 +3130,7 @@
                     <h3 data-i18n="register_login">Login / Register</h3>
                     <p>Enter username to login or create account</p>
                     <input type="text" class="login-input" id="regUsername" placeholder="Your username" maxlength="50" oninput="checkRegPasswordNeeded()">
-                    <input type="password" class="login-input" id="regPassword" placeholder="Password (min 8, letter+digit)" style="margin-top:8px;">
+                    <input type="password" class="login-input" id="regPassword" placeholder="Create password (8+ chars, letter+digit)" style="margin-top:8px;">
                     <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()" data-i18n="confirm_btn">Confirm</button>
                     <div class="login-tip">Set a strong password (8+ chars, letter+digit) to protect your account</div>
                 </div>
@@ -6164,7 +6164,19 @@ function renderMyBooks() {
                 showToast('Please enter a username', 'error');
                 return;
             }
-            if (password && !/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d\W_]{8,}$/.test(password)) {
+            // Check user existence first; only enforce strong password for brand new registrations
+            let isExistingUser = false;
+            try {
+                const cpResp0 = await fetch('/api/auth/check-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username })
+                });
+                const cp0 = await cpResp0.json().catch(() => ({}));
+                isExistingUser = !!cp0.userExists;
+            } catch(e) {}
+            if (!isExistingUser && password && (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password))) {
                 showToast('Password must be at least 8 characters with a letter and a digit', 'error');
                 return;
             }
@@ -6282,26 +6294,28 @@ function renderMyBooks() {
                 const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Please enter a username';
                 return;
             }
-            if (!password || (password.length < 8) || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
-                // Check if this is an old user without password - if so, allow login
-                try {
-                    const cpResp = await fetch('/api/auth/check-password', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username })
-                    });
-                    const cpResult = await cpResp.json();
-                    if (!cpResult.hasPassword && cpResult.userExists) {
-                        // Old user without password - allow login, will prompt to set password
-                    } else {
-                        // New user or user with password - must enter password
-                        const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = cpResult.hasPassword ? 'Password is required' : 'Password is required (min 8, letter+digit)';
+            if (!password) {
+                const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Please enter your password';
+                return;
+            }
+            // Check if new user - only then enforce strong password
+            try {
+                const cpResp = await fetch('/api/auth/check-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                const cpResult = await cpResp.json();
+                if (!cpResult.hasPassword && !cpResult.userExists) {
+                    // Brand new user registering - enforce strong password
+                    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+                        const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Password must be at least 8 characters with a letter and a digit';
                         return;
                     }
-                } catch(e) {
-                    const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Password is required (min 8, letter+digit)';
-                    return;
                 }
+                // Existing user (with or without password) - submit as-is, backend validates
+            } catch(e) {
+                // If check fails, still submit and let backend decide
             }
             
             try {
