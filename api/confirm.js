@@ -22,7 +22,7 @@ const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
 const DEFAULT_CHANNEL_NAME = 'NovelFlow_SocialMedia_Facebook-grounp_Facebook_xujt';
 const DEFAULT_CHANNEL_NAME_ID = '699ef7b8194eb218db3c2270';
 const STARTING_CODE = 1000;
-const MAX_CODE = 10000;
+const MAX_CODE = 99999;
 
 // Rate limits
 const ANON_IP_LIMIT = 5;
