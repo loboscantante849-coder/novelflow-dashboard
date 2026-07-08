@@ -75,18 +75,20 @@ module.exports = async (req, res) => {
 
         if (!isAdm) {
           const prefix = 'nf_' + currentUser + '_';
-          // data shape: { data: { items: [...] } } OR { items: [...] } OR an array
-          const bucket = (data.data && Array.isArray(data.data.items)) ? data.data.items
-                       : (data.data && Array.isArray(data.data.data)) ? data.data.data
-                       : Array.isArray(data.data) ? data.data
-                       : Array.isArray(data.items) ? data.items
+          // AC API returns items directly on `data` (top-level paged-list shape): {pageIndex,pageSize,total,pageCount,items:[...]}
+          // We also handle nested shapes defensively.
+          const bucket = Array.isArray(data?.items) ? data.items
+                       : (data?.data && Array.isArray(data.data.items)) ? data.data.items
+                       : (data?.data && Array.isArray(data.data.data)) ? data.data.data
+                       : Array.isArray(data?.data) ? data.data
                        : Array.isArray(data) ? data : [];
           const filtered = bucket.filter(it => it && it.remark && String(it.remark).startsWith(prefix));
           // Write back preserving shape
-          if (data.data && Array.isArray(data.data.items)) { data.data.items = filtered; data.data.total = filtered.length; }
-          else if (data.data && Array.isArray(data.data.data)) { data.data.data = filtered; data.data.total = filtered.length; }
-          else if (Array.isArray(data.data)) { data.data = filtered; }
-          else if (Array.isArray(data.items)) { data.items = filtered; }
+          if (Array.isArray(data?.items)) { data.items = filtered; data.total = filtered.length; }
+          else if (data?.data && Array.isArray(data.data.items)) { data.data.items = filtered; data.data.total = filtered.length; }
+          else if (data?.data && Array.isArray(data.data.data)) { data.data.data = filtered; data.data.total = filtered.length; }
+          else if (Array.isArray(data?.data)) { data.data = filtered; }
+          else if (Array.isArray(data)) { /* in-place */ }
         }
       } catch (e) {
         console.warn('[ac-list] server-side filter failed:', e.message);
