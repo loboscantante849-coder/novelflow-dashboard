@@ -7265,9 +7265,10 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 // Server already filters by JWT username - trust server result
                 const filteredItems = items;
 
+                let enrichedItems = [];
                 if (filteredItems.length > 0) {
                     if (emptyEl) emptyEl.style.display = 'none';
-                    const enrichedItems = await Promise.all(filteredItems.map(async (item) => {
+                    enrichedItems = await Promise.all(filteredItems.map(async (item) => {
                         const status = item.status || '';
                         const isDone = (status === 'completed' || status === 2 || status === 'done');
                         const isFail = (status === 'failed' || status === -1 || status === 'fail');
@@ -7701,10 +7702,10 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
                 // Server already filters by JWT username - trust server result
                 const filteredItems = items;
+                let enrichedItems = [];
                 if (result.success && filteredItems.length > 0) {
-                    let hasProcessing = false;
                     // For completed items, fetch their results to get video URLs
-                    const enrichedItems = await Promise.all(filteredItems.map(async (item) => {
+                    enrichedItems = await Promise.all(filteredItems.map(async (item) => {
                         const status = item.status || '';
                         const isDone = (status === 'completed' || status === 2 || status === 'done');
                         const isFail = (status === 'failed' || status === -1 || status === 'fail');
