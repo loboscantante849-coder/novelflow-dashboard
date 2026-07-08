@@ -67,10 +67,12 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function canonizeUser(raw) {
   if (!raw) return null;
-  const s = String(raw).trim().toLowerCase();
+  const s = String(raw).trim();
   if (!s) return null;
-  if (!/^[a-z0-9_.\-]{1,40}$/.test(s)) return null;
-  return s;
+  if (s.length > 50) return null;
+  // Allow CJK, Latin letters, digits, underscore, dot, @, hyphen, space
+  if (!/^[\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9_.@\- ]{1,50}$/.test(s)) return null;
+  return s.toLowerCase();
 }
 
 function computeBalances(userData, totalDnIncome) {
