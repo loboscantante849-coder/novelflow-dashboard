@@ -3130,9 +3130,9 @@
                     <h3 data-i18n="register_login">Login / Register</h3>
                     <p>Enter username to login or create account</p>
                     <input type="text" class="login-input" id="regUsername" placeholder="Your username" maxlength="50" oninput="checkRegPasswordNeeded()">
-                    <input type="password" class="login-input" id="regPassword" placeholder="Create password (8+ chars, letter+digit)" style="margin-top:8px;">
+                    <input type="password" class="login-input" id="regPassword" placeholder="Password" style="margin-top:8px;">
                     <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()" data-i18n="confirm_btn">Confirm</button>
-                    <div class="login-tip">Set a strong password (8+ chars, letter+digit) to protect your account</div>
+                    <div class="login-tip">Set a password to protect your account</div>
                 </div>
 
                 <button class="logout-btn" id="logoutBtn" onclick="handleLogout()">Logout</button>
@@ -6164,22 +6164,7 @@ function renderMyBooks() {
                 showToast('Please enter a username', 'error');
                 return;
             }
-            // Check user existence first; only enforce strong password for brand new registrations
-            let isExistingUser = false;
-            try {
-                const cpResp0 = await fetch('/api/auth/check-password', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ username })
-                });
-                const cp0 = await cpResp0.json().catch(() => ({}));
-                isExistingUser = !!cp0.userExists;
-            } catch(e) {}
-            if (!isExistingUser && password && (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password))) {
-                showToast('Password must be at least 8 characters with a letter and a digit', 'error');
-                return;
-            }
+            // Password strength is validated by backend; frontend only checks non-empty for existing users
             // If no password provided, check if this is an old user without password (same logic as splash login)
             if (!password) {
                 try {
@@ -6199,7 +6184,7 @@ function renderMyBooks() {
                         return;
                     } else {
                         // Brand new user - need password to register
-                        showToast('Please set a password (min 8, letter+digit) to create your account', 'error');
+                        showToast('Please set a password to create your account', 'error');
                         return;
                     }
                 } catch(e) {
@@ -6298,25 +6283,7 @@ function renderMyBooks() {
                 const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Please enter your password';
                 return;
             }
-            // Check if new user - only then enforce strong password
-            try {
-                const cpResp = await fetch('/api/auth/check-password', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username })
-                });
-                const cpResult = await cpResp.json();
-                if (!cpResult.hasPassword && !cpResult.userExists) {
-                    // Brand new user registering - enforce strong password
-                    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
-                        const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Password must be at least 8 characters with a letter and a digit';
-                        return;
-                    }
-                }
-                // Existing user (with or without password) - submit as-is, backend validates
-            } catch(e) {
-                // If check fails, still submit and let backend decide
-            }
+            // Submit directly; backend validates password for both existing users and new registrations
             
             try {
                 const controller = new AbortController();
@@ -7823,7 +7790,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             const passField = document.getElementById('splashPassword');
             const tipEl = document.getElementById('splashTip');
             if (!username || username.length < 2) {
-                if (passField) { passField.style.display = ''; passField.placeholder = 'Password (min 8, letter+digit)'; }
+                if (passField) { passField.style.display = ''; passField.placeholder = 'Password'; }
                 return;
             }
             // Debounce
@@ -7845,11 +7812,11 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                         if (tipEl) tipEl.textContent = 'Welcome back! Just click Start Earning →';
                     } else {
                         // New user - must set password
-                        if (passField) { passField.style.display = ''; passField.placeholder = 'Set a password (min 8, letter+digit)'; }
+                        if (passField) { passField.style.display = ''; passField.placeholder = 'Set a password'; }
                         if (tipEl) tipEl.textContent = 'New here? Set a password to create your account.';
                     }
                 } catch(e) {
-                    if (passField) { passField.style.display = ''; passField.placeholder = 'Password (min 8, letter+digit)'; }
+                    if (passField) { passField.style.display = ''; passField.placeholder = 'Password'; }
                 }
             }, 500);
         }
@@ -7869,10 +7836,10 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                             body: JSON.stringify({ username })
                         });
                         const result = await resp.json();
-                        passField.placeholder = result.hasPassword ? 'Enter your password' : 'Set a password (min 8, letter+digit)';
+                        passField.placeholder = result.hasPassword ? 'Enter your password' : 'Set a password';
                     } catch(e) {}
                 } else {
-                    passField.placeholder = 'Password (min 8, letter+digit)';
+                    passField.placeholder = 'Password';
                 }
             }
         }
@@ -7903,8 +7870,8 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             const confirmPass = document.getElementById('setConfirmPassword')?.value || '';
             const oldRow = document.getElementById('setPasswordOldRow');
 
-            if (!newPass || !/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d\W_]{8,}$/.test(newPass)) {
-                showToast('Password must be at least 8 characters with a letter and a digit', 'error');
+            if (!newPass || newPass.length < 1) {
+                showToast('Please enter a new password', 'error');
                 return;
             }
             if (newPass !== confirmPass) {
@@ -7963,7 +7930,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 if (!result.hasPassword) {
                     // Show gentle prompt after 2 seconds
                     setTimeout(() => {
-                        showToast('💡 Tip: Set a strong password (8+ chars, letter+digit) to protect your account!', 'info');
+                        showToast('💡 Tip: Set a password to protect your account!', 'info');
                     }, 2000);
                 }
             } catch(e) {
