@@ -122,6 +122,102 @@
     "api/ac-upload.js": {
       "memory": 256,
       "maxDuration": 15
+    },
+    "api/ac-kv.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/admin-bulk-assign.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/admin-kv-dump.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/auth/check-password.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/auth/discord-activity.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/auth/login.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/auth/refresh.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/auth/register.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/auth/set-password.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/book-covers.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/books/detail.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/books/search.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/claim-links.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/debug-env.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/diag.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/init-oidc.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/per-link-stats.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/refresh-tokens.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/rewards.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/setup-env.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/test-register.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/user-data.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/withdrawals.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/xmp-materials.js": {
+      "memory": 256,
+      "maxDuration": 30
     }
   },
   "framework": null,
