@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- v2.6.6 - MyBooks sort toggle; My Reels filter only completed; remove Unique chart dup; add New Users chart; remove My Books btn; admin wallet balance sync - 2026-07-08 -->
+    <!-- v2.7.0 - Browse-first mode: login modal instead of forced splash; global topbar with login/register CTA + EN/ES language switch; My Reels filter only completed; remove Unique chart dup; add New Users chart; remove My Books btn; admin wallet balance sync - 2026-07-08 -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -2657,7 +2657,109 @@
         .earn-submit { width: 100%; padding: 13px; border: none; border-radius: 12px; background: linear-gradient(135deg, #533afd, #7b5cff); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; transition: opacity 0.15s; margin-top: 4px; }
         .earn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
         .earn-err { font-size: 11px; color: #ef4444; text-align: center; margin-top: 8px; min-height: 14px; }
-        </style>
+        
+        /* ========== Browse-First Login Modal (v2.7) ========== */
+        .splash-screen.splash-modal {
+            background: rgba(10,10,20,0.65);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            padding: 16px;
+        }
+        .splash-screen.splash-modal .splash-form {
+            background: linear-gradient(135deg, #1c1e54 0%, #2a2476 60%, #5b21b6 100%);
+            border-radius: 20px;
+            padding: 28px 24px 24px;
+            max-width: 360px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,215,0,0.15);
+            position: relative;
+            animation: splashPop 0.25s ease-out;
+        }
+        @keyframes splashPop {
+            from { transform: translateY(20px) scale(0.96); opacity: 0; }
+            to   { transform: translateY(0) scale(1);      opacity: 1; }
+        }
+        .splash-modal-close {
+            position:absolute; top:10px; right:12px;
+            background: rgba(255,255,255,0.12); border:none; color:rgba(255,255,255,0.8);
+            width:30px; height:30px; border-radius:50%; font-size:20px; line-height:28px;
+            cursor:pointer; display:flex; align-items:center; justify-content:center;
+        }
+        .splash-modal-close:hover { background: rgba(255,255,255,0.22); color:#fff; }
+        .splash-screen:not(.splash-modal) .splash-modal-close { display:none; }
+        .splash-screen.splash-modal > .splash-logo,
+        .splash-screen.splash-modal > .splash-title,
+        .splash-screen.splash-modal > .splash-subtitle { display:none; }
+        .splash-screen.splash-modal .splash-form .form-logo {
+            display:flex; align-items:center; justify-content:center;
+            width:60px; height:60px; margin:0 auto 12px;
+            background: rgba(255,255,255,0.18); border-radius:16px;
+            font-size:28px; font-weight:700; color:white; backdrop-filter:blur(8px);
+        }
+        .splash-screen.splash-modal .splash-form .form-title {
+            text-align:center; font-size:22px; font-weight:700; color:white; margin-bottom:4px;
+        }
+        .splash-screen.splash-modal .splash-form .form-sub {
+            text-align:center; font-size:12px; color:rgba(255,255,255,0.65); margin-bottom:18px;
+        }
+
+        /* ========== Global Top Bar ========== */
+        .app-topbar {
+            position: sticky; top:0; z-index:90;
+            display:flex; align-items:center; justify-content:space-between;
+            padding: 10px var(--sp-lg);
+            background: rgba(255,255,255,0.92);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border-bottom:1px solid var(--hairline);
+        }
+        .app-topbar-brand {
+            display:flex; align-items:center; gap:8px;
+            font-size:17px; font-weight:600; color:var(--ink);
+            letter-spacing:-0.3px;
+        }
+        .app-topbar-brand .brand-icon {
+            width:28px; height:28px; background:linear-gradient(135deg,var(--primary),#7c3aed);
+            border-radius:8px; color:white; display:flex; align-items:center; justify-content:center;
+            font-size:14px; font-weight:700;
+        }
+        .app-topbar-actions { display:flex; align-items:center; gap:8px; }
+        .topbar-lang-switch {
+            display:flex; border-radius:12px; overflow:hidden;
+            border:1px solid var(--hairline); background:var(--canvas-soft);
+        }
+        .topbar-lang-btn {
+            padding:5px 9px; font-size:11px; font-weight:600; border:none; background:transparent;
+            color:var(--ink-mute); cursor:pointer; font-family:inherit;
+        }
+        .topbar-lang-btn.active { background:var(--primary); color:#fff; }
+        .topbar-login-btn {
+            padding:7px 14px; font-size:12px; font-weight:700;
+            border:none; border-radius:var(--r-pill); cursor:pointer; font-family:inherit;
+            background:linear-gradient(135deg,#FFD700,#FF6B9D); color:#1c1e54;
+            box-shadow: 0 2px 8px rgba(255,107,157,0.25);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .topbar-login-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,107,157,0.35); }
+        .topbar-user-chip {
+            display:none; align-items:center; gap:6px;
+            padding:5px 10px 5px 5px; border-radius:999px;
+            background:var(--canvas-soft); border:1px solid var(--hairline);
+            font-size:12px; font-weight:600; color:var(--ink);
+        }
+        .topbar-user-chip.show { display:flex; }
+        .topbar-user-chip .chip-avatar {
+            width:24px; height:24px; border-radius:50%;
+            background:linear-gradient(135deg,var(--primary),#7c3aed);
+            color:white; font-size:11px; font-weight:700;
+            display:flex; align-items:center; justify-content:center;
+        }
+        .topbar-user-chip .chip-logout {
+            background:transparent; border:none; color:var(--ruby); cursor:pointer;
+            font-size:14px; padding:0 2px; line-height:1;
+        }
+        .splash-lang-btn { display:none !important; }
+
+    </style>
 
 <!-- VERSION: 20260518-204300 --></head>
 <body>
@@ -2669,16 +2771,13 @@
 
 <!-- VERSION: 20260518-2108 -->
     <!-- Splash / Login Screen -->
-    <div class="splash-screen" id="splashScreen">
+    <div class="splash-screen splash-modal hidden" id="splashScreen">
         <div class="splash-logo">N</div>
         <div class="splash-title" data-i18n="app_name">NovelFlow</div>
         <div class="splash-subtitle" data-i18n="splash_subtitle">Earn money promoting books</div>
         
-        <div style="position:absolute;top:12px;right:12px;display:flex;gap:0;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.15);">
-            <button style="padding:4px 10px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:inherit;" class="splash-lang-btn" data-lang="en" onclick="switchLang('en');document.querySelectorAll('.splash-lang-btn').forEach(b=>b.style.background=b.dataset.lang==='en'?'rgba(255,255,255,0.4)':'transparent');document.querySelectorAll('.splash-lang-btn').forEach(b=>b.style.color=b.dataset.lang==='en'?'white':'rgba(255,255,255,0.6)')">EN</button>
-            <button style="padding:4px 10px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:inherit;" class="splash-lang-btn" data-lang="es" onclick="switchLang('es');document.querySelectorAll('.splash-lang-btn').forEach(b=>b.style.background=b.dataset.lang==='es'?'rgba(255,255,255,0.4)':'transparent');document.querySelectorAll('.splash-lang-btn').forEach(b=>b.style.color=b.dataset.lang==='es'?'white':'rgba(255,255,255,0.6)')">ES</button>
-        </div>
-        <div class="splash-form">
+        
+        <div class="splash-form"><button class="splash-modal-close" onclick="closeAuthModal()" aria-label="Close">×</button><div class="form-logo">N</div><div class="form-title" data-i18n="app_name">NovelFlow</div><div class="form-sub" data-i18n="auth_modal_sub">Login or sign up to start earning</div>
             <input type="text" class="splash-input" id="splashUsername" data-i18n-placeholder="username" placeholder="Your username" oninput="checkSplashPasswordNeeded()">
             <input type="password" class="splash-input" id="splashPassword" data-i18n-placeholder="password_placeholder" placeholder="Password">
             <button class="splash-btn" onclick="handleSplashLogin()" data-i18n="start_earning"><span data-i18n="start_earning_btn">Start Earning</span></button>
@@ -2691,6 +2790,26 @@
     </div>
 
     <div class="app-container">
+        <!-- v2.7 Global top bar: brand + lang switch + login CTA -->
+        <div class="app-topbar" id="appTopbar">
+            <div class="app-topbar-brand">
+                <div class="brand-icon">N</div>
+                <span data-i18n="app_name">NovelFlow</span>
+            </div>
+            <div class="app-topbar-actions">
+                <div class="topbar-lang-switch" id="topbarLangSwitch">
+                    <button class="topbar-lang-btn active" data-lang="en" onclick="switchLang('en')">EN</button>
+                    <button class="topbar-lang-btn" data-lang="es" onclick="switchLang('es')">ES</button>
+                </div>
+                <button class="topbar-login-btn" id="topbarLoginBtn" onclick="requireLogin()" data-i18n="login_register">Login / Register</button>
+                <div class="topbar-user-chip" id="topbarUserChip">
+                    <div class="chip-avatar" id="topbarAvatar">?</div>
+                    <span id="topbarUsername">User</span>
+                    <button class="chip-logout" onclick="handleLogout()" title="Logout">⎋</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Tab 1: Home -->
         <div class="tab-content active" id="tab-home">
             <!-- Banner — Gradient Mesh with Floating Coins -->
@@ -2712,7 +2831,7 @@
                         <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:4px;" data-i18n="perf_premium_sub">Login to unlock your earnings dashboard</div>
                     </div>
                     <div style="text-align:center;margin-top:12px;">
-                        <button class="perf-login-btn" onclick="switchTab('profile')" data-i18n="login_now">Login →</button>
+                        <button class="perf-login-btn" onclick="requireLogin()" data-i18n="login_now">Login →</button>
                     </div>
                 </div>
                 <!-- Logged in state (hidden by default) -->
@@ -2722,7 +2841,7 @@
                             <span class="perf-header-icon">📊</span>
                             <span class="perf-header-title" data-i18n="perf_dashboard_title">Performance Dashboard</span>
                         </div>
-                        <button class="perf-login-btn" onclick="switchTab('submit')" style="font-size:11px;padding:5px 14px;" data-i18n="start_earning_btn">Start Earning →</button>
+                        <button class="perf-login-btn" onclick="requireLoginAndGo('submit')" style="font-size:11px;padding:5px 14px;" data-i18n="start_earning_btn">Start Earning →</button>
                     </div>
                     <div class="perf-grid">
                         <div class="perf-stat">
@@ -3392,6 +3511,9 @@
                 splash_subtitle: 'Earn money promoting books',
                 start_earning: 'Start Earning',
                 username: 'Username',
+                auth_modal_sub: 'Login or sign up to start earning',
+                login_register: 'Login / Register',
+                splash_tip: 'Enter your username and password to login or create account.',
                 
                 // Earn tab
                 earn_money: 'Earn Money',
@@ -3570,6 +3692,9 @@
                 splash_subtitle: 'Gana dinero promoviendo libros',
                 start_earning: 'Empezar a Ganar',
                 username: 'Usuario',
+                auth_modal_sub: 'Inicia sesión o regístrate para empezar a ganar',
+                login_register: 'Iniciar sesión / Registrarse',
+                splash_tip: 'Ingresa tu usuario y contraseña para iniciar sesión o crear cuenta.',
                 
                 // Earn tab
                 earn_money: 'Gana Dinero',
@@ -3752,6 +3877,13 @@
             // Update toggle buttons
             document.querySelectorAll('.lang-switch-btn').forEach(b => {
                 b.classList.toggle('active', b.dataset.lang === lang);
+            });
+            document.querySelectorAll('.topbar-lang-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.lang === lang);
+            });
+            document.querySelectorAll('.splash-lang-btn').forEach(b => {
+                b.style.background = b.dataset.lang === lang ? 'rgba(255,255,255,0.4)' : 'transparent';
+                b.style.color = b.dataset.lang === lang ? 'white' : 'rgba(255,255,255,0.6)';
             });
         }
         
@@ -4916,6 +5048,10 @@
                         claimAnonymousLinks();
                     }
                     updateProfileUI();
+                    if (window.__pendingBookId) {
+                        const bk = window.__pendingBookId; window.__pendingBookId = null;
+                        setTimeout(()=>{ try { _origOpenRecommendModal(bk); } catch(e){} }, 150);
+                    }
                     return;
                 }
 
@@ -6163,6 +6299,7 @@ function renderMyBooks() {
                 const usernameGroup = usernameInput ? usernameInput.closest('.form-group') : null;
                 if (usernameGroup) usernameGroup.style.display = '';
             }
+            if (typeof updateTopbarUI === 'function') updateTopbarUI();
         }
 
         async function handleLocalRegister() {
@@ -6329,8 +6466,9 @@ function renderMyBooks() {
                 localStorage.setItem('novelflow_last_user', username);
                 localStorage.setItem('novelflow_splash_done', 'true');
                 
-                document.getElementById('splashScreen').classList.add('hidden');
+                afterLoginContinue();
                 updateProfileUI();
+                updateTopbarUI();
                 loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo(); updateReelsStatusBar();
                 loadMyBooks();
                 loadPerformanceDashboard();
@@ -6352,8 +6490,9 @@ function renderMyBooks() {
                 localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
                 localStorage.setItem('novelflow_last_user', username);
                 localStorage.setItem('novelflow_splash_done', 'true');
-                document.getElementById('splashScreen').classList.add('hidden');
+                afterLoginContinue();
                 updateProfileUI();
+                updateTopbarUI();
                 loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo(); updateReelsStatusBar();
                 loadMyBooks();
                 loadPerformanceDashboard();
@@ -6365,16 +6504,13 @@ function renderMyBooks() {
         
         function skipLogin() {
             localStorage.setItem('novelflow_splash_done', 'true');
-            document.getElementById('splashScreen').classList.add('hidden');
+            closeAuthModal();
         }
         
         function checkSplashStatus() {
-            const splashDone = localStorage.getItem('novelflow_splash_done');
-            if (splashDone === 'true') {
-                document.getElementById('splashScreen').classList.add('hidden');
-            } else {
-                document.getElementById('splashScreen').classList.remove('hidden');
-            }
+            // Browse-first: splash never auto-shows on load. Only opened as login modal.
+            const splash = document.getElementById('splashScreen');
+            if (splash) { splash.classList.add('hidden'); splash.classList.add('splash-modal'); }
         }
 
         
@@ -6905,6 +7041,100 @@ function renderMyBooks() {
 
         // Resize chart on window resize
         window.addEventListener('resize', () => { if (_lastPerfData) renderTrendChart(_lastPerfData); });
+
+
+        // ========== Browse-First Auth Modal (v2.7) ==========
+        function openAuthModal(redirectTab) {
+            const splash = document.getElementById('splashScreen');
+            if (!splash) return;
+            if (AppState.isLoggedIn) { closeAuthModal(); return; }
+            splash.classList.add('splash-modal');
+            splash.classList.remove('hidden');
+            const err = document.getElementById('splashError'); if (err) err.textContent = '';
+            const tip = document.getElementById('splashTip');
+            if (tip) { tip.setAttribute('data-i18n','splash_tip'); tip.textContent = getText('splash_tip'); }
+            setTimeout(() => { const u = document.getElementById('splashUsername'); if (u) u.focus(); }, 80);
+            if (redirectTab) window.__authRedirectTab = redirectTab;
+        }
+        function closeAuthModal() {
+            const splash = document.getElementById('splashScreen');
+            if (splash) splash.classList.add('hidden');
+        }
+        function requireLogin(redirectTab) {
+            if (AppState.isLoggedIn) {
+                if (redirectTab) switchTab(redirectTab);
+                return true;
+            }
+            openAuthModal(redirectTab || null);
+            return false;
+        }
+        function requireLoginAndGo(tab) {
+            if (AppState.isLoggedIn) { switchTab(tab); return; }
+            openAuthModal(tab);
+        }
+        function updateTopbarUI() {
+            const btn = document.getElementById('topbarLoginBtn');
+            const chip = document.getElementById('topbarUserChip');
+            const avatar = document.getElementById('topbarAvatar');
+            const uname = document.getElementById('topbarUsername');
+            if (!btn || !chip) return;
+            if (AppState.isLoggedIn && AppState.user) {
+                btn.style.display = 'none';
+                chip.classList.add('show');
+                if (avatar) avatar.textContent = (AppState.user.username||'?').charAt(0).toUpperCase();
+                if (uname) uname.textContent = AppState.user.username || 'User';
+            } else {
+                btn.style.display = '';
+                chip.classList.remove('show');
+            }
+        }
+        function afterLoginContinue() {
+            closeAuthModal();
+            updateTopbarUI();
+            const tab = window.__authRedirectTab;
+            window.__authRedirectTab = null;
+            if (tab) switchTab(tab);
+            if (window.__pendingBookId) {
+                const bk = window.__pendingBookId; window.__pendingBookId = null;
+                setTimeout(()=>{ try { _origOpenRecommendModal(bk); } catch(e){} }, 150);
+            }
+        }
+
+        const _origOpenRecommendModal = openRecommendModal;
+        openRecommendModal = function(bookId) {
+            if (!AppState.isLoggedIn) {
+                window.__pendingBookId = bookId;
+                openAuthModal();
+                return;
+            }
+            _origOpenRecommendModal(bookId);
+        };
+        const _origConfirmRecommend = confirmRecommend;
+        confirmRecommend = async function() {
+            if (!AppState.isLoggedIn) { openAuthModal(); return; }
+            return _origConfirmRecommend();
+        };
+        const _origHandleSubmit = handleSubmit;
+        handleSubmit = async function() {
+            if (!AppState.isLoggedIn) { openAuthModal('submit'); return; }
+            return _origHandleSubmit();
+        };
+        document.addEventListener('DOMContentLoaded', () => {
+            const earnCard = document.getElementById('earnCard');
+            if (earnCard) {
+                earnCard.addEventListener('click', (ev) => {
+                    if (!AppState.isLoggedIn) {
+                        ev.stopImmediatePropagation();
+                        ev.preventDefault();
+                        openAuthModal('profile');
+                    }
+                }, true);
+            }
+            // sync initial lang state to topbar
+            document.querySelectorAll('.topbar-lang-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.lang === (AppState.currentLang||'en'));
+            });
+        });
 
         // ========== Init =========="
         document.addEventListener('DOMContentLoaded', async () => {
