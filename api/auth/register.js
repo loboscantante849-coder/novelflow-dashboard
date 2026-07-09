@@ -200,6 +200,34 @@ module.exports = async (req, res) => {
 
     setAuthCookies(res, accessToken, refreshToken, userInfo);
 
+    // ---------- New user notification (Feishu webhook) ----------
+    if (isNewUser) {
+      const feishuWebhook = process.env.FEISHU_SIGNUP_WEBHOOK;
+      if (feishuWebhook) {
+        // Best-effort fire-and-forget, don't block response
+        const ref = (req.query && (req.query.ref || req.query.linkId)) ||
+                    (req.headers && req.headers['x-referral']) ||
+                    (req.headers && req.headers.referer && (() => {
+                      try { const u = new URL(req.headers.referer); return u.searchParams.get('code') || u.searchParams.get('linkId') || ''; } catch { return ''; } })()) ||
+                    '';
+        const ua = (req.headers && req.headers['user-agent']) || '';
+        const payload = {
+          msg_type: 'interactive',
+          card: {
+            header: { title: { tag: 'plain_text', content: '🎉 新用户注册' }, template: 'green' },
+            elements: [
+              { tag: 'div', text: { tag: 'lark_md', content: `**用户名：** ${cleanUsername}\n**来源IP：** ${ip}\n**归因code/link：** ${ref || '自然流量'}\n**UA：** ${ua.slice(0,200)}` } }
+            ]
+          }
+        };
+        fetch(feishuWebhook, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(() => {});
+      }
+    }
+
     return res.status(200).json({
       success: true,
       username: cleanUsername,
