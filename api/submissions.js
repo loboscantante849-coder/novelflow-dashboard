@@ -4,6 +4,7 @@
  * Admin key → full data. No key → public-safe fields only.
  */
 const { setCORSHeaders } = require('./_lib/cors');
+const { checkAdminKey } = require('./_lib/security');
 const { Redis } = require('@upstash/redis');
 
 module.exports = async (req, res) => {
@@ -26,10 +27,8 @@ module.exports = async (req, res) => {
       }
     }
 
-    // Check admin key
-    const adminKey = process.env.ADMIN_KEY;
-    const providedKey = req.headers['x-admin-key'] || req.query.adminKey;
-    const isAdmin = adminKey && providedKey === adminKey;
+    // Check admin key (timing-safe, header only)
+    const isAdmin = checkAdminKey(req);
 
     if (isAdmin) {
       return res.status(200).json(submissions);

@@ -1,46 +1,41 @@
 /**
  * POST /api/admin-bulk-assign — Bulk assign Anonymous entries to users
  * Body: { assignments: [{ username: "xxx", codes: ["1234","5678"] }] }
- * Admin only (xujt or admin)
- * Uses KV (no GitHub API).
+ * Admin only (verified via Redis nf_user_data:<u>.accountType === 'admin' OR x-admin-key)
  */
 const { setCORSHeaders } = require('./_lib/cors');
-const { verifyJWT } = require('./_lib/jwt');
+const { getAuthPayload, isAdminUser, checkAdminKey } = require('./_lib/security');
 const { Redis } = require('@upstash/redis');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
-
-  // Auth check
-  const cookieHeader = req.headers.cookie || '';
-  const cookieMatch = cookieHeader.match(/nf_token=([^;]+)/);
-  const authHeader = req.headers.authorization;
-  let username = null;
-  if (cookieMatch) { const p = verifyJWT(cookieMatch[1]); if (p?.username) username = p.username; }
-  if (!username && authHeader?.startsWith('Bearer ')) { const p = verifyJWT(authHeader.slice(7)); if (p?.username) username = p.username; }
-  if (!username || !['admin', 'xujt'].includes(username.toLowerCase())) {
-    return res.status(403).json({ error: 'Admin only' });
-  }
-
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Auth: JWT admin or x-admin-key header
+  let isAdm = checkAdminKey(req);
+  const payload = getAuthPayload(req);
+  const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+  if (!isAdm && payload) {
+    isAdm = await isAdminUser(redis, payload.username);
+  }
+  if (!isAdm) return res.status(403).json({ error: 'Admin only' });
+
+  const username = payload?.username || 'admin';
 
   const { assignments } = req.body;
   if (!assignments || !Array.isArray(assignments)) {
     return res.status(400).json({ error: 'Missing assignments array' });
   }
 
-  const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
-
   try {
-    // Collect all codes to look up
     const allCodes = assignments.flatMap(a => a.codes.map(c => String(c)));
     const values = await Promise.all(allCodes.map(c => redis.hget('nf_subs', c)));
 
     let totalAssigned = 0;
     const results = [];
     const updates = {};
-    const setOps = []; // { type: 'sadd'|'srem', key, member }
+    const setOps = [];
 
     for (const { username: targetUser, codes } of assignments) {
       let assigned = 0;
@@ -65,7 +60,6 @@ module.exports = async (req, res) => {
       return res.status(200).json({ success: true, assigned: 0, message: 'No new assignments needed', results });
     }
 
-    // Batch update KV
     await redis.hset('nf_subs', updates);
     for (const op of setOps) {
       if (op.type === 'sadd') await redis.sadd(op.key, op.member);

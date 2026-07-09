@@ -1,12 +1,18 @@
 /**
  * Shared security helpers: rate limiting, input validation, auth extraction.
- * v2.5.1 - Security P0 fixes - 2026-07-06
+ * v2.5.2 - Security fixes - 2026-07-09
+ * - Removed STATIC_ADMINS hardcoded whitelist; admin status is Redis-driven only.
  */
 const { verifyJWT } = require('./auth');
+const crypto = require('crypto');
 const { Redis } = require('@upstash/redis');
 
-// Static admin usernames (also honored via nf_user_data:<u>.accountType === 'admin')
-const STATIC_ADMINS = ['xujt', 'admin'];
+// Reserved usernames that cannot be registered
+const RESERVED_USERNAMES = new Set([
+  'admin', 'administrator', 'root', 'xujt', 'system', 'novelflow',
+  'api', 'verifycron', 'support', 'help', 'moderator', 'mod',
+  'official', 'staff', 'owner', 'webmaster', 'null', 'undefined'
+]);
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -52,13 +58,12 @@ function getAuthPayload(req) {
 
 /**
  * Check whether a username is an admin.
- * Uses static list + optional nf_user_data:<u>.accountType==='admin'.
- * This is async because it may touch Redis for non-static users.
+ * Admin status is determined SOLELY by nf_user_data:<u>.accountType === 'admin'
+ * or nf_user_data:<u>.isAdmin === true in Redis. No hardcoded whitelist.
  */
 async function isAdminUser(redis, username) {
   const u = String(username || '').toLowerCase();
   if (!u) return false;
-  if (STATIC_ADMINS.includes(u)) return true;
   if (!redis) return false;
   try {
     const raw = await redis.get('nf_user_data:' + u);
@@ -66,6 +71,28 @@ async function isAdminUser(redis, username) {
     const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
     return data && (data.accountType === 'admin' || data.isAdmin === true);
   } catch { return false; }
+}
+
+/** Timing-safe string comparison for admin keys etc. */
+function timingSafeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    // Still do a compare to avoid length oracle
+    const dummy = Buffer.alloc(Math.max(bufA.length, bufB.length));
+    return crypto.timingSafeEqual(dummy, Buffer.alloc(dummy.length)) && false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+/** Validate x-admin-key header (timing-safe). Key must come from header, not query. */
+function checkAdminKey(req) {
+  const expected = process.env.ADMIN_KEY;
+  if (!expected) return false;
+  const provided = req.headers['x-admin-key'];
+  if (!provided || typeof provided !== 'string') return false;
+  return timingSafeEqual(provided, expected);
 }
 
 /**
@@ -121,15 +148,23 @@ function isStrongPassword(pwd) {
   return /[A-Za-z]/.test(pwd) && /[0-9]/.test(pwd);
 }
 
+/** Check whether a username is reserved (cannot be registered). */
+function isReservedUsername(username) {
+  return RESERVED_USERNAMES.has(String(username || '').toLowerCase());
+}
+
 module.exports = {
-  STATIC_ADMINS,
+  RESERVED_USERNAMES,
   getRedis,
   parseCookies,
   getClientIp,
   getAuthPayload,
   isAdminUser,
+  timingSafeEqual,
+  checkAdminKey,
   checkRateLimit,
   validateString,
   stripHtml,
   isStrongPassword,
+  isReservedUsername,
 };

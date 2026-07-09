@@ -158,8 +158,15 @@ module.exports = async (req, res) => {
   const { mode = 'trending', category, lang = 'en', limit = 20 } = req.query || {};
   const effectiveLimit = Math.min(parseInt(limit) || 20, 50);
   
-  // Refresh mode: clear cache for this lang/category and re-fetch
+  // Refresh mode: clear cache and re-fetch (admin or Vercel cron only)
   if (mode === 'refresh') {
+    // Allow Vercel cron (x-vercel-cron header) or x-admin-key
+    const isCron = req.headers['x-vercel-cron'] === '1';
+    const { checkAdminKey } = require('./_lib/security');
+    const isAdm = checkAdminKey(req);
+    if (!isCron && !isAdm) {
+      return res.status(403).json({ error: 'Admin key or cron trigger required' });
+    }
     const patterns = ['all', 'Romance', 'Werewolf', 'Billionaire', 'Teenfiction/Young Adult', 'Fantasy', 'Mafia', 'LGBT'];
     const langs = ['en', 'es', ''];
     for (const cat of patterns) {

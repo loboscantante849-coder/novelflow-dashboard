@@ -16,13 +16,18 @@ const {
 
 const { setCORSHeaders } = require('../_lib/cors');
 
-const CLIENT_ID = '1504779503237333033';
-const CLIENT_SECRET = 'MWBTsNd-5Ot-0gQ8CzzeYbucCUjQdmxS';
+const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1504779503237333033';
+const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  if (!CLIENT_SECRET) {
+    console.error('[discord-activity] DISCORD_CLIENT_SECRET not configured');
+    return res.status(503).json({ error: 'Auth service unavailable' });
   }
 
   try {

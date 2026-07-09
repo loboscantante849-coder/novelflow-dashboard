@@ -1,26 +1,22 @@
 /**
  * Shared Auth Module - Access Token + Refresh Token
  * 
- * Access Token: 24h expiry, sent with every request
+ * Access Token: 7d expiry, sent with every request
  * Refresh Token: 30d expiry, only sent to /api/auth/refresh
  * Sliding window: refresh renews both tokens, so active users never need to re-login
  */
 
 const crypto = require('crypto');
 
-const JWT_SECRET = process.env.JWT_SECRET;
-
 const ACCESS_MAX_AGE = 7 * 24 * 60 * 60;    // 7 days
 const REFRESH_MAX_AGE = 30 * 24 * 60 * 60;   // 30 days
 
 function getSecret() {
-  if (!JWT_SECRET) {
-    if (process.env.VERCEL === '1') {
-      console.error('⚠️ JWT_SECRET not set in production! Using fallback - set JWT_SECRET ASAP.');
-    }
-    return 'nf-dev-secret-not-for-production-use';
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is not configured');
   }
-  return JWT_SECRET;
+  return secret;
 }
 
 // ========== JWT Core ==========
@@ -52,20 +48,12 @@ function verifyJWT(token) {
 
     const [encodedHeader, encodedPayload, signature] = parts;
 
-    // Try current secret first
     const expectedSignature = crypto
       .createHmac('sha256', secret)
       .update(`${encodedHeader}.${encodedPayload}`)
       .digest('base64url');
 
-    if (signature !== expectedSignature) {
-      // Fallback: try dev secret (for tokens created before JWT_SECRET was set)
-      const devSig = crypto
-        .createHmac('sha256', 'nf-dev-secret-not-for-production-use')
-        .update(`${encodedHeader}.${encodedPayload}`)
-        .digest('base64url');
-      if (signature !== devSig) return null;
-    }
+    if (signature !== expectedSignature) return null;
 
     const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString());
 

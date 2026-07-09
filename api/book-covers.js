@@ -3,6 +3,7 @@
  * Returns cover URLs for given bookIds, cached in KV
  */
 const { setCORSHeaders } = require('./_lib/cors');
+const { checkAdminKey } = require('./_lib/security');
 const { getBookstoreToken } = require('./_lib/oidc-token');
 const { Redis } = require('@upstash/redis');
 
@@ -21,9 +22,17 @@ module.exports = async (req, res) => {
   const redis = getRedis();
   const token = await getBookstoreToken();
 
-  // POST /api/book-covers — backfill all covers
+  // POST /api/book-covers — backfill all covers (admin only, with cooldown lock)
   if (req.method === 'POST') {
+    if (!checkAdminKey(req)) return res.status(403).json({ error: 'Admin key required' });
     if (!token || !redis) return res.status(500).json({ error: 'Missing token or KV' });
+
+    // Cooldown lock: one backfill per 5 minutes max
+    const lockKey = 'cover_backfill_lock';
+    const locked = await redis.set(lockKey, '1', { nx: true, ex: 300 });
+    if (!locked) {
+      return res.status(429).json({ error: 'Backfill already running or ran recently (5min cooldown)' });
+    }
     
     // Get all bookIds from nf_subs
     const allEntries = await redis.hgetall('nf_subs');

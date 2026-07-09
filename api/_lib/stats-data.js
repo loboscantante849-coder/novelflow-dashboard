@@ -20,7 +20,12 @@ const LINK_STATS_URL =
 const CACHE_TTL_MS = 5 * 60 * 1000;          // 5 minutes
 const FETCH_TIMEOUT_MS = 8000;               // 8s per attempt
 const FETCH_RETRIES = 1;                     // retry once on failure
-const ADMIN_USERNAMES = ['xujt', 'admin'];
+// ADMIN_USERNAMES removed — admin status is Redis-driven via isAdminUser() in security.js.
+// This isAdmin() kept as backward-compat signature: always returns false (no static whitelist).
+// Callers should use isAdminUser(redis, jwtUsername) from _lib/security.js instead.
+function isAdmin(_username) {
+  return false;
+}
 
 /**
  * Known username aliases that don't canonize to the same key the pipeline uses.
@@ -109,9 +114,7 @@ function resolvePromoterKey(rawName, adData) {
   return canon; // fallback: return canon even if no by_promoter entry exists
 }
 
-function isAdmin(username) {
-  return ADMIN_USERNAMES.includes(String(username || '').toLowerCase());
-}
+// isAdmin defined above (always false); static whitelist removed.
 
 async function fetchJsonWithTimeout(url, timeoutMs = FETCH_TIMEOUT_MS) {
   const controller = new AbortController();
@@ -400,5 +403,4 @@ module.exports = {
   buildAdIdLookup,
   zeroStats,
   r2,
-  ADMIN_USERNAMES,
 };

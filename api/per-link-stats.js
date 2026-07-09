@@ -16,8 +16,9 @@
  *                 daily: { dt: {visits, unique_users, new_users, income} } } ] }
  */
 const { setCORSHeaders } = require('./_lib/cors');
+const { getAuthPayload, isAdminUser } = require('./_lib/security');
 const {
-  getRedis, canonize, resolvePromoterKey, isAdmin,
+  getRedis, canonize, resolvePromoterKey,
   getAdIdDetails, getLegacyLinkStats,
   loadSubmissions, loadCovers,
   buildAdIdLookup, zeroStats, r2,
@@ -27,21 +28,41 @@ module.exports = async (req, res) => {
   setCORSHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const username = req.query.username || (req.body && req.body.username);
+  // ---- AUTH: must be logged in ----
+  const payload = getAuthPayload(req);
+  if (!payload) return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+  const jwtUsername = payload.username;
+
+  // Client-requested username (for self or admin cross-view)
+  const requestedUsername = req.query.username || (req.body && req.body.username);
+  const redis = getRedis();
+
+  // Admin check via Redis (no static whitelist)
+  let admin = false;
+  if (redis) {
+    try { admin = await isAdminUser(redis, jwtUsername); } catch(e) { admin = false; }
+  }
+
+  // Non-admin can only view their own stats
+  let username;
+  if (admin) {
+    username = requestedUsername || jwtUsername;
+  } else {
+    username = jwtUsername;
+  }
   if (!username) return res.status(400).json({ error: 'username is required' });
 
   const debugLog = [];
-  const redis = getRedis();
 
   const empty = () => res.status(200).json({
-    username, isAdmin: isAdmin(username),
+    username, isAdmin: admin,
     total_visits: 0, total_unique: 0, total_new: 0, total_income: 0,
     last_updated: null,
     daily: {}, links: [], debug: debugLog, version: 'v6-unified-funnel',
   });
 
   try {
-    const admin = isAdmin(username);
+    // admin determined above via isAdminUser(redis, jwtUsername)
     let usernameCanon = null;
 
     const adData = await getAdIdDetails(debugLog);
@@ -327,7 +348,7 @@ module.exports = async (req, res) => {
     console.error('[per-link-stats] Error:', error);
     debugLog.push(`FATAL: ${error.message}`);
     return res.status(200).json({
-      username, isAdmin: isAdmin(username),
+      username, isAdmin: admin,
       total_visits: 0, total_unique: 0, total_new: 0, total_income: 0,
       daily: {}, links: [],
       debug: debugLog, version: 'v6-unified-funnel',

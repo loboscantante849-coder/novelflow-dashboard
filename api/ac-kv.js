@@ -2,19 +2,13 @@
  * AC Token KV Store - Admin Only
  * Uses Upstash Redis to persist and auto-rotate AC tokens
  * 
- * POST /api/ac-kv  - Set token: { action: 'set', token: 'xxx' } (requires admin key)
+ * POST /api/ac-kv  - Set token: { action: 'set', token: 'xxx' } (requires x-admin-key header)
  * GET  /api/ac-kv  - Health check only (never exposes token value)
  */
 
 const { Redis } = require('@upstash/redis');
-
-// Simple admin key check - token must match ADMIN_KEY env var
-function isAdmin(req) {
-  const adminKey = process.env.ADMIN_KEY;
-  if (!adminKey) return false; // If no ADMIN_KEY set, deny all access
-  const provided = req.headers['x-admin-key'] || (req.body && req.body.adminKey) || '';
-  return provided === adminKey;
-}
+const crypto = require('crypto');
+const { setCORSHeaders } = require('./_lib/cors');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -24,12 +18,20 @@ function getRedis() {
   });
 }
 
-const { setCORSHeaders } = require('./_lib/cors');
+// Timing-safe admin key check; only accepts x-admin-key header (no body/query)
+function isAdmin(req) {
+  const adminKey = process.env.ADMIN_KEY;
+  if (!adminKey) return false;
+  const provided = req.headers['x-admin-key'];
+  if (!provided || typeof provided !== 'string') return false;
+  const bufA = Buffer.from(provided);
+  const bufB = Buffer.from(adminKey);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
-  // CORS handled by setCORSHeaders;
-  
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const redis = getRedis();
@@ -38,7 +40,6 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'GET') {
-    // Health check only - never expose token value via GET
     try {
       const token = await redis.get('ac_token');
       return res.status(200).json({ configured: !!token, status: 'ok' });
@@ -48,13 +49,12 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'POST') {
-    // Require admin key for writes
     if (!isAdmin(req)) {
       return res.status(403).json({ error: 'Admin key required. Set x-admin-key header.' });
     }
     
     const { action, token } = req.body || {};
-    if (action === 'set' && token) {
+    if (action === 'set' && token && typeof token === 'string') {
       await redis.set('ac_token', token);
       return res.status(200).json({ success: true, message: 'Token saved' });
     }

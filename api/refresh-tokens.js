@@ -4,6 +4,7 @@
  * Requires ADMIN_KEY for security.
  */
 const { setCORSHeaders } = require('./_lib/cors');
+const { checkAdminKey } = require('./_lib/security');
 
 const OIDC_TOKEN_URL = 'https://sts.anystories.app/connect/token';
 const OIDC_CLIENT_ID = 'AuthClient';
@@ -12,10 +13,9 @@ module.exports = async (req, res) => {
   setCORSHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // Auth check
-  const adminKey = req.headers['x-admin-key'] || req.query.admin_key;
-  if (!adminKey || adminKey !== process.env.ADMIN_KEY) {
-    return res.status(403).json({ error: 'Admin key required' });
+  // Auth check (timing-safe, header only)
+  if (!checkAdminKey(req)) {
+    return res.status(403).json({ error: 'Admin key required (set x-admin-key header)' });
   }
 
   if (req.method !== 'POST' && req.method !== 'GET') {

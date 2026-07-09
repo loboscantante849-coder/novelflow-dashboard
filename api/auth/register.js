@@ -56,6 +56,11 @@ async function rlCheck(redis, key, limit, windowSec) {
 
 const USERNAME_RE = /^[\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9_.@\- ]{1,50}$/;
 const PASSWORD_MIN = 8;
+const RESERVED_USERNAMES = new Set([
+  'admin', 'administrator', 'root', 'xujt', 'system', 'novelflow',
+  'api', 'verifycron', 'support', 'help', 'moderator', 'mod',
+  'official', 'staff', 'owner', 'webmaster', 'null', 'undefined'
+]);
 function isValidPassword(p) {
   if (typeof p !== 'string' || p.length < PASSWORD_MIN) return false;
   return /[A-Za-z]/.test(p) && /[0-9]/.test(p);
@@ -85,6 +90,11 @@ module.exports = async (req, res) => {
       return res.status(400).json({
         error: 'Invalid username (use letters, numbers, Chinese chars, underscore, dot, @, space, hyphen; 1-50 chars)'
       });
+    }
+
+    // Reject reserved usernames to prevent admin privilege escalation
+    if (RESERVED_USERNAMES.has(cleanUsername.toLowerCase())) {
+      return res.status(400).json({ error: 'This username is not available' });
     }
 
     const redis = getRedis();

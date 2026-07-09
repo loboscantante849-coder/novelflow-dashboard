@@ -2,14 +2,14 @@
  * POST /api/setup-env - Set Vercel env vars (one-time setup, admin only)
  */
 const { setCORSHeaders } = require('./_lib/cors');
+const { checkAdminKey } = require('./_lib/security');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const adminKey = req.headers['x-admin-key'];
-  if (!adminKey || adminKey !== process.env.ADMIN_KEY) {
-    return res.status(403).json({ error: 'Admin key required' });
+  if (!checkAdminKey(req)) {
+    return res.status(403).json({ error: 'Admin key required (set x-admin-key header)' });
   }
 
   if (req.method !== 'POST') {
