@@ -78,6 +78,7 @@ module.exports = async (req, res) => {
   try {
     // 1. Fetch primary data
     const adData = await getAdIdDetails(IS_PROD ? [] : debugLog);
+    let usernameCanon = null;
 
     // 2. Load submissions from Redis
     const submissions = redis ? await loadSubmissions(redis, username, isAdmin, IS_PROD ? [] : debugLog) : [];
@@ -96,7 +97,6 @@ module.exports = async (req, res) => {
     };
 
     if (adData) {
-      let usernameCanon = null;
       if (!isAdmin) {
         const k = resolvePromoterKey(username, adData);
         if (!IS_PROD) debugLog.push(`username "${username}" → canon="${k}"`);
@@ -319,6 +319,7 @@ module.exports = async (req, res) => {
     // FALLBACK: legacy data.json
     if (!IS_PROD) debugLog.push('primary ad_id_details unavailable — using legacy data.json fallback');
     const dataJson = await getLegacyDataJson(IS_PROD ? [] : debugLog);
+    if (!dataJson) throw new Error('No statistics data source is available');
     if (!isAdmin && !usernameCanon) usernameCanon = resolvePromoterKey(username, null);
     const userKey = usernameCanon;
     let matched = null;
@@ -404,6 +405,7 @@ module.exports = async (req, res) => {
       error: IS_PROD ? 'Internal error' : error.message,
     };
     if (!IS_PROD) errBody.debug = debugLog;
-    return res.status(200).json(errBody);
+    errBody.code = 'STATS_UNAVAILABLE';
+    return res.status(503).json(errBody);
   }
 };

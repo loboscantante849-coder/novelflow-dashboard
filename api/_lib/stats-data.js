@@ -174,7 +174,7 @@ async function getLegacyDataJson(debugLog) {
     return data;
   } catch (e) {
     debugLog?.push(`data.json fallback fetch failed: ${e.message}`);
-    return DATA_JSON_CACHE.data || { users: {} };
+    return DATA_JSON_CACHE.data || null;
   }
 }
 
@@ -188,8 +188,72 @@ async function getLegacyLinkStats(debugLog) {
     return data;
   } catch (e) {
     debugLog?.push(`link-stats.json fallback fetch failed: ${e.message}`);
-    return LINK_STATS_CACHE.data || { links: {} };
+    return LINK_STATS_CACHE.data || null;
   }
+}
+
+function submissionIdentifier(value) {
+  if (value === undefined || value === null) return null;
+  const normalized = String(value).trim();
+  return normalized && normalized !== 'undefined' && normalized !== 'null' ? normalized : null;
+}
+
+/**
+ * Merge duplicate or partial submission records connected by a shared code or linkId.
+ * Redis remains authoritative; later CloudSync rows only fill missing metadata.
+ */
+function mergeSubmissionRecords(records) {
+  const source = (Array.isArray(records) ? records : []).filter(
+    record => record && typeof record === 'object'
+  );
+  const parents = source.map((_, index) => index);
+  const identifiers = new Map();
+
+  const find = index => {
+    while (parents[index] !== index) {
+      parents[index] = parents[parents[index]];
+      index = parents[index];
+    }
+    return index;
+  };
+  const union = (left, right) => {
+    const leftRoot = find(left);
+    const rightRoot = find(right);
+    if (leftRoot !== rightRoot) parents[rightRoot] = leftRoot;
+  };
+
+  source.forEach((record, index) => {
+    const keys = [
+      ['link', submissionIdentifier(record.linkId)],
+      ['code', submissionIdentifier(record.code)],
+    ];
+    for (const [kind, value] of keys) {
+      if (!value) continue;
+      const key = `${kind}:${value}`;
+      if (identifiers.has(key)) union(index, identifiers.get(key));
+      else identifiers.set(key, index);
+    }
+  });
+
+  const groups = new Map();
+  source.forEach((record, index) => {
+    const root = find(index);
+    if (!groups.has(root)) groups.set(root, []);
+    groups.get(root).push(record);
+  });
+
+  return Array.from(groups.values(), group => {
+    const merged = { ...group[0] };
+    for (const record of group.slice(1)) {
+      for (const [key, value] of Object.entries(record)) {
+        const current = merged[key];
+        const currentMissing = current === undefined || current === null || current === '' || current === 'Unknown';
+        const nextPresent = value !== undefined && value !== null && value !== '';
+        if (currentMissing && nextPresent) merged[key] = value;
+      }
+    }
+    return merged;
+  });
 }
 
 /**
@@ -236,49 +300,39 @@ async function loadSubmissions(redis, username, admin, debugLog) {
     debugLog?.push(`nf_subs read error: ${e.message}`);
   }
 
-  // Merge nf_user_data:<username>.myBooks (CloudSync books not yet in nf_subs)
+  // Merge nf_user_data:<username>.myBooks. A CloudSync row can bridge legacy
+  // link-only and code-only records, so de-duplicate after loading both sources.
   if (!admin) {
-    const existingLinkIds = new Set(subs.map(s => s.linkId).filter(Boolean));
-    const existingCodes = new Set(
-      subs.map(s => String(s.code)).filter(c => c && c !== 'undefined')
-    );
     try {
       const kvData = await redis.get(`nf_user_data:${username}`);
       const myBooks = kvData && typeof kvData === 'string' ? JSON.parse(kvData)?.myBooks : kvData?.myBooks;
       if (Array.isArray(myBooks)) {
-        let added = 0;
         for (const book of myBooks) {
-          const bookCode = book.code ? String(book.code) : null;
-          const bookLinkId = book.linkId || null;
-          const isDup =
-            (bookLinkId && existingLinkIds.has(bookLinkId)) ||
-            (bookCode && existingCodes.has(bookCode));
-          if (!isDup && (bookLinkId || bookCode)) {
-            subs.push({
-              discordUsername: username,
-              status: 'completed',
-              code: book.code || bookCode,
-              linkId: bookLinkId,
-              bookId: book.bookId || null,
-              matchedBookName: book.title || book.bookName || 'Unknown',
-              bookName: book.title || book.bookName || 'Unknown',
-              link: book.link || null,
-              submittedAt: book.createdAt ? new Date(book.createdAt).toISOString() : null
-            });
-            if (bookLinkId) existingLinkIds.add(bookLinkId);
-            if (bookCode) existingCodes.add(bookCode);
-            added++;
-          }
+          const bookCode = submissionIdentifier(book.code);
+          const bookLinkId = submissionIdentifier(book.linkId);
+          if (!bookLinkId && !bookCode) continue;
+          subs.push({
+            discordUsername: username,
+            status: 'completed',
+            code: bookCode,
+            linkId: bookLinkId,
+            bookId: book.bookId || null,
+            matchedBookName: book.title || book.bookName || 'Unknown',
+            bookName: book.title || book.bookName || 'Unknown',
+            link: book.link || null,
+            submittedAt: book.submittedAt || (book.createdAt ? new Date(book.createdAt).toISOString() : null)
+          });
         }
-        if (added) debugLog?.push(`merged ${added} books from nf_user_data:${username}`);
+        if (myBooks.length) debugLog?.push(`loaded ${myBooks.length} books from nf_user_data:${username}`);
       }
     } catch (e) {
       debugLog?.push(`nf_user_data merge skipped: ${e.message}`);
     }
   }
 
-  debugLog?.push(`total submissions loaded: ${subs.length}`);
-  return subs;
+  const merged = mergeSubmissionRecords(subs);
+  debugLog?.push(`total submissions loaded: ${merged.length} (${subs.length - merged.length} duplicate/partial rows merged)`);
+  return merged;
 }
 
 /**
@@ -439,6 +493,34 @@ function aggregateSubmissionStats(submission, byAdId, seenAdIds = new Set()) {
   return combined;
 }
 
+/** Normalize legacy link-stats.json entries to the shared ad_id lookup shape. */
+function buildLegacyAdIdLookup(links) {
+  const lookup = {};
+  for (const [adId, entry] of Object.entries(links || {})) {
+    if (!entry || typeof entry !== 'object') continue;
+    const daily = {};
+    for (const [date, row] of Object.entries(entry.daily || {})) {
+      daily[date] = {
+        pull_uv: +row.pull_uv || +row.uv || +row.visits || 0,
+        new_uv: +row.new_uv || +row.new || +row.new_users || 0,
+        dn_income: +row.dn_income || +row.dn || 0,
+        d14_income: +row.d14_income || +row.d14 || 0,
+      };
+    }
+    lookup[String(adId)] = {
+      channel: entry.channel || 'link',
+      book_name: entry.book_name || null,
+      pull_uv: +entry.pull_uv || +entry.visits || +entry.total_visits || +entry.unique_visitors || 0,
+      active_uv: +entry.active_uv || 0,
+      new_uv: +entry.new_uv || +entry.new_users || 0,
+      dn_income: +entry.dn_income || +entry.dn || +entry.revenue || 0,
+      d14_income: +entry.d14_income || 0,
+      daily,
+    };
+  }
+  return lookup;
+}
+
 /**
  * Round currency to 2 decimals.
  */
@@ -454,10 +536,12 @@ module.exports = {
   getAdIdDetails,
   getLegacyDataJson,
   getLegacyLinkStats,
+  mergeSubmissionRecords,
   loadSubmissions,
   loadCovers,
   buildAdIdLookup,
   aggregateSubmissionStats,
+  buildLegacyAdIdLookup,
   zeroStats,
   r2,
 };

@@ -5,8 +5,8 @@
  * 现已被外部统一数据管道 pipeline_unified_push.py 取代（双源 putreport + code-funnel，
  * 全量 1060 个 ad_id，48 个推广者，支持 dn 收入/link&code 拆分）。
  *
- * 保留此空路由是为了避免 vercel.json 中 cron 配置调用 404 触发告警。
- * 实际数据更新由沙箱日程每 2 小时触发 pipeline_unified_push.py → git push → Vercel 自动部署。
+ * 保留此空路由仅用于兼容旧调用；vercel.json 已不再调度它。
+ * 实际数据更新由私有 novelflow-automation 仓库的 GitHub Actions 每 2 小时触发。
  */
 
 const { setCORSHeaders } = require('./_lib/cors');
@@ -19,7 +19,7 @@ module.exports = async (req, res) => {
     message: 'update-stats cron is deprecated as of 2026-07-06. Data pipeline now runs externally via pipeline_unified_push.py.',
     dataSource: 'unified_funnel_v1',
     repo: 'loboscantante849-coder/novelflow-dashboard',
-    docs: 'see codeact/scripts/pipeline_unified_push.py',
+    docs: 'see loboscantante849-coder/novelflow-automation',
     ts: new Date().toISOString()
   });
 };

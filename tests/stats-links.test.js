@@ -27,3 +27,25 @@ test('user stats combine code and link attribution instead of choosing one', () 
     assert.equal(source.includes('else if (code && byAdId[code])'), false);
   }
 });
+
+test('stats endpoints fail visibly and production responses omit debug details', () => {
+  const perLink = fs.readFileSync(path.join(ROOT, 'api/per-link-stats.js'), 'utf8');
+  const myStats = fs.readFileSync(path.join(ROOT, 'api/my-stats.js'), 'utf8');
+
+  assert.match(perLink, /res\.status\(503\)/);
+  assert.match(myStats, /res\.status\(503\)/);
+  assert.match(perLink, /const \{ debug, \.\.\.publicBody \} = body/);
+  assert.match(perLink, /buildLegacyAdIdLookup/);
+  assert.match(perLink, /if \(!linkStats\) throw new Error/);
+  assert.match(myStats, /if \(!dataJson\) throw new Error/);
+});
+
+test('dashboard labels daily revenue as attributed income and counts assets', () => {
+  const source = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+
+  assert.match(source, /daily_books_income: 'Attributed income'/);
+  assert.match(source, /Business date \(UTC\+8\).*Cumulative attributed income/);
+  assert.match(source, /dailyBookHelper\.countAssets\(perfLinks\)/);
+  assert.match(source, /STATS_UNAVAILABLE/);
+  assert.match(source, /_lastPerfUsername !== currentPerfUsername/);
+});

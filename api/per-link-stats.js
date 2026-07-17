@@ -23,8 +23,10 @@ const {
   getRedis, canonize, resolvePromoterKey,
   getAdIdDetails, getLegacyLinkStats,
   loadSubmissions, loadCovers,
-  buildAdIdLookup, aggregateSubmissionStats, zeroStats, r2,
+  buildAdIdLookup, aggregateSubmissionStats, buildLegacyAdIdLookup, zeroStats, r2,
 } = require('./_lib/stats-data');
+
+const IS_PROD = process.env.NODE_ENV === 'production';
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -56,12 +58,18 @@ module.exports = async (req, res) => {
 
   const debugLog = [];
 
-  const empty = () => res.status(200).json({
+  const finalize = body => {
+    if (!IS_PROD) return body;
+    const { debug, ...publicBody } = body;
+    return publicBody;
+  };
+
+  const empty = () => res.status(200).json(finalize({
     username, isAdmin: admin,
     total_visits: 0, total_unique: 0, total_new: 0, total_income: 0,
     last_updated: null,
     daily: {}, links: [], debug: debugLog, version: 'v6-unified-funnel',
-  });
+  }));
 
   try {
     // admin determined above via isAdminUser(redis, jwtUsername)
@@ -265,7 +273,7 @@ module.exports = async (req, res) => {
 
       debugLog.push(`primary path: ${links.length} link rows, income=$${totalIncome.toFixed(2)}`);
 
-      return res.status(200).json({
+      return res.status(200).json(finalize({
         username, isAdmin: admin,
         total_visits: totalVisits,
         total_unique: totalVisits,
@@ -274,38 +282,32 @@ module.exports = async (req, res) => {
         last_updated: adData.last_updated || new Date().toISOString(),
         daily, links,
         debug: debugLog, version: 'v6-unified-funnel',
-      });
+      }));
     }
 
     // =================== FALLBACK: link-stats.json ===================
     debugLog.push('primary ad_id_details unavailable — using legacy link-stats.json fallback');
     const linkStats = await getLegacyLinkStats(debugLog);
+    if (!linkStats) throw new Error('No statistics data source is available');
     const linkStatsLinks = (linkStats && linkStats.links) || {};
+    const legacyByAdId = buildLegacyAdIdLookup(linkStatsLinks);
 
     const links = [];
     const aggDaily = {};
+    const seenAdIds = new Set();
     for (const sub of submissions) {
       const linkId = sub.linkId ? String(sub.linkId) : null;
       const code = sub.code ? String(sub.code) : null;
-      const cron = (linkId && linkStatsLinks[linkId]) || (code && linkStatsLinks[code]) || null;
+      const stats = aggregateSubmissionStats(sub, legacyByAdId, seenAdIds);
 
       const daily = {};
-      let visits = 0, unique = 0, newUsers = 0, income = 0;
-      if (cron) {
-        visits = +cron.total_visits || +cron.visits || +cron.unique_visitors || 0;
-        unique = +cron.unique_visitors || +cron.unique_users || visits;
-        newUsers = +cron.new_users || 0;
-        income = r2(+cron.dn || +cron.dn_income || +cron.d14_income || +cron.revenue || 0);
-        if (cron.daily && typeof cron.daily === 'object') {
-          for (const [dt, v] of Object.entries(cron.daily)) {
-            daily[dt] = {
-              visits: +v.pull_uv || +v.visits || 0,
-              unique_users: +v.pull_uv || +v.unique_users || +v.visits || 0,
-              new_users: +v.new_uv || +v.new_users || 0,
-              income: r2(+v.dn_income || +v.dn || 0),
-            };
-          }
-        }
+      for (const [dt, row] of Object.entries(stats.daily || {})) {
+        daily[dt] = {
+          visits: row.pull_uv || 0,
+          unique_users: row.pull_uv || 0,
+          new_users: row.new_uv || 0,
+          income: r2(row.dn_income || 0),
+        };
       }
       for (const [dt, v] of Object.entries(daily)) {
         if (!aggDaily[dt]) aggDaily[dt] = { visits:0, unique_users:0, new_users:0, income:0 };
@@ -315,7 +317,7 @@ module.exports = async (req, res) => {
         aggDaily[dt].income += v.income;
       }
       links.push({
-        bookName: sub.matchedBookName || sub.bookName || cron?.book_name || 'Unknown',
+        bookName: sub.matchedBookName || sub.bookName || stats.book_name || 'Unknown',
         bookId: sub.bookId || null,
         code: sub.code || code || 'N/A',
         link: sub.link || null,
@@ -323,9 +325,14 @@ module.exports = async (req, res) => {
         submittedAt: sub.submittedAt || null,
         kocName: sub.discordUsername || username,
         cover: sub.bookId ? (covers[sub.bookId] || '') : '',
-        visits, unique_users: unique, new_users: newUsers,
-        d14_income: income, dn_income: income,
-        channel: cron?.channel || 'link',
+        visits: stats.pull_uv || 0,
+        unique_users: stats.pull_uv || 0,
+        new_users: stats.new_uv || 0,
+        d14_income: r2(stats.d14_income || 0),
+        dn_income: r2(stats.dn_income || 0),
+        channel: stats.channel,
+        assetIds: stats.assetIds,
+        assetCount: stats.assetCount,
         daily,
       });
     }
@@ -338,24 +345,25 @@ module.exports = async (req, res) => {
       daily[dt] = { visits: v.visits, unique_users: v.unique_users, new_users: v.new_users, income: r2(v.income) };
     }
 
-    return res.status(200).json({
+    return res.status(200).json(finalize({
       username, isAdmin: admin,
       total_visits: totalVisits, total_unique: totalVisits,
       total_new: totalNew, total_income: totalIncome,
       last_updated: linkStats.last_updated || new Date().toISOString(),
       daily, links,
       debug: debugLog, version: 'v6-unified-funnel',
-    });
+    }));
 
   } catch (error) {
     console.error('[per-link-stats] Error:', error);
     debugLog.push(`FATAL: ${error.message}`);
-    return res.status(200).json({
+    return res.status(503).json(finalize({
       username, isAdmin: admin,
       total_visits: 0, total_unique: 0, total_new: 0, total_income: 0,
       daily: {}, links: [],
       debug: debugLog, version: 'v6-unified-funnel',
-      error: error.message,
-    });
+      error: IS_PROD ? 'Statistics temporarily unavailable' : error.message,
+      code: 'STATS_UNAVAILABLE',
+    }));
   }
 };

@@ -63,6 +63,13 @@
     return new Set(safeLinks.map(link => resolvedBookKey(link, titles))).size;
   }
 
+  function countAssets(links) {
+    return (Array.isArray(links) ? links : []).reduce((total, link) => {
+      const declared = Number(link && link.assetCount);
+      return total + (Number.isFinite(declared) && declared >= 0 ? declared : 1);
+    }, 0);
+  }
+
   function aggregateForDate(links, date) {
     const safeLinks = Array.isArray(links) ? links : [];
     const titles = titleBookIds(safeLinks);
@@ -130,6 +137,7 @@
     availableDates,
     bookKey,
     countBooks,
+    countAssets,
     sortRows,
     totals,
   };

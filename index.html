@@ -2437,6 +2437,9 @@
         .daily-book-value.income { color: #FFD76A; }
         .daily-book-total { min-height: 34px; padding-top: 7px; border-top: 1px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.64); font-size: 10px; font-weight: 600; }
         .daily-book-empty { padding: 18px 8px; border-top: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.45); font-size: 10px; text-align: center; }
+        .perf-error { display: none; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0 10px; padding: 8px 10px; border: 1px solid rgba(248,113,113,0.35); border-radius: 6px; background: rgba(127,29,29,0.28); color: #fecaca; font-size: 11px; line-height: 1.35; }
+        .perf-error.visible { display: flex; }
+        .perf-error button { flex: 0 0 auto; padding: 4px 8px; border: 1px solid rgba(254,202,202,0.35); border-radius: 5px; background: rgba(255,255,255,0.08); color: #fff; font: inherit; cursor: pointer; }
 
         /* ========== AC Reels ========== */
         .reels-section { margin: 16px; background: var(--canvas); border: 1px solid var(--hairline); border-radius: 16px; overflow: hidden; }
@@ -2874,6 +2877,10 @@
                         </div>
                         <button class="perf-login-btn" onclick="requireLoginAndGo('submit')" style="font-size:11px;padding:5px 14px;" data-i18n="start_earning_btn">Start Earning →</button>
                     </div>
+                    <div class="perf-error" id="perfError" role="alert">
+                        <span id="perfErrorText" data-i18n="perf_unavailable">Statistics are temporarily unavailable.</span>
+                        <button type="button" onclick="loadPerformanceDashboard()" data-i18n="retry_btn">Retry</button>
+                    </div>
                     <div class="perf-grid">
                         <div class="perf-stat">
                             <div class="perf-stat-value" id="perfIncome">$0</div>
@@ -2896,7 +2903,7 @@
                         </div>
                         <div class="perf-stat">
                             <div class="perf-stat-value" id="perfLinks">0</div>
-                            <div class="perf-stat-label" data-i18n="perf_label_links">Links</div>
+                            <div class="perf-stat-label" data-i18n="perf_label_assets">Promo assets</div>
                         </div>
                     </div>
                     <!-- Trend Chart -->
@@ -2919,7 +2926,7 @@
                         <div class="daily-books-toolbar">
                             <div>
                                 <div class="daily-books-title" id="dailyBooksTitle" data-i18n="daily_books_title">Daily Book Performance</div>
-                                <div class="daily-books-timezone" data-i18n="daily_books_timezone">Reporting date (UTC)</div>
+                                <div class="daily-books-timezone" data-i18n="daily_books_timezone">Business date (Asia/Shanghai)</div>
                             </div>
                             <div class="daily-books-date-nav">
                                 <button class="daily-books-nav-btn" id="dailyBooksPrevious" type="button" onclick="shiftDailyBookDate(-1)" aria-label="Previous reporting date" title="Previous reporting date">&lsaquo;</button>
@@ -2936,7 +2943,7 @@
                                 <span data-i18n="daily_books_new">New</span><span class="daily-book-sort-indicator"></span>
                             </button>
                             <button class="daily-book-sort" type="button" data-daily-sort="income" onclick="setDailyBookSort('income')">
-                                <span data-i18n="perf_label_income">Income</span><span class="daily-book-sort-indicator"></span>
+                                <span data-i18n="daily_books_income">Attributed income</span><span class="daily-book-sort-indicator"></span>
                             </button>
                         </div>
                         <div class="daily-book-rows" id="dailyBookRows"></div>
@@ -3729,18 +3736,22 @@
                 perf_label_visits: 'Visits',
                 perf_label_books: 'Books',
                 perf_label_links: 'Links',
+                perf_label_assets: 'Promo assets',
                 perf_chart_trend: '📈 14-Day Trend',
                 perf_tab_visits: 'Visits',
                 perf_tab_unique: 'Unique',
-                perf_tab_income: 'Income',
+                perf_tab_income: 'Attributed income',
                 daily_books_title: 'Daily Book Performance',
-                daily_books_timezone: 'Reporting date (UTC)',
+                daily_books_timezone: 'Business date (UTC+8) · Cumulative attributed income',
                 daily_books_book: 'Book',
                 daily_books_new: 'New',
+                daily_books_income: 'Attributed income',
                 daily_books_total: 'Total',
                 daily_books_empty: 'No book activity on this date',
                 daily_books_asset: 'asset',
                 daily_books_assets: 'assets',
+                perf_unavailable: 'Statistics are temporarily unavailable.',
+                retry_btn: 'Retry',
                 share_this_text: '📋 Share This Text',
                 copy_all_text: 'Copy All Text',
                 try_another: 'Try Another Book',
@@ -3921,18 +3932,22 @@
                 perf_label_visits: 'Visitas',
                 perf_label_books: 'Libros',
                 perf_label_links: 'Enlaces',
+                perf_label_assets: 'Recursos',
                 perf_chart_trend: '📈 Tendencia 14 Días',
                 perf_tab_visits: 'Visitas',
                 perf_tab_unique: 'Únicos',
-                perf_tab_income: 'Ingresos',
+                perf_tab_income: 'Ingreso atribuido',
                 daily_books_title: 'Rendimiento Diario por Libro',
-                daily_books_timezone: 'Fecha del informe (UTC)',
+                daily_books_timezone: 'Fecha comercial (UTC+8) · Ingreso atribuido acumulado',
                 daily_books_book: 'Libro',
                 daily_books_new: 'Nuevos',
+                daily_books_income: 'Ingreso atribuido',
                 daily_books_total: 'Total',
                 daily_books_empty: 'Sin actividad por libro en esta fecha',
                 daily_books_asset: 'recurso',
                 daily_books_assets: 'recursos',
+                perf_unavailable: 'Las estadísticas no están disponibles temporalmente.',
+                retry_btn: 'Reintentar',
                 login_to_see: 'Inicia sesión para ver tus estadísticas',
             }
         };
@@ -6789,6 +6804,7 @@ function renderMyBooks() {
         // Chart state
         let _chartMode = 'visits';
         let _lastPerfData = null;
+        let _lastPerfUsername = null;
         let _dailyBookDates = [];
         let _dailyBookDate = null;
         let _dailyBookSort = 'visits';
@@ -7194,7 +7210,9 @@ function renderMyBooks() {
                 const mode = canvas._chartMode;
                 const dateStr = dates[idx];
                 const val = values[idx];
-                const modeLabel = mode === 'income' ? 'Income' : mode === 'unique' ? 'Unique Users' : 'Visits';
+                const modeLabel = mode === 'income'
+                    ? (AppState.currentLang === 'es' ? 'Ingreso atribuido' : 'Attributed income')
+                    : mode === 'unique' ? 'Unique Users' : 'Visits';
                 const valStr = mode === 'income' ? '$' + val.toFixed(2) : val.toLocaleString();
                 // Show inline detail below chart
                 const detailEl = document.getElementById('chartDetail');
@@ -7210,24 +7228,41 @@ function renderMyBooks() {
         async function loadPerformanceDashboard() {
             const perfData = document.getElementById('perfData');
             const perfLogin = document.getElementById('perfLoginPrompt');
+            const perfError = document.getElementById('perfError');
+            const perfErrorText = document.getElementById('perfErrorText');
             
             if (!AppState.isLoggedIn || !AppState.user || !AppState.user.username) {
                 if (perfData) perfData.style.display = 'none';
                 if (perfLogin) perfLogin.style.display = 'block';
+                if (perfError) perfError.classList.remove('visible');
+                _lastPerfData = null;
+                _lastPerfUsername = null;
                 return;
+            }
+
+            const currentPerfUsername = String(AppState.user.username).toLowerCase();
+            if (_lastPerfUsername !== currentPerfUsername) {
+                _lastPerfData = null;
+                _lastPerfUsername = currentPerfUsername;
             }
             
             if (perfLogin) perfLogin.style.display = 'none';
             if (perfData) perfData.style.display = 'block';
+            if (perfError) perfError.classList.remove('visible');
+            if (perfData) {
+                perfData.querySelectorAll('.perf-grid, .perf-chart-section, .daily-books-section, .tier-progress, .perf-footer').forEach(section => {
+                    section.style.display = '';
+                });
+            }
             
             try {
                 const query = '?t=' + Date.now() + '&username=' + encodeURIComponent(AppState.user.username);
                 let resp = await fetch('/api/per-link-stats' + query);
-                let data = resp.ok ? await resp.json() : null;
+                let data = await resp.json().catch(() => null);
                 if (!resp.ok || !data || data.error) {
                     resp = await fetch('/api/my-stats' + query);
-                    if (!resp.ok) throw new Error('Failed');
-                    data = await resp.json();
+                    data = await resp.json().catch(() => null);
+                    if (!resp.ok || !data || data.error) throw new Error('STATS_UNAVAILABLE');
                 }
                 // Convert daily format: { date: {visits, unique_users, new_users, income} }
                 // → separate dicts for chart rendering
@@ -7244,6 +7279,7 @@ function renderMyBooks() {
                     }
                 }
                 _lastPerfData = data;
+                _lastPerfUsername = currentPerfUsername;
                 
                 // Update perf stats
                 const pv = document.getElementById('perfVisits');
@@ -7259,7 +7295,7 @@ function renderMyBooks() {
                 if (pi) { pi.textContent = '$' + income.toFixed(2); pi.className = 'perf-stat-value' + (income ? '' : ' zero'); }
                 if (pb) { pb.textContent = dailyBookHelper ? dailyBookHelper.countBooks(perfLinks) : perfLinks.length; }
                 if (pn) { const nv = data.total_new || 0; pn.textContent = nv.toLocaleString(); pn.className = 'perf-stat-value' + (nv ? '' : ' zero'); }
-                if (pl) { pl.textContent = perfLinks.length; }
+                if (pl) { pl.textContent = dailyBookHelper ? dailyBookHelper.countAssets(perfLinks) : perfLinks.length; }
                 
                 // Calculate and render changes
                 renderChangeEl('perfIncomeChange', calcChange(data.income_daily));
@@ -7285,11 +7321,19 @@ function renderMyBooks() {
                 if (perfUpdated) {
                     const lastDate = data.last_updated ? new Date(data.last_updated) : null;
                     const dateStr = lastDate ? lastDate.toLocaleDateString(AppState.currentLang === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric' }) : '';
-                    perfUpdated.textContent = '🔄 ' + (AppState.currentLang === 'es' ? 'Datos actualizados a las 00:00 UTC diariamente' : 'Data refreshes daily at 00:00 UTC') + (dateStr ? ' · Last: ' + dateStr : '');
+                    const refreshLabel = AppState.currentLang === 'es' ? 'Datos actualizados cada 2 horas' : 'Data refreshes every 2 hours';
+                    perfUpdated.textContent = refreshLabel + (dateStr ? ' · ' + dateStr : '');
                 }
                 
             } catch (e) {
                 console.warn('Perf dashboard load failed:', e.message);
+                if (perfErrorText) perfErrorText.textContent = getText('perf_unavailable');
+                if (perfError) perfError.classList.add('visible');
+                if (!_lastPerfData && perfData) {
+                    perfData.querySelectorAll('.perf-grid, .perf-chart-section, .daily-books-section, .tier-progress, .perf-footer').forEach(section => {
+                        section.style.display = 'none';
+                    });
+                }
             }
         }
 

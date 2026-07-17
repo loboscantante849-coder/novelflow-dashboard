@@ -1,7 +1,11 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { aggregateSubmissionStats } = require('../api/_lib/stats-data');
+const {
+  aggregateSubmissionStats,
+  buildLegacyAdIdLookup,
+  mergeSubmissionRecords,
+} = require('../api/_lib/stats-data');
 
 const byAdId = {
   'link-10': {
@@ -62,4 +66,30 @@ test('does not double count when linkId and code are the same identifier', () =>
   assert.equal(stats.pull_uv, 12);
   assert.equal(stats.assetCount, 1);
   assert.deepEqual(stats.assetIds, ['link-10']);
+});
+
+test('merges partial Redis and CloudSync records without losing code or linkId', () => {
+  const merged = mergeSubmissionRecords([
+    { linkId: 'link-10', bookId: 'book-1', matchedBookName: 'Combined Book' },
+    { code: 'code-20', linkId: 'link-10', link: 'https://example.test/read' },
+  ]);
+
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].linkId, 'link-10');
+  assert.equal(merged[0].code, 'code-20');
+  assert.equal(merged[0].bookId, 'book-1');
+  assert.equal(merged[0].link, 'https://example.test/read');
+});
+
+test('legacy lookup combines code and link instead of choosing one', () => {
+  const legacy = buildLegacyAdIdLookup({
+    'link-10': { channel: 'link', visits: 3, new_users: 1, dn_income: 0.5, daily: { '2026-07-16': { uv: 2, new: 1, dn: 0.25 } } },
+    'code-20': { channel: 'code', visits: 4, new_users: 2, dn_income: 1.5, daily: { '2026-07-16': { uv: 3, new: 2, dn: 1 } } },
+  });
+  const stats = aggregateSubmissionStats({ linkId: 'link-10', code: 'code-20' }, legacy);
+
+  assert.equal(stats.pull_uv, 7);
+  assert.equal(stats.new_uv, 3);
+  assert.equal(stats.dn_income, 2);
+  assert.equal(stats.daily['2026-07-16'].pull_uv, 5);
 });
