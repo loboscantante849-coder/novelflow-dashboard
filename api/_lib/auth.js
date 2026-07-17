@@ -47,21 +47,30 @@ function verifyJWT(token) {
     if (parts.length !== 3) return null;
 
     const [encodedHeader, encodedPayload, signature] = parts;
+    const header = JSON.parse(Buffer.from(encodedHeader, 'base64url').toString());
+    if (header.alg !== 'HS256' || header.typ !== 'JWT') return null;
 
     const expectedSignature = crypto
       .createHmac('sha256', secret)
       .update(`${encodedHeader}.${encodedPayload}`)
       .digest('base64url');
 
-    if (signature !== expectedSignature) return null;
+    const actualBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expectedSignature);
+    if (actualBuffer.length !== expectedBuffer.length ||
+        !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) return null;
 
     const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString());
 
-    // Check proper exp claim
-    if (payload.exp && Date.now() / 1000 > payload.exp) return null;
+    const now = Date.now() / 1000;
+    if (payload.exp !== undefined &&
+        (typeof payload.exp !== 'number' || now > payload.exp)) return null;
 
     // Legacy: tokens with only iat (no exp), allow 30 day max
-    if (!payload.exp && payload.iat && (Date.now() / 1000 - payload.iat) > 2592000) return null;
+    if (payload.exp === undefined) {
+      if (typeof payload.iat !== 'number' || now - payload.iat > 2592000) return null;
+    }
+    if (typeof payload.iat === 'number' && payload.iat > now + 300) return null;
 
     return payload;
   } catch (e) {
