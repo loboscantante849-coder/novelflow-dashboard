@@ -6866,12 +6866,13 @@ function renderMyBooks() {
 
         function renderDailyBookPerformance(data) {
             const helper = window.DailyBookPerformance;
+            const sectionEl = document.getElementById('dailyBooksSection');
             const rowsEl = document.getElementById('dailyBookRows');
             const totalEl = document.getElementById('dailyBookTotal');
             const dateEl = document.getElementById('dailyBooksDate');
             const previousButton = document.getElementById('dailyBooksPrevious');
             const nextButton = document.getElementById('dailyBooksNext');
-            if (!helper || !rowsEl || !totalEl || !dateEl) return;
+            if (!helper || !sectionEl || !rowsEl || !totalEl || !dateEl) return;
 
             const links = Array.isArray(data && data.links) ? data.links : [];
             _dailyBookDates = helper.availableDates(links);
@@ -6893,13 +6894,21 @@ function renderMyBooks() {
             });
 
             if (!_dailyBookDate || links.length === 0) {
-                rowsEl.innerHTML = '<div class="daily-book-empty">' + escapeHtml(getText('daily_books_empty')) + '</div>';
+                sectionEl.style.display = 'none';
+                rowsEl.innerHTML = '';
                 totalEl.style.display = 'none';
                 return;
             }
 
             const locale = AppState.currentLang === 'es' ? 'es-ES' : 'en-US';
             const rows = helper.sortRows(helper.aggregateForDate(links, _dailyBookDate), _dailyBookSort);
+            if (rows.length === 0) {
+                sectionEl.style.display = 'none';
+                rowsEl.innerHTML = '';
+                totalEl.style.display = 'none';
+                return;
+            }
+            sectionEl.style.display = '';
             const formatCount = value => Number(value || 0).toLocaleString(locale);
             const formatIncome = value => Number(value || 0).toLocaleString(locale, {
                 style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2

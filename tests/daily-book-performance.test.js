@@ -35,6 +35,22 @@ test('lists available reporting dates in order', () => {
   assert.deepEqual(dailyBooks.availableDates(links), ['2026-07-15', '2026-07-16']);
 });
 
+test('omits empty dates and books with no activity on the selected date', () => {
+  const rows = dailyBooks.aggregateForDate([
+    { bookId: 'active', bookName: 'Active', daily: { '2026-07-16': { visits: 2 } } },
+    { bookId: 'empty', bookName: 'Empty', daily: { '2026-07-16': { visits: 0, new_users: 0, income: 0 } } },
+    { bookId: 'refund', bookName: 'Refund', daily: { '2026-07-17': { income: -0.5 } } },
+    { bookId: 'missing', bookName: 'Missing', daily: {} },
+  ], '2026-07-16');
+
+  assert.deepEqual(rows.map(row => row.bookId), ['active']);
+  assert.deepEqual(dailyBooks.availableDates([
+    { daily: { '2026-07-15': { visits: 0 }, '2026-07-16': { new_users: 1 }, '2026-07-17': { income: -0.5 } } },
+  ]), ['2026-07-16', '2026-07-17']);
+  assert.equal(dailyBooks.hasActivity({ visits: 0, new_users: 0, income: 0 }), false);
+  assert.equal(dailyBooks.hasActivity({ income: -0.5 }), true);
+});
+
 test('groups multiple promotion assets for the same book', () => {
   const rows = dailyBooks.aggregateForDate(links, '2026-07-16');
   const firstBook = rows.find(row => row.bookId === 'book-1');
