@@ -98,4 +98,5 @@ test('uses the API asset count for a combined code and link row', () => {
   ], '2026-07-16');
 
   assert.equal(rows[0].assets, 2);
+  assert.equal(dailyBooks.countAssets([{ assetCount: 2 }, {}]), 3);
 });

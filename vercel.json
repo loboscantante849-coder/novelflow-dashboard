@@ -225,10 +225,6 @@
     {
       "path": "/api/trending-books?mode=refresh&limit=50",
       "schedule": "0 0 * * 1"
-    },
-    {
-      "path": "/api/update-stats",
-      "schedule": "0 */2 * * *"
     }
   ]
 }
