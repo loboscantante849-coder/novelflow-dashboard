@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "check": "node scripts/check-syntax.js && node --test tests/password.test.js tests/jwt.test.js tests/sync.test.js tests/auth-endpoints.test.js tests/user-data-endpoint.test.js tests/stats-links.test.js tests/daily-book-performance.test.js"
+    "check": "node scripts/check-syntax.js && node --test tests/password.test.js tests/jwt.test.js tests/sync.test.js tests/auth-endpoints.test.js tests/user-data-endpoint.test.js tests/stats-links.test.js tests/daily-book-performance.test.js tests/stats-aggregation.test.js"
   },
   "dependencies": {
     "@upstash/redis": "^1.34.0",

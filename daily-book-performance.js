@@ -86,7 +86,10 @@
         groups.set(key, row);
       }
 
-      row.assets += 1;
+      const declaredAssetCount = Number(link.assetCount);
+      row.assets += Number.isFinite(declaredAssetCount) && declaredAssetCount >= 0
+        ? declaredAssetCount
+        : 1;
       const day = link.daily && typeof link.daily === 'object' ? link.daily[date] : null;
       if (!day || typeof day !== 'object') continue;
       row.visits += number(day.visits);

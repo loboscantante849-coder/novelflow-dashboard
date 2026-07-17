@@ -86,3 +86,16 @@ test('sorts rows by the selected metric and calculates daily totals', () => {
     income: 3.6,
   });
 });
+
+test('uses the API asset count for a combined code and link row', () => {
+  const rows = dailyBooks.aggregateForDate([
+    {
+      bookId: 'book-1',
+      bookName: 'First Book',
+      assetCount: 2,
+      daily: { '2026-07-16': { visits: 5 } },
+    },
+  ], '2026-07-16');
+
+  assert.equal(rows[0].assets, 2);
+});

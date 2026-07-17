@@ -384,6 +384,62 @@ function zeroStats() {
 }
 
 /**
+ * Combine the linkId and code attribution channels stored on one submission.
+ * Each ad_id is counted once, even if duplicate submission metadata references it.
+ */
+function aggregateSubmissionStats(submission, byAdId, seenAdIds = new Set()) {
+  const candidates = [];
+  const linkId = submission && submission.linkId ? String(submission.linkId) : null;
+  const code = submission && submission.code ? String(submission.code) : null;
+  if (linkId) candidates.push({ id: linkId, channel: 'link' });
+  if (code && code !== linkId) candidates.push({ id: code, channel: 'code' });
+
+  const combined = zeroStats();
+  const assetIds = [];
+  const matchedAssetIds = [];
+  const channels = new Set();
+
+  for (const candidate of candidates) {
+    if (seenAdIds.has(candidate.id)) continue;
+    seenAdIds.add(candidate.id);
+    assetIds.push(candidate.id);
+
+    const stats = byAdId && byAdId[candidate.id];
+    if (!stats) continue;
+    matchedAssetIds.push(candidate.id);
+    channels.add(stats.channel || candidate.channel);
+    if (!combined.book_name && stats.book_name) combined.book_name = stats.book_name;
+    combined.pull_uv += +stats.pull_uv || 0;
+    combined.active_uv += +stats.active_uv || 0;
+    combined.new_uv += +stats.new_uv || 0;
+    combined.dn_income += +stats.dn_income || 0;
+    combined.d14_income += +stats.d14_income || 0;
+
+    for (const [date, day] of Object.entries(stats.daily || {})) {
+      if (!combined.daily[date]) {
+        combined.daily[date] = { pull_uv: 0, new_uv: 0, dn_income: 0, d14_income: 0 };
+      }
+      combined.daily[date].pull_uv += +day.pull_uv || 0;
+      combined.daily[date].new_uv += +day.new_uv || 0;
+      combined.daily[date].dn_income += +day.dn_income || 0;
+      combined.daily[date].d14_income += +day.d14_income || 0;
+    }
+  }
+
+  const fallbackChannels = candidates
+    .filter(candidate => assetIds.includes(candidate.id))
+    .map(candidate => candidate.channel);
+  const channelList = channels.size ? Array.from(channels) : Array.from(new Set(fallbackChannels));
+  combined.channel = channelList.join('+') || 'link';
+  combined.channels = channelList;
+  combined.assetIds = assetIds;
+  combined.assetCount = assetIds.length;
+  combined.matchedAssetIds = matchedAssetIds;
+  combined.matchedAssetCount = matchedAssetIds.length;
+  return combined;
+}
+
+/**
  * Round currency to 2 decimals.
  */
 function r2(n) {
@@ -401,6 +457,7 @@ module.exports = {
   loadSubmissions,
   loadCovers,
   buildAdIdLookup,
+  aggregateSubmissionStats,
   zeroStats,
   r2,
 };

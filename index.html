@@ -3739,8 +3739,8 @@
                 daily_books_new: 'New',
                 daily_books_total: 'Total',
                 daily_books_empty: 'No book activity on this date',
-                daily_books_link: 'link',
-                daily_books_links: 'links',
+                daily_books_asset: 'asset',
+                daily_books_assets: 'assets',
                 share_this_text: '📋 Share This Text',
                 copy_all_text: 'Copy All Text',
                 try_another: 'Try Another Book',
@@ -3931,8 +3931,8 @@
                 daily_books_new: 'Nuevos',
                 daily_books_total: 'Total',
                 daily_books_empty: 'Sin actividad por libro en esta fecha',
-                daily_books_link: 'enlace',
-                daily_books_links: 'enlaces',
+                daily_books_asset: 'recurso',
+                daily_books_assets: 'recursos',
                 login_to_see: 'Inicia sesión para ver tus estadísticas',
             }
         };
@@ -6890,7 +6890,7 @@ function renderMyBooks() {
             });
 
             rowsEl.innerHTML = rows.map(row => {
-                const assetKey = row.assets === 1 ? 'daily_books_link' : 'daily_books_links';
+                const assetKey = row.assets === 1 ? 'daily_books_asset' : 'daily_books_assets';
                 return '<div class="daily-book-grid daily-book-row">' +
                     '<div class="daily-book-info">' +
                         '<div class="daily-book-name" title="' + escapeHtml(row.bookName) + '">' + escapeHtml(row.bookName) + '</div>' +
