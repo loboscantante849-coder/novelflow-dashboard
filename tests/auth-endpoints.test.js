@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const test = require('node:test');
 
 const { installFakeUpstash, invoke } = require('./helpers/endpoint');
@@ -10,8 +11,19 @@ process.env.KV_REST_API_TOKEN = 'test-token';
 delete process.env.FEISHU_SIGNUP_WEBHOOK;
 
 const login = require('../api/auth/login');
+const refresh = require('../api/auth/refresh');
 const register = require('../api/auth/register');
+const { verifyJWT } = require('../api/_lib/auth');
 const { legacyPasswordHash } = require('../api/_lib/password');
+
+function signRaw(payload, secret) {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', secret)
+    .update(`${header}.${body}`)
+    .digest('base64url');
+  return `${header}.${body}.${signature}`;
+}
 
 test.beforeEach(() => {
   FakeRedis.reset();
@@ -83,6 +95,38 @@ test('username case variants resolve to one password and data identity', async (
   assert.equal(loggedIn.statusCode, 200);
   assert.equal(loggedIn.body.username, 'alice');
   assert.equal(FakeRedis.values.get('nf_user_data:alice'), originalData);
+});
+
+test('refresh migrates a previous-secret session to current-secret cookies', async () => {
+  const previousSecret = 'previous-endpoint-test-secret-not-used-in-production';
+  process.env.JWT_SECRET_PREVIOUS = previousSecret;
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const previousRefreshToken = signRaw({
+      type: 'local',
+      username: 'alice',
+      _refresh: true,
+      iat: now,
+      exp: now + 60,
+    }, previousSecret);
+
+    const res = await invoke(refresh, {
+      headers: { cookie: `nf_refresh=${previousRefreshToken}` },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.success, true);
+    assert.equal(res.headers['set-cookie'].length, 3);
+
+    const accessToken = res.headers['set-cookie'][0].match(/^nf_token=([^;]+)/)[1];
+    const refreshToken = res.headers['set-cookie'][1].match(/^nf_refresh=([^;]+)/)[1];
+    delete process.env.JWT_SECRET_PREVIOUS;
+
+    assert.equal(verifyJWT(accessToken).username, 'alice');
+    assert.equal(verifyJWT(refreshToken)._refresh, true);
+  } finally {
+    delete process.env.JWT_SECRET_PREVIOUS;
+  }
 });
 
 test('register rejects reserved new usernames', async () => {

@@ -19,6 +19,23 @@ function getSecret() {
   return secret;
 }
 
+function getVerificationSecrets() {
+  const current = getSecret();
+  const previous = process.env.JWT_SECRET_PREVIOUS;
+  return previous && previous !== current ? [current, previous] : [current];
+}
+
+function matchesSignature(signature, signingInput, secret) {
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(signingInput)
+    .digest('base64url');
+  const actualBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (actualBuffer.length !== expectedBuffer.length) return false;
+  return crypto.timingSafeEqual(actualBuffer, expectedBuffer);
+}
+
 // ========== JWT Core ==========
 
 function signJWT(payload, maxAge) {
@@ -42,7 +59,6 @@ function signJWT(payload, maxAge) {
 
 function verifyJWT(token) {
   try {
-    const secret = getSecret();
     const parts = token.split('.');
     if (parts.length !== 3) return null;
 
@@ -50,15 +66,11 @@ function verifyJWT(token) {
     const header = JSON.parse(Buffer.from(encodedHeader, 'base64url').toString());
     if (header.alg !== 'HS256' || header.typ !== 'JWT') return null;
 
-    const expectedSignature = crypto
-      .createHmac('sha256', secret)
-      .update(`${encodedHeader}.${encodedPayload}`)
-      .digest('base64url');
-
-    const actualBuffer = Buffer.from(signature);
-    const expectedBuffer = Buffer.from(expectedSignature);
-    if (actualBuffer.length !== expectedBuffer.length ||
-        !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) return null;
+    const signingInput = `${encodedHeader}.${encodedPayload}`;
+    const validSignature = getVerificationSecrets().some(secret =>
+      matchesSignature(signature, signingInput, secret)
+    );
+    if (!validSignature) return null;
 
     const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString());
 
