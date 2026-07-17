@@ -13,7 +13,9 @@
  *     daily: { dt: {visits, unique_users, new_users, income} },
  *     links:  [ { bookName, bookId, code, link, linkId, submittedAt, kocName,
  *                 visits, unique_users, new_users, d14_income, dn_income, channel,
+ *                 assetIds, assetCount,
  *                 daily: { dt: {visits, unique_users, new_users, income} } } ] }
+ * A submission's distinct linkId and code channels are combined; duplicate ad_ids are counted once.
  */
 const { setCORSHeaders } = require('./_lib/cors');
 const { getAuthPayload, isAdminUser } = require('./_lib/security');
@@ -21,7 +23,7 @@ const {
   getRedis, canonize, resolvePromoterKey,
   getAdIdDetails, getLegacyLinkStats,
   loadSubmissions, loadCovers,
-  buildAdIdLookup, zeroStats, r2,
+  buildAdIdLookup, aggregateSubmissionStats, zeroStats, r2,
 } = require('./_lib/stats-data');
 
 module.exports = async (req, res) => {
@@ -80,6 +82,7 @@ module.exports = async (req, res) => {
 
       const links = [];
       const aggDaily = {};
+      const seenAdIds = new Set();
 
       if (admin) {
         // Admin: build one record per ad_id across all promoters, joined with nf_subs metadata.
@@ -89,7 +92,10 @@ module.exports = async (req, res) => {
           if (sub.code) nfSubsByAdId.set(String(sub.code), sub);
         }
         for (const [pCanon, pEntry] of Object.entries(promoterEntries || {})) {
-          const adIds = [...(pEntry.links || []), ...(pEntry.codes || [])];
+          const adIds = Array.from(new Set([
+            ...(pEntry.links || []).map(String),
+            ...(pEntry.codes || []).map(String),
+          ]));
           for (const adIdRaw of adIds) {
             const adId = String(adIdRaw);
             const st = byAdId[adId] || zeroStats();
@@ -139,14 +145,8 @@ module.exports = async (req, res) => {
         for (const sub of submissions) {
           const linkId = sub.linkId ? String(sub.linkId) : null;
           const code = sub.code ? String(sub.code) : null;
-
-          let adIdKey = null;
-          let st = null;
-          if (linkId && byAdId[linkId]) { adIdKey = linkId; st = byAdId[linkId]; }
-          else if (code && byAdId[code]) { adIdKey = code; st = byAdId[code]; }
-
-          if (!st) st = zeroStats();
-          const channel = st.channel || (adIdKey && code === adIdKey ? 'code' : 'link');
+          const st = aggregateSubmissionStats(sub, byAdId, seenAdIds);
+          const channel = st.channel;
           const bookName = sub.matchedBookName || sub.bookName || st.book_name || 'Unknown';
           const bookId = sub.bookId || null;
 
@@ -179,6 +179,8 @@ module.exports = async (req, res) => {
             d14_income: dn,
             dn_income: dn,
             channel,
+            assetIds: st.assetIds,
+            assetCount: st.assetCount,
             daily,
           });
         }
@@ -190,20 +192,21 @@ module.exports = async (req, res) => {
         return adData.by_promoter[usernameCanon] || null;
       })();
       if (promoterEntry) {
-        const knownAdIds = new Set();
+        const knownAdIds = new Set(seenAdIds);
         for (const l of links) {
           if (l.linkId) knownAdIds.add(String(l.linkId));
           if (l.code && l.code !== 'N/A') knownAdIds.add(String(l.code));
         }
-        const promoAdIds = [
+        const promoAdIds = Array.from(new Set([
           ...(promoterEntry.links || []).map(String),
           ...(promoterEntry.codes || []).map(String),
-        ];
+        ]));
         let orphanCount = 0;
         for (const adId of promoAdIds) {
           if (knownAdIds.has(adId)) continue;
           const st = byAdId[adId];
           if (!st) continue;
+          knownAdIds.add(adId);
           const isCode = (promoterEntry.codes || []).map(String).includes(adId);
           const channel = (isCode ? 'code' : 'link') + ' (synced)';
           let bookName = st.book_name || 'Unknown';

@@ -1,0 +1,65 @@
+const assert = require('node:assert/strict');
+const test = require('node:test');
+
+const { aggregateSubmissionStats } = require('../api/_lib/stats-data');
+
+const byAdId = {
+  'link-10': {
+    channel: 'link',
+    book_name: 'Combined Book',
+    pull_uv: 12,
+    new_uv: 3,
+    dn_income: 1.25,
+    d14_income: 1.25,
+    daily: {
+      '2026-07-16': { pull_uv: 7, new_uv: 2, dn_income: 0.75, d14_income: 0.75 },
+    },
+  },
+  'code-20': {
+    channel: 'code',
+    book_name: 'Combined Book',
+    pull_uv: 8,
+    new_uv: 4,
+    dn_income: 2.5,
+    d14_income: 2.5,
+    daily: {
+      '2026-07-16': { pull_uv: 5, new_uv: 3, dn_income: 1.5, d14_income: 1.5 },
+    },
+  },
+};
+
+test('combines link and code attribution for one book submission', () => {
+  const stats = aggregateSubmissionStats({ linkId: 'link-10', code: 'code-20' }, byAdId);
+
+  assert.equal(stats.pull_uv, 20);
+  assert.equal(stats.new_uv, 7);
+  assert.equal(stats.dn_income, 3.75);
+  assert.equal(stats.channel, 'link+code');
+  assert.deepEqual(stats.assetIds, ['link-10', 'code-20']);
+  assert.equal(stats.assetCount, 2);
+  assert.deepEqual(stats.daily['2026-07-16'], {
+    pull_uv: 12,
+    new_uv: 5,
+    dn_income: 2.25,
+    d14_income: 2.25,
+  });
+});
+
+test('counts an identical ad id only once across duplicate submissions', () => {
+  const seen = new Set();
+  const first = aggregateSubmissionStats({ linkId: 'link-10', code: 'code-20' }, byAdId, seen);
+  const duplicate = aggregateSubmissionStats({ linkId: 'link-10', code: 'code-20' }, byAdId, seen);
+
+  assert.equal(first.pull_uv, 20);
+  assert.equal(duplicate.pull_uv, 0);
+  assert.equal(duplicate.assetCount, 0);
+  assert.deepEqual(Array.from(seen).sort(), ['code-20', 'link-10']);
+});
+
+test('does not double count when linkId and code are the same identifier', () => {
+  const stats = aggregateSubmissionStats({ linkId: 'link-10', code: 'link-10' }, byAdId);
+
+  assert.equal(stats.pull_uv, 12);
+  assert.equal(stats.assetCount, 1);
+  assert.deepEqual(stats.assetIds, ['link-10']);
+});

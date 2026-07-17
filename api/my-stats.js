@@ -15,7 +15,7 @@ const {
   getRedis, canonize, resolvePromoterKey, isAdmin: legacyIsAdmin,
   getAdIdDetails, getLegacyDataJson,
   loadSubmissions, loadCovers,
-  buildAdIdLookup, zeroStats, r2,
+  buildAdIdLookup, aggregateSubmissionStats, zeroStats, r2,
 } = require('./_lib/stats-data');
 const { getAuthPayload, isAdminUser } = require('./_lib/security');
 
@@ -117,7 +117,10 @@ module.exports = async (req, res) => {
         }
 
         for (const [pCanon, pEntry] of Object.entries(promoterEntries || {})) {
-          const adIds = [...(pEntry.links || []), ...(pEntry.codes || [])];
+          const adIds = Array.from(new Set([
+            ...(pEntry.links || []).map(String),
+            ...(pEntry.codes || []).map(String),
+          ]));
           for (const adIdRaw of adIds) {
             const adId = String(adIdRaw);
             const st = byAdId[adId] || zeroStats();
@@ -186,18 +189,17 @@ module.exports = async (req, res) => {
       const aggDaily = {};
       let missingFromPipeline = 0;
       let linkAdIds = 0, codeAdIds = 0;
+      const seenAdIds = new Set();
 
       for (const sub of submissions) {
         const linkId = sub.linkId ? String(sub.linkId) : null;
         const code = sub.code ? String(sub.code) : null;
+        const st = aggregateSubmissionStats(sub, byAdId, seenAdIds);
+        if (st.matchedAssetCount === 0) missingFromPipeline++;
 
-        let adIdKey = null, st = null;
-        if (linkId && byAdId[linkId]) { adIdKey = linkId; st = byAdId[linkId]; }
-        else if (code && byAdId[code]) { adIdKey = code; st = byAdId[code]; }
-        if (!st) { st = zeroStats(); missingFromPipeline++; }
-
-        const channel = st.channel || (adIdKey && code === adIdKey ? 'code' : 'link');
-        if (channel === 'link') linkAdIds++; else if (channel === 'code') codeAdIds++;
+        const channel = st.channel;
+        if (st.channels.includes('link')) linkAdIds++;
+        if (st.channels.includes('code')) codeAdIds++;
 
         const bookName = sub.matchedBookName || sub.bookName || st.book_name || 'Unknown';
         const bookId = sub.bookId || null;
@@ -226,24 +228,27 @@ module.exports = async (req, res) => {
           d14_income: dn,
           dn_income: dn,
           channel,
+          assetIds: st.assetIds,
+          assetCount: st.assetCount,
         });
       }
 
       if (promoterEntry) {
-        const knownAdIds = new Set();
+        const knownAdIds = new Set(seenAdIds);
         for (const b of books) {
           if (b.linkId) knownAdIds.add(String(b.linkId));
           if (b.code && b.code !== 'N/A') knownAdIds.add(String(b.code));
         }
-        const promoAdIds = [
+        const promoAdIds = Array.from(new Set([
           ...(promoterEntry.links || []).map(String),
           ...(promoterEntry.codes || []).map(String),
-        ];
+        ]));
         let orphanCount = 0;
         for (const adId of promoAdIds) {
           if (knownAdIds.has(adId)) continue;
           const st = byAdId[adId];
           if (!st) continue;
+          knownAdIds.add(adId);
           const isCode = (promoterEntry.codes || []).map(String).includes(adId);
           const channel = isCode ? 'code' : 'link';
           let bookName = st.book_name || 'Unknown';

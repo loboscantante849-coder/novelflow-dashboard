@@ -2414,6 +2414,29 @@
         .perf-chart-tab.active { background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.3); }
         .perf-chart-container { width: 100%; height: 130px; position: relative; cursor: crosshair; }
         .perf-chart-canvas { width: 100%; height: 100%; display: block; }
+        .daily-books-section { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.12); }
+        .daily-books-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+        .daily-books-title { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.9); }
+        .daily-books-timezone { margin-top: 2px; font-size: 9px; color: rgba(255,255,255,0.42); }
+        .daily-books-date-nav { display: grid; grid-template-columns: 28px minmax(78px, auto) 28px; align-items: center; flex-shrink: 0; }
+        .daily-books-date { text-align: center; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.78); font-feature-settings: "tnum"; }
+        .daily-books-nav-btn { width: 28px; height: 28px; padding: 0; border: none; background: transparent; color: rgba(255,255,255,0.72); font-size: 20px; line-height: 1; cursor: pointer; }
+        .daily-books-nav-btn:hover:not(:disabled) { color: white; background: rgba(255,255,255,0.08); border-radius: 6px; }
+        .daily-books-nav-btn:disabled { opacity: 0.2; cursor: default; }
+        .daily-book-grid { display: grid; grid-template-columns: minmax(0, 1fr) 52px 52px 58px; column-gap: 6px; align-items: center; }
+        .daily-book-table-header { min-height: 28px; color: rgba(255,255,255,0.42); font-size: 9px; text-transform: uppercase; }
+        .daily-book-sort { display: flex; align-items: center; justify-content: flex-end; gap: 2px; min-width: 0; padding: 4px 0; border: none; background: transparent; color: inherit; font: inherit; text-transform: inherit; cursor: pointer; }
+        .daily-book-sort.active { color: #FFD700; }
+        .daily-book-sort-indicator { width: 8px; font-size: 8px; }
+        .daily-book-rows { max-height: 240px; overflow-y: auto; scrollbar-width: thin; }
+        .daily-book-row { min-height: 44px; padding: 7px 0; border-top: 1px solid rgba(255,255,255,0.08); }
+        .daily-book-info { min-width: 0; padding-right: 4px; }
+        .daily-book-name { overflow: hidden; color: white; font-size: 11px; font-weight: 500; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+        .daily-book-assets { margin-top: 2px; color: rgba(255,255,255,0.38); font-size: 9px; }
+        .daily-book-value { color: rgba(255,255,255,0.82); font-size: 10px; font-weight: 600; text-align: right; font-feature-settings: "tnum"; }
+        .daily-book-value.income { color: #FFD76A; }
+        .daily-book-total { min-height: 34px; padding-top: 7px; border-top: 1px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.64); font-size: 10px; font-weight: 600; }
+        .daily-book-empty { padding: 18px 8px; border-top: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.45); font-size: 10px; text-align: center; }
 
         /* ========== AC Reels ========== */
         .reels-section { margin: 16px; background: var(--canvas); border: 1px solid var(--hairline); border-radius: 16px; overflow: hidden; }
@@ -2509,6 +2532,14 @@
         .perf-login-prompt { padding: 10px 0 4px; }
         .perf-login-btn { padding: 8px 22px; font-size: 13px; }
         .tier-progress { margin: 6px 0 2px; }
+        .daily-books-toolbar { gap: 6px; }
+        .daily-books-title { font-size: 11px; }
+        .daily-books-date-nav { grid-template-columns: 24px minmax(70px, auto) 24px; }
+        .daily-books-nav-btn { width: 24px; height: 26px; }
+        .daily-book-grid { grid-template-columns: minmax(0, 1fr) 44px 44px 54px; column-gap: 4px; }
+        .daily-book-row { min-height: 40px; padding: 6px 0; }
+        .daily-book-name { font-size: 10px; }
+        .daily-book-value { font-size: 9px; }
         .book-scroll-list { gap: 8px; }
         .book-scroll-card { min-width: 120px; }
         .book-scroll-cover { height: 160px; }
@@ -2884,6 +2915,33 @@
                         </div>
                         <div id="chartDetail" style="display:none;text-align:center;font-size:11px;font-weight:600;padding:2px 0;transition:opacity 0.3s;"></div>
                     </div>
+                    <section class="daily-books-section" id="dailyBooksSection" aria-labelledby="dailyBooksTitle">
+                        <div class="daily-books-toolbar">
+                            <div>
+                                <div class="daily-books-title" id="dailyBooksTitle" data-i18n="daily_books_title">Daily Book Performance</div>
+                                <div class="daily-books-timezone" data-i18n="daily_books_timezone">Reporting date (UTC)</div>
+                            </div>
+                            <div class="daily-books-date-nav">
+                                <button class="daily-books-nav-btn" id="dailyBooksPrevious" type="button" onclick="shiftDailyBookDate(-1)" aria-label="Previous reporting date" title="Previous reporting date">&lsaquo;</button>
+                                <time class="daily-books-date" id="dailyBooksDate" aria-live="polite">--</time>
+                                <button class="daily-books-nav-btn" id="dailyBooksNext" type="button" onclick="shiftDailyBookDate(1)" aria-label="Next reporting date" title="Next reporting date">&rsaquo;</button>
+                            </div>
+                        </div>
+                        <div class="daily-book-grid daily-book-table-header">
+                            <div data-i18n="daily_books_book">Book</div>
+                            <button class="daily-book-sort active" type="button" data-daily-sort="visits" onclick="setDailyBookSort('visits')">
+                                <span data-i18n="perf_label_visits">Visits</span><span class="daily-book-sort-indicator">&#8595;</span>
+                            </button>
+                            <button class="daily-book-sort" type="button" data-daily-sort="new_users" onclick="setDailyBookSort('new_users')">
+                                <span data-i18n="daily_books_new">New</span><span class="daily-book-sort-indicator"></span>
+                            </button>
+                            <button class="daily-book-sort" type="button" data-daily-sort="income" onclick="setDailyBookSort('income')">
+                                <span data-i18n="perf_label_income">Income</span><span class="daily-book-sort-indicator"></span>
+                            </button>
+                        </div>
+                        <div class="daily-book-rows" id="dailyBookRows"></div>
+                        <div class="daily-book-grid daily-book-total" id="dailyBookTotal" style="display:none;"></div>
+                    </section>
                     <div class="tier-progress">
                         <div class="tier-progress-bar"><div class="tier-progress-fill" id="tierProgressFill" style="width:0%"></div></div>
                         <div class="tier-progress-text">
@@ -3439,6 +3497,7 @@
         </div>
     </div>
 
+    <script src="/daily-book-performance.js"></script>
     <script>
         // v2.5.1: Global HTML escape for XSS protection
         function escapeHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
@@ -3674,6 +3733,14 @@
                 perf_tab_visits: 'Visits',
                 perf_tab_unique: 'Unique',
                 perf_tab_income: 'Income',
+                daily_books_title: 'Daily Book Performance',
+                daily_books_timezone: 'Reporting date (UTC)',
+                daily_books_book: 'Book',
+                daily_books_new: 'New',
+                daily_books_total: 'Total',
+                daily_books_empty: 'No book activity on this date',
+                daily_books_asset: 'asset',
+                daily_books_assets: 'assets',
                 share_this_text: '📋 Share This Text',
                 copy_all_text: 'Copy All Text',
                 try_another: 'Try Another Book',
@@ -3858,6 +3925,14 @@
                 perf_tab_visits: 'Visitas',
                 perf_tab_unique: 'Únicos',
                 perf_tab_income: 'Ingresos',
+                daily_books_title: 'Rendimiento Diario por Libro',
+                daily_books_timezone: 'Fecha del informe (UTC)',
+                daily_books_book: 'Libro',
+                daily_books_new: 'Nuevos',
+                daily_books_total: 'Total',
+                daily_books_empty: 'Sin actividad por libro en esta fecha',
+                daily_books_asset: 'recurso',
+                daily_books_assets: 'recursos',
                 login_to_see: 'Inicia sesión para ver tus estadísticas',
             }
         };
@@ -3872,6 +3947,7 @@
             AppState.searchLang = lang;
             localStorage.setItem('novelflow_lang', lang);
             applyTranslations();
+            if (_lastPerfData) renderDailyBookPerformance(_lastPerfData);
             // Reload books for the new language
             loadBooks();
             // Update toggle buttons
@@ -6713,6 +6789,9 @@ function renderMyBooks() {
         // Chart state
         let _chartMode = 'visits';
         let _lastPerfData = null;
+        let _dailyBookDates = [];
+        let _dailyBookDate = null;
+        let _dailyBookSort = 'visits';
 
         let _userSelectedChart = false;
         function switchChartMode(mode) {
@@ -6744,6 +6823,91 @@ function renderMyBooks() {
             const prefix = change > 0 ? '↑' : change < 0 ? '↓' : '→';
             el.textContent = prefix + ' ' + Math.abs(change) + '%';
             el.className = 'perf-stat-change ' + (change > 0 ? 'up' : change < 0 ? 'down' : 'flat');
+        }
+
+        function formatDailyBookDate(date) {
+            if (!date) return '--';
+            const parsed = new Date(date + 'T00:00:00Z');
+            if (Number.isNaN(parsed.getTime())) return date;
+            return parsed.toLocaleDateString(AppState.currentLang === 'es' ? 'es-ES' : 'en-US', {
+                year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC'
+            });
+        }
+
+        function setDailyBookSort(metric) {
+            if (!['visits', 'new_users', 'income'].includes(metric)) return;
+            _dailyBookSort = metric;
+            if (_lastPerfData) renderDailyBookPerformance(_lastPerfData);
+        }
+
+        function shiftDailyBookDate(direction) {
+            const currentIndex = _dailyBookDates.indexOf(_dailyBookDate);
+            const nextIndex = currentIndex + direction;
+            if (currentIndex < 0 || nextIndex < 0 || nextIndex >= _dailyBookDates.length) return;
+            _dailyBookDate = _dailyBookDates[nextIndex];
+            if (_lastPerfData) renderDailyBookPerformance(_lastPerfData);
+        }
+
+        function renderDailyBookPerformance(data) {
+            const helper = window.DailyBookPerformance;
+            const rowsEl = document.getElementById('dailyBookRows');
+            const totalEl = document.getElementById('dailyBookTotal');
+            const dateEl = document.getElementById('dailyBooksDate');
+            const previousButton = document.getElementById('dailyBooksPrevious');
+            const nextButton = document.getElementById('dailyBooksNext');
+            if (!helper || !rowsEl || !totalEl || !dateEl) return;
+
+            const links = Array.isArray(data && data.links) ? data.links : [];
+            _dailyBookDates = helper.availableDates(links);
+            if (!_dailyBookDates.includes(_dailyBookDate)) {
+                _dailyBookDate = _dailyBookDates.length ? _dailyBookDates[_dailyBookDates.length - 1] : null;
+            }
+
+            const dateIndex = _dailyBookDates.indexOf(_dailyBookDate);
+            if (previousButton) previousButton.disabled = dateIndex <= 0;
+            if (nextButton) nextButton.disabled = dateIndex < 0 || dateIndex >= _dailyBookDates.length - 1;
+            dateEl.textContent = formatDailyBookDate(_dailyBookDate);
+
+            document.querySelectorAll('[data-daily-sort]').forEach(button => {
+                const active = button.dataset.dailySort === _dailyBookSort;
+                button.classList.toggle('active', active);
+                const indicator = button.querySelector('.daily-book-sort-indicator');
+                if (indicator) indicator.textContent = active ? '\u2193' : '';
+                button.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+
+            if (!_dailyBookDate || links.length === 0) {
+                rowsEl.innerHTML = '<div class="daily-book-empty">' + escapeHtml(getText('daily_books_empty')) + '</div>';
+                totalEl.style.display = 'none';
+                return;
+            }
+
+            const locale = AppState.currentLang === 'es' ? 'es-ES' : 'en-US';
+            const rows = helper.sortRows(helper.aggregateForDate(links, _dailyBookDate), _dailyBookSort);
+            const formatCount = value => Number(value || 0).toLocaleString(locale);
+            const formatIncome = value => Number(value || 0).toLocaleString(locale, {
+                style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2
+            });
+
+            rowsEl.innerHTML = rows.map(row => {
+                const assetKey = row.assets === 1 ? 'daily_books_asset' : 'daily_books_assets';
+                return '<div class="daily-book-grid daily-book-row">' +
+                    '<div class="daily-book-info">' +
+                        '<div class="daily-book-name" title="' + escapeHtml(row.bookName) + '">' + escapeHtml(row.bookName) + '</div>' +
+                        '<div class="daily-book-assets">' + formatCount(row.assets) + ' ' + escapeHtml(getText(assetKey)) + '</div>' +
+                    '</div>' +
+                    '<div class="daily-book-value">' + formatCount(row.visits) + '</div>' +
+                    '<div class="daily-book-value">' + formatCount(row.new_users) + '</div>' +
+                    '<div class="daily-book-value income">' + formatIncome(row.income) + '</div>' +
+                '</div>';
+            }).join('');
+
+            const total = helper.totals(rows);
+            totalEl.innerHTML = '<div>' + escapeHtml(getText('daily_books_total')) + '</div>' +
+                '<div class="daily-book-value">' + formatCount(total.visits) + '</div>' +
+                '<div class="daily-book-value">' + formatCount(total.new_users) + '</div>' +
+                '<div class="daily-book-value income">' + formatIncome(total.income) + '</div>';
+            totalEl.style.display = 'grid';
         }
 
         function renderTrendChart(data) {
@@ -7057,9 +7221,14 @@ function renderMyBooks() {
             if (perfData) perfData.style.display = 'block';
             
             try {
-                const resp = await fetch('/api/my-stats?t=' + Date.now() + '&username=' + encodeURIComponent(AppState.user.username));
-                if (!resp.ok) throw new Error('Failed');
-                const data = await resp.json();
+                const query = '?t=' + Date.now() + '&username=' + encodeURIComponent(AppState.user.username);
+                let resp = await fetch('/api/per-link-stats' + query);
+                let data = resp.ok ? await resp.json() : null;
+                if (!resp.ok || !data || data.error) {
+                    resp = await fetch('/api/my-stats' + query);
+                    if (!resp.ok) throw new Error('Failed');
+                    data = await resp.json();
+                }
                 // Convert daily format: { date: {visits, unique_users, new_users, income} }
                 // → separate dicts for chart rendering
                 if (data.daily && !data.income_daily) {
@@ -7084,11 +7253,13 @@ function renderMyBooks() {
                 const pl = document.getElementById('perfLinks');
                 
                 const income = data.total_income || 0;
+                const perfLinks = Array.isArray(data.links) ? data.links : (Array.isArray(data.books) ? data.books : []);
+                const dailyBookHelper = window.DailyBookPerformance;
                 if (pv) { const pvVal = data.total_visits || 0; pv.textContent = pvVal.toLocaleString(); pv.className = 'perf-stat-value' + (pvVal ? '' : ' zero'); }
                 if (pi) { pi.textContent = '$' + income.toFixed(2); pi.className = 'perf-stat-value' + (income ? '' : ' zero'); }
-                if (pb) { pb.textContent = (data.links || data.books || []).length; }
+                if (pb) { pb.textContent = dailyBookHelper ? dailyBookHelper.countBooks(perfLinks) : perfLinks.length; }
                 if (pn) { const nv = data.total_new || 0; pn.textContent = nv.toLocaleString(); pn.className = 'perf-stat-value' + (nv ? '' : ' zero'); }
-                if (pl) { pl.textContent = (data.links || data.books || []).length; }
+                if (pl) { pl.textContent = perfLinks.length; }
                 
                 // Calculate and render changes
                 renderChangeEl('perfIncomeChange', calcChange(data.income_daily));
@@ -7096,7 +7267,7 @@ function renderMyBooks() {
                 renderChangeEl('perfVisitsChange', calcChange(data.visits_daily || {}));
                 
                 // Tier progress
-                const booksCount = (data.links || data.books || []).length;
+                const booksCount = dailyBookHelper ? dailyBookHelper.countBooks(perfLinks) : perfLinks.length;
                 const tierFill = document.getElementById('tierProgressFill');
                 const tierCurrent = document.getElementById('tierCurrent');
                 const tierNext = document.getElementById('tierNext');
@@ -7107,6 +7278,7 @@ function renderMyBooks() {
                 
                 // Render trend chart
                 renderTrendChart(data);
+                renderDailyBookPerformance(data);
                 
                 // Last updated
                 const perfUpdated = document.getElementById('perfUpdated');

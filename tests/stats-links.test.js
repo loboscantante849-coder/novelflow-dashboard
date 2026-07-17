@@ -19,3 +19,11 @@ test('stats endpoints never fabricate a promotion URL from linkId', () => {
     );
   }
 });
+
+test('user stats combine code and link attribution instead of choosing one', () => {
+  for (const relativePath of STATS_ENDPOINTS) {
+    const source = fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
+    assert.equal(source.includes('aggregateSubmissionStats(sub, byAdId, seenAdIds)'), true);
+    assert.equal(source.includes('else if (code && byAdId[code])'), false);
+  }
+});
