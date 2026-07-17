@@ -22,15 +22,11 @@ const {
 
 const { handlePreflight } = require('../_lib/cors');
 const { Redis } = require('@upstash/redis');
-const crypto = require('crypto');
+const { createPasswordHash, verifyPassword } = require('../_lib/password');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
   return new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
-}
-
-function hashPassword(password) {
-  return crypto.createHash('sha256').update('nf_' + password + '_salt2026').digest('hex');
 }
 
 function getClientIp(req) {
@@ -91,13 +87,15 @@ module.exports = async (req, res) => {
         error: 'Invalid username (use letters, numbers, Chinese chars, underscore, dot, @, space, hyphen; 1-50 chars)'
       });
     }
+    const usernameKey = cleanUsername.toLowerCase();
 
     // Reject reserved usernames to prevent admin privilege escalation
-    if (RESERVED_USERNAMES.has(cleanUsername.toLowerCase())) {
+    if (RESERVED_USERNAMES.has(usernameKey)) {
       return res.status(400).json({ error: 'This username is not available' });
     }
 
     const redis = getRedis();
+    if (!redis) return res.status(503).json({ error: 'Authentication service unavailable' });
     const ip = getClientIp(req);
 
     // ---------- Rate limiting ----------
@@ -108,9 +106,9 @@ module.exports = async (req, res) => {
         return res.status(429).json({ error: 'Too many login attempts', retryAfter: ipRL.retryAfter });
       }
       // Username-based lockout: 5 failures / 15 min
-      const acctLock = await redis.get('nf_login_lock:' + cleanUsername.toLowerCase());
+      const acctLock = await redis.get('nf_login_lock:' + usernameKey);
       if (acctLock) {
-        const ttl = await redis.ttl('nf_login_lock:' + cleanUsername.toLowerCase());
+        const ttl = await redis.ttl('nf_login_lock:' + usernameKey);
         return res.status(429).json({ error: 'Account temporarily locked', retryAfter: Math.max(1, ttl) });
       }
     }
@@ -120,11 +118,17 @@ module.exports = async (req, res) => {
     let mustSetPassword = false;
     let passedAuth = false;
 
-    if (redis) {
-      const [storedHash, userData] = await Promise.all([
-        redis.get('nf_user_pass:' + cleanUsername),
-        redis.get('nf_user_data:' + cleanUsername)
+    {
+      const passwordKey = 'nf_user_pass:' + usernameKey;
+      const legacyPasswordKey = cleanUsername !== usernameKey
+        ? 'nf_user_pass:' + cleanUsername
+        : null;
+      const [canonicalHash, legacyHash, userData] = await Promise.all([
+        redis.get(passwordKey),
+        legacyPasswordKey ? redis.get(legacyPasswordKey) : null,
+        redis.get('nf_user_data:' + usernameKey)
       ]);
+      const storedHash = canonicalHash || legacyHash;
       const userExists = !!(storedHash || userData);
 
       if (storedHash) {
@@ -138,30 +142,37 @@ module.exports = async (req, res) => {
         // NOTE: do NOT enforce strong-password policy on existing-user login;
         // old users may have shorter legacy passwords. Brute force is blocked
         // by the per-account lockout (5 fails / 15 min) above.
-        const inputHash = hashPassword(password);
-        if (inputHash !== storedHash) {
+        const verification = await verifyPassword(password, storedHash);
+        if (!verification.valid) {
           // Record failure → lock after 5
-          const fails = await redis.incr('nf_login_fail:' + cleanUsername.toLowerCase());
-          if (fails === 1) await redis.expire('nf_login_fail:' + cleanUsername.toLowerCase(), 900);
+          const fails = await redis.incr('nf_login_fail:' + usernameKey);
+          if (fails === 1) await redis.expire('nf_login_fail:' + usernameKey, 900);
           if (fails >= 5) {
-            await redis.set('nf_login_lock:' + cleanUsername.toLowerCase(), '1', { ex: 900 });
-            await redis.del('nf_login_fail:' + cleanUsername.toLowerCase());
+            await redis.set('nf_login_lock:' + usernameKey, '1', { ex: 900 });
+            await redis.del('nf_login_fail:' + usernameKey);
           }
           return res.status(401).json({ error: 'Invalid username or password' });
         }
+        if (verification.needsRehash || (!canonicalHash && legacyHash)) {
+          await redis.set(passwordKey, await createPasswordHash(password));
+        }
         // Success → clear failure counter
-        await redis.del('nf_login_fail:' + cleanUsername.toLowerCase());
+        await redis.del('nf_login_fail:' + usernameKey);
         passedAuth = true;
       } else if (userData) {
         // Old user without password (has data but no pass hash)
         mustSetPassword = true;
-        if (password) {
-          if (!isValidPassword(password)) {
-            return res.status(400).json({ error: 'Password must be at least 8 characters with a letter and a number', needPassword: true, mustSetPassword: true });
-          }
-          const newHash = hashPassword(password);
-          await redis.set('nf_user_pass:' + cleanUsername, newHash);
+        if (!password) {
+          return res.status(401).json({
+            error: 'Password setup required',
+            needPassword: true,
+            mustSetPassword: true,
+          });
         }
+        if (!isValidPassword(password)) {
+          return res.status(400).json({ error: 'Password must be at least 8 characters with a letter and a number', needPassword: true, mustSetPassword: true });
+        }
+        await redis.set(passwordKey, await createPasswordHash(password));
         passedAuth = true;
       } else {
         // Brand new user → require a password to register
@@ -172,20 +183,9 @@ module.exports = async (req, res) => {
         if (!isValidPassword(password)) {
           return res.status(400).json({ error: 'Password must be at least 8 characters with a letter and a number', needPassword: true, mustSetPassword: true });
         }
-        const newHash = hashPassword(password);
-        await redis.set('nf_user_pass:' + cleanUsername, newHash);
+        await redis.set(passwordKey, await createPasswordHash(password));
         passedAuth = true;
       }
-    } else {
-      // No Redis → require password; treat all as new users (fail-open minimal)
-      if (!password) {
-        return res.status(400).json({ error: 'Password required (min 8 characters with a letter and a number)', needPassword: true, mustSetPassword: true });
-      }
-      if (!isValidPassword(password)) {
-        return res.status(400).json({ error: 'Password must be at least 8 characters with a letter and a number', needPassword: true, mustSetPassword: true });
-      }
-      isNewUser = true;
-      passedAuth = true;
     }
 
     if (!passedAuth) {
@@ -193,7 +193,7 @@ module.exports = async (req, res) => {
     }
 
     // ---------- Issue tokens ----------
-    const userPayload = buildUserPayload({ type: 'local', username: cleanUsername });
+    const userPayload = buildUserPayload({ type: 'local', username: usernameKey });
     const accessToken = signAccessToken(userPayload);
     const refreshToken = signRefreshToken(userPayload);
     const userInfo = extractUserInfo(userPayload);
@@ -230,14 +230,13 @@ module.exports = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      username: cleanUsername,
+      username: usernameKey,
       isNewUser,
       ...(mustSetPassword ? { mustSetPassword: true } : {})
     });
 
   } catch (error) {
     console.error('[auth/register] Error:', error);
-    // Never leak stack traces; return generic 400 instead of 500 for bad input
-    return res.status(400).json({ error: 'Invalid request' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };

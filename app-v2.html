@@ -4779,6 +4779,7 @@
                     } else {
                         AppState.myBooks.push(currentRecommendBook);
                     }
+                    markBookRestored(currentRecommendBook);
                     saveMyBooks();
                     renderMyBooks();
                     updateStats();
@@ -5081,6 +5082,7 @@
                     } else {
                         AppState.myBooks.push(newBook);
                     }
+                    markBookRestored(newBook);
                     saveMyBooks();
                     renderMyBooks();
                     updateStats();
@@ -5180,7 +5182,72 @@
             }
         }
 
-        function saveMyBooks() { localStorage.setItem(getMyBooksKey(), JSON.stringify(AppState.myBooks)); CloudSync.schedulePush(); }
+        const BOOK_TOMBSTONE_TTL_MS = 180 * 24 * 60 * 60 * 1000;
+
+        function getBookSyncKey(book) {
+            if (!book || typeof book !== 'object') return null;
+            if (book.code !== undefined && book.code !== null && String(book.code).trim()) return 'code:' + String(book.code).trim();
+            if (book.bookId !== undefined && book.bookId !== null && String(book.bookId).trim()) return 'book:' + String(book.bookId).trim();
+            if (book.id !== undefined && book.id !== null && String(book.id).trim()) return 'id:' + String(book.id).trim();
+            if (typeof book.title === 'string' && book.title.trim()) return 'title:' + book.title.trim().toLowerCase();
+            return null;
+        }
+
+        function getDeletedBooks() {
+            try {
+                const value = JSON.parse(localStorage.getItem(getUserKey('deleted_books')) || '{}');
+                const now = Date.now();
+                return Object.fromEntries(Object.entries(value).filter(([key, timestamp]) =>
+                    key && key.length <= 256 && Number.isFinite(Number(timestamp)) &&
+                    now - Number(timestamp) <= BOOK_TOMBSTONE_TTL_MS
+                ));
+            } catch (_) { return {}; }
+        }
+
+        function setDeletedBooks(value) {
+            localStorage.setItem(getUserKey('deleted_books'), JSON.stringify(value || {}));
+        }
+
+        function getRestoreBookKeys() {
+            try {
+                const value = JSON.parse(localStorage.getItem(getUserKey('restore_book_keys')) || '[]');
+                return Array.isArray(value) ? value.filter(key => typeof key === 'string').slice(0, 1000) : [];
+            } catch (_) { return []; }
+        }
+
+        function markBookDeleted(book) {
+            const key = getBookSyncKey(book);
+            if (!key) return;
+            const deleted = getDeletedBooks();
+            deleted[key] = Date.now();
+            setDeletedBooks(deleted);
+            localStorage.setItem(getUserKey('restore_book_keys'), JSON.stringify(getRestoreBookKeys().filter(item => item !== key)));
+        }
+
+        function markBookRestored(book) {
+            const key = getBookSyncKey(book);
+            if (!key) return;
+            const deleted = getDeletedBooks();
+            delete deleted[key];
+            setDeletedBooks(deleted);
+            const restoreKeys = new Set(getRestoreBookKeys());
+            restoreKeys.add(key);
+            localStorage.setItem(getUserKey('restore_book_keys'), JSON.stringify(Array.from(restoreKeys)));
+        }
+
+        function mergeDeletedBooks(localValue, cloudValue) {
+            const merged = { ...(localValue || {}) };
+            for (const [key, timestamp] of Object.entries(cloudValue || {})) {
+                merged[key] = Math.max(Number(merged[key]) || 0, Number(timestamp) || 0);
+            }
+            for (const key of getRestoreBookKeys()) delete merged[key];
+            return merged;
+        }
+
+        function saveMyBooks(options = {}) {
+            localStorage.setItem(getMyBooksKey(), JSON.stringify(AppState.myBooks));
+            if (options.sync !== false) CloudSync.schedulePush();
+        }
 
         // ========== Cloud Sync ==========
         // Syncs user data (myBooks, checkin, points, etc.) across devices via Redis
@@ -5198,6 +5265,8 @@
             collectData() {
                 return {
                     myBooks: AppState.myBooks || [],
+                    deletedBooks: getDeletedBooks(),
+                    restoreBookKeys: getRestoreBookKeys(),
                     checkin: JSON.parse(localStorage.getItem(getUserKey('checkin')) || 'null'),
                     points: parseInt(localStorage.getItem(getUserKey('points')) || '0'),
                     claimed: JSON.parse(localStorage.getItem(getUserKey('claimed')) || 'null'),
@@ -5210,6 +5279,10 @@
             // Push local data to cloud
             async push() {
                 if (!this.isEnabled() || this._syncing) return;
+                if (this._debounceTimer) {
+                    clearTimeout(this._debounceTimer);
+                    this._debounceTimer = null;
+                }
                 try {
                     this._syncing = true;
                     const data = this.collectData();
@@ -5222,6 +5295,8 @@
                     if (resp.ok) {
                         const result = await resp.json();
                         this._lastSyncAt = result.lastSyncAt || Date.now();
+                        if (result.deletedBooks) setDeletedBooks(result.deletedBooks);
+                        localStorage.removeItem(getUserKey('restore_book_keys'));
                         console.log('[CloudSync] Push OK');
                     }
                 } catch (e) {
@@ -5252,6 +5327,8 @@
 
                     const cloud = result.data;
                     this._lastSyncAt = cloud.lastSyncAt || 0;
+                    const deletedBooks = mergeDeletedBooks(getDeletedBooks(), cloud.deletedBooks);
+                    setDeletedBooks(deletedBooks);
 
                     // Merge strategy: cloud wins for accumulated data, merge for lists
                     // Points: take max (don't lose earned points)
@@ -5294,13 +5371,13 @@
                         const bookMap = new Map();
                         // Add local books first
                         for (const b of localBooks) {
-                            const id = b.id || b.bookId || b.title;
-                            if (id) bookMap.set(id, b);
+                            const id = getBookSyncKey(b);
+                            if (id && !deletedBooks[id]) bookMap.set(id, b);
                         }
                         // Cloud books overwrite on conflict (newer data)
                         for (const b of cloud.myBooks) {
-                            const id = b.id || b.bookId || b.title;
-                            if (id) {
+                            const id = getBookSyncKey(b);
+                            if (id && !deletedBooks[id]) {
                                 if (!bookMap.has(id)) {
                                     bookMap.set(id, b);
                                 } else {
@@ -5312,7 +5389,7 @@
                             }
                         }
                         AppState.myBooks = Array.from(bookMap.values());
-                        saveMyBooks();
+                        saveMyBooks({ sync: false });
                     }
 
                     // Reload all data into AppState
@@ -5320,6 +5397,7 @@
                     updatePointsDisplay();
                     
                     console.log('[CloudSync] Pull & merge OK');
+                    await this.push();
                 } catch (e) {
                     console.warn('[CloudSync] Pull failed:', e.message);
                 }
@@ -5329,7 +5407,10 @@
             schedulePush() {
                 if (!this.isEnabled()) return;
                 if (this._debounceTimer) clearTimeout(this._debounceTimer);
-                this._debounceTimer = setTimeout(() => this.push(), 2000);
+                this._debounceTimer = setTimeout(() => {
+                    this._debounceTimer = null;
+                    this.push();
+                }, 2000);
             },
 
             // Enable sync after login

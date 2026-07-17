@@ -19,6 +19,23 @@ function getSecret() {
   return secret;
 }
 
+function getVerificationSecrets() {
+  const current = getSecret();
+  const previous = process.env.JWT_SECRET_PREVIOUS;
+  return previous && previous !== current ? [current, previous] : [current];
+}
+
+function matchesSignature(signature, signingInput, secret) {
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(signingInput)
+    .digest('base64url');
+  const actualBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (actualBuffer.length !== expectedBuffer.length) return false;
+  return crypto.timingSafeEqual(actualBuffer, expectedBuffer);
+}
+
 // ========== JWT Core ==========
 
 function signJWT(payload, maxAge) {
@@ -42,26 +59,30 @@ function signJWT(payload, maxAge) {
 
 function verifyJWT(token) {
   try {
-    const secret = getSecret();
     const parts = token.split('.');
     if (parts.length !== 3) return null;
 
     const [encodedHeader, encodedPayload, signature] = parts;
+    const header = JSON.parse(Buffer.from(encodedHeader, 'base64url').toString());
+    if (header.alg !== 'HS256' || header.typ !== 'JWT') return null;
 
-    const expectedSignature = crypto
-      .createHmac('sha256', secret)
-      .update(`${encodedHeader}.${encodedPayload}`)
-      .digest('base64url');
-
-    if (signature !== expectedSignature) return null;
+    const signingInput = `${encodedHeader}.${encodedPayload}`;
+    const validSignature = getVerificationSecrets().some(secret =>
+      matchesSignature(signature, signingInput, secret)
+    );
+    if (!validSignature) return null;
 
     const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString());
 
-    // Check proper exp claim
-    if (payload.exp && Date.now() / 1000 > payload.exp) return null;
+    const now = Date.now() / 1000;
+    if (payload.exp !== undefined &&
+        (typeof payload.exp !== 'number' || now > payload.exp)) return null;
 
     // Legacy: tokens with only iat (no exp), allow 30 day max
-    if (!payload.exp && payload.iat && (Date.now() / 1000 - payload.iat) > 2592000) return null;
+    if (payload.exp === undefined) {
+      if (typeof payload.iat !== 'number' || now - payload.iat > 2592000) return null;
+    }
+    if (typeof payload.iat === 'number' && payload.iat > now + 300) return null;
 
     return payload;
   } catch (e) {

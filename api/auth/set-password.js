@@ -9,15 +9,11 @@
 const { handlePreflight } = require('../_lib/cors');
 const { verifyJWT } = require('../_lib/jwt');
 const { Redis } = require('@upstash/redis');
-const crypto = require('crypto');
+const { createPasswordHash, verifyPassword } = require('../_lib/password');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
   return new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
-}
-
-function hashPassword(password) {
-  return crypto.createHash('sha256').update('nf_' + password + '_salt2026').digest('hex');
 }
 
 function isStrongPassword(p) {
@@ -43,7 +39,7 @@ module.exports = async (req, res) => {
     const payload = verifyJWT(token);
     if (!payload) return res.status(401).json({ error: 'Invalid session' });
 
-    const username = payload.username;
+    const username = String(payload.username).toLowerCase();
 
     // Strict type validation
     const body = req.body;
@@ -75,19 +71,18 @@ module.exports = async (req, res) => {
       if (typeof oldPassword !== 'string' || oldPassword.length < 1) {
         return res.status(401).json({ error: 'Current password is wrong' });
       }
-      const oldHash = hashPassword(oldPassword);
-      if (oldHash !== storedHash) return res.status(401).json({ error: 'Current password is wrong' });
+      const verification = await verifyPassword(oldPassword, storedHash);
+      if (!verification.valid) return res.status(401).json({ error: 'Current password is wrong' });
     } else if (storedHash && !oldPassword) {
       return res.status(400).json({ error: 'Current password required to change', hasPassword: true });
     }
 
     // Set new password
-    const newHash = hashPassword(password);
-    await redis.set('nf_user_pass:' + username, newHash);
+    await redis.set('nf_user_pass:' + username, await createPasswordHash(password));
 
     return res.status(200).json({ success: true, message: 'Password set successfully' });
   } catch (error) {
     console.error('Set password error:', error);
-    return res.status(400).json({ error: 'Invalid request' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };

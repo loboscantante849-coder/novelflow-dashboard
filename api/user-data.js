@@ -11,6 +11,7 @@
 const { handlePreflight } = require('./_lib/cors');
 const { verifyJWT } = require('./_lib/jwt');
 const { Redis } = require('@upstash/redis');
+const { mergeBookState } = require('./_lib/sync');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -35,7 +36,7 @@ function getUserFromRequest(req) {
 // CLIENT_WRITABLE_FIELDS: Only UI-state fields the client may sync.
 // All financial/balance/auth fields are SERVER-ONLY and must be changed via
 // admin tools or the /api/rewards endpoint with server-side validation.
-const CLIENT_WRITABLE_FIELDS = ['myBooks', 'claimed', 'lastSyncAt'];
+const CLIENT_WRITABLE_FIELDS = ['myBooks', 'deletedBooks', 'claimed', 'lastSyncAt'];
 
 module.exports = async (req, res) => {
   if (handlePreflight(req, res, { credentials: true })) return;
@@ -69,8 +70,11 @@ module.exports = async (req, res) => {
     }
 
     if (req.method === 'POST') {
+      if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+        return res.status(400).json({ error: 'Invalid request body' });
+      }
       const { data } = req.body;
-      if (!data || typeof data !== 'object') {
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
         return res.status(400).json({ error: 'No data provided' });
       }
 
@@ -83,31 +87,16 @@ module.exports = async (req, res) => {
       }
       if (!existing || typeof existing !== 'object') existing = {};
 
-      // Build cleanData by copying ONLY client-writable fields from the request
+      // Build cleanData by copying ONLY client-writable fields from the request.
       const cleanData = { ...existing };
+      const bookState = mergeBookState(existing, data);
+      cleanData.myBooks = bookState.myBooks;
+      cleanData.deletedBooks = bookState.deletedBooks;
       for (const key of CLIENT_WRITABLE_FIELDS) {
         if (data[key] !== undefined) {
-          // Deep-merge myBooks by code (union, deduplicated)
-          if (key === 'myBooks' && Array.isArray(data[key]) && Array.isArray(existing.myBooks)) {
-            const bookMap = new Map();
-            for (const b of existing.myBooks) {
-              const k = b.code ? String(b.code) : (b.id || b.bookId || b.title);
-              if (k) bookMap.set(k, b);
-            }
-            for (const b of data[key]) {
-              const k = b.code ? String(b.code) : (b.id || b.bookId || b.title);
-              if (k) {
-                if (bookMap.has(k)) {
-                  bookMap.set(k, { ...bookMap.get(k), ...b });
-                } else {
-                  bookMap.set(k, b);
-                }
-              }
-            }
-            cleanData.myBooks = Array.from(bookMap.values());
-          }
-          // Merge claimed (union of keys)
-          else if (key === 'claimed' && typeof data[key] === 'object' && existing.claimed) {
+          if (key === 'myBooks' || key === 'deletedBooks') {
+            continue;
+          } else if (key === 'claimed' && typeof data[key] === 'object' && existing.claimed) {
             cleanData.claimed = { ...existing.claimed, ...data[key] };
           }
           else {
@@ -129,7 +118,11 @@ module.exports = async (req, res) => {
 
       await redis.set(redisKey, JSON.stringify(cleanData));
 
-      return res.status(200).json({ success: true, lastSyncAt: cleanData.lastSyncAt });
+      return res.status(200).json({
+        success: true,
+        lastSyncAt: cleanData.lastSyncAt,
+        deletedBooks: cleanData.deletedBooks,
+      });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });

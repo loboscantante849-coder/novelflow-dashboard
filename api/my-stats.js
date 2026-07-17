@@ -143,7 +143,7 @@ module.exports = async (req, res) => {
             books.push({
               bookName,
               code: sub.code || (channel === 'code' ? adId : 'N/A'),
-              link: sub.link || (channel === 'link' ? `https://s.novelflow.top/${adId}` : null),
+              link: sub.link || null,
               bookId,
               linkId: sub.linkId || (channel === 'link' ? adId : null),
               submittedAt: sub.submittedAt || null,
@@ -214,7 +214,7 @@ module.exports = async (req, res) => {
         books.push({
           bookName,
           code: sub.code || code || 'N/A',
-          link: sub.link || (linkId ? `https://s.novelflow.top/${linkId}` : null),
+          link: sub.link || null,
           bookId,
           linkId: sub.linkId || linkId || null,
           submittedAt: sub.submittedAt || null,
@@ -261,7 +261,7 @@ module.exports = async (req, res) => {
           books.push({
             bookName,
             code: isCode ? adId : 'N/A',
-            link: isCode ? null : `https://s.novelflow.top/${adId}`,
+            link: null,
             bookId: null,
             linkId: isCode ? null : adId,
             submittedAt: null,
