@@ -1,6 +1,8 @@
 const { getRedis, listRuns } = require('./_lib/store');
+const { requireSession } = require('./_lib/auth');
 module.exports = async (req, res) => {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  if (!requireSession(req, res)) return;
   const redis = getRedis();
   if (!redis) return res.status(503).json({ error: 'Social console storage is not configured' });
   try {
