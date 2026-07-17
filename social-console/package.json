@@ -2,6 +2,6 @@
   "name": "novelflow-social-console",
   "private": true,
   "version": "1.0.0",
-  "scripts": { "check": "node --check api/status.js && node --check api/login.js && node --check api/_lib/store.js && node --check api/_lib/auth.js" },
+  "scripts": { "check": "node --check api/status.js && node --check api/runs.js && node --check api/login.js && node --check api/_lib/store.js && node --check api/_lib/auth.js" },
   "dependencies": { "@upstash/redis": "^1.34.0" }
 }
