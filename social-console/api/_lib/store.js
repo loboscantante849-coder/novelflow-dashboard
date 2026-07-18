@@ -25,6 +25,9 @@ async function saveRun(redis, run) {
   await redis.zadd(RUN_INDEX, { score: Date.now(), member: run.id });
   return run;
 }
+function stageMap() {
+  return Object.fromEntries(['P1', 'P2', 'P3', 'P3_5', 'P4', 'P5', 'P6'].map((stage) => [stage, { status: 'waiting' }]));
+}
 function newRun(input) {
   const now = new Date().toISOString();
   return {
@@ -33,9 +36,21 @@ function newRun(input) {
     updatedAt: now,
     input,
     state: 'queued',
-    stages: Object.fromEntries(['P1', 'P2', 'P3', 'P4', 'P5', 'P6'].map((stage) => [stage, { status: 'waiting' }])),
-    artifacts: { code: null, shortUrl: null, posts: [], video: null, images: [], analytics: null },
+    stages: stageMap(),
+    artifacts: { book: null, evidence: null, code: null, shortUrl: null, linkId: null, posts: [], translations: null, videoPrompt: null, posterPrompts: [], video: null, images: [], review: null, analytics: null, usage: {} },
     events: [{ at: now, type: 'queued', message: 'Full production run queued' }]
   };
 }
-module.exports = { getRedis, listRuns, getRun, saveRun, newRun, RUN_INDEX };
+function addEvent(run, type, message, data = undefined) {
+  run.events = Array.isArray(run.events) ? run.events : [];
+  run.events.push({ at: new Date().toISOString(), type, message, ...(data ? { data } : {}) });
+  run.events = run.events.slice(-120);
+}
+function setStage(run, name, status, extra = {}) {
+  const previous = run.stages[name] || {};
+  run.stages[name] = { ...previous, ...extra, status, updatedAt: new Date().toISOString() };
+  if (status === 'running' && !run.stages[name].startedAt) run.stages[name].startedAt = new Date().toISOString();
+  if (status === 'done' && !run.stages[name].completedAt) run.stages[name].completedAt = new Date().toISOString();
+  return run.stages[name];
+}
+module.exports = { getRedis, listRuns, getRun, saveRun, newRun, addEvent, setStage, RUN_INDEX };

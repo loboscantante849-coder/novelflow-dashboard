@@ -9,9 +9,9 @@ module.exports = async (req, res) => {
     const runs = await listRuns(redis);
     return res.status(200).json({ runs, capabilities: {
       storage: true,
-      pipeline: Boolean(process.env.NOVELFLOW_OIDC_TOKEN),
+      pipeline: Boolean(process.env.NOVELFLOW_OIDC_TOKEN || (process.env.NOVELFLOW_OIDC_USERNAME && process.env.NOVELFLOW_OIDC_PASSWORD)),
       video: Boolean(process.env.NOVELFLOW_AC_TOKEN),
-      llm: Boolean(process.env.NOVELFLOW_COPY_LLM_API_KEY),
+      llm: Boolean(process.env.NOVELFLOW_COPY_LLM_API_KEY || process.env.NOVELFLOW_LLM_API_KEY),
       image: Boolean(process.env.NOVELFLOW_IMAGE_API_KEY),
       report: Boolean(process.env.NOVELFLOW_REPORT_TOKEN)
     }});
