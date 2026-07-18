@@ -50,11 +50,17 @@
     for (const link of Array.isArray(links) ? links : []) {
       const daily = link && link.daily;
       if (!daily || typeof daily !== 'object' || Array.isArray(daily)) continue;
-      for (const date of Object.keys(daily)) {
-        if (/^\d{4}-\d{2}-\d{2}$/.test(date)) dates.add(date);
+      for (const [date, row] of Object.entries(daily)) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date) && hasActivity(row)) dates.add(date);
       }
     }
     return Array.from(dates).sort();
+  }
+
+  function hasActivity(value) {
+    if (!value || typeof value !== 'object') return false;
+    return ['visits', 'unique_users', 'new_users', 'income']
+      .some(field => number(value[field]) !== 0);
   }
 
   function countBooks(links) {
@@ -105,10 +111,9 @@
       row.income += number(day.income);
     }
 
-    return Array.from(groups.values()).map(row => ({
-      ...row,
-      income: roundMoney(row.income),
-    }));
+    return Array.from(groups.values())
+      .map(row => ({ ...row, income: roundMoney(row.income) }))
+      .filter(hasActivity);
   }
 
   function sortRows(rows, metric) {
@@ -138,6 +143,7 @@
     bookKey,
     countBooks,
     countAssets,
+    hasActivity,
     sortRows,
     totals,
   };
