@@ -68,6 +68,23 @@ test('one-click pipeline persists tracking and never duplicates paid submissions
   assert.equal(imageSubmits, 2);
 });
 
+test('code allocation initializes remote-compatible string storage', async () => {
+  const redis = new MemoryRedis();
+  const set = redis.set.bind(redis);
+  let initialized;
+  redis.set = async (key, value, options) => {
+    if (key === 'nf_social:next_code') initialized = value;
+    return set(key, value, options);
+  };
+  const run = newRun({ title: 'Verified Romance', sku: 'sku-1', promoter: 'xujt', paidAuthorized: true });
+  run.state = 'running';
+  run.stages.P1.status = 'done';
+  run.stages.P2.status = 'done';
+  await processRun(redis, run);
+  assert.equal(initialized, '44443');
+  assert.equal(run.artifacts.code, '44444');
+});
+
 test('analytics labels insufficient samples instead of overclaiming', () => {
   const result = summarizeAnalytics([{ adId: '55555', pullUv: 20, activeUv: 4, newUv: 3, d7Income: 0 }], '55555', '', { from: '2026-07-01', to: '2026-07-17' });
   assert.equal(result.summary.sampleState, 'insufficient');

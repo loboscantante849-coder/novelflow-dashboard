@@ -90,7 +90,9 @@ async function p2(redis, run) {
 }
 
 async function nextCode(redis) {
-  await redis.set('nf_social:next_code', 44443, { nx: true });
+  // The scoped storage bridge only persists strings, while Redis INCR still
+  // accepts the stored decimal value and returns the next numeric code.
+  await redis.set('nf_social:next_code', '44443', { nx: true });
   return String(await redis.incr('nf_social:next_code'));
 }
 
