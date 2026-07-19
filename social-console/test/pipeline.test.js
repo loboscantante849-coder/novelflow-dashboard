@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const providers = require('../api/_lib/providers');
 const { processRun, selectedChapters, summarizeAnalytics } = require('../api/_lib/pipeline');
-const { newRun } = require('../api/_lib/store');
+const { newRun, reserveVideoSlot } = require('../api/_lib/store');
 
 class MemoryRedis {
   constructor() { this.values = new Map(); }
@@ -10,6 +10,7 @@ class MemoryRedis {
   async set(key, value, options = {}) { if (options.nx && this.values.has(key)) return null; this.values.set(key, value); return 'OK'; }
   async zadd() { return 1; }
   async incr(key) { const value = Number(this.values.get(key) || 0) + 1; this.values.set(key, value); return value; }
+  async incrby(key, amount) { const value = Number(this.values.get(key) || 0) + Number(amount || 0); this.values.set(key, value); return value; }
 }
 
 function creative() {
@@ -83,6 +84,15 @@ test('code allocation initializes remote-compatible string storage', async () =>
   await processRun(redis, run);
   assert.equal(initialized, '44443');
   assert.equal(run.artifacts.code, '44444');
+});
+
+test('video submission capacity reserves no more than five slots per hour', async () => {
+  const redis = new MemoryRedis();
+  const slots = [];
+  for (let index = 0; index < 6; index += 1) slots.push(await reserveVideoSlot(redis));
+  assert.equal(slots.filter((slot) => slot.granted).length, 5);
+  assert.equal(slots.at(-1).granted, false);
+  assert.equal(slots.at(-1).used, 5);
 });
 
 test('analytics labels insufficient samples instead of overclaiming', () => {

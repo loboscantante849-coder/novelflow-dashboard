@@ -19,6 +19,14 @@ module.exports = async (req, res) => {
       if (req.body?.action !== 'retry') return res.status(400).json({ error: 'Unsupported action' });
       const blocked = Object.entries(run.stages).find(([, value]) => value.status === 'ambiguous');
       if (blocked) return res.status(409).json({ error: `${blocked[0]} has an ambiguous paid submission and cannot be retried automatically` });
+      const hourlyLimit = Object.entries(run.stages).find(([, value]) => value.status === 'blocked' && value.blockedReason === 'hourly_video_limit');
+      if (hourlyLimit) {
+        run.state = 'running';
+        run.stages[hourlyLimit[0]] = { ...hourlyLimit[1], status: 'prepared', retryCount: Number(hourlyLimit[1].retryCount || 0) + 1, error: '' };
+        run.events.push({ at: new Date().toISOString(), type: 'video_limit_retry_requested', message: 'Video submission queued after hourly limit block' });
+        await saveRun(redis, run);
+        return res.status(200).json({ run });
+      }
       const failed = Object.entries(run.stages).find(([, value]) => value.status === 'failed');
       if (!failed) return res.status(409).json({ error: 'No failed stage to retry' });
       run.state = 'running';

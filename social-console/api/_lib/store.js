@@ -19,6 +19,7 @@ class RemoteRedis {
   zrange(key, start, end, options) { return this.call('zrange', { key, start, end, options }); }
   zadd(key, entry) { return this.call('zadd', { key, entry }); }
   incr(key) { return this.call('incr', { key }); }
+  incrby(key, amount) { return this.call('incrby', { key, amount }); }
   del(key) { return this.call('del', { key }); }
 }
 function getRedis() {
@@ -75,4 +76,32 @@ function setStage(run, name, status, extra = {}) {
   if (status === 'done' && !run.stages[name].completedAt) run.stages[name].completedAt = new Date().toISOString();
   return run.stages[name];
 }
-module.exports = { getRedis, listRuns, getRun, saveRun, newRun, addEvent, setStage, RUN_INDEX };
+
+function videoHourInfo(at = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' }).formatToParts(at);
+  const value = (type) => parts.find((part) => part.type === type)?.value || '';
+  const hour = `${value('year')}${value('month')}${value('day')}${value('hour')}`;
+  const remaining = Math.max(60, Math.ceil((3600000 - (at.getTime() % 3600000)) / 1000) + 60);
+  return { key: `nf_social:video_hour:${hour}`, limit: 5, expiresIn: remaining, label: `${value('month')}/${value('day')} ${value('hour')}:00` };
+}
+
+async function videoCapacity(redis) {
+  const info = videoHourInfo();
+  const used = Math.max(0, Number(await redis.get(info.key)) || 0);
+  return { ...info, used: Math.min(used, info.limit), remaining: Math.max(0, info.limit - used) };
+}
+
+async function reserveVideoSlot(redis) {
+  const info = videoHourInfo();
+  await redis.set(info.key, '0', { nx: true, ex: info.expiresIn });
+  const used = Number(await redis.incr(info.key));
+  if (used <= info.limit) return { ...info, used, remaining: info.limit - used, granted: true };
+  await redis.incrby(info.key, -1);
+  return { ...info, used: info.limit, remaining: 0, granted: false };
+}
+
+async function releaseVideoSlot(redis, key) {
+  if (typeof key === 'string' && key.startsWith('nf_social:video_hour:')) await redis.incrby(key, -1);
+}
+
+module.exports = { getRedis, listRuns, getRun, saveRun, newRun, addEvent, setStage, RUN_INDEX, videoCapacity, reserveVideoSlot, releaseVideoSlot };

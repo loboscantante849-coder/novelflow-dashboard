@@ -1,4 +1,4 @@
-const state = { runs: [], capabilities: {}, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, windowDays: 7, selectedId: '', view: 'operations', density: 'comfortable', query: '', detailFingerprint: '', kicking: false, startingSku: '' };
+const state = { runs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, windowDays: 7, selectedId: '', view: 'operations', density: 'comfortable', query: '', detailFingerprint: '', kicking: false, startingSku: '' };
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 const labels = { queued: '排队中', running: '生产中', completed: '已完成', failed: '失败', blocked: '已暂停' };
@@ -38,6 +38,10 @@ function renderCapabilities() {
   const allReady = Object.values(state.capabilities).every(Boolean);
   $('#systemState').classList.toggle('online', allReady);
   $('#systemState').innerHTML = `<span class="pulse-dot"></span>${allReady ? '全部服务在线' : '部分服务未连接'}`;
+  const video = state.videoLimit || { used: 0, limit: 5, remaining: 5 };
+  const capacity = $('#videoCapacity');
+  capacity.classList.toggle('at-limit', Number(video.remaining) === 0);
+  capacity.innerHTML = `<i data-lucide="video"></i><strong>视频 ${video.used}/${video.limit}</strong><small>本小时</small>`;
 }
 
 function showToast(message, kind = '') {
@@ -240,9 +244,9 @@ function renderDetail() {
   $('#detailPanel').innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><div class="detail-actions">${run.state === 'failed' ? '<button id="retryRun" class="secondary-command"><i data-lucide="rotate-ccw"></i><span>重试失败节点</span></button>' : ''}</div></div><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header>
     <section class="pipeline"><div class="section-heading"><div><h3>P1-P6 生产链路</h3><p>书籍核验与证据锁定后，自动完成追踪、创意、视频、海报与审核包。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div><div class="current-stage">${escapeHtml(active[1]?.label || labels[run.state] || run.state)}${active[1]?.error ? `：${escapeHtml(active[1].error)}` : ''}</div></section>
     <section class="detail-section"><div class="section-heading"><h3>六步法成品文案</h3><span class="language-tag">EN / 中文</span></div>${copyHtml(run)}</section>
-    ${promptHtml(run)}
     <section class="detail-section"><div class="section-heading"><h3>AC 视频预览</h3><span class="language-tag">1 条</span></div>${videoHtml(run)}</section>
     <section class="detail-section"><div class="section-heading"><h3>推广海报</h3><span class="language-tag">2 张</span></div>${imagesHtml(run)}</section>
+    ${promptHtml(run)}
     <section class="detail-section"><div class="section-heading"><h3>实际数据反馈</h3><span class="language-tag">Code + Link</span></div>${analyticsHtml(run)}</section>
     <section class="detail-section"><h3>运行记录</h3><div class="event-list">${eventsHtml(run)}</div></section>`;
   state.detailFingerprint = fingerprint;
@@ -260,6 +264,7 @@ async function loadStatus({ silent = false } = {}) {
     const body = await api('/api/status');
     state.runs = body.runs || [];
     state.capabilities = body.capabilities || {};
+    state.videoLimit = body.videoLimit || null;
     if (!state.selectedId || !state.runs.some((run) => run.id === state.selectedId)) state.selectedId = state.runs[0]?.id || '';
     showApp(); render();
   } catch (error) {

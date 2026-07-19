@@ -1,4 +1,4 @@
-const { saveRun, addEvent, setStage } = require('./store');
+const { saveRun, addEvent, setStage, reserveVideoSlot } = require('./store');
 const providers = require('./providers');
 
 const now = () => new Date().toISOString();
@@ -205,9 +205,18 @@ async function p4(redis, run) {
       await saveRun(redis, run);
       return;
     }
+    const slot = await reserveVideoSlot(redis);
+    if (!slot.granted) {
+      setStage(run, 'P4', 'blocked', { label: `本小时视频额度已满（${slot.limit}/${slot.limit}），下小时可重试`, blockedReason: 'hourly_video_limit', nextWindow: slot.label });
+      run.state = 'blocked';
+      addEvent(run, 'video_hour_limit', `Video submission blocked: ${slot.limit}/${slot.limit} slots already reserved this hour`);
+      await saveRun(redis, run);
+      return;
+    }
+    video.slot = { key: slot.key, hour: slot.label, reservedAt: now(), position: slot.used, limit: slot.limit };
     video.status = 'submitting';
     video.submitAttemptedAt = now();
-    setStage(run, 'P4', 'submitting', { label: '正在提交 1 条付费视频' });
+    setStage(run, 'P4', 'submitting', { label: `正在提交付费视频（本小时 ${slot.used}/${slot.limit}）` });
     await saveRun(redis, run);
     try {
       const response = await providers.submitAc(video.payload);
