@@ -125,6 +125,34 @@ async function findExactBook(title, sku) {
   };
 }
 
+async function topBooks(limit = 50) {
+  const pageSize = Math.max(1, Math.min(Number(limit) || 50, 50));
+  const load = async (languageCode) => {
+    const { body } = await adminRequest(`${BOOK_API}?${qs({
+      current: 1, pageIndex: 1, pageSize, applicationId: APPLICATION_ID, bookStatus: 1,
+      orderBy: 'uv', orderType: 'desc', languageCode
+    })}`, {}, 'Top books lookup');
+    return pageItems(body).items;
+  };
+  let items = await load('en');
+  if (!items.length) items = await load('');
+  return items.map((item, index) => {
+    const category = item.aiCategory || {};
+    return {
+      rank: index + 1,
+      bookSkuId: String(item.bookSkuId || item.bookId || ''),
+      title: String(item.title || ''),
+      cover: absoluteUrl(item.cover || item.coverImage || item.coverUrl || ''),
+      author: Array.isArray(item.authors) ? item.authors.map((author) => String(author.authorName || author)).filter(Boolean).join(', ') : String(item.author || ''),
+      category: typeof category === 'object' ? String(category.categoryName || item.bookClassName || '') : String(category || item.bookClassName || ''),
+      tags: (item.aiTags || item.tags || []).map((tag) => typeof tag === 'object' ? String(tag.tagName || tag.name || '') : String(tag)).filter(Boolean).slice(0, 3),
+      uv: Number(item.uv || item.bookUv || item.readCount || 0),
+      words: Number(item.words || 0),
+      chapterCount: Number(item.chapterCount || 0)
+    };
+  }).filter((book) => book.title && book.bookSkuId);
+}
+
 async function listChapters(cityBookId) {
   const all = [];
   for (let page = 1; page <= 100; page += 1) {
@@ -314,4 +342,4 @@ async function reportRows(code, linkId, days = 90) {
 
 function sha(value) { return crypto.createHash('sha256').update(String(value)).digest('hex'); }
 
-module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, generateCreative, findAcTask, submitAc, acResult, validateVideo, submitImage, imageResult, reportRows, sha };
+module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, generateCreative, findAcTask, submitAc, acResult, validateVideo, submitImage, imageResult, reportRows, sha };

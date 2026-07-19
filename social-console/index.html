@@ -26,7 +26,7 @@
     </header>
 
     <aside class="sidebar">
-      <button id="newRunButton" class="primary-command full"><i data-lucide="zap"></i><span>一键完整生成</span></button>
+      <button id="leaderboardButton" class="primary-command full"><i data-lucide="flame"></i><span>从今日 Top 50 选书</span></button>
       <nav class="side-nav" aria-label="控制台视图">
         <button class="nav-item active" data-view="operations"><i data-lucide="layout-dashboard"></i><span>生产总控</span><b id="activeCount">0</b></button>
         <button class="nav-item" data-view="completed"><i data-lucide="circle-check-big"></i><span>已完成</span><b id="completeCount">0</b></button>
@@ -44,8 +44,17 @@
         <div><span>累计 Token</span><strong id="totalTokens">0</strong></div>
       </section>
 
+      <section id="leaderboardSection" class="leaderboard-band">
+        <div class="leaderboard-heading">
+          <div><span class="eyebrow">DAILY DISCOVERY</span><h1>今日 Top 50 选书池</h1><p>按书库 UV 排名自动更新。选择一本书，即刻带入准确书名与 SKU 启动完整生产。</p></div>
+          <div class="leaderboard-actions"><span id="leaderboardUpdated" class="updated-label">正在加载今日榜单</span><button id="refreshLeaderboard" class="icon-button" title="刷新今日榜单"><i data-lucide="refresh-cw"></i></button></div>
+        </div>
+        <div id="leaderboard" class="leaderboard-grid" aria-live="polite"></div>
+        <div id="leaderboardEmpty" class="leaderboard-empty" hidden><i data-lucide="cloud-off"></i><strong>今日榜单暂不可用</strong><span>任务与已有素材不受影响，可稍后刷新。</span></div>
+      </section>
+
       <section class="control-band">
-        <div><h1>生产总控</h1><p id="viewSubtitle">所有小说的素材、进度与归因表现</p></div>
+        <div><span class="eyebrow">PRODUCTION CONTROL</span><h1>生产总控</h1><p id="viewSubtitle">所有小说的素材、进度与归因表现</p></div>
         <div class="control-actions"><label class="search-field"><i data-lucide="search"></i><input id="runSearch" type="search" placeholder="搜索书名 / SKU / Code"></label><div class="segmented" id="densityControl"><button class="active" data-density="comfortable" title="舒适视图"><i data-lucide="rows-3"></i></button><button data-density="compact" title="紧凑视图"><i data-lucide="list"></i></button></div></div>
       </section>
 
@@ -59,20 +68,7 @@
       </section>
     </main>
   </div>
-
-  <dialog id="newRunDialog" class="run-dialog">
-    <form id="newRunForm" method="dialog">
-      <header><div><span class="dialog-kicker">NEW PRODUCTION</span><h2>一键完整生成</h2></div><button type="button" class="icon-button" id="closeDialog" title="关闭"><i data-lucide="x"></i></button></header>
-      <div class="dialog-body">
-        <label>小说准确书名<input name="title" maxlength="200" required placeholder="English exact title"></label>
-        <label>Book SKU<input name="sku" maxlength="100" required placeholder="Book SKU ID"></label>
-        <label>推广者<input name="promoter" maxlength="80" value="xujt" required></label>
-        <div class="authorization-row"><i data-lucide="badge-check"></i><div><strong>本次完整生产授权</strong><span>自动创建 Code/短链、1 条 AC 视频、2 张推广海报；歧义付费任务不会自动重试。</span></div></div>
-        <p id="createError" class="form-error" aria-live="polite"></p>
-      </div>
-      <footer><button type="button" class="secondary-command" id="cancelDialog">取消</button><button type="submit" class="primary-command"><i data-lucide="zap"></i><span>开始完整生产</span></button></footer>
-    </form>
-  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
   <script src="/app.js"></script>

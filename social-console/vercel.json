@@ -1,7 +1,7 @@
 {
   "cleanUrls": true,
-  "functions": { "api/status.js": { "memory": 256, "maxDuration": 10 }, "api/runs.js": { "memory": 256, "maxDuration": 10 }, "api/worker.js": { "memory": 512, "maxDuration": 60 } },
-  "crons": [{ "path": "/api/worker", "schedule": "*/5 * * * *" }],
+  "functions": { "api/status.js": { "memory": 256, "maxDuration": 10 }, "api/leaderboard.js": { "memory": 256, "maxDuration": 30 }, "api/runs.js": { "memory": 256, "maxDuration": 10 }, "api/worker.js": { "memory": 512, "maxDuration": 60 } },
+  "crons": [{ "path": "/api/worker", "schedule": "*/5 * * * *" }, { "path": "/api/leaderboard", "schedule": "5 0 * * *" }],
   "rewrites": [{ "source": "/dashboard.html", "destination": "/index.html" }],
   "headers": [{ "source": "/(.*)", "headers": [{ "key": "X-Content-Type-Options", "value": "nosniff" }, { "key": "X-Frame-Options", "value": "DENY" }] }]
 }

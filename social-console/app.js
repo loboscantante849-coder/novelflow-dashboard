@@ -1,9 +1,10 @@
-const state = { runs: [], capabilities: {}, selectedId: '', view: 'operations', density: 'comfortable', query: '', detailFingerprint: '', kicking: false };
+const state = { runs: [], capabilities: {}, leaderboard: [], leaderboardUpdated: '', selectedId: '', view: 'operations', density: 'comfortable', query: '', detailFingerprint: '', kicking: false, startingSku: '' };
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 const labels = { queued: '排队中', running: '生产中', completed: '已完成', failed: '失败', blocked: '已暂停' };
 const stageLabels = { P1: '选书', P2: '证据', P3: '创意', P3_5: '海报', P4: '视频', P5: 'Code', P6: '审核' };
 const stageIcons = { P1: 'book-open-check', P2: 'library', P3: 'message-square-text', P3_5: 'images', P4: 'video', P5: 'link-2', P6: 'badge-check' };
+const pipelineOrder = ['P1', 'P2', 'P5', 'P3', 'P4', 'P3_5', 'P6'];
 
 function icons() { if (window.lucide) window.lucide.createIcons({ attrs: { 'stroke-width': 1.8 } }); }
 
@@ -41,6 +42,50 @@ function renderCapabilities() {
   $('#systemState').innerHTML = `<span class="pulse-dot"></span>${allReady ? '全部服务在线' : '部分服务未连接'}`;
 }
 
+function showToast(message, kind = '') {
+  const toast = $('#toast');
+  if (!toast) return;
+  toast.textContent = message;
+  toast.className = `toast show ${kind}`;
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => { toast.className = 'toast'; }, 4600);
+}
+
+function compactNumber(value) {
+  return Number(value || 0).toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 });
+}
+
+function leaderboardCover(book) {
+  return book.cover ? `<img src="${escapeHtml(book.cover)}" alt="">` : `<span>${escapeHtml(String(book.title || 'N').slice(0, 1))}</span>`;
+}
+
+function activeRunFor(book) {
+  return state.runs.find((run) => String(run.input?.sku) === String(book.bookSkuId) && ['queued', 'running'].includes(run.state));
+}
+
+function renderLeaderboard() {
+  const grid = $('#leaderboard');
+  const empty = $('#leaderboardEmpty');
+  if (!grid || !empty) return;
+  empty.hidden = state.leaderboard.length > 0;
+  grid.innerHTML = state.leaderboard.map((book) => {
+    const active = activeRunFor(book);
+    return `<article class="leaderboard-card ${active ? 'in-progress' : ''}">
+      <span class="rank">#${book.rank}</span>
+      <div class="leaderboard-cover">${leaderboardCover(book)}</div>
+      <div class="leaderboard-copy"><h2>${escapeHtml(book.title)}</h2><p>${escapeHtml(book.author || book.category || 'NovelFlow')}</p><div class="book-tags">${(book.tags || []).slice(0, 2).map((tag) => `<span>${escapeHtml(tag)}</span>`).join('')}</div></div>
+      <div class="leaderboard-metrics"><span>UV</span><strong>${compactNumber(book.uv)}</strong></div>
+      <button class="start-book ${active ? 'resume' : ''}" data-sku="${escapeHtml(book.bookSkuId)}" ${state.startingSku === String(book.bookSkuId) ? 'disabled' : ''}>${state.startingSku === String(book.bookSkuId) ? '正在启动' : active ? '查看任务' : '完整生成'}<i data-lucide="${active ? 'arrow-right' : 'zap'}"></i></button>
+      <span class="sku-label">SKU ${escapeHtml(book.bookSkuId)}</span>
+    </article>`;
+  }).join('');
+  $('#leaderboardUpdated').textContent = state.leaderboardUpdated ? `已更新 ${new Date(state.leaderboardUpdated).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : '正在加载今日榜单';
+  document.querySelectorAll('.start-book').forEach((button) => button.addEventListener('click', () => {
+    const book = state.leaderboard.find((item) => String(item.bookSkuId) === button.dataset.sku);
+    if (book) startProduction(book);
+  }));
+}
+
 function tokenCount(run) {
   return Object.values(run.artifacts?.usage || {}).reduce((sum, item) => sum + Number(item?.totalTokens || 0), 0);
 }
@@ -65,7 +110,7 @@ function stageClass(stage) {
 }
 
 function currentStage(run) {
-  return Object.entries(run.stages || {}).find(([, value]) => !['done', 'waiting'].includes(value.status)) || Object.entries(run.stages || {}).find(([, value]) => value.status === 'waiting') || ['P6', { label: '全部完成' }];
+  return pipelineOrder.map((key) => [key, run.stages?.[key] || {}]).find(([, value]) => !['done', 'waiting'].includes(value.status)) || pipelineOrder.map((key) => [key, run.stages?.[key] || {}]).find(([, value]) => value.status === 'waiting') || ['P6', { label: '全部完成' }];
 }
 
 function cover(run) {
@@ -103,8 +148,14 @@ function renderStats() {
   $('#attentionCount').textContent = attention;
 }
 
+function pipelineNode(run, key) {
+  const stage = run.stages?.[key] || { status: 'waiting' };
+  const artifact = { P1: run.artifacts?.book?.bookSkuId, P2: run.artifacts?.evidence?.completed ? `${run.artifacts.evidence.completed} 章` : '', P5: run.artifacts?.code ? `Code ${run.artifacts.code}` : '', P3: run.artifacts?.posts?.length ? `${run.artifacts.posts.length} 套文案` : '', P4: run.artifacts?.video?.threadId ? '视频任务已提交' : '', P3_5: run.artifacts?.images?.length ? `${run.artifacts.images.filter((item) => item.url).length}/2 海报` : '', P6: run.artifacts?.review ? '审核包就绪' : '' }[key] || stage.label || stage.status;
+  return `<div class="flow-node ${stageClass(stage)}"><div class="flow-node-top"><i data-lucide="${stageIcons[key] || 'circle'}"></i><span>${escapeHtml(stageLabels[key] || key)}</span></div><strong>${escapeHtml(artifact)}</strong><small>${escapeHtml(stage.status === 'done' ? '已完成' : stage.status === 'waiting' ? '等待中' : stage.status === 'ambiguous' ? '需人工处理' : '进行中')}</small></div>`;
+}
+
 function pipelineHtml(run) {
-  return Object.entries(run.stages || {}).map(([key, stage]) => `<div class="node ${stageClass(stage)}" title="${escapeHtml(stage.label || stage.status)}"><div class="node-icon"><i data-lucide="${stageIcons[key] || 'circle'}"></i></div><span>${escapeHtml(stageLabels[key] || key)}</span></div>`).join('');
+  return `<div class="flow-main">${pipelineNode(run, 'P1')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P2')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P5')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P3')}</div><div class="flow-branch"><div>${pipelineNode(run, 'P4')}</div><div>${pipelineNode(run, 'P3_5')}</div></div><div class="flow-final"><i data-lucide="git-merge"></i>${pipelineNode(run, 'P6')}</div>`;
 }
 
 function copyHtml(run) {
@@ -158,7 +209,7 @@ function renderDetail() {
   const playback = oldVideo ? { time: oldVideo.currentTime, paused: oldVideo.paused } : null;
   const active = currentStage(run);
   $('#detailPanel').innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><div class="detail-actions">${run.state === 'failed' ? '<button id="retryRun" class="secondary-command"><i data-lucide="rotate-ccw"></i><span>重试失败节点</span></button>' : ''}</div></div><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span><strong>${escapeHtml(run.artifacts?.shortUrl || '待创建')}</strong></div></div></header>
-    <section class="pipeline"><h3>P1-P6 生产链路</h3><div class="node-flow">${pipelineHtml(run)}</div><div class="current-stage">${escapeHtml(active[1]?.label || labels[run.state] || run.state)}${active[1]?.error ? `：${escapeHtml(active[1].error)}` : ''}</div></section>
+    <section class="pipeline"><div class="section-heading"><div><h3>P1-P6 生产链路</h3><p>书籍核验与证据锁定后，自动完成追踪、创意、视频、海报与审核包。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div><div class="current-stage">${escapeHtml(active[1]?.label || labels[run.state] || run.state)}${active[1]?.error ? `：${escapeHtml(active[1].error)}` : ''}</div></section>
     <section class="detail-section"><div class="section-heading"><h3>六步法成品文案</h3><span class="language-tag">EN / 中文</span></div>${copyHtml(run)}</section>
     ${promptHtml(run)}
     <section class="detail-section"><div class="section-heading"><h3>AC 视频预览</h3><span class="language-tag">1 条</span></div>${videoHtml(run)}</section>
@@ -172,7 +223,7 @@ function renderDetail() {
 }
 
 function render() {
-  renderCapabilities(); renderStats(); renderRunList(); renderDetail(); icons();
+  renderCapabilities(); renderStats(); renderLeaderboard(); renderRunList(); renderDetail(); icons();
 }
 
 async function loadStatus({ silent = false } = {}) {
@@ -188,6 +239,19 @@ async function loadStatus({ silent = false } = {}) {
   }
 }
 
+async function loadLeaderboard({ refresh = false, silent = false } = {}) {
+  try {
+    const body = await api(`/api/leaderboard${refresh ? '?refresh=1' : ''}`);
+    state.leaderboard = body.books || [];
+    state.leaderboardUpdated = body.generatedAt || '';
+    renderLeaderboard(); icons();
+  } catch (error) {
+    state.leaderboard = [];
+    renderLeaderboard();
+    if (!silent) showToast(error.message, 'error');
+  }
+}
+
 async function kickWorker() {
   if (state.kicking) return;
   const active = state.runs.find((run) => ['queued', 'running'].includes(run.state));
@@ -200,7 +264,36 @@ async function kickWorker() {
 
 async function retryRun(id) {
   try { await api('/api/runs', { method: 'PATCH', body: JSON.stringify({ id, action: 'retry' }) }); state.detailFingerprint = ''; await loadStatus(); await kickWorker(); }
-  catch (error) { alert(error.message); }
+  catch (error) { showToast(error.message, 'error'); }
+}
+
+async function startProduction(book) {
+  const existing = activeRunFor(book);
+  if (existing) {
+    state.selectedId = existing.id;
+    state.detailFingerprint = '';
+    render();
+    document.querySelector('.operations-layout')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  if (state.startingSku) return;
+  state.startingSku = String(book.bookSkuId);
+  renderLeaderboard(); icons();
+  try {
+    const body = await api('/api/runs', { method: 'POST', body: JSON.stringify({ title: book.title, sku: book.bookSkuId, promoter: 'xujt', paidAuthorized: true, fullBookEvidence: false, source: 'daily_top50' }) });
+    state.selectedId = body.run.id;
+    state.detailFingerprint = '';
+    state.runs.unshift(body.run);
+    render();
+    await kickWorker();
+    showToast(`已为《${book.title}》启动完整生产`);
+    document.querySelector('.operations-layout')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    state.startingSku = '';
+    renderLeaderboard(); icons();
+  }
 }
 
 $('#loginForm').addEventListener('submit', async (event) => {
@@ -211,22 +304,15 @@ $('#loginForm').addEventListener('submit', async (event) => {
 $('#togglePassword').addEventListener('click', () => { const input = $('#password'); input.type = input.type === 'password' ? 'text' : 'password'; });
 $('#logoutButton').addEventListener('click', async () => { await api('/api/login', { method: 'DELETE' }).catch(() => {}); showLogin(); });
 $('#refreshButton').addEventListener('click', () => loadStatus());
-$('#newRunButton').addEventListener('click', () => $('#newRunDialog').showModal());
-$('#closeDialog').addEventListener('click', () => $('#newRunDialog').close());
-$('#cancelDialog').addEventListener('click', () => $('#newRunDialog').close());
-$('#newRunForm').addEventListener('submit', async (event) => {
-  event.preventDefault(); $('#createError').textContent = '';
-  const form = new FormData(event.currentTarget);
-  try {
-    const body = await api('/api/runs', { method: 'POST', body: JSON.stringify({ title: form.get('title'), sku: form.get('sku'), promoter: form.get('promoter'), paidAuthorized: true, fullBookEvidence: false }) });
-    state.selectedId = body.run.id; state.detailFingerprint = ''; $('#newRunDialog').close(); event.currentTarget.reset(); event.currentTarget.elements.promoter.value = 'xujt'; await loadStatus(); await kickWorker();
-  } catch (error) { $('#createError').textContent = error.message; }
-});
+$('#leaderboardButton').addEventListener('click', () => $('#leaderboardSection').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+$('#refreshLeaderboard').addEventListener('click', () => loadLeaderboard({ refresh: true }));
 $('#runSearch').addEventListener('input', (event) => { state.query = event.target.value; renderRunList(); });
 document.querySelectorAll('.nav-item').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('.nav-item').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.view = button.dataset.view; renderRunList(); }));
 document.querySelectorAll('#densityControl button').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('#densityControl button').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.density = button.dataset.density; renderRunList(); icons(); }));
 
 icons();
 loadStatus();
+loadLeaderboard({ silent: true });
 setInterval(() => loadStatus({ silent: true }), 6000);
+setInterval(() => loadLeaderboard({ silent: true }), 5 * 60 * 1000);
 setInterval(kickWorker, 3500);
