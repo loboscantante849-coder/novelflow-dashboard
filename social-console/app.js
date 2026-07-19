@@ -21,9 +21,7 @@ async function api(url, options = {}) {
 }
 
 function showLogin() {
-  $('#loginView').hidden = false;
-  $('#appView').hidden = true;
-  setTimeout(() => $('#password').focus(), 50);
+  showApp();
 }
 
 function showApp() {
@@ -148,9 +146,34 @@ function renderStats() {
   $('#attentionCount').textContent = attention;
 }
 
+function renderFocusRun() {
+  const section = $('#focusRun');
+  const content = $('#focusRunContent');
+  if (!section || !content) return;
+  const run = state.runs.find((item) => item.id === state.selectedId) || state.runs[0];
+  section.hidden = !run;
+  if (!run) return;
+  const completed = Object.values(run.stages || {}).filter((stage) => stage.status === 'done').length;
+  const videoReady = Boolean(run.artifacts?.video?.videoUrls?.[0]);
+  const posterCount = (run.artifacts?.images || []).filter((item) => item.url).length;
+  const copyCount = (run.artifacts?.posts || []).length;
+  const shortUrl = run.artifacts?.shortUrl;
+  content.innerHTML = `<article class="focus-card">
+    <div class="focus-book">${cover(run)}<div><div class="focus-title-row"><h2>${escapeHtml(run.input?.title)}</h2><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><p>SKU ${escapeHtml(run.input?.sku)} · ${completed}/7 个节点完成</p><div class="focus-tracking"><span>Code <strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></span>${shortUrl ? `<a href="${escapeHtml(shortUrl)}" target="_blank" rel="noopener">打开短链 <i data-lucide="external-link"></i></a>` : '<span>短链待创建</span>'}</div></div></div>
+    <div class="focus-flow">${pipelineOrder.map((key) => `<div class="focus-step ${stageClass(run.stages?.[key])}"><i data-lucide="${stageIcons[key]}"></i><span>${escapeHtml(stageLabels[key])}</span></div>`).join('')}</div>
+    <div class="focus-assets"><div><i data-lucide="message-square-text"></i><strong>${copyCount}</strong><span>成品文案</span></div><div class="${videoReady ? 'ready' : ''}"><i data-lucide="video"></i><strong>${videoReady ? '已就绪' : '等待中'}</strong><span>视频</span></div><div class="${posterCount === 2 ? 'ready' : ''}"><i data-lucide="images"></i><strong>${posterCount}/2</strong><span>海报</span></div><div class="${run.artifacts?.review ? 'ready' : ''}"><i data-lucide="badge-check"></i><strong>${run.artifacts?.review ? '已就绪' : '等待中'}</strong><span>审核包</span></div></div>
+  </article>`;
+  $('#openFocusRun').onclick = () => {
+    state.selectedId = run.id;
+    state.detailFingerprint = '';
+    render();
+    document.querySelector('.operations-layout')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+}
+
 function pipelineNode(run, key) {
   const stage = run.stages?.[key] || { status: 'waiting' };
-  const artifact = { P1: run.artifacts?.book?.bookSkuId, P2: run.artifacts?.evidence?.completed ? `${run.artifacts.evidence.completed} 章` : '', P5: run.artifacts?.code ? `Code ${run.artifacts.code}` : '', P3: run.artifacts?.posts?.length ? `${run.artifacts.posts.length} 套文案` : '', P4: run.artifacts?.video?.threadId ? '视频任务已提交' : '', P3_5: run.artifacts?.images?.length ? `${run.artifacts.images.filter((item) => item.url).length}/2 海报` : '', P6: run.artifacts?.review ? '审核包就绪' : '' }[key] || stage.label || stage.status;
+  const artifact = { P1: run.artifacts?.book?.bookSkuId, P2: run.artifacts?.evidence?.completed ? `${run.artifacts.evidence.completed} 章` : '', P5: run.artifacts?.code ? `Code ${run.artifacts.code}` : '', P3: run.artifacts?.posts?.length ? `${run.artifacts.posts.length} 套文案` : '', P4: run.artifacts?.video?.videoUrls?.[0] ? '可播放' : run.artifacts?.video?.threadId ? '生成中' : '', P3_5: run.artifacts?.images?.length ? `${run.artifacts.images.filter((item) => item.url).length}/2 海报` : '', P6: run.artifacts?.review ? '审核包就绪' : '' }[key] || stage.label || stage.status;
   return `<div class="flow-node ${stageClass(stage)}"><div class="flow-node-top"><i data-lucide="${stageIcons[key] || 'circle'}"></i><span>${escapeHtml(stageLabels[key] || key)}</span></div><strong>${escapeHtml(artifact)}</strong><small>${escapeHtml(stage.status === 'done' ? '已完成' : stage.status === 'waiting' ? '等待中' : stage.status === 'ambiguous' ? '需人工处理' : '进行中')}</small></div>`;
 }
 
@@ -212,7 +235,7 @@ function renderDetail() {
   const oldVideo = $('#resultVideo');
   const playback = oldVideo ? { time: oldVideo.currentTime, paused: oldVideo.paused } : null;
   const active = currentStage(run);
-  $('#detailPanel').innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><div class="detail-actions">${run.state === 'failed' ? '<button id="retryRun" class="secondary-command"><i data-lucide="rotate-ccw"></i><span>重试失败节点</span></button>' : ''}</div></div><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span><strong>${escapeHtml(run.artifacts?.shortUrl || '待创建')}</strong></div></div></header>
+  $('#detailPanel').innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><div class="detail-actions">${run.state === 'failed' ? '<button id="retryRun" class="secondary-command"><i data-lucide="rotate-ccw"></i><span>重试失败节点</span></button>' : ''}</div></div><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header>
     <section class="pipeline"><div class="section-heading"><div><h3>P1-P6 生产链路</h3><p>书籍核验与证据锁定后，自动完成追踪、创意、视频、海报与审核包。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div><div class="current-stage">${escapeHtml(active[1]?.label || labels[run.state] || run.state)}${active[1]?.error ? `：${escapeHtml(active[1].error)}` : ''}</div></section>
     <section class="detail-section"><div class="section-heading"><h3>六步法成品文案</h3><span class="language-tag">EN / 中文</span></div>${copyHtml(run)}</section>
     ${promptHtml(run)}
@@ -227,7 +250,7 @@ function renderDetail() {
 }
 
 function render() {
-  renderCapabilities(); renderStats(); renderLeaderboard(); renderRunList(); renderDetail(); icons();
+  renderCapabilities(); renderStats(); renderFocusRun(); renderLeaderboard(); renderRunList(); renderDetail(); icons();
 }
 
 async function loadStatus({ silent = false } = {}) {
@@ -238,8 +261,7 @@ async function loadStatus({ silent = false } = {}) {
     if (!state.selectedId || !state.runs.some((run) => run.id === state.selectedId)) state.selectedId = state.runs[0]?.id || '';
     showApp(); render();
   } catch (error) {
-    if (error.status === 401) showLogin();
-    else if (!silent) $('#systemState').textContent = error.message;
+    if (!silent) showToast(error.message, 'error');
   }
 }
 
@@ -262,7 +284,7 @@ async function kickWorker() {
   if (!active) return;
   state.kicking = true;
   try { await api('/api/worker', { method: 'POST', body: JSON.stringify({ id: active.id }) }); await loadStatus({ silent: true }); }
-  catch (error) { if (error.status === 401) showLogin(); }
+  catch (error) { showToast(error.message, 'error'); }
   finally { state.kicking = false; }
 }
 
