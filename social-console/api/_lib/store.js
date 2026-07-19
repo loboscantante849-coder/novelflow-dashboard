@@ -2,10 +2,32 @@ const { Redis } = require('@upstash/redis');
 const crypto = require('crypto');
 const RUN_INDEX = 'nf_social:runs';
 const runKey = (id) => `nf_social:run:${id}`;
+class RemoteRedis {
+  constructor(url, secret) { this.url = url.replace(/\/$/, ''); this.secret = secret; }
+  async call(op, args) {
+    const response = await fetch(this.url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${this.secret}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ op, args })
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || `Social storage HTTP ${response.status}`);
+    return body.result;
+  }
+  get(key) { return this.call('get', { key }); }
+  set(key, value, options) { return this.call('set', { key, value, options }); }
+  zrange(key, start, end, options) { return this.call('zrange', { key, start, end, options }); }
+  zadd(key, entry) { return this.call('zadd', { key, entry }); }
+  incr(key) { return this.call('incr', { key }); }
+  del(key) { return this.call('del', { key }); }
+}
 function getRedis() {
+  const bridgeUrl = process.env.SOCIAL_STORE_URL;
+  const bridgeSecret = process.env.SOCIAL_STORE_SECRET;
+  if (bridgeUrl && bridgeSecret) return new RemoteRedis(bridgeUrl, bridgeSecret);
   const url = process.env.KV_REST_API_URL;
   const token = process.env.KV_REST_API_TOKEN;
-  return url && token ? new Redis({ url, token }) : null;
+  return url && token && /^https:\/\//i.test(url) ? new Redis({ url, token }) : null;
 }
 async function listRuns(redis, limit = 50) {
   if (!redis) return [];
