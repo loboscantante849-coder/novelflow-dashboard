@@ -306,7 +306,6 @@ $('#loginForm').addEventListener('submit', async (event) => {
   catch (error) { $('#loginError').textContent = error.message; }
 });
 $('#togglePassword').addEventListener('click', () => { const input = $('#password'); input.type = input.type === 'password' ? 'text' : 'password'; });
-$('#logoutButton').addEventListener('click', async () => { await api('/api/login', { method: 'DELETE' }).catch(() => {}); showLogin(); });
 $('#refreshButton').addEventListener('click', () => loadStatus());
 $('#leaderboardButton').addEventListener('click', () => $('#leaderboardSection').scrollIntoView({ behavior: 'smooth', block: 'start' }));
 $('#refreshLeaderboard').addEventListener('click', () => loadLeaderboard({ refresh: true }));

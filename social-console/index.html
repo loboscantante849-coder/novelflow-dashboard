@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <section id="loginView" class="login-view">
+  <section id="loginView" class="login-view" hidden>
     <form id="loginForm" class="login-panel">
       <div class="brand-lockup"><span class="brand-mark">NF</span><div><strong>NovelFlow</strong><small>社媒自动化总控台</small></div></div>
       <label for="password">控制台密码</label>
@@ -19,10 +19,10 @@
     </form>
   </section>
 
-  <div id="appView" class="app-shell" hidden>
+  <div id="appView" class="app-shell">
     <header class="topbar">
       <div class="brand-lockup"><span class="brand-mark">NF</span><div><strong>NovelFlow</strong><small>Social Operations</small></div></div>
-      <div class="topbar-actions"><span id="systemState" class="system-state"><span class="pulse-dot"></span>正在连接</span><button id="refreshButton" class="icon-button" title="刷新"><i data-lucide="refresh-cw"></i></button><button id="logoutButton" class="icon-button" title="退出"><i data-lucide="log-out"></i></button></div>
+      <div class="topbar-actions"><span id="systemState" class="system-state"><span class="pulse-dot"></span>正在连接</span><button id="refreshButton" class="icon-button" title="刷新"><i data-lucide="refresh-cw"></i></button></div>
     </header>
 
     <aside class="sidebar">
