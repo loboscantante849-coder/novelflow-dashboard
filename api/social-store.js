@@ -45,6 +45,10 @@ module.exports = async (req, res) => {
       if (!args.entry || !Number.isFinite(args.entry.score) || typeof args.entry.member !== 'string' || !validKey(`${KEY_PREFIX}run:${args.entry.member}`)) return res.status(400).json({ error: 'Invalid sorted-set entry' });
       result = await redis.zadd(key, { score: args.entry.score, member: args.entry.member });
     } else if (op === 'incr') result = await redis.incr(key);
+    else if (op === 'incrby') {
+      if (!Number.isInteger(args.amount) || Math.abs(args.amount) > 10) return res.status(400).json({ error: 'Invalid increment amount' });
+      result = await redis.incrby(key, args.amount);
+    }
     else if (op === 'del') result = await redis.del(key);
     else return res.status(400).json({ error: 'Unsupported operation' });
     return res.status(200).json({ result: result ?? null });
