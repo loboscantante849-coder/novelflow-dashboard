@@ -51,6 +51,8 @@ async function p1(redis, run) {
   setStage(run, 'P1', 'running', { label: '正在核验书名与 SKU' });
   await saveRun(redis, run);
   const book = await providers.findExactBook(run.input.title, run.input.sku);
+  run.input.title = book.title;
+  run.input.sku = book.bookSkuId;
   run.artifacts.book = book;
   setStage(run, 'P1', 'done', { label: '书籍身份已核验', bookSkuId: book.bookSkuId });
   addEvent(run, 'book_verified', `${book.title} identity verified`);

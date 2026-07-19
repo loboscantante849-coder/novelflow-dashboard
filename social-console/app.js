@@ -1,4 +1,4 @@
-const state = { runs: [], capabilities: {}, leaderboard: [], leaderboardUpdated: '', selectedId: '', view: 'operations', density: 'comfortable', query: '', detailFingerprint: '', kicking: false, startingSku: '' };
+const state = { runs: [], capabilities: {}, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, windowDays: 7, selectedId: '', view: 'operations', density: 'comfortable', query: '', detailFingerprint: '', kicking: false, startingSku: '' };
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 const labels = { queued: '排队中', running: '生产中', completed: '已完成', failed: '失败', blocked: '已暂停' };
@@ -53,12 +53,14 @@ function compactNumber(value) {
   return Number(value || 0).toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 });
 }
 
+function percentage(value) { return value == null ? '待接入' : `${Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 1 })}%`; }
+
 function leaderboardCover(book) {
   return book.cover ? `<img src="${escapeHtml(book.cover)}" alt="">` : `<span>${escapeHtml(String(book.title || 'N').slice(0, 1))}</span>`;
 }
 
 function activeRunFor(book) {
-  return state.runs.find((run) => String(run.input?.sku) === String(book.bookSkuId) && ['queued', 'running'].includes(run.state));
+  return state.runs.find((run) => String(run.input?.title || '').trim().toLowerCase() === String(book.title || '').trim().toLowerCase() && ['queued', 'running'].includes(run.state));
 }
 
 function renderLeaderboard() {
@@ -71,15 +73,15 @@ function renderLeaderboard() {
     return `<article class="leaderboard-card ${active ? 'in-progress' : ''}">
       <span class="rank">#${book.rank}</span>
       <div class="leaderboard-cover">${leaderboardCover(book)}</div>
-      <div class="leaderboard-copy"><h2>${escapeHtml(book.title)}</h2><p>${escapeHtml(book.author || book.category || 'NovelFlow')}</p><div class="book-tags">${(book.tags || []).slice(0, 2).map((tag) => `<span>${escapeHtml(tag)}</span>`).join('')}</div></div>
-      <div class="leaderboard-metrics"><span>${Number(book.uv) > 0 ? 'UV' : 'UV 排名'}</span><strong>${Number(book.uv) > 0 ? compactNumber(book.uv) : `#${book.rank}`}</strong></div>
-      <button class="start-book ${active ? 'resume' : ''}" data-sku="${escapeHtml(book.bookSkuId)}" ${state.startingSku === String(book.bookSkuId) ? 'disabled' : ''}>${state.startingSku === String(book.bookSkuId) ? '正在启动' : active ? '查看任务' : '完整生成'}<i data-lucide="${active ? 'arrow-right' : 'zap'}"></i></button>
-      <span class="sku-label">SKU ${escapeHtml(book.bookSkuId)}</span>
+      <div class="leaderboard-copy"><h2>${escapeHtml(book.title)}</h2><p>样本 ${compactNumber(book.pullUv)} UV · ${book.assetCount} 个素材</p><div class="book-tags"><span>首读/新增 ${percentage(book.firstReadRate)}</span><span>D14 $${Number(book.d14Income || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}</span></div></div>
+      <div class="leaderboard-metrics"><span>综合评分</span><strong>${Number(book.score || 0).toFixed(1)}</strong><small>置信度 ${book.confidence}%</small></div>
+      <button class="start-book ${active ? 'resume' : ''}" data-title="${escapeHtml(book.title)}" ${state.startingSku === String(book.title) ? 'disabled' : ''}>${state.startingSku === String(book.title) ? '正在校验' : active ? '查看任务' : '智能完整生成'}<i data-lucide="${active ? 'arrow-right' : 'zap'}"></i></button>
     </article>`;
   }).join('');
-  $('#leaderboardUpdated').textContent = state.leaderboardUpdated ? `已更新 ${new Date(state.leaderboardUpdated).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : '正在加载今日榜单';
+  const window = state.leaderboardWindow;
+  $('#leaderboardUpdated').textContent = window?.throughDate ? `数据截至 ${window.throughDate} · 近 ${window.days} 天` : '正在加载历史表现数据';
   document.querySelectorAll('.start-book').forEach((button) => button.addEventListener('click', () => {
-    const book = state.leaderboard.find((item) => String(item.bookSkuId) === button.dataset.sku);
+    const book = state.leaderboard.find((item) => String(item.title) === button.dataset.title);
     if (book) startProduction(book);
   }));
 }
@@ -267,9 +269,10 @@ async function loadStatus({ silent = false } = {}) {
 
 async function loadLeaderboard({ refresh = false, silent = false } = {}) {
   try {
-    const body = await api(`/api/leaderboard${refresh ? '?refresh=1' : ''}`);
+    const body = await api(`/api/leaderboard?days=${state.windowDays}${refresh ? '&refresh=1' : ''}`);
     state.leaderboard = body.books || [];
     state.leaderboardUpdated = body.generatedAt || '';
+    state.leaderboardWindow = body.window || null;
     renderLeaderboard(); icons();
   } catch (error) {
     state.leaderboard = [];
@@ -303,10 +306,10 @@ async function startProduction(book) {
     return;
   }
   if (state.startingSku) return;
-  state.startingSku = String(book.bookSkuId);
+  state.startingSku = String(book.title);
   renderLeaderboard(); icons();
   try {
-    const body = await api('/api/runs', { method: 'POST', body: JSON.stringify({ title: book.title, sku: book.bookSkuId, promoter: 'xujt', paidAuthorized: true, fullBookEvidence: false, source: 'daily_top50' }) });
+    const body = await api('/api/runs', { method: 'POST', body: JSON.stringify({ title: book.title, promoter: 'xujt', paidAuthorized: true, fullBookEvidence: false, source: `performance_${state.windowDays}d` }) });
     state.selectedId = body.run.id;
     state.detailFingerprint = '';
     state.runs.unshift(body.run);
@@ -331,6 +334,7 @@ $('#togglePassword').addEventListener('click', () => { const input = $('#passwor
 $('#refreshButton').addEventListener('click', () => loadStatus());
 $('#leaderboardButton').addEventListener('click', () => $('#leaderboardSection').scrollIntoView({ behavior: 'smooth', block: 'start' }));
 $('#refreshLeaderboard').addEventListener('click', () => loadLeaderboard({ refresh: true }));
+document.querySelectorAll('#windowControl button').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('#windowControl button').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.windowDays = Number(button.dataset.days); loadLeaderboard(); }));
 $('#runSearch').addEventListener('input', (event) => { state.query = event.target.value; renderRunList(); });
 document.querySelectorAll('.nav-item').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('.nav-item').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.view = button.dataset.view; renderRunList(); }));
 document.querySelectorAll('#densityControl button').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('#densityControl button').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.density = button.dataset.density; renderRunList(); icons(); }));

@@ -26,7 +26,7 @@
     </header>
 
     <aside class="sidebar">
-      <button id="leaderboardButton" class="primary-command full"><i data-lucide="flame"></i><span>从今日 Top 50 选书</span></button>
+      <button id="leaderboardButton" class="primary-command full"><i data-lucide="chart-no-axes-combined"></i><span>按历史表现选书</span></button>
       <nav class="side-nav" aria-label="控制台视图">
         <button class="nav-item active" data-view="operations"><i data-lucide="layout-dashboard"></i><span>生产总控</span><b id="activeCount">0</b></button>
         <button class="nav-item" data-view="completed"><i data-lucide="circle-check-big"></i><span>已完成</span><b id="completeCount">0</b></button>
@@ -51,8 +51,8 @@
 
       <section id="leaderboardSection" class="leaderboard-band">
         <div class="leaderboard-heading">
-          <div><span class="eyebrow">DAILY DISCOVERY</span><h1>今日 Top 50 选书池</h1><p>按书库 UV 排名自动更新。选择一本书，即刻带入准确书名与 SKU 启动完整生产。</p></div>
-          <div class="leaderboard-actions"><span id="leaderboardUpdated" class="updated-label">正在加载今日榜单</span><button id="refreshLeaderboard" class="icon-button" title="刷新今日榜单"><i data-lucide="refresh-cw"></i></button></div>
+          <div><span class="eyebrow">PERFORMANCE SELECTION</span><h1>历史表现选书榜</h1><p>按真实漏斗表现选书，不使用当天书库排序。综合 UV、首读/新增率、D14 回收与样本置信度；留存数据待接入，不参与当前评分。</p></div>
+          <div class="leaderboard-actions"><div id="windowControl" class="segmented"><button data-days="3">近 3 天</button><button class="active" data-days="7">近 7 天</button><button data-days="30">近 30 天</button></div><span id="leaderboardUpdated" class="updated-label">正在加载历史表现数据</span><button id="refreshLeaderboard" class="icon-button" title="刷新表现数据"><i data-lucide="refresh-cw"></i></button></div>
         </div>
         <div id="leaderboard" class="leaderboard-grid" aria-live="polite"></div>
         <div id="leaderboardEmpty" class="leaderboard-empty" hidden><i data-lucide="cloud-off"></i><strong>今日榜单暂不可用</strong><span>任务与已有素材不受影响，可稍后刷新。</span></div>

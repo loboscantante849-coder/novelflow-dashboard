@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
     const title = text(req.body?.title, 200);
     const sku = text(req.body?.sku, 100);
-    if (!title || !sku) return res.status(400).json({ error: 'Exact title and Book SKU are required' });
+    if (!title) return res.status(400).json({ error: 'Exact book title is required' });
     const input = {
       title, sku,
       promoter: text(req.body?.promoter, 80) || 'xujt',

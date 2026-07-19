@@ -12,17 +12,19 @@ module.exports = async (req, res) => {
   if (!isCron && !requireSession(req, res)) return;
   const redis = getRedis();
   if (!redis) return res.status(503).json({ error: 'Social console storage is not configured' });
+  const days = [3, 7, 30].includes(Number(req.query?.days)) ? Number(req.query.days) : 7;
   const day = shanghaiDay();
-  const key = `nf_social:leaderboard:${day}`;
+  const key = `nf_social:leaderboard:performance:${day}:${days}`;
   const refresh = isCron || req.query?.refresh === '1';
   try {
     if (!refresh) {
       const cached = await redis.get(key);
       if (cached) return res.status(200).json(typeof cached === 'string' ? JSON.parse(cached) : cached);
     }
-    const books = await providers.topBooks(50);
+    const result = await providers.performanceBooks(days);
+    const books = result.books;
     if (!books.length) throw new providers.ProviderError('Top-book source returned no usable books');
-    const payload = { books, generatedAt: new Date().toISOString(), day, source: 'novelflow_uv_top50' };
+    const payload = { books, generatedAt: new Date().toISOString(), day, source: 'unified_funnel_performance', window: result.window, metrics: result.metrics };
     await redis.set(key, JSON.stringify(payload), { ex: 36 * 60 * 60 });
     return res.status(200).json(payload);
   } catch (error) {

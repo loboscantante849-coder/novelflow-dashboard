@@ -1,5 +1,9 @@
 const crypto = require('crypto');
 
+function cleanTitle(value) {
+  return String(value || '').replace(/&#0*39;|&apos;/gi, "'").replace(/&amp;/gi, '&').replace(/\s+/g, ' ').trim();
+}
+
 const APPLICATION_ID = process.env.NOVELFLOW_APPLICATION_ID || '642fc1ace309494378a774a6';
 const ADMIN_BASE = 'https://admin.novelspa.app/api/v1/novelmanage';
 const BOOK_API = `${ADMIN_BASE}/book/booklist`;
@@ -112,7 +116,8 @@ function qs(params) {
 
 async function findExactBook(title, sku) {
   const { body } = await adminRequest(`${BOOK_API}?${qs({ current: 1, pageIndex: 1, pageSize: 50, applicationId: APPLICATION_ID, bookName: title })}`, {}, 'Exact book lookup');
-  const match = pageItems(body).items.find((item) => String(item.bookSkuId || '') === String(sku));
+  const candidates = pageItems(body).items.filter((item) => cleanTitle(item.title).toLowerCase() === cleanTitle(title).toLowerCase());
+  const match = sku ? candidates.find((item) => String(item.bookSkuId || '') === String(sku)) : candidates.length === 1 ? candidates[0] : null;
   if (!match) throw new ProviderError(`Book SKU ${sku} was not returned for the supplied title`, { status: 404 });
   if (String(match.title || '').trim().toLowerCase() !== String(title).trim().toLowerCase()) throw new ProviderError('Book title and SKU identify different records', { status: 409 });
   const category = match.aiCategory || {};
@@ -123,6 +128,12 @@ async function findExactBook(title, sku) {
     description: String(match.description || match.bookDescription || match.introduction || match.blurb || ''),
     chapterCount: Number(match.chapterCount || 0), words: Number(match.words || 0), payPoint: Number(match.payPoint || 0)
   };
+}
+
+async function performanceBooks(days) {
+  const endpoint = env('NOVELFLOW_PERFORMANCE_RANKING_API', 'https://novelflow.top/api/social-performance-rankings');
+  const { body } = await request(`${endpoint}?${qs({ days })}`, { method: 'GET', headers: { Accept: 'application/json' } }, 'Unified funnel performance ranking', 25000);
+  return body;
 }
 
 async function topBooks(limit = 50) {
@@ -342,4 +353,4 @@ async function reportRows(code, linkId, days = 90) {
 
 function sha(value) { return crypto.createHash('sha256').update(String(value)).digest('hex'); }
 
-module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, generateCreative, findAcTask, submitAc, acResult, validateVideo, submitImage, imageResult, reportRows, sha };
+module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, performanceBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, generateCreative, findAcTask, submitAc, acResult, validateVideo, submitImage, imageResult, reportRows, sha };
