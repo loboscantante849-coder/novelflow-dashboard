@@ -13,7 +13,7 @@ module.exports = async (req, res) => {
       video: Boolean(process.env.NOVELFLOW_AC_TOKEN),
       llm: Boolean(process.env.NOVELFLOW_COPY_LLM_API_KEY || process.env.NOVELFLOW_LLM_API_KEY),
       image: Boolean(process.env.NOVELFLOW_IMAGE_API_KEY),
-      report: Boolean(process.env.NOVELFLOW_REPORT_TOKEN)
+      report: Boolean(process.env.NOVELFLOW_REPORT_TOKEN || process.env.NOVELFLOW_OIDC_TOKEN || (process.env.NOVELFLOW_OIDC_USERNAME && process.env.NOVELFLOW_OIDC_PASSWORD))
     }});
   } catch (error) {
     console.error('[social/status]', error);
