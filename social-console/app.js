@@ -74,7 +74,7 @@ function renderLeaderboard() {
       <span class="rank">#${book.rank}</span>
       <div class="leaderboard-cover">${leaderboardCover(book)}</div>
       <div class="leaderboard-copy"><h2>${escapeHtml(book.title)}</h2><p>${escapeHtml(book.author || book.category || 'NovelFlow')}</p><div class="book-tags">${(book.tags || []).slice(0, 2).map((tag) => `<span>${escapeHtml(tag)}</span>`).join('')}</div></div>
-      <div class="leaderboard-metrics"><span>UV</span><strong>${compactNumber(book.uv)}</strong></div>
+      <div class="leaderboard-metrics"><span>${Number(book.uv) > 0 ? 'UV' : 'UV 排名'}</span><strong>${Number(book.uv) > 0 ? compactNumber(book.uv) : `#${book.rank}`}</strong></div>
       <button class="start-book ${active ? 'resume' : ''}" data-sku="${escapeHtml(book.bookSkuId)}" ${state.startingSku === String(book.bookSkuId) ? 'disabled' : ''}>${state.startingSku === String(book.bookSkuId) ? '正在启动' : active ? '查看任务' : '完整生成'}<i data-lucide="${active ? 'arrow-right' : 'zap'}"></i></button>
       <span class="sku-label">SKU ${escapeHtml(book.bookSkuId)}</span>
     </article>`;
@@ -158,6 +158,10 @@ function pipelineHtml(run) {
   return `<div class="flow-main">${pipelineNode(run, 'P1')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P2')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P5')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P3')}</div><div class="flow-branch"><div>${pipelineNode(run, 'P4')}</div><div>${pipelineNode(run, 'P3_5')}</div></div><div class="flow-final"><i data-lucide="git-merge"></i>${pipelineNode(run, 'P6')}</div>`;
 }
 
+function idlePipelineHtml() {
+  return `<div class="idle-pipeline"><span>选书</span><i data-lucide="arrow-right"></i><span>证据</span><i data-lucide="arrow-right"></i><span>Code / 短链</span><i data-lucide="arrow-right"></i><span>创意</span><i data-lucide="arrow-right"></i><span>视频 / 海报</span><i data-lucide="arrow-right"></i><span>审核包</span></div>`;
+}
+
 function copyHtml(run) {
   const posts = run.artifacts?.posts || [];
   if (!posts.length) return '<div class="media-placeholder">文案生成后将在这里直接显示</div>';
@@ -202,7 +206,7 @@ function eventsHtml(run) {
 
 function renderDetail() {
   const run = state.runs.find((item) => item.id === state.selectedId);
-  if (!run) { $('#detailPanel').innerHTML = '<div class="detail-empty"><i data-lucide="panel-right-open"></i><span>选择一本书查看完整生产链路</span></div>'; return; }
+  if (!run) { $('#detailPanel').innerHTML = `<div class="detail-empty"><i data-lucide="panel-right-open"></i><strong>完整生产链路</strong><span>从今日榜单选择一本书后，节点会实时显示产物与进度。</span>${idlePipelineHtml()}</div>`; return; }
   const fingerprint = `${run.id}:${run.updatedAt}:${run.state}`;
   if (state.detailFingerprint === fingerprint) return;
   const oldVideo = $('#resultVideo');
