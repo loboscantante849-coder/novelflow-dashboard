@@ -81,7 +81,7 @@ function leaderboardCover(book) {
 }
 
 function activeRunFor(book) {
-  return state.runs.find((run) => String(run.input?.title || '').trim().toLowerCase() === String(book.title || '').trim().toLowerCase() && ['queued', 'running'].includes(run.state));
+  return state.runs.find((run) => (book.bookSkuId && String(run.input?.sku) === String(book.bookSkuId) || String(run.input?.title || '').trim().toLowerCase() === String(book.title || '').trim().toLowerCase()) && ['queued', 'running'].includes(run.state));
 }
 
 function renderLeaderboard() {
@@ -89,20 +89,21 @@ function renderLeaderboard() {
   const empty = $('#leaderboardEmpty');
   if (!grid || !empty) return;
   empty.hidden = state.leaderboard.length > 0;
-  grid.innerHTML = state.leaderboard.map((book) => {
+  grid.innerHTML = state.leaderboard.map((book, index) => {
     const active = activeRunFor(book);
+    const ready = book.automationReady !== false;
     return `<article class="leaderboard-card ${active ? 'in-progress' : ''}">
       <span class="rank">#${book.rank}</span>
       <div class="leaderboard-cover">${leaderboardCover(book)}</div>
       <div class="leaderboard-copy"><h2>${escapeHtml(book.title)}</h2><p>样本 ${compactNumber(book.pullUv)} UV · ${book.assetCount} 个素材</p><div class="book-tags"><span>首读/新增 ${percentage(book.firstReadRate)}</span><span>D14 $${Number(book.d14Income || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}</span></div></div>
       <div class="leaderboard-metrics"><span>综合评分</span><strong>${Number(book.score || 0).toFixed(1)}</strong><small>置信度 ${book.confidence}%</small></div>
-      <button class="start-book ${active ? 'resume' : ''}" data-title="${escapeHtml(book.title)}" ${state.startingSku === String(book.title) ? 'disabled' : ''}>${state.startingSku === String(book.title) ? '正在校验' : active ? '查看任务' : '智能完整生成'}<i data-lucide="${active ? 'arrow-right' : 'zap'}"></i></button>
+      <button class="start-book ${active ? 'resume' : ''}" data-index="${index}" ${!ready || state.startingSku === String(book.title) ? 'disabled' : ''}>${!ready ? '书库已下架' : state.startingSku === String(book.title) ? '正在校验' : active ? '查看任务' : '智能一键生成'}<i data-lucide="${!ready ? 'circle-off' : active ? 'arrow-right' : 'zap'}"></i></button>
     </article>`;
   }).join('');
   const window = state.leaderboardWindow;
   $('#leaderboardUpdated').textContent = window?.throughDate ? `数据截至 ${window.throughDate} · 近 ${window.days} 天` : '正在加载历史表现数据';
   document.querySelectorAll('.start-book').forEach((button) => button.addEventListener('click', () => {
-    const book = state.leaderboard.find((item) => String(item.title) === button.dataset.title);
+    const book = state.leaderboard[Number(button.dataset.index)];
     if (book) startProduction(book);
   }));
 }
@@ -330,6 +331,26 @@ async function retryRun(id) {
   catch (error) { showToast(error.message, 'error'); }
 }
 
+function openRunDialog() {
+  $('#runFormError').textContent = '';
+  $('#runDialog').showModal();
+  setTimeout(() => $('#manualTitle').focus(), 0);
+}
+
+function closeRunDialog() { $('#runDialog').close(); }
+
+async function createProduction({ title, sku = '', source = 'manual' }) {
+  const body = await api('/api/runs', { method: 'POST', body: JSON.stringify({ title, sku, promoter: 'xujt', paidAuthorized: true, fullBookEvidence: false, source }) });
+  state.selectedId = body.run.id;
+  state.detailOpen = true;
+  state.detailFingerprint = '';
+  state.runs.unshift(body.run);
+  render();
+  await kickWorker();
+  showToast(`已为《${body.run.input.title}》启动智能生产`);
+  return body.run;
+}
+
 async function startProduction(book) {
   const existing = activeRunFor(book);
   if (existing) {
@@ -340,14 +361,7 @@ async function startProduction(book) {
   state.startingSku = String(book.title);
   renderLeaderboard(); icons();
   try {
-    const body = await api('/api/runs', { method: 'POST', body: JSON.stringify({ title: book.title, promoter: 'xujt', paidAuthorized: true, fullBookEvidence: false, source: `performance_${state.windowDays}d` }) });
-    state.selectedId = body.run.id;
-    state.detailOpen = true;
-    state.detailFingerprint = '';
-    state.runs.unshift(body.run);
-    render();
-    await kickWorker();
-    showToast(`已为《${book.title}》启动完整生产`);
+    await createProduction({ title: book.title, sku: book.bookSkuId || '', source: `performance_${state.windowDays}d` });
   } catch (error) {
     showToast(error.message, 'error');
   } finally {
@@ -364,6 +378,21 @@ $('#loginForm').addEventListener('submit', async (event) => {
 $('#togglePassword').addEventListener('click', () => { const input = $('#password'); input.type = input.type === 'password' ? 'text' : 'password'; });
 $('#refreshButton').addEventListener('click', () => loadStatus());
 $('#leaderboardButton').addEventListener('click', () => $('#leaderboardSection').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+$('#deckLeaderboard').addEventListener('click', () => $('#leaderboardSection').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+$('#createRunButton').addEventListener('click', openRunDialog);
+$('#deckCreateRun').addEventListener('click', openRunDialog);
+$('#closeRunDialog').addEventListener('click', closeRunDialog);
+$('#runForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const title = $('#manualTitle').value.trim();
+  const sku = $('#manualSku').value.trim();
+  const button = $('#submitRun');
+  $('#runFormError').textContent = '';
+  button.disabled = true;
+  try { await createProduction({ title, sku, source: 'manual' }); closeRunDialog(); $('#runForm').reset(); }
+  catch (error) { $('#runFormError').textContent = error.message; }
+  finally { button.disabled = false; }
+});
 $('#detailScrim').addEventListener('click', closeDetail);
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && state.detailOpen) closeDetail(); });
 $('#refreshLeaderboard').addEventListener('click', () => loadLeaderboard({ refresh: true }));

@@ -22,7 +22,7 @@
   <div id="appView" class="app-shell">
     <header class="topbar">
       <div class="brand-lockup"><span class="brand-mark">NF</span><div><strong>NovelFlow</strong><small>Social Operations</small></div></div>
-      <div class="topbar-actions"><span id="videoCapacity" class="video-capacity"><i data-lucide="video"></i><strong>视频 --/5</strong><small>本小时</small></span><span id="systemState" class="system-state"><span class="pulse-dot"></span>正在连接</span><button id="refreshButton" class="icon-button" title="刷新"><i data-lucide="refresh-cw"></i></button></div>
+      <div class="topbar-actions"><span id="videoCapacity" class="video-capacity"><i data-lucide="video"></i><strong>视频 --/5</strong><small>本小时</small></span><span id="systemState" class="system-state"><span class="pulse-dot"></span>正在连接</span><button id="createRunButton" class="top-create"><i data-lucide="plus"></i><span>手动创建</span></button><button id="refreshButton" class="icon-button" title="刷新"><i data-lucide="refresh-cw"></i></button></div>
     </header>
 
     <aside class="sidebar">
@@ -37,6 +37,10 @@
     </aside>
 
     <main class="workspace">
+      <section class="command-deck">
+        <div class="command-title"><span class="eyebrow">SOCIAL AUTOMATION</span><h1>社媒生产总控</h1><p>从表现选书到创意、视频、海报与复盘，所有生产状态都在这里。</p></div>
+        <div class="command-actions"><button id="deckCreateRun" class="primary-command"><i data-lucide="plus"></i><span>手动创建任务</span></button><button id="deckLeaderboard" class="secondary-command"><i data-lucide="sparkles"></i><span>智能选书</span></button></div>
+      </section>
       <section class="overview-band">
         <div><span>全部书籍</span><strong id="totalRuns">0</strong></div>
         <div><span>生产中</span><strong id="runningRuns">0</strong></div>
@@ -72,6 +76,13 @@
       </section>
     </main>
   </div>
+  <dialog id="runDialog" class="run-dialog">
+    <form id="runForm">
+      <header><div><span class="dialog-kicker">NEW AUTOMATION</span><h2>创建智能生产任务</h2></div><button class="icon-button" type="button" id="closeRunDialog" title="关闭"><i data-lucide="x"></i></button></header>
+      <div class="dialog-body"><label>小说英文全名<input id="manualTitle" name="title" required maxlength="200" autocomplete="off" placeholder="例如 The Lycan King's Treasured Luna"></label><label>SKU <small>可选，留空将自动核验</small><input id="manualSku" name="sku" maxlength="100" autocomplete="off" placeholder="Book SKU"></label><div class="authorization-row"><i data-lucide="wand-sparkles"></i><div><strong>智能一键生产</strong><span>自动核验书籍、分配 Code 与短链、生成双语文案、视频提示词和海报提示词；Facebook 始终保留手动发布。</span></div></div><p id="runFormError" class="form-error" aria-live="polite"></p></div>
+      <footer><button id="submitRun" class="primary-command" type="submit"><i data-lucide="zap"></i><span>立即智能生成</span></button></footer>
+    </form>
+  </dialog>
   <div id="detailScrim" class="detail-scrim" aria-hidden="true"></div>
   <aside id="detailPanel" class="detail-panel" aria-hidden="true"><div class="detail-empty"><i data-lucide="panel-right-open"></i><span>选择一本书查看完整生产链路</span></div></aside>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
