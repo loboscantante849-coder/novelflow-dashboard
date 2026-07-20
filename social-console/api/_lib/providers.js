@@ -324,21 +324,34 @@ async function generateCreative(book, evidence, code, shortUrl) {
     posterPrompts: [{ variant: 'luminous_cinema|editorial_romance', prompt: 'English image prompt', zhPrompt: 'Chinese translation' }]
   };
   const input = JSON.stringify({ book, tracking: { code, shortUrl }, chapterEvidence: excerpts, responseSchema: schema });
-  const payload = responsesApi
-    ? { model, input: [{ role: 'developer', content: instructions }, { role: 'user', content: input }], text: { format: { type: 'json_object' } }, temperature: 0.55, max_output_tokens: 3400 }
-    : { model, messages: [{ role: 'system', content: instructions }, { role: 'user', content: input }], response_format: { type: 'json_object' }, temperature: 0.55, max_tokens: 3400 };
-  let body;
+  const requestCreative = async (activeModel, timeoutMs) => {
+    const payload = responsesApi
+      ? { model: activeModel, input: [{ role: 'developer', content: instructions }, { role: 'user', content: input }], text: { format: { type: 'json_object' } }, temperature: 0.55, max_output_tokens: 3400 }
+      : { model: activeModel, messages: [{ role: 'system', content: instructions }, { role: 'user', content: input }], response_format: { type: 'json_object' }, temperature: 0.55, max_tokens: 3400 };
+    const body = await postJsonOverHttps(`${baseUrl}${responsesApi ? '/responses' : '/chat/completions'}`, { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, payload, 'DeepSeek creative generation', timeoutMs);
+    return { body, creative: parseModelJson(extractModelText(body)) };
+  };
+  let result;
+  let modelUsed = model;
   try {
-    body = await postJsonOverHttps(`${baseUrl}${responsesApi ? '/responses' : '/chat/completions'}`, { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, payload, 'DeepSeek creative generation', 48000);
-  } catch (error) {
-    // Creative generation is idempotent and does not charge a paid media task.
-    // Its request may safely be retried by the pipeline.
-    error.ambiguous = false;
-    throw error;
+    result = await requestCreative(model, 30000);
+  } catch (primaryError) {
+    const fallback = env('NOVELFLOW_COPY_LLM_FALLBACK_MODEL', 'deepseek-chat');
+    if (fallback === model) {
+      primaryError.ambiguous = false;
+      throw primaryError;
+    }
+    try {
+      result = await requestCreative(fallback, 22000);
+      modelUsed = fallback;
+    } catch (fallbackError) {
+      fallbackError.ambiguous = false;
+      fallbackError.message = `Primary ${model}: ${String(primaryError.message || primaryError)}; fallback ${fallback}: ${String(fallbackError.message || fallbackError)}`.slice(0, 500);
+      throw fallbackError;
+    }
   }
-  const creative = parseModelJson(extractModelText(body));
-  const usage = body.usage || {};
-  return { creative, model: String(body.model || model), responseId: String(body.id || ''), usage: { inputTokens: Number(usage.prompt_tokens || usage.input_tokens || 0), outputTokens: Number(usage.completion_tokens || usage.output_tokens || 0), totalTokens: Number(usage.total_tokens || 0) } };
+  const usage = result.body.usage || {};
+  return { creative: result.creative, model: String(result.body.model || modelUsed), responseId: String(result.body.id || ''), usage: { inputTokens: Number(usage.prompt_tokens || usage.input_tokens || 0), outputTokens: Number(usage.completion_tokens || usage.output_tokens || 0), totalTokens: Number(usage.total_tokens || 0) } };
 }
 
 function acHeaders(json = false) {
