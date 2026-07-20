@@ -77,7 +77,7 @@ function compactNumber(value) {
 function percentage(value) { return value == null ? '待接入' : `${Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 1 })}%`; }
 
 function leaderboardCover(book) {
-  return book.cover ? `<img src="${escapeHtml(book.cover)}" alt="">` : `<span>${escapeHtml(String(book.title || 'N').slice(0, 1))}</span>`;
+  return book.cover ? `<img src="${escapeHtml(book.cover)}" alt="">` : `<span class="cover-fallback"><small>HISTORY</small><strong>${escapeHtml(String(book.title || 'N').slice(0, 1))}</strong></span>`;
 }
 
 function activeRunFor(book) {
