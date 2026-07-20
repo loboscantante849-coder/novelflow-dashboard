@@ -295,8 +295,8 @@ async function generateCreative(book, evidence, code, shortUrl) {
   const model = env('NOVELFLOW_COPY_LLM_MODEL', 'deepseek-chat');
   // Keep the generation well below the worker deadline. Ten complete chapters
   // were needlessly pushing a single creative request into the Vercel timeout.
-  const excerpts = evidence.map((item) => ({ chapter: item.order, title: item.title, excerpt: String(item.content).replace(/\s+/g, ' ').slice(0, 1200) }));
-  const instructions = `You are the senior bilingual fiction social editor for NovelFlow. Return one JSON object only. Create exactly two evidence-grounded English promotional posts: hook and escalation. Each post must follow six steps: hook, pain, sensory, contrast, deepDesire, emotionalCta. Use only supplied chapter facts and names. Cite two exact chapter quotes per post. Use 2-4 fitting emoji per final post. The CTA must contain the exact code and short URL. Also write natural Simplified Chinese translations for operator review. Create one AC Seedance vertical-video prompt in English plus Chinese translation, grounded in the same evidence, with a character lock, 3-4 chronological beats, and a 0-12 second shot plan; prohibit subtitles, readable text, CTA cards and identity drift. Create two distinct English image prompts plus Chinese translations: luminous_cinema 9:16 using nano, and editorial_romance 2:3 using gpt. Image prompts must show one decisive supported moment, reserve negative space, and prohibit readable text, title, logo, watermark, QR, UI, collage, duplicated people and extra limbs.`;
+  const excerpts = evidence.map((item) => ({ chapter: item.order, title: item.title, excerpt: String(item.content).replace(/\s+/g, ' ').slice(0, 700) }));
+  const instructions = `You are the senior bilingual fiction social editor for NovelFlow. Return one JSON object only. Create exactly two evidence-grounded English promotional posts: hook and escalation. Each post must follow six steps: hook, pain, sensory, contrast, deepDesire, emotionalCta. Keep each final English post under 170 words. Use only supplied chapter facts and names. Cite two exact chapter quotes per post. Use 2-4 fitting emoji per final post. The CTA must contain the exact code and short URL. Also write natural Simplified Chinese translations for operator review. Create one concise AC Seedance vertical-video prompt in English plus Chinese translation, grounded in the same evidence, with a character lock, 3-4 chronological beats, and a 0-12 second shot plan; prohibit subtitles, readable text, CTA cards and identity drift. Create two distinct concise English image prompts plus Chinese translations: luminous_cinema 9:16 using nano, and editorial_romance 2:3 using gpt. Image prompts must show one decisive supported moment, reserve negative space, and prohibit readable text, title, logo, watermark, QR, UI, collage, duplicated people and extra limbs.`;
   const schema = {
     posts: [{ type: 'hook|escalation', sixSteps: { hook: 'string', pain: 'string', sensory: 'string', contrast: 'string', deepDesire: 'string', emotionalCta: 'string' }, content: 'complete English post', zhContent: 'complete Chinese translation', evidence: [{ chapter: 1, quote: 'exact quote' }] }],
     videoPrompt: { adCopy: 'English story bible', buildRequirement: 'English shot plan', zhAdCopy: 'Chinese', zhBuildRequirement: 'Chinese', evidenceChapters: [1, 2] },
@@ -304,11 +304,11 @@ async function generateCreative(book, evidence, code, shortUrl) {
   };
   const payload = {
     model, messages: [{ role: 'system', content: instructions }, { role: 'user', content: JSON.stringify({ book, tracking: { code, shortUrl }, chapterEvidence: excerpts, responseSchema: schema }) }],
-    response_format: { type: 'json_object' }, temperature: 0.55
+    response_format: { type: 'json_object' }, temperature: 0.55, max_tokens: 3000
   };
   let body;
   try {
-    body = await postJsonOverHttps(`${baseUrl}/chat/completions`, { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, payload, 'DeepSeek creative generation', 26000);
+    body = await postJsonOverHttps(`${baseUrl}/chat/completions`, { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, payload, 'DeepSeek creative generation', 48000);
   } catch (error) {
     // Creative generation is idempotent and does not charge a paid media task.
     // Its request may safely be retried by the pipeline.
