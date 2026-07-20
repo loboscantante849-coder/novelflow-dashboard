@@ -253,12 +253,16 @@ async function createLink(book, promoter, code) {
 
 function extractModelText(body) {
   if (body.output_text) return String(body.output_text);
+  if (body.response?.output_text) return String(body.response.output_text);
   const choice = body.choices?.[0]?.message?.content;
   if (typeof choice === 'string') return choice;
   if (Array.isArray(choice)) return choice.map((item) => typeof item === 'string' ? item : String(item?.text || item?.content || '')).join('');
   if (choice && typeof choice === 'object') return String(choice.text || choice.content || '');
   const parts = [];
-  for (const output of body.output || []) for (const item of output.content || []) if (item.text) parts.push(item.text);
+  for (const output of body.output || []) for (const item of output.content || []) {
+    const value = typeof item.text === 'string' ? item.text : item.text?.value || item.content;
+    if (value) parts.push(String(value));
+  }
   return parts.join('');
 }
 
@@ -308,6 +312,8 @@ async function generateCreative(book, evidence, code, shortUrl) {
   if (!apiKey) throw new ProviderError('DeepSeek copy model is not configured', { status: 503 });
   const baseUrl = env('NOVELFLOW_COPY_LLM_BASE_URL', 'https://api.deepseek.com').replace(/\/$/, '');
   const model = env('NOVELFLOW_COPY_LLM_MODEL', 'deepseek-chat');
+  const configuredWire = env('NOVELFLOW_COPY_LLM_WIRE_API').toLowerCase();
+  const responsesApi = configuredWire === 'responses' || (!configuredWire && /\/\/(?:[^/]*\.)?max\.jojocode\.com(?:[:/]|$)/i.test(baseUrl));
   // Keep the generation well below the worker deadline. Ten complete chapters
   // were needlessly pushing a single creative request into the Vercel timeout.
   const excerpts = evidence.map((item) => ({ chapter: item.order, title: item.title, excerpt: String(item.content).replace(/\s+/g, ' ').slice(0, 700) }));
@@ -317,13 +323,13 @@ async function generateCreative(book, evidence, code, shortUrl) {
     videoPrompt: { adCopy: 'English story bible', buildRequirement: 'English shot plan', zhAdCopy: 'Chinese', zhBuildRequirement: 'Chinese', evidenceChapters: [1, 2] },
     posterPrompts: [{ variant: 'luminous_cinema|editorial_romance', prompt: 'English image prompt', zhPrompt: 'Chinese translation' }]
   };
-  const payload = {
-    model, messages: [{ role: 'system', content: instructions }, { role: 'user', content: JSON.stringify({ book, tracking: { code, shortUrl }, chapterEvidence: excerpts, responseSchema: schema }) }],
-    response_format: { type: 'json_object' }, temperature: 0.55, max_tokens: 3400
-  };
+  const input = JSON.stringify({ book, tracking: { code, shortUrl }, chapterEvidence: excerpts, responseSchema: schema });
+  const payload = responsesApi
+    ? { model, input: [{ role: 'developer', content: instructions }, { role: 'user', content: input }], text: { format: { type: 'json_object' } }, temperature: 0.55, max_output_tokens: 3400 }
+    : { model, messages: [{ role: 'system', content: instructions }, { role: 'user', content: input }], response_format: { type: 'json_object' }, temperature: 0.55, max_tokens: 3400 };
   let body;
   try {
-    body = await postJsonOverHttps(`${baseUrl}/chat/completions`, { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, payload, 'DeepSeek creative generation', 48000);
+    body = await postJsonOverHttps(`${baseUrl}${responsesApi ? '/responses' : '/chat/completions'}`, { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, payload, 'DeepSeek creative generation', 48000);
   } catch (error) {
     // Creative generation is idempotent and does not charge a paid media task.
     // Its request may safely be retried by the pipeline.
