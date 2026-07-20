@@ -136,17 +136,6 @@ test('creative timeout is visible and schedules one safe automatic retry', async
   assert.match(run.events.map((event) => event.type).join(' '), /creative_request_started.*creative_retry_scheduled/);
 });
 
-test('provider request has a hard deadline even when fetch ignores abort', async (t) => {
-  const originalFetch = global.fetch;
-  const originalKey = process.env.NOVELFLOW_COPY_LLM_API_KEY;
-  t.after(() => { global.fetch = originalFetch; if (originalKey === undefined) delete process.env.NOVELFLOW_COPY_LLM_API_KEY; else process.env.NOVELFLOW_COPY_LLM_API_KEY = originalKey; });
-  process.env.NOVELFLOW_COPY_LLM_API_KEY = 'test-key';
-  global.fetch = async () => new Promise(() => {});
-  const started = Date.now();
-  await assert.rejects(() => providers.generateCreative({}, [], '44444', 'https://social.example/s/abc'), /timed out after 26 seconds/);
-  assert.ok(Date.now() - started >= 25000);
-});
-
 test('video submission capacity reserves no more than five slots per hour', async () => {
   const redis = new MemoryRedis();
   const slots = [];

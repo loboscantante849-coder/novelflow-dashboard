@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const https = require('https');
 
 function cleanTitle(value) {
   return String(value || '').replace(/&#0*39;|&apos;/gi, "'").replace(/&amp;/gi, '&').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/\s+/g, ' ').trim();
@@ -259,6 +260,34 @@ function extractModelText(body) {
   return parts.join('');
 }
 
+function postJsonOverHttps(url, headers, payload, label, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    let target;
+    try { target = new URL(url); } catch { reject(new ProviderError(`${label} URL is invalid`)); return; }
+    const body = JSON.stringify(payload);
+    const request = https.request({
+      protocol: target.protocol, hostname: target.hostname, port: target.port || undefined,
+      path: `${target.pathname}${target.search}`, method: 'POST', headers: { ...headers, 'Content-Length': Buffer.byteLength(body) }
+    }, (response) => {
+      const chunks = [];
+      response.on('data', (chunk) => chunks.push(chunk));
+      response.on('end', () => {
+        const text = Buffer.concat(chunks).toString('utf8');
+        let parsed = {};
+        try { parsed = text ? JSON.parse(text) : {}; } catch { reject(new ProviderError(`${label} returned invalid JSON`, { status: response.statusCode })); return; }
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          reject(new ProviderError(`${label} failed with HTTP ${response.statusCode}${parsed?.error?.message ? `: ${parsed.error.message}` : ''}`, { status: response.statusCode }));
+          return;
+        }
+        resolve(parsed);
+      });
+    });
+    request.setTimeout(timeoutMs, () => request.destroy(new ProviderError(`${label} timed out after ${Math.ceil(timeoutMs / 1000)} seconds`)));
+    request.on('error', (error) => reject(error instanceof ProviderError ? error : new ProviderError(`${label} did not return a definitive response`)));
+    request.end(body);
+  });
+}
+
 async function generateCreative(book, evidence, code, shortUrl) {
   const apiKey = secretToken('NOVELFLOW_COPY_LLM_API_KEY') || secretToken('NOVELFLOW_LLM_API_KEY');
   if (!apiKey) throw new ProviderError('DeepSeek copy model is not configured', { status: 503 });
@@ -279,7 +308,7 @@ async function generateCreative(book, evidence, code, shortUrl) {
   };
   let body;
   try {
-    ({ body } = await request(`${baseUrl}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, 'DeepSeek creative generation', 26000));
+    body = await postJsonOverHttps(`${baseUrl}/chat/completions`, { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, payload, 'DeepSeek creative generation', 26000);
   } catch (error) {
     // Creative generation is idempotent and does not charge a paid media task.
     // Its request may safely be retried by the pipeline.
