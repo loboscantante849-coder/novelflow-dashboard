@@ -225,11 +225,18 @@ function promptHtml(run) {
 }
 
 function videoHtml(run) {
-  const video = run.artifacts?.video;
-  const url = video?.videoUrls?.[0];
-  if (url) return `<div class="video-shell"><video id="resultVideo" controls preload="metadata" playsinline poster="${escapeHtml(video.coverImageUrl || '')}"><source src="${escapeHtml(url)}"></video></div>`;
-  const label = video?.status === 'running' || video?.status === 'submitting' ? '视频正在生成，后台会持续反馈进度' : '视频提交后可在这里直接播放';
-  return `<div class="media-placeholder">${escapeHtml(label)}</div>`;
+  const original = run.artifacts?.video;
+  const reference = run.artifacts?.referenceVideo;
+  const asset = (video, title, referenceVersion = false) => {
+    const url = video?.videoUrls?.[0];
+    if (url) return `<article class="video-asset"><div class="video-asset-head"><strong>${escapeHtml(title)}</strong>${referenceVersion ? '<span>海报 1 参考</span>' : ''}</div><div class="video-shell"><video ${referenceVersion ? '' : 'id="resultVideo"'} controls preload="metadata" playsinline poster="${escapeHtml(video.coverImageUrl || '')}"><source src="${escapeHtml(url)}"></video></div></article>`;
+    const label = video?.status === 'running' || video?.status === 'submitting' ? '视频正在生成，后台会持续反馈进度' : video?.status === 'failed' ? `生成失败：${video.error || '请检查任务'}` : '等待提交';
+    return `<article class="video-asset"><div class="video-asset-head"><strong>${escapeHtml(title)}</strong>${referenceVersion ? '<span>海报 1 参考</span>' : ''}</div><div class="media-placeholder">${escapeHtml(label)}</div></article>`;
+  };
+  const canCreateReference = Boolean(original?.videoUrls?.[0] && (run.artifacts?.images || []).some((item) => item.variant === 'luminous_cinema' && item.url) && !reference);
+  const assets = [asset(original, '原始成片')];
+  if (reference) assets.push(asset(reference, '参考海报版', true));
+  return `<div class="video-assets">${assets.join('')}</div>${canCreateReference ? '<button id="createReferenceVideo" class="secondary-command reference-video-command"><i data-lucide="clapperboard"></i><span>用海报 1 再生成 AC 视频</span></button>' : ''}`;
 }
 
 function imagesHtml(run) {
@@ -289,6 +296,7 @@ function renderDetail() {
   if (newVideo && playback?.time) newVideo.addEventListener('loadedmetadata', () => { newVideo.currentTime = Math.min(playback.time, newVideo.duration || playback.time); if (!playback.paused) newVideo.play().catch(() => {}); }, { once: true });
   $('#retryRun')?.addEventListener('click', () => retryRun(run.id));
   $('#closeDetail')?.addEventListener('click', closeDetail);
+  $('#createReferenceVideo')?.addEventListener('click', () => startReferenceVideo(run.id));
   panel.querySelectorAll('.open-image-preview').forEach((button) => button.addEventListener('click', () => openImageViewer(button.dataset.imageUrl, button.dataset.imageLabel)));
   document.querySelectorAll('[data-scroll-target]').forEach((button) => button.addEventListener('click', () => panel.querySelector(`#${button.dataset.scrollTarget}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })));
   if (state.detailOpen && state.detailTarget) {
@@ -342,6 +350,28 @@ async function kickWorker() {
 async function retryRun(id) {
   try { await api('/api/runs', { method: 'PATCH', body: JSON.stringify({ id, action: 'retry' }) }); state.detailFingerprint = ''; await loadStatus(); await kickWorker(); }
   catch (error) { showToast(error.message, 'error'); }
+}
+
+async function startReferenceVideo(runId) {
+  const button = $('#createReferenceVideo');
+  if (button) button.disabled = true;
+  try {
+    const body = await api('/api/reference-video', { method: 'POST', body: JSON.stringify({ runId }) });
+    showToast(body.video?.status === 'running' ? '海报参考版 AC 视频已提交' : '海报参考版视频状态已更新');
+    state.detailFingerprint = '';
+    await loadStatus();
+  } catch (error) { showToast(error.message, 'error'); }
+  finally { if (button) button.disabled = false; }
+}
+
+async function pollReferenceVideos() {
+  const run = state.runs.find((item) => item.artifacts?.referenceVideo?.status === 'running');
+  if (!run) return;
+  try {
+    await api('/api/reference-video', { method: 'POST', body: JSON.stringify({ runId: run.id }) });
+    state.detailFingerprint = '';
+    await loadStatus({ silent: true });
+  } catch {}
 }
 
 function openRunDialog() {
@@ -421,3 +451,4 @@ loadLeaderboard({ silent: true });
 setInterval(() => loadStatus({ silent: true }), 6000);
 setInterval(() => loadLeaderboard({ silent: true }), 5 * 60 * 1000);
 setInterval(kickWorker, 3500);
+setInterval(pollReferenceVideos, 15000);

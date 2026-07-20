@@ -228,6 +228,15 @@ function videoPayload(run) {
   };
 }
 
+function referenceVideoPayload(run, posterUrl) {
+  const prepared = videoPayload(run);
+  const remark = `nf_ref_${providers.sha(`${run.id}:${posterUrl}:seedance`).slice(0, 20)}`;
+  prepared.remark = remark;
+  prepared.payload.remark = remark;
+  prepared.payload.reference_picture_list = [posterUrl];
+  return prepared;
+}
+
 function threadId(value) {
   return String(value?.thread_id || value?.threadId || value?.base_info?.thread_id || value?.id || '');
 }
@@ -443,4 +452,4 @@ async function processRun(redis, run) {
   }
 }
 
-module.exports = { processRun, selectedChapters, normalizeCreative, summarizeAnalytics, cleanError };
+module.exports = { processRun, selectedChapters, normalizeCreative, summarizeAnalytics, cleanError, referenceVideoPayload };
