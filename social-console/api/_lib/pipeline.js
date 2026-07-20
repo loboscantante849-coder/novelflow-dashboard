@@ -165,17 +165,36 @@ async function p5(redis, run) {
   }
 }
 
+function nextCreativeAttempt(stage) {
+  return Number(stage.attempt || 0) + 1;
+}
+
 async function p3(redis, run) {
-  setStage(run, 'P3', 'running', { label: 'DeepSeek 正在生成双语创意包' });
+  const stage = run.stages.P3;
+  const attempt = nextCreativeAttempt(stage);
+  setStage(run, 'P3', 'running', { label: `DeepSeek 正在生成双语创意包（第 ${attempt}/2 次）`, phase: 'requesting', attempt, error: '', nextAttemptAt: '' });
+  addEvent(run, 'creative_request_started', `DeepSeek creative request started (attempt ${attempt}/2)`);
   await saveRun(redis, run);
-  const result = await providers.generateCreative(run.artifacts.book, run.artifacts.evidence.chapters, run.artifacts.code, run.artifacts.shortUrl);
+  let result;
+  try {
+    result = await providers.generateCreative(run.artifacts.book, run.artifacts.evidence.chapters, run.artifacts.code, run.artifacts.shortUrl);
+  } catch (error) {
+    if (attempt < 2) {
+      const nextAttemptAt = new Date(Date.now() + 2 * 60 * 1000).toISOString();
+      setStage(run, 'P3', 'waiting', { label: 'DeepSeek 暂未返回，将在 2 分钟后自动重试', phase: 'retry_scheduled', attempt, nextAttemptAt, error: cleanError(error) });
+      addEvent(run, 'creative_retry_scheduled', `DeepSeek request failed; retry scheduled at ${nextAttemptAt}`, { error: cleanError(error) });
+      await saveRun(redis, run);
+      return;
+    }
+    throw error;
+  }
   const creative = normalizeCreative(result, run);
   run.artifacts.posts = creative.posts;
   run.artifacts.translations = { language: 'zh-CN', posts: creative.posts.map((item) => item.zhContent) };
   run.artifacts.videoPrompt = creative.videoPrompt;
   run.artifacts.posterPrompts = creative.posterPrompts;
   run.artifacts.usage.creative = { model: result.model, responseId: result.responseId, ...result.usage };
-  setStage(run, 'P3', 'done', { label: '六步法文案、翻译与提示词已生成', model: result.model });
+  setStage(run, 'P3', 'done', { label: '六步法文案、翻译与提示词已生成', model: result.model, phase: 'ready' });
   addEvent(run, 'creative_ready', 'Bilingual copy, video prompt and poster prompts generated');
   await saveRun(redis, run);
 }
@@ -389,7 +408,11 @@ async function processRun(redis, run) {
     if (run.stages.P1.status !== 'done') { activeStage = 'P1'; await p1(redis, run); return run; }
     if (run.stages.P2.status !== 'done') { activeStage = 'P2'; await p2(redis, run); return run; }
     if (run.stages.P5.status !== 'done') { activeStage = 'P5'; await p5(redis, run); return run; }
-    if (run.stages.P3.status !== 'done') { activeStage = 'P3'; await p3(redis, run); return run; }
+    if (run.stages.P3.status !== 'done') {
+      const retryAt = Date.parse(run.stages.P3.nextAttemptAt || '');
+      if (run.stages.P3.status === 'waiting' && Number.isFinite(retryAt) && retryAt > Date.now()) return run;
+      activeStage = 'P3'; await p3(redis, run); return run;
+    }
     if (!terminal(run.stages.P4.status) && !['running'].includes(run.stages.P4.status)) { activeStage = 'P4'; await p4(redis, run); return run; }
     if (!terminal(run.stages.P3_5.status) && (run.stages.P3_5.status !== 'running' || run.artifacts.images.some((item) => ['prepared', 'submitting'].includes(item.status)))) { activeStage = 'P3_5'; await p35(redis, run); return run; }
     if (run.stages.P4.status === 'running') { activeStage = 'P4'; await p4(redis, run); return run; }

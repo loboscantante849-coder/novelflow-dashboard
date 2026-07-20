@@ -115,6 +115,27 @@ test('title keys treat straight and curly apostrophes as the same book title', (
   assert.equal(providers.titleKey("The Lycan King's Treasured Luna"), providers.titleKey('The Lycan King\u2019s Treasured Luna'));
 });
 
+test('creative timeout is visible and schedules one safe automatic retry', async (t) => {
+  const originals = { ...providers };
+  t.after(() => Object.assign(providers, originals));
+  Object.assign(providers, { generateCreative: async () => { throw new providers.ProviderError('DeepSeek creative generation did not return a definitive response'); } });
+  const redis = new MemoryRedis();
+  const run = newRun({ title: 'Verified Romance', sku: 'sku-1', promoter: 'xujt', paidAuthorized: true });
+  run.state = 'running';
+  run.stages.P1.status = 'done';
+  run.stages.P2.status = 'done';
+  run.stages.P5.status = 'done';
+  run.artifacts.book = { bookSkuId: 'sku-1' };
+  run.artifacts.evidence = { chapters: [] };
+  run.artifacts.code = '44444';
+  run.artifacts.shortUrl = 'https://social.example/s/abc';
+  await processRun(redis, run);
+  assert.equal(run.state, 'running');
+  assert.equal(run.stages.P3.status, 'waiting');
+  assert.equal(run.stages.P3.phase, 'retry_scheduled');
+  assert.match(run.events.map((event) => event.type).join(' '), /creative_request_started.*creative_retry_scheduled/);
+});
+
 test('video submission capacity reserves no more than five slots per hour', async () => {
   const redis = new MemoryRedis();
   const slots = [];
