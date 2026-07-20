@@ -1,5 +1,6 @@
 const { getRedis, getRun, listRuns, newRun, saveRun } = require('./_lib/store');
 const { requireSession } = require('./_lib/auth');
+const providers = require('./_lib/providers');
 
 const text = (value, max) => typeof value === 'string' && value.trim().length <= max ? value.trim() : '';
 
@@ -39,8 +40,19 @@ module.exports = async (req, res) => {
     const title = text(req.body?.title, 200);
     const sku = text(req.body?.sku, 100);
     if (!title) return res.status(400).json({ error: 'Exact book title is required' });
+    let book;
+    try {
+      // Do this before creating any state: historical funnel titles can point
+      // to removed or renamed books, which must never become failed jobs.
+      book = await providers.findExactBook(title, sku);
+    } catch (error) {
+      const message = error?.status === 404
+        ? `“${title}” is not an active exact NovelFlow bookstore record and cannot start automation.`
+        : String(error?.message || 'Book identity validation failed');
+      return res.status(422).json({ error: message });
+    }
     const input = {
-      title, sku,
+      title: book.title, sku: book.bookSkuId,
       promoter: text(req.body?.promoter, 80) || 'xujt',
       videoTemplate: text(req.body?.videoTemplate, 80) || 'adaptive_seedance',
       fullBookEvidence: req.body?.fullBookEvidence !== false,
