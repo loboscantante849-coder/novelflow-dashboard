@@ -215,8 +215,11 @@ function promptHtml(run) {
   const video = run.artifacts?.videoPrompt;
   const posters = run.artifacts?.posterPrompts || [];
   if (!video && !posters.length) return '';
+  const beats = video ? [
+    ['钩子 0-2s', video.hook, video.zhHook], ['价值 2-5s', video.valuePromise, video.zhValuePromise], ['升级 5-8s', video.escalation, video.zhEscalation], ['反转 8-11s', video.reversal, video.zhReversal], ['悬念 11-15s', video.cliffhanger, video.zhCliffhanger]
+  ].filter(([, value]) => value) : [];
   return `<section id="detail-prompts" class="detail-section"><div class="section-heading"><h3>双语生产提示词</h3><span class="language-tag">EN / 中文</span></div>
-    ${video ? `<div class="prompt-block"><strong>视频故事与镜头</strong><pre>${escapeHtml(video.adCopy)}\n\n${escapeHtml(video.buildRequirement)}</pre>${video.zhAdCopy || video.zhBuildRequirement ? `<p class="translation">${escapeHtml(video.zhAdCopy || '')}\n\n${escapeHtml(video.zhBuildRequirement || '')}</p>` : ''}</div>` : ''}
+    ${video ? `<div class="video-story"><div class="video-story-head"><strong>短视频叙事脚本</strong><span>基于原文章节 ${escapeHtml((video.evidenceChapters || []).join(' / '))}</span></div>${beats.length ? `<div class="story-beats">${beats.map(([label, value, zh]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${zh ? `<small>${escapeHtml(zh)}</small>` : ''}</article>`).join('')}</div>` : ''}${Array.isArray(video.sourceEvidence) && video.sourceEvidence.length ? `<div class="source-evidence">${video.sourceEvidence.map((item) => `<span>Ch.${escapeHtml(item.chapter)} · “${escapeHtml(item.quote)}”</span>`).join('')}</div>` : ''}<div class="prompt-block"><strong>英文旁白与镜头执行</strong><pre>${escapeHtml(video.adCopy)}\n\n${escapeHtml(video.buildRequirement)}</pre>${video.zhAdCopy || video.zhBuildRequirement ? `<p class="translation">${escapeHtml(video.zhAdCopy || '')}\n\n${escapeHtml(video.zhBuildRequirement || '')}</p>` : ''}</div></div>` : ''}
     ${posters.map((item) => `<div class="prompt-block"><strong>${escapeHtml(item.variant)}</strong><pre>${escapeHtml(item.prompt)}</pre>${item.zhPrompt ? `<p class="translation">${escapeHtml(item.zhPrompt)}</p>` : ''}</div>`).join('')}
   </section>`;
 }
@@ -231,8 +234,17 @@ function videoHtml(run) {
 
 function imagesHtml(run) {
   const images = run.artifacts?.images || [];
+  const concepts = run.artifacts?.posterPrompts || [];
+  if (!images.length && concepts.length) return `<div class="media-grid">${concepts.map((item) => `<article class="poster-concept"><div><i data-lucide="sparkles"></i><strong>${escapeHtml(item.variant)}</strong><span>视觉概念已就绪，等待图像任务提交</span></div><p>${escapeHtml(item.zhPrompt || item.prompt)}</p></article>`).join('')}</div>`;
   if (!images.length) return '<div class="media-placeholder">两张推广海报将在这里显示</div>';
-  return `<div class="media-grid">${images.map((item) => `<div class="poster-item">${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener"><img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.variant)}"></a>` : `<div class="media-placeholder">${escapeHtml(item.status || '等待生成')}</div>`}<span>${escapeHtml(item.variant)} · ${escapeHtml(item.status)}</span></div>`).join('')}</div>`;
+  return `<div class="media-grid">${images.map((item) => `<article class="poster-item ${item.url ? 'ready' : ''}">${item.url ? `<button class="open-image-preview" type="button" data-image-url="${escapeHtml(item.url)}" data-image-label="${escapeHtml(item.variant)}"><img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.variant)}"><span class="poster-expand"><i data-lucide="maximize-2"></i> 预览海报</span></button>` : `<div class="poster-live"><i data-lucide="image"></i><strong>${escapeHtml(item.variant)}</strong><span>${escapeHtml(item.status || '等待生成')}${item.progress != null ? ` · ${escapeHtml(item.progress)}%` : ''}</span></div>`}<span>${escapeHtml(item.variant)} · ${escapeHtml(item.status)}</span></article>`).join('')}</div>`;
+}
+
+function openImageViewer(url, label) {
+  $('#imageViewerTitle').textContent = label || '推广海报预览';
+  $('#imageViewerImage').src = url;
+  $('#imageViewerImage').alt = label || '推广海报预览';
+  $('#imageViewer').showModal();
 }
 
 function analyticsHtml(run) {
@@ -277,6 +289,7 @@ function renderDetail() {
   if (newVideo && playback?.time) newVideo.addEventListener('loadedmetadata', () => { newVideo.currentTime = Math.min(playback.time, newVideo.duration || playback.time); if (!playback.paused) newVideo.play().catch(() => {}); }, { once: true });
   $('#retryRun')?.addEventListener('click', () => retryRun(run.id));
   $('#closeDetail')?.addEventListener('click', closeDetail);
+  panel.querySelectorAll('.open-image-preview').forEach((button) => button.addEventListener('click', () => openImageViewer(button.dataset.imageUrl, button.dataset.imageLabel)));
   document.querySelectorAll('[data-scroll-target]').forEach((button) => button.addEventListener('click', () => panel.querySelector(`#${button.dataset.scrollTarget}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })));
   if (state.detailOpen && state.detailTarget) {
     const targets = { copy: 'detail-copy', video: 'detail-video', posters: 'detail-posters', review: 'detail-review' };
@@ -382,6 +395,7 @@ $('#deckLeaderboard').addEventListener('click', () => $('#leaderboardSection').s
 $('#createRunButton').addEventListener('click', openRunDialog);
 $('#deckCreateRun').addEventListener('click', openRunDialog);
 $('#closeRunDialog').addEventListener('click', closeRunDialog);
+$('#closeImageViewer').addEventListener('click', () => $('#imageViewer').close());
 $('#runForm').addEventListener('submit', async (event) => {
   event.preventDefault();
   const title = $('#manualTitle').value.trim();

@@ -38,13 +38,25 @@ function normalizeCreative(result, run) {
   });
   const videoPrompt = source.videoPrompt || {};
   if (!String(videoPrompt.adCopy || '').trim() || !String(videoPrompt.buildRequirement || '').trim()) throw new providers.ProviderError('Creative model returned an empty video prompt');
+  for (const key of ['hook', 'valuePromise', 'escalation', 'reversal', 'cliffhanger']) if (String(videoPrompt[key] || '').trim().length < 12) throw new providers.ProviderError(`Creative model omitted video ${key}`);
+  const videoEvidence = Array.isArray(videoPrompt.sourceEvidence) ? videoPrompt.sourceEvidence : [];
+  if (videoEvidence.length < 3 || videoEvidence.some((item) => !Number(item?.chapter) || String(item?.quote || '').trim().length < 8)) throw new providers.ProviderError('Video prompt must cite three grounded story beats');
   const posterPrompts = Array.isArray(source.posterPrompts) ? source.posterPrompts : [];
   const byVariant = new Map(posterPrompts.map((item) => [String(item.variant || ''), item]));
   for (const variant of ['luminous_cinema', 'editorial_romance']) {
     const item = byVariant.get(variant);
     if (!item || String(item.prompt || '').trim().length < 100) throw new providers.ProviderError(`Creative model returned an invalid ${variant} image prompt`);
   }
-  return { posts, videoPrompt, posterPrompts: ['luminous_cinema', 'editorial_romance'].map((variant) => ({ variant, prompt: String(byVariant.get(variant).prompt), zhPrompt: String(byVariant.get(variant).zhPrompt || '') })) };
+  return {
+    posts,
+    videoPrompt: {
+      ...videoPrompt,
+      hook: String(videoPrompt.hook), valuePromise: String(videoPrompt.valuePromise), escalation: String(videoPrompt.escalation), reversal: String(videoPrompt.reversal), cliffhanger: String(videoPrompt.cliffhanger),
+      sourceEvidence: videoEvidence.map((item) => ({ chapter: Number(item.chapter), quote: String(item.quote).trim() })),
+      evidenceChapters: Array.isArray(videoPrompt.evidenceChapters) && videoPrompt.evidenceChapters.length ? videoPrompt.evidenceChapters : videoEvidence.map((item) => Number(item.chapter))
+    },
+    posterPrompts: ['luminous_cinema', 'editorial_romance'].map((variant) => ({ variant, prompt: String(byVariant.get(variant).prompt), zhPrompt: String(byVariant.get(variant).zhPrompt || '') }))
+  };
 }
 
 async function p1(redis, run) {
