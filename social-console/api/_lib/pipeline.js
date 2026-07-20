@@ -103,6 +103,21 @@ function codeOwned(record, run) {
   return ids.includes(String(run.input.sku)) && String(record?.channel || '') === (process.env.NOVELFLOW_CHANNEL_CODE || 'FB');
 }
 
+function codeConflict(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  return Number(error?.status) === 409 || /already\s*exists|duplicate|conflict|occupied|已存在|重复|占用/.test(message);
+}
+
+async function advanceCode(redis, run, stage, reason) {
+  const previous = run.artifacts.code;
+  run.artifacts.code = await nextCode(redis);
+  const attempts = Number(stage.codeAttempts || 0) + 1;
+  if (attempts > 100) throw new providers.ProviderError('Could not allocate a free promotion code after 100 attempts');
+  setStage(run, 'P5', 'running', { label: `Code ${previous} ${reason}，顺延到 ${run.artifacts.code}`, phase: 'code', codeAttempts: attempts });
+  addEvent(run, 'code_advanced', `Code ${previous} ${reason}; advanced to ${run.artifacts.code}`);
+  await saveRun(redis, run);
+}
+
 async function p5(redis, run) {
   const stage = run.stages.P5;
   if (stage.status === 'waiting') {
@@ -115,15 +130,15 @@ async function p5(redis, run) {
   if (stage.phase === 'code') {
     const existing = await providers.keywordRecord(run.artifacts.code);
     if (existing && !codeOwned(existing, run)) {
-      const previous = run.artifacts.code;
-      run.artifacts.code = await nextCode(redis);
-      setStage(run, 'P5', 'running', { label: `Code ${previous} 已占用，顺延到 ${run.artifacts.code}`, phase: 'code' });
-      addEvent(run, 'code_advanced', `Code ${previous} was occupied; advanced to ${run.artifacts.code}`);
-      await saveRun(redis, run);
+      await advanceCode(redis, run, stage, '已占用');
       return;
     }
     if (!existing) {
-      await providers.createKeyword(run.input.sku, run.artifacts.code);
+      try { await providers.createKeyword(run.input.sku, run.artifacts.code); }
+      catch (error) {
+        if (codeConflict(error)) { await advanceCode(redis, run, stage, '创建冲突'); return; }
+        throw error;
+      }
       const verified = await providers.keywordRecord(run.artifacts.code);
       if (!verified || !codeOwned(verified, run) || !providers.enabled(verified.isEnable)) throw new providers.ProviderError('Created promotion code could not be verified remotely');
       run.artifacts.keywordId = String(verified.id || '');

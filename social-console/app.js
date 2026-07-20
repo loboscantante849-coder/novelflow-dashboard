@@ -1,4 +1,4 @@
-const state = { runs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, windowDays: 7, selectedId: '', view: 'operations', density: 'comfortable', query: '', detailFingerprint: '', kicking: false, startingSku: '' };
+const state = { runs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, windowDays: 7, selectedId: '', view: 'operations', density: 'comfortable', query: '', detailFingerprint: '', detailOpen: false, detailTarget: '', kicking: false, startingSku: '' };
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 const labels = { queued: '排队中', running: '生产中', completed: '已完成', failed: '失败', blocked: '已暂停' };
@@ -51,6 +51,23 @@ function showToast(message, kind = '') {
   toast.className = `toast show ${kind}`;
   clearTimeout(showToast.timer);
   showToast.timer = setTimeout(() => { toast.className = 'toast'; }, 4600);
+}
+
+function openDetail(id, target = '') {
+  state.selectedId = id;
+  state.detailOpen = true;
+  state.detailTarget = target;
+  state.detailFingerprint = '';
+  render();
+}
+
+function closeDetail() {
+  state.detailOpen = false;
+  state.detailTarget = '';
+  $('#detailPanel').setAttribute('aria-hidden', 'true');
+  $('#detailScrim').setAttribute('aria-hidden', 'true');
+  $('#detailPanel').classList.remove('open');
+  $('#detailScrim').classList.remove('open');
 }
 
 function compactNumber(value) {
@@ -136,7 +153,7 @@ function renderRunList() {
       <div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div>
     </article>`;
   }).join('');
-  document.querySelectorAll('.run-row').forEach((row) => row.addEventListener('click', () => { state.selectedId = row.dataset.id; state.detailFingerprint = ''; render(); }));
+  document.querySelectorAll('.run-row').forEach((row) => row.addEventListener('click', () => openDetail(row.dataset.id)));
 }
 
 function renderStats() {
@@ -167,14 +184,10 @@ function renderFocusRun() {
   content.innerHTML = `<article class="focus-card">
     <div class="focus-book">${cover(run)}<div><div class="focus-title-row"><h2>${escapeHtml(run.input?.title)}</h2><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><p>SKU ${escapeHtml(run.input?.sku)} · ${completed}/7 个节点完成</p><div class="focus-tracking"><span>Code <strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></span>${shortUrl ? `<a href="${escapeHtml(shortUrl)}" target="_blank" rel="noopener">打开短链 <i data-lucide="external-link"></i></a>` : '<span>短链待创建</span>'}</div></div></div>
     <div class="focus-flow">${pipelineOrder.map((key) => `<div class="focus-step ${stageClass(run.stages?.[key])}"><i data-lucide="${stageIcons[key]}"></i><span>${escapeHtml(stageLabels[key])}</span></div>`).join('')}</div>
-    <div class="focus-assets"><div><i data-lucide="message-square-text"></i><strong>${copyCount}</strong><span>成品文案</span></div><div class="${videoReady ? 'ready' : ''}"><i data-lucide="video"></i><strong>${videoReady ? '已就绪' : '等待中'}</strong><span>视频</span></div><div class="${posterCount === 2 ? 'ready' : ''}"><i data-lucide="images"></i><strong>${posterCount}/2</strong><span>海报</span></div><div class="${run.artifacts?.review ? 'ready' : ''}"><i data-lucide="badge-check"></i><strong>${run.artifacts?.review ? '已就绪' : '等待中'}</strong><span>审核包</span></div></div>
+    <div class="focus-assets"><button data-detail-target="copy"><i data-lucide="message-square-text"></i><strong>${copyCount}</strong><span>成品文案</span></button><button data-detail-target="video" class="${videoReady ? 'ready' : ''}"><i data-lucide="video"></i><strong>${videoReady ? '已就绪' : '等待中'}</strong><span>视频</span></button><button data-detail-target="posters" class="${posterCount === 2 ? 'ready' : ''}"><i data-lucide="images"></i><strong>${posterCount}/2</strong><span>海报</span></button><button data-detail-target="review" class="${run.artifacts?.review ? 'ready' : ''}"><i data-lucide="badge-check"></i><strong>${run.artifacts?.review ? '已就绪' : '等待中'}</strong><span>审核包</span></button></div>
   </article>`;
-  $('#openFocusRun').onclick = () => {
-    state.selectedId = run.id;
-    state.detailFingerprint = '';
-    render();
-    document.querySelector('.operations-layout')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  $('#openFocusRun').onclick = () => openDetail(run.id);
+  document.querySelectorAll('[data-detail-target]').forEach((button) => button.addEventListener('click', () => openDetail(run.id, button.dataset.detailTarget)));
 }
 
 function pipelineNode(run, key) {
@@ -201,7 +214,7 @@ function promptHtml(run) {
   const video = run.artifacts?.videoPrompt;
   const posters = run.artifacts?.posterPrompts || [];
   if (!video && !posters.length) return '';
-  return `<section class="detail-section"><div class="section-heading"><h3>双语生产提示词</h3><span class="language-tag">EN / 中文</span></div>
+  return `<section id="detail-prompts" class="detail-section"><div class="section-heading"><h3>双语生产提示词</h3><span class="language-tag">EN / 中文</span></div>
     ${video ? `<div class="prompt-block"><strong>视频故事与镜头</strong><pre>${escapeHtml(video.adCopy)}\n\n${escapeHtml(video.buildRequirement)}</pre>${video.zhAdCopy || video.zhBuildRequirement ? `<p class="translation">${escapeHtml(video.zhAdCopy || '')}\n\n${escapeHtml(video.zhBuildRequirement || '')}</p>` : ''}</div>` : ''}
     ${posters.map((item) => `<div class="prompt-block"><strong>${escapeHtml(item.variant)}</strong><pre>${escapeHtml(item.prompt)}</pre>${item.zhPrompt ? `<p class="translation">${escapeHtml(item.zhPrompt)}</p>` : ''}</div>`).join('')}
   </section>`;
@@ -235,7 +248,13 @@ function eventsHtml(run) {
 
 function renderDetail() {
   const run = state.runs.find((item) => item.id === state.selectedId);
-  if (!run) { $('#detailPanel').innerHTML = `<div class="detail-empty"><i data-lucide="panel-right-open"></i><strong>完整生产链路</strong><span>从今日榜单选择一本书后，节点会实时显示产物与进度。</span>${idlePipelineHtml()}</div>`; return; }
+  const panel = $('#detailPanel');
+  const scrim = $('#detailScrim');
+  panel.classList.toggle('open', state.detailOpen && Boolean(run));
+  scrim.classList.toggle('open', state.detailOpen && Boolean(run));
+  panel.setAttribute('aria-hidden', String(!(state.detailOpen && run)));
+  scrim.setAttribute('aria-hidden', String(!(state.detailOpen && run)));
+  if (!run) { panel.innerHTML = `<div class="detail-empty"><i data-lucide="panel-right-open"></i><strong>完整生产链路</strong><span>从历史表现榜选择一本书后，节点会实时显示产物与进度。</span>${idlePipelineHtml()}</div>`; return; }
   const fingerprint = `${run.id}:${run.updatedAt}:${run.state}`;
   if (state.detailFingerprint === fingerprint) return;
   const oldVideo = $('#resultVideo');
@@ -244,18 +263,25 @@ function renderDetail() {
   const videoLimitBlocked = run.stages?.P4?.blockedReason === 'hourly_video_limit';
   const retryLabel = videoLimitBlocked ? `下小时重试视频${run.stages.P4.nextWindow ? `（当前额度至 ${run.stages.P4.nextWindow}）` : ''}` : '重试失败节点';
   const canRetry = run.state === 'failed' || videoLimitBlocked;
-  $('#detailPanel').innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><div class="detail-actions">${canRetry ? `<button id="retryRun" class="secondary-command"><i data-lucide="rotate-ccw"></i><span>${escapeHtml(retryLabel)}</span></button>` : ''}</div></div><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header>
-    <section class="pipeline"><div class="section-heading"><div><h3>P1-P6 生产链路</h3><p>书籍核验与证据锁定后，自动完成追踪、创意、视频、海报与审核包。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div><div class="current-stage">${escapeHtml(active[1]?.label || labels[run.state] || run.state)}${active[1]?.error ? `：${escapeHtml(active[1].error)}` : ''}</div></section>
-    <section class="detail-section"><div class="section-heading"><h3>六步法成品文案</h3><span class="language-tag">EN / 中文</span></div>${copyHtml(run)}</section>
-    <section class="detail-section"><div class="section-heading"><h3>AC 视频预览</h3><span class="language-tag">1 条</span></div>${videoHtml(run)}</section>
-    <section class="detail-section"><div class="section-heading"><h3>推广海报</h3><span class="language-tag">2 张</span></div>${imagesHtml(run)}</section>
+  panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><div class="detail-actions">${canRetry ? `<button id="retryRun" class="secondary-command"><i data-lucide="rotate-ccw"></i><span>${escapeHtml(retryLabel)}</span></button>` : ''}<button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div></div><nav class="detail-tabs" aria-label="成果模块"><button data-scroll-target="detail-overview">概览</button><button data-scroll-target="detail-copy">文案</button><button data-scroll-target="detail-video">视频</button><button data-scroll-target="detail-posters">海报</button><button data-scroll-target="detail-prompts">提示词</button><button data-scroll-target="detail-data">数据</button></nav><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header>
+    <section id="detail-overview" class="pipeline"><div class="section-heading"><div><h3>P1-P6 生产链路</h3><p>书籍核验与证据锁定后，自动完成追踪、创意、视频、海报与审核包。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div><div class="current-stage">${escapeHtml(active[1]?.label || labels[run.state] || run.state)}${active[1]?.error ? `：${escapeHtml(active[1].error)}` : ''}</div></section>
+    <section id="detail-copy" class="detail-section"><div class="section-heading"><h3>六步法成品文案</h3><span class="language-tag">EN / 中文</span></div>${copyHtml(run)}</section>
+    <section id="detail-video" class="detail-section"><div class="section-heading"><h3>AC 视频预览</h3><span class="language-tag">1 条</span></div>${videoHtml(run)}</section>
+    <section id="detail-posters" class="detail-section"><div class="section-heading"><h3>推广海报</h3><span class="language-tag">2 张</span></div>${imagesHtml(run)}</section>
     ${promptHtml(run)}
-    <section class="detail-section"><div class="section-heading"><h3>实际数据反馈</h3><span class="language-tag">Code + Link</span></div>${analyticsHtml(run)}</section>
-    <section class="detail-section"><h3>运行记录</h3><div class="event-list">${eventsHtml(run)}</div></section>`;
+    <section id="detail-data" class="detail-section"><div class="section-heading"><h3>实际数据反馈</h3><span class="language-tag">Code + Link</span></div>${analyticsHtml(run)}</section>
+    <section id="detail-review" class="detail-section"><h3>运行记录</h3><div class="event-list">${eventsHtml(run)}</div></section>`;
   state.detailFingerprint = fingerprint;
   const newVideo = $('#resultVideo');
   if (newVideo && playback?.time) newVideo.addEventListener('loadedmetadata', () => { newVideo.currentTime = Math.min(playback.time, newVideo.duration || playback.time); if (!playback.paused) newVideo.play().catch(() => {}); }, { once: true });
   $('#retryRun')?.addEventListener('click', () => retryRun(run.id));
+  $('#closeDetail')?.addEventListener('click', closeDetail);
+  document.querySelectorAll('[data-scroll-target]').forEach((button) => button.addEventListener('click', () => panel.querySelector(`#${button.dataset.scrollTarget}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })));
+  if (state.detailOpen && state.detailTarget) {
+    const targets = { copy: 'detail-copy', video: 'detail-video', posters: 'detail-posters', review: 'detail-review' };
+    panel.querySelector(`#${targets[state.detailTarget] || 'detail-overview'}`)?.scrollIntoView({ block: 'start' });
+    state.detailTarget = '';
+  }
 }
 
 function render() {
@@ -307,10 +333,7 @@ async function retryRun(id) {
 async function startProduction(book) {
   const existing = activeRunFor(book);
   if (existing) {
-    state.selectedId = existing.id;
-    state.detailFingerprint = '';
-    render();
-    document.querySelector('.operations-layout')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    openDetail(existing.id);
     return;
   }
   if (state.startingSku) return;
@@ -319,12 +342,12 @@ async function startProduction(book) {
   try {
     const body = await api('/api/runs', { method: 'POST', body: JSON.stringify({ title: book.title, promoter: 'xujt', paidAuthorized: true, fullBookEvidence: false, source: `performance_${state.windowDays}d` }) });
     state.selectedId = body.run.id;
+    state.detailOpen = true;
     state.detailFingerprint = '';
     state.runs.unshift(body.run);
     render();
     await kickWorker();
     showToast(`已为《${book.title}》启动完整生产`);
-    document.querySelector('.operations-layout')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (error) {
     showToast(error.message, 'error');
   } finally {
@@ -341,6 +364,8 @@ $('#loginForm').addEventListener('submit', async (event) => {
 $('#togglePassword').addEventListener('click', () => { const input = $('#password'); input.type = input.type === 'password' ? 'text' : 'password'; });
 $('#refreshButton').addEventListener('click', () => loadStatus());
 $('#leaderboardButton').addEventListener('click', () => $('#leaderboardSection').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+$('#detailScrim').addEventListener('click', closeDetail);
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && state.detailOpen) closeDetail(); });
 $('#refreshLeaderboard').addEventListener('click', () => loadLeaderboard({ refresh: true }));
 document.querySelectorAll('#windowControl button').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('#windowControl button').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.windowDays = Number(button.dataset.days); loadLeaderboard(); }));
 $('#runSearch').addEventListener('input', (event) => { state.query = event.target.value; renderRunList(); });

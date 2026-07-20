@@ -1,8 +1,10 @@
 const crypto = require('crypto');
 
 function cleanTitle(value) {
-  return String(value || '').replace(/&#0*39;|&apos;/gi, "'").replace(/&amp;/gi, '&').replace(/\s+/g, ' ').trim();
+  return String(value || '').replace(/&#0*39;|&apos;/gi, "'").replace(/&amp;/gi, '&').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/\s+/g, ' ').trim();
 }
+
+function titleKey(value) { return cleanTitle(value).normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, ' ').trim().toLowerCase(); }
 
 const APPLICATION_ID = process.env.NOVELFLOW_APPLICATION_ID || '642fc1ace309494378a774a6';
 const ADMIN_BASE = 'https://admin.novelspa.app/api/v1/novelmanage';
@@ -116,10 +118,11 @@ function qs(params) {
 
 async function findExactBook(title, sku) {
   const { body } = await adminRequest(`${BOOK_API}?${qs({ current: 1, pageIndex: 1, pageSize: 50, applicationId: APPLICATION_ID, bookName: title })}`, {}, 'Exact book lookup');
-  const candidates = pageItems(body).items.filter((item) => cleanTitle(item.title).toLowerCase() === cleanTitle(title).toLowerCase());
-  const match = sku ? candidates.find((item) => String(item.bookSkuId || '') === String(sku)) : candidates.length === 1 ? candidates[0] : null;
-  if (!match) throw new ProviderError(`Book SKU ${sku} was not returned for the supplied title`, { status: 404 });
-  if (String(match.title || '').trim().toLowerCase() !== String(title).trim().toLowerCase()) throw new ProviderError('Book title and SKU identify different records', { status: 409 });
+  const items = pageItems(body).items;
+  const candidates = items.filter((item) => titleKey(item.title) === titleKey(title));
+  const match = sku ? candidates.find((item) => String(item.bookSkuId || '') === String(sku)) : candidates.length === 1 ? candidates[0] : items.length === 1 ? items[0] : null;
+  if (!match) throw new ProviderError(`Could not resolve one exact bookstore record for “${cleanTitle(title)}”`, { status: 404 });
+  if (titleKey(match.title) !== titleKey(title)) throw new ProviderError('Book title search returned a different record', { status: 409 });
   const category = match.aiCategory || {};
   return {
     bookSkuId: String(match.bookSkuId || ''), cityBookId: String(match.id || ''), title: String(match.title || ''),
@@ -353,4 +356,4 @@ async function reportRows(code, linkId, days = 90) {
 
 function sha(value) { return crypto.createHash('sha256').update(String(value)).digest('hex'); }
 
-module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, performanceBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, generateCreative, findAcTask, submitAc, acResult, validateVideo, submitImage, imageResult, reportRows, sha };
+module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, performanceBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, generateCreative, findAcTask, submitAc, acResult, validateVideo, submitImage, imageResult, reportRows, sha, titleKey };

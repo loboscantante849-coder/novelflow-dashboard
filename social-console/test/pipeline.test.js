@@ -86,6 +86,35 @@ test('code allocation initializes remote-compatible string storage', async () =>
   assert.equal(run.artifacts.code, '44444');
 });
 
+test('code creation conflict advances to the next code instead of failing the run', async (t) => {
+  const originals = { ...providers };
+  t.after(() => Object.assign(providers, originals));
+  let createdCode = '';
+  Object.assign(providers, {
+    keywordRecord: async (code) => code === createdCode ? { id: `kw-${code}`, keyword: code, bookId: 'sku-1', channel: 'FB', isEnable: true } : null,
+    createKeyword: async (_sku, code) => {
+      if (code === '44444') throw new providers.ProviderError('Promotion code already exists', { status: 409 });
+      createdCode = code;
+    }
+  });
+  const redis = new MemoryRedis();
+  const run = newRun({ title: 'Verified Romance', sku: 'sku-1', promoter: 'xujt', paidAuthorized: true });
+  run.state = 'running';
+  run.stages.P1.status = 'done';
+  run.stages.P2.status = 'done';
+  await processRun(redis, run);
+  await processRun(redis, run);
+  await processRun(redis, run);
+  assert.equal(run.state, 'running');
+  assert.equal(run.artifacts.code, '44445');
+  assert.equal(run.stages.P5.phase, 'link');
+  assert.match(run.events.map((event) => event.type).join(' '), /code_advanced/);
+});
+
+test('title keys treat straight and curly apostrophes as the same book title', () => {
+  assert.equal(providers.titleKey("The Lycan King's Treasured Luna"), providers.titleKey('The Lycan King\u2019s Treasured Luna'));
+});
+
 test('video submission capacity reserves no more than five slots per hour', async () => {
   const redis = new MemoryRedis();
   const slots = [];
