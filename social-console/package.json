@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "check": "node --check api/status.js && node --check api/leaderboard.js && node --check api/runs.js && node --check api/login.js && node --check api/worker.js && node --check api/_lib/store.js && node --check api/_lib/auth.js && node --check api/_lib/providers.js && node --check api/_lib/pipeline.js && node --check app.js",
+    "check": "node --check api/status.js && node --check api/leaderboard.js && node --check api/runs.js && node --check api/login.js && node --check api/worker.js && node --check api/media.js && node --check api/_lib/store.js && node --check api/_lib/auth.js && node --check api/_lib/providers.js && node --check api/_lib/pipeline.js && node --check app.js",
     "test": "node --test test/*.test.js"
   },
   "dependencies": { "@upstash/redis": "^1.34.0" }
