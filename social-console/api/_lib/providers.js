@@ -254,10 +254,25 @@ async function createLink(book, promoter, code) {
 function extractModelText(body) {
   if (body.output_text) return String(body.output_text);
   const choice = body.choices?.[0]?.message?.content;
-  if (choice) return String(choice);
+  if (typeof choice === 'string') return choice;
+  if (Array.isArray(choice)) return choice.map((item) => typeof item === 'string' ? item : String(item?.text || item?.content || '')).join('');
+  if (choice && typeof choice === 'object') return String(choice.text || choice.content || '');
   const parts = [];
   for (const output of body.output || []) for (const item of output.content || []) if (item.text) parts.push(item.text);
   return parts.join('');
+}
+
+function parseModelJson(raw) {
+  const cleaned = String(raw || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  const candidates = [cleaned];
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if (start >= 0 && end > start) candidates.push(cleaned.slice(start, end + 1));
+  for (const candidate of candidates) {
+    try { return JSON.parse(candidate); } catch {}
+  }
+  const reason = String(raw || '').replace(/\s+/g, ' ').slice(0, 180);
+  throw new ProviderError(`DeepSeek returned invalid creative JSON${reason ? `: ${reason}` : ''}`);
 }
 
 function postJsonOverHttps(url, headers, payload, label, timeoutMs) {
@@ -296,7 +311,7 @@ async function generateCreative(book, evidence, code, shortUrl) {
   // Keep the generation well below the worker deadline. Ten complete chapters
   // were needlessly pushing a single creative request into the Vercel timeout.
   const excerpts = evidence.map((item) => ({ chapter: item.order, title: item.title, excerpt: String(item.content).replace(/\s+/g, ' ').slice(0, 700) }));
-  const instructions = `You are the senior bilingual fiction social editor for NovelFlow. Return one JSON object only. Create exactly two evidence-grounded English promotional posts: hook and escalation. Each post must follow six steps: hook, pain, sensory, contrast, deepDesire, emotionalCta. Keep each final English post under 170 words. Use only supplied chapter facts and names. Cite two exact chapter quotes per post. Use 2-4 fitting emoji per final post. The CTA must contain the exact code and short URL. Also write natural Simplified Chinese translations for operator review. Create one concise AC Seedance vertical-video prompt in English plus Chinese translation, grounded in the same evidence, with a character lock, 3-4 chronological beats, and a 0-12 second shot plan; prohibit subtitles, readable text, CTA cards and identity drift. Create two distinct concise English image prompts plus Chinese translations: luminous_cinema 9:16 using nano, and editorial_romance 2:3 using gpt. Image prompts must show one decisive supported moment, reserve negative space, and prohibit readable text, title, logo, watermark, QR, UI, collage, duplicated people and extra limbs.`;
+  const instructions = `You are the senior bilingual fiction social editor for NovelFlow. Return exactly one compact JSON object, with no prose before or after it. Create exactly two evidence-grounded English promotional posts: hook and escalation. Each post must include the six steps hook, pain, sensory, contrast, deepDesire, emotionalCta. Keep each final English post under 140 words and each cited quote under 18 words. Use only supplied chapter facts and names. Use 2-4 fitting emoji per final post. The CTA must contain the exact code and short URL. Write concise natural Simplified Chinese translations for operator review. Create one concise AC Seedance vertical-video prompt in English plus Chinese translation, with a character lock, 3 chronological beats, and a 0-12 second shot plan; prohibit subtitles, readable text, CTA cards and identity drift. Create two distinct concise English image prompts plus Chinese translations: luminous_cinema 9:16 using nano, and editorial_romance 2:3 using gpt. Image prompts must show one decisive supported moment, reserve negative space, and prohibit readable text, title, logo, watermark, QR, UI, collage, duplicated people and extra limbs.`;
   const schema = {
     posts: [{ type: 'hook|escalation', sixSteps: { hook: 'string', pain: 'string', sensory: 'string', contrast: 'string', deepDesire: 'string', emotionalCta: 'string' }, content: 'complete English post', zhContent: 'complete Chinese translation', evidence: [{ chapter: 1, quote: 'exact quote' }] }],
     videoPrompt: { adCopy: 'English story bible', buildRequirement: 'English shot plan', zhAdCopy: 'Chinese', zhBuildRequirement: 'Chinese', evidenceChapters: [1, 2] },
@@ -304,7 +319,7 @@ async function generateCreative(book, evidence, code, shortUrl) {
   };
   const payload = {
     model, messages: [{ role: 'system', content: instructions }, { role: 'user', content: JSON.stringify({ book, tracking: { code, shortUrl }, chapterEvidence: excerpts, responseSchema: schema }) }],
-    response_format: { type: 'json_object' }, temperature: 0.55, max_tokens: 3000
+    response_format: { type: 'json_object' }, temperature: 0.55, max_tokens: 3400
   };
   let body;
   try {
@@ -315,9 +330,7 @@ async function generateCreative(book, evidence, code, shortUrl) {
     error.ambiguous = false;
     throw error;
   }
-  let raw = extractModelText(body).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-  let creative;
-  try { creative = JSON.parse(raw); } catch { throw new ProviderError('DeepSeek returned invalid creative JSON'); }
+  const creative = parseModelJson(extractModelText(body));
   const usage = body.usage || {};
   return { creative, model: String(body.model || model), responseId: String(body.id || ''), usage: { inputTokens: Number(usage.prompt_tokens || usage.input_tokens || 0), outputTokens: Number(usage.completion_tokens || usage.output_tokens || 0), totalTokens: Number(usage.total_tokens || 0) } };
 }
