@@ -54,11 +54,22 @@ function pageItems(body) {
 
 async function request(url, options = {}, label = 'Provider request', timeoutMs = 30000) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let timer;
   let response;
   try {
-    response = await fetch(url, { ...options, signal: controller.signal });
+    const pending = fetch(url, { ...options, signal: controller.signal });
+    // Some serverless fetch implementations do not reject promptly after an
+    // AbortController signal. Race it so a provider stall can never consume
+    // the whole worker and leave a persisted stage stranded as "running".
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(new ProviderError(`${label} timed out after ${Math.ceil(timeoutMs / 1000)} seconds`, { ambiguous: options.method && options.method !== 'GET' && options.method !== 'HEAD' }));
+      }, timeoutMs);
+    });
+    response = await Promise.race([pending, timeout]);
   } catch (error) {
+    if (error instanceof ProviderError) throw error;
     const ambiguous = options.method && options.method !== 'GET' && options.method !== 'HEAD';
     throw new ProviderError(`${label} did not return a definitive response`, { ambiguous });
   } finally {
@@ -268,7 +279,7 @@ async function generateCreative(book, evidence, code, shortUrl) {
   };
   let body;
   try {
-    ({ body } = await request(`${baseUrl}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, 'DeepSeek creative generation', 32000));
+    ({ body } = await request(`${baseUrl}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, 'DeepSeek creative generation', 26000));
   } catch (error) {
     // Creative generation is idempotent and does not charge a paid media task.
     // Its request may safely be retried by the pipeline.

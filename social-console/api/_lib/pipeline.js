@@ -166,7 +166,7 @@ async function p5(redis, run) {
 }
 
 function nextCreativeAttempt(stage) {
-  return Number(stage.attempt || 0) + 1;
+  return Math.min(2, Number(stage.attempt || 0) + 1);
 }
 
 async function p3(redis, run) {

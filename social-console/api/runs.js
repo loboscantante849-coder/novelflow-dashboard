@@ -31,7 +31,10 @@ module.exports = async (req, res) => {
       const failed = Object.entries(run.stages).find(([, value]) => value.status === 'failed');
       if (!failed) return res.status(409).json({ error: 'No failed stage to retry' });
       run.state = 'running';
-      run.stages[failed[0]] = { status: 'waiting', retryCount: Number(failed[1].retryCount || 0) + 1 };
+      run.stages[failed[0]] = {
+        status: 'waiting', retryCount: Number(failed[1].retryCount || 0) + 1,
+        ...(failed[0] === 'P3' ? { attempt: 0, phase: 'manual_retry', nextAttemptAt: '', error: '' } : {})
+      };
       run.events.push({ at: new Date().toISOString(), type: 'retry_requested', message: `${failed[0]} queued for retry` });
       await saveRun(redis, run);
       return res.status(200).json({ run });
