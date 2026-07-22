@@ -763,13 +763,13 @@ async function extractScreenshotText(imageUrl) {
   return { text: text.slice(0, 20000), language: String(result.language || ''), quality: String(result.quality || 'medium'), model: String(body.model || model) };
 }
 
-async function analyzeScreenshotWithSeed(imageUrl, modelChoice = 'seed-2.1-turbo') {
-  const { apiKey, baseUrl, model } = copyModelConfig({ modelChoice });
-  const prompt = 'Inspect this novel screenshot. Return JSON only: {"text":"all readable story text","characters":["names"],"phrases":["2-4 rare exact phrases"],"plotClues":["specific clues"],"quality":"high|medium|low"}. Preserve spelling and do not invent any title, character, or plot fact not visible in the image.';
+async function analyzeScreenshotWithSeed(imageUrl) {
+  const { apiKey, baseUrl, model } = copyModelConfig({ modelChoice: 'seed-2.1-turbo' });
+  const prompt = 'Inspect this novel screenshot. Return JSON only: {"text":"up to 500 words of readable story text","characters":["names"],"phrases":["2-4 rare exact phrases"],"plotClues":["specific clues"],"quality":"high|medium|low"}. Preserve spelling and do not invent any title, character, or plot fact not visible in the image.';
   const payload = {
     model,
     messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: String(imageUrl || '') } }] }],
-    response_format: { type: 'json_object' }, temperature: 0, max_tokens: 2500
+    response_format: { type: 'json_object' }, temperature: 0, max_tokens: 900
   };
   const body = await postJsonOverHttps(`${baseUrl}/chat/completions`, { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, payload, 'Seed screenshot analysis', 60000);
   const result = parseModelJson(extractModelText(body), model);
