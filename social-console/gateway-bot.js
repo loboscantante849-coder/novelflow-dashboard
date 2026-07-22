@@ -1,7 +1,6 @@
 const { Client, Events, GatewayIntentBits, Partials } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 
 function loadLocalEnv() {
   const file = path.resolve(__dirname, '.env.local');
@@ -21,6 +20,7 @@ const gatewaySecret = String(process.env.DISCORD_GATEWAY_SECRET_V2 || process.en
 const searchUrl = String(process.env.DISCORD_GATEWAY_SEARCH_URL || 'https://social.novelflow.top/api/discord-gateway-search').trim();
 const allowedGuilds = new Set(String(process.env.NOVELFLOW_DISCORD_ALLOWED_GUILD_IDS || '').split(',').map((value) => value.trim()).filter(Boolean));
 const recentCandidates = new Map();
+let nextPromoCode = 55555;
 
 if (!token) throw new Error('DISCORD_BOT_TOKEN is required');
 
@@ -96,9 +96,14 @@ function linkBook(query) {
   return { query: clean, book: result.matches?.[0], confidence: result.matches?.[0]?.confidence || 0 };
 }
 
-function promoCode(index) {
-  const suffix = crypto.randomBytes(4).toString('hex').toUpperCase();
-  return `D${String(Date.now()).slice(-7)}${index + 1}${suffix}`.slice(0, 16);
+async function promoCode() {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const code = String(nextPromoCode++);
+    if (code.length !== 5) throw new Error('Discord promotion code range is exhausted');
+    const existing = await providers.keywordRecord(code);
+    if (!existing) return code;
+  }
+  throw new Error('No free five-digit Discord promotion code is available');
 }
 
 async function createDiscordPromo(book, index, message) {
@@ -106,8 +111,8 @@ async function createDiscordPromo(book, index, message) {
   if (!promoter) return { status: 'not_created', reason: 'Discord promoter is not configured' };
   const channelNameId = String(process.env.NOVELFLOW_DISCORD_CHANNEL_NAME_ID || process.env.NOVELFLOW_CHANNEL_NAME_ID || '699ef7b8194eb218db3c2270').trim();
   if (!channelNameId) return { status: 'not_created', reason: 'Discord attribution channel is not configured' };
-  const code = promoCode(index);
   try {
+    const code = await promoCode();
     await providers.createKeyword(book.bookSkuId, code, { channel: String(process.env.NOVELFLOW_DISCORD_CHANNEL_CODE || 'DISCORD') });
     const created = await providers.createLink(book, promoter, code, { channel: 'DISCORD', guildId: message.guildId || 'direct', languageCode: 'en' });
     let link = created.shortUrl ? { shortUrl: created.shortUrl, id: created.id } : null;
@@ -123,14 +128,14 @@ async function createDiscordPromo(book, index, message) {
     if (!link?.shortUrl) return { status: 'unverified', code, reason: 'Code created, but short link could not be verified', linkId: created.id };
     return { status: 'ready', code, shortUrl: link.shortUrl, linkId: String(link.id || created.id || '') };
   } catch (error) {
-    return { status: 'failed', code, reason: String(error?.message || 'Attribution creation failed').slice(0, 180) };
+    return { status: 'failed', code: '', reason: String(error?.message || 'Attribution creation failed').slice(0, 180) };
   }
 }
 
 function recommendationPayload(books) {
   const fields = books.map((book) => ({
     name: `${book.rank}. ${book.title}`.slice(0, 256),
-    value: `${book.author ? `By ${book.author}\n` : ''}${book.description || 'NovelFlow featured title'}\n**Tags:** ${(book.tags || []).join(', ') || book.category}\n${book.promo?.status === 'ready' ? `**Code:** \`${book.promo.code}\`\n[Open book](${book.promo.shortUrl})` : `**Attribution:** ${book.promo?.reason || 'not created'}`}`.slice(0, 1024),
+    value: `${book.author ? `By ${book.author}\n` : ''}${book.description || 'NovelFlow featured title'}\n**Tags:** ${(book.tags || []).join(', ') || book.category}\n${book.promo?.status === 'ready' ? `**Code:** \`${book.promo.code}\`\n**Short link:** ${book.promo.shortUrl}` : `**Attribution:** ${book.promo?.reason || 'not created'}`}`.slice(0, 1024),
     inline: false
   }));
   return { embeds: [{ title: 'NovelFlow | Today\'s Top 5', description: 'Five featured novels from the current NovelFlow catalog. Codes and short links are created and verified per title.', color: 0xd29922, fields, footer: { text: 'Links are attributed to Discord.' } }] };
@@ -157,7 +162,7 @@ async function createLinkForRequest(message, query) {
   catch { try { pending = await message.author.send({ content: `Creating a verified Discord code and short link for **${found.book.title}**...` }); } catch { return; } }
   const promo = await createDiscordPromo(found.book, 0, message);
   if (promo.status === 'ready') {
-    await pending.edit({ embeds: [{ title: `Attribution ready | ${found.book.title}`, description: `**Code:** \`${promo.code}\`\n[Open book](${promo.shortUrl})\n\nThis link is attributed to Discord.`, color: 0x238636, footer: { text: 'Verified against NovelFlow attribution records.' } }] });
+    await pending.edit({ embeds: [{ title: `Attribution ready | ${found.book.title}`, description: `**Code:** \`${promo.code}\`\n**Short link:** ${promo.shortUrl}\n\nThis link is attributed to Discord.`, color: 0x238636, footer: { text: 'Verified against NovelFlow attribution records.' } }] });
   } else {
     await pending.edit({ content: `I found **${found.book.title}** (${found.confidence}% match), but I could not create a verified link yet.\n**Reason:** ${promo.reason || promo.status}` });
   }
