@@ -403,4 +403,21 @@ client.on(Events.MessageCreate, async (message) => {
 client.on(Events.Error, (error) => console.error('Discord Gateway error:', String(error?.message || error)));
 process.on('unhandledRejection', (error) => console.error('Unhandled Gateway rejection:', String(error?.message || error)));
 
-client.login(token);
+async function connectGateway() {
+  let timer;
+  try {
+    const login = client.login(token);
+    await Promise.race([
+      login,
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Discord Gateway initial connection timed out')), 30000); })
+    ]);
+  } catch (error) {
+    console.error('Discord Gateway login failed:', String(error?.message || error));
+    client.destroy();
+    setTimeout(connectGateway, 10000);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+connectGateway();
