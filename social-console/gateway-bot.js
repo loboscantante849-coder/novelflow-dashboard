@@ -46,6 +46,12 @@ function queryFromMessage(message) {
 async function screenshotText(message) {
   const attachment = [...message.attachments.values()].find((item) => String(item.contentType || '').startsWith('image/'));
   if (!attachment) return '';
+  try {
+    const vision = await providers.analyzeScreenshotWithHy3(attachment.url);
+    return [vision.text, ...vision.characters, ...vision.phrases, ...vision.plotClues].filter(Boolean).join('\n').slice(0, 12000);
+  } catch (error) {
+    console.warn('HY3 screenshot analysis unavailable, using Windows OCR:', String(error?.message || error));
+  }
   const response = await fetch(attachment.url);
   if (!response.ok) throw new Error('Unable to download the screenshot');
   const bytes = Buffer.from(await response.arrayBuffer());
