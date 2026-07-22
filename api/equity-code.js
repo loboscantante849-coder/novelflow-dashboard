@@ -7,6 +7,7 @@ const {
   EQUITY_API_BASE,
   BOOK_API_BASE,
   VALIDITY_MS,
+  RECREATE_COOLDOWN_MS,
   FIRST_CODE,
   canonicalUsername,
   safeParse,
@@ -27,6 +28,10 @@ function recordKey(username) {
 
 function lockKey(username) {
   return `nf_equity_code_lock:${username}`;
+}
+
+function isRemoteEnabled(row) {
+  return !row || ![false, 0, 'false', '0'].includes(row.isEnable);
 }
 
 async function loadRecord(redis, username) {
@@ -58,6 +63,7 @@ async function findRemote(token, filters) {
   });
   if (filters.kolName) query.set('kolName', filters.kolName);
   if (filters.code) query.set('code', String(filters.code));
+  if (typeof filters.isEnable === 'boolean') query.set('isEnable', String(filters.isEnable));
 
   const { response, body } = await fetchJson(`${EQUITY_API_BASE}/page?${query}`, {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -67,6 +73,8 @@ async function findRemote(token, filters) {
   return extractRows(body).find(row => {
     if (filters.kolName && canonicalUsername(row.kolName) !== canonicalUsername(filters.kolName)) return false;
     if (filters.code && String(row.code || '').toLowerCase() !== String(filters.code).toLowerCase()) return false;
+    const rowEnabled = isRemoteEnabled(row);
+    if (typeof filters.isEnable === 'boolean' && rowEnabled !== filters.isEnable) return false;
     return true;
   }) || null;
 }
@@ -114,6 +122,44 @@ async function createRemote(token, payload) {
   return body;
 }
 
+function disabledRemotePayload(remote, record, username) {
+  return {
+    id: remote.id,
+    applicationId: remote.applicationId || APPLICATION_ID,
+    channel: Number(remote.channel) || 5,
+    kolName: remote.kolName || username,
+    code: String(remote.code || record.code),
+    startTime: Number(remote.startTime) || Number(record.startTime) || Date.now(),
+    endTime: Number(remote.endTime) || Number(record.endTime) || Date.now(),
+    relatedSkuId: String(remote.relatedSkuId || record.bookId || ''),
+    rewardType: Number(remote.rewardType) || 1,
+    rewardName: String(remote.rewardName || record.rewardName || '1-Day VIP'),
+    rewardValue: Number(remote.rewardValue) || Number(record.rewardDays) || 1,
+    isEnable: false,
+  };
+}
+
+function markUnbound(record, now = Date.now()) {
+  const audit = {
+    code: record.code,
+    bookId: record.bookId,
+    bookTitle: record.bookTitle,
+    startTime: record.startTime,
+    endTime: record.endTime,
+    remoteId: record.remoteId || null,
+    unboundAt: now,
+  };
+  return {
+    ...record,
+    status: 'unbound',
+    isEnable: false,
+    unboundAt: now,
+    cooldownUntil: now + RECREATE_COOLDOWN_MS,
+    updatedAt: now,
+    history: [...(Array.isArray(record.history) ? record.history : []), audit],
+  };
+}
+
 async function releaseLock(redis, key, token) {
   try {
     if (await redis.get(key) === token) await redis.del(key);
@@ -152,8 +198,12 @@ module.exports = async (req, res) => {
     await checkRateLimit(redis, `nf_rate:equity_ip:${getClientIp(req)}`, 30, 3600);
   if (!allowed) return res.status(429).json({ error: 'Too many requests', code: 'RATE_LIMITED' });
 
+  const action = String((req.body && req.body.action) || 'create');
+  if (!['create', 'unbind'].includes(action)) {
+    return res.status(400).json({ error: 'Invalid action', code: 'INVALID_ACTION' });
+  }
   const bookId = String((req.body && req.body.bookId) || '').trim();
-  if (!/^[a-f0-9]{24}$/i.test(bookId)) {
+  if (action === 'create' && !/^[a-f0-9]{24}$/i.test(bookId)) {
     return res.status(400).json({ error: 'Select a valid book from search results', code: 'INVALID_BOOK' });
   }
 
@@ -163,18 +213,63 @@ module.exports = async (req, res) => {
   if (!locked) {
     const current = await loadRecord(redis, username);
     return res.status(409).json({
-      error: 'Invite code creation is already in progress',
-      code: 'CREATION_IN_PROGRESS',
+      error: 'An invite code update is already in progress',
+      code: action === 'create' ? 'CREATION_IN_PROGRESS' : 'UPDATE_IN_PROGRESS',
       inviteCode: publicRecord(current),
     });
   }
 
   try {
     let record = await loadRecord(redis, username);
+    if (action === 'unbind') {
+      const token = await getBookstoreToken();
+      if (!token) return res.status(503).json({ error: 'Bookstore authentication unavailable', code: 'UPSTREAM_AUTH_UNAVAILABLE' });
+
+      if (record && record.status === 'unbound') {
+        return res.status(200).json({ success: true, inviteCode: publicRecord(record), existing: true });
+      }
+      if (!record) {
+        const existing = await findRemote(token, { kolName: username, isEnable: true });
+        if (!existing) return res.status(404).json({ error: 'No invite code to unbind', code: 'INVITE_NOT_FOUND' });
+        record = normalizeRemoteRecord(existing, username);
+      }
+
+      const remote = await findRemote(token, { code: record.code });
+      if (!remote) {
+        return res.status(502).json({ error: 'Invite code could not be verified', code: 'UPSTREAM_RECORD_NOT_FOUND' });
+      }
+      const remoteEnabled = isRemoteEnabled(remote);
+      if (remoteEnabled) {
+        try {
+          await createRemote(token, disabledRemotePayload(remote, record, username));
+        } catch (error) {
+          let reconciled = null;
+          try { reconciled = await findRemote(token, { code: record.code }); } catch (_lookupError) {}
+          const stillEnabled = isRemoteEnabled(reconciled);
+          if (stillEnabled) {
+            return res.status(502).json({ error: 'Unable to unbind invite code', code: 'UPSTREAM_UNBIND_FAILED' });
+          }
+        }
+      }
+
+      record = markUnbound(record);
+      await saveRecord(redis, username, record);
+      return res.status(200).json({ success: true, inviteCode: publicRecord(record) });
+    }
+
+    const now = Date.now();
+    if (record && record.status === 'unbound' && Number(record.cooldownUntil) > now) {
+      return res.status(429).json({
+        error: 'You can create another invite code after the 7-day cooldown',
+        code: 'RECREATE_COOLDOWN',
+        cooldownUntil: Number(record.cooldownUntil),
+        inviteCode: publicRecord(record),
+      });
+    }
     if (record && ['active', 'expired'].includes(publicRecord(record).status)) {
       return res.status(200).json({ success: true, inviteCode: publicRecord(record), existing: true });
     }
-    if (record && record.bookId && record.bookId !== bookId) {
+    if (record && record.status !== 'unbound' && record.bookId && record.bookId !== bookId) {
       return res.status(409).json({
         error: 'This account already has an invite code request for another book',
         code: 'BOOK_ALREADY_SELECTED',
@@ -185,7 +280,7 @@ module.exports = async (req, res) => {
     const token = await getBookstoreToken();
     if (!token) return res.status(503).json({ error: 'Bookstore authentication unavailable', code: 'UPSTREAM_AUTH_UNAVAILABLE' });
 
-    const remoteExisting = await findRemote(token, { kolName: username });
+    const remoteExisting = await findRemote(token, { kolName: username, isEnable: true });
     if (remoteExisting) {
       record = normalizeRemoteRecord(remoteExisting, username);
       await saveRecord(redis, username, record);
@@ -197,19 +292,20 @@ module.exports = async (req, res) => {
     const verifiedTitle = String(book.title || book.bookName || '').trim();
     if (!verifiedTitle) return res.status(502).json({ error: 'Book data is incomplete', code: 'INVALID_BOOK_DATA' });
 
-    let code = record && record.code ? String(record.code) : null;
+    let code = record && record.status !== 'unbound' && record.code ? String(record.code) : null;
     if (code) {
       const codeOwner = await findRemote(token, { code });
       if (codeOwner && canonicalUsername(codeOwner.kolName) !== username) code = null;
     }
     if (!code) code = await allocateCode(redis, token, username);
-    const now = Date.now();
+    const history = record && Array.isArray(record.history) ? record.history : [];
     record = {
       status: 'processing', username, code, bookId, bookTitle: verifiedTitle,
       channel: 'Facebook', rewardName: '1-Day VIP', rewardDays: 1,
       startTime: now, endTime: now + VALIDITY_MS,
-      createdAt: record && record.createdAt ? record.createdAt : now,
+      createdAt: record && record.status !== 'unbound' && record.createdAt ? record.createdAt : now,
       updatedAt: now,
+      history,
     };
     await saveRecord(redis, username, record);
 
@@ -224,7 +320,7 @@ module.exports = async (req, res) => {
       return res.status(201).json({ success: true, inviteCode: publicRecord(record) });
     } catch (error) {
       let reconciled = null;
-      try { reconciled = await findRemote(token, { kolName: username }); } catch (_lookupError) {}
+      try { reconciled = await findRemote(token, { kolName: username, isEnable: true }); } catch (_lookupError) {}
       if (reconciled) {
         record = normalizeRemoteRecord(reconciled, username);
         if (!record.bookTitle) record.bookTitle = verifiedTitle;
