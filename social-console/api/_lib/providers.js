@@ -769,7 +769,7 @@ async function analyzeScreenshotWithSeed(imageUrl) {
   const payload = {
     model,
     messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: String(imageUrl || '') } }] }],
-    response_format: { type: 'json_object' }, temperature: 0, max_tokens: 900
+    temperature: 0, max_tokens: 900
   };
   const body = await postJsonOverHttps(`${baseUrl}/chat/completions`, { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, payload, 'Seed screenshot analysis', 60000);
   const result = parseModelJson(extractModelText(body), model);
