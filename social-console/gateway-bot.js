@@ -1,6 +1,9 @@
 const { Client, Events, GatewayIntentBits, Partials } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
 const { getRedis } = require('./api/_lib/store');
 const { matchBooks } = require('./api/_lib/book-matcher');
+const { normalize, lexicalScore } = require('./api/_lib/book-matcher');
 
 const token = String(process.env.DISCORD_BOT_TOKEN || '').trim();
 const gatewaySecret = String(process.env.DISCORD_GATEWAY_SECRET_V2 || process.env.DISCORD_GATEWAY_SECRET || process.env.CRON_SECRET || '').trim();
@@ -8,7 +11,6 @@ const searchUrl = String(process.env.DISCORD_GATEWAY_SEARCH_URL || 'https://soci
 const allowedGuilds = new Set(String(process.env.NOVELFLOW_DISCORD_ALLOWED_GUILD_IDS || '').split(',').map((value) => value.trim()).filter(Boolean));
 
 if (!token) throw new Error('DISCORD_BOT_TOKEN is required');
-if (!gatewaySecret) throw new Error('DISCORD_GATEWAY_SECRET is required');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.DirectMessages],
@@ -40,6 +42,21 @@ function resultEmbed(result) {
   };
 }
 
+function localSearch(query) {
+  const file = path.resolve(__dirname, '..', 'featured-books.json');
+  const payload = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const books = Object.values(payload.categories || {}).flat().filter((book) => book?.title);
+  const scored = books.map((book) => ({ book, score: lexicalScore(query, { ...book, bookSkuId: book.bookId, category: book.category || book.bookClassName }) }))
+    .sort((a, b) => b.score - a.score).slice(0, 3);
+  return {
+    matches: scored.map(({ book, score }) => ({
+      bookSkuId: String(book.bookId), title: String(book.title), author: String(book.author || ''), cover: String(book.cover || ''),
+      confidence: Math.round(score * 100), reasons: [normalize(query).includes(normalize(book.title)) ? 'Title matches the request' : 'Excerpt, tags, or synopsis overlap the request'],
+      sources: ['NovelFlow featured catalog']
+    })), recommendations: [], model: 'local-featured-catalog'
+  };
+}
+
 async function search(message, query) {
   let pending;
   try { pending = await message.reply({ content: 'Searching NovelFlow catalog and rankings...' }); }
@@ -61,6 +78,9 @@ async function search(message, query) {
       await pending.edit(resultEmbed(result));
       return;
     }
+    const result = localSearch(query);
+    await pending.edit(resultEmbed(result));
+    return;
     const response = await fetch(searchUrl, {
       method: 'POST',
       headers: { Authorization: `Bearer ${gatewaySecret}`, 'Content-Type': 'application/json' },
