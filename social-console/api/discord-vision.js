@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { put, del } = require('@vercel/blob');
 const { analyzeScreenshotWithSeed } = require('./_lib/providers');
 
 function authorized(req) {
@@ -7,10 +8,21 @@ function authorized(req) {
   return Boolean(expected) && supplied.length === expected.length && crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(expected));
 }
 
-function seedReachableDiscordUrl(imageUrl) {
-  const parsed = new URL(imageUrl);
-  if (/^cdn\.discordapp\.com$/i.test(parsed.hostname)) parsed.hostname = 'media.discordapp.net';
-  return parsed.toString();
+async function stageDiscordImage(imageUrl) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(imageUrl, { redirect: 'follow', signal: controller.signal });
+    if (!response.ok) throw new Error(`Unable to download Discord image (HTTP ${response.status})`);
+    const contentType = String(response.headers.get('content-type') || '').split(';')[0].toLowerCase();
+    if (!contentType.startsWith('image/')) throw new Error('Discord attachment is not an image');
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (!bytes.length || bytes.length > 8 * 1024 * 1024) throw new Error('Discord image must be between 1 byte and 8 MB');
+    const extension = contentType === 'image/jpeg' ? 'jpg' : contentType.split('/')[1].replace(/[^a-z0-9]/g, '') || 'png';
+    return put(`discord-vision/${crypto.randomUUID()}.${extension}`, bytes, { access: 'public', contentType, cacheControlMaxAge: 60, addRandomSuffix: false });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 module.exports = async (req, res) => {
@@ -21,13 +33,15 @@ module.exports = async (req, res) => {
     const parsed = new URL(imageUrl);
     if (!/^https:$/.test(parsed.protocol) || !/(?:discordapp\.com|discordapp\.net)$/i.test(parsed.hostname)) throw new Error('Only Discord image attachments are supported');
   } catch (error) { return res.status(400).json({ error: String(error.message || error) }); }
+  let staged;
   try {
-    // Discord's media host is optimized for image delivery; Seed's URL fetch
-    // can time out against the raw CDN hostname.
-    const vision = await analyzeScreenshotWithSeed(seedReachableDiscordUrl(imageUrl));
+    staged = await stageDiscordImage(imageUrl);
+    const vision = await analyzeScreenshotWithSeed(staged.url);
     return res.status(200).json({ vision });
   } catch (error) {
     console.error('[social/discord-vision]', String(error?.message || error));
     return res.status(error?.status || 502).json({ error: String(error?.message || 'Seed screenshot analysis failed').slice(0, 300) });
+  } finally {
+    if (staged?.url) await del(staged.url).catch((error) => console.warn('[social/discord-vision] blob cleanup failed:', String(error?.message || error)));
   }
 };
