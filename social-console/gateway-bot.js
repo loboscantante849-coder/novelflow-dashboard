@@ -1,9 +1,20 @@
 const { Client, Events, GatewayIntentBits, Partials } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+
+function loadLocalEnv() {
+  const file = path.resolve(__dirname, '.env.local');
+  if (!fs.existsSync(file)) return;
+  for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
+    const match = /^\s*([A-Z0-9_]+)=(.*)\s*$/.exec(line);
+    if (match && !process.env[match[1]]) process.env[match[1]] = match[2].replace(/^['"]|['"]$/g, '');
+  }
+}
+loadLocalEnv();
 const { getRedis } = require('./api/_lib/store');
-const { matchBooks } = require('./api/_lib/book-matcher');
-const { normalize, lexicalScore } = require('./api/_lib/book-matcher');
+const { matchBooks, normalize, lexicalScore } = require('./api/_lib/book-matcher');
+const providers = require('./api/_lib/providers');
 
 const token = String(process.env.DISCORD_BOT_TOKEN || '').trim();
 const gatewaySecret = String(process.env.DISCORD_GATEWAY_SECRET_V2 || process.env.DISCORD_GATEWAY_SECRET || process.env.CRON_SECRET || '').trim();
@@ -55,6 +66,61 @@ function localSearch(query) {
       sources: ['NovelFlow featured catalog']
     })), recommendations: [], model: 'local-featured-catalog'
   };
+}
+
+function recommendationIntent(text) {
+  return /推荐|热门|榜单|top\s*[1-5]|today|今日|popular|recommend|suggest/i.test(String(text || ''));
+}
+
+function localTopBooks(limit = 5) {
+  const file = path.resolve(__dirname, '..', 'featured-books.json');
+  const payload = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const books = Object.values(payload.categories || {}).flat().filter((book) => book?.title && (book.languageCode || 'en').toLowerCase() === 'en');
+  const unique = [...new Map(books.map((book) => [String(book.bookId), book])).values()];
+  return unique.slice(0, limit).map((book, index) => ({
+    bookSkuId: String(book.bookId), title: String(book.title), author: String(book.author || ''), cover: String(book.cover || ''),
+    description: String(book.description || '').replace(/\s+/g, ' ').trim().slice(0, 260), category: String(book.category || book.bookClassName || 'Romance'),
+    tags: Array.isArray(book.tags) ? book.tags.slice(0, 4).map(String) : [], rank: index + 1
+  }));
+}
+
+function promoCode(index) {
+  const suffix = crypto.randomBytes(4).toString('hex').toUpperCase();
+  return `D${String(Date.now()).slice(-7)}${index + 1}${suffix}`.slice(0, 16);
+}
+
+async function createDiscordPromo(book, index, message) {
+  const promoter = String(process.env.NOVELFLOW_DISCORD_PROMOTER || process.env.NOVELFLOW_PROMOTER || '').trim();
+  if (!promoter) return { status: 'not_created', reason: 'Discord promoter is not configured' };
+  if (!String(process.env.NOVELFLOW_DISCORD_CHANNEL_NAME_ID || '').trim()) return { status: 'not_created', reason: 'Discord attribution channel is not configured' };
+  const code = promoCode(index);
+  try {
+    await providers.createKeyword(book.bookSkuId, code, { channel: String(process.env.NOVELFLOW_DISCORD_CHANNEL_CODE || 'DISCORD') });
+    const created = await providers.createLink(book, promoter, code, { channel: 'DISCORD', guildId: message.guildId || 'direct', languageCode: 'en' });
+    const link = await providers.findLink(book.bookSkuId, promoter, code, { channelSource: String(process.env.NOVELFLOW_DISCORD_CHANNEL_SOURCE || 'Discord') });
+    if (!link?.shortUrl) return { status: 'unverified', code, reason: 'Code created, but short link could not be verified' };
+    return { status: 'ready', code, shortUrl: link.shortUrl, linkId: String(link.id || created.id || '') };
+  } catch (error) {
+    return { status: 'failed', code, reason: String(error?.message || 'Attribution creation failed').slice(0, 180) };
+  }
+}
+
+function recommendationPayload(books) {
+  const fields = books.map((book) => ({
+    name: `${book.rank}. ${book.title}`.slice(0, 256),
+    value: `${book.author ? `By ${book.author}\n` : ''}${book.description || 'NovelFlow featured title'}\n**Tags:** ${(book.tags || []).join(', ') || book.category}\n${book.promo?.status === 'ready' ? `**Code:** \`${book.promo.code}\`\n[Open book](${book.promo.shortUrl})` : `**Attribution:** ${book.promo?.reason || 'not created'}`}`.slice(0, 1024),
+    inline: false
+  }));
+  return { embeds: [{ title: 'NovelFlow | Today\'s Top 5', description: 'Five featured novels from the current NovelFlow catalog. Codes and short links are created and verified per title.', color: 0xd29922, fields, footer: { text: 'Links are attributed to Discord.' } }] };
+}
+
+async function recommend(message) {
+  let pending;
+  try { pending = await message.reply({ content: 'Building today\'s Top 5 and creating Discord links...' }); }
+  catch { try { pending = await message.author.send({ content: 'Building today\'s Top 5 and creating Discord links...' }); } catch { return; } }
+  const books = localTopBooks(5);
+  for (let index = 0; index < books.length; index += 1) books[index].promo = await createDiscordPromo(books[index], index, message);
+  await pending.edit(recommendationPayload(books));
 }
 
 async function search(message, query) {
@@ -112,6 +178,10 @@ client.on(Events.MessageCreate, async (message) => {
   if (message.guildId && allowedGuilds.size && !allowedGuilds.has(String(message.guildId))) return;
   const query = queryFromMessage(message);
   if (!query) return;
+  if (recommendationIntent(query)) {
+    await recommend(message);
+    return;
+  }
   await search(message, query);
 });
 
