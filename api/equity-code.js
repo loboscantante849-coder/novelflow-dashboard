@@ -78,7 +78,7 @@ async function verifyBook(token, bookId) {
     pageSize: '5',
     applicationId: APPLICATION_ID,
     bookStatus: '1',
-    bookId,
+    bookIds: bookId,
   });
   const { response, body } = await fetchJson(`${BOOK_API_BASE}/booklist?${query}`, {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },

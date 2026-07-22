@@ -13,10 +13,14 @@ const detail = require('../api/books/detail');
 
 test('book detail accepts the bookstore nested list response', async () => {
   const originalFetch = global.fetch;
-  global.fetch = async () => ({
+  let requestedUrl = '';
+  global.fetch = async url => {
+    requestedUrl = String(url);
+    return ({
     ok: true,
     json: async () => ({ data: { data: [{ bookId: 'book-1', title: 'Title' }] } }),
-  });
+    });
+  };
 
   try {
     const res = await invoke(detail, {
@@ -25,6 +29,9 @@ test('book detail accepts the bookstore nested list response', async () => {
     });
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.data.bookId, 'book-1');
+    const query = new URL(requestedUrl).searchParams;
+    assert.equal(query.get('bookIds'), 'book-1');
+    assert.equal(query.has('bookId'), false);
   } finally {
     global.fetch = originalFetch;
   }

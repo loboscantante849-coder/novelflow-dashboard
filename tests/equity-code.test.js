@@ -85,6 +85,10 @@ test('creates one Facebook 1-Day VIP code for a verified SKU with a seven-day wi
   assert.ok(created.body.inviteCode.startTime >= before);
 
   const createCall = calls.find(call => call.url.endsWith('/save'));
+  const bookCall = calls.find(call => call.url.includes('/novelmanage/book/booklist'));
+  const bookQuery = new URL(bookCall.url).searchParams;
+  assert.equal(bookQuery.get('bookIds'), BOOK_ID);
+  assert.equal(bookQuery.has('bookId'), false);
   const payload = JSON.parse(createCall.options.body);
   assert.deepEqual({
     channel: payload.channel,
