@@ -4973,6 +4973,7 @@
         async function generateEquityCode() {
             const selected = EquityCodeState.selectedBook;
             const record = EquityCodeState.record;
+            const previousRecord = record;
             const bookId = selected && selected.bookId ? selected.bookId : record && record.bookId;
             if (!bookId) return;
             EquityCodeState.record = {
@@ -4993,12 +4994,21 @@
                 if (!response.ok) {
                     if (data.code === 'CREATION_IN_PROGRESS') {
                         setTimeout(() => loadEquityCode(true), 1200);
+                    } else if (!data.inviteCode) {
+                        EquityCodeState.record = previousRecord;
+                        if (data.code === 'BOOK_NOT_FOUND' || data.code === 'INVALID_BOOK') {
+                            EquityCodeState.selectedBook = null;
+                        }
                     }
                     throw new Error(data.error || 'Unable to create invite code');
                 }
                 EquityCodeState.selectedBook = null;
                 showToast(data.existing ? 'Your invite code is ready' : 'Invite code created', 'success');
             } catch (error) {
+                if (EquityCodeState.record && EquityCodeState.record.status === 'processing' &&
+                    !(previousRecord && previousRecord.status === 'processing')) {
+                    EquityCodeState.record = previousRecord;
+                }
                 showToast(error.message || 'Unable to create invite code', 'error');
             } finally {
                 renderEquityCode();
