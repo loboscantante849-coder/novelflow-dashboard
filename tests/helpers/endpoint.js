@@ -22,6 +22,8 @@ class FakeRedis {
 
   async set(key, value, options) {
     this._checkError();
+    if (options && options.nx && FakeRedis.values.has(key)) return null;
+    if (options && options.xx && !FakeRedis.values.has(key)) return null;
     FakeRedis.values.set(key, value);
     if (options && options.ex) FakeRedis.expiries.set(key, Number(options.ex));
     return 'OK';

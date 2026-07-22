@@ -103,16 +103,17 @@ module.exports = async (req, res) => {
           const adIds = Array.from(new Set([
             ...(pEntry.links || []).map(String),
             ...(pEntry.codes || []).map(String),
+            ...(pEntry.invites || []).map(value => `invite:${String(value)}`),
           ]));
           for (const adIdRaw of adIds) {
             const adId = String(adIdRaw);
             const st = byAdId[adId] || zeroStats();
             const sub = nfSubsByAdId.get(adId) || {};
-            const channel = st.channel || (pEntry.links?.includes(adIdRaw) ? 'link' : 'code');
+            const channel = st.channel || (String(adId).startsWith('invite:') ? 'invite' : (pEntry.links?.includes(adIdRaw) ? 'link' : 'code'));
             const bookName = sub.matchedBookName || sub.bookName || st.book_name ||
               (pEntry.books || []).find(b => (b.ad_ids || []).map(String).includes(adId))?.name ||
               'Unknown';
-            const bookId = sub.bookId || null;
+            const bookId = sub.bookId || st.book_id || null;
 
             const daily = {};
             for (const [dt, dv] of Object.entries(st.daily || {})) {
@@ -132,7 +133,7 @@ module.exports = async (req, res) => {
             links.push({
               bookName,
               bookId,
-              code: sub.code || (channel === 'code' ? adId : 'N/A'),
+              code: sub.code || (channel === 'code' || channel === 'invite' ? (st.ad_id || adId.replace(/^invite:/, '')) : 'N/A'),
               link: sub.link || null,
               linkId: sub.linkId || (channel === 'link' ? adId : null),
               submittedAt: sub.submittedAt || null,
@@ -208,6 +209,7 @@ module.exports = async (req, res) => {
         const promoAdIds = Array.from(new Set([
           ...(promoterEntry.links || []).map(String),
           ...(promoterEntry.codes || []).map(String),
+          ...(promoterEntry.invites || []).map(value => `invite:${String(value)}`),
         ]));
         let orphanCount = 0;
         for (const adId of promoAdIds) {
@@ -216,7 +218,8 @@ module.exports = async (req, res) => {
           if (!st) continue;
           knownAdIds.add(adId);
           const isCode = (promoterEntry.codes || []).map(String).includes(adId);
-          const channel = (isCode ? 'code' : 'link') + ' (synced)';
+          const isInvite = String(adId).startsWith('invite:');
+          const channel = (isInvite ? 'invite' : (isCode ? 'code' : 'link')) + ' (synced)';
           let bookName = st.book_name || 'Unknown';
           for (const pb of (promoterEntry.books || [])) {
             if ((pb.ad_ids || []).map(String).includes(adId)) { bookName = pb.name; break; }
@@ -237,10 +240,10 @@ module.exports = async (req, res) => {
             };
           }
           links.push({
-            bookName, bookId: null,
-            code: isCode ? adId : 'N/A',
+            bookName, bookId: st.book_id || null,
+            code: isCode || isInvite ? (st.ad_id || adId.replace(/^invite:/, '')) : 'N/A',
             link: null,
-            linkId: isCode ? null : adId,
+            linkId: isCode || isInvite ? null : adId,
             submittedAt: null,
             kocName: username,
             cover: '',
