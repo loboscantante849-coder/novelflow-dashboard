@@ -41,7 +41,12 @@ function resultEmbed(result) {
 }
 
 async function search(message, query) {
-  const pending = await message.reply({ content: 'Searching NovelFlow catalog and rankings...' });
+  let pending;
+  try { pending = await message.reply({ content: 'Searching NovelFlow catalog and rankings...' }); }
+  catch (error) {
+    console.error('Discord reply permission error:', String(error?.message || error));
+    return;
+  }
   try {
     const response = await fetch(searchUrl, {
       method: 'POST',
@@ -76,5 +81,8 @@ client.on(Events.MessageCreate, async (message) => {
   if (!query) return;
   await search(message, query);
 });
+
+client.on(Events.Error, (error) => console.error('Discord Gateway error:', String(error?.message || error)));
+process.on('unhandledRejection', (error) => console.error('Unhandled Gateway rejection:', String(error?.message || error)));
 
 client.login(token);
