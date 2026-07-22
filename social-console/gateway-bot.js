@@ -72,6 +72,10 @@ function recommendationIntent(text) {
   return /推荐|热门|榜单|top\s*[1-5]|today|今日|popular|recommend|suggest/i.test(String(text || ''));
 }
 
+function linkIntent(text) {
+  return /\b(?:link|code|url|short\s*link)\b|链接|短链|归因码|推广码|创建码/i.test(String(text || ''));
+}
+
 function localTopBooks(limit = 5) {
   const file = path.resolve(__dirname, '..', 'featured-books.json');
   const payload = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -82,6 +86,12 @@ function localTopBooks(limit = 5) {
     description: String(book.description || '').replace(/\s+/g, ' ').trim().slice(0, 260), category: String(book.category || book.bookClassName || 'Romance'),
     tags: Array.isArray(book.tags) ? book.tags.slice(0, 4).map(String) : [], rank: index + 1
   }));
+}
+
+function linkBook(query) {
+  const clean = String(query || '').replace(/\b(?:link|code|url|short\s*link)\b|链接|短链|归因码|推广码|创建码/gi, ' ').trim();
+  const result = localSearch(clean);
+  return { query: clean, book: result.matches?.[0], confidence: result.matches?.[0]?.confidence || 0 };
 }
 
 function promoCode(index) {
@@ -121,6 +131,24 @@ async function recommend(message) {
   const books = localTopBooks(5);
   for (let index = 0; index < books.length; index += 1) books[index].promo = await createDiscordPromo(books[index], index, message);
   await pending.edit(recommendationPayload(books));
+}
+
+async function createLinkForRequest(message, query) {
+  const found = linkBook(query);
+  if (!found.book || found.confidence < 45) {
+    const text = 'I need the exact book title before creating a Discord code and link. Example: `Forbidden Bond link`.';
+    try { await message.reply({ content: text }); } catch { await message.author.send({ content: text }).catch(() => {}); }
+    return;
+  }
+  let pending;
+  try { pending = await message.reply({ content: `Creating a verified Discord code and short link for **${found.book.title}**...` }); }
+  catch { try { pending = await message.author.send({ content: `Creating a verified Discord code and short link for **${found.book.title}**...` }); } catch { return; } }
+  const promo = await createDiscordPromo(found.book, 0, message);
+  if (promo.status === 'ready') {
+    await pending.edit({ embeds: [{ title: `Attribution ready | ${found.book.title}`, description: `**Code:** \`${promo.code}\`\n[Open book](${promo.shortUrl})\n\nThis link is attributed to Discord.`, color: 0x238636, footer: { text: 'Verified against NovelFlow attribution records.' } }] });
+  } else {
+    await pending.edit({ content: `I found **${found.book.title}** (${found.confidence}% match), but I could not create a verified link yet.\n**Reason:** ${promo.reason || promo.status}` });
+  }
 }
 
 async function search(message, query) {
@@ -180,6 +208,14 @@ client.on(Events.MessageCreate, async (message) => {
   if (!query) return;
   if (recommendationIntent(query)) {
     await recommend(message);
+    return;
+  }
+  if (linkIntent(query)) {
+    await createLinkForRequest(message, query);
+    return;
+  }
+  if (query.length < 4) {
+    await message.reply({ content: 'Tell me a book title, an excerpt, or say `recommend today top 5`.' }).catch(() => {});
     return;
   }
   await search(message, query);
