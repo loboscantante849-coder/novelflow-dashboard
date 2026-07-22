@@ -83,13 +83,13 @@ function localSearch(query) {
   const books = Object.values(payload.categories || {}).flat().filter((book) => book?.title);
   const scored = books.map((book) => ({ book, score: lexicalScore(query, { ...book, bookSkuId: book.bookId, category: book.category || book.bookClassName }) }))
     .sort((a, b) => b.score - a.score).slice(0, 3);
-  return {
-    matches: scored.map(({ book, score }) => ({
+  const matches = scored.map(({ book, score }) => ({
       bookSkuId: String(book.bookId), title: String(book.title), author: String(book.author || ''), cover: String(book.cover || ''),
       confidence: Math.round(score * 100), reasons: [normalize(query).includes(normalize(book.title)) ? 'Title matches the request' : 'Excerpt, tags, or synopsis overlap the request'],
       sources: ['NovelFlow featured catalog']
-    })), recommendations: [], model: 'local-featured-catalog'
-  };
+    }));
+  // Never turn a weak lexical overlap into a claimed book identification.
+  return { matches: matches[0]?.confidence >= 45 ? matches : [], recommendations: [], model: 'local-featured-catalog' };
 }
 
 function recommendationIntent(text) {
