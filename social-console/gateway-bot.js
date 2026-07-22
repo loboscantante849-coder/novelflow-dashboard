@@ -1,7 +1,7 @@
 const { Client, Events, GatewayIntentBits, Partials } = require('discord.js');
 
 const token = String(process.env.DISCORD_BOT_TOKEN || '').trim();
-const gatewaySecret = String(process.env.DISCORD_GATEWAY_SECRET || process.env.CRON_SECRET || '').trim();
+const gatewaySecret = String(process.env.DISCORD_GATEWAY_SECRET_V2 || process.env.DISCORD_GATEWAY_SECRET || process.env.CRON_SECRET || '').trim();
 const searchUrl = String(process.env.DISCORD_GATEWAY_SEARCH_URL || 'https://social.novelflow.top/api/discord-gateway-search').trim();
 const allowedGuilds = new Set(String(process.env.NOVELFLOW_DISCORD_ALLOWED_GUILD_IDS || '').split(',').map((value) => value.trim()).filter(Boolean));
 
