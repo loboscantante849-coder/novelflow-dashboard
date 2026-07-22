@@ -78,6 +78,21 @@ function linkIntent(text) {
   return /\b(?:link|code|url|short\s*link)\b|链接|短链|归因码|推广码|创建码/i.test(String(text || ''));
 }
 
+async function aiRoute(input) {
+  const apiKey = String(process.env.NOVELFLOW_COPY_LLM_API_KEY || process.env.NOVELFLOW_LLM_API_KEY || '').trim();
+  if (!apiKey || !String(input || '').trim()) return null;
+  const baseUrl = String(process.env.NOVELFLOW_COPY_LLM_BASE_URL || 'https://api.deepseek.com').replace(/\/$/, '');
+  const model = String(process.env.NOVELFLOW_COPY_LLM_MODEL || 'deepseek-chat');
+  const system = 'You are the routing brain for a NovelFlow Discord book assistant. Return JSON only: {"intent":"chat|search|recommend|link","query":"string","reply":"string"}. recommend means asking for books, rankings, or suggestions. link means asking for a promotion code or short link. search means title, quote, character, or plot clue. chat means greetings or general conversation. Keep reply under 140 characters. Never invent a title, code, link, or book fact.';
+  try {
+    const response = await fetch(`${baseUrl}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model, messages: [{ role: 'system', content: system }, { role: 'user', content: String(input).slice(0, 2000) }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 180 }) });
+    if (!response.ok) return null;
+    const body = await response.json();
+    const parsed = JSON.parse(String(body.choices?.[0]?.message?.content || '{}'));
+    return ['chat', 'search', 'recommend', 'link'].includes(parsed.intent) ? parsed : null;
+  } catch { return null; }
+}
+
 function localTopBooks(limit = 5) {
   const file = path.resolve(__dirname, '..', 'featured-books.json');
   const payload = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -227,6 +242,20 @@ client.on(Events.MessageCreate, async (message) => {
   if (message.guildId && allowedGuilds.size && !allowedGuilds.has(String(message.guildId))) return;
   const query = queryFromMessage(message);
   if (!query) return;
+  const ai = await aiRoute(query);
+  const routedQuery = String(ai?.query || query).trim() || query;
+  if (ai?.intent === 'chat') {
+    await message.reply({ content: ai.reply || 'Tell me what you enjoy reading, or ask for today\'s Top 5.' }).catch(() => {});
+    return;
+  }
+  if (ai?.intent === 'recommend') {
+    await recommend(message);
+    return;
+  }
+  if (ai?.intent === 'link') {
+    await createLinkForRequest(message, routedQuery);
+    return;
+  }
   if (/^(?:hi|hello|hey|你好|嗨)$/i.test(query)) {
     await message.reply({ content: 'Hi. Send a title or excerpt to find a book, say `recommend today top 5`, or reply `1` after a result to create that book\'s code and link.' }).catch(() => {});
     return;
@@ -252,7 +281,7 @@ client.on(Events.MessageCreate, async (message) => {
     await message.reply({ content: 'Tell me a book title, an excerpt, or say `recommend today top 5`.' }).catch(() => {});
     return;
   }
-  await search(message, query);
+  await search(message, routedQuery);
 });
 
 client.on(Events.Error, (error) => console.error('Discord Gateway error:', String(error?.message || error)));
