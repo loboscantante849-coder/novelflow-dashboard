@@ -40,7 +40,7 @@ function secretToken(name) {
 }
 
 const TOKENDANCE_MODELS = new Set([
-  'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'hy3', 'kimi-k2.7-code',
+  'seed-2.1-turbo', 'seed-2.0-mini', 'qwen3.7-max', 'minimax-m2.7', 'hy3', 'kimi-k2.7-code',
   // Existing runs may still reference the prior presets.
   'qwen3.5-flash', 'glm-4.5-air', 'kimi-k2.5', 'minimax-m2.5',
   // Preserve routing for runs created with the previous presets.
@@ -764,7 +764,7 @@ async function extractScreenshotText(imageUrl) {
 }
 
 async function analyzeScreenshotWithSeed(imageUrl) {
-  const { apiKey, baseUrl, model } = copyModelConfig({ modelChoice: 'seed-2.1-turbo' });
+  const { apiKey, baseUrl, model } = copyModelConfig({ modelChoice: 'seed-2.0-mini' });
   const prompt = 'Inspect this novel screenshot. Return JSON only: {"text":"up to 500 words of readable story text","characters":["names"],"phrases":["2-4 rare exact phrases"],"plotClues":["specific clues"],"quality":"high|medium|low"}. Preserve spelling and do not invent any title, character, or plot fact not visible in the image.';
   const payload = {
     model,
