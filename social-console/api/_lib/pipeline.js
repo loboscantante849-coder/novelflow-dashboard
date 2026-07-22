@@ -1,11 +1,37 @@
-const { saveRun, addEvent, setStage, reserveVideoSlot } = require('./store');
+const { getRun, saveRun, addEvent, setStage, reserveVideoSlot } = require('./store');
 const providers = require('./providers');
 
 const now = () => new Date().toISOString();
-const terminal = (status) => ['done', 'failed', 'ambiguous'].includes(status);
+const terminal = (status) => ['done', 'failed', 'ambiguous', 'partial'].includes(status);
+const posterTerminal = (status) => ['done', 'ambiguous', 'partial'].includes(status);
+
+function creativeModelLabel(run) {
+  return ({
+    deepseek: 'DeepSeek',
+    'seed-2.1-turbo': 'Seed 2.1 Turbo',
+    'qwen3.7-max': 'Qwen 3.7 Max',
+    'minimax-m2.7': 'MiniMax M2.7',
+    hy3: 'HY3',
+    'kimi-k2.7-code': 'Kimi K2.7 Code',
+    'qwen3.5-flash': 'Qwen 3.5 Flash',
+    'glm-4.5-air': 'GLM 4.5 Air',
+    'kimi-k2.5': 'Kimi K2.5',
+    'minimax-m2.5': 'MiniMax M2.5',
+    'qwen3.7-max': 'Qwen 3.7 Max',
+    'glm-5.2': 'GLM 5.2',
+    'kimi-k3': 'Kimi K3',
+    'minimax-m3': 'MiniMax M3'
+  })[run.input?.creativeProfile?.modelChoice] || 'AI';
+}
 
 function cleanError(error) {
   return String(error?.message || error || 'Unknown worker failure').replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [redacted]').slice(0, 500);
+}
+
+function syncRun(target, source) {
+  for (const key of Object.keys(target)) if (!(key in source)) delete target[key];
+  Object.assign(target, source);
+  return target;
 }
 
 function selectedChapters(chapters, payPoint) {
@@ -21,8 +47,26 @@ function selectedChapters(chapters, payPoint) {
   return [...free, ...late].map((item, index) => ({ id: String(item.id), order: Number(item.order || 0), title: String(item.title || ''), source: index < free.length ? 'opening' : 'escalation' }));
 }
 
+function normalizedSourceText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function evidenceMatchesSource(evidence, chapters) {
+  const byChapter = new Map((chapters || []).map((chapter) => [Number(chapter.order), normalizedSourceText(chapter.content)]));
+  return evidence.every((item) => {
+    const quote = normalizedSourceText(item?.quote);
+    return Number(item?.chapter) > 0 && quote.length >= 8 && byChapter.get(Number(item.chapter))?.includes(quote);
+  });
+}
+
 function normalizeCreative(result, run) {
   const source = result.creative || {};
+  const sourceChapters = run.artifacts?.evidence?.chapters || [];
   if (!Array.isArray(source.posts) || source.posts.length !== 2) throw new providers.ProviderError('Creative model did not return exactly two posts');
   const expectedTypes = ['hook', 'escalation'];
   const posts = source.posts.map((post, index) => {
@@ -30,23 +74,47 @@ function normalizeCreative(result, run) {
     for (const key of ['hook', 'pain', 'sensory', 'contrast', 'deepDesire', 'emotionalCta']) if (!String(six[key] || '').trim()) throw new providers.ProviderError(`Creative model omitted ${key}`);
     const evidence = Array.isArray(post.evidence) ? post.evidence : [];
     if (evidence.length < 2) throw new providers.ProviderError('Each post must cite at least two chapter excerpts');
+    if (!evidenceMatchesSource(evidence, sourceChapters)) throw new providers.ProviderError('Creative post evidence must be exact text from its cited chapter');
     const type = expectedTypes[index];
     let content = String(post.content || Object.values(six).join('\n\n')).trim();
-    if (!content.includes(String(run.artifacts.code))) content += `\n\nRead it on NovelFlow with Code ${run.artifacts.code}.`;
     if (run.artifacts.shortUrl && !content.includes(run.artifacts.shortUrl)) content += `\n${run.artifacts.shortUrl}`;
+    const lines = content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const hashtags = content.match(/#[A-Za-z][A-Za-z0-9_]*/g) || [];
+    if (hashtags.length < 5 || hashtags.length > 8) throw new providers.ProviderError('Creative post must end with 5-8 relevant hashtags');
+    const shortUrlIndex = run.artifacts.shortUrl ? lines.findIndex((line) => line === run.artifacts.shortUrl) : -1;
+    if (run.artifacts.shortUrl && shortUrlIndex < 2) throw new providers.ProviderError('Creative post must put the verified short URL after its CTA and NovelFlow Code guidance');
+    const ctaLine = shortUrlIndex >= 2 ? lines[shortUrlIndex - 2] : String(six.emotionalCta || '').trim();
+    if (!/\b(?:see|read)\s+what\s+happens\s+when\b/i.test(ctaLine)) throw new providers.ProviderError('Creative post CTA must use a story-specific “See/Read what happens when...” invitation');
+    const codeLine = shortUrlIndex >= 1 ? lines[shortUrlIndex - 1] : '';
+    if (!/novelflow/i.test(codeLine) || !new RegExp(`\\b${String(run.artifacts.code).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(codeLine)) throw new providers.ProviderError('Creative post must include a NovelFlow Code search line before its short URL');
+    const tagLine = shortUrlIndex >= 0 ? lines[shortUrlIndex + 1] : '';
+    const tagsOnFinalLine = tagLine.match(/#[A-Za-z][A-Za-z0-9_]*/g) || [];
+    if (!tagLine || tagsOnFinalLine.length !== hashtags.length || shortUrlIndex !== lines.length - 2) throw new providers.ProviderError('Creative post must end with its short URL and one hashtag-only line');
+    const narrative = lines.slice(0, Math.max(0, shortUrlIndex - 2)).join('\n');
+    if (/\b(?:read it now|click here|start reading|read the explosive beginning|use\s+(?:code|promo(?:tion)?\s*code)|code\s*[:#-]?\s*\d+)/i.test(narrative)) throw new providers.ProviderError('Creative post used a mechanical CTA or promotion-code wording in its narrative');
+    if (content.split(/\r?\n\s*\r?\n/).length < 3) throw new providers.ProviderError('Creative post must use readable short paragraphs');
+    const narrativeLines = narrative.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const normalizedLines = narrativeLines.map(normalizedSourceText).filter((line) => line.length >= 24);
+    if (new Set(normalizedLines).size !== normalizedLines.length) throw new providers.ProviderError('Creative post repeats a visible narrative line instead of advancing the story');
+    if ((narrative.match(/[\u{2600}-\u{27BF}\u{1F300}-\u{1FAFF}]/gu) || []).length < 2) throw new providers.ProviderError('Creative post needs 2-4 fitting emoji in its narrative');
+    if ((narrative.match(/[A-Za-z]+(?:'[A-Za-z]+)?/g) || []).length < 70) throw new providers.ProviderError('Creative post needs enough story-specific narrative detail');
     return { type, sixSteps: six, content, zhContent: String(post.zhContent || '').trim(), evidence };
   });
+  if (!posts.some((post) => /^\s*["“][^\n"”]{3,180}["”]/.test(post.content))) throw new providers.ProviderError('One creative version must open with a grounded quoted character line');
   const videoPrompt = source.videoPrompt || {};
   if (!String(videoPrompt.adCopy || '').trim() || !String(videoPrompt.buildRequirement || '').trim()) throw new providers.ProviderError('Creative model returned an empty video prompt');
   for (const key of ['hook', 'valuePromise', 'escalation', 'reversal', 'cliffhanger']) if (String(videoPrompt[key] || '').trim().length < 12) throw new providers.ProviderError(`Creative model omitted video ${key}`);
   const videoEvidence = Array.isArray(videoPrompt.sourceEvidence) ? videoPrompt.sourceEvidence : [];
   if (videoEvidence.length < 3 || videoEvidence.some((item) => !Number(item?.chapter) || String(item?.quote || '').trim().length < 8)) throw new providers.ProviderError('Video prompt must cite three grounded story beats');
+  if (!evidenceMatchesSource(videoEvidence, sourceChapters)) throw new providers.ProviderError('Video prompt evidence must be exact text from its cited chapter');
   const posterPrompts = Array.isArray(source.posterPrompts) ? source.posterPrompts : [];
   const byVariant = new Map(posterPrompts.map((item) => [String(item.variant || ''), item]));
   for (const variant of ['luminous_cinema', 'editorial_romance']) {
     const item = byVariant.get(variant);
     if (!item || String(item.prompt || '').trim().length < 100) throw new providers.ProviderError(`Creative model returned an invalid ${variant} image prompt`);
   }
+  const review = source.qualityReview || {};
+  const recommendation = String(review.recommendation || 'keep').toLowerCase() === 'refine' ? 'refine' : 'keep';
   return {
     posts,
     videoPrompt: {
@@ -55,7 +123,8 @@ function normalizeCreative(result, run) {
       sourceEvidence: videoEvidence.map((item) => ({ chapter: Number(item.chapter), quote: String(item.quote).trim() })),
       evidenceChapters: Array.isArray(videoPrompt.evidenceChapters) && videoPrompt.evidenceChapters.length ? videoPrompt.evidenceChapters : videoEvidence.map((item) => Number(item.chapter))
     },
-    posterPrompts: ['luminous_cinema', 'editorial_romance'].map((variant) => ({ variant, prompt: String(byVariant.get(variant).prompt), zhPrompt: String(byVariant.get(variant).zhPrompt || '') }))
+    posterPrompts: ['luminous_cinema', 'editorial_romance'].map((variant) => ({ variant, prompt: String(byVariant.get(variant).prompt), zhPrompt: String(byVariant.get(variant).zhPrompt || '') })),
+    qualityReview: { recommendation, conclusion: String(review.conclusion || '当前创意已满足章节证据与平台格式要求。').trim().slice(0, 260), why: String(review.why || '已核验文案、视频剧情和海报提示词均来自已锁定章节证据。').trim().slice(0, 360), target: ['copy', 'video', 'poster', 'package'].includes(String(review.target || '')) ? String(review.target) : 'package' }
   };
 }
 
@@ -73,13 +142,20 @@ async function p1(redis, run) {
 
 async function p2(redis, run) {
   const stage = run.stages.P2;
-  if (stage.status === 'waiting') {
+  // Evidence initialization must happen once. Later `waiting` states are
+  // reserved for recoverable story-intelligence retries.
+  if (!run.artifacts.evidence) {
     setStage(run, 'P2', 'running', { label: '正在建立章节证据', cursor: 0 });
     await saveRun(redis, run);
     const chapters = await providers.listChapters(run.artifacts.book.cityBookId);
     if (!chapters.length) throw new providers.ProviderError('No chapters were returned for this book');
     const refs = selectedChapters(chapters, run.artifacts.book.payPoint);
-    run.artifacts.evidence = { mode: 'opening_and_escalation', chapterListCount: chapters.length, requested: refs.length, completed: 0, refs, chapters: [] };
+    run.artifacts.evidence = {
+      mode: 'opening_and_escalation', chapterListCount: chapters.length, requested: refs.length, completed: 0, refs, chapters: [],
+      // Titles across the entire book let the LLM map acts and reversals without
+      // downloading every chapter body. Literal claims still require evidence.
+      chapterStructure: chapters.map((item) => ({ order: Number(item.order || 0), title: String(item.title || '') }))
+    };
     run.artifacts.book.chapterCount = chapters.length;
     setStage(run, 'P2', 'running', { label: `正在下载证据 0/${refs.length}`, cursor: 0, total: refs.length });
     await saveRun(redis, run);
@@ -98,6 +174,32 @@ async function p2(redis, run) {
     return;
   }
   if (evidence.completed !== evidence.requested) throw new providers.ProviderError('Chapter evidence download is incomplete');
+  const story = evidence.storyBrief || {};
+  const retryAt = Date.parse(story.nextAttemptAt || '');
+  if (story.status !== 'ready') {
+    if (Number.isFinite(retryAt) && retryAt > Date.now()) return;
+    const preferred = String(run.input?.creativeProfile?.modelChoice || 'hy3');
+    const current = String(story.modelChoice || preferred);
+    setStage(run, 'P2', 'running', { label: `${creativeModelLabel(run)} 正在梳理全书故事结构`, phase: 'story_intelligence', error: '', nextAttemptAt: '' });
+    await saveRun(redis, run);
+    try {
+      const result = await providers.analyzeCreativePlan(run.artifacts.book, evidence.chapters, evidence.chapterStructure, current);
+      evidence.storyBrief = { status: 'ready', model: result.model, responseId: result.responseId, createdAt: now(), plan: result.plan, usage: result.usage };
+      run.artifacts.storyBrief = evidence.storyBrief;
+      run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), { section: 'storyBrief', requestedModel: current, model: result.model, responseId: result.responseId, completedAt: now(), ...result.usage }].slice(-24);
+      addEvent(run, 'story_intelligence_ready', 'Full-book structure map and chapter-grounded creative brief saved');
+    } catch (error) {
+      const attempt = Number(story.attempt || 0) + 1;
+      const route = [...new Set([preferred, 'hy3', 'deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7'])];
+      const next = route[(Math.max(0, route.indexOf(current)) + 1) % route.length];
+      const nextAttemptAt = new Date(Date.now() + Math.min(5 * 60 * 1000, 15000 * attempt)).toISOString();
+      evidence.storyBrief = { status: 'recovering', attempt, modelChoice: next, nextAttemptAt, error: cleanError(error) };
+      setStage(run, 'P2', 'waiting', { label: `全书故事梳理通道暂缓，${next} 将自动接管（第 ${attempt} 次）`, phase: 'story_intelligence_recovering', recoverable: true, nextAttemptAt, error: cleanError(error) });
+      addEvent(run, 'story_intelligence_recovering', 'Story intelligence will retry from saved chapter structure and evidence', { attempt, next, nextAttemptAt });
+      await saveRun(redis, run);
+      return;
+    }
+  }
   setStage(run, 'P2', 'done', { label: `${evidence.completed} 个章节证据已锁定`, completeness: 100 });
   addEvent(run, 'evidence_ready', `${evidence.completed} chapter evidence records ready`);
   await saveRun(redis, run);
@@ -181,34 +283,163 @@ function nextCreativeAttempt(stage) {
   return Math.min(2, Number(stage.attempt || 0) + 1);
 }
 
-async function p3(redis, run) {
-  const stage = run.stages.P3;
-  const attempt = nextCreativeAttempt(stage);
-  setStage(run, 'P3', 'running', { label: `DeepSeek 正在生成双语创意包（第 ${attempt}/2 次）`, phase: 'requesting', attempt, error: '', nextAttemptAt: '' });
-  addEvent(run, 'creative_request_started', `DeepSeek creative request started (attempt ${attempt}/2)`);
-  await saveRun(redis, run);
-  let result;
-  try {
-    result = await providers.generateCreative(run.artifacts.book, run.artifacts.evidence.chapters, run.artifacts.code, run.artifacts.shortUrl);
-  } catch (error) {
-    if (attempt < 2) {
-      const nextAttemptAt = new Date(Date.now() + 2 * 60 * 1000).toISOString();
-      setStage(run, 'P3', 'waiting', { label: 'DeepSeek 暂未返回，将在 2 分钟后自动重试', phase: 'retry_scheduled', attempt, nextAttemptAt, error: cleanError(error) });
-      addEvent(run, 'creative_retry_scheduled', `DeepSeek request failed; retry scheduled at ${nextAttemptAt}`, { error: cleanError(error) });
-      await saveRun(redis, run);
-      return;
+const creativeSectionOrder = ['posts', 'videoPrompt', 'posterPrompts', 'qualityReview'];
+const creativeSectionLabels = { posts: '双语六步法文案', videoPrompt: '视频剧情包', posterPrompts: '海报提示词', qualityReview: '质量审查' };
+const longCreativeModels = new Set(['deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'kimi-k2.7-code']);
+
+async function withCreativeMergeLock(redis, runId, work) {
+  const key = `nf_social:creative_merge:${runId}`;
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    const locked = await redis.set(key, String(Date.now()), { nx: true, ex: 20 });
+    if (locked) {
+      try { return await work(); } finally { await redis.del(key); }
     }
-    throw error;
+    await new Promise((resolve) => setTimeout(resolve, 40));
   }
-  const creative = normalizeCreative(result, run);
+  throw new providers.ProviderError('Creative result merge was busy; the completed section can be safely retried');
+}
+
+function draftFor(run, suppressOptimizationReview) {
+  const draft = run.artifacts.creativeDraft || { parts: {}, usage: [], startedAt: now(), suppressOptimizationReview: Boolean(suppressOptimizationReview) };
+  if (suppressOptimizationReview) draft.suppressOptimizationReview = true;
+  return draft;
+}
+
+function pendingCreativeSections(draft) {
+  const core = ['posts', 'videoPrompt', 'posterPrompts'].filter((key) => !draft.parts[key]);
+  if (core.length) return core;
+  return draft.parts.qualityReview ? [] : ['qualityReview'];
+}
+
+async function finalizeCreativeDraft(redis, run) {
+  const draft = run.artifacts.creativeDraft;
+  if (!draft || pendingCreativeSections(draft).length) return run;
+  const result = {
+    creative: {
+      posts: draft.parts.posts,
+      videoPrompt: draft.parts.videoPrompt,
+      posterPrompts: draft.parts.posterPrompts,
+      qualityReview: draft.parts.qualityReview
+    },
+    model: draft.usage.map((item) => item.model).filter(Boolean).join(' / '),
+    responseId: draft.usage.map((item) => item.responseId).filter(Boolean).join(','),
+    usage: draft.usage.reduce((total, item) => ({ inputTokens: total.inputTokens + Number(item.inputTokens || 0), outputTokens: total.outputTokens + Number(item.outputTokens || 0), totalTokens: total.totalTokens + Number(item.totalTokens || 0) }), { inputTokens: 0, outputTokens: 0, totalTokens: 0 })
+  };
+  let creative;
+  try {
+    creative = normalizeCreative(result, run);
+  } catch (error) {
+    const attempt = Number(draft.validationAttempts || 0) + 1;
+    const nextAttemptAt = new Date(Date.now() + Math.min(300000, 15000 * attempt)).toISOString();
+    const previousModel = String(run.input?.creativeProfile?.modelChoice || 'hy3');
+    const route = ['deepseek', 'hy3', 'qwen3.7-max', 'seed-2.1-turbo', 'minimax-m2.7'];
+    const nextModel = route[(Math.max(0, route.indexOf(previousModel)) + 1) % route.length];
+    run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), ...draft.usage.map((item) => ({ ...item, validationStatus: 'rejected', validationError: cleanError(error) }))].slice(-24);
+    draft.parts = {};
+    draft.usage = [];
+    draft.validationAttempts = attempt;
+    draft.recoveryRevision = { instruction: 'Regenerate every creative section from the saved exact chapter evidence. Correct the prior validation failure and do not reuse unsupported quotes.', validationError: cleanError(error) };
+    draft.failures = Object.fromEntries(['posts', 'videoPrompt', 'posterPrompts'].map((section) => [section, { attempt, at: now(), error: cleanError(error), nextAttemptAt }]));
+    run.input.creativeProfile = { ...(run.input.creativeProfile || {}), modelChoice: nextModel };
+    run.state = 'running';
+    setStage(run, 'P3', 'waiting', { label: `上一版未通过证据校验，${nextModel} 将从原文章节重新生成`, phase: 'validation_recovering', attempt, nextAttemptAt, error: cleanError(error), recoverable: true });
+    addEvent(run, 'creative_validation_recovering', 'Invalid creative draft was discarded; a reserve model will regenerate from saved chapter evidence', { attempt, previousModel, nextModel, nextAttemptAt, error: cleanError(error) });
+    await saveRun(redis, run);
+    return run;
+  }
   run.artifacts.posts = creative.posts;
   run.artifacts.translations = { language: 'zh-CN', posts: creative.posts.map((item) => item.zhContent) };
   run.artifacts.videoPrompt = creative.videoPrompt;
   run.artifacts.posterPrompts = creative.posterPrompts;
+  run.artifacts.qualityReview = creative.qualityReview;
+  run.artifacts.qualityReview.phase = 'post_generation';
+  run.artifacts.qualityReview.reviewedAt = now();
   run.artifacts.usage.creative = { model: result.model, responseId: result.responseId, ...result.usage };
-  setStage(run, 'P3', 'done', { label: '六步法文案、翻译与提示词已生成', model: result.model, phase: 'ready' });
+  run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), ...draft.usage].slice(-24);
+  delete run.artifacts.creativeDraft;
+  if (creative.qualityReview.recommendation === 'refine' && !draft.suppressOptimizationReview) {
+    run.artifacts.optimization = { status: 'awaiting_confirmation', dueAt: new Date(Date.now() + 60000).toISOString(), review: creative.qualityReview, createdAt: now() };
+    setStage(run, 'P3', 'done', { label: `创意已生成，${creativeModelLabel(run)} 建议优化，等待确认`, model: result.model, phase: 'optimization_waiting' });
+    addEvent(run, 'creative_optimization_suggested', `${creativeModelLabel(run)} suggested a source-grounded creative refinement; it will apply after one minute unless kept.`);
+  } else {
+    run.artifacts.optimization = { status: draft.suppressOptimizationReview ? 'auto_applied' : 'kept', review: creative.qualityReview, resolvedAt: now() };
+    setStage(run, 'P3', 'done', { label: '六步法文案、翻译与提示词已生成', model: result.model, phase: 'ready' });
+  }
   addEvent(run, 'creative_ready', 'Bilingual copy, video prompt and poster prompts generated');
   await saveRun(redis, run);
+  return run;
+}
+
+async function p3(redis, run, revision = null, suppressOptimizationReview = false, requestedSection = '') {
+  const originalRun = run;
+  let stage = run.stages.P3;
+  let modelLabel = creativeModelLabel(run);
+  let draft = draftFor(run, suppressOptimizationReview);
+  run.artifacts.creativeDraft = draft;
+  const pending = pendingCreativeSections(draft);
+  const pendingSection = requestedSection && pending.includes(requestedSection) ? requestedSection : pending[0];
+  if (pendingSection) {
+    const prepared = await withCreativeMergeLock(redis, run.id, async () => {
+      const latest = await getRun(redis, run.id) || run;
+      const latestDraft = draftFor(latest, suppressOptimizationReview);
+      latest.artifacts.creativeDraft = latestDraft;
+      // The worker owns a per-section lock. Do not let a stale inFlight flag
+      // suppress a legitimate result after a serverless interruption.
+      if (latestDraft.parts[pendingSection]) return null;
+      latestDraft.inFlight = { ...(latestDraft.inFlight || {}), [pendingSection]: now() };
+      const longTask = longCreativeModels.has(String(latest.input?.creativeProfile?.modelChoice || '').toLowerCase()) && pendingSection !== 'qualityReview';
+      setStage(latest, 'P3', 'running', { label: longTask ? `${creativeModelLabel(latest)} 正在后台长任务生成${creativeSectionLabels[pendingSection]}（可持续数分钟）` : `${creativeModelLabel(latest)} 正在并行生成${creativeSectionLabels[pendingSection]}`, phase: pendingSection, executionMode: longTask ? 'background_long' : 'realtime', error: '', nextAttemptAt: '' });
+      addEvent(latest, 'creative_section_started', `${creativeModelLabel(latest)} started ${pendingSection}`);
+      addEvent(latest, 'creative_request_started', `${creativeModelLabel(latest)} creative request started for ${pendingSection}`);
+      await saveRun(redis, latest);
+      return latest;
+    });
+    if (!prepared) return run;
+    run = prepared;
+    stage = run.stages.P3;
+    modelLabel = creativeModelLabel(run);
+    draft = run.artifacts.creativeDraft;
+    let sectionResult;
+    try {
+      const reviewInput = pendingSection === 'qualityReview' ? { posts: draft.parts.posts, videoPrompt: draft.parts.videoPrompt, posterPrompts: draft.parts.posterPrompts } : (revision || draft.recoveryRevision || null);
+      sectionResult = await providers.generateCreative(run.artifacts.book, run.artifacts.evidence.chapters, run.artifacts.code, run.artifacts.shortUrl, reviewInput, { ...(run.input.creativeProfile || {}), storyBrief: run.artifacts.storyBrief?.plan || null }, pendingSection);
+    } catch (error) {
+      return withCreativeMergeLock(redis, run.id, async () => {
+        const latest = await getRun(redis, run.id) || run;
+        const latestDraft = draftFor(latest, suppressOptimizationReview);
+        delete latestDraft.inFlight?.[pendingSection];
+        latestDraft.failures = { ...(latestDraft.failures || {}) };
+        const attempt = Number(latestDraft.failures[pendingSection]?.attempt || 0) + 1;
+        const delayMs = attempt <= 2 ? 15000 * attempt : Math.min(10 * 60 * 1000, 60000 * (attempt - 1));
+        const nextAttemptAt = new Date(Date.now() + delayMs).toISOString();
+        latestDraft.failures[pendingSection] = { attempt, at: now(), error: cleanError(error), nextAttemptAt };
+        latest.artifacts.creativeDraft = latestDraft;
+        latest.state = 'running';
+        setStage(latest, 'P3', 'waiting', { label: `${creativeSectionLabels[pendingSection]}通道暂缓，后台自动恢复中（${attempt}）`, phase: 'recovering', attempt, nextAttemptAt, error: cleanError(error), recoverable: true });
+        addEvent(latest, 'creative_section_recovering', `${pendingSection} will continue from saved evidence`, { attempt, error: cleanError(error), nextAttemptAt });
+        await saveRun(redis, latest);
+        return syncRun(originalRun, latest);
+      });
+    }
+    return withCreativeMergeLock(redis, run.id, async () => {
+      const latest = await getRun(redis, run.id) || run;
+      const latestDraft = draftFor(latest, suppressOptimizationReview);
+      delete latestDraft.inFlight?.[pendingSection];
+      if (!latestDraft.parts[pendingSection]) {
+        latestDraft.parts[pendingSection] = sectionResult.creative[pendingSection] || (pendingSection === 'qualityReview' ? {} : null);
+        latestDraft.usage.push({ section: pendingSection, requestedModel: sectionResult.requestedModel || modelLabel, model: sectionResult.model, fallbackFrom: sectionResult.fallbackFrom || '', responseId: sectionResult.responseId, latencyMs: Number(sectionResult.latencyMs || 0), completedAt: now(), ...sectionResult.usage });
+      }
+      if (latestDraft.failures) delete latestDraft.failures[pendingSection];
+      latest.artifacts.creativeDraft = latestDraft;
+      const waitingOn = pendingCreativeSections(latestDraft);
+      setStage(latest, 'P3', 'waiting', { label: waitingOn.length ? `${creativeSectionLabels[pendingSection]}已保存，${waitingOn.length} 项创意并行中` : '全部创意已保存，准备质量校验', phase: 'section_saved', error: '', nextAttemptAt: '' });
+      addEvent(latest, 'creative_section_ready', `${pendingSection} saved; independent creative sections may continue in parallel`);
+      await saveRun(redis, latest);
+      const finalized = await finalizeCreativeDraft(redis, latest);
+      return syncRun(originalRun, finalized);
+    });
+  }
+  return finalizeCreativeDraft(redis, run);
 }
 
 function videoPayload(run) {
@@ -321,6 +552,32 @@ function preparedImages(run) {
   }));
 }
 
+async function repairFailedPoster(redis, run, asset) {
+  asset.repairCount = Number(asset.repairCount || 0) + 1;
+  asset.repairStartedAt = now();
+  setStage(run, 'P3_5', 'running', { label: `DeepSeek 正在修复 ${asset.variant} 提示词` });
+  addEvent(run, 'image_prompt_repair_started', `${asset.variant} failed definitively; DeepSeek repair started`, { taskId: asset.taskId, error: asset.error });
+  await saveRun(redis, run);
+  const repaired = await providers.rewritePosterPrompt(run.artifacts.book, run.artifacts.evidence?.chapters || [], asset, asset.error);
+  const priorTaskId = asset.taskId;
+  asset.repairHistory = [...(asset.repairHistory || []), { at: now(), taskId: priorTaskId, reason: asset.error, prompt: asset.prompt }].slice(-2);
+  asset.prompt = repaired.prompt;
+  asset.zhPrompt = repaired.zhPrompt;
+  asset.idempotencyKey = providers.sha(`${run.id}:${asset.variant}:${asset.prompt}:repair:${asset.repairCount}`);
+  asset.taskId = '';
+  asset.status = 'prepared';
+  asset.progress = null;
+  asset.error = '';
+  asset.repairedAt = now();
+  const sourcePrompt = run.artifacts.posterPrompts.find((item) => item.variant === asset.variant);
+  if (sourcePrompt) { sourcePrompt.prompt = asset.prompt; sourcePrompt.zhPrompt = asset.zhPrompt; sourcePrompt.repairCount = asset.repairCount; }
+  run.artifacts.usage = run.artifacts.usage || {};
+  run.artifacts.usage[`posterRepair:${asset.variant}`] = repaired.usage;
+  addEvent(run, 'image_prompt_repaired', `${asset.variant} prompt repaired by DeepSeek; one replacement image will be submitted`, { priorTaskId, responseId: repaired.responseId, model: repaired.model });
+  setStage(run, 'P3_5', 'running', { label: `${asset.variant} 提示词已修复，等待受控重提` });
+  await saveRun(redis, run);
+}
+
 async function p35(redis, run) {
   const stage = run.stages.P3_5;
   if (stage.status === 'waiting') {
@@ -345,10 +602,7 @@ async function p35(redis, run) {
       setStage(run, 'P3_5', 'running', { label: `${run.artifacts.images.filter((item) => item.taskId).length}/2 张海报已提交` });
       await saveRun(redis, run);
       return;
-    } catch (error) {
-      error.ambiguous = true;
-      throw error;
-    }
+    } catch (error) { throw error; }
   }
   const ambiguous = run.artifacts.images.find((item) => item.status === 'submitting' && !item.taskId);
   if (ambiguous) throw new providers.ProviderError(`${ambiguous.variant} image submission is ambiguous; automatic retry is disabled`, { ambiguous: true });
@@ -370,6 +624,11 @@ async function p35(redis, run) {
     setStage(run, 'P3_5', 'done', { label: '2 张推广海报已生成' });
     addEvent(run, 'images_ready', 'Two poster images completed');
   } else if (failures.length) {
+    const repairable = failures.find((item) => item.status === 'failed' && item.taskId && Number(item.repairCount || 0) < 1);
+    if (repairable) {
+      await repairFailedPoster(redis, run, repairable);
+      return;
+    }
     throw new providers.ProviderError(`${failures[0].variant} image failed: ${failures[0].error || failures[0].status}`);
   } else {
     setStage(run, 'P3_5', 'running', { label: `海报生成中 ${successes.length}/2` });
@@ -399,10 +658,35 @@ function summarizeAnalytics(rows, code, linkId, window) {
 async function p6(redis, run) {
   setStage(run, 'P6', 'running', { label: '正在组装审核包与数据面板' });
   await saveRun(redis, run);
+  try {
+    const result = await providers.generateDistributionPlan(run.artifacts.book, {
+      posts: run.artifacts.posts, videoPrompt: run.artifacts.videoPrompt, posterPrompts: run.artifacts.posterPrompts,
+      storyBrief: run.artifacts.storyBrief?.plan || null
+    }, 'hy3');
+    run.artifacts.distribution = { ...result.plan, status: 'ready', generatedAt: now(), model: result.model };
+    run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), { section: 'distribution', requestedModel: 'hy3', model: result.model, responseId: result.responseId, completedAt: now(), ...result.usage }].slice(-24);
+    addEvent(run, 'distribution_ready', 'Manual channel recommendations and reusable hook are ready');
+  } catch (error) {
+    // A recommendation must never hold up a completed review package. Keep a
+    // transparent, conservative fallback instead of claiming model output.
+    const category = [run.artifacts.book?.category, ...(run.artifacts.book?.tags || [])].join(' ').toLowerCase();
+    const channels = [{ name: 'NovelFlow推书', reason: '通用 NovelFlow 小说素材入口。', bestFor: ['copy', 'video', 'poster'] }];
+    if (/mafia|mob|underworld/.test(category)) channels.push({ name: 'MafiaRomance', reason: '书籍标签包含黑手党题材。', bestFor: ['copy', 'video', 'poster'] });
+    else if (/wolf|lycan|luna|alpha|shifter/.test(category)) channels.push({ name: 'WerewolfRomance', reason: '书籍标签包含狼人或命定伴侣题材。', bestFor: ['copy', 'video', 'poster'] });
+    else if (/billionaire|ceo|boss/.test(category)) channels.push({ name: 'BillionaireRomance', reason: '书籍标签包含都市权力或总裁题材。', bestFor: ['copy', 'poster'] });
+    else channels.push({ name: 'DarkRomance', reason: '暂以通用情绪向频道作为人工复核候选。', bestFor: ['copy', 'video'] });
+    run.artifacts.distribution = { status: 'fallback', universalHook: String(run.artifacts.posts?.[0]?.sixSteps?.hook || run.artifacts.posts?.[0]?.content || '').split(/\r?\n/)[0].slice(0, 150), zhUniversalHook: '模型推荐暂未返回，请先使用已验证的文案钩子。', channels, generatedAt: now(), error: cleanError(error) };
+    addEvent(run, 'distribution_fallback', 'Distribution recommendation model was unavailable; conservative manual fallback saved');
+  }
   run.artifacts.review = {
     status: 'ready_for_manual_review', facebook: { status: 'paused', automaticPublishing: false },
     book: run.artifacts.book, code: run.artifacts.code, shortUrl: run.artifacts.shortUrl,
-    posts: run.artifacts.posts, video: run.artifacts.video, images: run.artifacts.images,
+    posts: run.artifacts.posts, video: run.artifacts.video, images: run.artifacts.images, distribution: run.artifacts.distribution,
+    mediaWarnings: run.stages.P3_5.status === 'done' ? [] : [{
+      stage: 'P3_5', status: run.stages.P3_5.status,
+      message: run.stages.P3_5.label || '海报未完整生成，视频与文案仍可审核',
+      error: run.stages.P3_5.error || ''
+    }],
     createdAt: now()
   };
   try {
@@ -417,10 +701,60 @@ async function p6(redis, run) {
   await saveRun(redis, run);
 }
 
+async function advancePosters(redis, run) {
+  try {
+    await p35(redis, run);
+  } catch (error) {
+    const ambiguous = Boolean(error?.ambiguous);
+    const status = ambiguous ? 'ambiguous' : 'partial';
+    const label = ambiguous
+      ? '海报提交结果不明确，已停止海报重试；视频继续生成'
+      : '海报生成失败，可单独重试；视频继续生成';
+    if (!ambiguous) {
+      for (const asset of run.artifacts.images || []) {
+        if (asset.status === 'submitting' && !asset.taskId) {
+          asset.status = 'failed';
+          asset.error = cleanError(error);
+        }
+      }
+    }
+    setStage(run, 'P3_5', status, { label, error: cleanError(error), nonBlocking: true });
+    addEvent(run, ambiguous ? 'image_submission_ambiguous' : 'poster_branch_partial', `${label}: ${cleanError(error)}`);
+    await saveRun(redis, run);
+  }
+}
+
 async function processRun(redis, run) {
   if (run.state === 'queued') {
     run.state = 'running';
     addEvent(run, 'worker_started', 'One-click production started');
+    await saveRun(redis, run);
+  }
+  const legacyPosterFailure = run.stages.P3_5?.status === 'failed' && run.stages.P3?.status === 'done' && !['failed', 'ambiguous'].includes(run.stages.P4?.status);
+  const legacyPosterAmbiguous = run.stages.P3_5?.status === 'ambiguous' && run.stages.P3?.status === 'done' && !['failed', 'ambiguous', 'blocked'].includes(run.stages.P4?.status);
+  const recoverableCreativeFailure = run.state === 'failed'
+    && run.stages.P3?.status === 'failed'
+    && run.artifacts?.book
+    && run.artifacts?.evidence?.chapters?.length
+    && run.artifacts?.code
+    && run.artifacts?.shortUrl
+    && !run.artifacts?.video
+    && !(run.artifacts?.images || []).some((item) => item?.taskId);
+  if (recoverableCreativeFailure) {
+    run.state = 'running';
+    run.stages.P3 = { ...run.stages.P3, status: 'waiting', phase: 'recovered', attempt: 0, nextAttemptAt: '', error: '', recoverable: true, label: '旧创意失败已自动恢复，正在重新路由模型' };
+    addEvent(run, 'legacy_creative_failure_recovered', 'Legacy P3 failure was restored from saved evidence and tracking data');
+    await saveRun(redis, run);
+  }
+  if ((run.state === 'failed' && legacyPosterFailure) || (run.state === 'blocked' && legacyPosterAmbiguous)) {
+    run.stages.P3_5 = {
+      ...run.stages.P3_5,
+      status: legacyPosterAmbiguous ? 'ambiguous' : 'partial',
+      nonBlocking: true,
+      label: legacyPosterAmbiguous ? '海报结果需人工核验；视频继续生成' : '海报失败，可单独重试；视频继续生成'
+    };
+    run.state = 'running';
+    addEvent(run, 'legacy_poster_failure_recovered', 'Legacy poster-only failure was isolated so the video branch can continue');
     await saveRun(redis, run);
   }
   if (['completed', 'failed', 'blocked'].includes(run.state)) return run;
@@ -434,10 +768,26 @@ async function processRun(redis, run) {
       if (run.stages.P3.status === 'waiting' && Number.isFinite(retryAt) && retryAt > Date.now()) return run;
       activeStage = 'P3'; await p3(redis, run); return run;
     }
+    const optimization = run.artifacts.optimization;
+    if (optimization?.status === 'awaiting_confirmation') {
+      const dueAt = Date.parse(optimization.dueAt || '');
+      if (!Number.isFinite(dueAt) || dueAt > Date.now()) return run;
+      activeStage = 'P3';
+      addEvent(run, 'creative_optimization_auto_applied', `No operator decision after one minute; ${creativeModelLabel(run)} is applying the recommended refinement.`);
+      await p3(redis, run, { posts: run.artifacts.posts, videoPrompt: run.artifacts.videoPrompt, posterPrompts: run.artifacts.posterPrompts }, true);
+      return run;
+    }
+    // Once both paid branches have durable task IDs, alternate polling. This
+    // keeps poster progress visible while AC is still rendering a video.
+    if (run.stages.P4.status === 'running' && !posterTerminal(run.stages.P3_5.status)) {
+      run.artifacts.mediaPollTurn = run.artifacts.mediaPollTurn === 'posters' ? 'video' : 'posters';
+      if (run.artifacts.mediaPollTurn === 'posters') { activeStage = 'P3_5'; await advancePosters(redis, run); return run; }
+      activeStage = 'P4'; await p4(redis, run); return run;
+    }
     if (!terminal(run.stages.P4.status) && !['running'].includes(run.stages.P4.status)) { activeStage = 'P4'; await p4(redis, run); return run; }
-    if (!terminal(run.stages.P3_5.status) && (run.stages.P3_5.status !== 'running' || run.artifacts.images.some((item) => ['prepared', 'submitting'].includes(item.status)))) { activeStage = 'P3_5'; await p35(redis, run); return run; }
+    if (!terminal(run.stages.P3_5.status) && (run.stages.P3_5.status !== 'running' || (run.artifacts.images || []).some((item) => ['prepared', 'submitting'].includes(item.status)))) { activeStage = 'P3_5'; await advancePosters(redis, run); return run; }
     if (run.stages.P4.status === 'running') { activeStage = 'P4'; await p4(redis, run); return run; }
-    if (run.stages.P3_5.status !== 'done') { activeStage = 'P3_5'; await p35(redis, run); return run; }
+    if (!posterTerminal(run.stages.P3_5.status)) { activeStage = 'P3_5'; await advancePosters(redis, run); return run; }
     if (run.stages.P4.status !== 'done') throw new providers.ProviderError('Video stage did not complete');
     if (run.stages.P6.status !== 'done') { activeStage = 'P6'; await p6(redis, run); return run; }
     return run;
@@ -452,4 +802,4 @@ async function processRun(redis, run) {
   }
 }
 
-module.exports = { processRun, selectedChapters, normalizeCreative, summarizeAnalytics, cleanError, referenceVideoPayload };
+module.exports = { processRun, p3, selectedChapters, normalizeCreative, summarizeAnalytics, cleanError, videoPayload, referenceVideoPayload };

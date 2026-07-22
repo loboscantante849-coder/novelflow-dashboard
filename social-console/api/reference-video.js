@@ -13,10 +13,12 @@ module.exports = async (req, res) => {
   if (!redis) return res.status(503).json({ error: 'Social console storage is not configured' });
   const run = await getRun(redis, String(req.body?.runId || ''));
   if (!run) return res.status(404).json({ error: 'Run not found' });
-  const poster = (run.artifacts?.images || []).find((item) => item.variant === 'luminous_cinema' && item.status === 'success' && item.url);
-  if (!poster) return res.status(409).json({ error: 'A completed luminous_cinema poster is required before submitting a reference video' });
+  const requestedVariant = ['luminous_cinema', 'editorial_romance'].includes(String(req.body?.posterVariant || '')) ? String(req.body.posterVariant) : 'editorial_romance';
+  const poster = (run.artifacts?.images || []).find((item) => item.variant === requestedVariant && item.status === 'success' && item.url);
+  if (!poster) return res.status(409).json({ error: `A completed ${requestedVariant} poster is required before submitting a reference video` });
   let video = run.artifacts.referenceVideo;
   try {
+    if (video?.posterVariant && video.posterVariant !== requestedVariant) return res.status(409).json({ error: 'A poster-reference video already exists for this run. Keep or remove it before switching the reference poster.', video });
     if (!video) {
       const prepared = referenceVideoPayload(run, poster.url);
       video = { status: 'prepared', remark: prepared.remark, payload: prepared.payload, posterUrl: poster.url, posterVariant: poster.variant, threadId: '', videoUrls: [] };

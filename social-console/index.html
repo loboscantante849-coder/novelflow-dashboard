@@ -7,6 +7,8 @@
   <title>NovelFlow 社媒总控台</title>
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/assistant-overrides.css">
+  <link rel="stylesheet" href="/premium-ui.css">
 </head>
 <body>
   <section id="loginView" class="login-view" hidden>
@@ -22,30 +24,37 @@
   <div id="appView" class="app-shell">
     <header class="topbar">
       <div class="brand-lockup"><span class="brand-mark">NF</span><div><strong>NovelFlow</strong><small>Social Operations</small></div></div>
-      <div class="topbar-actions"><span id="videoCapacity" class="video-capacity"><i data-lucide="video"></i><strong>视频 --/5</strong><small>本小时</small></span><span id="systemState" class="system-state"><span class="pulse-dot"></span>正在连接</span><button id="createRunButton" class="top-create"><i data-lucide="plus"></i><span>手动创建</span></button><button id="refreshButton" class="icon-button" title="刷新"><i data-lucide="refresh-cw"></i></button></div>
+      <div class="topbar-actions"><span id="videoCapacity" class="video-capacity" title="本网站每小时最多提交 5 条付费视频"><i data-lucide="video"></i><strong>视频额度 5/5</strong><small>0 已用 · 等待同步</small></span><span id="systemState" class="system-state" title="显示生产所需配置是否齐全，不代表第三方供应商实时零故障"><span class="pulse-dot"></span>读取生产配置</span><button id="createRunButton" class="top-create"><i data-lucide="plus"></i><span>手动创建</span></button><button id="refreshButton" class="icon-button" title="刷新"><i data-lucide="refresh-cw"></i></button></div>
     </header>
 
     <aside class="sidebar">
-      <button id="leaderboardButton" class="primary-command full"><i data-lucide="chart-no-axes-combined"></i><span>按历史表现选书</span></button>
+      <button id="leaderboardButton" class="primary-command full"><i data-lucide="chart-no-axes-combined"></i><span>按中台表现选书</span></button>
       <nav class="side-nav" aria-label="控制台视图">
-        <button class="nav-item active" data-view="operations"><i data-lucide="layout-dashboard"></i><span>生产总控</span><b id="activeCount">0</b></button>
-        <button class="nav-item" data-view="completed"><i data-lucide="circle-check-big"></i><span>已完成</span><b id="completeCount">0</b></button>
-        <button class="nav-item" data-view="attention"><i data-lucide="triangle-alert"></i><span>需处理</span><b id="attentionCount">0</b></button>
+        <button class="nav-item active" data-view="operations"><i data-lucide="layout-dashboard"></i><span>生产总控</span></button>
+        <button class="nav-item" data-view="library"><i data-lucide="library-big"></i><span>素材库</span></button>
+        <button class="nav-item" data-view="completed"><i data-lucide="circle-check-big"></i><span>已完成</span></button>
+        <button class="nav-item" data-view="attention"><i data-lucide="triangle-alert"></i><span>需处理</span></button>
       </nav>
-      <div class="capability-block"><h2>连接状态</h2><div id="capabilities"></div></div>
-      <div class="facebook-lock"><i data-lucide="shield-check"></i><span>Facebook 手动发布</span></div>
+      <button id="creativePlanQueueButton" class="side-plan-launch" type="button" hidden><i data-lucide="brain-circuit"></i><span>AI 策划</span><b id="creativePlanQueueCount">0</b><i data-lucide="chevron-right"></i></button>
+      <section id="creativePlanQueue" hidden aria-live="polite"></section>
+      <div class="capability-block"><h2>生产配置</h2><div id="capabilities"></div><p class="capability-note">绿点表示凭证与配置已就绪；实际调用结果以任务节点为准。</p></div>
+      <div class="facebook-lock pro-edition"><i data-lucide="crown"></i><span>迷人专属 · 至尊无敌 PRO</span></div>
     </aside>
 
     <main class="workspace">
       <section class="command-deck">
         <div class="command-title"><span class="eyebrow">SOCIAL AUTOMATION</span><h1>社媒生产总控</h1><p>从表现选书到创意、视频、海报与复盘，所有生产状态都在这里。</p></div>
-        <div class="command-actions"><button id="deckCreateRun" class="primary-command"><i data-lucide="plus"></i><span>手动创建任务</span></button><button id="deckLeaderboard" class="secondary-command"><i data-lucide="sparkles"></i><span>智能选书</span></button></div>
+        <div class="command-actions"><button id="deckCreateRun" class="primary-command"><i data-lucide="plus"></i><span>手动创建任务</span></button><button id="deckCreativePlan" class="secondary-command"><i data-lucide="brain-circuit"></i><span>AI 智能策划</span></button><button id="deckLeaderboard" class="secondary-command"><i data-lucide="sparkles"></i><span>智能选书</span></button><button id="weeklyReportButton" class="secondary-command"><i data-lucide="presentation"></i><span>本周简报</span></button></div>
+      </section>
+      <section id="todayRail" class="today-rail" aria-label="今日推荐">
+        <header class="today-rail-head"><div><span class="eyebrow">TODAY'S PICKS</span><h2>今日值得推的书</h2><p>近 7 天中台表现，按规模、首读与长读留存综合筛选。</p></div><div><button id="todayRailPrev" class="icon-button" type="button" title="上一组推荐"><i data-lucide="chevron-left"></i></button><button id="todayRailNext" class="icon-button" type="button" title="下一组推荐"><i data-lucide="chevron-right"></i></button></div></header>
+        <div id="todayRailList" class="today-rail-list" aria-live="polite"></div>
       </section>
       <section class="overview-band">
-        <div><span>全部书籍</span><strong id="totalRuns">0</strong></div>
-        <div><span>生产中</span><strong id="runningRuns">0</strong></div>
-        <div><span>已完成</span><strong id="completedRuns">0</strong></div>
-        <div><span>累计 Token</span><strong id="totalTokens">0</strong></div>
+        <div><span>正在生产</span><strong id="runningRuns">0</strong><small>后台持续推进</small></div>
+        <div><span>可直接使用素材</span><strong id="readyAssets">0</strong><small>文案 / 海报 / 视频</small></div>
+        <div><span>需要人工处理</span><strong id="attentionRuns">0</strong><small>失败、阻塞或歧义</small></div>
+        <div class="model-mix"><div id="modelMixChart" class="model-mix-chart"><span><strong id="modelMixPercent">--</strong><small>主力模型</small></span></div><div><span>模型调用占比</span><strong id="modelMixTop">暂无调用</strong><div id="modelMixLegend" class="model-mix-legend"></div></div></div>
       </section>
 
       <section id="focusRun" class="focus-run" hidden>
@@ -55,21 +64,23 @@
 
       <section id="leaderboardSection" class="leaderboard-band">
         <div class="leaderboard-heading">
-          <div><span class="eyebrow">PERFORMANCE SELECTION</span><h1>历史表现选书榜</h1><p>按真实漏斗表现选书，不使用当天书库排序。综合 UV、首读/新增率、D14 回收与样本置信度；留存数据待接入，不参与当前评分。</p></div>
-          <div class="leaderboard-actions"><div id="windowControl" class="segmented"><button data-days="3">近 3 天</button><button class="active" data-days="7">近 7 天</button><button data-days="30">近 30 天</button></div><span id="leaderboardUpdated" class="updated-label">正在加载历史表现数据</span><button id="refreshLeaderboard" class="icon-button" title="刷新表现数据"><i data-lucide="refresh-cw"></i></button></div>
+          <div><span id="leaderboardEyebrow" class="eyebrow">CONTENT DASHBOARD</span><h1 id="leaderboardTitle">新推广表现选书</h1><p id="leaderboardDescription">用中台全书库的真实业务指标筛选新书，不混入历史投放 Code 数据。</p></div>
+          <div class="leaderboard-actions"><div id="leaderboardSource" class="segmented source-control"><button class="active" data-source="catalog">新推广选书</button><button data-source="history">投放复盘</button></div><div id="catalogFilters" class="catalog-filters"><span class="fixed-filter">novelflow</span><select data-catalog-filter="language" aria-label="语言"><option value="EN">英语</option><option value="ES">西语</option></select><select data-catalog-filter="complete" aria-label="完结状态"><option value="已完结">已完结</option><option value="连载中">连载中</option></select><select data-catalog-filter="status" aria-label="书籍状态"><option value="上架">上架</option><option value="下架">下架</option></select><select data-catalog-filter="length" aria-label="是否短篇"><option value="all">全部篇幅</option><option value="short">短篇书（后台：是）</option><option value="long">常规长篇书（后台：否）</option></select><select data-catalog-filter="genre" aria-label="题材"><option value="all">全部题材</option><option value="werewolf">Werewolf</option><option value="ceo">CEO</option><option value="mafia">Mafia</option><option value="vampire">Vampire</option></select></div><div id="catalogWindowControl" class="segmented"><button data-days="7">近 7 天</button><button class="active" data-days="30">近 30 天</button><button data-days="90">近 90 天</button></div><select id="catalogSort" class="catalog-sort" aria-label="排序指标"><option value="baseReadUnt">阅读 UV</option><option value="firstReadUntRate">首读率</option><option value="read10wRate">10 万字留存</option><option value="read20wRate">20 万字留存</option><option value="ttProfit">利润</option></select><div id="windowControl" class="segmented" hidden><button data-days="3">近 3 天</button><button class="active" data-days="7">近 7 天</button><button data-days="30">近 30 天</button></div><span id="leaderboardUpdated" class="updated-label">正在加载中台业务数据</span><button id="refreshLeaderboard" class="icon-button" title="刷新榜单"><i data-lucide="refresh-cw"></i></button></div>
         </div>
         <div id="leaderboard" class="leaderboard-grid" aria-live="polite"></div>
+        <div id="leaderboardPager" class="leaderboard-pager" hidden><span id="leaderboardCount">第 1/1 页 · 0 本</span><div><button id="previousBooks" class="secondary-command" type="button"><i data-lucide="chevron-left"></i>上一页</button><button id="nextBooks" class="secondary-command" type="button">下一页 50 本<i data-lucide="chevron-right"></i></button></div></div>
+        <div id="batchBookBar" class="batch-book-bar" hidden><span id="batchBookCount">已选 0 本</span><small>可继续筛选或逐本进入智能策划</small><button id="clearBookSelection" class="icon-button" type="button" title="清除选择"><i data-lucide="x"></i></button></div>
         <div id="leaderboardEmpty" class="leaderboard-empty" hidden><i data-lucide="cloud-off"></i><strong>今日榜单暂不可用</strong><span>任务与已有素材不受影响，可稍后刷新。</span></div>
       </section>
 
-      <section class="control-band">
+      <section id="controlBand" class="control-band">
         <div><span class="eyebrow">PRODUCTION CONTROL</span><h1>生产总控</h1><p id="viewSubtitle">所有小说的素材、进度与归因表现</p></div>
         <div class="control-actions"><label class="search-field"><i data-lucide="search"></i><input id="runSearch" type="search" placeholder="搜索书名 / SKU / Code"></label><div class="segmented" id="densityControl"><button class="active" data-density="comfortable" title="舒适视图"><i data-lucide="rows-3"></i></button><button data-density="compact" title="紧凑视图"><i data-lucide="list"></i></button></div></div>
       </section>
 
       <section class="operations-layout">
         <div class="run-list-panel">
-          <div class="run-list-head"><span>书籍与任务</span><span>节点</span><span>追踪</span><span>状态</span></div>
+          <div id="runListHead" class="run-list-head"><span>书籍与任务</span><span>节点</span><span>追踪</span><span>状态</span></div>
           <div id="runList" class="run-list"></div>
           <div id="emptyRuns" class="empty-state" hidden><i data-lucide="library-big"></i><strong>还没有生产任务</strong></div>
         </div>
@@ -79,16 +90,27 @@
   <dialog id="runDialog" class="run-dialog">
     <form id="runForm">
       <header><div><span class="dialog-kicker">NEW AUTOMATION</span><h2>创建智能生产任务</h2></div><button class="icon-button" type="button" id="closeRunDialog" title="关闭"><i data-lucide="x"></i></button></header>
-      <div class="dialog-body"><label>小说英文全名<input id="manualTitle" name="title" required maxlength="200" autocomplete="off" placeholder="例如 The Lycan King's Treasured Luna"></label><label>SKU <small>可选，留空将自动核验</small><input id="manualSku" name="sku" maxlength="100" autocomplete="off" placeholder="Book SKU"></label><div class="authorization-row"><i data-lucide="wand-sparkles"></i><div><strong>智能一键生产</strong><span>自动核验书籍、分配 Code 与短链、生成双语文案、视频提示词和海报提示词；Facebook 始终保留手动发布。</span></div></div><p id="runFormError" class="form-error" aria-live="polite"></p></div>
-      <footer><button id="submitRun" class="primary-command" type="submit"><i data-lucide="zap"></i><span>立即智能生成</span></button></footer>
+      <div class="dialog-body"><label>小说英文全名<input id="manualTitle" name="title" required maxlength="200" autocomplete="off" placeholder="例如 The Lycan King's Treasured Luna"></label><label>SKU <small>可选，留空将自动核验</small><input id="manualSku" name="sku" maxlength="100" autocomplete="off" placeholder="Book SKU"></label><div class="creative-profile"><label>文案风格<select id="creativeStyle"><option value="system_best">系统最优推荐</option><option value="revenge_comeback">复仇反杀</option><option value="forbidden_tension">禁忌拉扯</option><option value="dark_redemption">暗黑救赎</option></select></label><label>CTA 口吻<select id="ctaStyle"><option value="story_cliffhanger">系统最优推荐</option><option value="identity_reveal">身份反转</option><option value="romantic_tension">暧昧拉扯</option><option value="revenge_payoff">反击爽点</option></select></label><label>视频剧情<select id="videoStyle"><option value="five_beat">系统最优推荐</option><option value="reversal">强反转</option><option value="slow_burn">慢热张力</option><option value="revenge">复仇兑现</option></select></label><label>海报方向<select id="posterStyle"><option value="system_best">系统最优推荐</option><option value="luminous_cinema">电影氛围</option><option value="editorial_romance">时尚爱情</option></select></label></div><aside id="creativeProfilePreview" class="creative-profile-preview" aria-live="polite"></aside><div class="authorization-row"><i data-lucide="wand-sparkles"></i><div><strong>所选 AI 将基于章节证据创作</strong><span>所选方向只决定表达重点；原文事实优先。一键生产会自动推进已授权素材。</span></div></div><p id="runFormError" class="form-error" aria-live="polite"></p></div>
+      <footer><label class="model-choice-row">创意模型<span class="model-select-control"><select id="modelChoice"><option value="hy3">HY3（默认，实测最快）</option><option value="deepseek">DeepSeek V4 Pro（深度）</option><option value="seed-2.1-turbo">Seed 2.1 Turbo（备用）</option><option value="qwen3.7-max">Qwen 3.7 Max（深度）</option><option value="minimax-m2.7">MiniMax M2.7（备用）</option><option value="kimi-k2.7-code">Kimi K2.7 Code（备用）</option></select><span class="selected-model-badge" data-model-select="modelChoice"></span></span></label><button id="submitRun" class="primary-command" type="submit"><i data-lucide="zap"></i><span>立即智能生成</span></button></footer>
     </form>
   </dialog>
+  <dialog id="creativePlanDialog" class="run-dialog creative-plan-dialog">
+      <header><div><span class="dialog-kicker">AI CREATIVE PLAN</span><h2>先策划，再生产</h2></div><button class="icon-button" type="button" id="closeCreativePlan" title="关闭"><i data-lucide="x"></i></button></header>
+    <form id="creativePlanForm"><div class="dialog-body" id="creativePlanInput"><label>小说英文全名<input id="planTitle" required maxlength="200" autocomplete="off" placeholder="例如 The Lycan King's Treasured Luna"></label><label>SKU <small>可选，留空将自动核验</small><input id="planSku" maxlength="100" autocomplete="off" placeholder="Book SKU"></label><div class="plan-note"><i data-lucide="brain-circuit"></i><span>所选 AI 会读取全书章节结构，并抽取开篇至后段的关键章节证据，先给出可调整的文案、CTA、视频和海报策略。此步不会创建 Code、短链或付费素材。</span></div><p id="creativePlanError" class="form-error" aria-live="polite"></p></div><footer><button id="submitCreativePlan" class="primary-command" type="submit"><i data-lucide="brain-circuit"></i><span>分析并给出策略</span></button></footer></form>
+    <div id="creativePlanLoading" class="creative-plan-loading" hidden><i data-lucide="loader-circle"></i><strong>AI 正在分析故事证据</strong><span>正在梳理全书结构与关键章节，不会创建任何推广资产</span></div>
+    <section id="creativePlanResult" class="creative-plan-result" hidden></section>
+  </dialog>
+  <dialog id="planQueueDialog" class="run-dialog plan-queue-dialog"><header><div><span class="dialog-kicker">AI CREATIVE QUEUE</span><h2>AI 策划任务</h2></div><button id="closePlanQueue" class="icon-button" type="button" title="关闭"><i data-lucide="x"></i></button></header><div class="dialog-body"><p class="plan-queue-intro">后台策划不会占用当前操作。点开任意一本查看模型结论、证据和下一步生产建议。</p><div id="planQueueList" class="plan-queue-list"></div></div></dialog>
   <dialog id="imageViewer" class="image-viewer"><header><strong id="imageViewerTitle">海报预览</strong><button id="closeImageViewer" class="icon-button" type="button" title="关闭"><i data-lucide="x"></i></button></header><img id="imageViewerImage" alt="推广海报预览"></dialog>
+  <dialog id="confirmationDialog" class="run-dialog confirmation-dialog"><header><div><span class="dialog-kicker">CONFIRM GENERATION</span><h2 id="confirmationTitle">确认操作</h2></div><button id="closeConfirmation" class="icon-button" type="button" title="关闭"><i data-lucide="x"></i></button></header><div class="dialog-body"><p id="confirmationDescription" class="confirmation-description"></p></div><footer><button id="confirmAction" class="primary-command" type="button">确认</button></footer></dialog>
+  <dialog id="weeklyReportDialog" class="run-dialog weekly-report-dialog"><header><div><span class="dialog-kicker">WEEKLY OPERATIONS BRIEF</span><h2>本周经营简报</h2></div><button id="closeWeeklyReport" class="icon-button" type="button" title="关闭"><i data-lucide="x"></i></button></header><div class="weekly-report-toolbar"><div id="reportWindowControl" class="segmented"><button class="active" data-report-days="7" type="button">近 7 天</button><button data-report-days="30" type="button">近 30 天</button></div><span id="weeklyReportPeriod" class="updated-label">正在读取真实数据</span></div><div id="weeklyReportContent" class="weekly-report-content" aria-live="polite"></div><footer><button id="copyWeeklyReport" class="secondary-command" type="button"><i data-lucide="copy"></i><span>复制汇报</span></button><button id="refreshWeeklyReport" class="primary-command" type="button"><i data-lucide="refresh-cw"></i><span>更新简报</span></button></footer></dialog>
   <div id="detailScrim" class="detail-scrim" aria-hidden="true"></div>
   <aside id="detailPanel" class="detail-panel" aria-hidden="true"><div class="detail-empty"><i data-lucide="panel-right-open"></i><span>选择一本书查看完整生产链路</span></div></aside>
+  <button id="deepseekAssistant" class="deepseek-assistant" type="button" title="打开鲸灵生产助手"><span class="assistant-avatar mascot" aria-hidden="true"><b class="mascot-hair"></b><b class="mascot-face"><i></i><i></i><em></em><em></em></b><b class="mascot-body"></b></span><span class="assistant-launch-copy"><strong>鲸灵</strong><small>正在观察生产</small></span><i data-lucide="chevron-up"></i></button>
+  <dialog id="assistantDialog" class="run-dialog assistant-dialog"><header><div><span class="dialog-kicker">NOVELFLOW COPILOT</span><h2>鲸灵 · 生产搭档</h2></div><button id="closeAssistant" class="icon-button" type="button" title="关闭"><i data-lucide="x"></i></button></header><div class="assistant-presence"><span class="assistant-avatar mascot" aria-hidden="true"><b class="mascot-hair"></b><b class="mascot-face"><i></i><i></i><em></em><em></em></b><b class="mascot-body"></b></span><div><strong>我先看当前状态，再给你下一步。</strong><span>只基于任务、素材、榜单和已保存的节点，不会自动发布。</span></div></div><div class="assistant-model"><label>分析模型<span class="model-select-control"><select id="assistantModelChoice"><option value="hy3">HY3（默认快速，已验证）</option><option value="qwen3.7-max">Qwen 3.7 Max（已验证）</option><option value="deepseek">DeepSeek V4 Pro（深度）</option><option value="seed-2.1-turbo">Seed 2.1 Turbo（备用）</option><option value="minimax-m2.7">MiniMax M2.7（备用）</option><option value="kimi-k2.7-code">Kimi K2.7 Code（备用）</option></select><span class="selected-model-badge" data-model-select="assistantModelChoice"></span></span></label></div><div class="assistant-commands"><button data-assistant-mode="operations" type="button"><i data-lucide="scan-search"></i>巡检并推进任务</button><button data-assistant-mode="wand-sparkles" type="button" hidden></button><button data-assistant-mode="assets" type="button"><i data-lucide="wand-sparkles"></i>找出该优化的素材</button><button data-assistant-mode="books" type="button"><i data-lucide="chart-no-axes-combined"></i>从 Top 200 选下一本</button></div><section id="assistantResult" class="assistant-result"><i data-lucide="waves"></i><strong>正在准备今日生产简报</strong><span>会读取真实任务、素材、模型状态和榜单，给出可直接执行的动作。</span></section><section id="copilotThread" class="copilot-thread" aria-live="polite"></section><form id="copilotForm" class="copilot-composer"><input id="copilotInput" maxlength="800" autocomplete="off" placeholder="问鲸灵：哪个任务该先处理？"><button type="submit" class="icon-button" title="发送"><i data-lucide="arrow-up"></i></button></form></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="/lucide.min.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
