@@ -342,7 +342,9 @@ async function findLink(sku, promoter, code, options = {}) {
 async function createLink(book, promoter, code, options = {}) {
   const discord = String(options.channel || '').toUpperCase() === 'DISCORD';
   const channelSource = discord ? env('NOVELFLOW_DISCORD_CHANNEL_SOURCE', 'Discord') : env('NOVELFLOW_CHANNEL_SOURCE', 'Facebook-grounp');
-  const channelNameId = discord ? env('NOVELFLOW_DISCORD_CHANNEL_NAME_ID') : env('NOVELFLOW_CHANNEL_NAME_ID', '699ef7b8194eb218db3c2270');
+  const channelNameId = discord
+    ? env('NOVELFLOW_DISCORD_CHANNEL_NAME_ID', env('NOVELFLOW_CHANNEL_NAME_ID', '699ef7b8194eb218db3c2270'))
+    : env('NOVELFLOW_CHANNEL_NAME_ID', '699ef7b8194eb218db3c2270');
   if (!channelNameId) throw new ProviderError('Discord attribution channel is not configured', { status: 503 });
   const suffix = discord ? 'Discord' : 'FB';
   const channelName = discord ? `NovelFlow_SocialMedia_Discord_${String(options.guildId || 'direct')}_${promoter}` : `NovelFlow_SocialMedia_Facebook-grounp_Facebook_${promoter}`;
@@ -358,7 +360,12 @@ async function createLink(book, promoter, code, options = {}) {
     customConfig: JSON.stringify({ appName: 'NovelFlow', languageConfig: { h5_read_more: 'Read More for Free', h5_open_app: 'Open APP' } })
   };
   const { body } = await adminRequest(LINK_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), timeoutMs: 40000 }, 'Short-link creation');
-  return { payload, id: typeof body.data === 'string' ? body.data : String(body.data?.id || '') };
+  const data = body?.data || {};
+  return {
+    payload,
+    id: typeof data === 'string' ? data : String(data.id || data.linkId || ''),
+    shortUrl: absoluteUrl(typeof data === 'object' ? (data.shortUrl || data.url || data.linkUrl || '') : '')
+  };
 }
 
 function extractModelText(body) {

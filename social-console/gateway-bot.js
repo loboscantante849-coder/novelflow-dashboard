@@ -102,13 +102,17 @@ function promoCode(index) {
 async function createDiscordPromo(book, index, message) {
   const promoter = String(process.env.NOVELFLOW_DISCORD_PROMOTER || process.env.NOVELFLOW_PROMOTER || '').trim();
   if (!promoter) return { status: 'not_created', reason: 'Discord promoter is not configured' };
-  if (!String(process.env.NOVELFLOW_DISCORD_CHANNEL_NAME_ID || '').trim()) return { status: 'not_created', reason: 'Discord attribution channel is not configured' };
+  const channelNameId = String(process.env.NOVELFLOW_DISCORD_CHANNEL_NAME_ID || process.env.NOVELFLOW_CHANNEL_NAME_ID || '699ef7b8194eb218db3c2270').trim();
+  if (!channelNameId) return { status: 'not_created', reason: 'Discord attribution channel is not configured' };
   const code = promoCode(index);
   try {
     await providers.createKeyword(book.bookSkuId, code, { channel: String(process.env.NOVELFLOW_DISCORD_CHANNEL_CODE || 'DISCORD') });
     const created = await providers.createLink(book, promoter, code, { channel: 'DISCORD', guildId: message.guildId || 'direct', languageCode: 'en' });
-    const link = await providers.findLink(book.bookSkuId, promoter, code, { channelSource: String(process.env.NOVELFLOW_DISCORD_CHANNEL_SOURCE || 'Discord') });
-    if (!link?.shortUrl) return { status: 'unverified', code, reason: 'Code created, but short link could not be verified' };
+    let link = created.shortUrl ? { shortUrl: created.shortUrl, id: created.id } : null;
+    if (!link && created.id) {
+      try { link = await providers.findLink(book.bookSkuId, promoter, code, { channelSource: String(process.env.NOVELFLOW_DISCORD_CHANNEL_SOURCE || 'Discord') }); } catch {}
+    }
+    if (!link?.shortUrl) return { status: 'unverified', code, reason: 'Code created, but short link could not be verified', linkId: created.id };
     return { status: 'ready', code, shortUrl: link.shortUrl, linkId: String(link.id || created.id || '') };
   } catch (error) {
     return { status: 'failed', code, reason: String(error?.message || 'Attribution creation failed').slice(0, 180) };
