@@ -56,7 +56,7 @@ async function search(message, query) {
 
 client.once(Events.ClientReady, (ready) => {
   console.log(`NovelFlow Discord Gateway ready as ${ready.user.tag}`);
-  ready.user.setPresence({ activities: [{ name: 'NovelFlow book search', type: 3 }], status: 'online' }).catch(() => {});
+  ready.user.setPresence({ activities: [{ name: 'NovelFlow book search', type: 3 }], status: 'online' });
 });
 
 client.on(Events.MessageCreate, async (message) => {

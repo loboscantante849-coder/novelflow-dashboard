@@ -2,9 +2,11 @@ const { getRedis } = require('./_lib/store');
 const { matchBooks } = require('./_lib/book-matcher');
 
 function authorized(req) {
-  const expected = String(process.env.DISCORD_GATEWAY_SECRET || process.env.CRON_SECRET || '');
+  const expected = [process.env.DISCORD_GATEWAY_SECRET, process.env.CRON_SECRET]
+    .map((value) => String(value || ''))
+    .filter(Boolean);
   const supplied = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  return Boolean(expected) && supplied.length === expected.length && require('crypto').timingSafeEqual(Buffer.from(supplied), Buffer.from(expected));
+  return expected.some((value) => supplied.length === value.length && require('crypto').timingSafeEqual(Buffer.from(supplied), Buffer.from(value)));
 }
 
 module.exports = async (req, res) => {
