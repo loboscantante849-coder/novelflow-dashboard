@@ -129,6 +129,7 @@ function recommendationScore(book, reference) {
 function resultView(book, confidence, reasons, matchedTerms) {
   return {
     bookSkuId: book.bookSkuId, title: book.title, author: book.author || '', cover: book.cover || '', category: book.category || '',
+    description: String(book.description || '').replace(/\s+/g, ' ').trim().slice(0, 700),
     tags: book.tags || [], confidence: Math.max(0, Math.min(100, Math.round(Number(confidence) || 0))),
     confidenceLabel: confidence >= 85 ? 'high' : confidence >= 65 ? 'medium' : 'low',
     reasons: (reasons || []).map(String).filter(Boolean).slice(0, 3), matchedTerms: (matchedTerms || []).map(String).filter(Boolean).slice(0, 8),

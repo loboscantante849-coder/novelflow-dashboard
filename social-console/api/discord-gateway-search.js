@@ -2,7 +2,7 @@ const { getRedis } = require('./_lib/store');
 const { matchBooks } = require('./_lib/book-matcher');
 
 function authorized(req) {
-  const expected = [process.env.DISCORD_GATEWAY_SECRET_V2, process.env.DISCORD_GATEWAY_SECRET, process.env.CRON_SECRET]
+  const expected = [process.env.DISCORD_GATEWAY_SECRET_V2, process.env.DISCORD_GATEWAY_SECRET, process.env.DISCORD_VISION_SECRET, process.env.CRON_SECRET]
     .map((value) => String(value || ''))
     .filter(Boolean);
   const supplied = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
