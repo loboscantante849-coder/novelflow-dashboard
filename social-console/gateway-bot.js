@@ -45,7 +45,12 @@ async function search(message, query) {
   try { pending = await message.reply({ content: 'Searching NovelFlow catalog and rankings...' }); }
   catch (error) {
     console.error('Discord reply permission error:', String(error?.message || error));
-    return;
+    try {
+      pending = await message.author.send({ content: `I received your book request in **#${message.channel?.name || 'the channel'}**, but I cannot post there. I will send the result here instead.\n\nSearching NovelFlow catalog and rankings...` });
+    } catch (dmError) {
+      console.error('Discord DM permission error:', String(dmError?.message || dmError));
+      return;
+    }
   }
   try {
     const response = await fetch(searchUrl, {
