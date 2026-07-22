@@ -5238,7 +5238,7 @@
             }, 5000);
 
             try {
-                const response = await fetch('/api/confirm', {
+                const response = await authFetch('/api/confirm', {
                     timeout: 30000,
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -5259,7 +5259,10 @@
                 try { result = await response.json(); } catch(e) { result = {}; }
                 if (!response.ok) {
                     const errMsg = result.error || ('Server error: ' + response.status);
-                    throw new Error(errMsg);
+                    const error = new Error(errMsg);
+                    error.httpStatus = response.status;
+                    error.responseBody = result;
+                    throw error;
                 }
 
                 // Check: code must exist (link is optional - fallback to book page URL)
@@ -5299,7 +5302,7 @@
                     var errTitle = document.getElementById('modalErrorTitle');
                     var errText = document.getElementById('modalErrorText');
                     var errMsg = result.message || result.error || 'API did not return valid data.';
-                    if (errTitle) errTitle.textContent = 'Link Creation Failed';
+                    if (errTitle) errTitle.textContent = getConfirmErrorTitle(result, response.status);
                     if (errText) errText.textContent = errMsg;
                     btn.disabled = false;
                     btn.textContent = 'Start Earning';
@@ -5312,12 +5315,20 @@
                 if (modalError) modalError.style.display = 'block';
                 var errTitle = document.getElementById('modalErrorTitle');
                 var errText = document.getElementById('modalErrorText');
-                if (errTitle) errTitle.textContent = 'Connection Error';
+                if (errTitle) errTitle.textContent = getConfirmErrorTitle(e.responseBody || {}, e.httpStatus || 0, true);
                 if (errText) errText.textContent = e.message || 'Failed to connect to server';
                 btn.disabled = false;
                 btn.textContent = 'Start Earning';
                 showToast('Failed: ' + e.message, 'error');
             }
+        }
+
+        function getConfirmErrorTitle(result, status, networkFailure) {
+            if (status === 401 || result?.code === 'AUTH_REQUIRED') return 'Session Expired';
+            if (status === 429 || result?.code === 'RATE_LIMITED' || result?.code === 'DAILY_LIMIT') return 'Too Many Requests';
+            if (status >= 500) return 'Service Temporarily Unavailable';
+            if (networkFailure) return 'Network Error';
+            return 'Link Creation Failed';
         }
 
         // ========== Success Page ==========

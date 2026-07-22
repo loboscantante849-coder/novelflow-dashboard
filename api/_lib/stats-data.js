@@ -9,6 +9,7 @@
  * Vercel Serverless instance; cold starts always re-fetch.
  */
 const { Redis } = require('@upstash/redis');
+const { normalizeRedisKeys } = require('./redis-values');
 
 const AD_ID_DETAILS_URL =
   'https://raw.githubusercontent.com/loboscantante849-coder/novelflow-dashboard/main/ad_id_details.json';
@@ -278,8 +279,7 @@ async function loadSubmissions(redis, username, admin, debugLog) {
       }
       debugLog?.push(`admin: ${subKeys.length} keys from nf_subs`);
     } else {
-      subKeys = await redis.smembers(`nf_user_subs:${username.toLowerCase()}`);
-      if (!Array.isArray(subKeys)) subKeys = [];
+      subKeys = normalizeRedisKeys(await redis.smembers(`nf_user_subs:${username.toLowerCase()}`));
       debugLog?.push(`user ${username}: ${subKeys.length} keys from nf_user_subs set`);
     }
 
