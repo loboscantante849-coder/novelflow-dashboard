@@ -76,7 +76,7 @@ module.exports = async (req, res) => {
     const data = await response.json();
     const rawBooks = data?.data?.data ?? data?.data ?? data?.items ?? [];
     const books = Array.isArray(rawBooks) ? rawBooks : (rawBooks ? [rawBooks] : []);
-    const book = books[0];
+    const book = books.find(item => String(item?.bookId || item?.id || '') === String(bookId));
 
     if (!book || typeof book !== 'object') {
       return res.status(404).json({ error: 'Book not found', code: 'NOT_FOUND' });

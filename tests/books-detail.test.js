@@ -45,3 +45,22 @@ test('book detail returns 404 for an empty bookstore response', async () => {
     global.fetch = originalFetch;
   }
 });
+
+test('book detail rejects an unrelated first result when the upstream ignores bookId', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => ({ data: { data: [{ bookId: 'different-book', title: 'Wrong Title' }] } }),
+  });
+
+  try {
+    const res = await invoke(detail, {
+      method: 'GET',
+      query: { bookId: 'requested-book', lang: 'en' },
+    });
+    assert.equal(res.statusCode, 404);
+    assert.equal(res.body.code, 'NOT_FOUND');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
