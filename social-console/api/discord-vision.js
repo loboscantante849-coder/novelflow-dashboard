@@ -7,14 +7,10 @@ function authorized(req) {
   return Boolean(expected) && supplied.length === expected.length && crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(expected));
 }
 
-async function downloadDiscordImage(imageUrl) {
-  const response = await fetch(imageUrl, { redirect: 'follow' });
-  if (!response.ok) throw new Error(`Unable to download Discord image (HTTP ${response.status})`);
-  const contentType = String(response.headers.get('content-type') || '').split(';')[0].toLowerCase();
-  if (!contentType.startsWith('image/')) throw new Error('Discord attachment is not an image');
-  const bytes = Buffer.from(await response.arrayBuffer());
-  if (!bytes.length || bytes.length > 8 * 1024 * 1024) throw new Error('Discord image must be between 1 byte and 8 MB');
-  return `data:${contentType};base64,${bytes.toString('base64')}`;
+function seedReachableDiscordUrl(imageUrl) {
+  const parsed = new URL(imageUrl);
+  if (/^cdn\.discordapp\.com$/i.test(parsed.hostname)) parsed.hostname = 'media.discordapp.net';
+  return parsed.toString();
 }
 
 module.exports = async (req, res) => {
@@ -26,10 +22,9 @@ module.exports = async (req, res) => {
     if (!/^https:$/.test(parsed.protocol) || !/(?:discordapp\.com|discordapp\.net)$/i.test(parsed.hostname)) throw new Error('Only Discord image attachments are supported');
   } catch (error) { return res.status(400).json({ error: String(error.message || error) }); }
   try {
-    // Seed's URL fetch can time out against Discord's CDN. Fetching the approved
-    // attachment here keeps the provider request self-contained and bounded.
-    const imageDataUrl = await downloadDiscordImage(imageUrl);
-    const vision = await analyzeScreenshotWithSeed(imageDataUrl);
+    // Discord's media host is optimized for image delivery; Seed's URL fetch
+    // can time out against the raw CDN hostname.
+    const vision = await analyzeScreenshotWithSeed(seedReachableDiscordUrl(imageUrl));
     return res.status(200).json({ vision });
   } catch (error) {
     console.error('[social/discord-vision]', String(error?.message || error));
