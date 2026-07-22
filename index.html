@@ -1113,6 +1113,69 @@
         }
         .vip-mini-btn:disabled { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.3); cursor: not-allowed; }
 
+        /* Invite code */
+        .equity-code-panel {
+            margin-top: 10px; padding: 14px; background: white;
+            border: 1px solid var(--hairline); border-radius: 8px;
+        }
+        .equity-code-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+        .equity-code-title { font-size: 14px; font-weight: 700; color: var(--ink); }
+        .equity-code-sub { margin-top: 2px; font-size: 11px; color: var(--ink-mute); }
+        .equity-code-terms { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+        .equity-code-term {
+            padding: 3px 7px; border-radius: 999px; background: var(--canvas-soft);
+            color: var(--ink-secondary); font-size: 10px; white-space: nowrap;
+        }
+        .equity-code-body { margin-top: 12px; }
+        .equity-search-row { display: flex; gap: 6px; }
+        .equity-search-input {
+            width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--hairline);
+            border-radius: 7px; background: white; color: var(--ink); font: inherit; font-size: 12px;
+        }
+        .equity-search-input:focus { outline: 2px solid rgba(255,107,157,0.18); border-color: var(--ruby); }
+        .equity-search-results { margin-top: 7px; border-top: 1px solid var(--hairline); }
+        .equity-book-option {
+            width: 100%; display: flex; align-items: center; gap: 9px; padding: 8px 2px;
+            border: 0; border-bottom: 1px solid var(--hairline); background: transparent;
+            color: var(--ink); text-align: left; cursor: pointer; font-family: inherit;
+        }
+        .equity-book-option:hover, .equity-book-option.selected { background: var(--canvas-soft); }
+        .equity-book-cover { width: 32px; height: 44px; border-radius: 4px; object-fit: cover; background: var(--canvas-soft); flex-shrink: 0; }
+        .equity-book-info { flex: 1; min-width: 0; }
+        .equity-book-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 600; }
+        .equity-book-author { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; font-size: 10px; color: var(--ink-mute); }
+        .equity-selected-book { display: flex; align-items: center; gap: 9px; padding: 9px; background: var(--canvas-soft); border-radius: 7px; }
+        .equity-action-btn {
+            width: 100%; min-height: 36px; margin-top: 9px; padding: 8px 12px; border: 0;
+            border-radius: 7px; background: var(--primary); color: var(--on-primary);
+            font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+        }
+        .equity-action-btn:hover { background: var(--primary-deep); }
+        .equity-action-btn:disabled { background: var(--canvas-soft); color: var(--ink-mute); cursor: not-allowed; }
+        .equity-code-value-row { display: flex; align-items: center; gap: 8px; }
+        .equity-code-value {
+            flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--hairline);
+            border-radius: 7px; font-size: 20px; font-weight: 800; color: var(--primary-deep);
+            font-feature-settings: "tnum"; letter-spacing: 0;
+        }
+        .equity-copy-btn {
+            width: 38px; height: 38px; border: 1px solid var(--hairline); border-radius: 7px;
+            background: white; color: var(--primary); font-size: 16px; cursor: pointer; flex-shrink: 0;
+        }
+        .equity-copy-btn:hover { border-color: var(--primary); background: var(--canvas-soft); }
+        .equity-code-meta { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 12px; margin-top: 10px; font-size: 11px; }
+        .equity-code-meta dt { color: var(--ink-mute); }
+        .equity-code-meta dd { margin: 0; color: var(--ink); text-align: right; overflow-wrap: anywhere; }
+        .equity-status { margin-top: 9px; padding: 8px 10px; border-radius: 7px; font-size: 11px; line-height: 1.4; }
+        .equity-status.active { background: rgba(13,148,96,0.08); color: var(--success); }
+        .equity-status.expired, .equity-status.failed { background: rgba(234,34,97,0.07); color: var(--danger); }
+        .equity-status.processing { background: var(--canvas-soft); color: var(--ink-secondary); }
+        .equity-empty, .equity-loading { padding: 6px 0; color: var(--ink-mute); font-size: 11px; }
+        @media (max-width: 430px) {
+            .equity-code-head { flex-direction: column; }
+            .equity-code-terms { justify-content: flex-start; }
+        }
+
         .milestone-overlay { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); animation: fadeIn 0.3s; }
         .milestone-popup { background: linear-gradient(135deg, #1a1a2e, #2d1b69); border-radius: 20px; padding: 32px 24px; text-align: center; color: white; max-width: 280px; animation: milestonePop 0.5s ease; }
         @keyframes milestonePop { 0% { transform: scale(0.5); opacity: 0; } 50% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
@@ -3276,6 +3339,23 @@
                     <button class="vip-mini-btn" id="vipExchangeBtn" onclick="exchangeVIP()" disabled>Exchange</button>
                 </div>
 
+                <section class="equity-code-panel" aria-labelledby="equityCodeTitle">
+                    <div class="equity-code-head">
+                        <div>
+                            <div class="equity-code-title" id="equityCodeTitle">My Invite Code</div>
+                            <div class="equity-code-sub">One permanent code per account</div>
+                        </div>
+                        <div class="equity-code-terms" aria-label="Invite code terms">
+                            <span class="equity-code-term">Facebook</span>
+                            <span class="equity-code-term">1-Day VIP</span>
+                            <span class="equity-code-term">7 days</span>
+                        </div>
+                    </div>
+                    <div class="equity-code-body" id="equityCodeBody" aria-live="polite">
+                        <div class="equity-loading">Loading...</div>
+                    </div>
+                </section>
+
                 <!-- Bind ID (collapsed - kept functional but visually slim) -->
                 <div id="bindIdRow" style="display:none;margin-top:10px;background:var(--canvas-soft);border-radius:10px;padding:10px;">
                     <div style="font-size:11px;font-weight:600;color:var(--ink);margin-bottom:6px;">🔗 Bind NovelFlow ID <span style="font-weight:400;color:var(--ink-mute);">(required for VIP exchange)</span></div>
@@ -3559,6 +3639,9 @@
             document.querySelector(`.nav-item[data-tab="${tabName}"]`)?.classList.add('active');
             // Only show language switch on profile tab
             document.body.classList.toggle('profile-active', tabName === 'profile');
+            if (tabName === 'tasks' && typeof loadEquityCode === 'function') {
+                setTimeout(() => loadEquityCode(false), 0);
+            }
         }
         document.querySelectorAll('.nav-item').forEach(el => el.addEventListener('click', () => switchTab(el.dataset.tab)));
 
@@ -4709,6 +4792,227 @@
             }
         };
 
+        // ========== One-time invite code ==========
+        const EquityCodeState = {
+            record: null,
+            selectedBook: null,
+            results: [],
+            loading: false,
+            loadedUser: null,
+            searchTimer: null,
+            searchRequest: 0
+        };
+
+        function safeEquityCover(value) {
+            try {
+                const url = new URL(String(value || ''), window.location.origin);
+                return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : '';
+            } catch (_error) {
+                return '';
+            }
+        }
+
+        function formatEquityDate(value) {
+            const date = new Date(Number(value));
+            if (!Number.isFinite(date.getTime())) return 'Not set';
+            return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        }
+
+        function renderEquitySelectedBook(book) {
+            const cover = safeEquityCover(book && book.cover);
+            return '<div class="equity-selected-book">' +
+                (cover ? '<img class="equity-book-cover" src="' + escapeHtml(cover) + '" alt="">' : '') +
+                '<div class="equity-book-info"><div class="equity-book-title">' + escapeHtml(book && book.title) + '</div>' +
+                '<div class="equity-book-author">Selected book</div></div></div>';
+        }
+
+        function renderEquityCode() {
+            const body = document.getElementById('equityCodeBody');
+            if (!body) return;
+            if (!AppState.isLoggedIn || !AppState.user) {
+                body.innerHTML = '<button class="equity-action-btn" onclick="openAuthModal(\'tasks\')">Login to continue</button>';
+                return;
+            }
+            if (EquityCodeState.loading) {
+                body.innerHTML = '<div class="equity-loading">Loading invite code...</div>';
+                return;
+            }
+
+            const record = EquityCodeState.record;
+            if (record && (record.status === 'active' || record.status === 'expired')) {
+                const active = record.status === 'active';
+                const remaining = active && Number(record.endTime) > 0
+                    ? Math.max(0, Math.ceil((Number(record.endTime) - Date.now()) / 86400000)) : 0;
+                body.innerHTML = '<div class="equity-code-value-row">' +
+                    '<div class="equity-code-value">' + escapeHtml(record.code) + '</div>' +
+                    '<button class="equity-copy-btn" type="button" onclick="copyEquityCode()" title="Copy invite code">Copy</button></div>' +
+                    '<dl class="equity-code-meta">' +
+                    '<dt>Book</dt><dd>' + escapeHtml(record.bookTitle || record.bookId || 'Assigned') + '</dd>' +
+                    '<dt>Reward</dt><dd>' + escapeHtml(record.rewardName || '1-Day VIP') + '</dd>' +
+                    '<dt>Channel</dt><dd>' + escapeHtml(record.channel || 'Facebook') + '</dd>' +
+                    '<dt>Valid until</dt><dd>' + escapeHtml(formatEquityDate(record.endTime)) + '</dd></dl>' +
+                    (active
+                        ? '<div class="equity-status active">Active' + (record.endTime ? ' - ' + remaining + ' day' + (remaining === 1 ? '' : 's') + ' remaining' : '') + '</div>'
+                        : '<div class="equity-status expired">Expired. Contact an administrator to extend this code.</div>');
+                return;
+            }
+
+            if (record && record.status === 'processing') {
+                body.innerHTML = renderEquitySelectedBook({ title: record.bookTitle || record.bookId }) +
+                    '<div class="equity-status processing">Creating your invite code...</div>' +
+                    '<button class="equity-action-btn" disabled>Processing</button>';
+                return;
+            }
+
+            if (record && record.status === 'failed') {
+                body.innerHTML = renderEquitySelectedBook({ title: record.bookTitle || record.bookId }) +
+                    '<div class="equity-status failed">Creation did not finish. Retrying will reuse the same reserved code.</div>' +
+                    '<button class="equity-action-btn" onclick="generateEquityCode()">Retry</button>';
+                return;
+            }
+
+            const selected = EquityCodeState.selectedBook;
+            if (selected) {
+                body.innerHTML = renderEquitySelectedBook(selected) +
+                    '<button class="equity-action-btn" onclick="generateEquityCode()">Generate Invite Code</button>' +
+                    '<button class="equity-action-btn" style="background:transparent;color:var(--ink-mute);border:1px solid var(--hairline);" onclick="clearEquityBook()">Choose another book</button>';
+                return;
+            }
+
+            body.innerHTML = '<div class="equity-search-row">' +
+                '<input class="equity-search-input" id="equityBookSearch" type="search" maxlength="120" autocomplete="off" ' +
+                'placeholder="Search by book title" oninput="queueEquityBookSearch(this.value)"></div>' +
+                '<div class="equity-search-results" id="equitySearchResults"></div>';
+        }
+
+        async function loadEquityCode(force) {
+            if (!AppState.isLoggedIn || !AppState.user) {
+                EquityCodeState.record = null;
+                EquityCodeState.loadedUser = null;
+                EquityCodeState.loading = false;
+                renderEquityCode();
+                return;
+            }
+            const username = String(AppState.user.username || '').toLowerCase();
+            if (!force && EquityCodeState.loadedUser === username) {
+                renderEquityCode();
+                return;
+            }
+            EquityCodeState.loading = true;
+            EquityCodeState.loadedUser = username;
+            renderEquityCode();
+            try {
+                const response = await authFetch('/api/equity-code', { method: 'GET' });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to load invite code');
+                EquityCodeState.record = data.inviteCode || null;
+            } catch (error) {
+                EquityCodeState.loadedUser = null;
+                showToast(error.message || 'Unable to load invite code', 'error');
+            } finally {
+                EquityCodeState.loading = false;
+                renderEquityCode();
+            }
+        }
+
+        function queueEquityBookSearch(value) {
+            clearTimeout(EquityCodeState.searchTimer);
+            const keyword = String(value || '').trim();
+            const target = document.getElementById('equitySearchResults');
+            if (keyword.length < 2) {
+                EquityCodeState.results = [];
+                if (target) target.innerHTML = keyword ? '<div class="equity-empty">Enter at least 2 characters</div>' : '';
+                return;
+            }
+            if (target) target.innerHTML = '<div class="equity-loading">Searching...</div>';
+            EquityCodeState.searchTimer = setTimeout(() => searchEquityBooks(keyword), 350);
+        }
+
+        async function searchEquityBooks(keyword) {
+            const requestId = ++EquityCodeState.searchRequest;
+            const target = document.getElementById('equitySearchResults');
+            try {
+                const params = new URLSearchParams({ keyword, lang: AppState.currentLang || 'en', pageSize: '8' });
+                const response = await fetch('/api/books/search?' + params);
+                const data = await response.json();
+                if (requestId !== EquityCodeState.searchRequest) return;
+                if (!response.ok) throw new Error(data.error || 'Search failed');
+                EquityCodeState.results = Array.isArray(data.data) ? data.data.filter(book => book && book.bookId && book.title).slice(0, 8) : [];
+                if (!target) return;
+                if (!EquityCodeState.results.length) {
+                    target.innerHTML = '<div class="equity-empty">No matching books</div>';
+                    return;
+                }
+                target.innerHTML = EquityCodeState.results.map((book, index) => {
+                    const cover = safeEquityCover(book.cover);
+                    return '<button class="equity-book-option" type="button" onclick="selectEquityBook(' + index + ')">' +
+                        (cover ? '<img class="equity-book-cover" src="' + escapeHtml(cover) + '" alt="">' : '') +
+                        '<span class="equity-book-info"><span class="equity-book-title">' + escapeHtml(book.title) + '</span>' +
+                        '<span class="equity-book-author">' + escapeHtml(book.author || book.languageCode || '') + '</span></span></button>';
+                }).join('');
+            } catch (error) {
+                if (requestId === EquityCodeState.searchRequest && target) {
+                    target.innerHTML = '<div class="equity-empty">Search unavailable. Try again.</div>';
+                }
+            }
+        }
+
+        function selectEquityBook(index) {
+            const book = EquityCodeState.results[Number(index)];
+            if (!book) return;
+            EquityCodeState.selectedBook = book;
+            EquityCodeState.results = [];
+            renderEquityCode();
+        }
+
+        function clearEquityBook() {
+            EquityCodeState.selectedBook = null;
+            renderEquityCode();
+        }
+
+        async function generateEquityCode() {
+            const selected = EquityCodeState.selectedBook;
+            const record = EquityCodeState.record;
+            const bookId = selected && selected.bookId ? selected.bookId : record && record.bookId;
+            if (!bookId) return;
+            EquityCodeState.record = {
+                ...(record || {}),
+                status: 'processing',
+                bookId,
+                bookTitle: (selected && selected.title) || (record && record.bookTitle) || ''
+            };
+            renderEquityCode();
+            try {
+                const response = await authFetch('/api/equity-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bookId })
+                });
+                const data = await response.json();
+                if (data.inviteCode) EquityCodeState.record = data.inviteCode;
+                if (!response.ok) {
+                    if (data.code === 'CREATION_IN_PROGRESS') {
+                        setTimeout(() => loadEquityCode(true), 1200);
+                    }
+                    throw new Error(data.error || 'Unable to create invite code');
+                }
+                EquityCodeState.selectedBook = null;
+                showToast(data.existing ? 'Your invite code is ready' : 'Invite code created', 'success');
+            } catch (error) {
+                showToast(error.message || 'Unable to create invite code', 'error');
+            } finally {
+                renderEquityCode();
+            }
+        }
+
+        function copyEquityCode() {
+            const code = EquityCodeState.record && EquityCodeState.record.code;
+            if (!code) return;
+            navigator.clipboard.writeText(String(code))
+                .then(() => showToast('Invite code copied', 'success'))
+                .catch(() => showToast('Copy failed', 'error'));
+        }
+
         // ============================================================
         // ========== v2.5.0: Bonus Balance, Campaigns, Streak Prize ===
         // ============================================================
@@ -5103,6 +5407,7 @@
                     localStorage.setItem('novelflow_user', JSON.stringify(data.user));
                     localStorage.setItem('novelflow_last_user', data.user.username);
                     updateProfileUI();
+                    if (typeof loadEquityCode === 'function') loadEquityCode(true);
                     return true;
                 }
             } catch (e) {
@@ -5139,6 +5444,7 @@
                         claimAnonymousLinks();
                     }
                     updateProfileUI();
+                    if (typeof loadEquityCode === 'function') loadEquityCode(prevUser !== AppState.user.username);
                     if (window.__pendingBookId) {
                         const bk = window.__pendingBookId; window.__pendingBookId = null;
                         setTimeout(()=>{ try { _origOpenRecommendModal(bk); } catch(e){} }, 150);
@@ -5154,6 +5460,7 @@
                         loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI();
                         loadMyBooks();
                         loadUserStats(AppState.user.username);
+                        if (typeof loadEquityCode === 'function') loadEquityCode(true);
                         return;
                     }
                 }
@@ -5170,6 +5477,7 @@
                         AppState.isLoggedIn = true;
                         AppState.user = user;
                         updateProfileUI();
+                        if (typeof loadEquityCode === 'function') loadEquityCode(false);
                         return;
                     }
                 } catch (e2) {}
@@ -5178,6 +5486,7 @@
             AppState.isLoggedIn = false;
             AppState.user = null;
             updateProfileUI();
+            if (typeof loadEquityCode === 'function') loadEquityCode(false);
         }
 
         // Auth-aware fetch wrapper: auto-refreshes on 401
@@ -6591,6 +6900,13 @@ function renderMyBooks() {
             AppState.user = null;
             AppState.isLoggedIn = false;
             AppState.myBooks = [];
+            if (typeof EquityCodeState !== 'undefined') {
+                EquityCodeState.record = null;
+                EquityCodeState.selectedBook = null;
+                EquityCodeState.loadedUser = null;
+                EquityCodeState.loading = false;
+                renderEquityCode();
+            }
             // Reset checkin/points/missions to empty (per-user data preserved in localStorage)
             CheckinData.streak = 0; CheckinData.lastCheckin = null; CheckinData.history = [];
             updateProfileUI();
@@ -7412,6 +7728,7 @@ function renderMyBooks() {
             const tab = window.__authRedirectTab;
             window.__authRedirectTab = null;
             if (tab) switchTab(tab);
+            if (typeof loadEquityCode === 'function') loadEquityCode(true);
             if (window.__pendingBookId) {
                 const bk = window.__pendingBookId; window.__pendingBookId = null;
                 setTimeout(()=>{ try { _origOpenRecommendModal(bk); } catch(e){} }, 150);

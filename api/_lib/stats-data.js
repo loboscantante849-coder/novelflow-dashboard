@@ -383,6 +383,7 @@ function buildAdIdLookup(adData, usernameCanon, admin) {
         const s = new Set();
         (promoterEntry.links || []).forEach(a => s.add(String(a)));
         (promoterEntry.codes || []).forEach(a => s.add(String(a)));
+        (promoterEntry.invites || []).forEach(a => s.add(`invite:${String(a)}`));
         return s;
       })();
 
@@ -416,9 +417,12 @@ function buildAdIdLookup(adData, usernameCanon, admin) {
       }
     }
     byAdId[adId] = {
+      ad_id: entry.ad_id || (String(adId).startsWith('invite:') ? String(adId).slice(7) : adId),
+      media_source: entry.media_source || entry.channel || 'link',
       channel: entry.channel || 'link',
       username_canon: entry.username_canon || null,
       book_name: entry.book_name || null,
+      book_id: entry.book_id || null,
       pull_uv: +stats.pull_uv || 0,
       active_uv: +stats.active_uv || 0,
       new_uv: +stats.new_uv || 0,

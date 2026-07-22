@@ -28,6 +28,15 @@ test('user stats combine code and link attribution instead of choosing one', () 
   }
 });
 
+test('stats endpoints include source-qualified invite codes', () => {
+  for (const relativePath of STATS_ENDPOINTS) {
+    const source = fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
+    assert.match(source, /promoterEntry\.invites|pEntry\.invites/);
+    assert.match(source, /invite:/);
+    assert.match(source, /channel === 'invite'|isInvite/);
+  }
+});
+
 test('stats endpoints fail visibly and production responses omit debug details', () => {
   const perLink = fs.readFileSync(path.join(ROOT, 'api/per-link-stats.js'), 'utf8');
   const myStats = fs.readFileSync(path.join(ROOT, 'api/my-stats.js'), 'utf8');

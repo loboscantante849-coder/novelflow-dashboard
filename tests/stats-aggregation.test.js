@@ -3,9 +3,35 @@ const test = require('node:test');
 
 const {
   aggregateSubmissionStats,
+  buildAdIdLookup,
   buildLegacyAdIdLookup,
   mergeSubmissionRecords,
 } = require('../api/_lib/stats-data');
+
+test('keeps an invite code separate from the same numeric promotion code', () => {
+  const lookup = buildAdIdLookup({
+    by_promoter: {
+      alice: { links: [], codes: ['90031'], invites: ['90031'] },
+    },
+    ad_ids: {
+      '90031': {
+        ad_id: '90031', media_source: 'code', channel: 'code', username_canon: 'alice',
+        book_name: 'Code Book', stats: { pull_uv: 1 }, daily: [],
+      },
+      'invite:90031': {
+        ad_id: '90031', media_source: 'invite', channel: 'invite', username_canon: 'alice',
+        book_name: 'Invite Book', book_id: '64b8c91e0123456789abcdef',
+        stats: { pull_uv: 3 }, daily: [],
+      },
+    },
+  }, 'alice', false);
+
+  assert.equal(lookup.byAdId['90031'].pull_uv, 1);
+  assert.equal(lookup.byAdId['invite:90031'].pull_uv, 3);
+  assert.equal(lookup.byAdId['invite:90031'].ad_id, '90031');
+  assert.equal(lookup.byAdId['invite:90031'].channel, 'invite');
+  assert.equal(lookup.byAdId['invite:90031'].book_id, '64b8c91e0123456789abcdef');
+});
 
 const byAdId = {
   'link-10': {
