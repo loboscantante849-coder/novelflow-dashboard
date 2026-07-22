@@ -763,8 +763,8 @@ async function extractScreenshotText(imageUrl) {
   return { text: text.slice(0, 20000), language: String(result.language || ''), quality: String(result.quality || 'medium'), model: String(body.model || model) };
 }
 
-async function analyzeScreenshotWithSeed(imageUrl) {
-  const { apiKey, baseUrl, model } = copyModelConfig({ modelChoice: 'seed-2.1-turbo' });
+async function analyzeScreenshotWithSeed(imageUrl, modelChoice = 'seed-2.1-turbo') {
+  const { apiKey, baseUrl, model } = copyModelConfig({ modelChoice });
   const prompt = 'Inspect this novel screenshot. Return JSON only: {"text":"all readable story text","characters":["names"],"phrases":["2-4 rare exact phrases"],"plotClues":["specific clues"],"quality":"high|medium|low"}. Preserve spelling and do not invent any title, character, or plot fact not visible in the image.';
   const payload = {
     model,

@@ -36,7 +36,8 @@ module.exports = async (req, res) => {
   let staged;
   try {
     staged = await stageDiscordImage(imageUrl);
-    const vision = await analyzeScreenshotWithSeed(staged.url);
+    const model = String(process.env.DISCORD_VISION_MODEL || 'seed-2.1-turbo').trim();
+    const vision = await analyzeScreenshotWithSeed(staged.url, model);
     return res.status(200).json({ vision });
   } catch (error) {
     console.error('[social/discord-vision]', String(error?.message || error));
