@@ -27,6 +27,8 @@ const recentCandidates = new Map();
 let nextPromoCode = 55555;
 const execFileAsync = promisify(execFile);
 const OCR_SCRIPT = 'C:\\Users\\yuanju\\.codex\\skills\\screenshot-book-finder\\scripts\\runtime\\scripts\\ocr_images.ps1';
+const visionEndpoint = String(process.env.DISCORD_VISION_ENDPOINT || 'https://social.novelflow.top/api/discord-vision').trim();
+const visionSecret = String(process.env.DISCORD_VISION_SECRET || '').trim();
 
 if (!token) throw new Error('DISCORD_BOT_TOKEN is required');
 
@@ -47,7 +49,11 @@ async function screenshotText(message) {
   const attachment = [...message.attachments.values()].find((item) => String(item.contentType || '').startsWith('image/'));
   if (!attachment) return '';
   try {
-    const vision = await providers.analyzeScreenshotWithSeed(attachment.url);
+    const response = await fetch(visionEndpoint, { method: 'POST', headers: { Authorization: `Bearer ${visionSecret}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrl: attachment.url }) });
+    if (!response.ok) throw new Error(`Seed vision returned HTTP ${response.status}`);
+    const body = await response.json();
+    const vision = body.vision || {};
+    if (!vision.text) throw new Error('Seed vision returned no text');
     return [vision.text, ...vision.characters, ...vision.phrases, ...vision.plotClues].filter(Boolean).join('\n').slice(0, 12000);
   } catch (error) {
     console.warn('Seed screenshot analysis unavailable, using Windows OCR:', String(error?.message || error));
