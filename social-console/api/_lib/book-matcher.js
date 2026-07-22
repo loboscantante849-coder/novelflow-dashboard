@@ -1,6 +1,6 @@
 const providers = require('./providers');
 
-const CATALOG_VERSION = 'v1';
+const CATALOG_VERSION = 'v2';
 
 function normalize(value) {
   return String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();

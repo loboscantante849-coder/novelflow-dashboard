@@ -275,6 +275,7 @@ async function topBooks(limit = 200) {
       author: Array.isArray(item.authors) ? item.authors.map((author) => String(author.authorName || author)).filter(Boolean).join(', ') : String(item.author || ''),
       category: typeof category === 'object' ? String(category.categoryName || item.bookClassName || '') : String(category || item.bookClassName || ''),
       tags: (item.aiTags || item.tags || []).map((tag) => typeof tag === 'object' ? String(tag.tagName || tag.name || '') : String(tag)).filter(Boolean).slice(0, 3),
+      description: String(item.description || item.bookDescription || item.introduction || item.blurb || '').replace(/\s+/g, ' ').trim(),
       uv: Number(item.uv || item.bookUv || item.readCount || 0),
       words: Number(item.words || 0),
       chapterCount: Number(item.chapterCount || 0)
