@@ -763,18 +763,18 @@ async function extractScreenshotText(imageUrl) {
   return { text: text.slice(0, 20000), language: String(result.language || ''), quality: String(result.quality || 'medium'), model: String(body.model || model) };
 }
 
-async function analyzeScreenshotWithHy3(imageUrl) {
-  const { apiKey, baseUrl, model } = copyModelConfig({ modelChoice: 'hy3' });
+async function analyzeScreenshotWithSeed(imageUrl) {
+  const { apiKey, baseUrl, model } = copyModelConfig({ modelChoice: 'seed-2.1-turbo' });
   const prompt = 'Inspect this novel screenshot. Return JSON only: {"text":"all readable story text","characters":["names"],"phrases":["2-4 rare exact phrases"],"plotClues":["specific clues"],"quality":"high|medium|low"}. Preserve spelling and do not invent any title, character, or plot fact not visible in the image.';
   const payload = {
     model,
     messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: String(imageUrl || '') } }] }],
     response_format: { type: 'json_object' }, temperature: 0, max_tokens: 2500
   };
-  const body = await postJsonOverHttps(`${baseUrl}/chat/completions`, { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, payload, 'HY3 screenshot analysis', 60000);
+  const body = await postJsonOverHttps(`${baseUrl}/chat/completions`, { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, payload, 'Seed screenshot analysis', 60000);
   const result = parseModelJson(extractModelText(body), model);
   const text = String(result?.text || '').trim();
-  if (!text) throw new ProviderError('HY3 screenshot analysis returned no readable text', { status: 422 });
+  if (!text) throw new ProviderError('Seed screenshot analysis returned no readable text', { status: 422 });
   return {
     text: text.slice(0, 20000), characters: Array.isArray(result.characters) ? result.characters.map(String).slice(0, 8) : [],
     phrases: Array.isArray(result.phrases) ? result.phrases.map(String).slice(0, 6) : [],
@@ -961,4 +961,4 @@ async function reportRows(code, linkId, days = 90) {
 
 function sha(value) { return crypto.createHash('sha256').update(String(value)).digest('hex'); }
 
-module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, performanceBooks, contentDashboardBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, linkDetail, generateCreative, analyzeCreativePlan, analyzeOperations, analyzeBookCandidates, extractScreenshotText, analyzeScreenshotWithHy3, copilotReply, generateDistributionPlan, rewritePosterPrompt, findAcTask, submitAc, acResult, validateVideo, submitImage, imageResult, reportRows, sha, titleKey };
+module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, performanceBooks, contentDashboardBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, linkDetail, generateCreative, analyzeCreativePlan, analyzeOperations, analyzeBookCandidates, extractScreenshotText, analyzeScreenshotWithSeed, copilotReply, generateDistributionPlan, rewritePosterPrompt, findAcTask, submitAc, acResult, validateVideo, submitImage, imageResult, reportRows, sha, titleKey };
