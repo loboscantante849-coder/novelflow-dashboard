@@ -53,6 +53,14 @@ async function search(message, query) {
     }
   }
   try {
+    // The desktop Gateway has the approved NovelFlow credentials locally. Use
+    // that path first so a Vercel secret rotation cannot break Discord replies.
+    const redis = getRedis();
+    if (redis) {
+      const result = await matchBooks(redis, query, { language: 'EN' });
+      await pending.edit(resultEmbed(result));
+      return;
+    }
     const response = await fetch(searchUrl, {
       method: 'POST',
       headers: { Authorization: `Bearer ${gatewaySecret}`, 'Content-Type': 'application/json' },
