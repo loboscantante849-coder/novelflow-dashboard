@@ -1,6 +1,10 @@
 const { Client, Events, GatewayIntentBits, Partials } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const crypto = require('crypto');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
 
 function loadLocalEnv() {
   const file = path.resolve(__dirname, '.env.local');
@@ -21,6 +25,8 @@ const searchUrl = String(process.env.DISCORD_GATEWAY_SEARCH_URL || 'https://soci
 const allowedGuilds = new Set(String(process.env.NOVELFLOW_DISCORD_ALLOWED_GUILD_IDS || '').split(',').map((value) => value.trim()).filter(Boolean));
 const recentCandidates = new Map();
 let nextPromoCode = 55555;
+const execFileAsync = promisify(execFile);
+const OCR_SCRIPT = 'C:\\Users\\yuanju\\.codex\\skills\\screenshot-book-finder\\scripts\\runtime\\scripts\\ocr_images.ps1';
 
 if (!token) throw new Error('DISCORD_BOT_TOKEN is required');
 
@@ -35,6 +41,22 @@ function queryFromMessage(message) {
   if (message.mentions.has(client.user)) return text;
   const matched = /^(?:找书|查书|find\s+book)\s*[:：-]?\s*(.+)$/i.exec(text);
   return matched ? matched[1].trim() : '';
+}
+
+async function screenshotText(message) {
+  const attachment = [...message.attachments.values()].find((item) => String(item.contentType || '').startsWith('image/'));
+  if (!attachment) return '';
+  const response = await fetch(attachment.url);
+  if (!response.ok) throw new Error('Unable to download the screenshot');
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (bytes.length > 8 * 1024 * 1024) throw new Error('Screenshot is too large for OCR');
+  const extension = String(attachment.name || '').match(/\.(png|jpe?g|webp)$/i)?.[0] || '.png';
+  const file = path.join(os.tmpdir(), `novelflow-discord-${crypto.randomUUID()}${extension}`);
+  try {
+    fs.writeFileSync(file, bytes);
+    const { stdout } = await execFileAsync('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-File', OCR_SCRIPT, '-ImagePaths', file], { timeout: 120000, windowsHide: true, maxBuffer: 1024 * 1024 });
+    return String(stdout || '').replace(/\s+/g, ' ').trim().slice(0, 12000);
+  } finally { fs.rmSync(file, { force: true }); }
 }
 
 function resultEmbed(result) {
@@ -240,7 +262,16 @@ client.once(Events.ClientReady, (ready) => {
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
   if (message.guildId && allowedGuilds.size && !allowedGuilds.has(String(message.guildId))) return;
-  const query = queryFromMessage(message);
+  let query = queryFromMessage(message);
+  if (!query && message.mentions.has(client.user) && message.attachments.size) {
+    try {
+      query = await screenshotText(message);
+      if (!query) throw new Error('No readable text found');
+    } catch (error) {
+      await message.reply({ content: `I could not read that screenshot: ${String(error.message || error).slice(0, 180)}` }).catch(() => {});
+      return;
+    }
+  }
   if (!query) return;
   const ai = await aiRoute(query);
   const routedQuery = String(ai?.query || query).trim() || query;
