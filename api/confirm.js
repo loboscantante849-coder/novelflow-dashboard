@@ -15,6 +15,7 @@ const {
   getRedis, getClientIp, getAuthPayload, checkRateLimit,
   validateString, stripHtml, isAdminUser,
 } = require('./_lib/security');
+const { normalizeRedisKey } = require('./_lib/redis-values');
 const { Redis } = require('@upstash/redis');
 
 const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage';
@@ -108,7 +109,9 @@ async function findExistingForBook(redis, username, bookId) {
     // 1. Scan nf_user_subs set
     const members = await redis.smembers(`nf_user_subs:${u}`);
     if (members && members.length) {
-      for (const key of members) {
+      for (const rawKey of members) {
+        const key = normalizeRedisKey(rawKey);
+        if (!key) continue;
         if (key.startsWith('_pending_')) continue;
         const raw = await redis.hget('nf_subs', key);
         if (!raw) continue;

@@ -74,12 +74,13 @@ module.exports = async (req, res) => {
     }
     
     const data = await response.json();
-    
-    if (!data.data || data.data.length === 0) {
+    const rawBooks = data?.data?.data ?? data?.data ?? data?.items ?? [];
+    const books = Array.isArray(rawBooks) ? rawBooks : (rawBooks ? [rawBooks] : []);
+    const book = books[0];
+
+    if (!book || typeof book !== 'object') {
       return res.status(404).json({ error: 'Book not found', code: 'NOT_FOUND' });
     }
-    
-    const book = data.data[0];
     
     // Fallback logic: try description, intro, or synopsis
     const description = book.description || book.intro || book.synopsis || '';
