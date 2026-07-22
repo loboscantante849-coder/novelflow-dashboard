@@ -20,6 +20,7 @@ const token = String(process.env.DISCORD_BOT_TOKEN || '').trim();
 const gatewaySecret = String(process.env.DISCORD_GATEWAY_SECRET_V2 || process.env.DISCORD_GATEWAY_SECRET || process.env.CRON_SECRET || '').trim();
 const searchUrl = String(process.env.DISCORD_GATEWAY_SEARCH_URL || 'https://social.novelflow.top/api/discord-gateway-search').trim();
 const allowedGuilds = new Set(String(process.env.NOVELFLOW_DISCORD_ALLOWED_GUILD_IDS || '').split(',').map((value) => value.trim()).filter(Boolean));
+const recentCandidates = new Map();
 
 if (!token) throw new Error('DISCORD_BOT_TOKEN is required');
 
@@ -41,7 +42,8 @@ function resultEmbed(result) {
   if (!books.length) return { content: 'I could not find a ranked NovelFlow candidate. Send a longer excerpt or a clearer clue.' };
   const lines = books.slice(0, 3).map((book, index) => {
     const evidence = (book.reasons || []).slice(0, 2).join('; ') || 'Ranking and metadata evidence';
-    return `**${index + 1}. ${book.title}** - ${book.confidence}%\n${evidence}`;
+    const promo = book.promo?.status === 'ready' ? `\n**Code:** \`${book.promo.code}\`\n[Open book](${book.promo.shortUrl})` : '';
+    return `**${index + 1}. ${book.title}** - ${book.confidence}%\n${evidence}${promo}`;
   });
   return {
     embeds: [{
@@ -173,10 +175,14 @@ async function search(message, query) {
     const redis = getRedis();
     if (redis) {
       const result = await matchBooks(redis, query, { language: 'EN' });
+      recentCandidates.set(String(message.author.id), result.matches || result.recommendations || []);
+      if (result.matches?.[0]?.confidence >= 90) result.matches[0].promo = await createDiscordPromo(result.matches[0], 0, message);
       await pending.edit(resultEmbed(result));
       return;
     }
     const result = localSearch(query);
+    recentCandidates.set(String(message.author.id), result.matches || []);
+    if (result.matches?.[0]?.confidence >= 90) result.matches[0].promo = await createDiscordPromo(result.matches[0], 0, message);
     await pending.edit(resultEmbed(result));
     return;
     const response = await fetch(searchUrl, {
@@ -210,6 +216,19 @@ client.on(Events.MessageCreate, async (message) => {
   if (message.guildId && allowedGuilds.size && !allowedGuilds.has(String(message.guildId))) return;
   const query = queryFromMessage(message);
   if (!query) return;
+  if (/^(?:hi|hello|hey|你好|嗨)$/i.test(query)) {
+    await message.reply({ content: 'Hi. Send a title or excerpt to find a book, say `recommend today top 5`, or reply `1` after a result to create that book\'s code and link.' }).catch(() => {});
+    return;
+  }
+  if (/^[1-3]$/.test(query)) {
+    const selected = recentCandidates.get(String(message.author.id))?.[Number(query) - 1];
+    if (!selected) {
+      await message.reply({ content: 'I do not have a recent candidate list for you. Send a title or ask for `recommend today top 5` first.' }).catch(() => {});
+      return;
+    }
+    await createLinkForRequest(message, `${selected.title} link`);
+    return;
+  }
   if (recommendationIntent(query)) {
     await recommend(message);
     return;
