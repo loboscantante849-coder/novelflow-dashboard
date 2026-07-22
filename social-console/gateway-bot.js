@@ -1,4 +1,6 @@
 const { Client, Events, GatewayIntentBits, Partials } = require('discord.js');
+const { getRedis } = require('./api/_lib/store');
+const { matchBooks } = require('./api/_lib/book-matcher');
 
 const token = String(process.env.DISCORD_BOT_TOKEN || '').trim();
 const gatewaySecret = String(process.env.DISCORD_GATEWAY_SECRET_V2 || process.env.DISCORD_GATEWAY_SECRET || process.env.CRON_SECRET || '').trim();
@@ -50,7 +52,15 @@ async function search(message, query) {
     if (!response.ok) throw new Error(body.error || `Search failed with HTTP ${response.status}`);
     await pending.edit(resultEmbed(body.result));
   } catch (error) {
-    await pending.edit({ content: `I could not search the NovelFlow catalog: ${String(error.message || error).slice(0, 300)}` });
+    // The local worker remains useful while a production deployment is rolling.
+    try {
+      const redis = getRedis();
+      if (!redis) throw error;
+      const result = await matchBooks(redis, query, { language: 'EN' });
+      await pending.edit(resultEmbed(result));
+    } catch {
+      await pending.edit({ content: `I could not search the NovelFlow catalog: ${String(error.message || error).slice(0, 300)}` });
+    }
   }
 }
 
