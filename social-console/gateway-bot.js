@@ -112,6 +112,12 @@ async function createDiscordPromo(book, index, message) {
     const created = await providers.createLink(book, promoter, code, { channel: 'DISCORD', guildId: message.guildId || 'direct', languageCode: 'en' });
     let link = created.shortUrl ? { shortUrl: created.shortUrl, id: created.id } : null;
     if (!link && created.id) {
+      try {
+        const detail = await providers.linkDetail(created.id);
+        if (detail?.shortUrl) link = { shortUrl: detail.shortUrl, id: created.id };
+      } catch {}
+    }
+    if (!link) {
       try { link = await providers.findLink(book.bookSkuId, promoter, code, { channelSource: String(process.env.NOVELFLOW_DISCORD_CHANNEL_SOURCE || 'Discord') }); } catch {}
     }
     if (!link?.shortUrl) return { status: 'unverified', code, reason: 'Code created, but short link could not be verified', linkId: created.id };
