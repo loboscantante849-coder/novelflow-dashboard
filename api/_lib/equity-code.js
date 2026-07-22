@@ -2,6 +2,7 @@ const APPLICATION_ID = '642fc1ace309494378a774a6';
 const EQUITY_API_BASE = 'https://admin.novelflow.app/api/v1/welfaremanage/equitycode';
 const BOOK_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage/book';
 const VALIDITY_MS = 7 * 24 * 60 * 60 * 1000;
+const RECREATE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const FIRST_CODE = 90032;
 
 function canonicalUsername(value) {
@@ -64,6 +65,7 @@ function publicRecord(record, now = Date.now()) {
   }
   delete copy.lastError;
   delete copy.lockToken;
+  delete copy.history;
   return copy;
 }
 
@@ -88,6 +90,7 @@ module.exports = {
   EQUITY_API_BASE,
   BOOK_API_BASE,
   VALIDITY_MS,
+  RECREATE_COOLDOWN_MS,
   FIRST_CODE,
   canonicalUsername,
   safeParse,

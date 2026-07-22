@@ -1152,6 +1152,8 @@
         }
         .equity-action-btn:hover { background: var(--primary-deep); }
         .equity-action-btn:disabled { background: var(--canvas-soft); color: var(--ink-mute); cursor: not-allowed; }
+        .equity-action-btn.danger { background: transparent; color: var(--danger); border: 1px solid rgba(234,34,97,0.35); }
+        .equity-action-btn.danger:hover { background: rgba(234,34,97,0.06); }
         .equity-code-value-row { display: flex; align-items: center; gap: 8px; }
         .equity-code-value {
             flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--hairline);
@@ -1175,6 +1177,23 @@
             .equity-code-head { flex-direction: column; }
             .equity-code-terms { justify-content: flex-start; }
         }
+        .equity-confirm-overlay {
+            position: fixed; inset: 0; z-index: 12000; display: none; align-items: center;
+            justify-content: center; padding: 20px; background: rgba(15,23,42,0.55);
+        }
+        .equity-confirm-overlay.show { display: flex; }
+        .equity-confirm-dialog {
+            width: min(360px, 100%); padding: 18px; border-radius: 8px;
+            background: white; box-shadow: 0 18px 50px rgba(15,23,42,0.25);
+        }
+        .equity-confirm-title { font-size: 16px; font-weight: 700; color: var(--ink); }
+        .equity-confirm-message { margin-top: 8px; color: var(--ink-secondary); font-size: 12px; line-height: 1.55; }
+        .equity-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+        .equity-confirm-btn { min-width: 82px; padding: 8px 12px; border-radius: 7px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .equity-confirm-btn.cancel { border: 1px solid var(--hairline); background: white; color: var(--ink-secondary); }
+        .equity-confirm-btn.confirm { border: 0; background: var(--primary); color: var(--on-primary); }
+        .equity-confirm-btn.confirm.danger { background: var(--danger); color: white; }
+        .equity-confirm-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
         .milestone-overlay { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); animation: fadeIn 0.3s; }
         .milestone-popup { background: linear-gradient(135deg, #1a1a2e, #2d1b69); border-radius: 20px; padding: 32px 24px; text-align: center; color: white; max-width: 280px; animation: milestonePop 0.5s ease; }
@@ -4798,10 +4817,71 @@
             selectedBook: null,
             results: [],
             loading: false,
+            loadingMessage: '',
             loadedUser: null,
             searchTimer: null,
             searchRequest: 0
         };
+
+        let equityConfirmAction = null;
+
+        function ensureEquityConfirmModal() {
+            let modal = document.getElementById('equityConfirmModal');
+            if (modal) return modal;
+            modal = document.createElement('div');
+            modal.id = 'equityConfirmModal';
+            modal.className = 'equity-confirm-overlay';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            modal.setAttribute('aria-labelledby', 'equityConfirmTitle');
+            modal.innerHTML = '<div class="equity-confirm-dialog">' +
+                '<div class="equity-confirm-title" id="equityConfirmTitle"></div>' +
+                '<div class="equity-confirm-message" id="equityConfirmMessage"></div>' +
+                '<div class="equity-confirm-actions">' +
+                '<button class="equity-confirm-btn cancel" id="equityConfirmCancel" type="button" onclick="closeEquityConfirmation()">Cancel</button>' +
+                '<button class="equity-confirm-btn confirm" id="equityConfirmSubmit" type="button" onclick="submitEquityConfirmation()">Confirm</button>' +
+                '</div></div>';
+            modal.addEventListener('click', event => {
+                if (event.target === modal) closeEquityConfirmation();
+            });
+            document.body.appendChild(modal);
+            return modal;
+        }
+
+        function openEquityConfirmation({ title, message, confirmLabel, danger, action }) {
+            const modal = ensureEquityConfirmModal();
+            document.getElementById('equityConfirmTitle').textContent = title;
+            document.getElementById('equityConfirmMessage').textContent = message;
+            const submit = document.getElementById('equityConfirmSubmit');
+            submit.textContent = confirmLabel || 'Confirm';
+            submit.classList.toggle('danger', Boolean(danger));
+            submit.disabled = false;
+            document.getElementById('equityConfirmCancel').disabled = false;
+            equityConfirmAction = action;
+            modal.classList.add('show');
+        }
+
+        function closeEquityConfirmation() {
+            const modal = document.getElementById('equityConfirmModal');
+            if (modal) modal.classList.remove('show');
+            equityConfirmAction = null;
+        }
+
+        async function submitEquityConfirmation() {
+            if (typeof equityConfirmAction !== 'function') return;
+            const action = equityConfirmAction;
+            equityConfirmAction = null;
+            const submit = document.getElementById('equityConfirmSubmit');
+            const cancel = document.getElementById('equityConfirmCancel');
+            submit.disabled = true;
+            cancel.disabled = true;
+            try {
+                await action();
+                closeEquityConfirmation();
+            } catch (_error) {
+                closeEquityConfirmation();
+            }
+        }
 
         function safeEquityCover(value) {
             try {
@@ -4834,7 +4914,7 @@
                 return;
             }
             if (EquityCodeState.loading) {
-                body.innerHTML = '<div class="equity-loading">Loading invite code...</div>';
+                body.innerHTML = '<div class="equity-loading">' + escapeHtml(EquityCodeState.loadingMessage || 'Loading invite code...') + '</div>';
                 return;
             }
 
@@ -4853,7 +4933,18 @@
                     '<dt>Valid until</dt><dd>' + escapeHtml(formatEquityDate(record.endTime)) + '</dd></dl>' +
                     (active
                         ? '<div class="equity-status active">Active' + (record.endTime ? ' - ' + remaining + ' day' + (remaining === 1 ? '' : 's') + ' remaining' : '') + '</div>'
-                        : '<div class="equity-status expired">Expired. Contact an administrator to extend this code.</div>');
+                        : '<div class="equity-status expired">Expired. Contact an administrator to extend this code.</div>') +
+                    '<button class="equity-action-btn danger" onclick="requestEquityUnbind()">Unbind Invite Code</button>';
+                return;
+            }
+
+            if (record && record.status === 'unbound' && Number(record.cooldownUntil) > Date.now()) {
+                const cooldownDays = Math.max(1, Math.ceil((Number(record.cooldownUntil) - Date.now()) / 86400000));
+                body.innerHTML = '<div class="equity-code-value-row"><div class="equity-code-value">' + escapeHtml(record.code) + '</div></div>' +
+                    '<dl class="equity-code-meta"><dt>Previous book</dt><dd>' + escapeHtml(record.bookTitle || record.bookId || 'Assigned') + '</dd>' +
+                    '<dt>Can create again</dt><dd>' + escapeHtml(formatEquityDate(record.cooldownUntil)) + '</dd></dl>' +
+                    '<div class="equity-status processing">Unbound. New invite codes are locked for ' + cooldownDays + ' more day' + (cooldownDays === 1 ? '' : 's') + '.</div>' +
+                    '<button class="equity-action-btn" disabled>7-Day Cooldown</button>';
                 return;
             }
 
@@ -4867,14 +4958,14 @@
             if (record && record.status === 'failed') {
                 body.innerHTML = renderEquitySelectedBook({ title: record.bookTitle || record.bookId }) +
                     '<div class="equity-status failed">Creation did not finish. Retrying will reuse the same reserved code.</div>' +
-                    '<button class="equity-action-btn" onclick="generateEquityCode()">Retry</button>';
+                    '<button class="equity-action-btn" onclick="requestEquityCreation()">Retry</button>';
                 return;
             }
 
             const selected = EquityCodeState.selectedBook;
             if (selected) {
                 body.innerHTML = renderEquitySelectedBook(selected) +
-                    '<button class="equity-action-btn" onclick="generateEquityCode()">Generate Invite Code</button>' +
+                    '<button class="equity-action-btn" onclick="requestEquityCreation()">Generate Invite Code</button>' +
                     '<button class="equity-action-btn" style="background:transparent;color:var(--ink-mute);border:1px solid var(--hairline);" onclick="clearEquityBook()">Choose another book</button>';
                 return;
             }
@@ -4899,6 +4990,7 @@
                 return;
             }
             EquityCodeState.loading = true;
+            EquityCodeState.loadingMessage = 'Loading invite code...';
             EquityCodeState.loadedUser = username;
             renderEquityCode();
             try {
@@ -4911,6 +5003,7 @@
                 showToast(error.message || 'Unable to load invite code', 'error');
             } finally {
                 EquityCodeState.loading = false;
+                EquityCodeState.loadingMessage = '';
                 renderEquityCode();
             }
         }
@@ -5011,6 +5104,55 @@
                 }
                 showToast(error.message || 'Unable to create invite code', 'error');
             } finally {
+                renderEquityCode();
+            }
+        }
+
+        function requestEquityCreation() {
+            const selected = EquityCodeState.selectedBook;
+            const record = EquityCodeState.record;
+            const bookTitle = (selected && selected.title) || (record && record.bookTitle) || 'this book';
+            openEquityConfirmation({
+                title: 'Create invite code?',
+                message: 'Bind one invite code to "' + bookTitle + '"? Unbinding later disables the code and starts a 7-day cooldown.',
+                confirmLabel: 'Create Code',
+                action: generateEquityCode
+            });
+        }
+
+        function requestEquityUnbind() {
+            const record = EquityCodeState.record;
+            if (!record || !record.code) return;
+            openEquityConfirmation({
+                title: 'Unbind invite code?',
+                message: 'This code will be disabled immediately. You will not be able to create another invite code for 7 days.',
+                confirmLabel: 'Unbind',
+                danger: true,
+                action: unbindEquityCode
+            });
+        }
+
+        async function unbindEquityCode() {
+            EquityCodeState.loading = true;
+            EquityCodeState.loadingMessage = 'Unbinding invite code...';
+            renderEquityCode();
+            try {
+                const response = await authFetch('/api/equity-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'unbind' })
+                });
+                const data = await response.json();
+                if (data.inviteCode) EquityCodeState.record = data.inviteCode;
+                if (!response.ok) throw new Error(data.error || 'Unable to unbind invite code');
+                EquityCodeState.selectedBook = null;
+                showToast('Invite code unbound. 7-day cooldown started.', 'success');
+            } catch (error) {
+                showToast(error.message || 'Unable to unbind invite code', 'error');
+                throw error;
+            } finally {
+                EquityCodeState.loading = false;
+                EquityCodeState.loadingMessage = '';
                 renderEquityCode();
             }
         }

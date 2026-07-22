@@ -12,7 +12,7 @@ const oidc = require('../api/_lib/oidc-token');
 oidc.getBookstoreToken = async () => 'bookstore-test-token';
 const equityCode = require('../api/equity-code');
 const { signAccessToken } = require('../api/_lib/auth');
-const { VALIDITY_MS } = require('../api/_lib/equity-code');
+const { VALIDITY_MS, RECREATE_COOLDOWN_MS } = require('../api/_lib/equity-code');
 
 const BOOK_ID = '64b8c91e0123456789abcdef';
 const token = signAccessToken({ type: 'local', username: 'Alice' });
@@ -205,4 +205,76 @@ test('GET preserves an expired code instead of removing it', async () => {
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.inviteCode.status, 'expired');
   assert.equal(res.body.inviteCode.code, '90032');
+});
+
+test('unbind disables the remote code and starts a seven-day cooldown', async () => {
+  const now = Date.now();
+  FakeRedis.reset({
+    'nf_equity_code:alice': JSON.stringify({
+      status: 'active', username: 'alice', code: '90032', bookId: BOOK_ID,
+      bookTitle: 'Verified Book', rewardName: '1-Day VIP', rewardDays: 1,
+      startTime: now - 1000, endTime: now + VALIDITY_MS,
+    }),
+  });
+  let savedPayload = null;
+  global.fetch = async (url, options = {}) => {
+    if (String(url).endsWith('/save')) {
+      savedPayload = JSON.parse(options.body);
+      return response({ code: 200, data: { id: 'remote-1' } });
+    }
+    return response({ data: { records: [{
+      id: 'remote-1', applicationId: '642fc1ace309494378a774a6', channel: 5,
+      kolName: 'alice', code: '90032', relatedSkuId: BOOK_ID,
+      rewardType: 1, rewardName: '1-Day VIP', rewardValue: 1,
+      startTime: now - 1000, endTime: now + VALIDITY_MS, isEnable: true,
+    }] } });
+  };
+
+  const before = Date.now();
+  const res = await invoke(equityCode, authenticated({ action: 'unbind' }));
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.inviteCode.status, 'unbound');
+  assert.ok(res.body.inviteCode.cooldownUntil >= before + RECREATE_COOLDOWN_MS);
+  assert.equal(savedPayload.id, 'remote-1');
+  assert.equal(savedPayload.code, '90032');
+  assert.equal(savedPayload.isEnable, false);
+
+  const stored = JSON.parse(FakeRedis.values.get('nf_equity_code:alice'));
+  assert.equal(stored.history.length, 1);
+  assert.equal(stored.history[0].code, '90032');
+  assert.equal(res.body.inviteCode.history, undefined);
+});
+
+test('blocks recreation during cooldown without calling upstream', async () => {
+  FakeRedis.reset({
+    'nf_equity_code:alice': JSON.stringify({
+      status: 'unbound', username: 'alice', code: '90032', bookId: BOOK_ID,
+      cooldownUntil: Date.now() + RECREATE_COOLDOWN_MS,
+    }),
+  });
+  global.fetch = async () => { throw new Error('upstream must not be called during cooldown'); };
+
+  const res = await invoke(equityCode, authenticated({ action: 'create', bookId: BOOK_ID }));
+  assert.equal(res.statusCode, 429);
+  assert.equal(res.body.code, 'RECREATE_COOLDOWN');
+});
+
+test('allocates a new code after the cooldown instead of reusing the disabled code', async () => {
+  FakeRedis.reset({
+    'nf_equity_code:alice': JSON.stringify({
+      status: 'unbound', username: 'alice', code: '81234', bookId: 'aaaaaaaaaaaaaaaaaaaaaaaa',
+      bookTitle: 'Previous Book', cooldownUntil: Date.now() - 1000,
+      history: [{ code: '81234', bookId: 'aaaaaaaaaaaaaaaaaaaaaaaa' }],
+    }),
+  });
+  const calls = [];
+  global.fetch = successFetch(calls);
+
+  const res = await invoke(equityCode, authenticated({ action: 'create', bookId: BOOK_ID }));
+  assert.equal(res.statusCode, 201);
+  assert.equal(res.body.inviteCode.code, '90032');
+  assert.notEqual(res.body.inviteCode.code, '81234');
+  const stored = JSON.parse(FakeRedis.values.get('nf_equity_code:alice'));
+  assert.equal(stored.history.length, 1);
+  assert.equal(stored.history[0].code, '81234');
 });
