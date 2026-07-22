@@ -15,7 +15,9 @@ module.exports = async (req, res) => {
   const allowedGuilds = String(process.env.NOVELFLOW_DISCORD_ALLOWED_GUILD_IDS || '').split(',').map((value) => value.trim()).filter(Boolean);
   const guildId = String(req.body?.guildId || '');
   if (allowedGuilds.length && !allowedGuilds.includes(guildId)) return res.status(403).json({ error: 'This Discord server is not enabled.' });
-  const query = String(req.body?.query || '').trim().slice(0, 12000);
+  const visibleTitle = String(req.body?.visibleTitle || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 300);
+  const rawQuery = String(req.body?.query || '').trim().slice(0, 12000);
+  const query = visibleTitle && !/^Visible title:/im.test(rawQuery) ? `Visible title: ${visibleTitle}\n${rawQuery}` : rawQuery;
   if (query.length < 4) return res.status(400).json({ error: 'Send a longer title, quote, character, or plot clue.' });
   const redis = getRedis();
   if (!redis) return res.status(503).json({ error: 'NovelFlow storage is not configured.' });

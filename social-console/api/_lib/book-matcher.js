@@ -80,6 +80,11 @@ function catalogKey(language) {
   return `nf_social:discord:catalog:${CATALOG_VERSION}:${day}:${language}`;
 }
 
+function visibleTitleFromQuery(query) {
+  const line = String(query || '').split(/\r?\n/).find((item) => /^Visible title:\s*/i.test(item));
+  return String(line || '').replace(/^Visible title:\s*/i, '').replace(/\s+/g, ' ').trim().slice(0, 300);
+}
+
 async function buildCatalog(redis, language = 'EN', refresh = false) {
   const key = catalogKey(language);
   if (!refresh) {
@@ -140,6 +145,21 @@ function resultView(book, confidence, reasons, matchedTerms) {
 async function matchBooks(redis, query, options = {}) {
   const cleanQuery = String(query || '').trim();
   if (cleanQuery.length < 4) throw new providers.ProviderError('Please provide a longer excerpt or description', { status: 400 });
+  const visibleTitle = visibleTitleFromQuery(cleanQuery);
+  if (visibleTitle) {
+    try {
+      const exact = await providers.findExactBook(visibleTitle);
+      exact.sources = ['NovelFlow bookstore exact title'];
+      return {
+        query: cleanQuery,
+        matches: [resultView(exact, 99, ['The title is visibly printed in the screenshot and exactly matches the NovelFlow bookstore'], [visibleTitle])],
+        recommendations: [], extracted: { possibleTitle: visibleTitle }, model: 'bookstore-exact-title',
+        catalog: { generatedAt: new Date().toISOString(), sources: ['NovelFlow bookstore exact title'], size: 1 }
+      };
+    } catch (error) {
+      if (![404, 409].includes(Number(error?.status || 0))) throw error;
+    }
+  }
   const catalog = await buildCatalog(redis, options.language || 'EN', options.refresh === true);
   const scored = catalog.books.map((book) => ({ book, score: lexicalScore(cleanQuery, book) }))
     .sort((left, right) => right.score - left.score || sourceRankScore(right.book) - sourceRankScore(left.book));
@@ -180,4 +200,4 @@ async function matchBooks(redis, query, options = {}) {
   };
 }
 
-module.exports = { normalize, lexicalScore, mergeBooks, buildCatalog, matchBooks, recommendationScore };
+module.exports = { normalize, lexicalScore, mergeBooks, buildCatalog, matchBooks, recommendationScore, visibleTitleFromQuery };

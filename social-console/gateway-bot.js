@@ -1,4 +1,4 @@
-const { Client, Events, GatewayIntentBits, Partials } = require('discord.js');
+const { Client, Events, GatewayIntentBits, PermissionFlagsBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -23,7 +23,7 @@ const token = String(process.env.DISCORD_BOT_TOKEN || '').trim();
 const gatewaySecret = String(process.env.DISCORD_GATEWAY_SECRET_V2 || process.env.DISCORD_GATEWAY_SECRET || process.env.DISCORD_VISION_SECRET || process.env.CRON_SECRET || '').trim();
 const searchUrl = String(process.env.DISCORD_GATEWAY_SEARCH_URL || 'https://social.novelflow.top/api/discord-gateway-search').trim();
 const allowedGuilds = new Set(String(process.env.NOVELFLOW_DISCORD_ALLOWED_GUILD_IDS || '').split(',').map((value) => value.trim()).filter(Boolean));
-const recentCandidates = new Map();
+const recentSessions = new Map();
 let nextPromoCode = 55555;
 const execFileAsync = promisify(execFile);
 const OCR_SCRIPT = 'C:\\Users\\yuanju\\.codex\\skills\\screenshot-book-finder\\scripts\\runtime\\scripts\\ocr_images.ps1';
@@ -33,9 +33,30 @@ const visionSecret = String(process.env.DISCORD_VISION_SECRET || '').trim();
 if (!token) throw new Error('DISCORD_BOT_TOKEN is required');
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.DirectMessages],
-  partials: [Partials.Channel]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
+
+function conversationKey(message) {
+  return [String(message.guildId || ''), String(message.channelId || ''), String(message.author?.id || '')].join(':');
+}
+
+function rememberResult(message, result) {
+  recentSessions.set(conversationKey(message), { createdAt: Date.now(), candidates: result.matches || result.recommendations || [], exact: result.matches?.[0]?.confidence >= 85 ? result.matches[0] : null });
+}
+
+function recentResult(message) {
+  const value = recentSessions.get(conversationKey(message));
+  if (!value || Date.now() - value.createdAt > 30 * 60 * 1000) return null;
+  return value;
+}
+
+async function replyInChannel(message, payload) {
+  try { return await message.reply(payload); }
+  catch (error) {
+    console.error(`Discord channel reply failed guild=${message.guildId || ''} channel=${message.channelId || ''}:`, String(error?.message || error));
+    return null;
+  }
+}
 
 function queryFromMessage(message) {
   const mention = new RegExp(`<@!?${client.user.id}>`, 'g');
@@ -54,7 +75,9 @@ async function screenshotText(message) {
     const body = await response.json();
     const vision = body.vision || {};
     if (!vision.text) throw new Error('Seed vision returned no text');
-    return [vision.text, ...vision.characters, ...vision.phrases, ...vision.plotClues].filter(Boolean).join('\n').slice(0, 12000);
+    const visibleTitle = String(vision.visibleTitle || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 300);
+    const query = [visibleTitle ? `Visible title: ${visibleTitle}` : '', vision.text, ...vision.characters, ...vision.phrases, ...vision.plotClues].filter(Boolean).join('\n').slice(0, 12000);
+    return { query, visibleTitle };
   } catch (error) {
     console.warn('Seed screenshot analysis unavailable, using Windows OCR:', String(error?.message || error));
   }
@@ -67,24 +90,35 @@ async function screenshotText(message) {
   try {
     fs.writeFileSync(file, bytes);
     const { stdout } = await execFileAsync('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-File', OCR_SCRIPT, '-ImagePaths', file], { timeout: 120000, windowsHide: true, maxBuffer: 1024 * 1024 });
-    return String(stdout || '').replace(/\s+/g, ' ').trim().slice(0, 12000);
+    return { query: String(stdout || '').replace(/\s+/g, ' ').trim().slice(0, 12000), visibleTitle: '' };
   } finally { fs.rmSync(file, { force: true }); }
 }
 
 function resultEmbed(result) {
   const books = result.matches?.length ? result.matches : result.recommendations || [];
   if (!books.length) return { content: 'I could not find a ranked NovelFlow candidate. Send a longer excerpt or a clearer clue.' };
+  const exact = result.matches?.[0];
+  if (exact?.confidence >= 85) {
+    const promo = exact.promo?.status === 'ready'
+      ? `**Code:** \`${exact.promo.code}\`\n**Read now:** ${exact.promo.shortUrl}\n\nOpen the link or search this Code in NovelFlow to start reading.`
+      : 'The identification is confirmed. I could not create the attribution link yet.';
+    return { embeds: [{
+      title: `Found it | ${exact.title}`.slice(0, 256), color: 0x238636,
+      description: `**Match:** ${exact.confidence}%\n**Evidence:** ${(exact.reasons || []).join('; ') || 'Exact NovelFlow bookstore evidence'}\n\n**About this novel**\n${String(exact.description || 'NovelFlow bookstore introduction is unavailable.').replace(/\s+/g, ' ').trim().slice(0, 700)}\n\n${promo}`.slice(0, 4000),
+      footer: { text: 'Verified through the NovelFlow bookstore.' }
+    }] };
+  }
   const lines = books.slice(0, 3).map((book, index) => {
     const evidence = (book.reasons || []).slice(0, 2).join('; ') || 'Ranking and metadata evidence';
     const intro = String(book.description || '').replace(/\s+/g, ' ').trim().slice(0, 280);
     const promo = book.promo?.status === 'ready'
       ? `\n**Code:** \`${book.promo.code}\`\n**Read now:** ${book.promo.shortUrl}\nUse the code above when you open the book.`
-      : `\nReply **${index + 1}** to create this book's Discord code and link.`;
+      : `\nReply **${index + 1}** to confirm this candidate, then I will create its Discord code and link.`;
     return `**${index + 1}. ${book.title}** - ${book.confidence}%\n${evidence}${intro ? `\n${intro}` : ''}${promo}`;
   });
   return {
     embeds: [{
-      title: result.matches?.length ? 'NovelFlow candidates' : 'Similar NovelFlow recommendations',
+      title: result.matches?.length ? 'NovelFlow candidates - confirmation needed' : 'Similar NovelFlow recommendations',
       description: lines.join('\n\n').slice(0, 4000),
       footer: { text: 'Match percentage is a system score, not a guarantee.' },
       color: 0x238636
@@ -194,51 +228,65 @@ function recommendationPayload(books) {
 }
 
 async function recommend(message) {
-  let pending;
-  try { pending = await message.reply({ content: 'Building today\'s Top 5 and creating Discord links...' }); }
-  catch { try { pending = await message.author.send({ content: 'Building today\'s Top 5 and creating Discord links...' }); } catch { return; } }
+  const pending = await replyInChannel(message, { content: 'Building today\'s Top 5 and creating Discord links...' });
+  if (!pending) return;
   const books = localTopBooks(5);
   for (let index = 0; index < books.length; index += 1) books[index].promo = await createDiscordPromo(books[index], index, message);
   await pending.edit(recommendationPayload(books));
 }
 
-async function createLinkForRequest(message, query) {
-  const found = linkBook(query);
-  if (!found.book || found.confidence < 45) {
-    const text = 'I need the exact book title before creating a Discord code and link. Example: `Forbidden Bond link`.';
-    try { await message.reply({ content: text }); } catch { await message.author.send({ content: text }).catch(() => {}); }
+async function createLinkForBook(message, book, confidence = 99) {
+  if (!book?.bookSkuId || !book?.title) {
+    await replyInChannel(message, { content: 'I do not have a confirmed NovelFlow book for that request.' });
     return;
   }
-  let pending;
-  try { pending = await message.reply({ content: `Creating a verified Discord code and short link for **${found.book.title}**...` }); }
-  catch { try { pending = await message.author.send({ content: `Creating a verified Discord code and short link for **${found.book.title}**...` }); } catch { return; } }
-  const promo = await createDiscordPromo(found.book, 0, message);
+  const pending = await replyInChannel(message, { content: `Creating a verified Discord code and short link for **${book.title}**...` });
+  if (!pending) return;
+  const promo = await createDiscordPromo(book, 0, message);
   if (promo.status === 'ready') {
-    await pending.edit({ embeds: [{ title: `Attribution ready | ${found.book.title}`, description: `**Code:** \`${promo.code}\`\n**Short link:** ${promo.shortUrl}\n\nThis link is attributed to Discord.`, color: 0x238636, footer: { text: 'Verified against NovelFlow attribution records.' } }] });
+    const description = String(book.description || '').replace(/\s+/g, ' ').trim().slice(0, 700);
+    await pending.edit({ embeds: [{ title: `Attribution ready | ${book.title}`.slice(0, 256), description: `**Match:** ${Math.round(confidence)}%\n\n**About this novel**\n${description || 'NovelFlow bookstore introduction is unavailable.'}\n\n**Code:** \`${promo.code}\`\n**Short link:** ${promo.shortUrl}\n\nOpen the link or search this Code in NovelFlow to start reading.`, color: 0x238636, footer: { text: 'Verified against NovelFlow attribution records.' } }] });
   } else {
-    await pending.edit({ content: `I found **${found.book.title}** (${found.confidence}% match), but I could not create a verified link yet.\n**Reason:** ${promo.reason || promo.status}` });
+    await pending.edit({ content: `I confirmed **${book.title}**, but I could not create a verified link yet.\n**Reason:** ${promo.reason || promo.status}` });
   }
 }
 
-async function search(message, query) {
-  let pending;
-  try { pending = await message.reply({ content: 'Searching NovelFlow catalog and rankings...' }); }
-  catch (error) {
-    console.error('Discord reply permission error:', String(error?.message || error));
-    try {
-      pending = await message.author.send({ content: `I received your book request in **#${message.channel?.name || 'the channel'}**, but I cannot post there. I will send the result here instead.\n\nSearching NovelFlow catalog and rankings...` });
-    } catch (dmError) {
-      console.error('Discord DM permission error:', String(dmError?.message || dmError));
+async function createLinkForRequest(message, query) {
+  const clean = String(query || '').replace(/\b(?:link|code|url|short\s*link)\b|é“¾æŽ¥|çŸ­é“¾|å½’å› ç |æŽ¨å¹¿ç |åˆ›å»ºç /gi, ' ').replace(/\b(?:please|pls)\b/gi, ' ').trim();
+  const recent = recentResult(message);
+  if (!clean || clean.length < 4) {
+    if (recent?.exact) return createLinkForBook(message, recent.exact, recent.exact.confidence);
+    if (recent?.candidates?.length) {
+      await replyInChannel(message, { content: 'The last search was not certain enough to create a link automatically. Reply **1**, **2**, or **3** to choose one of the candidates shown above.' });
       return;
     }
+    await replyInChannel(message, { content: 'Send a screenshot, an excerpt, or a title first. I will identify the book before creating its code and link.' });
+    return;
   }
+  try {
+    const exact = await providers.findExactBook(clean);
+    return createLinkForBook(message, exact, 99);
+  } catch (error) {
+    if (![404, 409].includes(Number(error?.status || 0))) throw error;
+  }
+  const found = linkBook(clean);
+  if (!found.book || found.confidence < 85) {
+    await replyInChannel(message, { content: 'I will not create attribution for an unconfirmed match. Send the screenshot or an excerpt, and I will identify it first.' });
+    return;
+  }
+  return createLinkForBook(message, found.book, found.confidence);
+}
+
+async function search(message, query) {
+  const pending = await replyInChannel(message, { content: 'Searching NovelFlow catalog and rankings...' });
+  if (!pending) return;
   try {
     // The desktop Gateway has the approved NovelFlow credentials locally. Use
     // that path first so a Vercel secret rotation cannot break Discord replies.
     const redis = getRedis();
     if (redis) {
       const result = await matchBooks(redis, query, { language: 'EN' });
-      recentCandidates.set(String(message.author.id), result.matches || result.recommendations || []);
+      rememberResult(message, result);
       if (result.matches?.[0]?.confidence >= 85) result.matches[0].promo = await createDiscordPromo(result.matches[0], 0, message);
       await pending.edit(resultEmbed(result));
       return;
@@ -247,18 +295,18 @@ async function search(message, query) {
       const response = await fetch(searchUrl, {
         method: 'POST',
         headers: { Authorization: `Bearer ${gatewaySecret}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guildId: message.guildId || '', query, language: 'EN' })
+        body: JSON.stringify({ guildId: message.guildId || '', query, visibleTitle: /^Visible title:\s*(.+)$/im.exec(query)?.[1] || '', language: 'EN' })
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || `Search failed with HTTP ${response.status}`);
       const result = body.result || {};
-      recentCandidates.set(String(message.author.id), result.matches || result.recommendations || []);
+      rememberResult(message, result);
       if (result.matches?.[0]?.confidence >= 85) result.matches[0].promo = await createDiscordPromo(result.matches[0], 0, message);
       await pending.edit(resultEmbed(result));
       return;
     }
     const result = localSearch(query);
-    recentCandidates.set(String(message.author.id), result.matches || []);
+    rememberResult(message, result);
     if (result.matches?.[0]?.confidence >= 85) result.matches[0].promo = await createDiscordPromo(result.matches[0], 0, message);
     await pending.edit(resultEmbed(result));
   } catch (error) {
@@ -277,26 +325,43 @@ async function search(message, query) {
 client.once(Events.ClientReady, (ready) => {
   console.log(`NovelFlow Discord Gateway ready as ${ready.user.tag}`);
   ready.user.setPresence({ activities: [{ name: 'NovelFlow book search', type: 3 }], status: 'online' });
+  for (const guild of client.guilds.cache.values()) {
+    const rules = guild.channels.cache.find((channel) => channel?.isTextBased?.() && String(channel.name || '').toLowerCase() === 'rules');
+    if (!rules) continue;
+    const permissions = rules.permissionsFor(ready.user);
+    const required = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.ReadMessageHistory];
+    const missing = required.filter((permission) => !permissions?.has(permission)).map((permission) => Object.entries(PermissionFlagsBits).find(([, value]) => value === permission)?.[0] || String(permission));
+    if (missing.length) console.error(`Discord channel permissions missing guild=${guild.id} channel=${rules.id} #${rules.name}: ${missing.join(', ')}`);
+    else console.log(`Discord channel permissions ready guild=${guild.id} channel=${rules.id} #${rules.name}`);
+  }
 });
 
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
+  if (!message.guildId) return;
   if (message.guildId && allowedGuilds.size && !allowedGuilds.has(String(message.guildId))) return;
   let query = queryFromMessage(message);
-  if (!query && message.mentions.has(client.user) && message.attachments.size) {
+  if (message.mentions.has(client.user) && message.attachments.size) {
     try {
-      query = await screenshotText(message);
+      const screenshot = await screenshotText(message);
+      query = screenshot.query;
       if (!query) throw new Error('No readable text found');
     } catch (error) {
-      await message.reply({ content: `I could not read that screenshot: ${String(error.message || error).slice(0, 180)}` }).catch(() => {});
+      await replyInChannel(message, { content: `I could not read that screenshot: ${String(error.message || error).slice(0, 180)}` });
       return;
     }
   }
   if (!query) return;
+  // A screenshot title is evidence, not a conversational instruction. Keep it
+  // on the deterministic bookstore path before the routing model can discard it.
+  if (/^Visible title:\s*.+/im.test(query)) {
+    await search(message, query);
+    return;
+  }
   const ai = await aiRoute(query);
   const routedQuery = String(ai?.query || query).trim() || query;
   if (ai?.intent === 'chat') {
-    await message.reply({ content: ai.reply || 'Tell me what you enjoy reading, or ask for today\'s Top 5.' }).catch(() => {});
+    await replyInChannel(message, { content: ai.reply || 'Tell me what you enjoy reading, or ask for today\'s Top 5.' });
     return;
   }
   if (ai?.intent === 'recommend') {
@@ -304,20 +369,20 @@ client.on(Events.MessageCreate, async (message) => {
     return;
   }
   if (ai?.intent === 'link') {
-    await createLinkForRequest(message, routedQuery);
+    await createLinkForRequest(message, query);
     return;
   }
   if (/^(?:hi|hello|hey|你好|嗨)$/i.test(query)) {
-    await message.reply({ content: 'Hi. Send a title or excerpt to find a book, say `recommend today top 5`, or reply `1` after a result to create that book\'s code and link.' }).catch(() => {});
+    await replyInChannel(message, { content: 'Hi. Send a title or excerpt to find a book, say `recommend today top 5`, or reply `1` after a result to create that book\'s code and link.' });
     return;
   }
   if (/^[1-3]$/.test(query)) {
-    const selected = recentCandidates.get(String(message.author.id))?.[Number(query) - 1];
+    const selected = recentResult(message)?.candidates?.[Number(query) - 1];
     if (!selected) {
-      await message.reply({ content: 'I do not have a recent candidate list for you. Send a title or ask for `recommend today top 5` first.' }).catch(() => {});
+      await replyInChannel(message, { content: 'I do not have a recent candidate list in this channel. Send a screenshot, excerpt, or title first.' });
       return;
     }
-    await createLinkForRequest(message, `${selected.title} link`);
+    await createLinkForBook(message, selected, selected.confidence || 0);
     return;
   }
   if (recommendationIntent(query)) {
@@ -329,7 +394,7 @@ client.on(Events.MessageCreate, async (message) => {
     return;
   }
   if (query.length < 4) {
-    await message.reply({ content: 'Tell me a book title, an excerpt, or say `recommend today top 5`.' }).catch(() => {});
+    await replyInChannel(message, { content: 'Tell me a book title, an excerpt, or say `recommend today top 5`.' });
     return;
   }
   await search(message, routedQuery);

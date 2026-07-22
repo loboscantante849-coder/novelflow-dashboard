@@ -766,7 +766,7 @@ async function extractScreenshotText(imageUrl) {
 
 async function analyzeScreenshotWithSeed(imageUrl) {
   const { apiKey, baseUrl, model } = copyModelConfig({ modelChoice: 'seed-2.0-mini' });
-  const prompt = 'Inspect this novel screenshot. Return JSON only: {"text":"up to 500 words of readable story text","characters":["names"],"phrases":["2-4 rare exact phrases"],"plotClues":["specific clues"],"quality":"high|medium|low"}. Preserve spelling and do not invent any title, character, or plot fact not visible in the image.';
+  const prompt = 'Inspect this novel screenshot. Read the page header and cover area before the story body. Return JSON only: {"visibleTitle":"exact book title visibly printed in the screenshot, or empty string","text":"up to 500 words of readable story text","characters":["names"],"phrases":["2-4 rare exact phrases"],"plotClues":["specific clues"],"quality":"high|medium|low"}. Preserve spelling. visibleTitle must be copied exactly from visible pixels and must be empty when no title is shown. Do not infer or invent any title, character, or plot fact.';
   const payload = {
     model,
     messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: String(imageUrl || '') } }] }],
@@ -777,6 +777,7 @@ async function analyzeScreenshotWithSeed(imageUrl) {
   const text = String(result?.text || '').trim();
   if (!text) throw new ProviderError('Seed screenshot analysis returned no readable text', { status: 422 });
   return {
+    visibleTitle: String(result.visibleTitle || '').replace(/\s+/g, ' ').trim().slice(0, 300),
     text: text.slice(0, 20000), characters: Array.isArray(result.characters) ? result.characters.map(String).slice(0, 8) : [],
     phrases: Array.isArray(result.phrases) ? result.phrases.map(String).slice(0, 6) : [],
     plotClues: Array.isArray(result.plotClues) ? result.plotClues.map(String).slice(0, 6) : [], quality: String(result.quality || 'medium'), model: String(body.model || model)
