@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const providers = require('../api/_lib/providers');
-const { mergeBooks, lexicalScore, recommendationScore, matchBooks, visibleTitleFromQuery } = require('../api/_lib/book-matcher');
+const { mergeBooks, lexicalScore, recommendationScore, matchBooks, visibleTitleFromQuery, evidencePhrases } = require('../api/_lib/book-matcher');
 
 test('merges the same SKU across bookstore and ranking sources', () => {
   const books = mergeBooks([
@@ -26,6 +26,10 @@ test('recommendation score rewards shared category and tags', () => {
 
 test('extracts a visible screenshot title without story text', () => {
   assert.equal(visibleTitleFromQuery('Visible title: My Husband Sent His Twin to My Bed, and I Made Him King\nChapter 1'), 'My Husband Sent His Twin to My Bed, and I Made Him King');
+});
+
+test('extracts distinctive screenshot phrases for full-catalog recall', () => {
+  assert.deepEqual(evidencePhrases('Search phrase: the wedding ring was still warm in my palm\nSearch phrase: he sent his twin to my bed'), ['the wedding ring was still warm in my palm', 'he sent his twin to my bed']);
 });
 
 test('resolves a visible screenshot title against the bookstore before building rankings', async () => {

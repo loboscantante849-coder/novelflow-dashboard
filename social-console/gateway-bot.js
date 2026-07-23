@@ -76,7 +76,7 @@ async function screenshotText(message) {
     const vision = body.vision || {};
     if (!vision.text) throw new Error('Seed vision returned no text');
     const visibleTitle = String(vision.visibleTitle || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 300);
-    const query = [visibleTitle ? `Visible title: ${visibleTitle}` : '', vision.text, ...vision.characters, ...vision.phrases, ...vision.plotClues].filter(Boolean).join('\n').slice(0, 12000);
+    const query = [visibleTitle ? `Visible title: ${visibleTitle}` : '', ...vision.searchPhrases.map((phrase) => `Search phrase: ${phrase}`), vision.text, ...vision.characters, ...vision.phrases, ...vision.plotClues].filter(Boolean).join('\n').slice(0, 12000);
     return { query, visibleTitle };
   } catch (error) {
     console.warn('Seed screenshot analysis unavailable, using Windows OCR:', String(error?.message || error));

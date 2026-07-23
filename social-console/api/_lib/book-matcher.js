@@ -85,6 +85,28 @@ function visibleTitleFromQuery(query) {
   return String(line || '').replace(/^Visible title:\s*/i, '').replace(/\s+/g, ' ').trim().slice(0, 300);
 }
 
+function evidencePhrases(query) {
+  const explicit = [...String(query || '').matchAll(/^Search phrase:\s*(.+)$/gim)].map((match) => match[1].trim());
+  const quoted = [...String(query || '').matchAll(/[\"“”]([^\"“”]{12,120})[\"“”]/g)].map((match) => match[1].trim());
+  return [...new Set([...explicit, ...quoted])].filter((phrase) => phrase.length >= 12 && phrase.split(/\s+/).length >= 3).slice(0, 8);
+}
+
+async function chapterEvidence(book, phrases) {
+  if (!book.cityBookId || !phrases.length) return { score: 0, hits: [] };
+  try {
+    const chapters = await providers.listChapters(book.cityBookId);
+    const selected = [...chapters.slice(0, 12), ...chapters.slice(-3)].filter((item, index, all) => all.findIndex((other) => String(other.id) === String(item.id)) === index).slice(0, 15);
+    const contents = await Promise.all(selected.map(async (chapter) => {
+      try { return { order: chapter.order, content: await providers.chapterContent(chapter.id) }; } catch { return null; }
+    }));
+    const normalized = contents.filter(Boolean).map((item) => ({ ...item, content: normalize(item.content) }));
+    const hits = phrases.filter((phrase) => normalized.some((item) => item.content.includes(normalize(phrase))));
+    return { score: hits.length / Math.max(1, phrases.length), hits };
+  } catch {
+    return { score: 0, hits: [] };
+  }
+}
+
 async function buildCatalog(redis, language = 'EN', refresh = false) {
   const key = catalogKey(language);
   if (!refresh) {
@@ -160,10 +182,22 @@ async function matchBooks(redis, query, options = {}) {
       if (![404, 409].includes(Number(error?.status || 0))) throw error;
     }
   }
+  const phrases = evidencePhrases(cleanQuery);
+  let recalled = [];
+  if (phrases.length) {
+    try { recalled = await providers.searchBooks(phrases, 30); } catch { recalled = []; }
+  }
   const catalog = await buildCatalog(redis, options.language || 'EN', options.refresh === true);
   const scored = catalog.books.map((book) => ({ book, score: lexicalScore(cleanQuery, book) }))
     .sort((left, right) => right.score - left.score || sourceRankScore(right.book) - sourceRankScore(left.book));
-  const candidates = await enrichCandidates(scored.slice(0, 24).map((item) => item.book));
+  const recallMap = new Map(recalled.map((book) => [String(book.bookSkuId), book]));
+  for (const item of scored.slice(0, 24)) recallMap.set(String(item.book.bookSkuId), { ...(recallMap.get(String(item.book.bookSkuId)) || {}), ...item.book });
+  const candidates = await enrichCandidates([...recallMap.values()].slice(0, 36));
+  const verified = await Promise.all(candidates.slice(0, recalled.length ? 12 : 6).map(async (book) => ({ ...book, chapterEvidence: await chapterEvidence(book, phrases) })));
+  for (const book of verified) {
+    const index = candidates.findIndex((item) => String(item.bookSkuId) === String(book.bookSkuId));
+    if (index >= 0) candidates[index] = book;
+  }
   let analysis = null;
   let model = 'lexical-fallback';
   try {
@@ -179,11 +213,15 @@ async function matchBooks(redis, query, options = {}) {
     if (!book) return null;
     const lexical = lexicalScore(cleanQuery, book) * 100;
     const exactTitle = normalize(cleanQuery).includes(normalize(book.title));
-    const confidence = exactTitle ? Math.max(92, Number(item.confidence || 0)) : Number(item.confidence || 0) * 0.88 + lexical * 0.12;
-    return resultView(book, confidence, item.reasons, item.matchedTerms);
+    const evidence = book.chapterEvidence || {};
+    const evidenceConfidence = evidence.score >= 1 ? 98 : evidence.score >= 0.5 ? 92 : 0;
+    const confidence = evidenceConfidence || (exactTitle ? Math.max(92, Number(item.confidence || 0)) : Number(item.confidence || 0) * 0.88 + lexical * 0.12);
+    const reasons = [...(item.reasons || [])];
+    if (evidence.hits?.length) reasons.unshift(`Chapter text contains ${evidence.hits.length} distinctive screenshot phrase(s)`);
+    return resultView(book, confidence, reasons, [...(item.matchedTerms || []), ...(evidence.hits || [])]);
   }).filter(Boolean) || [];
   if (!matches.length) {
-    matches = scored.slice(0, 5).map(({ book, score }) => resultView(book, score * 100, score > 0.35 ? ['Title or metadata terms overlap the request'] : ['Ranking-based candidate; plot evidence is insufficient'], []));
+    matches = [...candidates].slice(0, 5).map((book) => resultView(book, book.chapterEvidence?.score >= 0.5 ? 92 : lexicalScore(cleanQuery, book) * 100, book.chapterEvidence?.hits?.length ? ['Chapter text contains screenshot phrase evidence'] : ['Candidate recalled from catalog metadata; plot evidence is insufficient'], book.chapterEvidence?.hits || []));
   }
   matches.sort((left, right) => right.confidence - left.confidence);
   const topMatches = matches.slice(0, 3);
@@ -200,4 +238,4 @@ async function matchBooks(redis, query, options = {}) {
   };
 }
 
-module.exports = { normalize, lexicalScore, mergeBooks, buildCatalog, matchBooks, recommendationScore, visibleTitleFromQuery };
+module.exports = { normalize, lexicalScore, mergeBooks, buildCatalog, matchBooks, recommendationScore, visibleTitleFromQuery, evidencePhrases };
