@@ -4895,7 +4895,7 @@
         function formatEquityDate(value) {
             const date = new Date(Number(value));
             if (!Number.isFinite(date.getTime())) return 'Not set';
-            return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
         }
 
         function renderEquitySelectedBook(book) {
