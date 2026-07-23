@@ -3587,7 +3587,7 @@
                 <div class="modal-error-icon">⚠️</div>
                 <div class="modal-error-title" id="modalErrorTitle">Unable to create link</div>
                 <div class="modal-error-text" id="modalErrorText">This book is not available for promotion yet. Try another one!</div>
-                <button class="modal-done-btn" onclick="closeModal()" data-i18n="try_another">Try Another Book</button>
+                <button class="modal-done-btn" id="modalErrorAction" onclick="closeModal()" data-i18n="try_another">Try Another Book</button>
             </div>
             
             <div class="modal-loading" id="modalLoading" style="display:none;">
@@ -4895,7 +4895,7 @@
         function formatEquityDate(value) {
             const date = new Date(Number(value));
             if (!Number.isFinite(date.getTime())) return 'Not set';
-            return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
         }
 
         function renderEquitySelectedBook(book) {
@@ -5251,7 +5251,7 @@
                 reward: 'TBD',
                 rewardAmt: 0,
                 status: 'locked',
-                startDate: '2026-07-10',
+                startDate: '2026-07-28',
                 ctaLabel: 'Coming Soon',
                 ribbon: 'LOCKED',
             }
@@ -5281,8 +5281,8 @@
                         status = 'locked';
                         ribbonClass = 'locked';
                         ctaDisabled = true;
-                        ctaLabel = '🔒 Starts July 10';
-                        ctaAction = "showToast('Campaign starts July 10, 2026', 'info')";
+                        ctaLabel = '🔒 Starts July 28';
+                        ctaAction = "showToast('Campaign starts July 28, 2026', 'info')";
                     }
                 }
                 if (c.id === 'campaign1' && isCampaign1Winner()) {
@@ -5301,7 +5301,7 @@
                             '<div class="campaign-name">' + c.name + '</div>' +
                             '<div class="campaign-reward">Reward: <span class="amt">' + c.reward + '</span></div>' +
                             extraBadge +
-                            '<div class="campaign-status">' + (status === 'locked' ? '🔒 Starts July 10' : (status === 'completed' ? '✓ Finished' : '🔥 Ongoing')) + '</div>' +
+                            '<div class="campaign-status">' + (status === 'locked' ? '🔒 Starts July 28' : (status === 'completed' ? '✓ Finished' : '🔥 Ongoing')) + '</div>' +
                             '<button class="campaign-cta" ' + (ctaDisabled ? 'disabled' : '') + ' onclick="' + (ctaAction || 'return false;') + '">' + ctaLabel + '</button>' +
                         '</div>' +
                     '</div>';
@@ -5310,7 +5310,7 @@
 
         function joinCampaign(id) {
             if (id === 'campaign2') {
-                showToast('🚀 Campaign #2 details will be announced on July 10 — stay tuned!', 'info');
+                showToast('🚀 Campaign #2 details will be announced on July 28 — stay tuned!', 'info');
             }
         }
 
@@ -5660,6 +5660,49 @@
             return response;
         }
 
+        async function requestConfirm(options, onRetry) {
+            const transientStatuses = [502, 503, 504];
+            let lastError = null;
+
+            for (let attempt = 0; attempt < 2; attempt++) {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000);
+                try {
+                    const response = await authFetch('/api/confirm', { ...options, signal: controller.signal });
+                    if (attempt === 0 && transientStatuses.includes(response.status)) {
+                        if (typeof onRetry === 'function') onRetry();
+                        await delay(800);
+                        continue;
+                    }
+                    return response;
+                } catch (error) {
+                    lastError = error;
+                    if (attempt === 0) {
+                        if (typeof onRetry === 'function') onRetry();
+                        await delay(800);
+                        continue;
+                    }
+                } finally {
+                    clearTimeout(timeoutId);
+                }
+            }
+
+            const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+            const message = lastError?.name === 'AbortError'
+                ? 'The request took too long. Please try again.'
+                : (offline ? 'Your phone appears to be offline. Reconnect and try again.' : 'The connection was interrupted. Please check your network and try again.');
+            const error = new Error(message);
+            error.isNetworkFailure = true;
+            throw error;
+        }
+
+        function setConfirmErrorAction(retryable) {
+            const action = document.getElementById('modalErrorAction');
+            if (!action) return;
+            action.textContent = retryable ? 'Try Again' : 'Try Another Book';
+            action.onclick = retryable ? confirmRecommend : closeModal;
+        }
+
         // ========== Confirm Recommend - Call Backend API ==========
         function copyModalResult(type) {
             let text = '';
@@ -5699,8 +5742,7 @@
             }, 5000);
 
             try {
-                const response = await authFetch('/api/confirm', {
-                    timeout: 30000,
+                const response = await requestConfirm({
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -5711,6 +5753,8 @@
                         lang: currentRecommendBook.languageCode || 'en',
                         discordUsername: AppState.user?.username || 'Anonymous'
                     })
+                }, function() {
+                    if (modalLoadingSub) modalLoadingSub.textContent = 'Connection interrupted. Retrying safely...';
                 });
 
                 clearInterval(countdownInterval);
@@ -5763,8 +5807,10 @@
                     var errTitle = document.getElementById('modalErrorTitle');
                     var errText = document.getElementById('modalErrorText');
                     var errMsg = result.message || result.error || 'API did not return valid data.';
+                    const retryable = result.status === 'pending';
                     if (errTitle) errTitle.textContent = getConfirmErrorTitle(result, response.status);
                     if (errText) errText.textContent = errMsg;
+                    setConfirmErrorAction(retryable);
                     btn.disabled = false;
                     btn.textContent = 'Start Earning';
                     showToast('Link creation failed: ' + errMsg, 'error');
@@ -5776,8 +5822,10 @@
                 if (modalError) modalError.style.display = 'block';
                 var errTitle = document.getElementById('modalErrorTitle');
                 var errText = document.getElementById('modalErrorText');
-                if (errTitle) errTitle.textContent = getConfirmErrorTitle(e.responseBody || {}, e.httpStatus || 0, true);
+                const retryable = Boolean(e.isNetworkFailure || (e.httpStatus >= 500));
+                if (errTitle) errTitle.textContent = getConfirmErrorTitle(e.responseBody || {}, e.httpStatus || 0, e.isNetworkFailure);
                 if (errText) errText.textContent = e.message || 'Failed to connect to server';
+                setConfirmErrorAction(retryable);
                 btn.disabled = false;
                 btn.textContent = 'Start Earning';
                 showToast('Failed: ' + e.message, 'error');
@@ -5785,6 +5833,7 @@
         }
 
         function getConfirmErrorTitle(result, status, networkFailure) {
+            if (result?.status === 'pending') return 'Still Creating Your Link';
             if (status === 401 || result?.code === 'AUTH_REQUIRED') return 'Session Expired';
             if (status === 429 || result?.code === 'RATE_LIMITED' || result?.code === 'DAILY_LIMIT') return 'Too Many Requests';
             if (status >= 500) return 'Service Temporarily Unavailable';
@@ -6006,8 +6055,7 @@
             await delay(500);
 
             try {
-                const response = await fetch('/api/confirm', {
-                    timeout: 30000,
+                const response = await requestConfirm({
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -6018,6 +6066,8 @@
                         lang: AppState.searchLang,
                         discordUsername: AppState.user?.username || 'Anonymous'
                     })
+                }, function() {
+                    showToast('Connection interrupted. Retrying safely...', 'info');
                 });
 
                 await updateStep(2, 'done');

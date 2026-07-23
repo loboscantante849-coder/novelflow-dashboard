@@ -31,6 +31,7 @@ const AUTH_IP_LIMIT = 50;
 const USER_DAILY_LIMIT = 50;
 const RATE_WINDOW = 3600; // 1h for IP
 const DAILY_WINDOW = 86400; // 24h for per-user daily cap
+const CONFIRM_LOCK_TTL = 900; // Covers the slowest upstream code-allocation retry window.
 
 function redisClient() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -139,6 +140,17 @@ async function findExistingForBook(redis, username, bookId) {
     console.error('[confirm] findExistingForBook error:', e.message);
   }
   return null;
+}
+
+async function releaseConfirmLock(redis, key, submissionId) {
+  if (!redis || !submissionId) return;
+  try {
+    const raw = await redis.get(key);
+    const record = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (record?.pending && record.submissionId === submissionId) await redis.del(key);
+  } catch (error) {
+    console.error('[confirm] lock release failed:', error.message);
+  }
 }
 
 module.exports = async (req, res) => {
@@ -259,6 +271,41 @@ module.exports = async (req, res) => {
   }
 
   const submissionId = 'sub_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  let confirmLockOwned = false;
+
+  // Close the network-retry race: only one request may allocate a code for a
+  // given user/book pair at a time. The lock is replaced with the completed
+  // code below, so a lost client response can safely retry.
+  if (redis) {
+    try {
+      const lockResult = await redis.set(
+        dedupKey,
+        JSON.stringify({ pending: true, submissionId }),
+        { nx: true, ex: CONFIRM_LOCK_TTL }
+      );
+      if (!lockResult) {
+        const lockedRaw = await redis.get(dedupKey);
+        let locked = null;
+        try { locked = typeof lockedRaw === 'string' ? JSON.parse(lockedRaw) : lockedRaw; } catch {}
+        if (locked?.code) {
+          return res.status(200).json({
+            success: true, status: 'existing', code: String(locked.code),
+            link: locked.link || null, linkId: locked.linkId || null,
+            message: 'Link already exists for this book'
+          });
+        }
+        return res.status(200).json({
+          success: true, status: 'pending',
+          submissionId: locked?.submissionId || null,
+          matchedBookName: cleanBookTitle || cleanBookName,
+          message: 'Link is being created for this book'
+        });
+      }
+      confirmLockOwned = true;
+    } catch (error) {
+      console.error('[confirm] lock acquisition failed:', error.message);
+    }
+  }
 
   const BOOKSTORE_TOKEN = await getBookstoreToken();
   if (!BOOKSTORE_TOKEN) {
@@ -331,11 +378,22 @@ module.exports = async (req, res) => {
           await redis.set(dedupKey, JSON.stringify({ code: null, link: null, linkId: null, pending: true, submissionId }), { ex: 86400 });
         } catch (e) { console.error('[confirm] dedupKey write failed (pending):', e.message); }
       }
+      confirmLockOwned = false;
       return res.status(200).json({
         success: true, submissionId, status: 'pending',
         matchedBookName: cleanBookTitle || cleanBookName,
         message: 'Code creation failed'
       });
+    }
+
+    if (redis) {
+      // Persist the allocated code before creating the optional short link.
+      // If the client loses its response, a retry receives this code instead
+      // of allocating another one.
+      try {
+        await redis.set(dedupKey, JSON.stringify({ code: String(finalCode), link: null, linkId: null }), { ex: 86400 });
+        confirmLockOwned = false;
+      } catch (e) { console.error('[confirm] dedupKey write failed (allocated code):', e.message); }
     }
 
     const cpsChannel = await ensureCpsChannel(redis, cleanUsername, BOOKSTORE_TOKEN);
@@ -416,6 +474,7 @@ module.exports = async (req, res) => {
     });
 
   } catch (error) {
+    if (confirmLockOwned) await releaseConfirmLock(redis, dedupKey, submissionId);
     console.error('[confirm] Error:', error);
     return res.status(500).json({
       success: false, submissionId, status: 'failed',
