@@ -95,7 +95,7 @@ async function chapterEvidence(book, phrases) {
   if (!book.cityBookId || !phrases.length) return { score: 0, hits: [] };
   try {
     const chapters = await providers.listChapters(book.cityBookId);
-    const selected = [...chapters.slice(0, 12), ...chapters.slice(-3)].filter((item, index, all) => all.findIndex((other) => String(other.id) === String(item.id)) === index).slice(0, 15);
+    const selected = [...chapters.slice(0, 8), ...chapters.slice(-1)].filter((item, index, all) => all.findIndex((other) => String(other.id) === String(item.id)) === index).slice(0, 9);
     const contents = await Promise.all(selected.map(async (chapter) => {
       try { return { order: chapter.order, content: await providers.chapterContent(chapter.id) }; } catch { return null; }
     }));
@@ -193,7 +193,7 @@ async function matchBooks(redis, query, options = {}) {
   const recallMap = new Map(recalled.map((book) => [String(book.bookSkuId), book]));
   for (const item of scored.slice(0, 24)) recallMap.set(String(item.book.bookSkuId), { ...(recallMap.get(String(item.book.bookSkuId)) || {}), ...item.book });
   const candidates = await enrichCandidates([...recallMap.values()].slice(0, 36));
-  const verified = await Promise.all(candidates.slice(0, recalled.length ? 12 : 6).map(async (book) => ({ ...book, chapterEvidence: await chapterEvidence(book, phrases) })));
+  const verified = await Promise.all(candidates.slice(0, recalled.length ? 4 : 2).map(async (book) => ({ ...book, chapterEvidence: await chapterEvidence(book, phrases) })));
   for (const book of verified) {
     const index = candidates.findIndex((item) => String(item.bookSkuId) === String(book.bookSkuId));
     if (index >= 0) candidates[index] = book;
