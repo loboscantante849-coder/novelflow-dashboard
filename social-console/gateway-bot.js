@@ -96,16 +96,16 @@ async function screenshotText(message) {
 
 function resultEmbed(result) {
   const books = result.matches?.length ? result.matches : result.recommendations || [];
-  if (!books.length) return { content: 'I could not find a ranked NovelFlow candidate. Send a longer excerpt or a clearer clue.' };
+  if (!books.length) return { content: 'I’m not confident enough to name this one yet. The screenshot may be too short or the wording is too common. Send one more page, especially a page with names or a distinctive line, and I’ll keep digging.' };
   const exact = result.matches?.[0];
   if (exact?.confidence >= 85) {
     const promo = exact.promo?.status === 'ready'
       ? `**Code:** \`${exact.promo.code}\`\n**Read now:** ${exact.promo.shortUrl}\n\nOpen the link or search this Code in NovelFlow to start reading.`
       : 'The identification is confirmed. I could not create the attribution link yet.';
     return { embeds: [{
-      title: `Found it | ${exact.title}`.slice(0, 256), color: 0x238636,
-      description: `**Match:** ${exact.confidence}%\n**Evidence:** ${(exact.reasons || []).join('; ') || 'Exact NovelFlow bookstore evidence'}\n\n**About this novel**\n${String(exact.description || 'NovelFlow bookstore introduction is unavailable.').replace(/\s+/g, ' ').trim().slice(0, 700)}\n\n${promo}`.slice(0, 4000),
-      footer: { text: 'Verified through the NovelFlow bookstore.' }
+      title: `I think I found it 📚 | ${exact.title}`.slice(0, 256), color: 0x238636,
+      description: `This looks like **${exact.title}**.\n\n**Why I’m saying that:** ${(exact.reasons || []).join('; ') || 'The title and bookstore record line up'}\n**Confidence:** ${exact.confidence}%\n\n**The story**\n${String(exact.description || 'I could not pull the bookstore introduction yet.').replace(/\s+/g, ' ').trim().slice(0, 700)}\n\n${promo}`.slice(0, 4000),
+      footer: { text: 'I’ll only call it a match when the evidence lines up.' }
     }] };
   }
   const lines = books.slice(0, 3).map((book, index) => {
@@ -113,14 +113,14 @@ function resultEmbed(result) {
     const intro = String(book.description || '').replace(/\s+/g, ' ').trim().slice(0, 280);
     const promo = book.promo?.status === 'ready'
       ? `\n**Code:** \`${book.promo.code}\`\n**Read now:** ${book.promo.shortUrl}\nUse the code above when you open the book.`
-      : `\nReply **${index + 1}** to confirm this candidate, then I will create its Discord code and link.`;
-    return `**${index + 1}. ${book.title}** - ${book.confidence}%\n${evidence}${intro ? `\n${intro}` : ''}${promo}`;
+      : `\nIf one of these is familiar, reply **${index + 1}** and I’ll make the link for you.`;
+    return `**${index + 1}. ${book.title}** · ${book.confidence}%\n_${evidence}_${intro ? `\n${intro}` : ''}${promo}`;
   });
   return {
     embeds: [{
-      title: result.matches?.length ? 'NovelFlow candidates - confirmation needed' : 'Similar NovelFlow recommendations',
+      title: result.matches?.length ? 'I found a few possibilities — help me pick' : 'These might be your kind of story',
       description: lines.join('\n\n').slice(0, 4000),
-      footer: { text: 'Match percentage is a system score, not a guarantee.' },
+      footer: { text: 'The percentage is my evidence score, not a guarantee.' },
       color: 0x238636
     }]
   };
@@ -154,7 +154,7 @@ async function aiRoute(input) {
   if (!apiKey || !String(input || '').trim()) return null;
   const baseUrl = String(process.env.NOVELFLOW_COPY_LLM_BASE_URL || 'https://api.deepseek.com').replace(/\/$/, '');
   const model = String(process.env.NOVELFLOW_COPY_LLM_MODEL || 'deepseek-chat');
-  const system = 'You are the routing brain for a NovelFlow Discord book assistant. Return JSON only: {"intent":"chat|search|recommend|link","query":"string","reply":"string"}. recommend means asking for books, rankings, or suggestions. link means asking for a promotion code or short link. search means title, quote, character, or plot clue. chat means greetings or general conversation. Keep reply under 140 characters. Never invent a title, code, link, or book fact.';
+  const system = 'You are the warm, bookish conversation layer for a NovelFlow Discord assistant. Return JSON only: {"intent":"chat|search|recommend|link","query":"string","reply":"string"}. recommend means asking for books, rankings, or suggestions. link means asking for a promotion code or short link. search means title, quote, character, or plot clue. chat means greetings or general conversation. Reply like a helpful human friend: acknowledge what the reader wants, use natural contractions, and avoid robotic phrases such as "please provide more information". Keep reply under 140 characters. Never invent a title, code, link, or book fact.';
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model, messages: [{ role: 'system', content: system }, { role: 'user', content: String(input).slice(0, 2000) }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 180 }) });
     if (!response.ok) return null;
@@ -228,7 +228,7 @@ function recommendationPayload(books) {
 }
 
 async function recommend(message) {
-  const pending = await replyInChannel(message, { content: 'Building today\'s Top 5 and creating Discord links...' });
+  const pending = await replyInChannel(message, { content: 'Absolutely — I’m pulling today’s five standouts and preparing a read link for each one. Give me a moment…' });
   if (!pending) return;
   const books = localTopBooks(5);
   for (let index = 0; index < books.length; index += 1) books[index].promo = await createDiscordPromo(books[index], index, message);
@@ -240,12 +240,12 @@ async function createLinkForBook(message, book, confidence = 99) {
     await replyInChannel(message, { content: 'I do not have a confirmed NovelFlow book for that request.' });
     return;
   }
-  const pending = await replyInChannel(message, { content: `Creating a verified Discord code and short link for **${book.title}**...` });
+  const pending = await replyInChannel(message, { content: `Got it — I’m preparing a clean NovelFlow link for **${book.title}** now…` });
   if (!pending) return;
   const promo = await createDiscordPromo(book, 0, message);
   if (promo.status === 'ready') {
     const description = String(book.description || '').replace(/\s+/g, ' ').trim().slice(0, 700);
-    await pending.edit({ embeds: [{ title: `Attribution ready | ${book.title}`.slice(0, 256), description: `**Match:** ${Math.round(confidence)}%\n\n**About this novel**\n${description || 'NovelFlow bookstore introduction is unavailable.'}\n\n**Code:** \`${promo.code}\`\n**Short link:** ${promo.shortUrl}\n\nOpen the link or search this Code in NovelFlow to start reading.`, color: 0x238636, footer: { text: 'Verified against NovelFlow attribution records.' } }] });
+    await pending.edit({ embeds: [{ title: `Your link is ready 📖 | ${book.title}`.slice(0, 256), description: `I matched this to **${book.title}** with a ${Math.round(confidence)}% confidence score.\n\n**A quick feel for it**\n${description || 'I couldn’t pull the introduction, but the book record is verified.'}\n\n**Code:** \`${promo.code}\`\n**Read here:** ${promo.shortUrl}\n\nTap the link, or search the Code in NovelFlow if you’d like to find it later.`, color: 0x238636, footer: { text: 'Your Discord attribution is verified.' } }] });
   } else {
     await pending.edit({ content: `I confirmed **${book.title}**, but I could not create a verified link yet.\n**Reason:** ${promo.reason || promo.status}` });
   }
@@ -257,10 +257,10 @@ async function createLinkForRequest(message, query) {
   if (!clean || clean.length < 4) {
     if (recent?.exact) return createLinkForBook(message, recent.exact, recent.exact.confidence);
     if (recent?.candidates?.length) {
-      await replyInChannel(message, { content: 'The last search was not certain enough to create a link automatically. Reply **1**, **2**, or **3** to choose one of the candidates shown above.' });
+      await replyInChannel(message, { content: 'I have a few leads, but I don’t want to send you to the wrong story. Reply **1**, **2**, or **3** and I’ll use your choice.' });
       return;
     }
-    await replyInChannel(message, { content: 'Send a screenshot, an excerpt, or a title first. I will identify the book before creating its code and link.' });
+    await replyInChannel(message, { content: 'Send me a screenshot, a passage, or even a character name first. I’ll identify the story, then make the link.' });
     return;
   }
   try {
@@ -271,14 +271,14 @@ async function createLinkForRequest(message, query) {
   }
   const found = linkBook(clean);
   if (!found.book || found.confidence < 85) {
-    await replyInChannel(message, { content: 'I will not create attribution for an unconfirmed match. Send the screenshot or an excerpt, and I will identify it first.' });
+    await replyInChannel(message, { content: 'I’m not certain enough to make a link yet — I’d rather be honest than send you to the wrong book. Try one more page or quote.' });
     return;
   }
   return createLinkForBook(message, found.book, found.confidence);
 }
 
 async function search(message, query) {
-  const pending = await replyInChannel(message, { content: 'Searching NovelFlow catalog and rankings...' });
+  const pending = await replyInChannel(message, { content: 'Let me follow the clues — I’m checking the NovelFlow library and the story text now…' });
   if (!pending) return;
   try {
     // The desktop Gateway has the approved NovelFlow credentials locally. Use
