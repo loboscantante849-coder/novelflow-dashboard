@@ -3,7 +3,8 @@ const test = require('node:test');
 
 const { invoke } = require('./helpers/endpoint');
 
-process.env.NOVELSPA_TOKEN = 'test-token';
+const tokenPayload = Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url');
+process.env.NOVELSPA_TOKEN = `eyJhbGciOiJIUzI1NiJ9.${tokenPayload}.test-signature`;
 delete process.env.OIDC_USERNAME;
 delete process.env.OIDC_PASSWORD;
 delete process.env.KV_REST_API_URL;

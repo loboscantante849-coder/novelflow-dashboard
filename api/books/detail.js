@@ -30,7 +30,7 @@ const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
 // BOOKSTORE_TOKEN fetched via getBookstoreToken()
 
 const { setCORSHeaders } = require('../_lib/cors')
-const { getBookstoreToken } = require('../_lib/oidc-token');
+const { bookstoreFetch } = require('../_lib/bookstore-fetch');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -61,13 +61,15 @@ module.exports = async (req, res) => {
   }
   
   try {
-    const BOOKSTORE_TOKEN = await getBookstoreToken();
     const apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=1&pageSize=1&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&languageCode=${lang}&bookStatus=1&bookIds=${encodeURIComponent(bookId)}`;
     
-    const response = await fetch(apiUrl, {
+    const { response, authUnavailable } = await bookstoreFetch(apiUrl, {
       method: 'GET',
-      headers: { 'Authorization': `Bearer ${BOOKSTORE_TOKEN}`, 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' }
     });
+    if (!response) {
+      return res.status(503).json({ error: 'Bookstore authentication unavailable', code: authUnavailable ? 'UPSTREAM_AUTH_UNAVAILABLE' : 'UPSTREAM_UNAVAILABLE' });
+    }
     
     if (!response.ok) {
       return res.status(502).json({ error: 'Upstream API error', code: 'UPSTREAM_ERROR' });
@@ -103,6 +105,7 @@ module.exports = async (req, res) => {
     
   } catch (error) {
     console.error('Detail API error:', error.message);
-    return res.status(500).json({ error: 'Internal server error', code: 'INTERNAL_ERROR' });
+    const timedOut = error && error.code === 'UPSTREAM_TIMEOUT';
+    return res.status(timedOut ? 504 : 502).json({ error: timedOut ? 'Bookstore request timed out' : 'Bookstore request failed', code: timedOut ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR' });
   }
 };

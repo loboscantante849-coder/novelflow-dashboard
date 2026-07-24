@@ -10,7 +10,7 @@
  *  - Disabled accounts (nf_user_data:<u>.disabled) rejected.
  */
 const { handlePreflight } = require('./_lib/cors');
-const { getBookstoreToken } = require('./_lib/oidc-token');
+const { bookstoreFetch } = require('./_lib/bookstore-fetch');
 const {
   getRedis, getClientIp, getAuthPayload, checkRateLimit,
   validateString, stripHtml, isAdminUser,
@@ -32,6 +32,9 @@ const USER_DAILY_LIMIT = 50;
 const RATE_WINDOW = 3600; // 1h for IP
 const DAILY_WINDOW = 86400; // 24h for per-user daily cap
 const CONFIRM_LOCK_TTL = 900; // Covers the slowest upstream code-allocation retry window.
+const UPSTREAM_DEADLINE_MS = 24000;
+const UPSTREAM_REQUEST_TIMEOUT_MS = 5000;
+const MAX_CODE_ATTEMPTS = 8;
 
 function redisClient() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -48,7 +51,21 @@ async function getCpsChannel(redis, username) {
   try { return JSON.parse(raw); } catch { return null; }
 }
 
-async function ensureCpsChannel(redis, username, bookstoreToken) {
+function upstreamTimeout(deadlineAt) {
+  const remaining = deadlineAt - Date.now();
+  if (remaining < 500) {
+    const error = new Error('Bookstore request timed out');
+    error.code = 'UPSTREAM_TIMEOUT';
+    throw error;
+  }
+  return Math.min(UPSTREAM_REQUEST_TIMEOUT_MS, remaining);
+}
+
+async function fetchBookstore(url, options, deadlineAt) {
+  return bookstoreFetch(url, options, { timeoutMs: upstreamTimeout(deadlineAt) });
+}
+
+async function ensureCpsChannel(redis, username, deadlineAt) {
   if (!username || username === 'Anonymous') return null;
   const existing = await getCpsChannel(redis, username);
   if (existing) return existing;
@@ -60,20 +77,19 @@ async function ensureCpsChannel(redis, username, bookstoreToken) {
   }
   const fullChannelCode = `NovelFlow_SocialMedia_CPS_${channelCode}`;
 
-  if (bookstoreToken) {
-    try {
-      const listResp = await fetch(
+  try {
+      const { response: listResp } = await fetchBookstore(
         `https://admin.novelspa.app/api/v1/novelmanage/SocialMediaChannelConfig?productLine=NovelFlow&channelSource=CPS&channelNumber=${encodeURIComponent(channelCode)}&page=1&pageSize=10`,
         {
           headers: {
-            'Authorization': `Bearer ${bookstoreToken}`,
             'X-OS': 'web', 'X-AppName': 'web-admin',
             'X-AppIdentifier': 'web', 'X-AppVersion': '1.0.0,1',
             'Origin': 'https://admin.novelspa.app'
           }
-        }
+        },
+        deadlineAt,
       );
-      if (listResp.ok) {
+      if (listResp && listResp.ok) {
         const listData = await listResp.json();
         if (listData.data?.data?.length > 0) {
           const existingCh = listData.data.data.find(ch => ch.channelCode === channelCode);
@@ -88,14 +104,7 @@ async function ensureCpsChannel(redis, username, bookstoreToken) {
           }
         }
       }
-    } catch (e) { console.error('[ensureCpsChannel] List lookup failed:', e.message); }
-
-    try {
-      const createResp = await fetch('https://admin.novelspa.app/api/v1/novelmanage/SocialMediaLinkConfig', { method: 'POST' });
-      // Note: SocialMediaChannelConfig endpoint 404s in some envs; the main SocialMediaLinkConfig still works.
-      // We'll create via the link flow which auto-provisions; skip explicit channel create here.
-    } catch {}
-  }
+  } catch (e) { console.error('[ensureCpsChannel] List lookup failed:', e.message); }
   return null;
 }
 
@@ -307,26 +316,20 @@ module.exports = async (req, res) => {
     }
   }
 
-  const BOOKSTORE_TOKEN = await getBookstoreToken();
-  if (!BOOKSTORE_TOKEN) {
-    console.error('[confirm] No bookstore token available');
-  }
-
   try {
+    const deadlineAt = Date.now() + UPSTREAM_DEADLINE_MS;
     let finalCode = null;
-    if (BOOKSTORE_TOKEN) {
-      let startCode = STARTING_CODE;
-      if (redis) {
-        const hint = await redis.get('nf_next_code');
-        if (hint) startCode = Math.max(STARTING_CODE, parseInt(hint) || STARTING_CODE);
-      }
+    let upstreamAuthUnavailable = false;
+    let startCode = STARTING_CODE;
+    if (redis) {
+      const hint = await redis.get('nf_next_code');
+      if (hint) startCode = Math.max(STARTING_CODE, parseInt(hint) || STARTING_CODE);
+    }
 
-      const MAX_ATTEMPTS = 50;
-      for (let tryCode = startCode, attempts = 0; tryCode < MAX_CODE && attempts < MAX_ATTEMPTS; tryCode++, attempts++) {
-        const codeResp = await fetch(`${BOOKSTORE_API_BASE}/book/savebookpromotionkeywords`, {
+    for (let tryCode = startCode, attempts = 0; tryCode < MAX_CODE && attempts < MAX_CODE_ATTEMPTS; tryCode++, attempts++) {
+      const { response: codeResp, authUnavailable } = await fetchBookstore(`${BOOKSTORE_API_BASE}/book/savebookpromotionkeywords`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${BOOKSTORE_TOKEN}`,
             'Content-Type': 'application/json;charset=UTF-8',
             'X-OS': 'web', 'X-AppName': 'web-admin',
             'X-AppIdentifier': 'web', 'X-AppVersion': '1.0.0,1'
@@ -338,26 +341,33 @@ module.exports = async (req, res) => {
             channel: 'CPS',
             isEnable: true
           }),
-          signal: AbortSignal.timeout(8000)
-        });
+        }, deadlineAt);
+      if (!codeResp) {
+        upstreamAuthUnavailable = authUnavailable;
+        break;
+      }
 
-        if (codeResp.status === 401) {
-          console.error('[confirm] Bookstore API 401');
+      if (codeResp.ok) {
+        const codeData = await codeResp.json();
+        if (codeData.data) {
+          finalCode = tryCode;
+          if (redis) await redis.set('nf_next_code', tryCode + 1);
           break;
-        }
-
-        if (codeResp.ok) {
-          const codeData = await codeResp.json();
-          if (codeData.data) {
-            finalCode = tryCode;
-            if (redis) await redis.set('nf_next_code', tryCode + 1);
-            break;
-          }
         }
       }
     }
 
     if (!finalCode) {
+      if (upstreamAuthUnavailable) {
+        if (confirmLockOwned) await releaseConfirmLock(redis, dedupKey, submissionId);
+        return res.status(503).json({
+          success: false,
+          submissionId,
+          status: 'failed',
+          error: 'Bookstore authentication is temporarily unavailable. Please retry.',
+          code: 'UPSTREAM_AUTH_UNAVAILABLE',
+        });
+      }
       if (redis) {
         const pendingSub = {
           id: submissionId,
@@ -369,7 +379,7 @@ module.exports = async (req, res) => {
           lang: languageCode,
           submittedAt: new Date().toISOString(),
           status: 'pending',
-          error: BOOKSTORE_TOKEN ? 'Code creation failed' : 'No bookstore token'
+          error: 'Code creation failed'
         };
         await redis.hset('nf_subs', { [`_pending_${submissionId}`]: JSON.stringify(pendingSub) });
         await redis.sadd(`nf_user_subs:${cleanUsername.toLowerCase()}`, `_pending_${submissionId}`);
@@ -396,11 +406,8 @@ module.exports = async (req, res) => {
       } catch (e) { console.error('[confirm] dedupKey write failed (allocated code):', e.message); }
     }
 
-    const cpsChannel = await ensureCpsChannel(redis, cleanUsername, BOOKSTORE_TOKEN);
-    let linkResult = null;
-    if (BOOKSTORE_TOKEN) {
-      linkResult = await createLink(bookId, cleanBookTitle || cleanBookName, finalCode, BOOKSTORE_TOKEN, languageCode, cpsChannel);
-    }
+    const cpsChannel = await ensureCpsChannel(redis, cleanUsername, deadlineAt);
+    const linkResult = await createLink(bookId, cleanBookTitle || cleanBookName, finalCode, languageCode, cpsChannel, deadlineAt);
 
     const completedSub = {
       id: submissionId,
@@ -476,23 +483,24 @@ module.exports = async (req, res) => {
   } catch (error) {
     if (confirmLockOwned) await releaseConfirmLock(redis, dedupKey, submissionId);
     console.error('[confirm] Error:', error);
-    return res.status(500).json({
+    const timedOut = error && error.code === 'UPSTREAM_TIMEOUT';
+    return res.status(timedOut ? 504 : 502).json({
       success: false, submissionId, status: 'failed',
-      error: 'Internal server error'
+      error: timedOut ? 'Bookstore request timed out. Please retry.' : 'Unable to create the promotion link. Please retry.',
+      code: timedOut ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR',
     });
   }
 };
 
 // ============ Create Short Link ============
-async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, languageCode, cpsChannel) {
+async function createLink(bookId, bookTitle, code, languageCode, cpsChannel, deadlineAt) {
   const linkName = `${code}${bookTitle}-书籍详情页-CPS`;
   const channelName = cpsChannel ? cpsChannel.fullChannelCode : DEFAULT_CHANNEL_NAME;
   const channelNameId = cpsChannel ? cpsChannel.channelNameId : DEFAULT_CHANNEL_NAME_ID;
 
-  const linkResp = await fetch(`${BOOKSTORE_API_BASE}/SocialMediaLinkConfig`, {
+  const { response: linkResp } = await fetchBookstore(`${BOOKSTORE_API_BASE}/SocialMediaLinkConfig`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${BOOKSTORE_TOKEN}`,
       'Content-Type': 'application/json',
       'X-OS': 'web', 'X-AppName': 'web-admin',
       'X-AppIdentifier': 'web', 'X-AppVersion': '1.0.0,1'
@@ -521,19 +529,19 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, languageCode
         isDeleted: false
       }]
     })
-  });
+  }, deadlineAt);
 
-  if (linkResp.ok) {
+  if (linkResp && linkResp.ok) {
     const linkData = await linkResp.json();
     if (linkData.code === 200 && linkData.data) {
       const responseLinkId = linkData.data;
       if (typeof responseLinkId === 'string' && responseLinkId.length > 10) {
         let shortUrl = null;
         try {
-          const detailResp = await fetch(`${BOOKSTORE_API_BASE}/SocialMediaLinkConfig/${responseLinkId}`, {
-            headers: { 'Authorization': `Bearer ${BOOKSTORE_TOKEN}`, 'Content-Type': 'application/json' }
-          });
-          if (detailResp.ok) {
+          const { response: detailResp } = await fetchBookstore(`${BOOKSTORE_API_BASE}/SocialMediaLinkConfig/${responseLinkId}`, {
+            headers: { 'Content-Type': 'application/json' }
+          }, deadlineAt);
+          if (detailResp && detailResp.ok) {
             const detailData = await detailResp.json();
             if (detailData.code === 200 && detailData.data?.shortUrl) {
               shortUrl = detailData.data.shortUrl;
@@ -547,6 +555,6 @@ async function createLink(bookId, bookTitle, code, BOOKSTORE_TOKEN, languageCode
       }
     }
   }
-  console.error('Link creation failed:', linkResp.status);
+  console.error('Link creation failed:', linkResp ? linkResp.status : 'auth unavailable');
   return null;
 }

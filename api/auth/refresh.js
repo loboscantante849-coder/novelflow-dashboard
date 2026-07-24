@@ -16,10 +16,30 @@ const {
   extractUserInfo,
   parseCookies,
   setAuthCookies,
-  clearAuthCookies
+  clearAuthCookies,
+  REFRESH_MAX_AGE
 } = require('../_lib/auth');
 
 const { handlePreflight } = require('../_lib/cors');
+const { Redis } = require('@upstash/redis');
+
+function getRedis() {
+  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
+  return new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+}
+
+async function isDisabledAccount(payload) {
+  const username = String(payload && (payload.username || payload.globalName) || '').trim().toLowerCase();
+  const redis = getRedis();
+  if (!username || !redis) return false;
+  try {
+    const raw = await redis.get(`nf_user_data:${username}`);
+    const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Boolean(data && data.disabled);
+  } catch (_) {
+    return false;
+  }
+}
 
 module.exports = async (req, res) => {
   if (handlePreflight(req, res, { credentials: true })) return;
@@ -42,8 +62,20 @@ module.exports = async (req, res) => {
       return res.status(401).json({ error: 'Invalid refresh token', code: 'INVALID_REFRESH' });
     }
 
-    // Build new tokens with the same user info
-    const userPayload = buildUserPayload(payload);
+    const sessionStartedAt = Number(payload.session_started_at || payload.iat || 0);
+    const now = Math.floor(Date.now() / 1000);
+    if (!sessionStartedAt || now - sessionStartedAt > REFRESH_MAX_AGE) {
+      clearAuthCookies(res);
+      return res.status(401).json({ error: 'Session expired', code: 'SESSION_EXPIRED' });
+    }
+    if (await isDisabledAccount(payload)) {
+      clearAuthCookies(res);
+      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    }
+
+    // Keep a fixed maximum session lifetime; active refreshes must not extend
+    // a compromised token indefinitely.
+    const userPayload = { ...buildUserPayload(payload), session_started_at: sessionStartedAt };
     const newAccessToken = signAccessToken(userPayload);
     const newRefreshToken = signRefreshToken(userPayload);
     const userInfo = extractUserInfo(payload);

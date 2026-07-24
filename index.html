@@ -5094,7 +5094,7 @@
             const target = document.getElementById('equitySearchResults');
             try {
                 const params = new URLSearchParams({ keyword, lang: AppState.currentLang || 'en', pageSize: '8' });
-                const response = await fetch('/api/books/search?' + params);
+                const response = await authFetch('/api/books/search?' + params);
                 const data = await response.json();
                 if (requestId !== EquityCodeState.searchRequest) return;
                 if (!response.ok) throw new Error(data.error || 'Search failed');
@@ -5686,25 +5686,13 @@
                 }
             } catch (e) {
                 console.warn('Login check API failed:', e.message);
+                return;
             }
-            
-            // Fallback: check localStorage for cached login
-            const saved = localStorage.getItem('novelflow_user');
-            if (saved) {
-                try {
-                    const user = JSON.parse(saved);
-                    if (user.username) {
-                        AppState.isLoggedIn = true;
-                        AppState.user = user;
-                        updateProfileUI();
-                        if (typeof loadEquityCode === 'function') loadEquityCode(false);
-                        return;
-                    }
-                } catch (e2) {}
-            }
-            
+
             AppState.isLoggedIn = false;
             AppState.user = null;
+            localStorage.removeItem('novelflow_user');
+            localStorage.removeItem('novelflow_last_user');
             updateProfileUI();
             if (typeof loadEquityCode === 'function') loadEquityCode(false);
         }
@@ -5724,6 +5712,8 @@
             // Refresh also failed — user needs to re-login
             AppState.isLoggedIn = false;
             AppState.user = null;
+            localStorage.removeItem('novelflow_user');
+            localStorage.removeItem('novelflow_last_user');
             updateProfileUI();
             return response;
         }
@@ -6283,7 +6273,7 @@
             if (codes.length === 0) return;
             try {
                 const token = localStorage.getItem("nf_token") || document.cookie.match(/nf_token=([^;]+)/)?.[1];
-                const resp = await fetch("/api/claim-links", {
+                const resp = await authFetch("/api/claim-links", {
                     method: "POST",
                     headers: { "Content-Type": "application/json", ...(token ? {"Authorization": "Bearer " + token} : {}) },
                     body: JSON.stringify({ codes })
@@ -6395,7 +6385,7 @@
                 try {
                     this._syncing = true;
                     const data = this.collectData();
-                    const resp = await fetch('/api/user-data', {
+                    const resp = await authFetch('/api/user-data', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'include',
@@ -6426,7 +6416,7 @@
             async pull() {
                 if (!this.isEnabled()) return;
                 try {
-                    const resp = await fetch('/api/user-data', {
+                    const resp = await authFetch('/api/user-data', {
                         method: 'GET',
                         credentials: 'include'
                     });
@@ -6623,7 +6613,7 @@
             }
 
             try {
-                const response = await fetch(`/api/my-stats?t=${Date.now()}&username=${encodeURIComponent(username)}`);
+                const response = await authFetch(`/api/my-stats?t=${Date.now()}&username=${encodeURIComponent(username)}`);
                 if (!response.ok) throw new Error('Failed to fetch stats');
                 
                 const data = await response.json();
@@ -6876,7 +6866,7 @@ function renderMyBooks() {
             showToast('Re-creating link...', 'loading');
             
             try {
-                const response = await fetch('/api/confirm', {
+                const response = await authFetch('/api/confirm', {
                     timeout: 30000,
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -7014,16 +7004,6 @@ function renderMyBooks() {
 
         // ========== User State ==========
         function checkLocalLogin() {
-            const saved = localStorage.getItem('novelflow_user');
-            if (saved) {
-                try {
-                    AppState.user = JSON.parse(saved);
-                    AppState.isLoggedIn = true;
-                    CloudSync.enable();
-                } catch (e) {
-                    localStorage.removeItem('novelflow_user');
-                }
-            }
             updateProfileUI();
             if (typeof initCampaign1Bonus === 'function') initCampaign1Bonus();
             if (typeof updateBonusUI === 'function') updateBonusUI();
@@ -7203,7 +7183,7 @@ function renderMyBooks() {
             
             try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                const timeoutId = setTimeout(() => controller.abort(), 12000);
                 const resp = await fetch('/api/auth/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -7221,10 +7201,6 @@ function renderMyBooks() {
                     return;
                 }
                 if (!resp.ok) {
-                    if (resp.status === 504 || result.offline) {
-                        // Server unreachable - use offline mode
-                        throw new Error('offline');
-                    }
                     const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = result.error || 'Login failed';
                     return;
                 }
@@ -7254,21 +7230,12 @@ function renderMyBooks() {
                 }
             } catch(e) {
                 console.error('Login error:', e);
-                // Fallback: allow offline login (API unreachable or timed out)
-                AppState.user = { username: username, accountType: 'local' };
-                AppState.isLoggedIn = true;
-                localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
-                localStorage.setItem('novelflow_last_user', username);
-                localStorage.setItem('novelflow_splash_done', 'true');
-                afterLoginContinue();
-                updateProfileUI();
-                updateTopbarUI();
-                loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo(); updateReelsStatusBar();
-                loadMyBooks();
-                loadPerformanceDashboard();
-                showToast('Welcome, ' + username + '! (offline mode)', 'success');
-                checkAndPromptSetPassword(username);
-                CloudSync.enable();
+                const seEl = document.getElementById('splashError');
+                if (seEl) {
+                    seEl.textContent = e && e.name === 'AbortError'
+                        ? 'Login is taking longer than expected. Please try again.'
+                        : 'Unable to reach the login service. Please try again.';
+                }
             }
         }
         
@@ -7863,10 +7830,10 @@ function renderMyBooks() {
             
             try {
                 const query = '?t=' + Date.now() + '&username=' + encodeURIComponent(AppState.user.username);
-                let resp = await fetch('/api/per-link-stats' + query);
+                let resp = await authFetch('/api/per-link-stats' + query);
                 let data = await resp.json().catch(() => null);
                 if (!resp.ok || !data || data.error) {
-                    resp = await fetch('/api/my-stats' + query);
+                    resp = await authFetch('/api/my-stats' + query);
                     data = await resp.json().catch(() => null);
                     if (!resp.ok || !data || data.error) throw new Error('STATS_UNAVAILABLE');
                 }
@@ -9311,7 +9278,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
     if (!u) return;
     try {
       const token = localStorage.getItem('nf_token') || document.cookie.match(/nf_token=([^;]+)/)?.[1];
-      const r = await fetch('/api/withdrawals?username=' + encodeURIComponent(u), {
+      const r = await authFetch('/api/withdrawals?username=' + encodeURIComponent(u), {
         credentials: 'include',
         headers: { 'X-OS': 'web', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) }
       });
@@ -9481,7 +9448,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
     btn.textContent = 'Submitting…';
     try {
       const token = localStorage.getItem('nf_token') || document.cookie.match(/nf_token=([^;]+)/)?.[1];
-      const r = await fetch('/api/withdrawals', {
+      const r = await authFetch('/api/withdrawals', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'X-OS': 'web', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) },
