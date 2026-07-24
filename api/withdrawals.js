@@ -75,7 +75,7 @@ function canonizeUser(raw) {
   return s.toLowerCase();
 }
 
-function computeBalances(userData, totalDnIncome) {
+function computeBalances(userData, totalDnIncome, incomeAdjustment = 0) {
   const bonus = Number(userData && userData.bonus_balance) || 0;
   const withdrawals = Array.isArray(userData && userData.withdrawals) ? userData.withdrawals : [];
   const approvedTotal = withdrawals
@@ -90,10 +90,13 @@ function computeBalances(userData, totalDnIncome) {
   // Frozen = pending (申请审核中，已从可用余额扣除)
   // Available = total earned - approved(已打款) - pending(冻结中)
   // rejected 不计入扣减（被拒绝后钱回到可用余额）
-  const available = Math.max(0, bonus + totalDnIncome - approvedTotal - pendingTotal);
+  const adjustedIncome = totalDnIncome + (Number(incomeAdjustment) || 0);
+  const available = Math.max(0, bonus + adjustedIncome - approvedTotal - pendingTotal);
   return {
     bonus_balance: Number(bonus.toFixed(2)),
-    total_earned: Number((bonus + totalDnIncome).toFixed(2)),
+    total_earned: Number((bonus + adjustedIncome).toFixed(2)),
+    source_total_dn_income: Number(totalDnIncome.toFixed(2)),
+    income_adjustment: Number((Number(incomeAdjustment) || 0).toFixed(2)),
     total_dn_income: Number(totalDnIncome.toFixed(2)),
     approved_total: Number(approvedTotal.toFixed(2)),
     pending_total: Number(pendingTotal.toFixed(2)),
@@ -103,6 +106,17 @@ function computeBalances(userData, totalDnIncome) {
     pending_settlement: Number(pendingTotal.toFixed(2)),
     withdrawals: withdrawals.slice().sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))),
   };
+}
+
+async function getIncomeAdjustment(redis, username) {
+  if (!redis) return 0;
+  try {
+    const raw = await redis.get(`nf_admin_income_adjustment:${username}`);
+    const record = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Number(record && record.amount) || 0;
+  } catch (_) {
+    return 0;
+  }
 }
 
 function makeId() {
@@ -207,7 +221,7 @@ module.exports = async (req, res) => {
       if (!userData || typeof userData !== 'object') userData = {};
 
       const dnIncome = getPromoterDnIncome(targetUser);
-      const balances = computeBalances(userData, dnIncome);
+      const balances = computeBalances(userData, dnIncome, await getIncomeAdjustment(redis, targetUser));
 
       const d = getDataJson();
       const uRaw = (d.users || {})[targetUser] ||
@@ -271,7 +285,7 @@ module.exports = async (req, res) => {
       if (!Array.isArray(userData.withdrawals)) userData.withdrawals = [];
 
       const dnIncome = getPromoterDnIncome(targetUser);
-      const balances = computeBalances(userData, dnIncome);
+      const balances = computeBalances(userData, dnIncome, await getIncomeAdjustment(redis, targetUser));
 
       if (amt > balances.available_balance + 0.001) {
         return res.status(400).json({
@@ -350,7 +364,7 @@ module.exports = async (req, res) => {
       await redis.set(redisKey, JSON.stringify(userData));
 
       const dnIncome = getPromoterDnIncome(targetUser);
-      const newBalances = computeBalances(userData, dnIncome);
+      const newBalances = computeBalances(userData, dnIncome, await getIncomeAdjustment(redis, targetUser));
 
       return res.status(200).json({
         success: true,

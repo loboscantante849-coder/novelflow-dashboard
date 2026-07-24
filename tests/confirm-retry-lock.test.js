@@ -7,7 +7,8 @@ const FakeRedis = installFakeUpstash();
 process.env.JWT_SECRET = 'confirm-retry-test-secret-not-used-in-production';
 process.env.KV_REST_API_URL = 'https://redis.invalid';
 process.env.KV_REST_API_TOKEN = 'test-token';
-process.env.NOVELSPA_TOKEN = 'bookstore-test-token';
+const tokenPayload = Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url');
+process.env.NOVELSPA_TOKEN = `eyJhbGciOiJIUzI1NiJ9.${tokenPayload}.test-signature`;
 delete process.env.OIDC_USERNAME;
 delete process.env.OIDC_PASSWORD;
 

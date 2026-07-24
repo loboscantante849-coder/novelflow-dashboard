@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const { handlePreflight } = require('./_lib/cors');
 const { getAuthPayload, getRedis, checkRateLimit, getClientIp } = require('./_lib/security');
-const { getBookstoreToken } = require('./_lib/oidc-token');
+const { bookstoreFetch } = require('./_lib/bookstore-fetch');
 const {
   APPLICATION_ID,
   EQUITY_API_BASE,
@@ -19,8 +19,9 @@ const {
 } = require('./_lib/equity-code');
 
 const LOCK_SECONDS = 45;
-const REQUEST_TIMEOUT_MS = 15000;
-const MAX_CODE_ATTEMPTS = 50;
+const REQUEST_TIMEOUT_MS = 5000;
+const OPERATION_DEADLINE_MS = 24000;
+const MAX_CODE_ATTEMPTS = 8;
 
 function recordKey(username) {
   return `nf_equity_code:${username}`;
@@ -42,20 +43,29 @@ async function saveRecord(redis, username, record) {
   await redis.set(recordKey(username), JSON.stringify(record));
 }
 
-async function fetchJson(url, options = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
-    const text = await response.text();
-    const body = text ? safeParse(text, { raw: text.slice(0, 300) }) : {};
-    return { response, body };
-  } finally {
-    clearTimeout(timer);
+function remainingTimeout(deadlineAt) {
+  const remaining = deadlineAt - Date.now();
+  if (remaining < 500) {
+    const error = new Error('Invite code request timed out');
+    error.code = 'UPSTREAM_TIMEOUT';
+    throw error;
   }
+  return Math.min(REQUEST_TIMEOUT_MS, remaining);
 }
 
-async function findRemote(token, filters) {
+async function fetchJson(url, options = {}, deadlineAt) {
+  const { response, authUnavailable } = await bookstoreFetch(url, options, { timeoutMs: remainingTimeout(deadlineAt) });
+  if (!response) {
+    const error = new Error('Bookstore authentication unavailable');
+    error.code = authUnavailable ? 'UPSTREAM_AUTH_UNAVAILABLE' : 'UPSTREAM_UNAVAILABLE';
+    throw error;
+  }
+  const text = await response.text();
+  const body = text ? safeParse(text, { raw: text.slice(0, 300) }) : {};
+  return { response, body };
+}
+
+async function findRemote(filters, deadlineAt) {
   const query = new URLSearchParams({
     pageIndex: '1',
     pageSize: '100',
@@ -66,9 +76,13 @@ async function findRemote(token, filters) {
   if (typeof filters.isEnable === 'boolean') query.set('isEnable', String(filters.isEnable));
 
   const { response, body } = await fetchJson(`${EQUITY_API_BASE}/page?${query}`, {
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-  });
-  if (!response.ok) throw new Error(`Equity lookup failed (${response.status})`);
+    headers: { 'Content-Type': 'application/json' },
+  }, deadlineAt);
+  if (!response.ok) {
+    const error = new Error(`Equity lookup failed (${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
 
   return extractRows(body).find(row => {
     if (filters.kolName && canonicalUsername(row.kolName) !== canonicalUsername(filters.kolName)) return false;
@@ -79,7 +93,7 @@ async function findRemote(token, filters) {
   }) || null;
 }
 
-async function verifyBook(token, bookId) {
+async function verifyBook(bookId, deadlineAt) {
   const query = new URLSearchParams({
     current: '1',
     pageIndex: '1',
@@ -89,33 +103,38 @@ async function verifyBook(token, bookId) {
     bookIds: bookId,
   });
   const { response, body } = await fetchJson(`${BOOK_API_BASE}/booklist?${query}`, {
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-  });
-  if (!response.ok) throw new Error(`Book lookup failed (${response.status})`);
+    headers: { 'Content-Type': 'application/json' },
+  }, deadlineAt);
+  if (!response.ok) {
+    const error = new Error(`Book lookup failed (${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
   return extractBook(body, bookId);
 }
 
-async function allocateCode(redis, token, username) {
+async function allocateCode(redis, username, deadlineAt) {
   const counterKey = 'nf_equity_code_counter';
   await redis.set(counterKey, FIRST_CODE - 1, { nx: true });
   for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt += 1) {
     const code = String(await redis.incr(counterKey));
-    const existing = await findRemote(token, { code });
+    const existing = await findRemote({ code }, deadlineAt);
     if (!existing) return code;
     if (canonicalUsername(existing.kolName) === username) return code;
   }
   throw new Error('No invite code is currently available');
 }
 
-async function createRemote(token, payload) {
+async function createRemote(payload, deadlineAt) {
   const { response, body } = await fetchJson(`${EQUITY_API_BASE}/save`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-  });
+  }, deadlineAt);
   const applicationError = body && (body.success === false || (Number.isFinite(Number(body.code)) && ![0, 200].includes(Number(body.code))));
   if (!response.ok || applicationError) {
     const error = new Error(`Equity creation failed (${response.status})`);
+    error.status = response.status;
     error.responseBody = body;
     throw error;
   }
@@ -220,31 +239,29 @@ module.exports = async (req, res) => {
   }
 
   try {
+    const deadlineAt = Date.now() + OPERATION_DEADLINE_MS;
     let record = await loadRecord(redis, username);
     if (action === 'unbind') {
-      const token = await getBookstoreToken();
-      if (!token) return res.status(503).json({ error: 'Bookstore authentication unavailable', code: 'UPSTREAM_AUTH_UNAVAILABLE' });
-
       if (record && record.status === 'unbound') {
         return res.status(200).json({ success: true, inviteCode: publicRecord(record), existing: true });
       }
       if (!record) {
-        const existing = await findRemote(token, { kolName: username, isEnable: true });
+        const existing = await findRemote({ kolName: username, isEnable: true }, deadlineAt);
         if (!existing) return res.status(404).json({ error: 'No invite code to unbind', code: 'INVITE_NOT_FOUND' });
         record = normalizeRemoteRecord(existing, username);
       }
 
-      const remote = await findRemote(token, { code: record.code });
+      const remote = await findRemote({ code: record.code }, deadlineAt);
       if (!remote) {
         return res.status(502).json({ error: 'Invite code could not be verified', code: 'UPSTREAM_RECORD_NOT_FOUND' });
       }
       const remoteEnabled = isRemoteEnabled(remote);
       if (remoteEnabled) {
         try {
-          await createRemote(token, disabledRemotePayload(remote, record, username));
+          await createRemote(disabledRemotePayload(remote, record, username), deadlineAt);
         } catch (error) {
           let reconciled = null;
-          try { reconciled = await findRemote(token, { code: record.code }); } catch (_lookupError) {}
+          try { reconciled = await findRemote({ code: record.code }, deadlineAt); } catch (_lookupError) {}
           const stillEnabled = isRemoteEnabled(reconciled);
           if (stillEnabled) {
             return res.status(502).json({ error: 'Unable to unbind invite code', code: 'UPSTREAM_UNBIND_FAILED' });
@@ -277,27 +294,24 @@ module.exports = async (req, res) => {
       });
     }
 
-    const token = await getBookstoreToken();
-    if (!token) return res.status(503).json({ error: 'Bookstore authentication unavailable', code: 'UPSTREAM_AUTH_UNAVAILABLE' });
-
-    const remoteExisting = await findRemote(token, { kolName: username, isEnable: true });
+    const remoteExisting = await findRemote({ kolName: username, isEnable: true }, deadlineAt);
     if (remoteExisting) {
       record = normalizeRemoteRecord(remoteExisting, username);
       await saveRecord(redis, username, record);
       return res.status(200).json({ success: true, inviteCode: publicRecord(record), existing: true });
     }
 
-    const book = await verifyBook(token, bookId);
+    const book = await verifyBook(bookId, deadlineAt);
     if (!book) return res.status(400).json({ error: 'The selected book no longer exists', code: 'BOOK_NOT_FOUND' });
     const verifiedTitle = String(book.title || book.bookName || '').trim();
     if (!verifiedTitle) return res.status(502).json({ error: 'Book data is incomplete', code: 'INVALID_BOOK_DATA' });
 
     let code = record && record.status !== 'unbound' && record.code ? String(record.code) : null;
     if (code) {
-      const codeOwner = await findRemote(token, { code });
+      const codeOwner = await findRemote({ code }, deadlineAt);
       if (codeOwner && canonicalUsername(codeOwner.kolName) !== username) code = null;
     }
-    if (!code) code = await allocateCode(redis, token, username);
+    if (!code) code = await allocateCode(redis, username, deadlineAt);
     const history = record && Array.isArray(record.history) ? record.history : [];
     record = {
       status: 'processing', username, code, bookId, bookTitle: verifiedTitle,
@@ -311,7 +325,7 @@ module.exports = async (req, res) => {
 
     const payload = equityPayload({ username, code, bookId, now });
     try {
-      const result = await createRemote(token, payload);
+      const result = await createRemote(payload, deadlineAt);
       const data = result && result.data;
       record.status = 'active';
       record.remoteId = (data && data.id) || result.id || null;
@@ -320,7 +334,7 @@ module.exports = async (req, res) => {
       return res.status(201).json({ success: true, inviteCode: publicRecord(record) });
     } catch (error) {
       let reconciled = null;
-      try { reconciled = await findRemote(token, { kolName: username, isEnable: true }); } catch (_lookupError) {}
+      try { reconciled = await findRemote({ kolName: username, isEnable: true }, deadlineAt); } catch (_lookupError) {}
       if (reconciled) {
         record = normalizeRemoteRecord(reconciled, username);
         if (!record.bookTitle) record.bookTitle = verifiedTitle;
@@ -339,7 +353,11 @@ module.exports = async (req, res) => {
     }
   } catch (error) {
     console.error('[equity-code]', error.message);
-    return res.status(502).json({ error: 'Invite code service unavailable', code: 'UPSTREAM_UNAVAILABLE' });
+    const status = error && error.code === 'UPSTREAM_TIMEOUT' ? 504 : (error && error.code === 'UPSTREAM_AUTH_UNAVAILABLE' ? 503 : 502);
+    return res.status(status).json({
+      error: status === 504 ? 'Invite code request timed out. Please retry.' : 'Invite code service unavailable',
+      code: error && error.code ? error.code : 'UPSTREAM_UNAVAILABLE',
+    });
   } finally {
     await releaseLock(redis, key, lockToken);
   }
