@@ -11,7 +11,7 @@ const {
   setAuthCookies,
 } = require('../_lib/auth');
 const { handlePreflight } = require('../_lib/cors');
-const { getRedis, validateString, stripHtml, getClientIp, isReservedUsername } = require('../_lib/security');
+const { getRedis, validateString, stripHtml, getClientIp, isReservedUsername, isDisabledUser } = require('../_lib/security');
 const { createPasswordHash, verifyPassword } = require('../_lib/password');
 
 module.exports = async (req, res) => {
@@ -48,6 +48,9 @@ module.exports = async (req, res) => {
       redis.get(passwordKey),
       legacyPasswordKey ? redis.get(legacyPasswordKey) : null,
     ]);
+    if (await isDisabledUser(redis, usernameKey)) {
+      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    }
     const storedHash = canonicalHash || legacyHash;
     if (storedHash) {
       const vP = validateString(rawPass, { name: 'password', maxLen: 200, required: true });

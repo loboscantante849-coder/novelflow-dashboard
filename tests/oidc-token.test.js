@@ -64,3 +64,24 @@ test('a bookstore 401 refreshes the token and retries once', async () => {
     global.fetch = originalFetch;
   }
 });
+
+test('a forced refresh reloads rotated OIDC credentials', async () => {
+  const originalFetch = global.fetch;
+  const passwords = [];
+  global.fetch = async (_url, options = {}) => {
+    const body = new URLSearchParams(String(options.body || ''));
+    passwords.push(body.get('password'));
+    return { ok: true, status: 200, json: async () => ({ access_token: `token-${passwords.length}`, expires_in: 3600 }) };
+  };
+  oidc._resetForTests();
+  process.env.OIDC_PASSWORD = 'old-password';
+  try {
+    assert.equal(await oidc.getBookstoreToken(), 'token-1');
+    process.env.OIDC_PASSWORD = 'rotated-password';
+    assert.equal(await oidc.getBookstoreToken({ forceRefresh: true }), 'token-2');
+    assert.deepEqual(passwords, ['old-password', 'rotated-password']);
+  } finally {
+    process.env.OIDC_PASSWORD = 'oidc-test-password';
+    global.fetch = originalFetch;
+  }
+});

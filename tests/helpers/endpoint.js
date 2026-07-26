@@ -4,11 +4,13 @@ class FakeRedis {
   static values = new Map();
   static expiries = new Map();
   static error = null;
+  static errorsByKey = new Map();
 
   static reset(initial = {}) {
     this.values = new Map(Object.entries(initial));
     this.expiries = new Map();
     this.error = null;
+    this.errorsByKey = new Map();
   }
 
   _checkError() {
@@ -17,6 +19,7 @@ class FakeRedis {
 
   async get(key) {
     this._checkError();
+    if (FakeRedis.errorsByKey.has(key)) throw FakeRedis.errorsByKey.get(key);
     return FakeRedis.values.get(key) ?? null;
   }
 
@@ -51,6 +54,16 @@ class FakeRedis {
   async ttl(key) {
     this._checkError();
     return FakeRedis.expiries.get(key) ?? -1;
+  }
+
+  async eval(_script, keys, args) {
+    this._checkError();
+    const key = Array.isArray(keys) ? keys[0] : keys;
+    const token = Array.isArray(args) ? args[0] : args;
+    if (FakeRedis.values.get(key) !== token) return 0;
+    FakeRedis.values.delete(key);
+    FakeRedis.expiries.delete(key);
+    return 1;
   }
 }
 

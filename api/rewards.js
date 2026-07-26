@@ -16,6 +16,7 @@
 const { handlePreflight } = require('./_lib/cors');
 const { getAuthPayload, getRedis, checkRateLimit, getClientIp } = require('./_lib/security');
 const { Redis } = require('@upstash/redis');
+const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
 
 const STREAK_POINTS = [5, 5, 5, 5, 5, 10, 15]; // day 1-7
 const MISSION_POINTS = { share1: 20, share3: 50, bindId: 30 };
@@ -74,12 +75,6 @@ module.exports = async (req, res) => {
   const redis = redisClient();
   if (!redis) return res.status(503).json({ error: 'Database unavailable' });
 
-  // Check if account is disabled
-  const preData = await getUserData(redis, username);
-  if (preData && preData.disabled) {
-    return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
-  }
-
   // Rate limit per user + IP
   const clientIp = getClientIp(req);
   const userKey = `nf_rate:rewards:${username}`;
@@ -90,9 +85,16 @@ module.exports = async (req, res) => {
   }
 
   const { action } = req.body || {};
-  const data = normalizeUserData(await getUserData(redis, username));
+  const lock = await acquireUserDataLock(redis, username);
+  if (!lock) {
+    return res.status(409).json({ error: 'User data is being updated', code: 'USER_DATA_BUSY' });
+  }
 
   try {
+    const data = normalizeUserData(await getUserData(redis, username));
+    if (data.disabled) {
+      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    }
     let result = { success: true, action };
 
     switch (action) {
@@ -257,5 +259,7 @@ module.exports = async (req, res) => {
   } catch (error) {
     console.error('[rewards] Error:', error);
     return res.status(500).json({ error: 'Internal server error', code: 'INTERNAL_ERROR' });
+  } finally {
+    await releaseUserDataLock(redis, lock);
   }
 };

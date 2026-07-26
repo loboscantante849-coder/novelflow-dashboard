@@ -89,7 +89,6 @@ module.exports = async (req, res) => {
 
   } catch (error) {
     console.error('[auth/refresh] Error:', error);
-    clearAuthCookies(res);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

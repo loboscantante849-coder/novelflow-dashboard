@@ -5,7 +5,7 @@
  */
 
 const { setCORSHeaders } = require('./_lib/cors');
-const { getAuthPayload } = require('./_lib/security');
+const { getAuthPayload, getRedis, isDisabledUser } = require('./_lib/security');
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -38,6 +38,15 @@ module.exports = async (req, res) => {
   // ---- AUTH ----
   const payload = getAuthPayload(req);
   if (!payload) return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+  const redis = getRedis();
+  if (!redis) return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
+  try {
+    if (await isDisabledUser(redis, payload.username, { failClosed: true })) {
+      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    }
+  } catch (e) {
+    return res.status(503).json({ error: 'Account status unavailable', code: e.code || 'ACCOUNT_STATUS_UNAVAILABLE' });
+  }
 
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return res.status(503).json({ error: 'Image upload is not configured', code: 'BLOB_NOT_CONFIGURED' });

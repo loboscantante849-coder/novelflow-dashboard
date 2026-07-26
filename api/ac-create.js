@@ -30,7 +30,7 @@ async function setReelsCount(redis, username, today, count) {
 const AC_BASE = 'https://ac.beidou.win/api/v1';
 
 const { setCORSHeaders } = require('./_lib/cors');
-const { getAuthPayload, isAdminUser } = require('./_lib/security');
+const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -49,6 +49,15 @@ module.exports = async (req, res) => {
       redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
     }
   } catch(e) {}
+
+  if (!redis) return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
+  try {
+    if (await isDisabledUser(redis, username, { failClosed: true })) {
+      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    }
+  } catch (e) {
+    return res.status(503).json({ error: 'Account status unavailable', code: e.code || 'ACCOUNT_STATUS_UNAVAILABLE' });
+  }
 
   // Use server-stored AC token: KV first → env var; never accept token from client
   let token = null;

@@ -89,8 +89,10 @@ async function fetchBooksFromAPI(lang, category, limit) {
   let rawBooks = (data.data && data.data.data) || data.data || [];
   console.log(`[trending] API returned ${rawBooks.length} books with lang=${lang}`);
 
-  // If languageCode filter returned 0 books, retry without it
-  if (rawBooks.length === 0 && lang) {
+  // Never drop the requested language for Spanish. An English fallback would
+  // leak the wrong catalogue into the Spanish UI; English may use the
+  // unfiltered endpoint because the default catalogue is English.
+  if (rawBooks.length === 0 && lang === 'en') {
     console.log('[trending] Retrying without languageCode filter...');
     const fallbackUrl = `${BOOKSTORE_API_BASE}/booklist?current=1&pageSize=${limit}&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&bookStatus=1&orderBy=uv&orderType=desc`;
     try {

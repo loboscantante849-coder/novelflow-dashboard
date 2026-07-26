@@ -10,6 +10,7 @@ const { handlePreflight } = require('../_lib/cors');
 const { verifyJWT } = require('../_lib/jwt');
 const { Redis } = require('@upstash/redis');
 const { createPasswordHash, verifyPassword } = require('../_lib/password');
+const { isDisabledUser } = require('../_lib/security');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -63,6 +64,9 @@ module.exports = async (req, res) => {
 
     const redis = getRedis();
     if (!redis) return res.status(500).json({ error: 'Storage not available' });
+    if (await isDisabledUser(redis, username)) {
+      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    }
 
     // Check if user already has a password
     const storedHash = await redis.get('nf_user_pass:' + username);

@@ -60,8 +60,8 @@ const ALIAS_VARIANTS = {
 
 // Module-level caches
 let AD_CACHE = { data: null, expires: 0, fetchedAt: 0 };
-let DATA_JSON_CACHE = { data: null, expires: 0 };
-let LINK_STATS_CACHE = { data: null, expires: 0 };
+let DATA_JSON_CACHE = { data: null, expires: 0, fetchedAt: 0 };
+let LINK_STATS_CACHE = { data: null, expires: 0, fetchedAt: 0 };
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -172,12 +172,14 @@ async function getLegacyDataJson(debugLog) {
   if (DATA_JSON_CACHE.data && DATA_JSON_CACHE.expires > now) return DATA_JSON_CACHE.data;
   try {
     const data = await fetchJsonWithTimeout(DATA_JSON_URL, 5000);
-    DATA_JSON_CACHE = { data, expires: Date.now() + CACHE_TTL_MS };
+    DATA_JSON_CACHE = { data, expires: Date.now() + CACHE_TTL_MS, fetchedAt: Date.now() };
     debugLog?.push('data.json (legacy fallback): fetched ok');
     return data;
   } catch (e) {
     debugLog?.push(`data.json fallback fetch failed: ${e.message}`);
-    return DATA_JSON_CACHE.data || null;
+    return DATA_JSON_CACHE.data && now - DATA_JSON_CACHE.fetchedAt <= MAX_STALE_CACHE_MS
+      ? DATA_JSON_CACHE.data
+      : null;
   }
 }
 
@@ -186,12 +188,14 @@ async function getLegacyLinkStats(debugLog) {
   if (LINK_STATS_CACHE.data && LINK_STATS_CACHE.expires > now) return LINK_STATS_CACHE.data;
   try {
     const data = await fetchJsonWithTimeout(LINK_STATS_URL, 5000);
-    LINK_STATS_CACHE = { data, expires: Date.now() + CACHE_TTL_MS };
+    LINK_STATS_CACHE = { data, expires: Date.now() + CACHE_TTL_MS, fetchedAt: Date.now() };
     debugLog?.push('link-stats.json (legacy fallback): fetched ok');
     return data;
   } catch (e) {
     debugLog?.push(`link-stats.json fallback fetch failed: ${e.message}`);
-    return LINK_STATS_CACHE.data || null;
+    return LINK_STATS_CACHE.data && now - LINK_STATS_CACHE.fetchedAt <= MAX_STALE_CACHE_MS
+      ? LINK_STATS_CACHE.data
+      : null;
   }
 }
 

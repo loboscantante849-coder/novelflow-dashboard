@@ -127,9 +127,10 @@ async function getFreshToken() {
   }
 }
 
-function invalidateBookstoreToken() {
+function invalidateBookstoreToken({ credentials = false } = {}) {
   cachedToken = null;
   cachedTokenExp = 0;
+  if (credentials) cachedCreds = null;
 }
 
 function getEnvironmentToken() {
@@ -142,7 +143,9 @@ function getEnvironmentToken() {
 }
 
 async function getBookstoreToken({ forceRefresh = false } = {}) {
-  if (forceRefresh) invalidateBookstoreToken();
+  // A forced refresh normally follows a bookstore 401. Reload both the token
+  // and managed credentials so password rotations take effect immediately.
+  if (forceRefresh) invalidateBookstoreToken({ credentials: true });
   if (cachedToken && cachedTokenExp > Date.now()) return cachedToken;
 
   const credentials = await getCredentials();

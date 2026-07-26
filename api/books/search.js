@@ -37,6 +37,13 @@ function loadFeaturedBooks() {
   }
 }
 
+function filterFeaturedByLanguage(books, lang) {
+  const target = String(lang || 'en').toLowerCase();
+  return (Array.isArray(books) ? books : []).filter(book =>
+    String((book && (book.languageCode || book.language)) || 'en').toLowerCase() === target
+  );
+}
+
 // Search featured books by keyword across all categories + recommended
 function searchFeaturedBooks(featured, keyword, lang) {
   if (!featured) return [];
@@ -66,7 +73,8 @@ function searchFeaturedBooks(featured, keyword, lang) {
   // Filter by keyword (match title, author, tags, description) and language
   return unique.filter(book => {
     // Language filter
-    if (lang && book.languageCode && book.languageCode !== lang) return false;
+    const bookLanguage = String((book && (book.languageCode || book.language)) || 'en').toLowerCase();
+    if (bookLanguage !== String(lang || 'en').toLowerCase()) return false;
     
     const title = (book.title || '').toLowerCase();
     const author = (book.author || '').toLowerCase();
@@ -115,7 +123,7 @@ module.exports = async (req, res) => {
     if (!keyword && !bookClassName) {
       const featured = loadFeaturedBooks();
       if (featured) {
-        const books = featured.recommended || [];
+        const books = filterFeaturedByLanguage(featured.recommended, lang);
         const start = (parseInt(page) - 1) * parseInt(pageSize);
         const end = start + parseInt(pageSize);
         return res.status(200).json({
@@ -133,7 +141,7 @@ module.exports = async (req, res) => {
     if (bookClassName && !keyword) {
       const featured = loadFeaturedBooks();
       if (featured && featured.categories && featured.categories[bookClassName]) {
-        const books = featured.categories[bookClassName];
+        const books = filterFeaturedByLanguage(featured.categories[bookClassName], lang);
         const start = (parseInt(page) - 1) * parseInt(pageSize);
         const end = start + parseInt(pageSize);
         return res.status(200).json({

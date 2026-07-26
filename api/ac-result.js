@@ -5,7 +5,7 @@
 const AC_BASE = 'https://ac.beidou.win/api/v1';
 
 const { setCORSHeaders } = require('./_lib/cors');
-const { getAuthPayload, isAdminUser } = require('./_lib/security');
+const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -23,6 +23,14 @@ module.exports = async (req, res) => {
       redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
     }
   } catch(e) {}
+  if (!redis) return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
+  try {
+    if (await isDisabledUser(redis, username, { failClosed: true })) {
+      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    }
+  } catch (e) {
+    return res.status(503).json({ error: 'Account status unavailable', code: e.code || 'ACCOUNT_STATUS_UNAVAILABLE' });
+  }
 
   let token = null;
   try { if (redis) token = await redis.get('ac_token'); } catch(e) {}
@@ -33,16 +41,16 @@ module.exports = async (req, res) => {
   if (!tid) return res.status(400).json({ error: 'threadId required' });
 
   // Ownership check
-  if (redis) {
-    try {
-      const isAdm = await isAdminUser(redis, username);
-      if (!isAdm) {
-        const owner = await redis.get('ac_thread_owner:' + tid);
-        if (owner && owner !== username) {
-          return res.status(403).json({ error: 'Not authorized to view this task' });
-        }
+  try {
+    const isAdm = await isAdminUser(redis, username);
+    if (!isAdm) {
+      const owner = await redis.get('ac_thread_owner:' + tid);
+      if (!owner || owner !== username) {
+        return res.status(403).json({ error: 'Not authorized to view this task' });
       }
-    } catch(e) { /* fail closed */ }
+    }
+  } catch(e) {
+    return res.status(503).json({ error: 'Task ownership is temporarily unavailable', code: 'TASK_OWNER_UNAVAILABLE' });
   }
 
   try {

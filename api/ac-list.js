@@ -6,7 +6,7 @@
 const AC_BASE = 'https://ac.beidou.win/api/v1';
 
 const { setCORSHeaders } = require('./_lib/cors');
-const { getAuthPayload, isAdminUser } = require('./_lib/security');
+const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -28,6 +28,14 @@ module.exports = async (req, res) => {
       token = await redis.get('ac_token');
     }
   } catch(e) {}
+  if (!redis) return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
+  try {
+    if (await isDisabledUser(redis, currentUser, { failClosed: true })) {
+      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    }
+  } catch (e) {
+    return res.status(503).json({ error: 'Account status unavailable', code: e.code || 'ACCOUNT_STATUS_UNAVAILABLE' });
+  }
   if (!token) token = process.env.AC_TOKEN;
   if (!token) return res.status(503).json({ error: 'AC Token not configured on server' });
 

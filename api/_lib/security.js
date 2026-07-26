@@ -73,6 +73,37 @@ async function isAdminUser(redis, username) {
   } catch { return false; }
 }
 
+/**
+ * Check the server-managed account disable flag. Read-only session checks may
+ * fail open during a Redis outage; mutating handlers can request fail-closed
+ * behavior so an unknown account state never reaches an external API.
+ */
+async function isDisabledUser(redis, username, { failClosed = false } = {}) {
+  const u = String(username || '').toLowerCase();
+  if (!u || !redis) {
+    if (failClosed) {
+      const error = new Error('Account status unavailable');
+      error.code = 'ACCOUNT_STATUS_UNAVAILABLE';
+      throw error;
+    }
+    return false;
+  }
+  try {
+    const raw = await redis.get('nf_user_data:' + u);
+    if (!raw) return false;
+    const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Boolean(data && data.disabled);
+  } catch (cause) {
+    if (failClosed) {
+      const error = new Error('Account status unavailable');
+      error.code = 'ACCOUNT_STATUS_UNAVAILABLE';
+      error.cause = cause;
+      throw error;
+    }
+    return false;
+  }
+}
+
 /** Timing-safe string comparison for admin keys etc. */
 function timingSafeEqual(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
@@ -160,6 +191,7 @@ module.exports = {
   getClientIp,
   getAuthPayload,
   isAdminUser,
+  isDisabledUser,
   timingSafeEqual,
   checkAdminKey,
   checkRateLimit,

@@ -15,6 +15,7 @@ const {
 } = require('../_lib/auth');
 
 const { setCORSHeaders } = require('../_lib/cors');
+const { getRedis, isDisabledUser } = require('../_lib/security');
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1504779503237333033';
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
@@ -78,6 +79,11 @@ module.exports = async (req, res) => {
     }
 
     var userData = await userResponse.json();
+
+    var redis = getRedis();
+    if (!redis || await isDisabledUser(redis, userData.username)) {
+      return res.redirect('/app-v2?auth=error');
+    }
 
     var userPayload = buildUserPayload({
       discordId: userData.id,

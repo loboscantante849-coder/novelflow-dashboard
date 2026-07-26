@@ -17,6 +17,7 @@ const {
 } = require('./_lib/security');
 const { normalizeRedisKey } = require('./_lib/redis-values');
 const { Redis } = require('@upstash/redis');
+const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
 
 const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage';
 const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
@@ -447,7 +448,10 @@ module.exports = async (req, res) => {
         }));
       } catch (e) { console.error('[confirm] dedupKey write failed:', e.message); }
       // Also add to nf_user_data:<u>.myBooks if we can merge
+      let userDataLock = null;
       try {
+        userDataLock = await acquireUserDataLock(redis, cleanUsername);
+        if (!userDataLock) throw new Error('user data is busy; submission remains in nf_subs');
         const rawUd = await redis.get(`nf_user_data:${cleanUsername.toLowerCase()}`);
         let ud = rawUd ? (typeof rawUd === 'string' ? JSON.parse(rawUd) : rawUd) : null;
         if (!ud) ud = { myBooks: [] };
@@ -466,6 +470,8 @@ module.exports = async (req, res) => {
         await redis.set(`nf_user_data:${cleanUsername.toLowerCase()}`, JSON.stringify(ud));
       } catch (e) {
         console.error('[confirm] myBooks merge failed:', e.message);
+      } finally {
+        await releaseUserDataLock(redis, userDataLock);
       }
     }
 
