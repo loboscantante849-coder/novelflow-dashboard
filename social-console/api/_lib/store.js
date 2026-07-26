@@ -8,6 +8,7 @@ const runKey = (id) => `nf_social:run:${id}`;
 const planKey = (id) => `nf_social:creative_plan:${id}`;
 const runSummaryKey = (id) => `nf_social:run_summary:${id}`;
 const planSummaryKey = (id) => `nf_social:creative_plan_summary:${id}`;
+const RUN_SUMMARY_VERSION = 2;
 class RemoteRedis {
   constructor(url, secret) { this.url = url.replace(/\/$/, ''); this.secret = secret; }
   async call(op, args) {
@@ -47,6 +48,57 @@ async function listRuns(redis, limit = 50) {
 function parseStored(value) {
   return typeof value === 'string' ? JSON.parse(value) : value;
 }
+
+function summaryInput(input = {}) {
+  const planning = input?.planning && typeof input.planning === 'object'
+    ? {
+      planId: String(input.planning.planId || ''),
+      preferredModel: String(input.planning.preferredModel || ''),
+      actualModel: String(input.planning.actualModel || ''),
+      fallbackUsed: input.planning.fallbackUsed === true,
+      completedAt: String(input.planning.completedAt || '')
+    }
+    : null;
+  return {
+    title: String(input?.title || ''),
+    sku: String(input?.sku || ''),
+    creativeProfile: input?.creativeProfile && typeof input.creativeProfile === 'object' ? input.creativeProfile : {},
+    ...(planning ? { planning } : {})
+  };
+}
+
+function summaryStages(stages = {}) {
+  return Object.fromEntries(Object.entries(stages || {}).map(([name, stage]) => [name, {
+    status: String(stage?.status || 'waiting'),
+    label: String(stage?.label || '').slice(0, 180),
+    error: String(stage?.error || '').slice(0, 300),
+    phase: String(stage?.phase || '').slice(0, 100),
+    recoverable: stage?.recoverable === true,
+    blockedReason: String(stage?.blockedReason || '').slice(0, 80),
+    attempt: Number(stage?.attempt || 0),
+    nextAttemptAt: String(stage?.nextAttemptAt || '')
+  }]));
+}
+
+function summaryUsage(usage = {}) {
+  return Object.fromEntries(Object.entries(usage || {}).map(([name, value]) => [name, {
+    model: String(value?.model || ''),
+    totalTokens: Number(value?.totalTokens || 0)
+  }]));
+}
+
+function summaryModelActivity(activity = []) {
+  return (Array.isArray(activity) ? activity : []).slice(-4).map((item) => ({
+    section: String(item?.section || ''),
+    requestedModel: String(item?.requestedModel || ''),
+    model: String(item?.model || ''),
+    totalTokens: Number(item?.totalTokens || 0),
+    completedAt: String(item?.completedAt || ''),
+    recovering: item?.recovering === true,
+    attempt: Number(item?.attempt || 0)
+  }));
+}
+
 function runSummary(run) {
   const artifacts = run?.artifacts || {};
   const book = artifacts.book || {};
@@ -54,26 +106,28 @@ function runSummary(run) {
     id: run.id,
     createdAt: run.createdAt,
     updatedAt: run.updatedAt,
-    input: run.input,
+    input: summaryInput(run.input),
     state: run.state,
-    stages: run.stages,
+    stages: summaryStages(run.stages),
     artifacts: {
-      book: book ? { title: book.title, cover: book.cover, category: book.category, tags: book.tags } : null,
+      book: book ? { title: book.title, bookSkuId: book.bookSkuId, cover: book.cover } : null,
       code: artifacts.code,
       shortUrl: artifacts.shortUrl,
       linkId: artifacts.linkId,
       posts: Array.isArray(artifacts.posts) ? artifacts.posts.map((post) => ({ type: post.type, content: 'ready' })) : [],
-      video: artifacts.video ? { threadId: artifacts.video.threadId, status: artifacts.video.status, videoUrls: artifacts.video.videoUrls } : null,
-      referenceVideo: artifacts.referenceVideo ? { threadId: artifacts.referenceVideo.threadId, status: artifacts.referenceVideo.status, videoUrls: artifacts.referenceVideo.videoUrls } : null,
+      video: artifacts.video ? { threadId: artifacts.video.threadId, status: artifacts.video.status, videoUrls: (artifacts.video.videoUrls || []).slice(0, 1), error: String(artifacts.video.error || '').slice(0, 300) } : null,
+      referenceVideo: artifacts.referenceVideo ? { threadId: artifacts.referenceVideo.threadId, status: artifacts.referenceVideo.status, videoUrls: (artifacts.referenceVideo.videoUrls || []).slice(0, 1), error: String(artifacts.referenceVideo.error || '').slice(0, 300) } : null,
+      videoRevision: artifacts.videoRevision ? { threadId: artifacts.videoRevision.threadId, status: artifacts.videoRevision.status, videoUrls: (artifacts.videoRevision.videoUrls || []).slice(0, 1), error: String(artifacts.videoRevision.error || '').slice(0, 300) } : null,
       images: Array.isArray(artifacts.images) ? artifacts.images.map((image) => ({ variant: image.variant, status: image.status, url: image.url })) : [],
       analytics: artifacts.analytics ? { summary: artifacts.analytics.summary } : null,
       distribution: artifacts.distribution ? { status: artifacts.distribution.status } : null,
       optimization: artifacts.optimization ? { status: artifacts.optimization.status } : null,
-      usage: artifacts.usage || {}
+      usage: summaryUsage(artifacts.usage)
     },
-    modelActivity: Array.isArray(artifacts.modelActivity) ? artifacts.modelActivity.slice(-6) : [],
-    events: Array.isArray(run.events) ? run.events.slice(-5) : [],
-    _summary: true
+    modelActivity: summaryModelActivity(artifacts.modelActivity),
+    events: Array.isArray(run.events) ? run.events.slice(-1).map((event) => ({ at: event?.at, type: String(event?.type || ''), message: String(event?.message || '').slice(0, 300) })) : [],
+    _summary: true,
+    _summaryVersion: RUN_SUMMARY_VERSION
   };
 }
 function creativePlanSummary(plan) {
@@ -94,14 +148,34 @@ function creativePlanSummary(plan) {
     _summary: true
   };
 }
+function creativePlanDetail(plan) {
+  const artifacts = plan?.artifacts || {};
+  return {
+    id: plan.id,
+    createdAt: plan.createdAt,
+    updatedAt: plan.updatedAt,
+    input: plan.input,
+    state: plan.state,
+    stages: plan.stages,
+    artifacts: {
+      book: artifacts.book || null,
+      plan: artifacts.plan || null,
+      evidenceScope: artifacts.evidenceScope || null,
+      usage: artifacts.usage || null
+    },
+    events: Array.isArray(plan.events) ? plan.events.slice(-12) : []
+  };
+}
 async function listRunSummaries(redis, limit = 12) {
   if (!redis) return [];
   const ids = await redis.zrange(RUN_INDEX, 0, limit - 1, { rev: true });
   if (!ids.length) return [];
   const summaries = await Promise.all(ids.map(async (id) => {
     const stored = await redis.get(runSummaryKey(id));
-    if (stored) return parseStored(stored);
-    // One-time lazy migration for old runs. Subsequent dashboard loads only read the small summary.
+    const parsed = stored ? parseStored(stored) : null;
+    if (parsed?._summaryVersion === RUN_SUMMARY_VERSION) return parsed;
+    // One-time lazy migration for old or oversized summaries. Subsequent
+    // dashboard loads only read the versioned compact projection.
     const full = await getRun(redis, id);
     if (!full) return null;
     const summary = runSummary(full);
@@ -133,7 +207,7 @@ async function listCreativePlans(redis, limit = 12) {
 }
 async function listCreativePlanSummaries(redis, limit = 5) {
   if (!redis) return [];
-  const ids = await redis.zrange(PLAN_INDEX, 0, limit - 1, { rev: true });
+  const ids = await redis.zrange(PLAN_INDEX, 0, Math.max(limit * 3, limit) - 1, { rev: true });
   if (!ids.length) return [];
   const summaries = await Promise.all(ids.map(async (id) => {
     const stored = await redis.get(planSummaryKey(id));
@@ -144,7 +218,7 @@ async function listCreativePlanSummaries(redis, limit = 5) {
     await redis.set(planSummaryKey(id), JSON.stringify(summary));
     return summary;
   }));
-  return summaries.filter(Boolean);
+  return summaries.filter((item) => item && item.state !== 'dismissed').slice(0, limit);
 }
 async function getCreativePlan(redis, id) {
   if (!redis || !/^plan_[a-z0-9]{12,80}$/i.test(String(id || ''))) return null;
@@ -296,4 +370,4 @@ async function releaseVideoSlot(redis, key) {
   if (typeof key === 'string' && key.startsWith('nf_social:video_hour:')) await redis.incrby(key, -1);
 }
 
-module.exports = { getRedis, listRuns, listRunSummaries, getRun, saveRun, newRun, addEvent, setStage, listCreativePlans, listCreativePlanSummaries, getCreativePlan, saveCreativePlan, newCreativePlan, getDiscordJob, saveDiscordJob, listDiscordJobs, listDiscordJobSummaries, removeDiscordJobFromQueue, discordJobSummary, RUN_INDEX, PLAN_INDEX, DISCORD_JOB_INDEX, DISCORD_HISTORY_INDEX, videoCapacity, reserveVideoSlot, releaseVideoSlot };
+module.exports = { getRedis, listRuns, listRunSummaries, getRun, saveRun, newRun, addEvent, setStage, runSummary, listCreativePlans, listCreativePlanSummaries, getCreativePlan, saveCreativePlan, newCreativePlan, creativePlanDetail, getDiscordJob, saveDiscordJob, listDiscordJobs, listDiscordJobSummaries, removeDiscordJobFromQueue, discordJobSummary, RUN_INDEX, PLAN_INDEX, DISCORD_JOB_INDEX, DISCORD_HISTORY_INDEX, videoCapacity, reserveVideoSlot, releaseVideoSlot };

@@ -48,6 +48,19 @@ const TOKENDANCE_MODELS = new Set([
 ]);
 const LONG_RUNNING_MODELS = new Set(['deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'kimi-k2.7-code']);
 function isLongRunningModel(choice) { return LONG_RUNNING_MODELS.has(String(choice || '').toLowerCase()); }
+function modelTemperature(model, preferred) {
+  return /kimi[-_]?k2\.7[-_]?code/i.test(String(model || '')) ? 1 : preferred;
+}
+function operationsTimeoutForModel(modelChoice) {
+  return ({
+    hy3: 10000,
+    'qwen3.7-max': 18000,
+    deepseek: 28000,
+    'seed-2.1-turbo': 15000,
+    'minimax-m2.7': 15000,
+    'kimi-k2.7-code': 18000
+  })[String(modelChoice || '').toLowerCase()] || 12000;
+}
 
 function copyModelConfig(profile = {}) {
   const choice = String(profile.modelChoice || 'hy3');
@@ -71,6 +84,18 @@ function absoluteUrl(value) {
   return /^https?:\/\//i.test(text) ? text : `https://${text.replace(/^\/+/, '')}`;
 }
 
+function coverUrl(value) {
+  const url = absoluteUrl(value);
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === 'oss.novelago.app' && !parsed.searchParams.has('x-oss-process')) {
+      return `${url}${parsed.search ? '&' : '?'}x-oss-process=image/resize,w_320/quality,q_78/format,webp`;
+    }
+  } catch {}
+  return url;
+}
+
 function pageItems(body) {
   let value = body?.data ?? body;
   if (value?.data && typeof value.data === 'object' && !Array.isArray(value.data)) value = value.data;
@@ -82,23 +107,24 @@ function pageItems(body) {
 
 async function request(url, options = {}, label = 'Provider request', timeoutMs = 30000) {
   const controller = new AbortController();
+  const { ambiguousOnInvalidJson = false, ...fetchOptions } = options;
   let timer;
   let response;
   try {
-    const pending = fetch(url, { ...options, signal: controller.signal });
+    const pending = fetch(url, { ...fetchOptions, signal: controller.signal });
     // Some serverless fetch implementations do not reject promptly after an
     // AbortController signal. Race it so a provider stall can never consume
     // the whole worker and leave a persisted stage stranded as "running".
     const timeout = new Promise((_, reject) => {
       timer = setTimeout(() => {
         controller.abort();
-        reject(new ProviderError(`${label} timed out after ${Math.ceil(timeoutMs / 1000)} seconds`, { ambiguous: options.method && options.method !== 'GET' && options.method !== 'HEAD' }));
+        reject(new ProviderError(`${label} timed out after ${Math.ceil(timeoutMs / 1000)} seconds`, { ambiguous: fetchOptions.method && fetchOptions.method !== 'GET' && fetchOptions.method !== 'HEAD' }));
       }, timeoutMs);
     });
     response = await Promise.race([pending, timeout]);
   } catch (error) {
     if (error instanceof ProviderError) throw error;
-    const ambiguous = options.method && options.method !== 'GET' && options.method !== 'HEAD';
+    const ambiguous = fetchOptions.method && fetchOptions.method !== 'GET' && fetchOptions.method !== 'HEAD';
     throw new ProviderError(`${label} did not return a definitive response`, { ambiguous });
   } finally {
     clearTimeout(timer);
@@ -106,7 +132,7 @@ async function request(url, options = {}, label = 'Provider request', timeoutMs 
   const text = await response.text();
   let body = {};
   if (text) {
-    try { body = JSON.parse(text); } catch { throw new ProviderError(`${label} returned invalid JSON`, { status: response.status }); }
+    try { body = JSON.parse(text); } catch { throw new ProviderError(`${label} returned invalid JSON`, { status: response.status, ambiguous: Boolean(ambiguousOnInvalidJson) }); }
   }
   if (!response.ok || ![undefined, null, 0, 200].includes(body?.code)) {
     const detail = String(body?.msg || body?.message || body?.error || '').slice(0, 240);
@@ -165,7 +191,7 @@ async function findExactBook(title, sku) {
   const category = match.aiCategory || {};
   return {
     bookSkuId: String(match.bookSkuId || ''), cityBookId: String(match.id || ''), title: String(match.title || ''),
-    cover: absoluteUrl(match.cover), category: typeof category === 'object' ? String(category.categoryName || '') : String(category),
+    cover: coverUrl(match.cover), category: typeof category === 'object' ? String(category.categoryName || '') : String(category),
     tags: (match.aiTags || match.tags || []).map((item) => typeof item === 'object' ? String(item.tagName || '') : String(item)).filter(Boolean),
     description: String(match.description || match.bookDescription || match.introduction || match.blurb || ''),
     chapterCount: Number(match.chapterCount || 0), words: Number(match.words || 0), payPoint: Number(match.payPoint || 0)
@@ -178,22 +204,25 @@ async function performanceBooks(days) {
   return body;
 }
 
-async function contentDashboardBooks({ startDate, endDate, sortField = 'baseReadUnt', sortIsAsc = false, minReadUnt = 0, filters = {} }) {
+async function contentDashboardBooks({ startDate, endDate, sortField = 'baseReadUnt', sortIsAsc = false, minReadUnt = 0, filters = {}, maxPages = 10, deadlineMs = 14000 }) {
+  const startedAt = Date.now();
   const payload = {
     pageIndex: 1,
     // Rate-based rankings need a broader candidate set before low-volume
     // books are filtered out; keep the complete Top 200 candidate universe.
-    pageSize: 50,
+    pageSize: 20,
     current: 1,
-    groupings: [],
+    groupings: ['productTp', 'productLine', 'isVip'],
     // For rate/profit comparisons, first pull a high-volume candidate pool.
     // The dashboard does not expose a server-side minimum-UV predicate.
     sortField: minReadUnt > 0 ? 'baseReadUnt' : sortField,
     sortIsAsc,
     readStartTime: startDate,
     readEndTime: endDate,
+    readTime: [startDate, endDate],
     billStartTime: startDate,
-    billEndTime: endDate
+    billEndTime: endDate,
+    billTime: [startDate, endDate]
   };
   if (filters.language) payload.language = filters.language;
   if (filters.completeSts) payload.completeSts = filters.completeSts;
@@ -203,22 +232,29 @@ async function contentDashboardBooks({ startDate, endDate, sortField = 'baseRead
   if (Array.isArray(filters.productTp) && filters.productTp.length) payload.productTp = filters.productTp;
   const pages = [];
   let total = 0;
-  for (let pageIndex = 1; pageIndex <= 4; pageIndex += 1) {
+  let partial = false;
+  const boundedPages = Math.max(1, Math.min(Number(maxPages) || 10, 10));
+  const boundedDeadline = Math.max(4000, Math.min(Number(deadlineMs) || 14000, 105000));
+  for (let pageIndex = 1; pageIndex <= boundedPages; pageIndex += 1) {
+    const remainingMs = boundedDeadline - (Date.now() - startedAt);
+    if (remainingMs < 1200) { partial = true; break; }
     const pagePayload = { ...payload, pageIndex, current: pageIndex };
     const { body } = await adminRequest(CONTENT_DASHBOARD_API, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pagePayload), timeoutMs: 35000
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pagePayload), timeoutMs: Math.min(8000, remainingMs)
     }, `Content dashboard ranking page ${pageIndex}`);
-    const page = body?.data || {};
-    const items = Array.isArray(page.data) ? page.data : [];
+    const page = body?.data;
+    if (!page || !Array.isArray(page.data)) throw new ProviderError(`Content dashboard ranking page ${pageIndex} returned an invalid response shape`);
+    const items = page.data;
     if (pageIndex === 1) total = Number(page.total || items.length);
     pages.push(...items);
     if (!items.length || items.length < payload.pageSize || pages.length >= 200 || (total > 0 && pages.length >= total)) break;
+    if (pageIndex === boundedPages) partial = pages.length < Math.min(200, total || 200);
   }
   const shortValue = (value) => value === true || value === 1 || ['1', 'true', 'yes', '是'].includes(String(value || '').toLowerCase());
   const records = pages.map((item) => ({
     bookSkuId: String(item.skuId || item.bookId || ''),
     title: cleanTitle(item.title),
-    cover: absoluteUrl(item.cover || item.coverImage || item.coverUrl || item.bookCover || ''),
+    cover: coverUrl(item.cover || item.coverImage || item.coverUrl || item.bookCover || ''),
     author: String(item.authorName || ''),
     category: String(item.channelNm || ''),
     productLine: String(item.productLine || item.productTp || ''),
@@ -243,7 +279,7 @@ async function contentDashboardBooks({ startDate, endDate, sortField = 'baseRead
     .sort((left, right) => Number(right[sortField] || 0) - Number(left[sortField] || 0) || right.baseReadUnt - left.baseReadUnt)
     .slice(0, 200)
     .map((book, index) => ({ ...book, rank: index + 1 }));
-  return { books, total: Number(total || records.length), minReadUnt, payload };
+  return { books, total: Number(total || records.length), minReadUnt, payload, partial, fetched: records.length };
 }
 
 async function topBooks(limit = 200) {
@@ -271,7 +307,7 @@ async function topBooks(limit = 200) {
       rank: index + 1,
       bookSkuId: String(item.bookSkuId || item.bookId || ''),
       title: String(item.title || ''),
-      cover: absoluteUrl(item.cover || item.coverImage || item.coverUrl || ''),
+      cover: coverUrl(item.cover || item.coverImage || item.coverUrl || ''),
       author: Array.isArray(item.authors) ? item.authors.map((author) => String(author.authorName || author)).filter(Boolean).join(', ') : String(item.author || ''),
       category: typeof category === 'object' ? String(category.categoryName || item.bookClassName || '') : String(category || item.bookClassName || ''),
       tags: (item.aiTags || item.tags || []).map((tag) => typeof tag === 'object' ? String(tag.tagName || tag.name || '') : String(tag)).filter(Boolean).slice(0, 3),
@@ -281,6 +317,36 @@ async function topBooks(limit = 200) {
       chapterCount: Number(item.chapterCount || 0)
     };
   }).filter((book) => book.title && book.bookSkuId);
+}
+
+// The bookstore search endpoint is the full-catalog recall layer. It is not
+// limited to the daily ranking, so rare OCR phrases can reach long-tail books.
+async function searchBooks(keywords, limit = 12) {
+  const terms = [...new Set((Array.isArray(keywords) ? keywords : [keywords])
+    .map((value) => String(value || '').replace(/\s+/g, ' ').trim())
+    .filter((value) => value.length >= 4))].slice(0, 8);
+  const rows = await Promise.all(terms.map(async (keyword) => {
+    const { body } = await adminRequest(`${BOOK_API}?${qs({ current: 1, pageIndex: 1, pageSize: Math.min(50, Math.max(limit, 12)), applicationId: APPLICATION_ID, bookName: keyword, languageCode: 'en' })}`, {}, 'Book evidence search');
+    return pageItems(body).items;
+  }));
+  const merged = new Map();
+  for (const items of rows) for (const item of items) {
+    const sku = String(item.bookSkuId || item.bookId || '');
+    if (!sku || !item.title) continue;
+    const category = item.aiCategory || {};
+    const current = merged.get(sku) || {
+      bookSkuId: sku, cityBookId: String(item.id || ''), title: String(item.title || ''),
+      cover: coverUrl(item.cover || item.coverImage || item.coverUrl || ''),
+      author: Array.isArray(item.authors) ? item.authors.map((author) => String(author.authorName || author)).filter(Boolean).join(', ') : String(item.author || ''),
+      category: typeof category === 'object' ? String(category.categoryName || item.bookClassName || '') : String(category || item.bookClassName || ''),
+      tags: (item.aiTags || item.tags || []).map((tag) => typeof tag === 'object' ? String(tag.tagName || tag.name || '') : String(tag)).filter(Boolean).slice(0, 8),
+      description: String(item.description || item.bookDescription || item.introduction || item.blurb || '').replace(/\s+/g, ' ').trim(),
+      evidenceKeywords: []
+    };
+    current.evidenceKeywords = [...new Set([...current.evidenceKeywords, ...terms.filter((term) => String(item.title || '').toLowerCase().includes(term.toLowerCase()))])];
+    merged.set(sku, current);
+  }
+  return [...merged.values()].slice(0, Math.max(1, limit));
 }
 
 async function listChapters(cityBookId) {
@@ -516,9 +582,10 @@ The videoPrompt is a high-retention vertical short-video story package, not gene
   };
   const sectionRequest = async (config, label, sectionInstruction, responseSchema, outputBudget, timeoutMs = 30000) => {
     const { apiKey, baseUrl, model: activeModel, responsesApi } = config;
+    const temperature = modelTemperature(activeModel, 0.55);
     const payload = responsesApi
-      ? { model: activeModel, input: [{ role: 'developer', content: sectionInstruction }, { role: 'user', content: JSON.stringify({ ...source, responseSchema }) }], text: { format: { type: 'json_object' } }, temperature: 0.55, max_output_tokens: outputBudget }
-      : { model: activeModel, messages: [{ role: 'system', content: sectionInstruction }, { role: 'user', content: JSON.stringify({ ...source, responseSchema }) }], response_format: { type: 'json_object' }, temperature: 0.55, max_tokens: outputBudget };
+      ? { model: activeModel, input: [{ role: 'developer', content: sectionInstruction }, { role: 'user', content: JSON.stringify({ ...source, responseSchema }) }], text: { format: { type: 'json_object' } }, temperature, max_output_tokens: outputBudget }
+      : { model: activeModel, messages: [{ role: 'system', content: sectionInstruction }, { role: 'user', content: JSON.stringify({ ...source, responseSchema }) }], response_format: { type: 'json_object' }, temperature, max_tokens: outputBudget };
     // A worker is limited to 60s on Vercel. Leave enough time to persist a
     // section result or a definitive error, and to make one bounded fallback.
     const body = await postJsonOverHttps(`${baseUrl}${responsesApi ? '/responses' : '/chat/completions'}`, { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, payload, `${activeModel} ${label}`, timeoutMs);
@@ -616,9 +683,10 @@ async function analyzeCreativePlan(book, evidence, chapterStructure = [], modelC
   // Planning is a pre-production decision, so give every selected model room
   // to ground its recommendation in the full-book structure.
   const outputBudget = 4000;
+  const temperature = modelTemperature(model, 0.25);
   const payload = responsesApi
-    ? { model, input: [{ role: 'developer', content: instructions }, { role: 'user', content: input }], text: { format: { type: 'json_object' } }, temperature: 0.25, max_output_tokens: outputBudget }
-    : { model, messages: [{ role: 'system', content: instructions }, { role: 'user', content: input }], response_format: { type: 'json_object' }, temperature: 0.25, max_tokens: outputBudget };
+    ? { model, input: [{ role: 'developer', content: instructions }, { role: 'user', content: input }], text: { format: { type: 'json_object' } }, temperature, max_output_tokens: outputBudget }
+    : { model, messages: [{ role: 'system', content: instructions }, { role: 'user', content: input }], response_format: { type: 'json_object' }, temperature, max_tokens: outputBudget };
   const planningTimeout = isLongRunningModel(modelChoice) ? 600000 : 47000;
   const body = await postJsonOverHttps(`${baseUrl}${responsesApi ? '/responses' : '/chat/completions'}`, { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, payload, `${model} creative strategy`, planningTimeout);
   const plan = parseModelJson(extractModelText(body), model);
@@ -631,9 +699,10 @@ async function analyzeOperations(snapshot, mode = 'operations', modelChoice = 'h
   const instructions = `You are the operating analyst for NovelFlow social promotion. Return exactly one compact JSON object, not hidden reasoning. Analyze only the supplied task summaries, completed asset inventory, and ranking metrics. Give concise Simplified Chinese, specific and executable conclusions. Do not invent performance, book facts, asset URLs, or status. Never propose automatic Facebook publishing or ambiguous paid-media resubmission. This is an operational console result, not a long report: make the headline decisive, summary under 120 Chinese characters, and each action/recommendation reason under 70 Chinese characters. For mode operations, return up to three concrete blockers, waiting decisions, or highest-impact next actions; include runId whenever that action concerns a supplied task. Identify recoverable text-model waits as background work, and distinguish them from credentials, source-data, and paid-media ambiguity that require a human decision. For mode assets, inspect completed assets and recommend how to use, compare, or improve the existing copy/video/posters; prioritize assets with verified code/link and completed video, and say plainly when evidence is insufficient to claim performance. For mode books, recommend exactly three different titles from snapshot.leaderboard only. This is a rotating, metric-diverse shortlist drawn from the current weekly Top 200; snapshot.recommendationContext.recentRecommendationTitles are recently surfaced titles, so prefer titles outside that history whenever at least three exist. Do not always choose the highest-profit titles. Diversify the three choices across scale, first-read conversion, and long-read retention. Output schema: {"headline":"string","summary":"string","actions":[{"priority":"high|medium|low","title":"string","reason":"string","runId":"optional string"}],"recommendations":[{"title":"string","reason":"string","caveat":"string"}]}.`;
   const request = async (choice, timeoutMs) => {
     const { apiKey, baseUrl, model, responsesApi } = copyModelConfig({ modelChoice: choice });
+    const temperature = modelTemperature(model, 0.2);
     const payload = responsesApi
-      ? { model, input: [{ role: 'developer', content: instructions }, { role: 'user', content: JSON.stringify({ mode, snapshot }) }], text: { format: { type: 'json_object' } }, temperature: 0.2, max_output_tokens: 1200 }
-      : { model, messages: [{ role: 'system', content: instructions }, { role: 'user', content: JSON.stringify({ mode, snapshot }) }], response_format: { type: 'json_object' }, temperature: 0.2, max_tokens: 1200 };
+      ? { model, input: [{ role: 'developer', content: instructions }, { role: 'user', content: JSON.stringify({ mode, snapshot }) }], text: { format: { type: 'json_object' } }, temperature, max_output_tokens: 1200 }
+      : { model, messages: [{ role: 'system', content: instructions }, { role: 'user', content: JSON.stringify({ mode, snapshot }) }], response_format: { type: 'json_object' }, temperature, max_tokens: 1200 };
     const body = await postJsonOverHttps(`${baseUrl}${responsesApi ? '/responses' : '/chat/completions'}`, { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, payload, `${model} operations analysis`, timeoutMs);
     const analysis = parseModelJson(extractModelText(body), model);
     if (!analysis || !String(analysis.headline || '').trim()) throw new ProviderError(`${model} returned an incomplete operations analysis`);
@@ -693,14 +762,7 @@ async function analyzeOperations(snapshot, mode = 'operations', modelChoice = 'h
   // Console assistance should feel immediate. Full creative and planning flows
   // keep their larger quality budgets; this compact analysis switches quickly
   // when a selected TokenDance route is not currently producing usable JSON.
-  const primaryTimeout = {
-    hy3: 10000,
-    'qwen3.7-max': 18000,
-    deepseek: 28000,
-    'seed-2.1-turbo': 7000,
-    'minimax-m2.7': 7000,
-    'kimi-k2.7-code': 7000
-  }[modelChoice] || 12000;
+  const primaryTimeout = operationsTimeoutForModel(modelChoice);
   try {
     return await request(modelChoice, primaryTimeout);
   } catch (primaryError) {
@@ -731,7 +793,8 @@ async function analyzeBookCandidates(query, candidates) {
     candidates: (candidates || []).slice(0, 40).map((book) => ({
       bookSkuId: String(book.bookSkuId || ''), title: String(book.title || ''), author: String(book.author || ''),
       category: String(book.category || ''), tags: Array.isArray(book.tags) ? book.tags.slice(0, 8) : [],
-      description: String(book.description || '').slice(0, 1200), sources: Array.isArray(book.sources) ? book.sources : []
+      description: String(book.description || '').slice(0, 1200), sources: Array.isArray(book.sources) ? book.sources : [],
+      chapterEvidence: book.chapterEvidence || { score: 0, hits: [] }
     }))
   });
   const payload = responsesApi
@@ -766,7 +829,7 @@ async function extractScreenshotText(imageUrl) {
 
 async function analyzeScreenshotWithSeed(imageUrl) {
   const { apiKey, baseUrl, model } = copyModelConfig({ modelChoice: 'seed-2.0-mini' });
-  const prompt = 'Inspect this novel screenshot. Read the page header and cover area before the story body. Return JSON only: {"visibleTitle":"exact book title visibly printed in the screenshot, or empty string","text":"up to 500 words of readable story text","characters":["names"],"phrases":["2-4 rare exact phrases"],"plotClues":["specific clues"],"quality":"high|medium|low"}. Preserve spelling. visibleTitle must be copied exactly from visible pixels and must be empty when no title is shown. Do not infer or invent any title, character, or plot fact.';
+  const prompt = 'Inspect this novel screenshot. Read the page header and cover area before the story body. Return JSON only: {"visibleTitle":"exact book title visibly printed in the screenshot, or empty string","text":"up to 500 words of readable story text","characters":["names"],"phrases":["2-4 rare exact phrases copied verbatim, each 6-14 words"],"searchPhrases":["up to 4 distinctive phrases suitable for bookstore search"],"plotClues":["specific clues"],"quality":"high|medium|low"}. Preserve spelling. visibleTitle must be copied exactly from visible pixels and must be empty when no title is shown. Do not infer or invent any title, character, or plot fact.';
   const payload = {
     model,
     messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: String(imageUrl || '') } }] }],
@@ -780,6 +843,7 @@ async function analyzeScreenshotWithSeed(imageUrl) {
     visibleTitle: String(result.visibleTitle || '').replace(/\s+/g, ' ').trim().slice(0, 300),
     text: text.slice(0, 20000), characters: Array.isArray(result.characters) ? result.characters.map(String).slice(0, 8) : [],
     phrases: Array.isArray(result.phrases) ? result.phrases.map(String).slice(0, 6) : [],
+    searchPhrases: Array.isArray(result.searchPhrases) ? result.searchPhrases.map(String).slice(0, 6) : [],
     plotClues: Array.isArray(result.plotClues) ? result.plotClues.map(String).slice(0, 6) : [], quality: String(result.quality || 'medium'), model: String(body.model || model)
   };
 }
@@ -802,9 +866,10 @@ async function generateDistributionPlan(book, creative, modelChoice = 'hy3') {
     },
     responseSchema: schema
   };
+  const temperature = modelTemperature(model, 0.35);
   const payload = responsesApi
-    ? { model, input: [{ role: 'developer', content: instructions }, { role: 'user', content: JSON.stringify(source) }], text: { format: { type: 'json_object' } }, temperature: 0.35, max_output_tokens: 1100 }
-    : { model, messages: [{ role: 'system', content: instructions }, { role: 'user', content: JSON.stringify(source) }], response_format: { type: 'json_object' }, temperature: 0.35, max_tokens: 1100 };
+    ? { model, input: [{ role: 'developer', content: instructions }, { role: 'user', content: JSON.stringify(source) }], text: { format: { type: 'json_object' } }, temperature, max_output_tokens: 1100 }
+    : { model, messages: [{ role: 'system', content: instructions }, { role: 'user', content: JSON.stringify(source) }], response_format: { type: 'json_object' }, temperature, max_tokens: 1100 };
   const body = await postJsonOverHttps(`${baseUrl}${responsesApi ? '/responses' : '/chat/completions'}`, { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, payload, `${model} distribution recommendation`, isLongRunningModel(modelChoice) ? 600000 : 40000);
   const plan = parseModelJson(extractModelText(body), model);
   const allowed = new Set(['NovelFlow推书', 'MafiaRomance', 'WerewolfRomance', 'FantasyRomance', 'DarkRomance', 'SpicyRomance', 'BillionaireRomance']);
@@ -848,7 +913,7 @@ async function copilotReply(messages, context, modelChoice = 'hy3') {
     messages: chatMessages,
     tools: COPILOT_TOOLS,
     tool_choice: 'auto',
-    temperature: 0.25,
+    temperature: modelTemperature(config.model, 0.25),
     max_tokens: 900
   };
   const body = await postJsonOverHttps(`${config.baseUrl}/chat/completions`, { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' }, payload, `${config.model} copilot`, 35000);
@@ -939,7 +1004,7 @@ async function submitImage(asset) {
   const spec = IMAGE_SPECS[asset.variant];
   const base = env('NOVELFLOW_IMAGE_BASE_URL', 'https://laoye.chat').replace(/\/$/, '');
   const payload = { agent_id: spec.agent_id, prompt: asset.prompt, aspectRatio: spec.aspectRatio, imageSize: spec.imageSize, billingMode: env('NOVELFLOW_IMAGE_BILLING_MODE', 'points'), idempotency_key: asset.idempotencyKey };
-  const { body } = await request(`${base}${spec.endpoint}`, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, `Paid ${asset.variant} image submission`, 55000);
+  const { body } = await request(`${base}${spec.endpoint}`, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload), ambiguousOnInvalidJson: true }, `Paid ${asset.variant} image submission`, 55000);
   return body.data || {};
 }
 
@@ -963,4 +1028,4 @@ async function reportRows(code, linkId, days = 90) {
 
 function sha(value) { return crypto.createHash('sha256').update(String(value)).digest('hex'); }
 
-module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, performanceBooks, contentDashboardBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, linkDetail, generateCreative, analyzeCreativePlan, analyzeOperations, analyzeBookCandidates, extractScreenshotText, analyzeScreenshotWithSeed, copilotReply, generateDistributionPlan, rewritePosterPrompt, findAcTask, submitAc, acResult, validateVideo, submitImage, imageResult, reportRows, sha, titleKey };
+module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, searchBooks, performanceBooks, contentDashboardBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, linkDetail, generateCreative, analyzeCreativePlan, analyzeOperations, analyzeBookCandidates, extractScreenshotText, analyzeScreenshotWithSeed, copilotReply, generateDistributionPlan, rewritePosterPrompt, findAcTask, submitAc, acResult, validateVideo, submitImage, imageResult, reportRows, sha, titleKey, modelTemperature, operationsTimeoutForModel };

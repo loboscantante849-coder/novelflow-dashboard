@@ -28,6 +28,27 @@ function cleanError(error) {
   return String(error?.message || error || 'Unknown worker failure').replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [redacted]').slice(0, 500);
 }
 
+function recoverableModelError(error) {
+  const status = Number(error?.status || 0);
+  const message = String(error?.message || error || '').toLowerCase();
+  if ([400, 401, 403].includes(status)) return false;
+  if (/not configured|api key|credential|unauthorized|forbidden|invalid key|missing token/.test(message)) return false;
+  return true;
+}
+
+function recoverablePollingError(error) {
+  if (error?.nonRecoverable) return false;
+  const status = Number(error?.status || 0);
+  const message = String(error?.message || error || '').toLowerCase();
+  if (status >= 400 && status < 500 && ![408, 429].includes(status)) return false;
+  return !status || [408, 429].includes(status) || status >= 500 || /timed out|timeout|temporar|network|invalid json|definitive response/.test(message);
+}
+
+function definitiveSubmissionError(error) {
+  const status = Number(error?.status || 0);
+  return status >= 400 && status < 500;
+}
+
 function syncRun(target, source) {
   for (const key of Object.keys(target)) if (!(key in source)) delete target[key];
   Object.assign(target, source);
@@ -189,6 +210,15 @@ async function p2(redis, run) {
       run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), { section: 'storyBrief', requestedModel: current, model: result.model, responseId: result.responseId, completedAt: now(), ...result.usage }].slice(-24);
       addEvent(run, 'story_intelligence_ready', 'Full-book structure map and chapter-grounded creative brief saved');
     } catch (error) {
+      if (!recoverableModelError(error)) {
+        const message = cleanError(error);
+        evidence.storyBrief = { status: 'failed', modelChoice: current, error: message };
+        run.state = 'failed';
+        setStage(run, 'P2', 'failed', { label: '模型配置不可用，请修复配置后重试', phase: 'story_intelligence_configuration_error', recoverable: false, nextAttemptAt: '', error: message });
+        addEvent(run, 'story_intelligence_failed', 'Story intelligence stopped because the selected model configuration requires operator action', { error: message });
+        await saveRun(redis, run);
+        return;
+      }
       const attempt = Number(story.attempt || 0) + 1;
       const route = [...new Set([preferred, 'hy3', 'deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7'])];
       const next = route[(Math.max(0, route.indexOf(current)) + 1) % route.length];
@@ -410,6 +440,16 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
         delete latestDraft.inFlight?.[pendingSection];
         latestDraft.failures = { ...(latestDraft.failures || {}) };
         const attempt = Number(latestDraft.failures[pendingSection]?.attempt || 0) + 1;
+        if (!recoverableModelError(error)) {
+          const message = cleanError(error);
+          latestDraft.failures[pendingSection] = { attempt, at: now(), error: message, nextAttemptAt: '', recoverable: false };
+          latest.artifacts.creativeDraft = latestDraft;
+          latest.state = 'failed';
+          setStage(latest, 'P3', 'failed', { label: `${creativeSectionLabels[pendingSection]}模型配置不可用，请修复后重试`, phase: 'configuration_error', attempt, nextAttemptAt: '', error: message, recoverable: false });
+          addEvent(latest, 'creative_section_failed', `${pendingSection} stopped because its model configuration requires operator action`, { error: message });
+          await saveRun(redis, latest);
+          return syncRun(originalRun, latest);
+        }
         const delayMs = attempt <= 2 ? 15000 * attempt : Math.min(10 * 60 * 1000, 60000 * (attempt - 1));
         const nextAttemptAt = new Date(Date.now() + delayMs).toISOString();
         latestDraft.failures[pendingSection] = { attempt, at: now(), error: cleanError(error), nextAttemptAt };
@@ -482,6 +522,8 @@ async function p4(redis, run) {
     return;
   }
   const video = run.artifacts.video;
+  const pollRetryAt = Date.parse(stage.nextAttemptAt || '');
+  if (stage.status === 'running' && Number.isFinite(pollRetryAt) && pollRetryAt > Date.now()) return;
   if (stage.status === 'prepared') {
     const reconciled = await providers.findAcTask(video.remark);
     if (reconciled) {
@@ -515,7 +557,7 @@ async function p4(redis, run) {
       await saveRun(redis, run);
       return;
     } catch (error) {
-      error.ambiguous = true;
+      if (!definitiveSubmissionError(error)) error.ambiguous = true;
       throw error;
     }
   }
@@ -529,18 +571,37 @@ async function p4(redis, run) {
     return;
   }
   if (stage.status === 'running') {
-    const result = await providers.acResult(video.threadId);
-    Object.assign(video, result, { lastCheckedAt: now() });
-    if (result.status === 'completed') {
-      video.mediaValidation = await providers.validateVideo(result.videoUrls[0]);
-      setStage(run, 'P4', 'done', { label: '视频已生成并通过媒体校验', threadId: video.threadId });
-      addEvent(run, 'video_ready', 'AC video completed and media URL verified');
-    } else if (['failed', 'partial', 'completed_missing_media'].includes(result.status)) {
-      throw new providers.ProviderError(result.error || `AC video ended with ${result.status}`);
-    } else {
-      setStage(run, 'P4', 'running', { label: '视频生成中，已收到状态反馈', threadId: video.threadId });
+    try {
+      const result = await providers.acResult(video.threadId);
+      Object.assign(video, result, { lastCheckedAt: now(), lastPollError: '' });
+      if (result.status === 'completed') {
+        try {
+          video.mediaValidation = await providers.validateVideo(result.videoUrls[0]);
+        } catch (error) {
+          const validationError = error instanceof Error ? error : new providers.ProviderError(String(error));
+          validationError.nonRecoverable = true;
+          throw validationError;
+        }
+        setStage(run, 'P4', 'done', { label: '视频已生成并通过媒体校验', threadId: video.threadId, pollFailures: 0, recoverable: false, nextAttemptAt: '', error: '' });
+        addEvent(run, 'video_ready', 'AC video completed and media URL verified');
+      } else if (['failed', 'partial', 'completed_missing_media'].includes(result.status)) {
+        const terminalError = new providers.ProviderError(result.error || `AC video ended with ${result.status}`);
+        terminalError.nonRecoverable = true;
+        throw terminalError;
+      } else {
+        setStage(run, 'P4', 'running', { label: '视频生成中，已收到状态反馈', threadId: video.threadId, pollFailures: 0, recoverable: false, nextAttemptAt: '', error: '' });
+      }
+      await saveRun(redis, run);
+    } catch (error) {
+      if (!video.threadId || !recoverablePollingError(error)) throw error;
+      const attempt = Number(stage.pollFailures || 0) + 1;
+      const nextAttemptAt = new Date(Date.now() + Math.min(5 * 60 * 1000, 30000 * attempt)).toISOString();
+      video.status = 'running';
+      video.lastPollError = cleanError(error);
+      setStage(run, 'P4', 'running', { label: `视频仍在外部生成，状态查询暂缓，后台将自动重试（${attempt}）`, threadId: video.threadId, pollFailures: attempt, recoverable: true, nextAttemptAt, error: cleanError(error) });
+      addEvent(run, 'video_poll_recovering', 'Video result polling will retry using the existing external thread ID', { threadId: video.threadId, attempt, nextAttemptAt, error: cleanError(error) });
+      await saveRun(redis, run);
     }
-    await saveRun(redis, run);
   }
 }
 
@@ -616,6 +677,10 @@ async function p35(redis, run) {
       asset.url = String(output.url || asset.url || '');
       asset.error = String(result.error_msg || '').slice(0, 500);
       asset.lastCheckedAt = now();
+      if (asset.status === 'success' && !asset.url) {
+        asset.status = 'failed';
+        asset.error = asset.error || 'Image provider reported success without a media URL';
+      }
     }
   }
   const successes = run.artifacts.images.filter((item) => item.status === 'success' && item.url);

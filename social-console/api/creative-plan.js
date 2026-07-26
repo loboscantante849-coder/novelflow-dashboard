@@ -1,5 +1,5 @@
 const { requireSession } = require('./_lib/auth');
-const { getRedis, getCreativePlan, listCreativePlanSummaries, newCreativePlan, saveCreativePlan } = require('./_lib/store');
+const { getRedis, getCreativePlan, listCreativePlanSummaries, newCreativePlan, saveCreativePlan, creativePlanDetail } = require('./_lib/store');
 
 const MODEL_CHOICES = new Set(['deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'hy3', 'kimi-k2.7-code', 'qwen3.5-flash', 'glm-4.5-air', 'kimi-k2.5', 'minimax-m2.5', 'glm-5.2', 'kimi-k3', 'minimax-m3']);
 const text = (value, max) => typeof value === 'string' && value.trim().length <= max ? value.trim() : '';
@@ -20,7 +20,7 @@ module.exports = async (req, res) => {
       }
       if (id) {
         const job = await getCreativePlan(redis, id);
-        return job ? res.status(200).json({ job }) : res.status(404).json({ error: 'Planning task not found' });
+        return job ? res.status(200).json({ job: creativePlanDetail(job) }) : res.status(404).json({ error: 'Planning task not found' });
       }
       return res.status(200).json({ jobs: await listCreativePlanSummaries(redis, 5) });
     }
@@ -28,6 +28,13 @@ module.exports = async (req, res) => {
       const id = text(req.body?.id, 100);
       const job = await getCreativePlan(redis, id);
       if (!job) return res.status(404).json({ error: 'Planning task not found' });
+      if (req.body?.action === 'dismiss') {
+        job.state = 'dismissed';
+        job.input.dismissedAt = new Date().toISOString();
+        job.events.push({ at: new Date().toISOString(), type: 'operator_dismissed', message: 'Operator removed this completed planning card from the queue' });
+        await saveCreativePlan(redis, job);
+        return res.status(200).json({ job: creativePlanDetail(job) });
+      }
       if (req.body?.action !== 'retry') return res.status(400).json({ error: 'Unsupported planning action' });
       job.input.preferredModelChoice = job.input.preferredModelChoice || job.input.modelChoice || 'hy3';
       job.input.modelChoice = job.input.preferredModelChoice;
@@ -51,8 +58,11 @@ module.exports = async (req, res) => {
       if (existing) return res.status(200).json({ job: existing, queued: ['queued', 'running'].includes(existing.state), duplicate: true });
     }
     const job = newCreativePlan({ title, sku, modelChoice, preferredModelChoice: modelChoice, fallbackUsed: false, clientRequestId: requestId });
-    if (requestId) await redis.set(requestKey(requestId), job.id, { ex: 86400 });
+    // Publish the request-id mapping only after the plan is durable. A browser
+    // timeout can then safely reconcile to a real task instead of seeing a
+    // mapping that points at a plan which has not finished saving yet.
     await saveCreativePlan(redis, job);
+    if (requestId) await redis.set(requestKey(requestId), job.id, { ex: 86400 });
     return res.status(202).json({ job, queued: true });
   } catch (error) {
     console.error('[social/creative-plan]', error);

@@ -417,6 +417,113 @@ test('video submission capacity reserves no more than five slots per hour', asyn
   assert.equal(slots.at(-1).used, 5);
 });
 
+test('nonrecoverable P2 model configuration errors stop background recovery', async (t) => {
+  const originals = { ...providers };
+  t.after(() => Object.assign(providers, originals));
+  providers.analyzeCreativePlan = async () => { throw new providers.ProviderError('The selected model is not configured', { status: 503 }); };
+  const redis = new MemoryRedis();
+  const run = newRun({ title: 'Verified Romance', sku: 'sku-1', promoter: 'xujt', paidAuthorized: true });
+  run.state = 'running';
+  run.stages.P1.status = 'done';
+  run.artifacts.book = { bookSkuId: 'sku-1', chapterCount: 2 };
+  run.artifacts.evidence = { requested: 0, completed: 0, refs: [], chapters: [], chapterStructure: [] };
+
+  await processRun(redis, run);
+
+  assert.equal(run.state, 'failed');
+  assert.equal(run.stages.P2.status, 'failed');
+  assert.equal(run.stages.P2.recoverable, false);
+  assert.equal(run.stages.P2.nextAttemptAt, '');
+});
+
+test('nonrecoverable P3 model configuration errors stop background recovery', async (t) => {
+  const originals = { ...providers };
+  t.after(() => Object.assign(providers, originals));
+  providers.generateCreative = async () => { throw new providers.ProviderError('DeepSeek copy model is not configured', { status: 503 }); };
+  const redis = new MemoryRedis();
+  const run = mediaReadyRun();
+  run.stages.P3 = { status: 'waiting' };
+  delete run.artifacts.creativeDraft;
+
+  await processRun(redis, run);
+
+  assert.equal(run.state, 'failed');
+  assert.equal(run.stages.P3.status, 'failed');
+  assert.equal(run.stages.P3.recoverable, false);
+  assert.equal(run.stages.P3.nextAttemptAt, '');
+});
+
+test('a transient video poll error keeps the durable thread and resumes polling', async (t) => {
+  const originals = { ...providers };
+  t.after(() => Object.assign(providers, originals));
+  let polls = 0;
+  Object.assign(providers, {
+    acResult: async () => {
+      polls += 1;
+      if (polls === 1) throw new providers.ProviderError('AC result timed out', { status: 504 });
+      return { status: 'completed', threadId: 'thread-existing', videoUrls: ['https://cdn.example/video.mp4'] };
+    },
+    validateVideo: async () => ({ contentType: 'video/mp4', contentLength: 1234 })
+  });
+  const redis = new MemoryRedis();
+  const run = mediaReadyRun();
+  run.stages.P4 = { status: 'running' };
+  run.stages.P3_5 = { status: 'done' };
+  run.artifacts.video = { status: 'running', threadId: 'thread-existing', videoUrls: [] };
+
+  await processRun(redis, run);
+  assert.equal(run.state, 'running');
+  assert.equal(run.stages.P4.status, 'running');
+  assert.equal(run.artifacts.video.threadId, 'thread-existing');
+  assert.equal(run.stages.P4.recoverable, true);
+  run.stages.P4.nextAttemptAt = new Date(0).toISOString();
+  await processRun(redis, run);
+
+  assert.equal(run.stages.P4.status, 'done');
+  assert.equal(polls, 2);
+});
+
+test('an image success response without a URL becomes a definitive poster failure', async (t) => {
+  const originals = { ...providers };
+  t.after(() => Object.assign(providers, originals));
+  providers.imageResult = async () => ({ status: 'success', result: {} });
+  const redis = new MemoryRedis();
+  const run = mediaReadyRun();
+  run.stages.P4 = { status: 'done' };
+  run.stages.P3_5 = { status: 'running' };
+  run.artifacts.video = { status: 'completed', threadId: 'thread-done', videoUrls: ['https://cdn.example/video.mp4'] };
+  run.artifacts.images = [
+    { variant: 'luminous_cinema', status: 'queued', taskId: 'image-no-url', url: '', repairCount: 1 },
+    { variant: 'editorial_romance', status: 'success', taskId: 'image-ok', url: 'https://cdn.example/poster.jpg' }
+  ];
+
+  await processRun(redis, run);
+
+  assert.equal(run.stages.P3_5.status, 'partial');
+  assert.equal(run.artifacts.images[0].status, 'failed');
+  assert.match(run.artifacts.images[0].error, /without a media URL/i);
+});
+
+test('a definitive AC 422 rejection is failed rather than ambiguous', async (t) => {
+  const originals = { ...providers };
+  t.after(() => Object.assign(providers, originals));
+  Object.assign(providers, {
+    findAcTask: async () => null,
+    submitAc: async () => { throw new providers.ProviderError('AC rejected payload', { status: 422 }); }
+  });
+  const redis = new MemoryRedis();
+  const run = mediaReadyRun();
+  run.stages.P4 = { status: 'prepared' };
+  run.stages.P3_5 = { status: 'done' };
+  run.artifacts.video = { status: 'prepared', remark: 'nf-test', payload: {}, threadId: '', videoUrls: [] };
+
+  await processRun(redis, run);
+
+  assert.equal(run.state, 'failed');
+  assert.equal(run.stages.P4.status, 'failed');
+  assert.equal(run.stages.P4.error, 'AC rejected payload');
+});
+
 test('analytics labels insufficient samples instead of overclaiming', () => {
   const result = summarizeAnalytics([{ adId: '55555', pullUv: 20, activeUv: 4, newUv: 3, d7Income: 0 }], '55555', '', { from: '2026-07-01', to: '2026-07-17' });
   assert.equal(result.summary.sampleState, 'insufficient');

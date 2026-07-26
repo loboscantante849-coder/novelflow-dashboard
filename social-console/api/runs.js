@@ -1,4 +1,4 @@
-const { getRedis, getRun, listRuns, newRun, saveRun, getCreativePlan } = require('./_lib/store');
+const { getRedis, getRun, listRunSummaries, newRun, saveRun, getCreativePlan } = require('./_lib/store');
 const { requireSession } = require('./_lib/auth');
 const { normalizeCreative } = require('./_lib/pipeline');
 const providers = require('./_lib/providers');
@@ -28,6 +28,66 @@ function sanitizePlanning(value) {
     actualModel: CREATIVE_PROFILE_OPTIONS.modelChoice.has(String(value.actualModel || '')) ? String(value.actualModel) : '',
     fallbackUsed: value.fallbackUsed === true
   };
+}
+
+// Full runs contain every downloaded chapter and provider payload. Returning
+// that raw object makes a detail click compete with the worker for bandwidth
+// and can leave a serverless response open for minutes. Keep the UI contract,
+// but bound the evidence and diagnostic fields that are only needed for the
+// detail view.
+function detailPayload(run) {
+  const copy = JSON.parse(JSON.stringify(run));
+  const artifacts = copy.artifacts || {};
+  if (artifacts.book) {
+    artifacts.book.description = String(artifacts.book.description || '').slice(0, 4000);
+  }
+  if (artifacts.evidence && Array.isArray(artifacts.evidence.chapters)) {
+    const chapters = artifacts.evidence.chapters;
+    artifacts.evidence.chapterCount = chapters.length;
+    artifacts.evidence.chapters = chapters.slice(0, 80).map((chapter) => ({
+      ...chapter,
+      content: String(chapter.content || '').slice(0, 8000),
+      title: String(chapter.title || '').slice(0, 300)
+    }));
+  }
+  // The chapter index is useful to the worker, not to the browser detail view.
+  delete artifacts.chapterList;
+  if (artifacts.creativeDraft) {
+    const draft = artifacts.creativeDraft;
+    artifacts.creativeDraft = {
+      parts: Object.fromEntries(Object.entries(draft.parts || {}).map(([key, value]) => [key, { status: value?.status || 'ready' }])),
+      inFlight: draft.inFlight || {},
+      failures: Object.fromEntries(Object.entries(draft.failures || {}).map(([key, value]) => [key, {
+        attempt: value?.attempt || 1,
+        error: String(value?.error || '').slice(0, 300),
+        nextAttemptAt: value?.nextAttemptAt || ''
+      }])),
+      usage: Array.isArray(draft.usage) ? draft.usage.slice(-24) : []
+    };
+  }
+  if (Array.isArray(artifacts.events)) artifacts.events = artifacts.events.slice(-120);
+  if (Array.isArray(copy.events)) copy.events = copy.events.slice(-80).map((event) => ({ at: event.at, type: event.type, message: String(event.message || '').slice(0, 500) }));
+  if (Array.isArray(artifacts.posts)) artifacts.posts = artifacts.posts.map((post) => ({ ...post, content: String(post.content || '').slice(0, 12000), zhContent: String(post.zhContent || '').slice(0, 12000) }));
+  if (Array.isArray(artifacts.images)) artifacts.images = artifacts.images.map((image) => ({ ...image, prompt: String(image.prompt || '').slice(0, 5000), zhPrompt: String(image.zhPrompt || '').slice(0, 5000) }));
+  if (artifacts.videoPrompt) artifacts.videoPrompt = { ...artifacts.videoPrompt, adCopy: String(artifacts.videoPrompt.adCopy || '').slice(0, 10000), buildRequirement: String(artifacts.videoPrompt.buildRequirement || '').slice(0, 10000) };
+  if (artifacts.videoPromptDraft) artifacts.videoPromptDraft = { ...artifacts.videoPromptDraft, adCopy: String(artifacts.videoPromptDraft.adCopy || '').slice(0, 10000), buildRequirement: String(artifacts.videoPromptDraft.buildRequirement || '').slice(0, 10000) };
+  copy.artifacts = artifacts;
+  return copy;
+}
+
+function copyAssetPayload(run) {
+  return {
+    id: run.id,
+    posts: (Array.isArray(run?.artifacts?.posts) ? run.artifacts.posts : []).map((post) => ({
+      type: String(post?.type || ''),
+      content: String(post?.content || '').slice(0, 12000),
+      zhContent: String(post?.zhContent || '').slice(0, 12000)
+    }))
+  };
+}
+
+async function listRunsPayload(redis, loader = listRunSummaries) {
+  return { runs: await loader(redis, 50) };
 }
 
 async function resolvePlanning(redis, value) {
@@ -61,8 +121,11 @@ module.exports = async (req, res) => {
   try {
     if (req.method === 'GET') {
       const run = req.query?.id ? await getRun(redis, req.query.id) : null;
-      if (req.query?.id) return run ? res.status(200).json({ run }) : res.status(404).json({ error: 'Run not found' });
-      return res.status(200).json({ runs: await listRuns(redis) });
+      if (req.query?.id && !run) return res.status(404).json({ error: 'Run not found' });
+      if (req.query?.id && req.query?.asset === 'copy') return res.status(200).json(copyAssetPayload(run));
+      if (req.query?.id && req.query?.asset) return res.status(400).json({ error: 'Unsupported asset view' });
+      if (req.query?.id) return res.status(200).json({ run: detailPayload(run) });
+      return res.status(200).json(await listRunsPayload(redis));
     }
     if (req.method === 'PATCH') {
       const run = await getRun(redis, text(req.body?.id, 100));
@@ -284,3 +347,6 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'Unable to persist production run' });
   }
 };
+
+module.exports.copyAssetPayload = copyAssetPayload;
+module.exports.listRunsPayload = listRunsPayload;

@@ -1,21 +1,183 @@
 const storedRecommendationHistory = (() => { try { return JSON.parse(localStorage.getItem('nf_social:recommendation_history') || '[]'); } catch { return []; } })();
 const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogFilters: { line: 'novelflow', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all' }, selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', density: 'comfortable', query: '', detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, longKickKey: '', startingSku: '', planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false };
+const DASHBOARD_CACHE_KEY = 'nf_social:dashboard_snapshot:v1';
+const DASHBOARD_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
+let dashboardSnapshotHandle = null;
+
+function leaderboardQueryKey(source = state.leaderboardSource) {
+  if (source !== 'catalog') return `history:${state.windowDays}`;
+  const filters = state.catalogFilters;
+  return ['catalog', state.catalogDays, state.catalogSort, filters.line, filters.language, filters.complete, filters.status, filters.length, filters.genre].join(':');
+}
+
+function compactRunSnapshot(run) {
+  const artifacts = run.artifacts || {};
+  return {
+    id: run.id,
+    state: run.state,
+    createdAt: run.createdAt,
+    updatedAt: run.updatedAt,
+    _summary: true,
+    input: {
+      title: run.input?.title || '',
+      sku: run.input?.sku || '',
+      creativeProfile: run.input?.creativeProfile || null
+    },
+    stages: run.stages || {},
+    artifacts: {
+      book: artifacts.book ? { title: artifacts.book.title, bookSkuId: artifacts.book.bookSkuId, cover: artifacts.book.cover } : null,
+      code: artifacts.code || '',
+      shortUrl: artifacts.shortUrl || '',
+      posts: Array.isArray(artifacts.posts) ? artifacts.posts.map(() => ({ content: 'cached' })) : [],
+      images: Array.isArray(artifacts.images) ? artifacts.images.map(({ status, url, variant }) => ({ status, url, variant })) : [],
+      video: artifacts.video ? { status: artifacts.video.status, videoUrls: artifacts.video.videoUrls || [], coverImageUrl: artifacts.video.coverImageUrl || '', error: artifacts.video.error || '' } : null,
+      referenceVideo: artifacts.referenceVideo ? { status: artifacts.referenceVideo.status, videoUrls: artifacts.referenceVideo.videoUrls || [] } : null,
+      videoRevision: artifacts.videoRevision ? { status: artifacts.videoRevision.status, videoUrls: artifacts.videoRevision.videoUrls || [] } : null,
+      analytics: artifacts.analytics ? { summary: artifacts.analytics.summary || {} } : null,
+      usage: artifacts.usage || {},
+      modelActivity: Array.isArray(artifacts.modelActivity) ? artifacts.modelActivity.slice(-12) : []
+    }
+  };
+}
+
+function compactBookSnapshot(book) {
+  return {
+    rank: book.rank, title: book.title, bookSkuId: book.bookSkuId, cover: book.cover || '',
+    category: book.category || '', tags: Array.isArray(book.tags) ? book.tags.slice(0, 8) : [],
+    description: String(book.description || '').slice(0, 240), productLine: book.productLine || '',
+    isShort: book.isShort, automationReady: book.automationReady,
+    baseReadUnt: book.baseReadUnt, firstReadUntRate: book.firstReadUntRate,
+    read10wRate: book.read10wRate, read20wRate: book.read20wRate, ttProfit: book.ttProfit,
+    pullUv: book.pullUv, firstReadRate: book.firstReadRate, retentionRate: book.retentionRate,
+    retentionWindow: book.retentionWindow, assetCount: book.assetCount, score: book.score,
+    confidence: book.confidence, todayScore: book.todayScore
+  };
+}
+
+function persistDashboardSnapshot() {
+  dashboardSnapshotHandle = null;
+  try {
+    localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({
+      savedAt: Date.now(),
+      runs: state.runs.map(compactRunSnapshot),
+      capabilities: state.capabilities,
+      videoLimit: state.videoLimit,
+      leaderboard: state.leaderboard.map(compactBookSnapshot),
+      leaderboardUpdated: state.leaderboardUpdated,
+      leaderboardWarning: state.leaderboardWarning,
+      leaderboardDataQuality: state.leaderboardDataQuality,
+      leaderboardCredentialStatus: state.leaderboardCredentialStatus,
+      leaderboardWindow: state.leaderboardWindow,
+      leaderboardMetrics: state.leaderboardMetrics,
+      leaderboardQueryKey: state.leaderboardDataKey || leaderboardQueryKey(),
+      todayBooks: state.todayBooks.map(compactBookSnapshot),
+      todayDataQuality: state.todayDataQuality
+    }));
+  } catch {}
+}
+
+function saveDashboardSnapshot() {
+  if (dashboardSnapshotHandle != null) return;
+  if ('requestIdleCallback' in window) dashboardSnapshotHandle = window.requestIdleCallback(persistDashboardSnapshot, { timeout: 1500 });
+  else dashboardSnapshotHandle = window.setTimeout(persistDashboardSnapshot, 250);
+}
+
+function restoreDashboardSnapshot() {
+  try {
+    const snapshot = JSON.parse(localStorage.getItem(DASHBOARD_CACHE_KEY) || 'null');
+    if (!snapshot || Date.now() - Number(snapshot.savedAt || 0) > DASHBOARD_CACHE_MAX_AGE) return false;
+    state.runs = Array.isArray(snapshot.runs) ? snapshot.runs : [];
+    state.capabilities = snapshot.capabilities || {};
+    state.videoLimit = snapshot.videoLimit || null;
+    const cachedLeaderboardMatches = snapshot.leaderboardQueryKey === leaderboardQueryKey();
+    const trustedLeaderboard = ['verified_metrics', 'stale_verified_metrics'].includes(String(snapshot.leaderboardDataQuality || ''));
+    state.leaderboard = cachedLeaderboardMatches && trustedLeaderboard && Array.isArray(snapshot.leaderboard) ? snapshot.leaderboard : [];
+    state.leaderboardUpdated = snapshot.leaderboardUpdated || '';
+    state.leaderboardWarning = snapshot.leaderboardWarning || '';
+    state.leaderboardDataQuality = state.leaderboard.length ? snapshot.leaderboardDataQuality : '';
+    state.leaderboardCredentialStatus = snapshot.leaderboardCredentialStatus || '';
+    state.leaderboardWindow = snapshot.leaderboardWindow || null;
+    state.leaderboardMetrics = snapshot.leaderboardMetrics || null;
+    state.leaderboardDataKey = state.leaderboard.length ? snapshot.leaderboardQueryKey : '';
+    const cachedTodayBooks = Array.isArray(snapshot.todayBooks) ? snapshot.todayBooks : [];
+    const trustedToday = ['verified_metrics', 'stale_verified_metrics'].includes(String(snapshot.todayDataQuality || ''));
+    state.todayBooks = trustedToday && recommendationMetricsReady(cachedTodayBooks) ? cachedTodayBooks : [];
+    state.todayDataQuality = state.todayBooks.length ? snapshot.todayDataQuality : '';
+    state.selectedId = state.runs[0]?.id || '';
+    return state.runs.length > 0 || state.leaderboard.length > 0 || state.todayBooks.length > 0;
+  } catch { return false; }
+}
 state.detailHydrating = '';
+state.detailError = '';
+state.leaderboardWarning = '';
+state.leaderboardDataQuality = '';
+state.leaderboardCredentialStatus = '';
+state.leaderboardError = '';
 state.todayBooks = [];
 state.todayBooksLoading = false;
+state.todayBooksError = '';
+state.todayDataQuality = '';
+state.statusRequest = null;
+state.statusLoading = false;
+state.statusFingerprint = '';
+state.leaderboardRequest = null;
+state.leaderboardRequestId = 0;
+state.leaderboardController = null;
+state.leaderboardDataKey = '';
+state.todayRailRequest = null;
+state.coverInFlight = new Set();
+state.coverFailures = new Map();
+state.coverRetryTimer = null;
 state.copilotMessages = (() => { try { return JSON.parse(localStorage.getItem('nf_social:copilot_messages') || '[]').slice(-14); } catch { return []; } })();
 state.copilotBusy = false;
 state.referencePosterChoice = {};
 state.todayRailPaused = false;
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+function coverSrc(value) {
+  const url = String(value || '').trim();
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === 'oss.novelago.app' && !parsed.searchParams.has('x-oss-process')) return `${url}${parsed.search ? '&' : '?'}x-oss-process=image/resize,w_320/quality,q_78/format,webp`;
+  } catch {}
+  return url;
+}
+function coverOriginalSrc(value) {
+  const url = String(value || '').trim();
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.delete('x-oss-process');
+    return parsed.toString();
+  } catch { return url; }
+}
+function handleCoverImageError(image) {
+  const original = image.dataset.originalCover;
+  if (original && image.dataset.originalTried !== '1' && image.src !== original) {
+    image.dataset.originalTried = '1';
+    image.src = original;
+    return;
+  }
+  image.hidden = true;
+  image.classList.remove('is-loaded');
+}
+function handleCoverImageLoad(image) {
+  image.hidden = false;
+  image.classList.add('is-loaded');
+}
 const labels = { queued: '排队中', running: '生产中', completed: '已完成', failed: '失败', blocked: '已暂停', partial: '部分完成', ambiguous: '需人工核验' };
 const stageLabels = { P1: '选书', P2: '证据', P3: '创意', P3_5: '海报', P4: '视频', P5: 'Code', P6: '审核' };
 const stageIcons = { P1: 'book-open-check', P2: 'library', P3: 'message-square-text', P3_5: 'images', P4: 'video', P5: 'link-2', P6: 'badge-check' };
 const pipelineOrder = ['P1', 'P2', 'P5', 'P3', 'P4', 'P3_5', 'P6'];
 const catalogSortLabels = { baseReadUnt: '阅读 UV', firstReadUntRate: '首读率', read10wRate: '10 万字留存', read20wRate: '20 万字留存', ttProfit: '利润' };
 
-function icons() { if (window.lucide) window.lucide.createIcons({ attrs: { 'stroke-width': 1.8 } }); }
+let iconFrame = 0;
+function icons() {
+  if (!window.lucide || iconFrame) return;
+  iconFrame = requestAnimationFrame(() => {
+    iconFrame = 0;
+    window.lucide.createIcons({ attrs: { 'stroke-width': 1.8 } });
+  });
+}
 
 const creativeProfileOptions = {
   copyStyle: { label: '文案', values: { system_best: '系统推荐：从原文选择最有张力的冲突', revenge_comeback: '复仇反杀：只在原文支持时突出夺回主动权', forbidden_tension: '禁忌拉扯：只在原文支持时突出欲望与边界', dark_redemption: '暗黑救赎：只在原文支持时突出危险与重获掌控' } },
@@ -134,11 +296,13 @@ function renderCreativePlanQueue() {
     const stage = Object.values(job.stages || {}).find((item) => item.status === 'running') || Object.values(job.stages || {}).find((item) => item.status === 'waiting') || job.stages?.analysis || {};
     const icon = job.state === 'completed' ? 'circle-check-big' : job.state === 'failed' ? 'circle-alert' : 'loader-circle';
     const status = job.state === 'completed' ? '策划完成，点击查看方案' : job.state === 'failed' ? '策划中断，点击从已保存证据恢复' : (stage.label || '后台策划中，可继续使用控制台');
-    return `<button class="creative-plan-job ${job.state === 'completed' ? 'done' : job.state === 'failed' ? 'failed' : ''}" type="button" data-plan-job="${escapeHtml(job.id)}"><span><strong>${escapeHtml(job.artifacts?.book?.title || job.input?.title || 'AI 智能策划')}</strong><span>${escapeHtml(status)}</span></span><i data-lucide="${icon}"></i></button>`;
+    const dismiss = job.state === 'completed' ? `<button class="plan-dismiss" type="button" data-dismiss-plan="${escapeHtml(job.id)}" title="从策划队列移除"><i data-lucide="x"></i></button>` : '';
+    return `<article class="plan-queue-item"><button class="creative-plan-job ${job.state === 'completed' ? 'done' : job.state === 'failed' ? 'failed' : ''}" type="button" data-plan-job="${escapeHtml(job.id)}"><span><strong>${escapeHtml(job.artifacts?.book?.title || job.input?.title || 'AI 智能策划')}</strong><span>${escapeHtml(status)}</span></span><i data-lucide="${icon}"></i></button>${dismiss}</article>`;
   }).join('');
   if (list) {
     list.innerHTML = jobHtml || '<div class="plan-queue-empty"><i data-lucide="brain-circuit"></i><span>暂无后台策划任务</span></div>';
     list.querySelectorAll('[data-plan-job]').forEach((button) => button.addEventListener('click', () => showPlanJob(button.dataset.planJob)));
+    list.querySelectorAll('[data-dismiss-plan]').forEach((button) => button.addEventListener('click', (event) => { event.stopPropagation(); dismissCreativePlan(button.dataset.dismissPlan); }));
   }
 }
 
@@ -148,13 +312,18 @@ async function showPlanJob(id) {
   if (job.state === 'failed') { retryCreativePlanJob(job.id); return; }
   if (job.state !== 'completed') { showToast(job.stages?.analysis?.error || '该策划仍在后台推进，完成后这里会变为可查看方案'); return; }
   if (job._summary || !job.artifacts?.plan) {
+    const button = document.querySelector(`[data-plan-job="${id}"]`);
+    if (button) { button.disabled = true; button.classList.add('loading'); }
     try {
       const body = await api(`/api/creative-plan?id=${encodeURIComponent(id)}`, { timeoutMs: 45000 });
+      if (!body.job) throw new Error('策划方案尚未准备完成');
       state.planJobs = state.planJobs.map((item) => item.id === id ? body.job : item);
       return showPlanJob(id);
     } catch (error) {
       showToast(`策划详情加载失败：${error.message}`, 'error');
       return;
+    } finally {
+      if (button) { button.disabled = false; button.classList.remove('loading'); }
     }
   }
   const result = planJobResult(job);
@@ -169,6 +338,17 @@ async function showPlanJob(id) {
   $('#planModelChoice')?.addEventListener('change', renderModelBadges);
   renderModelBadges();
   icons();
+}
+
+async function dismissCreativePlan(id) {
+  const job = state.planJobs.find((item) => item.id === id);
+  if (!job || job.state !== 'completed') return;
+  try {
+    await api('/api/creative-plan', { method: 'PATCH', body: JSON.stringify({ id, action: 'dismiss' }), timeoutMs: 20000 });
+    state.planJobs = state.planJobs.filter((item) => item.id !== id);
+    renderCreativePlanQueue(); icons();
+    showToast('已从 AI 策划队列移除，方案不会影响已创建的生产任务');
+  } catch (error) { showToast(`移除策划失败：${error.message}`, 'error'); }
 }
 
 async function retryCreativePlanJob(id) {
@@ -196,6 +376,8 @@ function bindCreativePlanActions(result) {
 }
 
 function openCreativePlanDialog(book = {}) {
+  state.planningSession = Number(state.planningSession || 0) + 1;
+  state.planning = false;
   state.creativePlan = null;
   $('#creativePlanForm').hidden = false;
   $('#creativePlanLoading').hidden = true;
@@ -205,11 +387,12 @@ function openCreativePlanDialog(book = {}) {
   if (!$('#planningRequestModel')) $('#creativePlanInput').insertAdjacentHTML('beforeend', '<label class="plan-model-choice">首选策划模型<select id="planningRequestModel"><option value="hy3">HY3（默认，实测最快）</option><option value="deepseek">DeepSeek V4 Pro（深度）</option><option value="seed-2.1-turbo">Seed 2.1 Turbo（备用）</option><option value="qwen3.7-max">Qwen 3.7 Max（深度）</option><option value="minimax-m2.7">MiniMax M2.7（润色）</option><option value="kimi-k2.7-code">Kimi K2.7 Code（结构）</option></select></label>');
   $('#planTitle').value = book.title || '';
   $('#planSku').value = book.bookSkuId || '';
-  $('#creativePlanDialog').showModal();
+  if (!$('#creativePlanDialog').open) $('#creativePlanDialog').showModal();
   setTimeout(() => $('#planTitle').focus(), 0);
 }
 
 async function analyzeCreativePlan(title, sku) {
+  const planningSession = state.planningSession;
   state.planning = true;
   const modelChoice = $('#planningRequestModel')?.value || 'hy3';
   const selectedModel = modelLabel(modelChoice);
@@ -219,42 +402,53 @@ async function analyzeCreativePlan(title, sku) {
   $('#creativePlanResult').hidden = true;
   $('#creativePlanLoading strong').textContent = `${selectedModel} 正在转入后台策划`;
   try {
-    const body = await api('/api/creative-plan', { method: 'POST', body: JSON.stringify({ title, sku, modelChoice, requestId }), timeoutMs: 30000 });
-    queueCreativePlanJob(body.job, selectedModel);
+    const body = await api('/api/creative-plan', { method: 'POST', body: JSON.stringify({ title, sku, modelChoice, requestId }), timeoutMs: 15000 });
+    queueCreativePlanJob(body.job, selectedModel, planningSession);
   } catch (error) {
+    if (planningSession !== state.planningSession) return;
     if (/请求超过|AbortError/i.test(String(error.message || error))) {
       $('#creativePlanLoading strong').textContent = '正在确认后台任务状态';
-      if (await recoverCreativePlanRequest(requestId, selectedModel)) return;
+      const recovered = await recoverCreativePlanRequest(requestId, selectedModel, planningSession);
+      if (planningSession !== state.planningSession || recovered) return;
     }
     const result = $('#creativePlanResult');
     result.hidden = false;
     result.innerHTML = `<div class="ai-failure"><i data-lucide="circle-alert"></i><strong>后台任务尚未确认</strong><p>${escapeHtml(error.message)}</p><div><button id="retryCreativePlan" class="primary-command" type="button">继续确认任务</button><button id="changeCreativePlanModel" class="secondary-command" type="button">换模型新建</button><button id="editCreativePlan" class="secondary-command" type="button">返回修改</button></div></div>`;
-    $('#retryCreativePlan').addEventListener('click', async () => { if (!(await recoverCreativePlanRequest(requestId, selectedModel))) showToast('后台仍未确认该请求，请稍后再确认；不要重复提交。'); });
+    $('#retryCreativePlan').addEventListener('click', async () => { if (!(await recoverCreativePlanRequest(requestId, selectedModel, planningSession))) showToast('后台仍未确认该请求，请稍后再确认；不要重复提交。'); });
     $('#changeCreativePlanModel').addEventListener('click', () => { result.hidden = true; $('#creativePlanForm').hidden = false; $('#planningRequestModel').focus(); });
     $('#editCreativePlan').addEventListener('click', () => { result.hidden = true; $('#creativePlanForm').hidden = false; $('#planTitle').focus(); });
     icons();
   } finally {
-    state.planning = false;
-    $('#creativePlanLoading').hidden = true;
+    if (planningSession === state.planningSession) {
+      state.planning = false;
+      $('#creativePlanLoading').hidden = true;
+    }
   }
 }
 
 async function api(url, options = {}) {
-  const { timeoutMs = 45000, ...fetchOptions } = options;
+  const { timeoutMs = 45000, signal: externalSignal, ...fetchOptions } = options;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const abortFromCaller = () => controller.abort();
+  if (externalSignal?.aborted) controller.abort();
+  else externalSignal?.addEventListener('abort', abortFromCaller, { once: true });
   let response;
   try {
     response = await fetch(url, { ...fetchOptions, signal: controller.signal, headers: { 'Content-Type': 'application/json', ...(fetchOptions.headers || {}) } });
   } catch (error) {
     if (error?.name === 'AbortError') throw new Error(`请求超过 ${Math.ceil(timeoutMs / 1000)} 秒，已停止等待；可直接重试或切换模型`);
     throw error;
-  } finally { clearTimeout(timer); }
+  } finally {
+    clearTimeout(timer);
+    externalSignal?.removeEventListener('abort', abortFromCaller);
+  }
   let body = {};
   try { body = await response.json(); } catch {}
   if (!response.ok) {
     const error = new Error(body.error || `HTTP ${response.status}`);
     error.status = response.status;
+    error.details = body;
     throw error;
   }
   return body;
@@ -286,6 +480,9 @@ async function assistantSnapshot(mode) {
   if (mode === 'assets') return { activeRuns, assets, leaderboard: state.leaderboard.slice(0, 8).map(dashboardBookSummary) };
   if (mode !== 'books') return { activeRuns, assets, leaderboard: state.leaderboard.slice(0, 8).map(dashboardBookSummary) };
   const body = await api(`/api/leaderboard?source=catalog&days=7${catalogRequestQuery()}`);
+  if (!responseAllowsCatalogRanking(body, body.books || []) || !recommendationMetricsReady(body.books || [])) {
+    throw new Error('中台真实指标尚未通过验证，AI 不会从普通书库冒充 Top 榜推荐');
+  }
   const topTwoHundred = (body.books || []).filter((book) => book.automationReady !== false).slice(0, 200);
   const seen = new Set(state.recommendationHistory.map((title) => String(title).toLowerCase()));
   const unseen = topTwoHundred.filter((book) => !seen.has(String(book.title || '').toLowerCase()));
@@ -511,6 +708,7 @@ function openDetail(id, target = '') {
   state.detailOpen = true;
   state.detailTarget = target;
   state.detailFingerprint = '';
+  state.detailError = '';
   render();
   hydrateRunDetail(id);
 }
@@ -522,15 +720,27 @@ async function hydrateRunDetail(id) {
   state.detailFingerprint = '';
   renderDetail();
   try {
-    const body = await api(`/api/runs?id=${encodeURIComponent(id)}`, { timeoutMs: 45000 });
+    const body = await api(`/api/runs?id=${encodeURIComponent(id)}`, { timeoutMs: 30000 });
+    if (!body?.run) throw new Error('服务端没有返回完整任务记录');
     state.runs = state.runs.map((item) => item.id === id ? body.run : item);
+    state.detailError = '';
     state.detailFingerprint = '';
     render();
   } catch (error) {
+    state.detailError = `${error.message || '详情加载失败'}；可以直接重试，不会重新创建任务`;
+    state.detailFingerprint = '';
+    renderDetail();
     showToast(`任务详情加载失败：${error.message}`, 'error');
   } finally {
     if (state.detailHydrating === id) state.detailHydrating = '';
   }
+}
+
+function retryRunDetail(id) {
+  state.detailError = '';
+  state.detailFingerprint = '';
+  renderDetail();
+  hydrateRunDetail(id);
 }
 
 function closeDetail() {
@@ -551,13 +761,52 @@ function compactNumber(value) {
   return Number(value || 0).toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 });
 }
 
-function percentage(value) { return value == null ? '待接入' : `${Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 1 })}%`; }
+function percentage(value) { return value == null ? '样本不足' : `${Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 1 })}%`; }
 
-function leaderboardCover(book) {
-  const fallback = state.leaderboardSource === 'history' ? 'HISTORY' : 'RANK';
+function leaderboardCover(book, fallbackLabel = '') {
+  const fallback = fallbackLabel || (state.leaderboardSource === 'history' ? 'HISTORY' : 'RANK');
+  const sku = String(book.bookSkuId || '');
+  const failure = sku ? state.coverFailures.get(sku) : null;
+  const pendingLabel = failure?.kind === 'missing' ? '暂无封面' : failure?.attempts >= 3 ? '封面查询失败' : failure?.attempts ? `重试 ${failure.attempts}/3` : '封面同步中';
+  const fallbackHtml = `<span class="cover-fallback ${book.cover ? 'cover-loading' : 'cover-pending'}"><small>${book.cover ? fallback : escapeHtml(pendingLabel)}</small><strong>${escapeHtml(String(book.title || 'N').slice(0, 1))}</strong></span>`;
   return book.cover
-    ? `<img src="${escapeHtml(book.cover)}" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="cover-fallback" hidden><small>${fallback}</small><strong>${escapeHtml(String(book.title || 'N').slice(0, 1))}</strong></span>`
-    : `<span class="cover-fallback"><small>${fallback}</small><strong>${escapeHtml(String(book.title || 'N').slice(0, 1))}</strong></span>`;
+    ? `${fallbackHtml}<img data-cover-image src="${escapeHtml(coverSrc(book.cover))}" data-original-cover="${escapeHtml(coverOriginalSrc(book.cover))}" alt="${escapeHtml(book.title || '')}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onload="handleCoverImageLoad(this)" onerror="handleCoverImageError(this)">`
+    : fallbackHtml;
+}
+
+function coverDataAttributes(book) {
+  return `data-cover-sku="${escapeHtml(book.bookSkuId || '')}" data-cover-title="${escapeHtml(book.title || '')}"`;
+}
+
+function updateCoverNodes(covers) {
+  const entries = Object.entries(covers || {});
+  if (!entries.length) return;
+  const coverMap = new Map(entries.map(([sku, url]) => [String(sku), url]));
+  document.querySelectorAll('[data-cover-sku]').forEach((node) => {
+    const url = coverMap.get(String(node.dataset.coverSku || ''));
+    if (!url) return;
+    const book = { title: node.dataset.coverTitle || '', bookSkuId: node.dataset.coverSku || '', cover: url };
+    node.innerHTML = leaderboardCover(book);
+  });
+  renderCoverRetryControl();
+}
+
+function updateCoverFailureNodes(sku, attempts, kind = '') {
+  document.querySelectorAll('[data-cover-sku]').forEach((node) => {
+    if (String(node.dataset.coverSku || '') !== String(sku)) return;
+    const label = node.querySelector('.cover-fallback small');
+    if (label) label.textContent = kind === 'missing' ? '暂无封面' : attempts >= 3 ? '封面查询失败' : `重试 ${attempts}/3`;
+    node.classList.toggle('cover-unavailable', attempts >= 3);
+  });
+}
+
+function renderCoverRetryControl() {
+  const button = $('#retryCovers');
+  if (!button) return;
+  const exhausted = [...state.coverFailures.values()].filter((item) => item.attempts >= 3 && item.kind !== 'missing').length;
+  button.hidden = exhausted === 0;
+  button.title = exhausted ? `${exhausted} 个封面暂未取回，点击重试` : '重试未加载封面';
+  button.setAttribute('aria-label', button.title);
 }
 
 function activeRunFor(book) {
@@ -585,6 +834,39 @@ function catalogVisibleBooks() {
   });
 }
 
+function metricHasSignal(books, key) {
+  return (books || []).some((book) => {
+    const value = Number(book?.[key]);
+    return Number.isFinite(value) && value !== 0;
+  });
+}
+
+function catalogDataHealth(books = state.leaderboard, sortKey = state.catalogSort) {
+  const uv = metricHasSignal(books, 'baseReadUnt');
+  const firstRead = metricHasSignal(books, 'firstReadUntRate');
+  const read10w = metricHasSignal(books, 'read10wRate');
+  const read20w = metricHasSignal(books, 'read20wRate');
+  const profit = metricHasSignal(books, 'ttProfit');
+  const byMetric = { baseReadUnt: uv, firstReadUntRate: firstRead, read10wRate: read10w, read20wRate: read20w, ttProfit: profit };
+  return { uv, firstRead, read10w, read20w, profit, selected: Boolean(byMetric[sortKey]), any: uv || firstRead || read10w || read20w || profit };
+}
+
+function catalogQualityAllowsRanking(books = state.leaderboard, quality = state.leaderboardDataQuality) {
+  const normalized = String(quality || '').toLowerCase();
+  const trustedQuality = ['verified_metrics', 'stale_verified_metrics'].includes(normalized);
+  return trustedQuality && catalogDataHealth(books).selected;
+}
+
+function recommendationMetricsReady(books = []) {
+  const health = catalogDataHealth(books);
+  return health.uv && (health.firstRead || health.read10w || health.read20w);
+}
+
+function responseAllowsCatalogRanking(body, books, sortKey = state.catalogSort) {
+  const quality = String(body?.dataQuality || '').toLowerCase();
+  return ['verified_metrics', 'stale_verified_metrics'].includes(quality) && catalogDataHealth(books, sortKey).selected;
+}
+
 function renderBatchBookBar() {
   const bar = $('#batchBookBar');
   const count = state.selectedBooks.size;
@@ -594,35 +876,86 @@ function renderBatchBookBar() {
 
 function todayScore(books) {
   const max = (key) => Math.max(1, ...books.map((book) => Number(book[key] || 0)));
-  const uv = max('baseReadUnt'); const first = max('firstReadUntRate'); const retention = max('read20wRate');
+  const uv = max('baseReadUnt');
+  const first = max('firstReadUntRate');
+  const retention = Math.max(1, ...books.map((book) => Number(book.read20wRate || book.read10wRate || 0)));
   return books.map((book) => ({ ...book, todayScore: Math.round((Number(book.baseReadUnt || 0) / uv * 45 + Number(book.firstReadUntRate || 0) / first * 30 + Number(book.read20wRate || book.read10wRate || 0) / retention * 25) * 10) / 10 })).sort((a, b) => b.todayScore - a.todayScore);
 }
 
 function renderTodayRail() {
   const list = $('#todayRailList');
   if (!list) return;
-  if (state.todayBooksLoading) { list.innerHTML = `<div class="today-skeleton"><i data-lucide="loader-circle"></i><span>正在读取近 7 天真实表现</span></div>${Array.from({ length: 3 }, () => '<div class="today-skeleton-card"><span></span><div><b></b><b></b><i></i><i></i></div></div>').join('')}`; return; }
+  if (state.todayBooksLoading && !state.todayBooks.length) { list.innerHTML = `<div class="today-skeleton"><i data-lucide="loader-circle"></i><span>正在读取近 7 天真实表现</span></div>${Array.from({ length: 3 }, () => '<div class="today-skeleton-card"><span></span><div><b></b><b></b><i></i><i></i></div></div>').join('')}`; return; }
   const books = state.todayBooks || [];
-  if (!books.length) { list.innerHTML = '<div class="today-loading"><i data-lucide="sparkles"></i><span>今日推荐准备中</span></div>'; return; }
-  list.innerHTML = books.slice(0, 12).map((book, index) => `<article class="today-card"><div class="today-cover">${leaderboardCover(book)}</div><div class="today-card-copy"><span>今日 #${index + 1} · 综合 ${book.todayScore}</span><h3>${escapeHtml(book.title)}</h3><p>${escapeHtml(bookGenre(book) === 'other' ? book.category || 'Romance' : bookGenre(book))} · UV ${compactNumber(book.baseReadUnt)}</p><div><b>首读 ${percentage(book.firstReadUntRate)}</b><b>长读 ${percentage(book.read20wRate || book.read10wRate)}</b></div></div><button class="today-plan" data-today-book="${index}" type="button"><i data-lucide="brain-circuit"></i>策划</button></article>`).join('');
+  if (!books.length) {
+    list.innerHTML = state.todayBooksError
+      ? '<button id="retryTodayRail" class="today-loading today-retry" type="button"><i data-lucide="refresh-cw"></i><span>中台指标正在同步，点击重新读取今日推荐</span></button>'
+      : '<div class="today-loading"><i data-lucide="sparkles"></i><span>今日推荐准备中</span></div>';
+    $('#retryTodayRail')?.addEventListener('click', () => loadTodayRail());
+    return;
+  }
+  const sourceState = state.todayBooksLoading
+    ? '<div class="today-source-state refreshing"><i data-lucide="loader-circle"></i>后台刷新中，当前推荐保持可用</div>'
+    : state.todayBooksError || state.todayDataQuality === 'stale_verified_metrics'
+      ? '<button id="retryTodayRail" class="today-source-state stale" type="button"><i data-lucide="refresh-cw"></i>当前为最近一次已验证推荐，点击更新</button>'
+      : '';
+  list.innerHTML = `${sourceState}${books.slice(0, 12).map((book, index) => `<article class="today-card"><div class="today-cover" ${coverDataAttributes(book)}>${leaderboardCover(book)}</div><div class="today-card-copy"><span>今日 #${index + 1} · 综合 ${book.todayScore}</span><h3>${escapeHtml(book.title)}</h3><p>${escapeHtml(bookGenre(book) === 'other' ? book.category || 'Romance' : bookGenre(book))} · UV ${compactNumber(book.baseReadUnt)}</p><div><b>首读 ${percentage(book.firstReadUntRate)}</b><b>长读 ${percentage(book.read20wRate || book.read10wRate)}</b></div></div><button class="today-plan" data-today-book="${index}" type="button"><i data-lucide="brain-circuit"></i>策划</button></article>`).join('')}`;
+  $('#retryTodayRail')?.addEventListener('click', () => loadTodayRail());
   list.querySelectorAll('[data-today-book]').forEach((button) => button.addEventListener('click', () => { const book = books[Number(button.dataset.todayBook)]; if (book) openCreativePlanDialog(book); }));
 }
 
-async function loadTodayRail() {
-  state.todayBooksLoading = true; renderTodayRail(); icons();
+async function loadTodayCovers() {
+  const missing = state.todayBooks.filter((book) => {
+    const sku = String(book.bookSkuId || '');
+    const failure = state.coverFailures.get(sku);
+    return !book.cover && sku && book.title && !state.coverInFlight.has(sku) && (!failure || failure.attempts < 3 && failure.nextAttemptAt <= Date.now());
+  }).slice(0, 12);
+  if (!missing.length) return;
+  const skus = missing.map((book) => String(book.bookSkuId));
+  skus.forEach((sku) => state.coverInFlight.add(sku));
   try {
-    const body = await api('/api/leaderboard?source=catalog&days=7&sort=baseReadUnt&line=novelflow&language=EN&complete=%E5%B7%B2%E5%AE%8C%E7%BB%93&status=%E4%B8%8A%E6%9E%B6&isShort=all', { timeoutMs: 50000 });
-    state.todayBooks = todayScore((body.books || []).filter((book) => !activeRunFor(book))).slice(0, 12);
-    const missing = state.todayBooks.filter((book) => !book.cover).slice(0, 12);
-    if (missing.length) {
-      api('/api/book-covers', { method: 'POST', body: JSON.stringify({ books: missing.map((book) => ({ sku: book.bookSkuId, title: book.title })) }), timeoutMs: 55000 }).then((coverBody) => {
-        const covers = coverBody.covers || {};
-        state.todayBooks = state.todayBooks.map((book) => covers[String(book.bookSkuId)] ? { ...book, cover: covers[String(book.bookSkuId)] } : book);
-        renderTodayRail(); icons();
-      }).catch(() => {});
+    const coverBody = await api('/api/book-covers', { method: 'POST', body: JSON.stringify({ books: missing.map((book) => ({ sku: book.bookSkuId, title: book.title })) }), timeoutMs: 30000 });
+    const covers = coverBody.covers || {};
+    const missingSkus = new Set((coverBody.missing || []).map(String));
+    const failedSkus = new Map((coverBody.failed || []).map((item) => [String(item.sku), String(item.kind || 'unknown')]));
+    state.todayBooks = state.todayBooks.map((book) => covers[String(book.bookSkuId)] ? { ...book, cover: covers[String(book.bookSkuId)] } : book);
+    Object.keys(covers).forEach((sku) => state.coverFailures.delete(String(sku)));
+    skus.filter((sku) => !covers[sku]).forEach((sku) => recordCoverFailure(sku, missingSkus.has(sku) ? 'missing' : failedSkus.get(sku) || 'unknown'));
+    saveDashboardSnapshot();
+    updateCoverNodes(covers);
+  } catch {
+    skus.forEach((sku) => recordCoverFailure(sku));
+  } finally {
+    skus.forEach((sku) => state.coverInFlight.delete(sku));
+    renderCoverRetryControl();
+    scheduleCoverRetry();
+  }
+}
+
+async function loadTodayRail() {
+  if (state.todayRailRequest) return state.todayRailRequest;
+  state.todayBooksLoading = true; renderTodayRail(); icons();
+  state.todayRailRequest = (async () => {
+    try {
+      const body = await api('/api/leaderboard?source=catalog&days=7&sort=baseReadUnt&line=novelflow&language=EN&complete=%E5%B7%B2%E5%AE%8C%E7%BB%93&status=%E4%B8%8A%E6%9E%B6&isShort=all', { timeoutMs: 50000 });
+      const candidates = (body.books || []).filter((book) => !activeRunFor(book));
+      if (!responseAllowsCatalogRanking(body, candidates, 'baseReadUnt') || !recommendationMetricsReady(candidates)) throw new Error('中台尚未返回可用于推荐的 UV、首读与留存指标');
+      state.todayBooks = todayScore(candidates).slice(0, 12);
+      state.todayBooksError = '';
+      state.todayDataQuality = body.dataQuality || 'verified_metrics';
+      saveDashboardSnapshot();
+      loadTodayCovers();
+    } catch (error) {
+      // Keep the last successful rail visible while the source refreshes.
+      state.todayBooksError = error.message || '今日推荐同步失败';
+      state.todayDataQuality = state.todayBooks.length ? 'stale_verified_metrics' : 'unavailable';
+    } finally {
+      state.todayBooksLoading = false;
+      state.todayRailRequest = null;
+      renderTodayRail(); icons();
     }
-  } catch { state.todayBooks = []; }
-  finally { state.todayBooksLoading = false; renderTodayRail(); icons(); }
+  })();
+  return state.todayRailRequest;
 }
 
 function advanceTodayRail() {
@@ -636,8 +969,18 @@ function renderLeaderboard() {
   const grid = $('#leaderboard');
   const empty = $('#leaderboardEmpty');
   if (!grid || !empty) return;
+  grid.setAttribute('aria-busy', String(state.leaderboardLoading));
+  $('#refreshLeaderboard').disabled = state.leaderboardLoading;
+  $('#refreshLeaderboard').classList.toggle('loading', state.leaderboardLoading);
   empty.hidden = state.leaderboard.length > 0;
   const catalog = state.leaderboardSource === 'catalog';
+  if (!catalog) {
+    $('#leaderboardSection').classList.remove('metrics-pending');
+    $('#leaderboardUpdated').classList.remove('warning');
+    $('#retryCovers').hidden = true;
+  } else {
+    renderCoverRetryControl();
+  }
   $('#leaderboardEyebrow').textContent = catalog ? 'CONTENT DASHBOARD' : 'PROMOTION REVIEW';
   $('#leaderboardTitle').textContent = catalog ? '新推广表现选书' : '投放复盘 / 复投候选';
   $('#leaderboardDescription').textContent = catalog
@@ -647,16 +990,48 @@ function renderLeaderboard() {
   $('#catalogWindowControl').hidden = !catalog;
   $('#catalogSort').hidden = !catalog;
   $('#catalogFilters').hidden = !catalog;
-  if (state.leaderboardLoading) {
+  if (state.leaderboardLoading && !state.leaderboard.length) {
     renderLeaderboardPager(0, 0);
     empty.hidden = true;
     grid.innerHTML = '<div class="leaderboard-loading"><i data-lucide="loader-circle"></i><strong>正在刷新中台排行</strong><span>正在校验书籍与可自动创建状态</span></div>';
     $('#leaderboardUpdated').textContent = '正在加载真实表现数据';
     return;
   }
+  if (!state.leaderboardLoading && !state.leaderboard.length) {
+    const unavailable = catalog && (state.leaderboardDataQuality === 'unavailable' || state.leaderboardError);
+    grid.innerHTML = '';
+    empty.hidden = false;
+    empty.innerHTML = unavailable
+      ? `<i data-lucide="shield-alert"></i><strong>中台真实指标暂未连通</strong><span>${escapeHtml(state.leaderboardWarning || state.leaderboardError || '没有已验证指标时，不会用普通书库伪装成排行榜。')}</span><button id="retryLeaderboard" class="secondary-command" type="button"><i data-lucide="refresh-cw"></i>重新连接指标</button>`
+      : '<i data-lucide="cloud-off"></i><strong>当前筛选暂无书籍</strong><span>可调整时间、篇幅或题材后重试。</span>';
+    $('#leaderboardUpdated').classList.toggle('warning', unavailable);
+    $('#leaderboardUpdated').textContent = unavailable ? '数据源未通过验证 · 已停止榜单操作' : '当前筛选没有匹配结果';
+    $('#retryLeaderboard')?.addEventListener('click', () => loadLeaderboard({ refresh: true }));
+    renderLeaderboardPager(0, 0);
+    renderBatchBookBar();
+    return;
+  }
+  if (state.leaderboardLoading) $('#leaderboardUpdated').textContent = '正在后台刷新，当前保留上一版已验证榜单';
   if (catalog) {
     const sortLabel = catalogSortLabels[state.catalogSort] || '阅读 UV';
     const visibleBooks = catalogVisibleBooks();
+    if (!visibleBooks.length) {
+      grid.innerHTML = '';
+      empty.hidden = false;
+      empty.innerHTML = '<i data-lucide="list-filter"></i><strong>当前组合没有匹配书籍</strong><span>真实榜单仍然有效，可调整长短篇或题材筛选。</span>';
+      $('#leaderboardSection').classList.remove('metrics-pending');
+      $('#leaderboardUpdated').classList.remove('warning');
+      $('#leaderboardUpdated').textContent = `Top ${state.leaderboard.length} 已加载 · 当前筛选 0 本`;
+      state.selectedBooks.clear();
+      renderLeaderboardPager(0, 0);
+      renderBatchBookBar();
+      return;
+    }
+    empty.hidden = true;
+    const health = catalogDataHealth(visibleBooks);
+    const selectedMetricReady = catalogQualityAllowsRanking(visibleBooks);
+    if (!selectedMetricReady && state.selectedBooks.size) state.selectedBooks.clear();
+    $('#leaderboardSection').classList.toggle('metrics-pending', !selectedMetricReady);
     const totalPages = Math.max(1, Math.ceil(visibleBooks.length / 50));
     state.leaderboardPage = Math.min(Math.max(1, state.leaderboardPage), totalPages);
     const startIndex = (state.leaderboardPage - 1) * 50;
@@ -664,22 +1039,26 @@ function renderLeaderboard() {
     grid.innerHTML = displayedBooks.map((book) => {
       const index = state.leaderboard.indexOf(book);
       const active = activeRunFor(book);
-      const ready = book.automationReady !== false;
+      const rankingActionable = selectedMetricReady && book.automationReady !== false;
+      const ready = Boolean(active) || rankingActionable;
       const metric = state.catalogSort === 'ttProfit'
         ? `$${Number(book.ttProfit || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
         : state.catalogSort === 'baseReadUnt'
           ? compactNumber(book.baseReadUnt)
           : percentage(book[state.catalogSort]);
-      return `<article class="leaderboard-card ${active ? 'in-progress' : ''}">
-        <span class="rank">#${book.rank}</span><label class="select-book" title="加入批量选择"><input type="checkbox" data-select-sku="${escapeHtml(book.bookSkuId)}" ${state.selectedBooks.has(String(book.bookSkuId)) ? 'checked' : ''}><span></span></label>
-        <div class="leaderboard-cover">${leaderboardCover(book)}</div>
-        <div class="leaderboard-copy"><h2>${escapeHtml(book.title)}</h2><p>阅读 ${compactNumber(book.baseReadUnt)} UV · 首读 ${percentage(book.firstReadUntRate)}</p><div class="book-tags"><span>10w 留存 ${percentage(book.read10wRate)}</span><span>20w 留存 ${percentage(book.read20wRate)}</span></div></div>
-        <div class="leaderboard-metrics"><span>${escapeHtml(sortLabel)}</span><strong>${metric}</strong><small>${escapeHtml(book.productLine || 'astranovel')}</small></div>
-        <div class="book-commands">${!active ? `<button class="plan-book" data-index="${index}" ${!ready ? 'disabled' : ''}><i data-lucide="brain-circuit"></i><span>智能策划</span></button>` : ''}<button class="start-book ${active ? 'resume' : ''}" data-index="${index}" ${!ready || state.startingSku === String(book.title) ? 'disabled' : ''}>${!ready ? '暂不可用' : state.startingSku === String(book.title) ? '正在校验' : active ? '查看任务' : '智能一键生成'}<i data-lucide="${!ready ? 'circle-off' : active ? 'arrow-right' : 'zap'}"></i></button></div>
+      return `<article class="leaderboard-card ${active ? 'in-progress' : ''} ${selectedMetricReady ? '' : 'metrics-disabled'}">
+        <span class="rank">${selectedMetricReady ? `#${book.rank}` : '待验证'}</span><label class="select-book" title="${selectedMetricReady ? '加入批量选择' : '真实指标恢复后可选择'}"><input type="checkbox" data-select-sku="${escapeHtml(book.bookSkuId)}" ${state.selectedBooks.has(String(book.bookSkuId)) ? 'checked' : ''} ${selectedMetricReady ? '' : 'disabled'}><span></span></label>
+        <div class="leaderboard-cover" ${coverDataAttributes(book)}>${leaderboardCover(book)}</div>
+        <div class="leaderboard-copy"><h2>${escapeHtml(book.title)}</h2>${health.uv || health.firstRead ? `<p>阅读 ${health.uv ? compactNumber(book.baseReadUnt) : '—'} UV · 首读 ${health.firstRead ? percentage(book.firstReadUntRate) : '—'}</p><div class="book-tags"><span>10w 留存 ${health.read10w ? percentage(book.read10wRate) : '—'}</span><span>20w 留存 ${health.read20w ? percentage(book.read20wRate) : '—'}</span></div>` : '<p>书籍已核验 · 中台业务指标同步中</p><div class="book-tags"><span>不使用 0 UV 虚假排序</span><span>恢复后自动更新</span></div>'}</div>
+        <div class="leaderboard-metrics"><span>${escapeHtml(sortLabel)}</span><strong>${selectedMetricReady ? metric : '—'}</strong><small>${selectedMetricReady ? escapeHtml(book.productLine || 'astranovel') : '指标同步中'}</small></div>
+        <div class="book-commands">${!active ? `<button class="plan-book" data-index="${index}" ${!rankingActionable ? 'disabled' : ''} title="${rankingActionable ? '先由 AI 分析原文与创意方向' : '等待真实业务指标恢复'}"><i data-lucide="brain-circuit"></i><span>智能策划</span></button>` : ''}<button class="start-book ${active ? 'resume' : ''}" data-index="${index}" ${!ready || state.startingSku === String(book.title) ? 'disabled' : ''}>${active ? '查看任务' : !rankingActionable ? '等待真实指标' : state.startingSku === String(book.title) ? '正在校验' : '智能一键生成'}<i data-lucide="${!ready ? 'circle-off' : active ? 'arrow-right' : 'zap'}"></i></button></div>
       </article>`;
     }).join('');
     const window = state.leaderboardWindow;
-    $('#leaderboardUpdated').textContent = window?.throughDate ? `${window.startDate} 至 ${window.throughDate} · ${sortLabel} · Top ${visibleBooks.length}` : '正在加载中台业务数据';
+    $('#leaderboardUpdated').classList.toggle('warning', !selectedMetricReady);
+    $('#leaderboardUpdated').textContent = selectedMetricReady
+      ? (window?.throughDate ? `${window.startDate} 至 ${window.throughDate} · ${sortLabel} · Top ${visibleBooks.length}${state.leaderboardWarning ? ` · ${state.leaderboardWarning}` : ''}` : '正在加载中台业务数据')
+      : `已找到 ${visibleBooks.length} 本书，但中台 ${sortLabel} 尚未通过验证 · 已禁止按榜单启动`;
     renderLeaderboardPager(displayedBooks.length, visibleBooks.length, totalPages);
     document.querySelectorAll('.start-book').forEach((button) => button.addEventListener('click', () => {
       const book = state.leaderboard[Number(button.dataset.index)];
@@ -704,7 +1083,7 @@ function renderLeaderboard() {
       const ready = book.automationReady !== false;
       return `<article class="leaderboard-card ${active ? 'in-progress' : ''}">
         <span class="rank">#${book.rank}</span>
-        <div class="leaderboard-cover">${leaderboardCover(book)}</div>
+        <div class="leaderboard-cover" ${coverDataAttributes(book)}>${leaderboardCover(book)}</div>
         <div class="leaderboard-copy"><h2>${escapeHtml(book.title)}</h2><p>书库排序 · ${escapeHtml(book.category || 'English fiction')}</p><div class="book-tags"><span>在架可推广</span><span>SKU ${escapeHtml(book.bookSkuId || '—')}</span></div></div>
         <div class="leaderboard-metrics"><span>书库排名</span><strong>#${book.rank}</strong><small>${escapeHtml(book.category || 'English fiction')}</small></div>
         <button class="start-book ${active ? 'resume' : ''}" data-index="${index}" ${!ready || state.startingSku === String(book.title) ? 'disabled' : ''}>${!ready ? '暂不可用' : state.startingSku === String(book.title) ? '正在校验' : active ? '查看任务' : '智能一键生成'}<i data-lucide="${!ready ? 'circle-off' : active ? 'arrow-right' : 'zap'}"></i></button>
@@ -721,11 +1100,15 @@ function renderLeaderboard() {
   grid.innerHTML = state.leaderboard.map((book, index) => {
     const active = activeRunFor(book);
     const ready = book.automationReady !== false;
+    const pullUv = book.pullUv;
+    const firstReadRate = book.firstReadRate;
+    const retentionRate = book.retentionRate ?? book.read20wRate ?? book.read10wRate;
+    const retentionLabel = book.retentionWindow ? `${book.retentionWindow} 留存` : '长读留存';
     return `<article class="leaderboard-card ${active ? 'in-progress' : ''}">
       <span class="rank">#${book.rank}</span>
-      <div class="leaderboard-cover">${leaderboardCover(book)}</div>
-      <div class="leaderboard-copy"><h2>${escapeHtml(book.title)}</h2><p>样本 ${compactNumber(book.pullUv)} UV · ${book.assetCount} 个素材</p><div class="book-tags"><span>首读/新增 ${percentage(book.firstReadRate)}</span><span>D14 $${Number(book.d14Income || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}</span></div></div>
-      <div class="leaderboard-metrics"><span>综合评分</span><strong>${Number(book.score || 0).toFixed(1)}</strong><small>置信度 ${book.confidence}%</small></div>
+      <div class="leaderboard-cover" ${coverDataAttributes(book)}>${leaderboardCover(book)}</div>
+      <div class="leaderboard-copy"><h2>${escapeHtml(book.title)}</h2><p>拉起 ${compactNumber(pullUv)} UV · ${book.assetCount || 0} 个素材</p><div class="book-tags"><span>首读率 ${percentage(firstReadRate)}</span><span>${escapeHtml(retentionLabel)} ${percentage(retentionRate)}</span></div></div>
+      <div class="leaderboard-metrics"><span>综合评分</span><strong>${Number(book.score || 0).toFixed(1)}</strong><small>样本置信度 ${book.confidence || 0}%</small></div>
       <button class="start-book ${active ? 'resume' : ''}" data-index="${index}" ${!ready || state.startingSku === String(book.title) ? 'disabled' : ''}>${!ready ? '书库已下架' : state.startingSku === String(book.title) ? '正在校验' : active ? '查看任务' : '智能一键生成'}<i data-lucide="${!ready ? 'circle-off' : active ? 'arrow-right' : 'zap'}"></i></button>
     </article>`;
   }).join('');
@@ -858,8 +1241,45 @@ function currentStage(run) {
 }
 
 function cover(run) {
-  const url = run.artifacts?.book?.cover;
-  return url ? `<img class="book-cover" src="${escapeHtml(url)}" alt="">` : `<div class="book-cover fallback">${escapeHtml(String(run.input?.title || 'N').slice(0, 1))}</div>`;
+  const book = {
+    title: run.artifacts?.book?.title || run.input?.title || '',
+    bookSkuId: run.artifacts?.book?.bookSkuId || run.input?.sku || '',
+    cover: run.artifacts?.book?.cover || ''
+  };
+  return `<div class="book-cover resilient-cover" ${coverDataAttributes(book)}>${leaderboardCover(book, 'BOOK')}</div>`;
+}
+
+function assetImageFrame(url, alt, label = '素材') {
+  if (!url) return '';
+  return `<div class="asset-media-frame"><span class="asset-media-fallback">${escapeHtml(label)}加载中</span><img src="${escapeHtml(url)}" loading="lazy" decoding="async" alt="${escapeHtml(alt)}" onload="handleCoverImageLoad(this)" onerror="handleCoverImageError(this)"></div>`;
+}
+
+function videoAssetState(run) {
+  const video = run.artifacts?.video || null;
+  const stage = run.stages?.P4 || {};
+  if (video?.videoUrls?.[0]) return { label: '视频可播放', tone: 'ready' };
+  const status = String(video?.status || stage.status || 'waiting');
+  if (['submitting', 'queued', 'running', 'prepared'].includes(status)) return { label: '视频生成中', tone: 'working' };
+  if (status === 'ambiguous') return { label: '视频需核验', tone: 'attention' };
+  if (status === 'blocked') return { label: stage.blockedReason === 'hourly_video_limit' ? '视频等候额度' : '视频已暂停', tone: 'attention' };
+  if (['failed', 'partial', 'completed_missing_media'].includes(status)) return { label: '视频生成失败', tone: 'failed' };
+  return { label: '视频未提交', tone: 'idle' };
+}
+
+function assetLibraryFingerprint(runs) {
+  return JSON.stringify({
+    query: state.query,
+    runs: runs.map((run) => ({
+      id: run.id,
+      title: run.input?.title,
+      code: run.artifacts?.code,
+      shortUrl: run.artifacts?.shortUrl,
+      cover: run.artifacts?.book?.cover,
+      posts: run.artifacts?.posts?.length || 0,
+      images: (run.artifacts?.images || []).map((item) => [item.status, item.url, item.variant]),
+      video: [run.artifacts?.video?.status, run.artifacts?.video?.videoUrls?.[0], run.stages?.P4?.status]
+    }))
+  });
 }
 
 function renderRunList() {
@@ -881,9 +1301,27 @@ function renderRunList() {
   document.querySelectorAll('.run-row').forEach((row) => row.addEventListener('click', () => openDetail(row.dataset.id)));
 }
 
-function copyAssetText(value, message) {
-  if (!value) return;
-  navigator.clipboard?.writeText(value).then(() => showToast(message)).catch(() => showToast('浏览器未允许复制，请从详情页复制', 'error'));
+async function copyAssetText(value, message) {
+  if (!value) { showToast('当前没有可复制的成品内容', 'error'); return false; }
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
+    await navigator.clipboard.writeText(value);
+    showToast(message);
+    return true;
+  } catch {
+    showToast('浏览器未允许复制，请从详情页复制', 'error');
+    return false;
+  }
+}
+
+async function copyPostsForAsset(id) {
+  const run = state.runs.find((item) => item.id === id);
+  const posts = run?.artifacts?.posts || [];
+  const hasFinishedCopy = !run?._summary && posts.some((post) => !['ready', 'cached'].includes(String(post?.content || '')));
+  if (hasFinishedCopy) return posts;
+  const body = await api(`/api/runs?id=${encodeURIComponent(id)}&asset=copy`, { timeoutMs: 12000 });
+  if (!Array.isArray(body?.posts) || !body.posts.length) throw new Error('成品文案尚未返回');
+  return body.posts;
 }
 
 function reportNumber(value) { return Number(value || 0).toLocaleString('zh-CN'); }
@@ -941,6 +1379,9 @@ function openWeeklyReport() {
 function renderAssetLibrary() {
   const runs = libraryRuns();
   const list = $('#runList');
+  const fingerprint = assetLibraryFingerprint(runs);
+  if (list.classList.contains('asset-library') && state.assetLibraryFingerprint === fingerprint) return;
+  state.assetLibraryFingerprint = fingerprint;
   $('#runListHead').hidden = true;
   list.className = 'asset-library';
   $('#emptyRuns').hidden = true;
@@ -949,21 +1390,30 @@ function renderAssetLibrary() {
     const posters = (run.artifacts?.images || []).filter((item) => item?.status === 'success' && item?.url).slice(0, 2);
     const videoUrl = run.artifacts?.video?.videoUrls?.[0] || '';
     const coverUrl = run.artifacts?.book?.cover;
-    const posterPreview = posters.length ? `<div class="asset-gallery">${posters.map((item) => `<img src="${escapeHtml(`/api/media?url=${encodeURIComponent(item.url)}`)}" loading="lazy" decoding="async" alt="${escapeHtml(run.input?.title)} 海报">`).join('')}</div>` : '';
-    const coverPreview = coverUrl ? `<img class="asset-cover-preview" src="${escapeHtml(coverUrl)}" loading="lazy" decoding="async" alt="${escapeHtml(run.input?.title)} 封面">` : '';
+    const posterPreview = posters.length ? `<div class="asset-gallery">${posters.map((item) => assetImageFrame(`/api/media?url=${encodeURIComponent(item.url)}`, `${run.input?.title} 海报`, '海报')).join('')}</div>` : '';
+    const coverBook = { title: run.input?.title || '', bookSkuId: run.input?.sku || '', cover: coverUrl || '' };
+    const coverPreview = coverUrl ? `<div class="asset-cover-preview resilient-cover" ${coverDataAttributes(coverBook)}>${leaderboardCover(coverBook, 'BOOK')}</div>` : '';
+    const videoState = videoAssetState(run);
     const preview = `${posterPreview || coverPreview || '<div class="asset-empty">素材准备中</div>'}${videoUrl ? '<span class="asset-video-indicator"><i data-lucide="play"></i>视频可播放</span>' : ''}`;
     return `<article class="asset-card" data-asset-run="${escapeHtml(run.id)}">
-      <header class="asset-card-head">${coverUrl ? `<img src="${escapeHtml(coverUrl)}" alt="">` : `<div class="asset-cover">${escapeHtml(String(run.input?.title || 'N').slice(0, 1))}</div>`}<div><h2>${escapeHtml(run.input?.title || '')}</h2><p>${run.artifacts?.code ? `Code ${escapeHtml(run.artifacts.code)}` : '未生成推广 Code'} ${run.artifacts?.shortUrl ? '· 短链已验证' : ''}</p></div><button class="icon-button asset-open" data-open-asset="${escapeHtml(run.id)}" title="打开完整任务"><i data-lucide="arrow-up-right"></i></button></header>
+      <header class="asset-card-head"><div class="asset-cover resilient-cover" ${coverDataAttributes(coverBook)}>${leaderboardCover(coverBook, 'BOOK')}</div><div><h2>${escapeHtml(run.input?.title || '')}</h2><p>${run.artifacts?.code ? `Code ${escapeHtml(run.artifacts.code)}` : '未生成推广 Code'} ${run.artifacts?.shortUrl ? '· 短链已验证' : ''}</p></div><button class="icon-button asset-open" data-open-asset="${escapeHtml(run.id)}" title="打开完整任务"><i data-lucide="arrow-up-right"></i></button></header>
       <div class="asset-preview">${preview}</div>
       <div class="asset-remove-actions">${assets.posts ? `<button data-remove-library="copy" data-run-id="${escapeHtml(run.id)}"><i data-lucide="trash-2"></i>删除文案</button>` : ''}${run.artifacts?.video ? `<button data-remove-library="video" data-run-id="${escapeHtml(run.id)}"><i data-lucide="trash-2"></i>删除视频</button>` : ''}${(run.artifacts?.images || []).length ? `<button data-remove-library="posters" data-run-id="${escapeHtml(run.id)}"><i data-lucide="trash-2"></i>删除海报</button>` : ''}</div>
-      <div class="asset-counts"><span>${assets.posts} 条文案</span><span>${assets.posters} 张海报</span><span>${assets.video ? '视频可播放' : '视频未就绪'}</span><span>${assets.tracking ? '追踪已验证' : '追踪未完成'}</span></div>
+      <div class="asset-counts"><span>${assets.posts} 条文案</span><span>${assets.posters} 张海报</span><span class="video-state ${videoState.tone}">${escapeHtml(videoState.label)}</span><span>${assets.tracking ? '追踪已验证' : '追踪未完成'}</span></div>
       <div class="asset-actions"><button data-copy-post="${escapeHtml(run.id)}" ${assets.posts ? '' : 'disabled'}><i data-lucide="copy"></i>文案</button><button data-copy-link="${escapeHtml(run.id)}" ${run.artifacts?.shortUrl ? '' : 'disabled'}><i data-lucide="link"></i>链接</button><button data-preview-media="${escapeHtml(run.id)}" ${videoUrl || posters[0]?.url ? '' : 'disabled'}><i data-lucide="play"></i>预览</button></div>
     </article>`;
   }).join('') : '<div class="asset-library-empty"><i data-lucide="library-big"></i><strong>还没有可直接使用的素材</strong><span>文案、视频、海报或已验证追踪完成后会自动出现在这里。</span></div>';
   list.querySelectorAll('[data-open-asset]').forEach((button) => button.addEventListener('click', () => openDetail(button.dataset.openAsset)));
-  list.querySelectorAll('[data-copy-post]').forEach((button) => button.addEventListener('click', () => {
-    const run = state.runs.find((item) => item.id === button.dataset.copyPost);
-    copyAssetText((run?.artifacts?.posts || []).map((item) => item.content).join('\n\n---\n\n'), '成品文案已复制');
+  list.querySelectorAll('[data-copy-post]').forEach((button) => button.addEventListener('click', async () => {
+    button.disabled = true;
+    try {
+      const posts = await copyPostsForAsset(button.dataset.copyPost);
+      await copyAssetText(posts.map((item) => item.content).join('\n\n---\n\n'), '成品文案已复制');
+    } catch (error) {
+      showToast(`文案读取失败：${error.message}`, 'error');
+    } finally {
+      button.disabled = false;
+    }
   }));
   list.querySelectorAll('[data-copy-link]').forEach((button) => button.addEventListener('click', () => {
     const run = state.runs.find((item) => item.id === button.dataset.copyLink);
@@ -1001,13 +1451,16 @@ function renderFocusRun() {
   if (!run) return;
   const completed = Object.values(run.stages || {}).filter((stage) => stage.status === 'done').length;
   const videoReady = Boolean(run.artifacts?.video?.videoUrls?.[0]);
+  const videoProgress = videoState(run, run.artifacts?.video);
   const posterCount = (run.artifacts?.images || []).filter((item) => item.url).length;
   const copyCount = (run.artifacts?.posts || []).length;
   const shortUrl = run.artifacts?.shortUrl;
+  const completion = Math.round(completed / 7 * 100);
   content.innerHTML = `<article class="focus-card">
     <div class="focus-book">${cover(run)}<div><div class="focus-title-row"><h2>${escapeHtml(run.input?.title)}</h2><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><p>SKU ${escapeHtml(run.input?.sku)} · ${completed}/7 个节点完成</p><div class="focus-tracking"><span>Code <strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></span>${shortUrl ? `<a href="${escapeHtml(shortUrl)}" target="_blank" rel="noopener">打开短链 <i data-lucide="external-link"></i></a>` : '<span>短链待创建</span>'}</div></div></div>
+    <div class="focus-progress" aria-label="生产完成度"><div><span>生产完成度</span><strong>${completion}%</strong></div><div class="focus-progress-track"><i style="width:${completion}%"></i></div><small>${escapeHtml(videoProgress.label)}</small></div>
     <div class="focus-flow">${pipelineOrder.map((key) => `<button class="focus-step ${stageClass(run.stages?.[key])}" data-node-decision="${key}" title="查看${escapeHtml(stageLabels[key])}的决策说明"><i data-lucide="${stageIcons[key]}"></i><span>${escapeHtml(stageLabels[key])}</span></button>`).join('')}</div>
-    <div class="focus-assets"><button data-detail-target="copy"><i data-lucide="message-square-text"></i><strong>${copyCount}</strong><span>成品文案</span></button><button data-detail-target="video" class="${videoReady ? 'ready' : ''}"><i data-lucide="video"></i><strong>${videoReady ? '已就绪' : '等待中'}</strong><span>视频</span></button><button data-detail-target="posters" class="${posterCount === 2 ? 'ready' : ''}"><i data-lucide="images"></i><strong>${posterCount}/2</strong><span>海报</span></button><button data-detail-target="review" class="${run.artifacts?.review ? 'ready' : ''}"><i data-lucide="badge-check"></i><strong>${run.artifacts?.review ? '已就绪' : '等待中'}</strong><span>审核包</span></button></div>
+    <div class="focus-assets"><button data-detail-target="copy"><i data-lucide="message-square-text"></i><strong>${copyCount}</strong><span>成品文案</span></button><button data-detail-target="video" class="${videoReady ? 'ready' : videoProgress.kind === 'failed' || videoProgress.kind === 'blocked' ? 'failed' : ''}"><i data-lucide="video"></i><strong>${videoReady ? '已就绪' : videoProgress.kind === 'failed' || videoProgress.kind === 'blocked' ? '生成失败' : videoProgress.kind === 'running' ? '生成中' : '等待中'}</strong><span>视频</span></button><button data-detail-target="posters" class="${posterCount === 2 ? 'ready' : ''}"><i data-lucide="images"></i><strong>${posterCount}/2</strong><span>海报</span></button><button data-detail-target="review" class="${run.artifacts?.review ? 'ready' : ''}"><i data-lucide="badge-check"></i><strong>${run.artifacts?.review ? '已就绪' : '等待中'}</strong><span>审核包</span></button></div>
   </article>`;
   $('#openFocusRun').onclick = () => openDetail(run.id);
   document.querySelectorAll('[data-detail-target]').forEach((button) => button.addEventListener('click', () => openDetail(run.id, button.dataset.detailTarget)));
@@ -1017,7 +1470,7 @@ function renderFocusRun() {
 function pipelineNode(run, key) {
   const stage = run.stages?.[key] || { status: 'waiting' };
   const artifact = { P1: run.artifacts?.book?.bookSkuId, P2: run.artifacts?.evidence?.completed ? `${run.artifacts.evidence.completed} 章` : '', P5: run.artifacts?.code ? `Code ${run.artifacts.code}` : '', P3: run.artifacts?.posts?.length ? `${run.artifacts.posts.length} 套文案` : '', P4: run.artifacts?.video?.videoUrls?.[0] ? '可播放' : run.artifacts?.video?.threadId ? '生成中' : '', P3_5: run.artifacts?.images?.length ? `${run.artifacts.images.filter((item) => item.url).length}/2 海报` : '', P6: run.artifacts?.review ? '审核包就绪' : '' }[key] || stage.label || stage.status;
-  const stageStatus = stage.status === 'done' ? '已完成' : stage.status === 'waiting' ? '等待中' : stage.status === 'ambiguous' ? '需人工核验' : stage.status === 'partial' ? '部分完成' : '进行中';
+  const stageStatus = stage.status === 'done' ? '已完成' : stage.status === 'waiting' ? '等待中' : stage.status === 'failed' ? '生成失败' : stage.status === 'blocked' ? '已阻塞' : stage.status === 'ambiguous' ? '需人工核验' : stage.status === 'partial' ? '部分完成' : stage.status === 'submitting' ? '提交中' : stage.status === 'prepared' ? '已准备' : '生成中';
   return `<button type="button" class="flow-node ${stageClass(stage)}" data-node-decision="${key}" title="查看${escapeHtml(stageLabels[key] || key)}的决策说明"><span class="flow-node-top"><i data-lucide="${stageIcons[key] || 'circle'}"></i><span>${escapeHtml(stageLabels[key] || key)}</span></span><strong>${escapeHtml(artifact)}</strong><small>${escapeHtml(stageStatus)}</small></button>`;
 }
 
@@ -1075,7 +1528,25 @@ function copyHtml(run) {
   const posts = run.artifacts?.posts || [];
   if (!posts.length) return '<div class="media-placeholder">文案生成后将在这里直接显示</div>';
   const paragraphs = (value, className = '') => String(value || '').split(/\r?\n\s*\r?\n/).map((block) => block.trim()).filter(Boolean).map((block) => `<p${className ? ` class="${className}"` : ''}>${escapeHtml(block)}</p>`).join('');
-  return posts.map((post) => `<article class="copy-output"><span class="copy-type">${escapeHtml(post.type)}</span><div class="copy-paragraphs">${paragraphs(post.content)}</div>${post.zhContent ? `<div class="copy-paragraphs translation">${paragraphs(post.zhContent)}</div>` : ''}</article>`).join('');
+  const footer = (value) => {
+    const lines = String(value || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const urlIndex = lines.findIndex((line) => /^https?:\/\//i.test(line));
+    const tagIndex = lines.length - 1;
+    const tagLine = /^(?:#[A-Za-z][A-Za-z0-9_]*\s*){5,8}$/.test(lines[tagIndex] || '') ? lines[tagIndex] : '';
+    const codeIndex = urlIndex > 0 ? urlIndex - 1 : -1;
+    const ctaIndex = urlIndex > 1 ? urlIndex - 2 : -1;
+    const cta = ctaIndex >= 0 && /\b(?:see|read)\s+what\s+happens\s+when\b/i.test(lines[ctaIndex]) ? lines[ctaIndex] : '';
+    const code = codeIndex >= 0 && /novelflow/i.test(lines[codeIndex]) ? lines[codeIndex] : '';
+    const url = urlIndex >= 0 ? lines[urlIndex] : '';
+    const narrativeEnd = cta ? ctaIndex : (tagLine ? tagIndex : lines.length);
+    return { narrative: lines.slice(0, narrativeEnd).join('\n'), cta, code, url, tagLine };
+  };
+  return posts.map((post) => {
+    const en = footer(post.content);
+    const zh = post.zhContent ? footer(post.zhContent) : null;
+    const footerHtml = (item) => item && (item.cta || item.code || item.url || item.tagLine) ? `<div class="copy-footer"><div class="copy-footer-main">${item.cta ? `<span class="copy-footer-label">CTA</span><strong>${escapeHtml(item.cta)}</strong>` : ''}${item.code ? `<span class="copy-footer-label">NovelFlow 引导</span><span>${escapeHtml(item.code)}</span>` : ''}${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">打开短链 <i data-lucide="external-link"></i></a>` : ''}</div>${item.tagLine ? `<div class="copy-hashtags"><span class="copy-footer-label">发布标签</span><strong>${escapeHtml(item.tagLine)}</strong></div>` : ''}</div>` : '';
+    return `<article class="copy-output"><span class="copy-type">${escapeHtml(post.type)}</span><div class="copy-paragraphs">${paragraphs(en.narrative || post.content)}</div>${footerHtml(en)}${zh ? `<div class="copy-paragraphs translation">${paragraphs(zh.narrative || post.zhContent)}</div>${footerHtml(zh)}` : ''}</article>`;
+  }).join('');
 }
 
 function optimizationHtml(run) {
@@ -1102,6 +1573,16 @@ function promptHtml(run) {
   </section>`;
 }
 
+function videoState(run, video) {
+  const stage = run.stages?.P4?.status;
+  if (video?.videoUrls?.[0]) return { label: '视频已生成，可播放', kind: 'ready' };
+  if (video?.status === 'failed' || ['failed', 'ambiguous'].includes(stage)) return { label: `生成失败：${video?.error || run.stages?.P4?.error || '请打开任务查看处理入口'}`, kind: 'failed' };
+  if (video?.status === 'running' || video?.status === 'submitting' || ['running', 'submitting'].includes(stage)) return { label: '视频生成中，后台持续反馈进度', kind: 'running' };
+  if (stage === 'blocked') return { label: run.stages?.P4?.label || '视频已阻塞，等待处理', kind: 'blocked' };
+  if (stage === 'prepared') return { label: '视频任务已准备，等待提交', kind: 'prepared' };
+  return { label: '等待视频任务进入生成', kind: 'waiting' };
+}
+
 function videoHtml(run) {
   const original = run.artifacts?.video;
   const reference = run.artifacts?.referenceVideo;
@@ -1109,8 +1590,8 @@ function videoHtml(run) {
   const asset = (video, title, referenceVersion = false) => {
     const url = video?.videoUrls?.[0];
     if (url) return `<article class="video-asset"><div class="video-asset-head"><strong>${escapeHtml(title)}</strong>${referenceVersion ? '<span>额外版本</span>' : ''}</div><div class="video-shell"><video ${referenceVersion ? '' : 'id="resultVideo"'} controls preload="metadata" playsinline poster="${escapeHtml(video.coverImageUrl || '')}"><source src="${escapeHtml(url)}"></video></div></article>`;
-    const label = video?.status === 'running' || video?.status === 'submitting' ? '视频正在生成，后台会持续反馈进度' : video?.status === 'failed' ? `生成失败：${video.error || '请检查任务'}` : '等待提交';
-    return `<article class="video-asset"><div class="video-asset-head"><strong>${escapeHtml(title)}</strong>${referenceVersion ? '<span>额外版本</span>' : ''}</div><div class="media-placeholder">${escapeHtml(label)}</div></article>`;
+    const state = videoState(run, video);
+    return `<article class="video-asset ${state.kind}"><div class="video-asset-head"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(state.kind === 'failed' ? '需处理' : state.kind === 'running' ? '后台生成中' : '')}</span></div><div class="media-placeholder"><i data-lucide="${state.kind === 'failed' ? 'circle-alert' : state.kind === 'running' ? 'loader-circle' : 'video'}"></i>${escapeHtml(state.label)}</div></article>`;
   };
   const referencePosters = (run.artifacts?.images || []).filter((item) => ['luminous_cinema', 'editorial_romance'].includes(item.variant) && item.url);
   const selectedReferencePoster = state.referencePosterChoice[run.id] || referencePosters[0]?.variant || '';
@@ -1193,8 +1674,14 @@ function renderDetail() {
   panel.setAttribute('aria-hidden', String(!(state.detailOpen && run)));
   scrim.setAttribute('aria-hidden', String(!(state.detailOpen && run)));
   if (!run) { panel.innerHTML = `<div class="detail-empty"><i data-lucide="panel-right-open"></i><strong>完整生产链路</strong><span>从历史表现榜选择一本书后，节点会实时显示产物与进度。</span>${idlePipelineHtml()}</div>`; return; }
+  if (state.detailError && state.selectedId === run.id) {
+    panel.innerHTML = `<div class="detail-empty detail-error-state"><i data-lucide="triangle-alert"></i><strong>任务详情暂时没有打开</strong><span>${escapeHtml(state.detailError)}</span><button id="retryDetail" class="primary-command" type="button"><i data-lucide="refresh-cw"></i><span>重新加载详情</span></button></div>`;
+    $('#retryDetail')?.addEventListener('click', () => retryRunDetail(run.id));
+    icons();
+    return;
+  }
   if (run._summary) {
-    panel.innerHTML = `<div class="detail-empty"><i data-lucide="loader-circle"></i><strong>正在加载完整生产记录</strong><span>${escapeHtml(run.artifacts?.book?.title || run.input?.title || '该任务')} 的文案、原文证据与素材将按需载入。</span></div>`;
+    panel.innerHTML = `<div class="detail-empty"><i data-lucide="loader-circle"></i><strong>正在加载完整生产记录</strong><span>${escapeHtml(run.artifacts?.book?.title || run.input?.title || '该任务')} 的文案、原文证据与素材将按需载入。</span><small>如果超过 30 秒，将自动显示重试入口，不会卡住页面。</small></div>`;
     return;
   }
   const fingerprint = `${run.id}:${run.updatedAt}:${run.state}:${state.creativeVariantRunId}`;
@@ -1270,9 +1757,38 @@ function render() {
   renderCapabilities(); renderStats(); renderTodayRail(); renderFocusRun(); renderLeaderboard(); renderRunList(); renderDetail(); renderCreativePlanQueue(); renderModelBadges(); icons();
 }
 
+function statusPayloadFingerprint(body) {
+  return JSON.stringify({
+    runs: (body.runs || []).map((run) => [run.id, run.state, run.updatedAt]),
+    capabilities: body.capabilities || {},
+    videoLimit: body.videoLimit || null
+  });
+}
+
+function activeRunBookFingerprint(runs = state.runs) {
+  return runs.filter((run) => ['queued', 'running'].includes(run.state)).map((run) => `${run.input?.sku || ''}:${String(run.input?.title || '').trim().toLowerCase()}`).sort().join('|');
+}
+
+function renderStatusViews({ rankingChanged = false } = {}) {
+  renderCapabilities();
+  renderStats();
+  renderFocusRun();
+  renderRunList();
+  renderDetail();
+  if (rankingChanged) renderLeaderboard();
+  icons();
+}
+
 async function loadStatus({ silent = false } = {}) {
+  if (state.statusLoading) return state.statusRequest;
+  state.statusLoading = true;
+  const request = api('/api/status');
+  state.statusRequest = request;
   try {
-    const body = await api('/api/status');
+    const body = await request;
+    const fingerprint = statusPayloadFingerprint(body);
+    const changed = fingerprint !== state.statusFingerprint;
+    const previousActiveBooks = activeRunBookFingerprint();
     const existing = new Map(state.runs.map((run) => [run.id, run]));
     state.runs = (body.runs || []).map((summary) => {
       const previous = existing.get(summary.id);
@@ -1281,55 +1797,167 @@ async function loadStatus({ silent = false } = {}) {
     state.capabilities = body.capabilities || {};
     state.videoLimit = body.videoLimit || null;
     if (!state.selectedId || !state.runs.some((run) => run.id === state.selectedId)) state.selectedId = state.runs[0]?.id || '';
-    showApp(); render();
-    if (state.detailOpen && state.selectedId) hydrateRunDetail(state.selectedId);
+    state.statusFingerprint = fingerprint;
+    if (changed) saveDashboardSnapshot();
+    showApp();
+    if (changed) renderStatusViews({ rankingChanged: previousActiveBooks !== activeRunBookFingerprint() });
+    if (state.detailOpen && state.selectedId && !state.detailError) hydrateRunDetail(state.selectedId);
   } catch (error) {
     if (!silent) showToast(error.message, 'error');
+  } finally {
+    state.statusLoading = false;
+    state.statusRequest = null;
   }
 }
 
 async function loadLeaderboard({ refresh = false, silent = false } = {}) {
-  state.leaderboardLoading = true;
-  renderLeaderboard(); icons();
-  try {
-    const days = state.leaderboardSource === 'catalog' ? state.catalogDays : state.windowDays;
-    const catalogQuery = state.leaderboardSource === 'catalog'
-      ? catalogRequestQuery()
-      : '';
-    const body = await api(`/api/leaderboard?source=${state.leaderboardSource}&days=${days}${catalogQuery}${refresh ? '&refresh=1' : ''}`);
-    state.leaderboard = body.books || [];
-    state.leaderboardUpdated = body.generatedAt || '';
-    state.leaderboardWindow = body.window || null;
-    state.leaderboardMetrics = body.metrics || null;
-    state.leaderboardPage = 1;
-    renderLeaderboard(); icons();
-    loadVisibleCovers();
-  } catch (error) {
+  const requestId = ++state.leaderboardRequestId;
+  const requestSource = state.leaderboardSource;
+  const requestDays = requestSource === 'catalog' ? state.catalogDays : state.windowDays;
+  const requestCatalogQuery = requestSource === 'catalog' ? catalogRequestQuery() : '';
+  const requestKey = leaderboardQueryKey(requestSource);
+  state.leaderboardController?.abort();
+  const controller = new AbortController();
+  state.leaderboardController = controller;
+  if (state.leaderboardDataKey && state.leaderboardDataKey !== requestKey) {
     state.leaderboard = [];
-    renderLeaderboard();
-    if (!silent) showToast(error.message, 'error');
-  } finally {
-    state.leaderboardLoading = false;
+    state.leaderboardWindow = null;
+    state.leaderboardMetrics = null;
+    state.leaderboardWarning = '';
+    state.leaderboardDataQuality = '';
+    state.leaderboardCredentialStatus = '';
+    state.leaderboardError = '';
+    state.leaderboardPage = 1;
+    state.leaderboardCoverKey = '';
+  }
+  state.leaderboardLoading = true;
+  if (!state.leaderboard.length) {
     renderLeaderboard(); icons();
+  } else {
+    $('#leaderboard')?.setAttribute('aria-busy', 'true');
+    $('#refreshLeaderboard').disabled = true;
+    $('#refreshLeaderboard').classList.add('loading');
+    $('#leaderboardUpdated').textContent = '正在后台刷新，当前保留上一版已验证榜单';
+  }
+  let shouldLoadCovers = false;
+  try {
+    const body = await api(`/api/leaderboard?source=${requestSource}&days=${requestDays}${requestCatalogQuery}${refresh ? '&refresh=1' : ''}`, { timeoutMs: refresh ? 75000 : 45000, signal: controller.signal });
+    if (requestId !== state.leaderboardRequestId) return;
+    const incomingBooks = body.books || [];
+    const incomingEligible = requestSource !== 'catalog' || responseAllowsCatalogRanking(body, incomingBooks);
+    const keepVerifiedMetrics = requestSource === 'catalog'
+      && state.leaderboardDataKey === requestKey
+      && catalogQualityAllowsRanking(state.leaderboard)
+      && !incomingEligible;
+    if (!keepVerifiedMetrics) {
+      state.leaderboard = incomingEligible ? incomingBooks : [];
+      state.leaderboardUpdated = body.generatedAt || '';
+      state.leaderboardWindow = body.window || null;
+      state.leaderboardMetrics = body.metrics || null;
+    }
+    state.leaderboardDataQuality = keepVerifiedMetrics
+      ? 'stale_verified_metrics'
+      : (body.dataQuality || (incomingEligible ? 'verified_metrics' : 'unavailable'));
+    state.leaderboardCredentialStatus = body.credentialStatus || body.sourceHealth?.credentialStatus || '';
+    state.leaderboardError = '';
+    state.leaderboardWarning = keepVerifiedMetrics
+      ? '最新同步未返回有效指标，继续展示上一版已验证数据'
+      : (body.refreshWarning || '');
+    state.leaderboardDataKey = requestKey;
+    state.leaderboardPage = 1;
+    state.leaderboardCoverKey = '';
+    saveDashboardSnapshot();
+    shouldLoadCovers = state.leaderboard.length > 0;
+  } catch (error) {
+    if (requestId !== state.leaderboardRequestId) return;
+    const hasPrevious = requestSource === 'catalog' ? catalogQualityAllowsRanking(state.leaderboard) : state.leaderboard.length > 0;
+    if (!hasPrevious) state.leaderboard = [];
+    state.leaderboardDataQuality = hasPrevious && requestSource === 'catalog' ? 'stale_verified_metrics' : (error.details?.dataQuality || 'unavailable');
+    state.leaderboardCredentialStatus = error.details?.credentialStatus || error.details?.sourceHealth?.credentialStatus || state.leaderboardCredentialStatus;
+    state.leaderboardError = error.message || '榜单数据源暂不可用';
+    state.leaderboardWarning = hasPrevious
+      ? '实时数据源暂不可用，继续展示最近一次已验证榜单'
+      : (error.details?.refreshWarning || state.leaderboardError);
+    state.leaderboardDataKey = requestKey;
+    shouldLoadCovers = hasPrevious;
+    if (!silent) showToast(hasPrevious ? '榜单刷新失败，已保留上一版可用数据' : error.message, hasPrevious ? '' : 'error');
+  } finally {
+    if (requestId === state.leaderboardRequestId) {
+      if (state.leaderboardController === controller) state.leaderboardController = null;
+      state.leaderboardLoading = false;
+      renderLeaderboard(); icons();
+      // Covers are decorative and load only after the ranking interaction is ready.
+      if (shouldLoadCovers) loadVisibleCovers();
+    }
   }
 }
 
 async function loadVisibleCovers() {
   if (state.leaderboardSource !== 'catalog') return;
-  const pageBooks = catalogVisibleBooks().slice((state.leaderboardPage - 1) * 50, state.leaderboardPage * 50).filter((book) => !book.cover && book.bookSkuId && book.title);
+  const visiblePage = catalogVisibleBooks().slice((state.leaderboardPage - 1) * 50, state.leaderboardPage * 50);
+  const now = Date.now();
+  const pageBooks = visiblePage.filter((book) => {
+    const sku = String(book.bookSkuId || '');
+    const failure = state.coverFailures.get(sku);
+    return !book.cover && sku && book.title && !state.coverInFlight.has(sku) && (!failure || failure.attempts < 3 && failure.nextAttemptAt <= now);
+  });
   if (!pageBooks.length) return;
-  const key = pageBooks.map((book) => book.bookSkuId).join(',');
-  if (state.leaderboardCoverKey === key) return;
-  state.leaderboardCoverKey = key;
-  try {
-    const body = await api('/api/book-covers', { method: 'POST', body: JSON.stringify({ books: pageBooks.map((book) => ({ sku: book.bookSkuId, title: book.title })) }), timeoutMs: 55000 });
-    const covers = body.covers || {};
-    if (!Object.keys(covers).length) return;
-    state.leaderboard = state.leaderboard.map((book) => covers[String(book.bookSkuId)] ? { ...book, cover: covers[String(book.bookSkuId)] } : book);
-    renderLeaderboard(); icons();
-  } catch {
-    // Covers are visual enrichment only; rankings and creation remain usable.
-  }
+  state.leaderboardCoverKey = `${state.leaderboardPage}:${pageBooks.map((book) => book.bookSkuId).join(',')}`;
+  const batches = [];
+  for (let index = 0; index < pageBooks.length; index += 8) batches.push(pageBooks.slice(index, index + 8));
+
+  const loadBatch = async (batch) => {
+    const skus = batch.map((book) => String(book.bookSkuId));
+    skus.forEach((sku) => state.coverInFlight.add(sku));
+    try {
+      const body = await api('/api/book-covers', { method: 'POST', body: JSON.stringify({ books: batch.map((book) => ({ sku: book.bookSkuId, title: book.title })) }), timeoutMs: 30000 });
+      const covers = body.covers || {};
+      const missingSkus = new Set((body.missing || []).map(String));
+      const failedSkus = new Map((body.failed || []).map((item) => [String(item.sku), String(item.kind || 'unknown')]));
+      if (Object.keys(covers).length) {
+        state.leaderboard = state.leaderboard.map((book) => covers[String(book.bookSkuId)] ? { ...book, cover: covers[String(book.bookSkuId)] } : book);
+        Object.keys(covers).forEach((sku) => state.coverFailures.delete(String(sku)));
+        saveDashboardSnapshot(); updateCoverNodes(covers);
+      }
+      skus.filter((sku) => !covers[sku]).forEach((sku) => recordCoverFailure(sku, missingSkus.has(sku) ? 'missing' : failedSkus.get(sku) || 'unknown'));
+    } catch {
+      skus.forEach((sku) => recordCoverFailure(sku));
+    } finally {
+      skus.forEach((sku) => state.coverInFlight.delete(sku));
+      renderCoverRetryControl();
+    }
+  };
+
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < batches.length) {
+      const batch = batches[cursor++];
+      await loadBatch(batch);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(2, batches.length) }, worker));
+  scheduleCoverRetry();
+}
+
+function recordCoverFailure(sku, kind = 'unknown') {
+  const previous = state.coverFailures.get(String(sku)) || { attempts: 0 };
+  const attempts = kind === 'missing' ? 3 : previous.attempts + 1;
+  state.coverFailures.set(String(sku), { attempts, kind, nextAttemptAt: kind === 'missing' ? Number.POSITIVE_INFINITY : Date.now() + Math.min(45000, 4000 * (2 ** (attempts - 1))) });
+  updateCoverFailureNodes(sku, attempts, kind);
+}
+
+function scheduleCoverRetry() {
+  clearTimeout(state.coverRetryTimer);
+  const retryable = [...state.coverFailures.values()].filter((item) => item.attempts < 3);
+  if (!retryable.length) return;
+  const delay = Math.max(500, Math.min(...retryable.map((item) => item.nextAttemptAt)) - Date.now());
+  state.coverRetryTimer = setTimeout(() => {
+    state.coverRetryTimer = null;
+    if (!document.hidden) {
+      loadVisibleCovers();
+      loadTodayCovers();
+    }
+  }, delay);
 }
 
 async function loadCreativePlans({ silent = false } = {}) {
@@ -1344,21 +1972,25 @@ async function loadCreativePlans({ silent = false } = {}) {
   }
 }
 
-function queueCreativePlanJob(job, selectedModel) {
+function queueCreativePlanJob(job, selectedModel, planningSession = null) {
   if (!job) return false;
   state.planJobs = [job, ...state.planJobs.filter((item) => item.id !== job.id)];
   renderCreativePlanQueue(); icons();
   fetch('/api/worker', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ planId: job.id }) }).catch(() => {});
-  $('#creativePlanDialog').close();
+  if (planningSession == null || planningSession === state.planningSession) $('#creativePlanDialog').close();
   showToast(`${selectedModel} 已转入后台策划，可继续操作；完成后在顶部查看方案`);
   return true;
 }
 
-async function recoverCreativePlanRequest(requestId, selectedModel) {
-  try {
-    const body = await api(`/api/creative-plan?requestId=${encodeURIComponent(requestId)}`, { timeoutMs: 15000 });
-    return queueCreativePlanJob(body.job, selectedModel);
-  } catch { return false; }
+async function recoverCreativePlanRequest(requestId, selectedModel, planningSession = null) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      const body = await api(`/api/creative-plan?requestId=${encodeURIComponent(requestId)}`, { timeoutMs: 9000 });
+      if (body.job) return queueCreativePlanJob(body.job, selectedModel, planningSession);
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+  }
+  return false;
 }
 
 async function kickWorker() {
@@ -1521,6 +2153,9 @@ async function confirmAction() {
 }
 
 async function pollReferenceVideos() {
+  if (document.hidden || state.referencePollRunning) return;
+  state.referencePollRunning = true;
+  try {
   const run = state.runs.find((item) => item.artifacts?.referenceVideo?.status === 'running');
   if (run) {
     try {
@@ -1530,11 +2165,15 @@ async function pollReferenceVideos() {
     } catch {}
   }
   const revision = state.runs.find((item) => item.artifacts?.videoRevision?.status === 'running');
-  if (!revision) return;
-  try {
-    await api('/api/video-revision', { method: 'POST', body: JSON.stringify({ runId: revision.id }) });
-    state.detailFingerprint = ''; await loadStatus({ silent: true });
-  } catch {}
+  if (revision) {
+    try {
+      await api('/api/video-revision', { method: 'POST', body: JSON.stringify({ runId: revision.id }) });
+      state.detailFingerprint = ''; await loadStatus({ silent: true });
+    } catch {}
+  }
+  } finally {
+    state.referencePollRunning = false;
+  }
 }
 
 function openRunDialog() {
@@ -1619,7 +2258,11 @@ $('#deckCreateRun').addEventListener('click', openRunDialog);
 $('#deckCreativePlan').addEventListener('click', () => openCreativePlanDialog());
 $('#weeklyReportButton').addEventListener('click', openWeeklyReport);
 $('#closeRunDialog').addEventListener('click', closeRunDialog);
-$('#closeCreativePlan').addEventListener('click', () => $('#creativePlanDialog').close());
+$('#closeCreativePlan').addEventListener('click', () => {
+  state.planningSession = Number(state.planningSession || 0) + 1;
+  state.planning = false;
+  $('#creativePlanDialog').close();
+});
 $('#creativePlanQueueButton').addEventListener('click', () => { $('#planQueueDialog').showModal(); renderCreativePlanQueue(); icons(); });
 $('#closePlanQueue').addEventListener('click', () => $('#planQueueDialog').close());
 $('#closeImageViewer').addEventListener('click', () => $('#imageViewer').close());
@@ -1656,13 +2299,25 @@ $('#runForm').addEventListener('submit', async (event) => {
 });
 $('#creativePlanForm').addEventListener('submit', async (event) => {
   event.preventDefault();
-  if (state.planning) return;
+  if (state.planning) { showToast('这次策划请求正在确认，完成后会进入后台队列'); return; }
   await analyzeCreativePlan($('#planTitle').value.trim(), $('#planSku').value.trim());
 });
 $('#detailScrim').addEventListener('click', closeDetail);
 ['#creativeStyle', '#ctaStyle', '#videoStyle', '#posterStyle'].forEach((selector) => $(selector).addEventListener('change', renderCreativeProfilePreview));
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && state.detailOpen) closeDetail(); });
 $('#refreshLeaderboard').addEventListener('click', () => loadLeaderboard({ refresh: true }));
+$('#retryCovers').addEventListener('click', () => {
+  state.coverFailures.clear();
+  document.querySelectorAll('[data-cover-sku]').forEach((node) => {
+    node.classList.remove('cover-unavailable');
+    const label = node.querySelector('.cover-fallback small');
+    if (label && !node.querySelector('[data-cover-image]')) label.textContent = '封面同步中';
+  });
+  renderCoverRetryControl();
+  loadVisibleCovers();
+  loadTodayCovers();
+  showToast('未加载封面已重新排队，不影响其他操作。');
+});
 document.querySelectorAll('#windowControl button').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('#windowControl button').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.windowDays = Number(button.dataset.days); loadLeaderboard(); }));
 document.querySelectorAll('#catalogWindowControl button').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('#catalogWindowControl button').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.catalogDays = Number(button.dataset.days); loadLeaderboard(); }));
 $('#catalogSort').addEventListener('change', (event) => { state.catalogSort = event.target.value; loadLeaderboard(); });
@@ -1677,13 +2332,38 @@ document.querySelectorAll('#densityControl button').forEach((button) => button.a
 
 renderCreativeProfilePreview();
 icons();
+// Render the most recent verified state immediately, then reconcile it in the background.
+if (restoreDashboardSnapshot()) {
+  render();
+  loadVisibleCovers();
+  loadTodayCovers();
+}
 loadStatus();
 loadCreativePlans({ silent: true });
 loadLeaderboard({ silent: true });
 loadTodayRail();
-setInterval(() => loadStatus({ silent: true }), 6000);
-setInterval(() => loadCreativePlans({ silent: true }), 6000);
-setInterval(() => loadLeaderboard({ silent: true }), 5 * 60 * 1000);
-setInterval(kickWorker, 3500);
+let idlePlanPolls = 0;
+function hasLiveBackgroundWork() {
+  return state.runs.some((run) => ['queued', 'running'].includes(run.state)) || state.planJobs.some((job) => ['queued', 'running'].includes(job.state));
+}
+setInterval(() => {
+  if (document.hidden) return;
+  const active = hasLiveBackgroundWork();
+  loadStatus({ silent: true });
+  if (active) {
+    idlePlanPolls = 0;
+    loadCreativePlans({ silent: true });
+    kickWorker();
+  } else if (++idlePlanPolls >= 3) {
+    idlePlanPolls = 0;
+    loadCreativePlans({ silent: true });
+  }
+}, 8000);
+setInterval(() => { if (!document.hidden) loadLeaderboard({ silent: true }); }, 5 * 60 * 1000);
 setInterval(pollReferenceVideos, 15000);
-setInterval(advanceTodayRail, 4200);
+setInterval(() => { if (!document.hidden) advanceTodayRail(); }, 4200);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  scheduleCoverRetry();
+  if (hasLiveBackgroundWork()) loadStatus({ silent: true });
+});

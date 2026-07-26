@@ -2,8 +2,121 @@ const { getRedis } = require('./_lib/store');
 const { requireSession } = require('./_lib/auth');
 const providers = require('./_lib/providers');
 
+const CATALOG_CACHE_VERSION = 'v12';
+const VERIFIED_CATALOG_SOURCE = 'content_dashboard_performance';
+const CATALOG_METRIC_KEYS = ['baseReadUnt', 'firstReadUntRate', 'read10wRate', 'read20wRate', 'ttProfit'];
+
 function shanghaiDay() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}
+
+function parseCachedPayload(value) {
+  if (!value) return null;
+  try {
+    return typeof value === 'string' ? JSON.parse(value) : value;
+  } catch {
+    return null;
+  }
+}
+
+function hasVerifiedCatalogMetrics(payload) {
+  if (!payload || payload.source !== VERIFIED_CATALOG_SOURCE || payload.selectionMode !== 'catalog') return false;
+  if (!Array.isArray(payload.books) || !payload.books.length) return false;
+  if (payload.metrics?.fallback === true) return false;
+  return payload.books.every((book) => String(book?.source || '') === 'content_dashboard'
+    && CATALOG_METRIC_KEYS.some((key) => Object.prototype.hasOwnProperty.call(book, key)
+      && book[key] !== null && book[key] !== '' && Number.isFinite(Number(book[key]))));
+}
+
+async function discardCache(redis, key) {
+  try { await redis.del(key); } catch {}
+}
+
+function catalogFailure(error) {
+  const message = String(error?.message || '').toLowerCase();
+  const status = Number(error?.status || 0);
+  if (/invalid_grant|oidc authentication|authentication failed|unauthori[sz]ed|token.*expired/.test(message)) {
+    return {
+      httpStatus: 503,
+      reason: 'authentication_required',
+      errorKind: /invalid_grant/.test(message) ? 'invalid_grant' : 'auth',
+      credentialStatus: 'expired_or_invalid',
+      warning: 'The content-dashboard session needs renewal before a fresh ranking can be loaded.'
+    };
+  }
+  if (/timed out|timeout/.test(message)) {
+    return {
+      httpStatus: 504,
+      reason: 'upstream_timeout',
+      errorKind: 'timeout',
+      credentialStatus: 'not_checked',
+      warning: 'The content-dashboard request timed out; the console will retry after a short cooldown.'
+    };
+  }
+  if (/invalid response shape/.test(message)) {
+    return {
+      httpStatus: 502,
+      reason: 'invalid_response',
+      errorKind: 'invalid_shape',
+      credentialStatus: 'not_checked',
+      warning: 'The content-dashboard returned an unexpected response and no unverified books were accepted.'
+    };
+  }
+  if (status >= 500 || /gateway|upstream|http 5\d\d/.test(message)) {
+    return {
+      httpStatus: 502,
+      reason: 'upstream_unavailable',
+      errorKind: 'upstream_5xx',
+      credentialStatus: 'not_checked',
+      warning: 'The content-dashboard service is temporarily unavailable; no unverified ranking is shown.'
+    };
+  }
+  return {
+    httpStatus: 502,
+    reason: 'source_unavailable',
+    errorKind: 'unknown',
+    credentialStatus: 'not_checked',
+    warning: 'The verified content-dashboard ranking is temporarily unavailable.'
+  };
+}
+
+function catalogPayload(payload, options = {}) {
+  const stale = Boolean(options.stale);
+  const status = stale ? 'stale' : options.cached ? 'cached' : 'healthy';
+  const credentialStatus = options.credentialStatus || (options.cached ? 'not_checked' : 'verified');
+  const response = {
+    ...payload,
+    source: VERIFIED_CATALOG_SOURCE,
+    selectionMode: 'catalog',
+    dataQuality: stale ? 'stale_verified_metrics' : 'verified_metrics',
+    credentialStatus,
+    sourceHealth: { status, source: 'content_dashboard', credentialStatus, ...(options.errorKind ? { errorKind: options.errorKind } : {}) }
+  };
+  if (stale) {
+    response.stale = true;
+    response.refreshWarning = options.warning || 'Fresh ranking data was unavailable; the last verified ranking is still shown.';
+  } else {
+    delete response.stale;
+    delete response.refreshWarning;
+  }
+  return response;
+}
+
+function unavailableCatalogPayload(failure) {
+  return {
+    error: 'Verified catalog ranking is unavailable',
+    dataQuality: 'unavailable',
+    credentialStatus: failure.credentialStatus,
+    sourceHealth: {
+      status: 'unavailable',
+      source: 'content_dashboard',
+      reason: failure.reason,
+      errorKind: failure.errorKind,
+      ...(failure.retryAfter ? { retryAfter: failure.retryAfter } : {}),
+      credentialStatus: failure.credentialStatus
+    },
+    refreshWarning: failure.warning
+  };
 }
 
 async function enrichBooks(books, catalogSource = false) {
@@ -42,8 +155,66 @@ async function enrichBooks(books, catalogSource = false) {
   return enriched;
 }
 
-function rangeForDays(days) {
-  const endDate = shanghaiDay();
+function previousDay(day) {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
+async function legacyCatalogCache(redis, days, sortField = 'baseReadUnt', filters = { productLine: ['novelflow'], language: 'EN', completeSts: '已完结', status: '上架' }) {
+  if (!redis) return null;
+  const filterKey = `${filters.productLine[0]}:${filters.language}:${filters.completeSts}:${filters.status}:${String(filters.isShort)}`;
+  const today = shanghaiDay();
+  const dates = [today, previousDay(today), previousDay(previousDay(today))];
+  // Keep the requested window, sort, and filters intact. A real seven-day
+  // cache is still misleading when the user asked for a 30-day ranking.
+  for (const version of [CATALOG_CACHE_VERSION, 'v11', 'v10', 'v9', 'v8', 'v7']) {
+    for (const day of dates) {
+      const key = `nf_social:leaderboard:catalog:${version}:${day}:${days}:${sortField}:${filterKey}`;
+      try {
+        const payload = parseCachedPayload(await redis.get(key));
+        if (hasVerifiedCatalogMetrics(payload)) return payload;
+        if (payload) await discardCache(redis, key);
+      } catch {}
+    }
+  }
+  return null;
+}
+
+async function mergeHistoryMetrics(books, days, redis) {
+  try {
+    // History must stay available when the live content-dashboard credential
+    // is down. Only merge a verified catalog snapshot already in Redis; never
+    // turn a history page load into a fresh multi-page catalog request.
+    const catalog = await legacyCatalogCache(redis, days);
+    if (!catalog?.books?.length) return books;
+    const bySku = new Map(catalog.books.map((book) => [String(book.bookSkuId), book]));
+    const byTitle = new Map(catalog.books.map((book) => [providers.titleKey(book.title), book]));
+    return books.map((book) => {
+      const match = bySku.get(String(book.bookSkuId)) || byTitle.get(providers.titleKey(book.title));
+      if (!match) return book;
+      return {
+        ...book,
+        baseReadUnt: Number(match.baseReadUnt || book.baseReadUnt || book.pullUv || 0),
+        firstReadUntRate: Number(match.firstReadUntRate ?? book.firstReadRate ?? 0),
+        read10wRate: Number(match.read10wRate ?? 0),
+        read20wRate: Number(match.read20wRate ?? 0),
+        retentionRate: Number(match.read20wRate ?? match.read10wRate ?? book.retentionRate ?? 0),
+        retentionWindow: Number(match.read20wRate) > 0 ? '20w' : Number(match.read10wRate) > 0 ? '10w' : ''
+      };
+    });
+  } catch (error) {
+    console.error('[social/leaderboard] history metric merge failed', error);
+    return books;
+  }
+}
+
+function rangeForDays(days, lagDays = 1) {
+  // The content dashboard only publishes complete natural days. Querying the
+  // still-open Shanghai day returns an upstream 500 and produces no ranking.
+  const end = new Date(`${shanghaiDay()}T00:00:00Z`);
+  end.setUTCDate(end.getUTCDate() - lagDays);
+  const endDate = end.toISOString().slice(0, 10);
   const start = new Date(`${endDate}T00:00:00Z`);
   start.setUTCDate(start.getUTCDate() - days + 1);
   return { startDate: start.toISOString().slice(0, 10), endDate };
@@ -60,16 +231,32 @@ function catalogFilters(query) {
   return { productLine: [productLine], language, completeSts, status, isShort };
 }
 
-async function catalogBooks(days, sortField, filters) {
-  const window = rangeForDays(days);
+async function catalogBooks(days, sortField, filters, options = {}) {
+  const startedAt = Date.now();
+  const deadlineMs = Math.max(4000, Number(options.deadlineMs || 14000));
   const minReadUnt = sortField === 'baseReadUnt' ? 0 : (days === 7 ? 50 : days === 30 ? 150 : 300);
-  const result = await providers.contentDashboardBooks({
-    ...window,
-    sortField,
-    minReadUnt,
-    filters
-  });
-  return { ...result, window: { days, throughDate: window.endDate, startDate: window.startDate, endDate: window.endDate } };
+  const load = async (lagDays) => {
+    const remainingMs = Math.max(1200, deadlineMs - (Date.now() - startedAt));
+    const window = rangeForDays(days, lagDays);
+    const result = await providers.contentDashboardBooks({
+      ...window,
+      sortField,
+      minReadUnt,
+      filters,
+      maxPages: 10,
+      deadlineMs: remainingMs
+    });
+    return { ...result, window: { days, dataLagDays: lagDays, throughDate: window.endDate, startDate: window.startDate, endDate: window.endDate } };
+  };
+  try {
+    return await load(1);
+  } catch (error) {
+    // Shortly after midnight, the just-finished Shanghai day may not be
+    // published yet. One read-only retry against the previous complete day
+    // prevents a normal reporting lag from looking like a broken ranking.
+    if (Number(error?.status || 0) < 500 || deadlineMs - (Date.now() - startedAt) < 1500) throw error;
+    return load(2);
+  }
 }
 
 module.exports = async (req, res) => {
@@ -87,30 +274,69 @@ module.exports = async (req, res) => {
   const filters = source === 'catalog' ? catalogFilters(req.query) : null;
   const day = shanghaiDay();
   const filterKey = source === 'catalog' ? `${filters.productLine[0]}:${filters.language}:${filters.completeSts}:${filters.status}:${String(filters.isShort)}` : 'performance';
-  // v9 invalidates the temporary coverless Top 200 cache.
-  const key = `nf_social:leaderboard:${source}:v9:${day}:${days}:${source === 'catalog' ? sortField : 'performance'}:${filterKey}`;
+  // v12 starts a clean catalog cache namespace. Earlier versions are read
+  // only through legacyCatalogCache after their source provenance is checked.
+  const key = `nf_social:leaderboard:${source}:${source === 'catalog' ? CATALOG_CACHE_VERSION : 'v11'}:${day}:${days}:${source === 'catalog' ? sortField : 'performance'}:${filterKey}`;
+  const failureKey = `${key}:failure`;
   const refresh = isCron || req.query?.refresh === '1';
+  let cachedPayload = null;
   try {
-    if (!refresh) {
-      const cached = await redis.get(key);
-      if (cached) return res.status(200).json(typeof cached === 'string' ? JSON.parse(cached) : cached);
+    const cached = parseCachedPayload(await redis.get(key));
+    if (source === 'catalog') {
+      if (hasVerifiedCatalogMetrics(cached)) cachedPayload = cached;
+      else if (cached) await discardCache(redis, key);
+    } else {
+      cachedPayload = cached;
     }
-    const result = source === 'history' ? await providers.performanceBooks(days) : await catalogBooks(days, sortField, filters);
-    const books = await enrichBooks(result.books, source === 'catalog');
+    if (!refresh && cachedPayload) {
+      return res.status(200).json(source === 'catalog' ? catalogPayload(cachedPayload, { cached: true }) : cachedPayload);
+    }
+    if (source === 'catalog' && !refresh) {
+      const cachedFailure = parseCachedPayload(await redis.get(failureKey));
+      if (cachedFailure && Date.parse(cachedFailure.retryAfter || '') > Date.now()) {
+        const legacy = await legacyCatalogCache(redis, days, sortField, filters);
+        if (legacy) return res.status(200).json(catalogPayload(legacy, { stale: true, credentialStatus: cachedFailure.credentialStatus, warning: cachedFailure.warning, errorKind: cachedFailure.errorKind }));
+        return res.status(cachedFailure.httpStatus || 502).json(unavailableCatalogPayload(cachedFailure));
+      }
+    }
+    const result = source === 'history' ? await providers.performanceBooks(days) : await catalogBooks(days, sortField, filters, { deadlineMs: isCron ? 105000 : 14000 });
+    let books = await enrichBooks(result.books, source === 'catalog');
+    if (source === 'history') books = await mergeHistoryMetrics(books, days, redis);
     if (!books.length) throw new providers.ProviderError('Top-book source returned no usable books');
-    const payload = {
+    let payload = {
       books,
       generatedAt: new Date().toISOString(),
       day,
       source: source === 'history' ? 'unified_funnel_performance' : 'content_dashboard_performance',
       selectionMode: source,
       window: result.window,
-      metrics: result.metrics || { sortField, candidateTotal: result.total, minReadUnt: result.minReadUnt || 0, filters }
+      metrics: result.metrics || { sortField, candidateTotal: result.total, minReadUnt: result.minReadUnt || 0, filters, partial: Boolean(result.partial), fetched: Number(result.fetched || books.length) }
     };
+    if (source === 'catalog') {
+      if (!hasVerifiedCatalogMetrics(payload)) throw new providers.ProviderError('Content dashboard ranking did not include verified metric provenance');
+      payload = catalogPayload(payload);
+    }
     await redis.set(key, JSON.stringify(payload), { ex: 36 * 60 * 60 });
+    if (source === 'catalog') await discardCache(redis, failureKey);
     return res.status(200).json(payload);
   } catch (error) {
     console.error('[social/leaderboard]', error);
+    if (cachedPayload) {
+      if (source === 'catalog') {
+        const failure = catalogFailure(error);
+        return res.status(200).json(catalogPayload(cachedPayload, { stale: true, credentialStatus: failure.credentialStatus, warning: failure.warning, errorKind: failure.errorKind }));
+      }
+      return res.status(200).json({ ...cachedPayload, stale: true, refreshWarning: 'Fresh ranking data was unavailable; the last verified ranking is still shown.' });
+    }
+    if (source === 'catalog') {
+      const legacy = await legacyCatalogCache(redis, days, sortField, filters);
+      const failure = catalogFailure(error);
+      if (legacy) return res.status(200).json(catalogPayload(legacy, { stale: true, credentialStatus: failure.credentialStatus, warning: failure.warning, errorKind: failure.errorKind }));
+      const cooldownSeconds = failure.errorKind === 'invalid_grant' || failure.errorKind === 'auth' ? 300 : failure.errorKind === 'timeout' ? 60 : 120;
+      failure.retryAfter = new Date(Date.now() + cooldownSeconds * 1000).toISOString();
+      try { await redis.set(failureKey, JSON.stringify(failure), { ex: cooldownSeconds }); } catch {}
+      return res.status(failure.httpStatus).json(unavailableCatalogPayload(failure));
+    }
     return res.status(502).json({ error: 'Unable to load today\'s Top 200' });
   }
 };
