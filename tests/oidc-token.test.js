@@ -108,3 +108,29 @@ test('callers can bound the OIDC refresh wait', async () => {
     oidc._resetForTests();
   }
 });
+
+test('a later caller keeps its own timeout while a refresh is already running', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async (_url, options = {}) => new Promise((resolve, reject) => {
+    const abort = () => {
+      const error = new Error('aborted');
+      error.name = 'AbortError';
+      reject(error);
+    };
+    if (options.signal?.aborted) abort();
+    else options.signal?.addEventListener('abort', abort, { once: true });
+  });
+  oidc._resetForTests();
+  try {
+    const first = oidc.getBookstoreToken({ forceRefresh: true, timeoutMs: 250 });
+    await new Promise(resolve => setTimeout(resolve, 10));
+    const started = Date.now();
+    const second = await oidc.getBookstoreToken({ timeoutMs: 25 });
+    assert.equal(second, null);
+    assert.ok(Date.now() - started < 150, 'later caller should not inherit the first refresh timeout');
+    await first;
+  } finally {
+    global.fetch = originalFetch;
+    oidc._resetForTests();
+  }
+});

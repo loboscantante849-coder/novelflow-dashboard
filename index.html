@@ -6253,7 +6253,7 @@
             _lastSyncAt: 0,
             _debounceTimer: null,
             _busyRetryCount: 0,
-            _maxBusyRetries: 4,
+            _maxBusyRetryDelayMs: 60000,
             _enabled: false,
 
             isEnabled() {
@@ -6303,15 +6303,14 @@
                         }
                     } else if (resp.status === 409) {
                         // A financial or promotion update owns the shared record.
-                        // Retry after it commits, with a bounded exponential backoff.
-                        if (this._busyRetryCount < this._maxBusyRetries) {
-                            const delayMs = 500 * (2 ** this._busyRetryCount);
-                            this._busyRetryCount += 1;
-                            this.schedulePush(delayMs, { busyRetry: true });
-                        } else {
-                            console.warn('[CloudSync] Push remained busy after bounded retries');
-                            this._busyRetryCount = 0;
-                        }
+                        // Keep local changes pending until the owner releases
+                        // the lock, while capping retry frequency at one minute.
+                        const delayMs = Math.min(
+                            this._maxBusyRetryDelayMs,
+                            500 * (2 ** Math.min(this._busyRetryCount, 7))
+                        );
+                        this._busyRetryCount += 1;
+                        this.schedulePush(delayMs, { busyRetry: true });
                     }
                 } catch (e) {
                     console.warn('[CloudSync] Push failed:', e.message);

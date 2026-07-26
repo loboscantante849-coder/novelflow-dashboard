@@ -114,16 +114,26 @@ async function requestFreshToken(credentials, { timeoutMs = REQUEST_TIMEOUT_MS }
 }
 
 async function getFreshToken({ timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
-  if (refreshPromise) return refreshPromise;
-  refreshPromise = (async () => {
-    const credentials = await getCredentials({ timeoutMs });
-    if (!credentials) return null;
-    return requestFreshToken(credentials, { timeoutMs });
-  })();
+  if (!refreshPromise) {
+    const activeRefresh = (async () => {
+      const credentials = await getCredentials({ timeoutMs });
+      if (!credentials) return null;
+      return requestFreshToken(credentials, { timeoutMs });
+    })();
+    refreshPromise = activeRefresh;
+    activeRefresh.then(
+      () => { if (refreshPromise === activeRefresh) refreshPromise = null; },
+      () => { if (refreshPromise === activeRefresh) refreshPromise = null; },
+    );
+  }
+
+  // Keep one upstream refresh in flight, but do not make a later caller wait
+  // longer than its own request budget.
   try {
-    return await refreshPromise;
-  } finally {
-    refreshPromise = null;
+    return await timeoutPromise(refreshPromise, timeoutMs, 'OIDC token refresh');
+  } catch (error) {
+    console.error('[oidc] token refresh wait error:', error.message);
+    return null;
   }
 }
 

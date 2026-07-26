@@ -108,10 +108,11 @@ test('AC operations require an active account and verified task ownership', () =
   assert.match(withdrawalSource, /payment_account \|\| ''\)\.trim\(\)\.toLowerCase\(\)/);
 });
 
-test('CloudSync retries USER_DATA_BUSY with a bounded backoff', () => {
-  assert.match(source, /_maxBusyRetries: 4/);
-  assert.match(source, /this\._busyRetryCount < this\._maxBusyRetries/);
-  assert.match(source, /500 \* \(2 \*\* this\._busyRetryCount\)/);
+test('CloudSync keeps USER_DATA_BUSY writes pending with a capped backoff', () => {
+  assert.match(source, /_maxBusyRetryDelayMs: 60000/);
+  assert.match(source, /Math\.min\(this\._busyRetryCount, 7\)/);
+  assert.match(source, /this\._busyRetryCount \+= 1/);
+  assert.match(source, /this\._maxBusyRetryDelayMs/);
   assert.match(source, /schedulePush\(delayMs, \{ busyRetry: true \}\)/);
 });
 
