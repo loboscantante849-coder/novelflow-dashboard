@@ -182,7 +182,6 @@ html, body { overflow-x: hidden; background: #f2f5f4; }
 .today-source-state.refreshing svg { color: #61d7ad; animation: premium-spin 1s linear infinite; }
 .today-source-state.stale { cursor: pointer; }
 .today-source-state.stale:hover { border-color: #61d7ad; color: #fff; }
-@media(max-width:760px){.sidebar{position:sticky;top:58px;z-index:20;box-shadow:0 4px 12px rgba(17,31,37,.12)}}
 
 @media (max-width: 1180px) {
   .app-shell { grid-template-columns: 218px minmax(0, 1fr); }
@@ -226,4 +225,8 @@ html, body { overflow-x: hidden; background: #f2f5f4; }
   .weekly-report-dialog { width: calc(100vw - 18px); }.weekly-report-toolbar { align-items: flex-start; flex-direction: column; padding: 0 15px 13px; }.weekly-report-content { padding: 14px; }.report-kpis, .report-highlights, .report-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }.report-kpis > div:nth-child(2) { border-right: 0; }.report-kpis > div:nth-child(-n+2) { border-bottom: 1px solid #e7eeea; }.report-section { padding: 14px; }.report-section > header { flex-direction: column; gap: 5px; }.report-scope { text-align: left; }
   .plan-queue-dialog { width: calc(100vw - 18px); }
   .model-choice-row .model-select-control { flex: 1; max-width: none; }.model-choice-row .model-select-control select { flex: 1; }.assistant-model label { flex-wrap: wrap; }.model-logo em { max-width: 95px; }
+}
+
+@media (max-width: 760px) {
+  .sidebar { position: sticky; top: 58px; z-index: 20; box-shadow: 0 4px 12px rgba(17, 31, 37, .12); }
 }
