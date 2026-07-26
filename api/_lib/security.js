@@ -61,16 +61,30 @@ function getAuthPayload(req) {
  * Admin status is determined SOLELY by nf_user_data:<u>.accountType === 'admin'
  * or nf_user_data:<u>.isAdmin === true in Redis. No hardcoded whitelist.
  */
-async function isAdminUser(redis, username) {
+async function isAdminUser(redis, username, { failClosed = false } = {}) {
   const u = String(username || '').toLowerCase();
-  if (!u) return false;
-  if (!redis) return false;
+  if (!u || !redis) {
+    if (failClosed) {
+      const error = new Error('Account status unavailable');
+      error.code = 'ACCOUNT_STATUS_UNAVAILABLE';
+      throw error;
+    }
+    return false;
+  }
   try {
     const raw = await redis.get('nf_user_data:' + u);
     if (!raw) return false;
     const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
     return data && (data.accountType === 'admin' || data.isAdmin === true);
-  } catch { return false; }
+  } catch (cause) {
+    if (failClosed) {
+      const error = new Error('Account status unavailable');
+      error.code = 'ACCOUNT_STATUS_UNAVAILABLE';
+      error.cause = cause;
+      throw error;
+    }
+    return false;
+  }
 }
 
 /**

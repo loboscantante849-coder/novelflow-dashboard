@@ -282,7 +282,7 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Single withdrawal cannot exceed $10,000' });
       }
 
-      const account = String(payment_account || '').trim();
+      const account = String(payment_account || '').trim().toLowerCase();
       if (!EMAIL_RE.test(account)) {
         return res.status(400).json({ error: 'Please provide a valid PayPal email address' });
       }
@@ -318,7 +318,7 @@ module.exports = async (req, res) => {
 
       const duplicate = userData.withdrawals.find(item => item && item.idempotency_key === idempotencyKey);
       if (duplicate) {
-        if (Number(duplicate.amount) !== Number(amt.toFixed(2)) || String(duplicate.payment_account || '').toLowerCase() !== account.toLowerCase()) {
+        if (Number(duplicate.amount) !== Number(amt.toFixed(2)) || String(duplicate.payment_account || '').trim().toLowerCase() !== account) {
           return res.status(409).json({ error: 'Idempotency key was already used for a different withdrawal', code: 'IDEMPOTENCY_CONFLICT' });
         }
         return res.status(200).json({

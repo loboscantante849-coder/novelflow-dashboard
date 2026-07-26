@@ -51,7 +51,7 @@ function cacheToken(token, expiresInSec) {
   return true;
 }
 
-async function getCredentials() {
+async function getCredentials({ timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
   if (cachedCreds && cachedCreds.expiresAt > Date.now()) return cachedCreds.value;
 
   let credentials = null;
@@ -61,7 +61,7 @@ async function getCredentials() {
       const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
       const [username, password] = await timeoutPromise(
         Promise.all([redis.get('oidc:username'), redis.get('oidc:password')]),
-        REQUEST_TIMEOUT_MS,
+        timeoutMs,
         'OIDC credential lookup',
       );
       if (username && password) credentials = { username: String(username), password: String(password) };
@@ -79,9 +79,9 @@ async function getCredentials() {
   return credentials;
 }
 
-async function requestFreshToken(credentials) {
+async function requestFreshToken(credentials, { timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(OIDC_TOKEN_URL, {
       method: 'POST',
@@ -113,12 +113,12 @@ async function requestFreshToken(credentials) {
   }
 }
 
-async function getFreshToken() {
+async function getFreshToken({ timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
   if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {
-    const credentials = await getCredentials();
+    const credentials = await getCredentials({ timeoutMs });
     if (!credentials) return null;
-    return requestFreshToken(credentials);
+    return requestFreshToken(credentials, { timeoutMs });
   })();
   try {
     return await refreshPromise;
@@ -142,17 +142,17 @@ function getEnvironmentToken() {
   return token;
 }
 
-async function getBookstoreToken({ forceRefresh = false } = {}) {
+async function getBookstoreToken({ forceRefresh = false, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
   // A forced refresh normally follows a bookstore 401. Reload both the token
   // and managed credentials so password rotations take effect immediately.
   if (forceRefresh) invalidateBookstoreToken({ credentials: true });
   if (cachedToken && cachedTokenExp > Date.now()) return cachedToken;
 
-  const credentials = await getCredentials();
+  const credentials = await getCredentials({ timeoutMs });
   if (credentials) {
     // Do not fall back to a possibly expired env token when managed OIDC
     // credentials are present but refresh fails.
-    return getFreshToken();
+    return getFreshToken({ timeoutMs });
   }
   return getEnvironmentToken();
 }

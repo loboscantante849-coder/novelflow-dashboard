@@ -19,7 +19,7 @@ module.exports = async (req, res) => {
   let redis = null;
   try {
     const { Redis } = require('@upstash/redis');
-    if (process.env.KV_REST_API_URL) {
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
       redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
     }
   } catch(e) {}
@@ -32,26 +32,30 @@ module.exports = async (req, res) => {
     return res.status(503).json({ error: 'Account status unavailable', code: e.code || 'ACCOUNT_STATUS_UNAVAILABLE' });
   }
 
-  let token = null;
-  try { if (redis) token = await redis.get('ac_token'); } catch(e) {}
-  if (!token) token = process.env.AC_TOKEN;
-  if (!token) return res.status(503).json({ error: 'AC Token not configured on server' });
-
   const tid = req.body?.threadId;
   if (!tid) return res.status(400).json({ error: 'threadId required' });
 
   // Ownership check
   try {
-    const isAdm = await isAdminUser(redis, username);
+    const isAdm = await isAdminUser(redis, username, { failClosed: true });
     if (!isAdm) {
       const owner = await redis.get('ac_thread_owner:' + tid);
-      if (!owner || owner !== username) {
+      if (!owner || String(owner).toLowerCase() !== String(username).toLowerCase()) {
         return res.status(403).json({ error: 'Not authorized to retry this task' });
       }
     }
   } catch(e) {
     return res.status(503).json({ error: 'Task ownership is temporarily unavailable', code: 'TASK_OWNER_UNAVAILABLE' });
   }
+
+  let token = null;
+  try {
+    token = await redis.get('ac_token');
+  } catch (_error) {
+    return res.status(503).json({ error: 'AC credentials are temporarily unavailable', code: 'AC_TOKEN_UNAVAILABLE' });
+  }
+  if (!token) token = process.env.AC_TOKEN;
+  if (!token) return res.status(503).json({ error: 'AC Token not configured on server' });
 
   try {
     const r = await fetch(AC_BASE + `/creative/${tid}/retry`, {

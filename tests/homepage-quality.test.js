@@ -73,7 +73,10 @@ test('legacy data fallbacks and bookstore search use bounded recovery paths', ()
   assert.match(submitSource, /bookstoreFetch\(url/);
   assert.doesNotMatch(submitSource, /await fetch\(url/);
   assert.match(submitSource, /Promise\.allSettled/);
+  assert.match(submitSource, /SUBMIT_DEADLINE_MS = 24000/);
+  assert.match(submitSource, /withDeadline\(/);
   assert.match(submitSource, /timeoutMs: 3500/);
+  assert.match(submitSource, /authTimeoutMs: 4500/);
   assert.match(submitSource, /UPSTREAM_AUTH_UNAVAILABLE/);
   assert.equal(vercel.functions['api/submit.js'].maxDuration, 30);
 });
@@ -87,7 +90,7 @@ test('all user-data writers use the shared distributed lock', () => {
 });
 
 test('AC operations require an active account and verified task ownership', () => {
-  for (const file of ['api/ac-create.js', 'api/ac-upload.js', 'api/ac-list.js', 'api/ac-retry.js', 'api/ac-interrupt.js', 'api/ac-result.js']) {
+  for (const file of ['api/ac-create.js', 'api/ac-upload.js', 'api/ac-list.js', 'api/ac-retry.js', 'api/ac-interrupt.js', 'api/ac-result.js', 'api/ac-refresh.js']) {
     const fileSource = fs.readFileSync(path.join(ROOT, file), 'utf8');
     assert.match(fileSource, /isDisabledUser/);
     assert.match(fileSource, /ACCOUNT_STATUS_UNAVAILABLE/);
@@ -95,13 +98,21 @@ test('AC operations require an active account and verified task ownership', () =
   }
   for (const file of ['api/ac-retry.js', 'api/ac-interrupt.js', 'api/ac-result.js']) {
     const fileSource = fs.readFileSync(path.join(ROOT, file), 'utf8');
-    assert.match(fileSource, /!owner \|\| owner !== username/);
+    assert.match(fileSource, /!owner \|\| String\(owner\)\.toLowerCase\(\)/);
     assert.match(fileSource, /TASK_OWNER_UNAVAILABLE/);
+    assert.match(fileSource, /AC_TOKEN_UNAVAILABLE/);
   }
   const meSource = fs.readFileSync(path.join(ROOT, 'api/auth/me.js'), 'utf8');
   assert.match(meSource, /isDisabledUser\(getRedis\(\), payload\.username\)/);
   const withdrawalSource = fs.readFileSync(path.join(ROOT, 'api/withdrawals.js'), 'utf8');
-  assert.match(withdrawalSource, /payment_account \|\| ''\)\.toLowerCase\(\)/);
+  assert.match(withdrawalSource, /payment_account \|\| ''\)\.trim\(\)\.toLowerCase\(\)/);
+});
+
+test('CloudSync retries USER_DATA_BUSY with a bounded backoff', () => {
+  assert.match(source, /_maxBusyRetries: 4/);
+  assert.match(source, /this\._busyRetryCount < this\._maxBusyRetries/);
+  assert.match(source, /500 \* \(2 \*\* this\._busyRetryCount\)/);
+  assert.match(source, /schedulePush\(delayMs, \{ busyRetry: true \}\)/);
 });
 
 test('Spanish book fallbacks keep the language filter', () => {
@@ -113,4 +124,8 @@ test('Spanish book fallbacks keep the language filter', () => {
   const trendingSource = fs.readFileSync(path.join(ROOT, 'api/trending-books.js'), 'utf8');
   assert.match(trendingSource, /rawBooks\.length === 0 && lang === 'en'/);
   assert.match(source, /invite_code_cancel: 'Cancelar'/);
+  assert.match(source, /invite_code_confirm: 'Confirmar'/);
+  assert.match(source, /cancel\.textContent = getText\('invite_code_cancel'\)/);
+  assert.match(source, /function equityApiMessage\(data, fallbackKey\)/);
+  assert.doesNotMatch(source, /throw new Error\(data\.error \|\| getText\('invite_code_(?:load|create|unbind)_failed'\)\)/);
 });

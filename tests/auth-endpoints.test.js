@@ -172,6 +172,23 @@ test('disabled local accounts cannot receive a fresh login session', async () =>
   assert.equal(registration.body.code, 'ACCOUNT_DISABLED');
 });
 
+test('Discord disabled checks use the canonical JWT handle', async () => {
+  FakeRedis.reset({
+    'nf_user_data:discord-handle': JSON.stringify({ disabled: true }),
+  });
+  const accessToken = signAccessToken({
+    type: 'discord',
+    username: 'discord-handle',
+    globalName: 'Display Name',
+  });
+  const session = await invoke(me, {
+    method: 'GET',
+    headers: { cookie: `nf_token=${accessToken}` },
+  });
+  assert.equal(session.statusCode, 403);
+  assert.equal(session.body.code, 'ACCOUNT_DISABLED');
+});
+
 test('client sync and rewards respect the shared user-data lock', async () => {
   const username = 'user_data_lock_test';
   FakeRedis.reset({
@@ -224,7 +241,7 @@ test('concurrent withdrawal submissions cannot lose an acknowledged request', as
   assert.equal(FakeRedis.values.has(`nf_withdrawal_lock:${username}`), false);
 });
 
-test('a retried withdrawal request is idempotent', async () => {
+test('a retried withdrawal request is idempotent across email casing', async () => {
   const username = 'withdraw_retry_test_user';
   FakeRedis.reset({
     [`nf_user_data:${username}`]: JSON.stringify({ bonus_balance: 50, withdrawals: [] }),
@@ -235,19 +252,23 @@ test('a retried withdrawal request is idempotent', async () => {
     headers: { cookie: `nf_token=${accessToken}` },
     body: {
       amount: 20,
-      payment_account: 'retry@example.com',
+      payment_account: 'Retry@Example.com',
       idempotency_key: 'withdraw-retry-test-20260727',
     },
   };
 
   const first = await invoke(withdrawals, request);
-  const retry = await invoke(withdrawals, request);
+  const retry = await invoke(withdrawals, {
+    ...request,
+    body: { ...request.body, payment_account: 'retry@example.com' },
+  });
   assert.equal(first.statusCode, 200);
   assert.equal(retry.statusCode, 200);
   assert.equal(retry.body.idempotent, true);
   assert.equal(retry.body.request_id, first.body.request_id);
   const saved = JSON.parse(FakeRedis.values.get(`nf_user_data:${username}`));
   assert.equal(saved.withdrawals.length, 1);
+  assert.equal(saved.withdrawals[0].payment_account, 'retry@example.com');
 });
 
 test('withdrawal creation fails closed when the income adjustment cannot be read', async () => {

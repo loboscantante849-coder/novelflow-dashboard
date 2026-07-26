@@ -15,11 +15,9 @@ function getLADateString() {
 }
 
 async function getReelsCount(redis, username, today) {
-  try {
-    const key = 'reels_count_v2:' + username + ':' + today;
-    const val = await redis.get(key);
-    return parseInt(val) || 0;
-  } catch(e) { return 0; }
+  const key = 'reels_count_v2:' + username + ':' + today;
+  const val = await redis.get(key);
+  return parseInt(val) || 0;
 }
 
 async function setReelsCount(redis, username, today, count) {
@@ -30,7 +28,7 @@ async function setReelsCount(redis, username, today, count) {
 const AC_BASE = 'https://ac.beidou.win/api/v1';
 
 const { setCORSHeaders } = require('./_lib/cors');
-const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
+const { getAuthPayload, isDisabledUser } = require('./_lib/security');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -45,7 +43,7 @@ module.exports = async (req, res) => {
   let redis = null;
   try {
     const { Redis } = require('@upstash/redis');
-    if (process.env.KV_REST_API_URL) {
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
       redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
     }
   } catch(e) {}
@@ -62,8 +60,10 @@ module.exports = async (req, res) => {
   // Use server-stored AC token: KV first → env var; never accept token from client
   let token = null;
   try {
-    if (redis) token = await redis.get('ac_token');
-  } catch(e) {}
+    token = await redis.get('ac_token');
+  } catch (_error) {
+    return res.status(503).json({ error: 'AC credentials are temporarily unavailable', code: 'AC_TOKEN_UNAVAILABLE' });
+  }
   if (!token) token = process.env.AC_TOKEN;
   if (!token) return res.status(503).json({ error: 'AC Token not configured on server' });
 
@@ -73,8 +73,10 @@ module.exports = async (req, res) => {
   // Server-side daily limit using JWT username (not client-controlled)
   const today = getLADateString();
   let currentCount = 0;
-  if (redis) {
+  try {
     currentCount = await getReelsCount(redis, username, today);
+  } catch (_error) {
+    return res.status(503).json({ error: 'AC usage status is temporarily unavailable', code: 'AC_USAGE_UNAVAILABLE' });
   }
   if (currentCount >= REELS_DAILY_LIMIT) {
     return res.status(429).json({ error: 'Daily limit reached (7 reels/day). Try again tomorrow.', remaining: 0 });

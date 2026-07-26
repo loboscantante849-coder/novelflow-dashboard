@@ -85,3 +85,26 @@ test('a forced refresh reloads rotated OIDC credentials', async () => {
     global.fetch = originalFetch;
   }
 });
+
+test('callers can bound the OIDC refresh wait', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async (_url, options = {}) => new Promise((resolve, reject) => {
+    const abort = () => {
+      const error = new Error('aborted');
+      error.name = 'AbortError';
+      reject(error);
+    };
+    if (options.signal?.aborted) abort();
+    else options.signal?.addEventListener('abort', abort, { once: true });
+  });
+  oidc._resetForTests();
+  const started = Date.now();
+  try {
+    const token = await oidc.getBookstoreToken({ forceRefresh: true, timeoutMs: 25 });
+    assert.equal(token, null);
+    assert.ok(Date.now() - started < 500, 'custom timeout should bound the refresh wait');
+  } finally {
+    global.fetch = originalFetch;
+    oidc._resetForTests();
+  }
+});

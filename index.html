@@ -3619,6 +3619,7 @@
                 invite_code_generate: 'Generate Invite Code',
                 invite_code_choose_another: 'Choose another book',
                 invite_code_cancel: 'Cancel',
+                invite_code_confirm: 'Confirm',
                 invite_code_search: 'Search by book title',
                 invite_code_selected_book: 'Selected book',
                 invite_code_search_min: 'Enter at least 2 characters',
@@ -3881,6 +3882,7 @@
                 invite_code_generate: 'Generar código de invitación',
                 invite_code_choose_another: 'Elegir otro libro',
                 invite_code_cancel: 'Cancelar',
+                invite_code_confirm: 'Confirmar',
                 invite_code_search: 'Buscar por título del libro',
                 invite_code_selected_book: 'Libro seleccionado',
                 invite_code_search_min: 'Ingresa al menos 2 caracteres',
@@ -4767,7 +4769,7 @@
                 '<div class="equity-confirm-message" id="equityConfirmMessage"></div>' +
                 '<div class="equity-confirm-actions">' +
                 '<button class="equity-confirm-btn cancel" id="equityConfirmCancel" type="button" onclick="closeEquityConfirmation()">' + escapeHtml(getText('invite_code_cancel')) + '</button>' +
-                '<button class="equity-confirm-btn confirm" id="equityConfirmSubmit" type="button" onclick="submitEquityConfirmation()">Confirm</button>' +
+                '<button class="equity-confirm-btn confirm" id="equityConfirmSubmit" type="button" onclick="submitEquityConfirmation()">' + escapeHtml(getText('invite_code_confirm')) + '</button>' +
                 '</div></div>';
             modal.addEventListener('click', event => {
                 if (event.target === modal) closeEquityConfirmation();
@@ -4781,10 +4783,12 @@
             document.getElementById('equityConfirmTitle').textContent = title;
             document.getElementById('equityConfirmMessage').textContent = message;
             const submit = document.getElementById('equityConfirmSubmit');
-            submit.textContent = confirmLabel || 'Confirm';
+            submit.textContent = confirmLabel || getText('invite_code_confirm');
             submit.classList.toggle('danger', Boolean(danger));
             submit.disabled = false;
-            document.getElementById('equityConfirmCancel').disabled = false;
+            const cancel = document.getElementById('equityConfirmCancel');
+            cancel.textContent = getText('invite_code_cancel');
+            cancel.disabled = false;
             equityConfirmAction = action;
             modal.classList.add('show');
         }
@@ -6248,6 +6252,8 @@
             _syncing: false,
             _lastSyncAt: 0,
             _debounceTimer: null,
+            _busyRetryCount: 0,
+            _maxBusyRetries: 4,
             _enabled: false,
 
             isEnabled() {
@@ -6283,6 +6289,7 @@
                     });
                     if (resp.ok) {
                         const result = await resp.json();
+                        this._busyRetryCount = 0;
                         this._lastSyncAt = result.lastSyncAt || Date.now();
                         if (result.deletedBooks) setDeletedBooks(result.deletedBooks);
                         localStorage.removeItem(getUserKey('restore_book_keys'));
@@ -6296,8 +6303,15 @@
                         }
                     } else if (resp.status === 409) {
                         // A financial or promotion update owns the shared record.
-                        // Retry after it commits instead of overwriting its changes.
-                        this.schedulePush();
+                        // Retry after it commits, with a bounded exponential backoff.
+                        if (this._busyRetryCount < this._maxBusyRetries) {
+                            const delayMs = 500 * (2 ** this._busyRetryCount);
+                            this._busyRetryCount += 1;
+                            this.schedulePush(delayMs, { busyRetry: true });
+                        } else {
+                            console.warn('[CloudSync] Push remained busy after bounded retries');
+                            this._busyRetryCount = 0;
+                        }
                     }
                 } catch (e) {
                     console.warn('[CloudSync] Push failed:', e.message);
@@ -6455,13 +6469,14 @@
             },
 
             // Debounced push - avoids hammering the API on rapid changes
-            schedulePush() {
+            schedulePush(delayMs = 2000, { busyRetry = false } = {}) {
                 if (!this.isEnabled()) return;
+                if (!busyRetry) this._busyRetryCount = 0;
                 if (this._debounceTimer) clearTimeout(this._debounceTimer);
                 this._debounceTimer = setTimeout(() => {
                     this._debounceTimer = null;
                     this.push();
-                }, 2000);
+                }, delayMs);
             },
 
             // Enable sync after login
@@ -6473,6 +6488,7 @@
             // Disable sync on logout
             disable() {
                 this._enabled = false;
+                this._busyRetryCount = 0;
                 if (this._debounceTimer) clearTimeout(this._debounceTimer);
             }
         };
@@ -9275,8 +9291,9 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
     const btn = $('earnSubmitBtn');
     const amt = parseFloat($('earnAmountInput').value);
     const email = ($('earnEmailInput').value || '').trim();
+    const normalizedEmail = email.toLowerCase();
     const u = getUsername();
-    const idempotencyKey = getWithdrawalIdempotencyKey([u.toLowerCase(), amt.toFixed(2), email.toLowerCase()].join('|'));
+    const idempotencyKey = getWithdrawalIdempotencyKey([u.toLowerCase(), amt.toFixed(2), normalizedEmail].join('|'));
     btn.disabled = true;
     const origText = btn.textContent;
     btn.textContent = 'Submitting…';
@@ -9286,7 +9303,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'X-OS': 'web', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) },
-        body: JSON.stringify({ username: u, amount: amt, payment_account: email, idempotency_key: idempotencyKey })
+        body: JSON.stringify({ username: u, amount: amt, payment_account: normalizedEmail, idempotency_key: idempotencyKey })
       });
       const data = await r.json();
       if (!r.ok || !data.success) throw new Error(data.error || 'Submit failed');

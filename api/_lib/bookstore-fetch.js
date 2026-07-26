@@ -24,9 +24,9 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
  * Make an authenticated bookstore request. An upstream 401 invalidates the
  * cached OIDC token and receives exactly one fresh-token retry.
  */
-async function bookstoreFetch(url, options = {}, { timeoutMs = 8000 } = {}) {
+async function bookstoreFetch(url, options = {}, { timeoutMs = 8000, authTimeoutMs = timeoutMs } = {}) {
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const token = await getBookstoreToken({ forceRefresh: attempt > 0 });
+    const token = await getBookstoreToken({ forceRefresh: attempt > 0, timeoutMs: authTimeoutMs });
     if (!token) return { response: null, authUnavailable: true };
     const response = await fetchWithTimeout(url, {
       ...options,

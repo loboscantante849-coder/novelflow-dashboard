@@ -1,6 +1,20 @@
 const { setCORSHeaders } = require('./_lib/cors')
 const { bookstoreFetch } = require('./_lib/bookstore-fetch');
 
+const SUBMIT_DEADLINE_MS = 24000;
+
+async function withDeadline(promise, timeoutMs) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error('Bookstore search timed out');
+      error.code = 'UPSTREAM_TIMEOUT';
+      reject(error);
+    }, timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
   if (req.method !== 'POST') {
@@ -20,7 +34,10 @@ module.exports = async (req, res) => {
   try {
     // Only search for candidates - no data persistence here
     let candidates = [];
-    candidates = await searchBooks(bookName.trim(), BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode, lang);
+    candidates = await withDeadline(
+      searchBooks(bookName.trim(), BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode, lang),
+      SUBMIT_DEADLINE_MS,
+    );
 
     console.log(`[v20250515] [${lang}] Search for "${bookName}" found ${candidates.length} candidates`);
 
@@ -148,7 +165,7 @@ async function doSearch(query, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, originalQue
 
   const { response: resp, authUnavailable } = await bookstoreFetch(url, {
     headers: { 'Content-Type': 'application/json' }
-  }, { timeoutMs: 3500 });
+  }, { timeoutMs: 3500, authTimeoutMs: 4500 });
 
   if (authUnavailable || !resp) {
     const error = new Error('Bookstore authentication unavailable');
