@@ -182,6 +182,7 @@ html, body { overflow-x: hidden; background: #f2f5f4; }
 .today-source-state.refreshing svg { color: #61d7ad; animation: premium-spin 1s linear infinite; }
 .today-source-state.stale { cursor: pointer; }
 .today-source-state.stale:hover { border-color: #61d7ad; color: #fff; }
+@media(max-width:760px){.sidebar{position:sticky;top:58px;z-index:20;box-shadow:0 4px 12px rgba(17,31,37,.12)}}
 
 @media (max-width: 1180px) {
   .app-shell { grid-template-columns: 218px minmax(0, 1fr); }
