@@ -115,6 +115,25 @@ test('independent creative sections merge safely when started in parallel', asyn
   assert.equal(stored.artifacts.creativeDraft.parts.videoPrompt.hook, packageData.videoPrompt.hook);
 });
 
+test('a saved creative section clears an obsolete failed run state', async (t) => {
+  const originals = { ...providers };
+  t.after(() => Object.assign(providers, originals));
+  const packageData = creative();
+  providers.generateCreative = async (...args) => ({ creative: { [args[6]]: packageData[args[6]] }, model: 'hy3', responseId: 'saved-after-failure', usage: { totalTokens: 60 } });
+  const redis = new MemoryRedis();
+  const run = newRun({ title: 'Recovery Romance', sku: 'recovery-sku', promoter: 'xujt', paidAuthorized: true });
+  run.state = 'failed';
+  run.artifacts.book = { bookSkuId: 'recovery-sku' };
+  run.artifacts.evidence = { chapters: [] };
+  run.artifacts.code = '44500';
+  run.artifacts.shortUrl = 'https://social.example/s/recovery';
+  await redis.set(`nf_social:run:${run.id}`, JSON.stringify(run));
+  await p3(redis, run, null, false, 'posts');
+  assert.equal(run.state, 'running');
+  assert.equal(run.stages.P3.status, 'waiting');
+  assert.ok(run.artifacts.creativeDraft.parts.posts);
+});
+
 test('one-click pipeline persists tracking and never duplicates paid submissions', async (t) => {
   const originals = { ...providers };
   t.after(() => Object.assign(providers, originals));

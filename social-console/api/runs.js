@@ -305,6 +305,13 @@ module.exports = async (req, res) => {
         await saveRun(redis, run);
         return res.status(200).json({ run });
       }
+      if (run.state === 'failed' && run.stages.P3?.status === 'waiting') {
+        run.state = 'running';
+        run.stages.P3 = { ...run.stages.P3, recoverable: true, error: '', label: run.stages.P3.label || '已恢复已保存的创意分段，继续补齐剩余部分' };
+        run.events.push({ at: new Date().toISOString(), type: 'inconsistent_creative_state_recovered', message: 'A saved creative section overrode an obsolete failed run state; remaining sections will continue' });
+        await saveRun(redis, run);
+        return res.status(200).json({ run });
+      }
       const failed = Object.entries(run.stages).find(([, value]) => value.status === 'failed');
       if (!failed) return res.status(409).json({ error: 'No failed stage to retry' });
       run.state = 'running';

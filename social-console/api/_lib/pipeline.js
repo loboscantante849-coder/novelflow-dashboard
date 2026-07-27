@@ -504,6 +504,9 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
       }
       if (latestDraft.failures) delete latestDraft.failures[pendingSection];
       latest.artifacts.creativeDraft = latestDraft;
+      // A completed section is authoritative even if an older concurrent
+      // request wrote a failed run state just before this merge.
+      latest.state = 'running';
       const waitingOn = pendingCreativeSections(latestDraft);
       setStage(latest, 'P3', 'waiting', { label: waitingOn.length ? `${creativeSectionLabels[pendingSection]}已保存，${waitingOn.length} 项创意并行中` : '全部创意已保存，准备质量校验', phase: 'section_saved', error: '', nextAttemptAt: '' });
       addEvent(latest, 'creative_section_ready', `${pendingSection} saved; independent creative sections may continue in parallel`);
