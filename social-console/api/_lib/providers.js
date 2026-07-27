@@ -172,7 +172,11 @@ async function adminRequest(url, options = {}, label = 'NovelFlow admin request'
   try {
     return await perform(await oidcToken(false));
   } catch (error) {
-    if (error.status !== 401 || (!env('NOVELFLOW_OIDC_USERNAME') || !env('NOVELFLOW_OIDC_PASSWORD'))) throw error;
+    // The content-dashboard sometimes masks an expired bearer token as its
+    // generic 500 "oops" response. This is a read-only request, so make one
+    // credential refresh attempt when explicitly requested by that caller.
+    const retryAfterRefresh = error.status === 401 || (options.retryCredentialOn500 && Number(error.status) >= 500);
+    if (!retryAfterRefresh || (!env('NOVELFLOW_OIDC_USERNAME') || !env('NOVELFLOW_OIDC_PASSWORD'))) throw error;
     return perform(await oidcToken(true));
   }
 }
@@ -244,7 +248,7 @@ async function contentDashboardBooks({ startDate, endDate, sortField = 'baseRead
       // These mirror the Writer Admin request contract. The service returns a
       // generic 500 when the browser client marker or charset is omitted.
       headers: { 'Content-Type': 'application/json; charset=utf-8', 'X-OS': 'web' },
-      body: JSON.stringify(pagePayload), timeoutMs: Math.min(8000, remainingMs)
+      body: JSON.stringify(pagePayload), timeoutMs: Math.min(8000, remainingMs), retryCredentialOn500: true
     }, `Content dashboard ranking page ${pageIndex}`);
     const page = body?.data;
     if (!page || !Array.isArray(page.data)) throw new ProviderError(`Content dashboard ranking page ${pageIndex} returned an invalid response shape`);
