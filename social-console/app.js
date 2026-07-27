@@ -100,7 +100,7 @@ function restoreDashboardSnapshot() {
     state.leaderboardMetrics = snapshot.leaderboardMetrics || null;
     state.leaderboardDataKey = state.leaderboard.length ? snapshot.leaderboardQueryKey : '';
     const cachedTodayBooks = Array.isArray(snapshot.todayBooks) ? snapshot.todayBooks : [];
-    const trustedToday = ['verified_metrics', 'stale_verified_metrics'].includes(String(snapshot.todayDataQuality || ''));
+    const trustedToday = ['verified_metrics', 'stale_verified_metrics', 'history_verified'].includes(String(snapshot.todayDataQuality || ''));
     state.todayBooks = trustedToday && recommendationMetricsReady(cachedTodayBooks) ? cachedTodayBooks : [];
     state.todayDataQuality = state.todayBooks.length ? snapshot.todayDataQuality : '';
     state.selectedId = state.runs[0]?.id || '';
@@ -882,6 +882,17 @@ function todayScore(books) {
   return books.map((book) => ({ ...book, todayScore: Math.round((Number(book.baseReadUnt || 0) / uv * 45 + Number(book.firstReadUntRate || 0) / first * 30 + Number(book.read20wRate || book.read10wRate || 0) / retention * 25) * 10) / 10 })).sort((a, b) => b.todayScore - a.todayScore);
 }
 
+function historyTodayScore(books) {
+  const max = (key) => Math.max(1, ...books.map((book) => Number(book[key] || 0)));
+  const uv = max('pullUv');
+  const income = max('d14Income');
+  const quality = max('score');
+  return books.map((book) => ({
+    ...book,
+    todayScore: Math.round((Number(book.pullUv || 0) / uv * 45 + Number(book.d14Income || 0) / income * 30 + Number(book.score || 0) / quality * 25) * 10) / 10
+  })).sort((left, right) => right.todayScore - left.todayScore || Number(right.pullUv || 0) - Number(left.pullUv || 0));
+}
+
 function renderTodayRail() {
   const list = $('#todayRailList');
   if (!list) return;
@@ -896,11 +907,15 @@ function renderTodayRail() {
   }
   const sourceState = state.todayBooksLoading
     ? '<div class="today-source-state refreshing"><i data-lucide="loader-circle"></i>后台刷新中，当前推荐保持可用</div>'
+    : state.todayDataQuality === 'history_verified'
+      ? '<button id="openTodayHistory" class="today-source-state stale" type="button"><i data-lucide="chart-no-axes-combined"></i>新书中台暂不可用 · 当前显示已验证投放候选，点击查看复盘</button>'
     : state.todayBooksError || state.todayDataQuality === 'stale_verified_metrics'
       ? '<button id="retryTodayRail" class="today-source-state stale" type="button"><i data-lucide="refresh-cw"></i>当前为最近一次已验证推荐，点击更新</button>'
       : '';
-  list.innerHTML = `${sourceState}${books.slice(0, 12).map((book, index) => `<article class="today-card"><div class="today-cover" ${coverDataAttributes(book)}>${leaderboardCover(book)}</div><div class="today-card-copy"><span>今日 #${index + 1} · 综合 ${book.todayScore}</span><h3>${escapeHtml(book.title)}</h3><p>${escapeHtml(bookGenre(book) === 'other' ? book.category || 'Romance' : bookGenre(book))} · UV ${compactNumber(book.baseReadUnt)}</p><div><b>首读 ${percentage(book.firstReadUntRate)}</b><b>长读 ${percentage(book.read20wRate || book.read10wRate)}</b></div></div><button class="today-plan" data-today-book="${index}" type="button"><i data-lucide="brain-circuit"></i>策划</button></article>`).join('')}`;
+  const historical = state.todayDataQuality === 'history_verified';
+  list.innerHTML = `${sourceState}${books.slice(0, 12).map((book, index) => `<article class="today-card"><div class="today-cover" ${coverDataAttributes(book)}>${leaderboardCover(book)}</div><div class="today-card-copy"><span>${historical ? '投放候选' : '今日'} #${index + 1} · 综合 ${book.todayScore}</span><h3>${escapeHtml(book.title)}</h3><p>${escapeHtml(bookGenre(book) === 'other' ? book.category || 'Romance' : bookGenre(book))} · ${historical ? `拉起 ${compactNumber(book.pullUv)} UV` : `UV ${compactNumber(book.baseReadUnt)}`}</p><div>${historical ? `<b>D14 $${Number(book.d14Income || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</b><b>复盘 ${Number(book.score || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 })}</b>` : `<b>首读 ${percentage(book.firstReadUntRate)}</b><b>长读 ${percentage(book.read20wRate || book.read10wRate)}</b>`}</div></div><button class="today-plan" data-today-book="${index}" type="button"><i data-lucide="brain-circuit"></i>策划</button></article>`).join('')}`;
   $('#retryTodayRail')?.addEventListener('click', () => loadTodayRail());
+  $('#openTodayHistory')?.addEventListener('click', openHistoryRanking);
   list.querySelectorAll('[data-today-book]').forEach((button) => button.addEventListener('click', () => { const book = books[Number(button.dataset.todayBook)]; if (book) openCreativePlanDialog(book); }));
 }
 
@@ -948,6 +963,21 @@ async function loadTodayRail() {
     } catch (error) {
       // Keep the last successful rail visible while the source refreshes.
       state.todayBooksError = error.message || '今日推荐同步失败';
+      if (!state.todayBooks.length) {
+        try {
+          const history = await api('/api/leaderboard?source=history&days=30', { timeoutMs: 25000 });
+          const candidates = (history.books || []).filter((book) => !activeRunFor(book) && book.automationReady !== false);
+          if (candidates.length) {
+            const recent = new Set(state.recommendationHistory || []);
+            const rotated = [...candidates.filter((book) => !recent.has(String(book.bookSkuId))), ...candidates];
+            state.todayBooks = historyTodayScore(rotated).slice(0, 12);
+            state.todayDataQuality = 'history_verified';
+            loadTodayCovers();
+            saveDashboardSnapshot();
+            return;
+          }
+        } catch {}
+      }
       state.todayDataQuality = state.todayBooks.length ? 'stale_verified_metrics' : 'unavailable';
     } finally {
       state.todayBooksLoading = false;
@@ -1002,11 +1032,12 @@ function renderLeaderboard() {
     grid.innerHTML = '';
     empty.hidden = false;
     empty.innerHTML = unavailable
-      ? `<i data-lucide="shield-alert"></i><strong>中台真实指标暂未连通</strong><span>${escapeHtml(state.leaderboardWarning || state.leaderboardError || '没有已验证指标时，不会用普通书库伪装成排行榜。')}</span><button id="retryLeaderboard" class="secondary-command" type="button"><i data-lucide="refresh-cw"></i>重新连接指标</button>`
+      ? `<i data-lucide="shield-alert"></i><strong>中台真实指标暂未连通</strong><span>${escapeHtml(state.leaderboardWarning || state.leaderboardError || '没有已验证指标时，不会用普通书库伪装成排行榜。')}</span><div><button id="retryLeaderboard" class="secondary-command" type="button"><i data-lucide="refresh-cw"></i>重新连接指标</button><button id="openHistoryRanking" class="secondary-command" type="button"><i data-lucide="chart-no-axes-combined"></i>查看投放复盘候选</button></div>`
       : '<i data-lucide="cloud-off"></i><strong>当前筛选暂无书籍</strong><span>可调整时间、篇幅或题材后重试。</span>';
     $('#leaderboardUpdated').classList.toggle('warning', unavailable);
     $('#leaderboardUpdated').textContent = unavailable ? '数据源未通过验证 · 已停止榜单操作' : '当前筛选没有匹配结果';
     $('#retryLeaderboard')?.addEventListener('click', () => loadLeaderboard({ refresh: true }));
+    $('#openHistoryRanking')?.addEventListener('click', openHistoryRanking);
     renderLeaderboardPager(0, 0);
     renderBatchBookBar();
     return;
@@ -2231,6 +2262,14 @@ function openCatalogRanking() {
   const changed = state.leaderboardSource !== 'catalog';
   state.leaderboardSource = 'catalog';
   document.querySelectorAll('#leaderboardSource button').forEach((button) => button.classList.toggle('active', button.dataset.source === 'catalog'));
+  if (changed) loadLeaderboard();
+  $('#leaderboardSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function openHistoryRanking() {
+  const changed = state.leaderboardSource !== 'history';
+  state.leaderboardSource = 'history';
+  document.querySelectorAll('#leaderboardSource button').forEach((button) => button.classList.toggle('active', button.dataset.source === 'history'));
   if (changed) loadLeaderboard();
   $('#leaderboardSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }

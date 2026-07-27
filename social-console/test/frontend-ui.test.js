@@ -155,6 +155,18 @@ test('today ranking uses its own UV context and keeps fallback retention scores 
   assert.ok(scored.every((book) => book.todayScore >= 0 && book.todayScore <= 100));
 });
 
+test('verified historical candidates remain actionable when the new-book metric source is unavailable', () => {
+  const context = { Math, Number };
+  vm.createContext(context);
+  vm.runInContext(between('function historyTodayScore(', 'function renderTodayRail('), context);
+  const scored = context.historyTodayScore([
+    { title: 'High revenue', pullUv: 100, d14Income: 80, score: 60 },
+    { title: 'Low revenue', pullUv: 90, d14Income: 10, score: 50 }
+  ]);
+  assert.equal(scored[0].title, 'High revenue');
+  assert.ok(scored.every((book) => book.todayScore > 0 && book.todayScore <= 100));
+});
+
 test('legacy snapshots without verified metric provenance are not restored as rankings', () => {
   const snapshot = {
     savedAt: Date.now(),
