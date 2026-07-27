@@ -145,7 +145,7 @@ function normalizeCreative(result, run) {
       evidenceChapters: Array.isArray(videoPrompt.evidenceChapters) && videoPrompt.evidenceChapters.length ? videoPrompt.evidenceChapters : videoEvidence.map((item) => Number(item.chapter))
     },
     posterPrompts: ['luminous_cinema', 'editorial_romance'].map((variant) => ({ variant, prompt: String(byVariant.get(variant).prompt), zhPrompt: String(byVariant.get(variant).zhPrompt || '') })),
-    qualityReview: { recommendation, conclusion: String(review.conclusion || '当前创意已满足章节证据与平台格式要求。').trim().slice(0, 260), why: String(review.why || '已核验文案、视频剧情和海报提示词均来自已锁定章节证据。').trim().slice(0, 360), target: ['copy', 'video', 'poster', 'package'].includes(String(review.target || '')) ? String(review.target) : 'package' }
+    qualityReview: { recommendation, status: String(review.status || 'verified') === 'unverified' ? 'unverified' : 'verified', conclusion: String(review.conclusion || '当前创意已满足章节证据与平台格式要求。').trim().slice(0, 260), why: String(review.why || '已核验文案、视频剧情和海报提示词均来自已锁定章节证据。').trim().slice(0, 360), target: ['copy', 'video', 'poster', 'package'].includes(String(review.target || '')) ? String(review.target) : 'package' }
   };
 }
 
@@ -471,6 +471,18 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
         const alreadyUsedReserve = latestDraft.modelRoute?.fallbackUsed === true || Boolean(error?.fallbackModel);
         if (alreadyUsedReserve) {
           const message = cleanError(error);
+          if (pendingSection === 'qualityReview') {
+            latestDraft.parts.qualityReview = { recommendation: 'keep', conclusion: 'AI 质检未返回可解析结果；已保留文案、视频提示词和海报提示词，未伪造“质检通过”。', why: `首选与唯一备用模型均未完成质检：${message}`, target: 'package', status: 'unverified' };
+            delete latestDraft.failures[pendingSection];
+            latest.artifacts.modelActivity = [...(latest.artifacts.modelActivity || []), { section: pendingSection, requestedModel: preferredModel, model: '', fallbackFrom: error?.fallbackFrom || preferredModel, fallbackModel: error?.fallbackModel || '', fallbackReason: error?.fallbackReason || '首选与唯一备用模型均未返回可用结果', completedAt: now(), triggerReason: '自动成品质检', outputStatus: '质检未完成，创意产物继续', error: message }].slice(-24);
+            latest.artifacts.creativeDraft = latestDraft;
+            latest.state = 'running';
+            setStage(latest, 'P3', 'waiting', { label: 'AI 质检未完成，已保存创意产物并继续后续节点', phase: 'quality_unverified', attempt, nextAttemptAt: '', error: message, recoverable: false });
+            addEvent(latest, 'creative_quality_nonblocking', 'Quality review was unavailable after the single reserve; saved creative outputs continue without a false pass');
+            await saveRun(redis, latest);
+            const finalized = await finalizeCreativeDraft(redis, latest);
+            return syncRun(originalRun, finalized);
+          }
           latestDraft.failures[pendingSection] = { attempt, at: now(), error: message, nextAttemptAt: '', recoverable: false, fallbackFrom: error?.fallbackFrom || preferredModel, fallbackModel: error?.fallbackModel || '' };
           latest.artifacts.modelActivity = [...(latest.artifacts.modelActivity || []), { section: pendingSection, requestedModel: preferredModel, model: '', fallbackFrom: error?.fallbackFrom || preferredModel, fallbackModel: error?.fallbackModel || '', fallbackReason: error?.fallbackReason || '首选与唯一备用模型均未返回可用结果', completedAt: now(), triggerReason: '后台生产恢复', outputStatus: '未产出，等待人工决定', error: message }].slice(-24);
           latest.artifacts.creativeDraft = latestDraft;

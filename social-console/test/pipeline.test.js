@@ -134,6 +134,35 @@ test('a saved creative section clears an obsolete failed run state', async (t) =
   assert.ok(run.artifacts.creativeDraft.parts.posts);
 });
 
+test('quality review failure does not discard already saved creative outputs', async (t) => {
+  const originals = { ...providers };
+  t.after(() => Object.assign(providers, originals));
+  const packageData = creative();
+  providers.generateCreative = async (...args) => {
+    if (args[6] === 'qualityReview') {
+      const error = new providers.ProviderError('Primary invalid JSON; fallback invalid JSON');
+      error.fallbackModel = 'hy3';
+      error.fallbackFrom = 'deepseek';
+      throw error;
+    }
+    return { creative: { [args[6]]: packageData[args[6]] }, model: 'deepseek', responseId: 'response', usage: { totalTokens: 60 } };
+  };
+  const redis = new MemoryRedis();
+  const run = newRun({ title: 'Quality Gap Romance', sku: 'quality-gap', promoter: 'xujt', paidAuthorized: true });
+  run.state = 'running';
+  run.stages.P1.status = 'done'; run.stages.P2.status = 'done'; run.stages.P5.status = 'done';
+  run.artifacts.book = { bookSkuId: 'quality-gap' };
+  run.artifacts.evidence = { chapters: [{ order: 1, content: 'A sufficiently long exact quote copied from chapter one. She found the signed contract before dawn.' }, { order: 2, content: 'A sufficiently long exact quote copied from chapter two. The promise trapped her between duty and freedom. She placed the evidence on his desk.' }] };
+  run.artifacts.code = '44444'; run.artifacts.shortUrl = 'https://social.example/s/abc';
+  run.artifacts.creativeDraft = { parts: { posts: packageData.posts, videoPrompt: packageData.videoPrompt, posterPrompts: packageData.posterPrompts }, usage: [], failures: {}, inFlight: {} };
+  await redis.set(`nf_social:run:${run.id}`, JSON.stringify(run));
+  await p3(redis, run, null, false, 'qualityReview');
+  assert.equal(run.state, 'running');
+  assert.equal(run.stages.P3.status, 'done', JSON.stringify({ stage: run.stages.P3, events: run.events.slice(-4), parts: Object.keys(run.artifacts.creativeDraft?.parts || {}) }));
+  assert.equal(run.artifacts.posts.length, 2);
+  assert.equal(run.artifacts.qualityReview.status, 'unverified');
+});
+
 test('one-click pipeline persists tracking and never duplicates paid submissions', async (t) => {
   const originals = { ...providers };
   t.after(() => Object.assign(providers, originals));
