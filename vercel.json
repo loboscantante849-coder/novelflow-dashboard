@@ -20,19 +20,20 @@
   ],
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/api/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        },
+          "value": "private, no-store"
+        }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [
         {
-          "key": "Pragma",
-          "value": "no-cache"
-        },
-        {
-          "key": "Expires",
-          "value": "0"
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
         }
       ]
     },
@@ -58,6 +59,10 @@
         {
           "key": "Permissions-Policy",
           "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
         }
       ]
     }
@@ -65,7 +70,7 @@
   "functions": {
     "api/submit.js": {
       "memory": 256,
-      "maxDuration": 10
+      "maxDuration": 30
     },
     "api/submissions.js": {
       "memory": 256,
@@ -85,7 +90,7 @@
     },
     "api/auth/me.js": {
       "memory": 128,
-      "maxDuration": 5
+      "maxDuration": 10
     },
     "api/auth/logout.js": {
       "memory": 128,
@@ -143,14 +148,6 @@
       "memory": 256,
       "maxDuration": 30
     },
-    "api/admin-bulk-assign.js": {
-      "memory": 256,
-      "maxDuration": 30
-    },
-    "api/admin-kv-dump.js": {
-      "memory": 256,
-      "maxDuration": 30
-    },
     "api/auth/check-password.js": {
       "memory": 256,
       "maxDuration": 30
@@ -175,10 +172,6 @@
       "memory": 256,
       "maxDuration": 30
     },
-    "api/book-covers.js": {
-      "memory": 256,
-      "maxDuration": 30
-    },
     "api/books/detail.js": {
       "memory": 256,
       "maxDuration": 30
@@ -188,18 +181,6 @@
       "maxDuration": 30
     },
     "api/claim-links.js": {
-      "memory": 256,
-      "maxDuration": 30
-    },
-    "api/debug-env.js": {
-      "memory": 256,
-      "maxDuration": 30
-    },
-    "api/diag.js": {
-      "memory": 256,
-      "maxDuration": 30
-    },
-    "api/init-oidc.js": {
       "memory": 256,
       "maxDuration": 30
     },
@@ -216,14 +197,6 @@
       "maxDuration": 30
     },
     "api/equity-code.js": {
-      "memory": 256,
-      "maxDuration": 30
-    },
-    "api/setup-env.js": {
-      "memory": 256,
-      "maxDuration": 30
-    },
-    "api/test-register.js": {
       "memory": 256,
       "maxDuration": 30
     },

@@ -1,5 +1,19 @@
 const { setCORSHeaders } = require('./_lib/cors')
-const { getBookstoreToken } = require('./_lib/oidc-token');
+const { bookstoreFetch } = require('./_lib/bookstore-fetch');
+
+const SUBMIT_DEADLINE_MS = 24000;
+
+async function withDeadline(promise, timeoutMs) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error('Bookstore search timed out');
+      error.code = 'UPSTREAM_TIMEOUT';
+      reject(error);
+    }, timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -8,26 +22,24 @@ module.exports = async (req, res) => {
   }
 
   const { bookName, lang = 'en' } = req.body || {};
-  if (!bookName) {
-    return res.status(400).json({ error: 'bookName is required' });
+  if (typeof bookName !== 'string' || !bookName.trim() || bookName.length > 200) {
+    return res.status(400).json({ error: 'bookName must be a non-empty string up to 200 characters' });
   }
 
   const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage';
   // NovelFlow - same appId for both English and Spanish, just different languageCode
   const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
-  // OIDC token for novelspa API (env var preferred, fallback to hardcoded)
-  const BOOKSTORE_TOKEN = await getBookstoreToken();
-
   const languageCode = lang === 'es' ? 'es' : 'en';
 
   try {
     // Only search for candidates - no data persistence here
     let candidates = [];
-    if (BOOKSTORE_TOKEN) {
-      candidates = await searchBooks(bookName.trim(), BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode, lang);
-    }
+    candidates = await withDeadline(
+      searchBooks(bookName.trim(), BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode, lang),
+      SUBMIT_DEADLINE_MS,
+    );
 
-    console.log(`[v20250515] [${lang}] Search for "${bookName}" found ${candidates.length} candidates, token=${BOOKSTORE_TOKEN ? 'yes' : 'NO'}`);
+    console.log(`[v20250515] [${lang}] Search for "${bookName}" found ${candidates.length} candidates`);
 
     // Return candidates to frontend for user confirmation
     // Data will only be persisted when user confirms in /api/confirm
@@ -43,7 +55,14 @@ module.exports = async (req, res) => {
 
   } catch (error) {
     console.error('Submit error:', error);
-    return res.status(500).json({ error: 'Internal server error: ' + error.message });
+    const code = error && error.code;
+    const status = code === 'UPSTREAM_AUTH_UNAVAILABLE' ? 503 : (code === 'UPSTREAM_TIMEOUT' ? 504 : 502);
+    return res.status(status).json({
+      error: code === 'UPSTREAM_AUTH_UNAVAILABLE'
+        ? 'Bookstore authentication is temporarily unavailable'
+        : (code === 'UPSTREAM_TIMEOUT' ? 'Bookstore search timed out' : 'Bookstore search is temporarily unavailable'),
+      code: code || 'UPSTREAM_ERROR',
+    });
   }
 };
 
@@ -95,21 +114,15 @@ function similarity(query, title, lang = 'en') {
 }
 
 // Search for multiple candidate books (returns array)
-async function searchBooks(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode, lang = 'en') {
+async function searchBooks(bookName, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, languageCode, lang = 'en') {
   const allCandidates = new Map(); // Use Map to deduplicate by bookId
-
-  // Strategy 1: Full book name as-is
-  const candidates1 = await doSearch(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, bookName, languageCode, lang);
-  candidates1.forEach(c => allCandidates.set(c.bookId, c));
+  const queries = new Set([bookName]);
 
   // Strategy 2: Without leading article (The/A/An for English, El/La/Los/Las/Un/Una for Spanish)
   const articleRegex = createArticleRegex(lang);
   const withoutArticle = bookName.replace(articleRegex, '').trim();
   if (withoutArticle !== bookName && withoutArticle.length > 2) {
-    const candidates2 = await doSearch(withoutArticle, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, bookName, languageCode, lang);
-    candidates2.forEach(c => {
-      if (!allCandidates.has(c.bookId)) allCandidates.set(c.bookId, c);
-    });
+    queries.add(withoutArticle);
   }
 
   // Strategy 3: First + last significant word
@@ -118,19 +131,25 @@ async function searchBooks(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKST
   const words = bookName.split(/\s+/).filter(w => !stopWordPattern.test(w) && w.length > 2);
   if (words.length >= 3) {
     const firstLast = words[0] + ' ' + words[words.length - 1];
-    const candidates3 = await doSearch(firstLast, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, bookName, languageCode, lang);
-    candidates3.forEach(c => {
-      if (!allCandidates.has(c.bookId)) allCandidates.set(c.bookId, c);
-    });
+    queries.add(firstLast);
   }
 
   // Strategy 4: First significant word only
   if (words.length >= 1) {
-    const candidates4 = await doSearch(words[0], BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, bookName, languageCode, lang);
-    candidates4.forEach(c => {
-      if (!allCandidates.has(c.bookId)) allCandidates.set(c.bookId, c);
-    });
+    queries.add(words[0]);
   }
+
+  // Search strategies are independent. Running them together keeps the route
+  // inside its serverless budget even when the bookstore needs a token retry.
+  const settled = await Promise.allSettled([...queries].map(query =>
+    doSearch(query, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, bookName, languageCode, lang)
+  ));
+  const successful = settled.filter(result => result.status === 'fulfilled');
+  if (!successful.length) throw settled[0].reason;
+  successful.forEach(result => result.value.forEach(candidate => {
+    const existing = allCandidates.get(candidate.bookId);
+    if (!existing || candidate.score > existing.score) allCandidates.set(candidate.bookId, candidate);
+  }));
 
   // Convert to array, sort by score, return top 5
   const result = Array.from(allCandidates.values())
@@ -141,16 +160,37 @@ async function searchBooks(bookName, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKST
 }
 
 // Single search query - returns all matches above threshold as candidates
-async function doSearch(query, BOOKSTORE_TOKEN, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, originalQuery, languageCode, lang = 'en') {
+async function doSearch(query, BOOKSTORE_API_BASE, BOOKSTORE_APP_ID, originalQuery, languageCode, lang = 'en') {
   const url = `${BOOKSTORE_API_BASE}/book/booklist?current=1&pageSize=10&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&languageCode=${languageCode}&bookStatus=1&title=${encodeURIComponent(query)}&bookName=${encodeURIComponent(query)}`;
 
-  const resp = await fetch(url, {
-    headers: { 'Authorization': `Bearer ${BOOKSTORE_TOKEN}`, 'Content-Type': 'application/json' }
-  });
+  const { response: resp, authUnavailable } = await bookstoreFetch(url, {
+    headers: { 'Content-Type': 'application/json' }
+  }, { timeoutMs: 3500, authTimeoutMs: 4500 });
 
-  if (!resp.ok) return [];
-  const data = await resp.json();
-  if (data.code !== 200 || !data.data?.data?.length) return [];
+  if (authUnavailable || !resp) {
+    const error = new Error('Bookstore authentication unavailable');
+    error.code = 'UPSTREAM_AUTH_UNAVAILABLE';
+    throw error;
+  }
+  if (!resp.ok) {
+    const error = new Error(`Bookstore search failed with HTTP ${resp.status}`);
+    error.code = 'UPSTREAM_ERROR';
+    throw error;
+  }
+  let data;
+  try { data = await resp.json(); }
+  catch (cause) {
+    const error = new Error('Bookstore search returned invalid JSON');
+    error.code = 'UPSTREAM_ERROR';
+    error.cause = cause;
+    throw error;
+  }
+  if (data.code !== 200) {
+    const error = new Error('Bookstore search returned an error');
+    error.code = 'UPSTREAM_ERROR';
+    throw error;
+  }
+  if (!data.data?.data?.length) return [];
 
   // Return all books above similarity threshold as candidates
   const books = data.data.data;

@@ -54,12 +54,6 @@ async function kvDel(key) {
 }
 
 async function fetchBooksFromAPI(lang, category, limit) {
-  const BOOKSTORE_TOKEN = await getBookstoreToken();
-  if (!BOOKSTORE_TOKEN) {
-    console.error('[trending] No BOOKSTORE_TOKEN configured');
-    return [];
-  }
-
   // Build API URL - try with languageCode first
   let apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=1&pageSize=${limit}&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&bookStatus=1&orderBy=uv&orderType=desc`;
   if (lang) apiUrl += `&languageCode=${lang}`;
@@ -69,18 +63,18 @@ async function fetchBooksFromAPI(lang, category, limit) {
 
   let response;
   try {
-    response = await fetch(apiUrl, {
+    ({ response } = await bookstoreFetch(apiUrl, {
       method: 'GET',
-      headers: { 'Authorization': `Bearer ${BOOKSTORE_TOKEN}`, 'Content-Type': 'application/json' }
-    });
+      headers: { 'Content-Type': 'application/json' }
+    }));
   } catch (e) {
     console.error('[trending] API fetch error:', e.message);
     return [];
   }
 
-  if (!response.ok) {
-    const errText = await response.text().catch(() => '');
-    console.error('[trending] API error:', response.status, errText);
+  if (!response || !response.ok) {
+    const errText = response ? await response.text().catch(() => '') : '';
+    console.error('[trending] API error:', response ? response.status : 'auth unavailable', errText);
     return [];
   }
 
@@ -95,14 +89,16 @@ async function fetchBooksFromAPI(lang, category, limit) {
   let rawBooks = (data.data && data.data.data) || data.data || [];
   console.log(`[trending] API returned ${rawBooks.length} books with lang=${lang}`);
 
-  // If languageCode filter returned 0 books, retry without it
-  if (rawBooks.length === 0 && lang) {
+  // Never drop the requested language for Spanish. An English fallback would
+  // leak the wrong catalogue into the Spanish UI; English may use the
+  // unfiltered endpoint because the default catalogue is English.
+  if (rawBooks.length === 0 && lang === 'en') {
     console.log('[trending] Retrying without languageCode filter...');
     const fallbackUrl = `${BOOKSTORE_API_BASE}/booklist?current=1&pageSize=${limit}&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&bookStatus=1&orderBy=uv&orderType=desc`;
     try {
-      const fallbackResp = await fetch(fallbackUrl, {
+      const { response: fallbackResp } = await bookstoreFetch(fallbackUrl, {
         method: 'GET',
-        headers: { 'Authorization': `Bearer ${BOOKSTORE_TOKEN}`, 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' }
       });
       if (fallbackResp.ok) {
         const fallbackData = await fallbackResp.json();
@@ -146,7 +142,7 @@ async function fetchBooksFromAPI(lang, category, limit) {
 }
 
 const { setCORSHeaders } = require('./_lib/cors')
-const { getBookstoreToken } = require('./_lib/oidc-token');
+const { bookstoreFetch } = require('./_lib/bookstore-fetch');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);

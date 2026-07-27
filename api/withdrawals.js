@@ -23,9 +23,11 @@
  */
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { handlePreflight } = require('./_lib/cors');
-const { getAuthPayload, getRedis, isAdminUser } = require('./_lib/security');
+const { getAuthPayload, getRedis, isAdminUser, isDisabledUser } = require('./_lib/security');
 const { Redis } = require('@upstash/redis');
+const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
 
 function redisClient() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -75,7 +77,7 @@ function canonizeUser(raw) {
   return s.toLowerCase();
 }
 
-function computeBalances(userData, totalDnIncome) {
+function computeBalances(userData, totalDnIncome, incomeAdjustment = 0) {
   const bonus = Number(userData && userData.bonus_balance) || 0;
   const withdrawals = Array.isArray(userData && userData.withdrawals) ? userData.withdrawals : [];
   const approvedTotal = withdrawals
@@ -90,10 +92,13 @@ function computeBalances(userData, totalDnIncome) {
   // Frozen = pending (申请审核中，已从可用余额扣除)
   // Available = total earned - approved(已打款) - pending(冻结中)
   // rejected 不计入扣减（被拒绝后钱回到可用余额）
-  const available = Math.max(0, bonus + totalDnIncome - approvedTotal - pendingTotal);
+  const adjustedIncome = totalDnIncome + (Number(incomeAdjustment) || 0);
+  const available = Math.max(0, bonus + adjustedIncome - approvedTotal - pendingTotal);
   return {
     bonus_balance: Number(bonus.toFixed(2)),
-    total_earned: Number((bonus + totalDnIncome).toFixed(2)),
+    total_earned: Number((bonus + adjustedIncome).toFixed(2)),
+    source_total_dn_income: Number(totalDnIncome.toFixed(2)),
+    income_adjustment: Number((Number(incomeAdjustment) || 0).toFixed(2)),
     total_dn_income: Number(totalDnIncome.toFixed(2)),
     approved_total: Number(approvedTotal.toFixed(2)),
     pending_total: Number(pendingTotal.toFixed(2)),
@@ -105,8 +110,29 @@ function computeBalances(userData, totalDnIncome) {
   };
 }
 
+async function getIncomeAdjustment(redis, username, { failClosed = false } = {}) {
+  if (!redis) return 0;
+  try {
+    const raw = await redis.get(`nf_admin_income_adjustment:${username}`);
+    const record = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Number(record && record.amount) || 0;
+  } catch (cause) {
+    if (failClosed) {
+      const error = new Error('Income adjustment is temporarily unavailable');
+      error.code = 'INCOME_ADJUSTMENT_UNAVAILABLE';
+      error.cause = cause;
+      throw error;
+    }
+    return 0;
+  }
+}
+
+function validIdempotencyKey(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9._-]{12,120}$/.test(value);
+}
+
 function makeId() {
-  return 'wd_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  return 'wd_' + Date.now().toString(36) + '_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
 }
 
 // ---------- Handler ----------
@@ -124,6 +150,13 @@ module.exports = async (req, res) => {
 
   const redis = redisClient();
   const isAdmin = await isAdminUser(redis, jwtUsername);
+  try {
+    if (await isDisabledUser(redis, jwtUsername, { failClosed: true })) {
+      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    }
+  } catch (e) {
+    return res.status(503).json({ error: 'Account status unavailable', code: e.code || 'ACCOUNT_STATUS_UNAVAILABLE' });
+  }
 
   try {
     if (req.method === 'GET') {
@@ -207,7 +240,7 @@ module.exports = async (req, res) => {
       if (!userData || typeof userData !== 'object') userData = {};
 
       const dnIncome = getPromoterDnIncome(targetUser);
-      const balances = computeBalances(userData, dnIncome);
+      const balances = computeBalances(userData, dnIncome, await getIncomeAdjustment(redis, targetUser));
 
       const d = getDataJson();
       const uRaw = (d.users || {})[targetUser] ||
@@ -233,7 +266,7 @@ module.exports = async (req, res) => {
     }
 
     if (req.method === 'POST') {
-      const { username: rawUser, amount, payment_account } = req.body || {};
+      const { username: rawUser, amount, payment_account, idempotency_key: idempotencyKey } = req.body || {};
       let targetUser = canonizeUser(rawUser);
       if (!targetUser) targetUser = jwtUsername;
       // Non-admin can only submit withdrawals for themselves
@@ -249,29 +282,59 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Single withdrawal cannot exceed $10,000' });
       }
 
-      const account = String(payment_account || '').trim();
+      const account = String(payment_account || '').trim().toLowerCase();
       if (!EMAIL_RE.test(account)) {
         return res.status(400).json({ error: 'Please provide a valid PayPal email address' });
       }
+      if (!validIdempotencyKey(idempotencyKey)) {
+        return res.status(400).json({ error: 'idempotency_key must be 12-120 URL-safe characters', code: 'INVALID_IDEMPOTENCY_KEY' });
+      }
+
+      if (!redis) {
+        return res.status(503).json({ error: 'Wallet storage unavailable', code: 'WALLET_UNAVAILABLE' });
+      }
+
+      const lock = await acquireUserDataLock(redis, targetUser);
+      if (!lock) {
+        return res.status(409).json({ error: 'Another withdrawal is being submitted', code: 'WALLET_BUSY' });
+      }
+
+      try {
 
       const redisKey = `nf_user_data:${targetUser}`;
 
       let userData;
       try {
-        if (redis) {
-          const raw = await redis.get(redisKey);
-          userData = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
-        } else {
-          userData = {};
-        }
+        const raw = await redis.get(redisKey);
+        userData = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
       } catch (e) {
         return res.status(500).json({ error: 'Failed to load user data', detail: e.message });
       }
       if (!userData || typeof userData !== 'object') userData = {};
+      if (userData.disabled) {
+        return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+      }
       if (!Array.isArray(userData.withdrawals)) userData.withdrawals = [];
 
+      const duplicate = userData.withdrawals.find(item => item && item.idempotency_key === idempotencyKey);
+      if (duplicate) {
+        if (Number(duplicate.amount) !== Number(amt.toFixed(2)) || String(duplicate.payment_account || '').trim().toLowerCase() !== account) {
+          return res.status(409).json({ error: 'Idempotency key was already used for a different withdrawal', code: 'IDEMPOTENCY_CONFLICT' });
+        }
+        return res.status(200).json({
+          success: true,
+          idempotent: true,
+          request_id: duplicate.id,
+          message: 'Withdrawal request already submitted',
+          request: duplicate,
+          fee_percent: 5,
+          net_amount: Number(duplicate.net_amount) || 0,
+        });
+      }
+
       const dnIncome = getPromoterDnIncome(targetUser);
-      const balances = computeBalances(userData, dnIncome);
+      const incomeAdjustment = await getIncomeAdjustment(redis, targetUser, { failClosed: true });
+      const balances = computeBalances(userData, dnIncome, incomeAdjustment);
 
       if (amt > balances.available_balance + 0.001) {
         return res.status(400).json({
@@ -289,14 +352,14 @@ module.exports = async (req, res) => {
         fee: feeAmount,                     // 5% platform fee
         net_amount: netAmount,              // actual PayPal payout
         payment_account: account,
+        idempotency_key: idempotencyKey,
         status: 'pending',
         created_at: new Date().toISOString(),
       };
       userData.withdrawals.push(request);
 
-      if (redis) {
-        await redis.set(redisKey, JSON.stringify(userData));
-      }
+      await redis.set(redisKey, JSON.stringify(userData));
+      const updatedBalances = computeBalances(userData, dnIncome, incomeAdjustment);
 
       return res.status(200).json({
         success: true,
@@ -305,8 +368,11 @@ module.exports = async (req, res) => {
         request,
         fee_percent: 5,
         net_amount: netAmount,
-        available_balance: balances.available_balance,
+        available_balance: updatedBalances.available_balance,
       });
+      } finally {
+        await releaseUserDataLock(redis, lock);
+      }
     }
 
     // ========== ADMIN APPROVE/REJECT (PATCH) ==========
@@ -319,6 +385,16 @@ module.exports = async (req, res) => {
       if (!targetUser || !request_id || !['approve', 'reject'].includes(action)) {
         return res.status(400).json({ error: 'Required fields: username, request_id, action (approve|reject)' });
       }
+      if (!redis) {
+        return res.status(503).json({ error: 'Wallet storage unavailable', code: 'WALLET_UNAVAILABLE' });
+      }
+
+      const lock = await acquireUserDataLock(redis, targetUser);
+      if (!lock) {
+        return res.status(409).json({ error: 'Another wallet update is in progress', code: 'WALLET_BUSY' });
+      }
+
+      try {
 
       const redisKey = `nf_user_data:${targetUser}`;
       let userData;
@@ -350,7 +426,7 @@ module.exports = async (req, res) => {
       await redis.set(redisKey, JSON.stringify(userData));
 
       const dnIncome = getPromoterDnIncome(targetUser);
-      const newBalances = computeBalances(userData, dnIncome);
+      const newBalances = computeBalances(userData, dnIncome, await getIncomeAdjustment(redis, targetUser));
 
       return res.status(200).json({
         success: true,
@@ -358,12 +434,18 @@ module.exports = async (req, res) => {
         request: wd,
         balances: newBalances,
       });
+      } finally {
+        await releaseUserDataLock(redis, lock);
+      }
     }
 
     res.setHeader('Allow', 'GET, POST, PATCH, OPTIONS');
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error('[withdrawals] error:', err);
-    return res.status(500).json({ error: 'Internal error', detail: String(err && err.message || err) });
+    if (err && err.code === 'INCOME_ADJUSTMENT_UNAVAILABLE') {
+      return res.status(503).json({ error: 'Wallet balance is temporarily unavailable', code: err.code });
+    }
+    return res.status(500).json({ error: 'Internal error' });
   }
 };

@@ -12,6 +12,7 @@ const { handlePreflight } = require('./_lib/cors');
 const { verifyJWT } = require('./_lib/jwt');
 const { Redis } = require('@upstash/redis');
 const { mergeBookState } = require('./_lib/sync');
+const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -78,51 +79,63 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'No data provided' });
       }
 
-      // Fetch existing server data first (merge strategy: client cannot overwrite server-managed fields)
-      let existing = await redis.get(redisKey);
-      if (existing) {
-        if (typeof existing === 'string') {
-          try { existing = JSON.parse(existing); } catch { existing = {}; }
-        }
+      const lock = await acquireUserDataLock(redis, username);
+      if (!lock) {
+        return res.status(409).json({ error: 'User data is being updated', code: 'USER_DATA_BUSY' });
       }
-      if (!existing || typeof existing !== 'object') existing = {};
 
-      // Build cleanData by copying ONLY client-writable fields from the request.
-      const cleanData = { ...existing };
-      const bookState = mergeBookState(existing, data);
-      cleanData.myBooks = bookState.myBooks;
-      cleanData.deletedBooks = bookState.deletedBooks;
-      for (const key of CLIENT_WRITABLE_FIELDS) {
-        if (data[key] !== undefined) {
-          if (key === 'myBooks' || key === 'deletedBooks') {
-            continue;
-          } else if (key === 'claimed' && typeof data[key] === 'object' && existing.claimed) {
-            cleanData.claimed = { ...existing.claimed, ...data[key] };
-          }
-          else {
-            cleanData[key] = data[key];
+      try {
+        // Fetch existing server data first (merge strategy: client cannot overwrite server-managed fields)
+        let existing = await redis.get(redisKey);
+        if (existing) {
+          if (typeof existing === 'string') {
+            try { existing = JSON.parse(existing); } catch { existing = {}; }
           }
         }
-      }
-      cleanData.lastSyncAt = Date.now();
-
-      // Ensure server-managed fields are preserved and cannot be tampered with
-      const SERVER_MANAGED = ['points', 'bonus_balance', 'vip_days', 'bind_id', 'checkin',
-        'bonus_campaign1_claimed', 'streak_grand_claimed', 'disabled', 'accountType',
-        'total_income_override', 'withdrawals'];
-      for (const sf of SERVER_MANAGED) {
-        if (existing[sf] !== undefined) {
-          cleanData[sf] = existing[sf];
+        if (!existing || typeof existing !== 'object') existing = {};
+        if (existing.disabled) {
+          return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
         }
+
+        // Build cleanData by copying ONLY client-writable fields from the request.
+        const cleanData = { ...existing };
+        const bookState = mergeBookState(existing, data);
+        cleanData.myBooks = bookState.myBooks;
+        cleanData.deletedBooks = bookState.deletedBooks;
+        for (const key of CLIENT_WRITABLE_FIELDS) {
+          if (data[key] !== undefined) {
+            if (key === 'myBooks' || key === 'deletedBooks') {
+              continue;
+            } else if (key === 'claimed' && typeof data[key] === 'object' && existing.claimed) {
+              cleanData.claimed = { ...existing.claimed, ...data[key] };
+            }
+            else {
+              cleanData[key] = data[key];
+            }
+          }
+        }
+        cleanData.lastSyncAt = Date.now();
+
+        // Ensure server-managed fields are preserved and cannot be tampered with
+        const SERVER_MANAGED = ['points', 'bonus_balance', 'vip_days', 'bind_id', 'checkin',
+          'bonus_campaign1_claimed', 'streak_grand_claimed', 'disabled', 'accountType',
+          'total_income_override', 'withdrawals'];
+        for (const sf of SERVER_MANAGED) {
+          if (existing[sf] !== undefined) {
+            cleanData[sf] = existing[sf];
+          }
+        }
+
+        await redis.set(redisKey, JSON.stringify(cleanData));
+
+        return res.status(200).json({
+          success: true,
+          lastSyncAt: cleanData.lastSyncAt,
+          deletedBooks: cleanData.deletedBooks,
+        });
+      } finally {
+        await releaseUserDataLock(redis, lock);
       }
-
-      await redis.set(redisKey, JSON.stringify(cleanData));
-
-      return res.status(200).json({
-        success: true,
-        lastSyncAt: cleanData.lastSyncAt,
-        deletedBooks: cleanData.deletedBooks,
-      });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });

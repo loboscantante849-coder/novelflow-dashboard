@@ -23,6 +23,7 @@ const {
 const { handlePreflight } = require('../_lib/cors');
 const { Redis } = require('@upstash/redis');
 const { createPasswordHash, verifyPassword } = require('../_lib/password');
+const { isDisabledUser } = require('../_lib/security');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -128,6 +129,9 @@ module.exports = async (req, res) => {
         legacyPasswordKey ? redis.get(legacyPasswordKey) : null,
         redis.get('nf_user_data:' + usernameKey)
       ]);
+      if (await isDisabledUser(redis, usernameKey)) {
+        return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+      }
       const storedHash = canonicalHash || legacyHash;
       const userExists = !!(storedHash || userData);
 

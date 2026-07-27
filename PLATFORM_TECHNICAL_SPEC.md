@@ -41,12 +41,12 @@ KOC登录 → 搜索书籍 → 生成专属链接+邀请码 → 社媒推广
 
 | 层级 | 技术 | 说明 |
 |------|------|------|
-| 前端 | 单页HTML (app-v2.html, ~70KB) | 原生JS，零框架依赖，4 Tab SPA |
-| 后端 | Vercel Serverless Functions | Node.js，`/api/*.js`，23个端点 |
-| 数据存储 | GitHub Contents API (submissions.json) | 轻量级持久化，通过PAT认证读写 |
+| 前端 | 单页HTML (`index.html`) | 原生JS，零框架依赖，4 Tab SPA；旧 `/app-v2*` 路径由 Vercel rewrite 兼容 |
+| 后端 | Vercel Serverless Functions | Node.js，`/api/*.js` |
+| 数据存储 | Upstash Redis + 只读流水线快照 | 用户、推广与钱包状态存入 Redis；统计快照由自动化流水线更新 |
 | 缓存/KV | Upstash Redis | Token缓存、密码存储、书籍缓存、限流计数 |
 | 认证 | 自建JWT + OIDC代理 | 用户系统+书城API代理双重认证 |
-| 部署 | Vercel (自动) + GitHub Pages (手动) | main分支触发Vercel自动部署 |
+| 部署 | Vercel | `main` 分支触发生产部署，审核分支生成 Preview |
 
 ### 2.2 前端页面结构
 
@@ -465,14 +465,13 @@ function getText(key) { return I18N[AppState.currentLang]?.[key] || key; }
 | 分支 | 用途 | 部署目标 |
 |------|------|---------|
 | `main` | 代码分支 | Vercel自动部署（production） |
-| `gh-pages` | 部署分支 | GitHub Pages（手动） |
+| `codex/*` | 审核分支 | Vercel Preview，通过后合并到 `main` |
 
-**发布命令**: `git push origin main && git push origin main:gh-pages`（双push）
+**发布流程**: 推送审核分支 → 验证 Vercel Preview → 合并 PR → Vercel 自动发布生产。
 
 **域名**:
-- `novelflow-dashboard.vercel.app` — ✅可用
-- `novelflow.siphot.com` — ⚠️ NS未生效
-- `tinyurl.com/4v3tkm45` — ✅分享短链
+- `novelflow.top` — 正式站点
+- `novelflow-dashboard.vercel.app` — Vercel 项目域名
 
 ---
 
@@ -481,7 +480,7 @@ function getText(key) { return I18N[AppState.currentLang]?.[key] || key; }
 ```
                          ┌──────────────────────┐
                          │   KOC浏览器           │
-                         │  (app-v2.html SPA)   │
+                         │   (index.html SPA)   │
                          └──────┬───────────────┘
                                 │
                  ┌──────────────┼──────────────┐
@@ -494,9 +493,9 @@ function getText(key) { return I18N[AppState.currentLang]?.[key] || key; }
      ┌───────────┤              │        ┌─────┘
      │           │              │        │
 ┌────▼────┐ ┌───▼────┐   ┌────▼────┐ ┌──▼───────┐
-│GitHub   │ │NovelSpa│   │AC API   │ │GitHub    │
-│Contents │ │书城API │   │(beidou) │ │data.json │
-│API      │ │(OIDC)  │   │         │ │+北斗数据  │
+│Upstash  │ │NovelSpa│   │AC API   │ │GitHub    │
+│Redis    │ │书城API │   │(beidou) │ │统计快照   │
+│业务状态 │ │(OIDC)  │   │         │ │(只读)    │
 └─────────┘ └────────┘   └─────────┘ └──────────┘
      │           │              │
      ▼           ▼              ▼

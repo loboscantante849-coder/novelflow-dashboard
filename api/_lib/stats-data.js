@@ -19,6 +19,7 @@ const LINK_STATS_URL =
   'https://raw.githubusercontent.com/loboscantante849-coder/novelflow-dashboard/main/link-stats.json';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;          // 5 minutes
+const MAX_STALE_CACHE_MS = 2 * 60 * 60 * 1000; // never serve a day's-old warm cache
 const FETCH_TIMEOUT_MS = 8000;               // 8s per attempt
 const FETCH_RETRIES = 1;                     // retry once on failure
 // ADMIN_USERNAMES removed — admin status is Redis-driven via isAdminUser() in security.js.
@@ -58,9 +59,9 @@ const ALIAS_VARIANTS = {
 };
 
 // Module-level caches
-let AD_CACHE = { data: null, expires: 0 };
-let DATA_JSON_CACHE = { data: null, expires: 0 };
-let LINK_STATS_CACHE = { data: null, expires: 0 };
+let AD_CACHE = { data: null, expires: 0, fetchedAt: 0 };
+let DATA_JSON_CACHE = { data: null, expires: 0, fetchedAt: 0 };
+let LINK_STATS_CACHE = { data: null, expires: 0, fetchedAt: 0 };
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -148,7 +149,7 @@ async function getAdIdDetails(debugLog) {
       if (!data || !data.ad_ids || !data.by_promoter) {
         throw new Error('ad_id_details response missing required keys');
       }
-      AD_CACHE = { data, expires: Date.now() + CACHE_TTL_MS };
+      AD_CACHE = { data, expires: Date.now() + CACHE_TTL_MS, fetchedAt: Date.now() };
       debugLog?.push(`ad_id_details: fetched ok (${Object.keys(data.ad_ids).length} ad_ids, ${Object.keys(data.by_promoter).length} promoters, last_updated=${data.last_updated})`);
       return data;
     } catch (e) {
@@ -157,10 +158,11 @@ async function getAdIdDetails(debugLog) {
     }
   }
   // Return stale cache if available, else null
-  if (AD_CACHE.data) {
+  if (AD_CACHE.data && Date.now() - AD_CACHE.fetchedAt <= MAX_STALE_CACHE_MS) {
     debugLog?.push('ad_id_details: returning stale cache after fetch failures');
     return AD_CACHE.data;
   }
+  if (AD_CACHE.data) debugLog?.push('ad_id_details: stale cache exceeded maximum age');
   debugLog?.push(`ad_id_details: all fetches failed: ${lastErr?.message}`);
   return null;
 }
@@ -170,12 +172,14 @@ async function getLegacyDataJson(debugLog) {
   if (DATA_JSON_CACHE.data && DATA_JSON_CACHE.expires > now) return DATA_JSON_CACHE.data;
   try {
     const data = await fetchJsonWithTimeout(DATA_JSON_URL, 5000);
-    DATA_JSON_CACHE = { data, expires: Date.now() + CACHE_TTL_MS };
+    DATA_JSON_CACHE = { data, expires: Date.now() + CACHE_TTL_MS, fetchedAt: Date.now() };
     debugLog?.push('data.json (legacy fallback): fetched ok');
     return data;
   } catch (e) {
     debugLog?.push(`data.json fallback fetch failed: ${e.message}`);
-    return DATA_JSON_CACHE.data || null;
+    return DATA_JSON_CACHE.data && now - DATA_JSON_CACHE.fetchedAt <= MAX_STALE_CACHE_MS
+      ? DATA_JSON_CACHE.data
+      : null;
   }
 }
 
@@ -184,12 +188,14 @@ async function getLegacyLinkStats(debugLog) {
   if (LINK_STATS_CACHE.data && LINK_STATS_CACHE.expires > now) return LINK_STATS_CACHE.data;
   try {
     const data = await fetchJsonWithTimeout(LINK_STATS_URL, 5000);
-    LINK_STATS_CACHE = { data, expires: Date.now() + CACHE_TTL_MS };
+    LINK_STATS_CACHE = { data, expires: Date.now() + CACHE_TTL_MS, fetchedAt: Date.now() };
     debugLog?.push('link-stats.json (legacy fallback): fetched ok');
     return data;
   } catch (e) {
     debugLog?.push(`link-stats.json fallback fetch failed: ${e.message}`);
-    return LINK_STATS_CACHE.data || null;
+    return LINK_STATS_CACHE.data && now - LINK_STATS_CACHE.fetchedAt <= MAX_STALE_CACHE_MS
+      ? LINK_STATS_CACHE.data
+      : null;
   }
 }
 

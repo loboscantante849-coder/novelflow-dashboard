@@ -16,6 +16,7 @@ const {
 } = require('../_lib/auth');
 
 const { handlePreflight } = require('../_lib/cors');
+const { getRedis, isDisabledUser } = require('../_lib/security');
 
 module.exports = async (req, res) => {
   // me is read by the same-origin frontend via credentials; no cross-origin credentialed reads allowed.
@@ -29,8 +30,12 @@ module.exports = async (req, res) => {
     const payload = getUserFromCookies(req);
 
     if (payload && !payload._refresh) {
-      // Valid access token
       const userInfo = extractUserInfo(payload);
+      if (await isDisabledUser(getRedis(), payload.username)) {
+        clearAuthCookies(res);
+        return res.status(403).json({ loggedIn: false, code: 'ACCOUNT_DISABLED' });
+      }
+      // Valid access token
       return res.status(200).json({
         loggedIn: true,
         ...userInfo
