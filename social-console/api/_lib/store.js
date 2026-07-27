@@ -5,6 +5,7 @@ const PLAN_INDEX = 'nf_social:creative_plans';
 const DISCORD_JOB_INDEX = 'nf_social:discord:jobs';
 const DISCORD_HISTORY_INDEX = 'nf_social:discord:history';
 const runKey = (id) => `nf_social:run:${id}`;
+const runDetailKey = (id) => `nf_social:run_detail:${id}`;
 const planKey = (id) => `nf_social:creative_plan:${id}`;
 const runSummaryKey = (id) => `nf_social:run_summary:${id}`;
 const planSummaryKey = (id) => `nf_social:creative_plan_summary:${id}`;
@@ -141,6 +142,35 @@ function runSummary(run) {
     _summaryVersion: RUN_SUMMARY_VERSION
   };
 }
+
+function runDetail(run) {
+  const copy = JSON.parse(JSON.stringify(run));
+  const artifacts = copy.artifacts || {};
+  if (artifacts.book) artifacts.book.description = String(artifacts.book.description || '').slice(0, 4000);
+  delete artifacts.chapterList;
+  if (artifacts.evidence && Array.isArray(artifacts.evidence.chapters)) {
+    artifacts.evidence.chapterCount = artifacts.evidence.chapters.length;
+    artifacts.evidence.chapters = artifacts.evidence.chapters.slice(0, 20).map((chapter) => ({ ...chapter, content: String(chapter.content || '').slice(0, 8000), title: String(chapter.title || '').slice(0, 300) }));
+  }
+  if (artifacts.creativeDraft) {
+    const draft = artifacts.creativeDraft;
+    artifacts.creativeDraft = {
+      parts: Object.fromEntries(Object.entries(draft.parts || {}).map(([key, value]) => [key, { status: value?.status || 'ready' }])),
+      inFlight: draft.inFlight || {},
+      failures: Object.fromEntries(Object.entries(draft.failures || {}).map(([key, value]) => [key, { attempt: value?.attempt || 1, error: String(value?.error || '').slice(0, 300), nextAttemptAt: value?.nextAttemptAt || '', recoverable: value?.recoverable !== false, fallbackFrom: value?.fallbackFrom || '', fallbackModel: value?.fallbackModel || '' }])),
+      usage: Array.isArray(draft.usage) ? draft.usage.slice(-24) : [],
+      modelRoute: draft.modelRoute || null
+    };
+  }
+  if (Array.isArray(copy.events)) copy.events = copy.events.slice(-80).map((item) => ({ at: item.at, type: item.type, message: String(item.message || '').slice(0, 500) }));
+  if (Array.isArray(artifacts.posts)) artifacts.posts = artifacts.posts.map((post) => ({ ...post, content: String(post.content || '').slice(0, 12000), zhContent: String(post.zhContent || '').slice(0, 12000) }));
+  if (Array.isArray(artifacts.images)) artifacts.images = artifacts.images.map((image) => ({ ...image, prompt: String(image.prompt || '').slice(0, 5000), zhPrompt: String(image.zhPrompt || '').slice(0, 5000) }));
+  if (artifacts.videoPrompt) artifacts.videoPrompt = { ...artifacts.videoPrompt, adCopy: String(artifacts.videoPrompt.adCopy || '').slice(0, 10000), buildRequirement: String(artifacts.videoPrompt.buildRequirement || '').slice(0, 10000) };
+  if (artifacts.videoPromptDraft) artifacts.videoPromptDraft = { ...artifacts.videoPromptDraft, adCopy: String(artifacts.videoPromptDraft.adCopy || '').slice(0, 10000), buildRequirement: String(artifacts.videoPromptDraft.buildRequirement || '').slice(0, 10000) };
+  copy.artifacts = artifacts;
+  copy._detailVersion = 1;
+  return copy;
+}
 function creativePlanSummary(plan) {
   const artifacts = plan?.artifacts || {};
   return {
@@ -200,11 +230,22 @@ async function getRun(redis, id) {
   const value = await redis.get(runKey(id));
   return typeof value === 'string' ? JSON.parse(value) : value;
 }
+async function getRunDetail(redis, id) {
+  if (!redis || !/^[a-z0-9_-]{12,80}$/i.test(String(id || ''))) return null;
+  const value = await redis.get(runDetailKey(id));
+  return value ? parseStored(value) : null;
+}
+async function getRunSummary(redis, id) {
+  if (!redis || !/^[a-z0-9_-]{12,80}$/i.test(String(id || ''))) return null;
+  const value = await redis.get(runSummaryKey(id));
+  return value ? parseStored(value) : null;
+}
 async function saveRun(redis, run) {
   run.updatedAt = new Date().toISOString();
   await Promise.all([
     redis.set(runKey(run.id), JSON.stringify(run)),
-    redis.set(runSummaryKey(run.id), JSON.stringify(runSummary(run)))
+    redis.set(runSummaryKey(run.id), JSON.stringify(runSummary(run))),
+    redis.set(runDetailKey(run.id), JSON.stringify(runDetail(run)))
   ]);
   await redis.zadd(RUN_INDEX, { score: Date.now(), member: run.id });
   return run;
@@ -381,4 +422,4 @@ async function releaseVideoSlot(redis, key) {
   if (typeof key === 'string' && key.startsWith('nf_social:video_hour:')) await redis.incrby(key, -1);
 }
 
-module.exports = { getRedis, listRuns, listRunSummaries, getRun, saveRun, newRun, addEvent, setStage, runSummary, listCreativePlans, listCreativePlanSummaries, getCreativePlan, saveCreativePlan, newCreativePlan, creativePlanDetail, getDiscordJob, saveDiscordJob, listDiscordJobs, listDiscordJobSummaries, removeDiscordJobFromQueue, discordJobSummary, RUN_INDEX, PLAN_INDEX, DISCORD_JOB_INDEX, DISCORD_HISTORY_INDEX, videoCapacity, reserveVideoSlot, releaseVideoSlot };
+module.exports = { getRedis, listRuns, listRunSummaries, getRun, getRunDetail, getRunSummary, saveRun, newRun, addEvent, setStage, runSummary, runDetail, listCreativePlans, listCreativePlanSummaries, getCreativePlan, saveCreativePlan, newCreativePlan, creativePlanDetail, getDiscordJob, saveDiscordJob, listDiscordJobs, listDiscordJobSummaries, removeDiscordJobFromQueue, discordJobSummary, RUN_INDEX, PLAN_INDEX, DISCORD_JOB_INDEX, DISCORD_HISTORY_INDEX, videoCapacity, reserveVideoSlot, releaseVideoSlot };

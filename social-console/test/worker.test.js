@@ -112,6 +112,27 @@ test('manual run requests take priority over queued Discord work', async (t) => 
   assert.equal(discordCalls, 0);
 });
 
+test('detail hydration rebuilds a compact snapshot without advancing providers or pipeline', async (t) => {
+  const target = run();
+  target.artifacts.evidence = { chapters: [{ order: 1, content: 'x'.repeat(50000) }] };
+  let saves = 0;
+  let runCalls = 0;
+  const { result } = await invoke(t, {
+    body: { id: target.id, detailOnly: true },
+    store: {
+      getRun: async () => target,
+      saveRun: async (_redis, item) => { saves += 1; return item; }
+    },
+    pipeline: { processRun: async () => { runCalls += 1; return target; } }
+  });
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.body.detailReady, true);
+  assert.equal(target.artifacts.evidence.chapters[0].content.length, 16000);
+  assert.equal(saves, 1);
+  assert.equal(runCalls, 0);
+});
+
 test('an unknown explicit run id never falls through to an unrelated runnable run', async (t) => {
   const fallback = run('run_abcdef1234567890');
   let runCalls = 0;

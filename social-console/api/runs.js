@@ -1,4 +1,4 @@
-const { getRedis, getRun, listRunSummaries, newRun, saveRun, getCreativePlan } = require('./_lib/store');
+const { getRedis, getRun, getRunDetail, getRunSummary, listRunSummaries, newRun, saveRun, getCreativePlan } = require('./_lib/store');
 const { requireSession } = require('./_lib/auth');
 const { normalizeCreative } = require('./_lib/pipeline');
 const providers = require('./_lib/providers');
@@ -90,6 +90,13 @@ async function listRunsPayload(redis, loader = listRunSummaries) {
   return { runs: await loader(redis, 50) };
 }
 
+async function loadRunView(redis, id, detailLoader = getRunDetail, summaryLoader = getRunSummary) {
+  const detail = await detailLoader(redis, id);
+  if (detail) return { run: detail, partial: false };
+  const summary = await summaryLoader(redis, id);
+  return summary ? { run: { ...summary, _summary: false, _detailPartial: true }, partial: true } : { run: null, partial: false };
+}
+
 async function resolvePlanning(redis, value) {
   const planning = sanitizePlanning(value);
   if (!planning?.planId) return planning;
@@ -120,11 +127,13 @@ module.exports = async (req, res) => {
   if (!redis) return res.status(503).json({ error: 'Social console storage is not configured' });
   try {
     if (req.method === 'GET') {
-      const run = req.query?.id ? await getRun(redis, req.query.id) : null;
-      if (req.query?.id && !run) return res.status(404).json({ error: 'Run not found' });
-      if (req.query?.id && req.query?.asset === 'copy') return res.status(200).json(copyAssetPayload(run));
+      const id = text(req.query?.id, 100);
+      const view = id ? await loadRunView(redis, id) : { run: null, partial: false };
+      if (id && !view.run) return res.status(404).json({ error: 'Run not found' });
+      if (id && req.query?.asset === 'copy') return !view.partial ? res.status(200).json(copyAssetPayload(view.run)) : res.status(202).json({ pending: true, posts: [] });
       if (req.query?.id && req.query?.asset) return res.status(400).json({ error: 'Unsupported asset view' });
-      if (req.query?.id) return res.status(200).json({ run: detailPayload(run) });
+      if (id && !view.partial) return res.status(200).json({ run: view.run });
+      if (id && view.partial) return res.status(202).json(view);
       return res.status(200).json(await listRunsPayload(redis));
     }
     if (req.method === 'PATCH') {
@@ -350,3 +359,4 @@ module.exports = async (req, res) => {
 
 module.exports.copyAssetPayload = copyAssetPayload;
 module.exports.listRunsPayload = listRunsPayload;
+module.exports.loadRunView = loadRunView;

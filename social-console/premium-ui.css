@@ -57,6 +57,13 @@
 .production-status-meta > span { min-width: 0; }
 .production-status-meta .model-logo { max-width: 100%; }
 .production-status-meta > small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detail-sync-state { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 11px; border: 1px dashed #b8c9c2; border-radius: 6px; background: #fbfcfc; }
+.detail-sync-state > svg { width: 18px; color: #087f5b; }
+.detail-sync-state > div { min-width: 0; flex: 1; }
+.detail-sync-state strong, .detail-sync-state span { display: block; }
+.detail-sync-state strong { color: #26363d; font-size: 11px; }
+.detail-sync-state span { margin-top: 3px; color: #6c7973; font-size: 9px; line-height: 1.45; }
+.detail-sync-state button { flex: none; height: 30px; padding: 0 8px; font-size: 9px; }
 @media (max-width: 620px) { .production-status-card { grid-template-columns: 28px minmax(0, 1fr); } .production-status-meta { grid-column: 2; padding: 7px 0 0; border-top: 1px solid #d8e9f4; border-left: 0; } }
 .copy-output-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
 .copy-output-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }

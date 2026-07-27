@@ -109,6 +109,8 @@ function restoreDashboardSnapshot() {
 }
 state.detailHydrating = '';
 state.detailError = '';
+state.detailHydrationJobs = new Set();
+state.detailHydrationTimers = new Map();
 state.leaderboardWarning = '';
 state.leaderboardDataQuality = '';
 state.leaderboardCredentialStatus = '';
@@ -729,7 +731,7 @@ function openDetail(id, target = '') {
 
 async function hydrateRunDetail(id) {
   const run = state.runs.find((item) => item.id === id);
-  if (!run?._summary || state.detailHydrating === id) return;
+  if ((!run?._summary && !run?._detailPartial) || state.detailHydrating === id) return;
   state.detailHydrating = id;
   state.detailFingerprint = '';
   renderDetail();
@@ -740,14 +742,37 @@ async function hydrateRunDetail(id) {
     state.detailError = '';
     state.detailFingerprint = '';
     render();
+    if (body.partial || body.run._detailPartial) requestDetailHydration(id);
+    else {
+      const timer = state.detailHydrationTimers.get(id);
+      if (timer) clearTimeout(timer);
+      state.detailHydrationTimers.delete(id);
+    }
   } catch (error) {
-    state.detailError = `${error.message || '详情加载失败'}；可以直接重试，不会重新创建任务`;
+    const current = state.runs.find((item) => item.id === id);
+    if (current) state.runs = state.runs.map((item) => item.id === id ? { ...item, _summary: false, _detailPartial: true } : item);
+    state.detailError = `${error.message || '详情加载失败'}；已保留任务摘要，后台继续补齐详情`;
     state.detailFingerprint = '';
     renderDetail();
-    showToast(`任务详情加载失败：${error.message}`, 'error');
+    requestDetailHydration(id);
   } finally {
     if (state.detailHydrating === id) state.detailHydrating = '';
   }
+}
+
+function requestDetailHydration(id) {
+  if (!state.detailHydrationJobs.has(id)) {
+    state.detailHydrationJobs.add(id);
+    fetch(`/api/worker?id=${encodeURIComponent(id)}&detailOnly=1`, { method: 'POST', credentials: 'same-origin' })
+      .catch(() => null)
+      .finally(() => state.detailHydrationJobs.delete(id));
+  }
+  if (state.detailHydrationTimers.has(id)) return;
+  const timer = setTimeout(() => {
+    state.detailHydrationTimers.delete(id);
+    if (state.detailOpen && state.selectedId === id) hydrateRunDetail(id);
+  }, 5000);
+  state.detailHydrationTimers.set(id, timer);
 }
 
 function retryRunDetail(id) {
@@ -1809,7 +1834,7 @@ function distributionHtml(run) {
 }
 
 function modelActivityHtml(run) {
-  const completed = [...(run.artifacts?.modelActivity || []), ...(run.artifacts?.creativeDraft?.usage || [])];
+  const completed = [...(run.modelActivity || []), ...(run.artifacts?.modelActivity || []), ...(run.artifacts?.creativeDraft?.usage || [])];
   const failures = Object.entries(run.artifacts?.creativeDraft?.failures || {}).map(([section, item]) => ({ section, ...item, recovering: true }));
   const rows = [...completed.map((item) => ({ ...item, recovering: false })), ...failures]
     .sort((a, b) => Date.parse(b.completedAt || b.at || 0) - Date.parse(a.completedAt || a.at || 0))
@@ -1841,14 +1866,14 @@ function renderDetail() {
   panel.setAttribute('aria-hidden', String(!(state.detailOpen && run)));
   scrim.setAttribute('aria-hidden', String(!(state.detailOpen && run)));
   if (!run) { panel.innerHTML = `<div class="detail-empty"><i data-lucide="panel-right-open"></i><strong>完整生产链路</strong><span>从历史表现榜选择一本书后，节点会实时显示产物与进度。</span>${idlePipelineHtml()}</div>`; return; }
-  if (state.detailError && state.selectedId === run.id) {
+  if (state.detailError && state.selectedId === run.id && !run._detailPartial) {
     panel.innerHTML = `<div class="detail-empty detail-error-state"><i data-lucide="triangle-alert"></i><strong>任务详情暂时没有打开</strong><span>${escapeHtml(state.detailError)}</span><button id="retryDetail" class="primary-command" type="button"><i data-lucide="refresh-cw"></i><span>重新加载详情</span></button></div>`;
     $('#retryDetail')?.addEventListener('click', () => retryRunDetail(run.id));
     icons();
     return;
   }
   if (run._summary) {
-    panel.innerHTML = `<div class="detail-empty"><i data-lucide="loader-circle"></i><strong>正在加载完整生产记录</strong><span>${escapeHtml(run.artifacts?.book?.title || run.input?.title || '该任务')} 的文案、原文证据与素材将按需载入。</span><small>如果超过 30 秒，将自动显示重试入口，不会卡住页面。</small></div>`;
+    panel.innerHTML = `<div class="detail-empty"><i data-lucide="loader-circle"></i><strong>正在打开任务摘要</strong><span>${escapeHtml(run.artifacts?.book?.title || run.input?.title || '该任务')} 的节点先显示，素材详情随后补齐。</span><small>页面不会因完整任务记录较大而锁死。</small></div>`;
     return;
   }
   const fingerprint = `${run.id}:${run.updatedAt}:${run.state}:${state.creativeVariantRunId}`;
@@ -1862,6 +1887,15 @@ function renderDetail() {
   const variantPending = state.creativeVariantRunId === run.id;
   const retryLabel = posterPartial ? '单独重试失败海报' : videoLimitBlocked ? `下小时重试视频${run.stages.P4.nextWindow ? `（当前额度至 ${run.stages.P4.nextWindow}）` : ''}` : '重试失败节点';
   const canRetry = run.state === 'failed' || videoLimitBlocked || posterPartial;
+  if (run._detailPartial) {
+    panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header><section class="pipeline"><div class="section-heading"><div><h3>P1-P6 生产链路</h3><p>节点和恢复状态可立即查看，文案与媒体详情正在后台建立轻量快照。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="detail-sync-state"><i data-lucide="database-zap"></i><div><strong>正在补齐素材详情</strong><span>${escapeHtml(state.detailError || '后台只整理已有任务数据，不会调用模型，也不会提交付费图片或视频。')}</span></div><button id="retryDetail" class="secondary-command" type="button"><i data-lucide="refresh-cw"></i>立即检查</button></div></section><section class="detail-section"><div class="section-heading"><h3>模型活动</h3><span class="language-tag">摘要记录</span></div>${modelActivityHtml(run)}</section>`;
+    $('#closeDetail')?.addEventListener('click', closeDetail);
+    $('#retryDetail')?.addEventListener('click', () => hydrateRunDetail(run.id));
+    state.detailFingerprint = fingerprint;
+    requestDetailHydration(run.id);
+    icons();
+    return;
+  }
   panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><div class="detail-actions">${canRetry ? `<button id="retryRun" class="secondary-command"><i data-lucide="rotate-ccw"></i><span>${escapeHtml(retryLabel)}</span></button>` : ''}<button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div></div><nav class="detail-tabs" aria-label="成果模块"><button data-scroll-target="detail-overview">概览</button><button data-scroll-target="detail-decision">事前策划</button><button data-scroll-target="detail-quality">成品质检</button><button data-scroll-target="detail-copy">文案</button><button data-scroll-target="detail-video">视频</button><button data-scroll-target="detail-posters">海报</button><button data-scroll-target="detail-prompts">提示词</button><button data-scroll-target="detail-data">数据</button></nav><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header>
     <section id="detail-overview" class="pipeline"><div class="section-heading"><div><h3>P1-P6 生产链路</h3><p>书籍核验与证据锁定后，自动完成追踪、创意、视频、海报与审核包。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div>${productionModelRouteHtml(run)}<div class="creative-strategy">${creativeProfileHtml(run.input?.creativeProfile || {})}</div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="current-stage">${escapeHtml(active[1]?.label || labels[run.state] || run.state)}${active[1]?.error ? `：${escapeHtml(active[1].error)}` : ''}</div></section>
     ${decisionHtml(run)}

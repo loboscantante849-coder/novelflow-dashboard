@@ -4,9 +4,38 @@ const { processRun, p3 } = require('./_lib/pipeline');
 const { processCreativePlan } = require('./_lib/creative-plans');
 const { processDiscordJob } = require('./_lib/discord');
 const { acquireLease, releaseLease, recoverStaleLease } = require('./_lib/lease');
+const providers = require('./_lib/providers');
 
 const WORKER_LEASE_SECONDS = 810;
 const STALE_LEASE_MS = 825000;
+const STALE_CREATIVE_MS = 14 * 60 * 1000;
+
+function compactStoredEvidence(run) {
+  const chapters = run.artifacts?.evidence?.chapters;
+  if (Array.isArray(chapters)) chapters.forEach((chapter) => { chapter.content = String(chapter.content || '').slice(0, 16000); });
+}
+
+function recoverInterruptedCreative(run) {
+  const stage = run.stages?.P3 || {};
+  const startedAt = Date.parse(stage.startedAt || '');
+  if (stage.status !== 'running' || !Number.isFinite(startedAt) || Date.now() - startedAt <= STALE_CREATIVE_MS) return false;
+  const draft = run.artifacts?.creativeDraft || { parts: {}, usage: [], failures: {} };
+  draft.inFlight = {};
+  const currentModel = String(run.input?.creativeProfile?.modelChoice || 'hy3');
+  if (draft.modelRoute?.fallbackUsed) {
+    run.state = 'failed';
+    run.stages.P3 = { ...stage, status: 'failed', phase: 'waiting_for_operator', recoverable: false, nextAttemptAt: '', label: '唯一备用模型任务中断，请人工选择重试', error: '后台执行窗口结束，未收到可核实的模型结果', updatedAt: new Date().toISOString() };
+    addEvent(run, 'stale_creative_waiting_for_operator', 'The one permitted reserve model ended without a verifiable result; automatic calls stopped');
+  } else {
+    const reserveModel = providers.reserveModelFor(currentModel);
+    draft.modelRoute = { preferredModel: currentModel, fallbackModel: reserveModel, fallbackUsed: true, fallbackFrom: currentModel, reason: '首选模型后台执行窗口结束' };
+    run.input.creativeProfile = { ...(run.input.creativeProfile || {}), modelChoice: reserveModel };
+    run.stages.P3 = { ...stage, status: 'waiting', phase: 'fallback_scheduled', recoverable: true, nextAttemptAt: new Date().toISOString(), label: `${reserveModel} 将作为唯一备用模型从已保存证据接管`, error: '首选模型后台执行窗口结束，未收到可核实结果', fallbackFrom: currentModel, updatedAt: new Date().toISOString() };
+    addEvent(run, 'stale_creative_fallback_scheduled', 'The primary model execution window ended; the one permitted reserve model will continue from saved evidence', { currentModel, reserveModel });
+  }
+  run.artifacts.creativeDraft = draft;
+  return true;
+}
 
 function runResult(run) {
   return { id: run.id, state: run.state, updatedAt: run.updatedAt, stages: run.stages };
@@ -34,9 +63,19 @@ module.exports = async (req, res) => {
     const requestedId = String(req.body?.id || req.query?.id || '');
     const requestedPlanId = String(req.body?.planId || req.query?.planId || '');
     const requestedCreativeSection = String(req.body?.creativeSection || req.query?.creativeSection || '');
+    const detailOnly = ['1', 'true'].includes(String(req.body?.detailOnly || req.query?.detailOnly || '').toLowerCase());
     if (requestedId && requestedPlanId) return res.status(400).json({ error: 'Specify either id or planId, not both' });
     if (requestedCreativeSection && !requestedId) return res.status(400).json({ error: 'A run id is required for creative section work' });
     if (requestedCreativeSection && !['posts', 'videoPrompt', 'posterPrompts', 'qualityReview'].includes(requestedCreativeSection)) return res.status(400).json({ error: 'Unsupported creative section' });
+    if (detailOnly) {
+      if (!requestedId) return res.status(400).json({ error: 'A run id is required for detail hydration' });
+      const run = await getRun(redis, requestedId);
+      if (!run) return res.status(404).json({ error: 'Run not found' });
+      compactStoredEvidence(run);
+      addEvent(run, 'detail_snapshot_rebuilt', 'A compact operator detail snapshot was rebuilt without invoking any provider');
+      await saveRun(redis, run);
+      return res.status(200).json({ worked: true, detailReady: true, run: runResult(run) });
+    }
 
     // A direct browser action must always advance the task the operator chose.
     // Queue-only work is considered only for untargeted cron/worker calls.
@@ -129,10 +168,13 @@ module.exports = async (req, res) => {
     const leaseState = await acquireRecoverableLease(redis, `nf_social:lock:${run.id}`);
     if (!leaseState) return res.status(200).json({ worked: false, locked: true });
     try {
+      compactStoredEvidence(run);
+      const interruptedCreative = recoverInterruptedCreative(run);
       if (leaseState.recovered) {
         addEvent(run, 'stale_worker_lock_recovered', 'Recovered an interrupted worker lease from the latest saved stage');
         await saveRun(redis, run);
       }
+      if (interruptedCreative) await saveRun(redis, run);
       const updated = await processRun(redis, run);
       return res.status(200).json({ worked: true, run: runResult(updated) });
     } finally { await releaseLease(redis, leaseState.lease); }

@@ -186,7 +186,7 @@ async function p2(redis, run) {
   const cursor = Number(stage.cursor || 0);
   const batch = evidence.refs.slice(cursor, cursor + 2);
   if (batch.length) {
-    const downloaded = await Promise.all(batch.map(async (ref) => ({ ...ref, content: await providers.chapterContent(ref.id) })));
+    const downloaded = await Promise.all(batch.map(async (ref) => ({ ...ref, content: String(await providers.chapterContent(ref.id)).slice(0, 16000) })));
     evidence.chapters.push(...downloaded);
     evidence.completed = evidence.chapters.length;
     const next = cursor + batch.length;

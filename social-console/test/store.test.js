@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { newRun, runSummary } = require('../api/_lib/store');
+const { newRun, runSummary, runDetail } = require('../api/_lib/store');
 
 test('dashboard run summaries retain operational state without transferring full planning and model payloads', () => {
   const run = newRun({
@@ -33,4 +33,14 @@ test('dashboard run summaries retain operational state without transferring full
   assert.equal(summary.events.length, 1);
   assert.equal(summary._summaryVersion, 3);
   assert.ok(bytes < 10000, `summary should be compact, received ${bytes} bytes`);
+});
+
+test('detail snapshots bound chapter payloads before the browser reads them', () => {
+  const run = newRun({ title: 'Heavy Romance', sku: 'heavy-sku', creativeProfile: { modelChoice: 'deepseek' } });
+  run.artifacts.evidence = { chapters: Array.from({ length: 30 }, (_, index) => ({ order: index + 1, title: `Chapter ${index + 1}`, content: 'x'.repeat(50000) })) };
+  const detail = runDetail(run);
+  assert.equal(detail.artifacts.evidence.chapters.length, 20);
+  assert.equal(detail.artifacts.evidence.chapters[0].content.length, 8000);
+  assert.equal(detail._detailVersion, 1);
+  assert.ok(Buffer.byteLength(JSON.stringify(detail)) < 170000);
 });
