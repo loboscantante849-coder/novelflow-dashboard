@@ -349,6 +349,38 @@ function pendingCreativeSections(draft) {
   return draft.parts.qualityReview ? [] : ['qualityReview'];
 }
 
+function groundedVideoFallback(run, draft) {
+  const post = draft.parts?.posts?.[0];
+  const six = post?.sixSteps || {};
+  if (!post || !six.hook || !six.contrast || !six.emotionalCta) return null;
+  const evidence = [];
+  for (const item of [...(post.evidence || []), ...((draft.parts?.posts?.[1]?.evidence) || [])]) {
+    if (!Number(item?.chapter) || !String(item?.quote || '').trim()) continue;
+    if (!evidence.some((value) => value.chapter === Number(item.chapter) && value.quote === String(item.quote).trim())) evidence.push({ chapter: Number(item.chapter), quote: String(item.quote).trim() });
+  }
+  for (const chapter of run.artifacts?.evidence?.chapters || []) {
+    if (evidence.length >= 3) break;
+    const quote = (String(chapter.content || '').match(/[A-Za-z][^.!?]{24,140}[.!?]/) || [])[0]?.trim();
+    if (quote && !evidence.some((value) => value.chapter === Number(chapter.order) && value.quote === quote)) evidence.push({ chapter: Number(chapter.order), quote });
+  }
+  if (evidence.length < 3) return null;
+  const hook = String(six.hook).trim();
+  const valuePromise = String(six.deepDesire || six.pain).trim();
+  const escalation = String(six.pain || six.sensory).trim();
+  const reversal = String(six.contrast).trim();
+  const cliffhanger = String(six.emotionalCta).trim();
+  return {
+    hook, valuePromise, escalation, reversal, cliffhanger,
+    sourceEvidence: evidence.slice(0, 3), evidenceChapters: evidence.slice(0, 3).map((item) => item.chapter),
+    adCopy: [hook, escalation, reversal, cliffhanger].join(' '),
+    buildRequirement: '0-2s: immediate close-up of the source-grounded disruption. 2-5s: show the protagonist\'s personal stake through one concrete action. 5-8s: tighten framing as pressure rises. 8-11s: reveal the documented power reversal. 11-15s: hold on the unresolved choice. Vertical 9:16, adult characters, consistent appearance and wardrobe, cinematic continuity, no subtitles, readable text, logos, CTA cards, or identity drift.',
+    zhHook: `钩子：${hook}`, zhValuePromise: `价值：${valuePromise}`, zhEscalation: `升级：${escalation}`, zhReversal: `反转：${reversal}`, zhCliffhanger: `悬念：${cliffhanger}`,
+    zhAdCopy: '旁白严格复用已保存的六步法文案冲突，不新增剧情事实。',
+    zhBuildRequirement: '0-2秒冲突特写；2-5秒个人代价；5-8秒压力升级；8-11秒权力反转；11-15秒停在未决选择。竖屏9:16，角色外观一致，无字幕、可读文字、Logo或CTA卡片。',
+    fallbackStatus: 'derived_from_ai_copy_and_source_evidence'
+  };
+}
+
 async function finalizeCreativeDraft(redis, run) {
   const draft = run.artifacts.creativeDraft;
   if (!draft || pendingCreativeSections(draft).length) return run;
@@ -488,6 +520,21 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
         const alreadyUsedReserve = latestDraft.modelRoute?.fallbackUsed === true || Boolean(error?.fallbackModel);
         if (alreadyUsedReserve) {
           const message = cleanError(error);
+          if (pendingSection === 'videoPrompt') {
+            const fallbackVideo = groundedVideoFallback(latest, latestDraft);
+            if (fallbackVideo) {
+              latestDraft.parts.videoPrompt = fallbackVideo;
+              delete latestDraft.failures[pendingSection];
+              latest.artifacts.modelActivity = [...(latest.artifacts.modelActivity || []), { section: pendingSection, requestedModel: preferredModel, model: 'evidence-fallback', fallbackFrom: error?.fallbackFrom || preferredModel, fallbackModel: error?.fallbackModel || '', fallbackReason: '首选与唯一备用模型均未返回可解析结构，使用已保存 AI 文案与原文证据重组', completedAt: now(), triggerReason: '证据化脚本兜底', outputStatus: '视频剧情包已保存，未新增剧情', error: message }].slice(-24);
+              latest.artifacts.creativeDraft = latestDraft;
+              latest.state = 'running';
+              setStage(latest, 'P3', 'waiting', { label: '视频剧情已从 AI 文案与原文证据重组，继续剩余创意节点', phase: 'video_evidence_fallback', error: message, recoverable: false });
+              addEvent(latest, 'creative_video_evidence_fallback', 'Video package was derived from saved AI copy and exact chapter evidence after the single model reserve failed');
+              await saveRun(redis, latest);
+              const finalized = await finalizeCreativeDraft(redis, latest);
+              return syncRun(originalRun, finalized);
+            }
+          }
           if (pendingSection === 'qualityReview') {
             latestDraft.parts.qualityReview = { recommendation: 'keep', conclusion: 'AI 质检未返回可解析结果；已保留文案、视频提示词和海报提示词，未伪造“质检通过”。', why: `首选与唯一备用模型均未完成质检：${message}`, target: 'package', status: 'unverified' };
             delete latestDraft.failures[pendingSection];

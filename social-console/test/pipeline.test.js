@@ -163,6 +163,30 @@ test('quality review failure does not discard already saved creative outputs', a
   assert.equal(run.artifacts.qualityReview.status, 'unverified');
 });
 
+test('video prompt falls back to saved AI copy and exact evidence after both model routes fail', async (t) => {
+  const originals = { ...providers };
+  t.after(() => Object.assign(providers, originals));
+  const packageData = creative();
+  providers.generateCreative = async () => {
+    const error = new providers.ProviderError('Primary invalid JSON; fallback invalid JSON');
+    error.fallbackModel = 'hy3'; error.fallbackFrom = 'deepseek';
+    throw error;
+  };
+  const redis = new MemoryRedis();
+  const run = newRun({ title: 'Video Recovery Romance', sku: 'video-recovery', promoter: 'xujt', paidAuthorized: true });
+  run.state = 'running';
+  run.artifacts.book = { bookSkuId: 'video-recovery' };
+  run.artifacts.evidence = { chapters: [{ order: 1, content: 'A sufficiently long exact quote copied from chapter one. She found the signed contract before dawn.' }, { order: 2, content: 'A sufficiently long exact quote copied from chapter two. The promise trapped her between duty and freedom. She placed the evidence on his desk.' }, { order: 3, content: 'The rain hit the glass while she refused to lower her eyes.' }] };
+  run.artifacts.code = '44444'; run.artifacts.shortUrl = 'https://social.example/s/abc';
+  run.artifacts.creativeDraft = { parts: { posts: packageData.posts, posterPrompts: packageData.posterPrompts }, usage: [], failures: {}, inFlight: {} };
+  await redis.set(`nf_social:run:${run.id}`, JSON.stringify(run));
+  await p3(redis, run, null, false, 'videoPrompt');
+  assert.equal(run.state, 'running');
+  assert.equal(run.artifacts.creativeDraft.parts.videoPrompt.fallbackStatus, 'derived_from_ai_copy_and_source_evidence');
+  assert.equal(run.artifacts.creativeDraft.parts.videoPrompt.sourceEvidence.length, 3);
+  assert.match(run.events.map((item) => item.type).join(' '), /creative_video_evidence_fallback/);
+});
+
 test('one-click pipeline persists tracking and never duplicates paid submissions', async (t) => {
   const originals = { ...providers };
   t.after(() => Object.assign(providers, originals));
