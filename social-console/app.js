@@ -1607,9 +1607,14 @@ function pipelineNode(run, key) {
 }
 
 function waitDurationLabel(value) {
-  const seconds = Math.max(0, Math.floor((Date.now() - Date.parse(value || '')) / 1000));
+  const seconds = waitDurationSeconds(value);
   if (!Number.isFinite(seconds)) return '刚刚开始';
   return seconds >= 60 ? `已等待 ${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒` : `已等待 ${seconds} 秒`;
+}
+
+function waitDurationSeconds(value) {
+  const seconds = Math.floor((Date.now() - Date.parse(value || '')) / 1000);
+  return Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
 }
 
 function productionStatusHtml(run, active) {
@@ -1621,15 +1626,19 @@ function productionStatusHtml(run, active) {
   const fallback = stage.fallbackFrom || (stage.phase === 'fallback_scheduled' ? model : '');
   const nextAt = Date.parse(stage.nextAttemptAt || '');
   const next = Number.isFinite(nextAt) ? new Date(nextAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
-  const situation = stage.phase === 'fallback_scheduled'
+  const expectedSeconds = isCreative ? (usesLongBackground(model) ? 600 : 60) : 0;
+  const overdue = expectedSeconds && waitDurationSeconds(stage.startedAt || run.updatedAt) > expectedSeconds;
+  const situation = overdue
+    ? `已超过 ${Math.ceil(expectedSeconds / 60)} 分钟正常等待窗口，后台尚未收到可核实的模型结果。为避免重复消耗 Token，系统没有偷偷重发请求。`
+    : stage.phase === 'fallback_scheduled'
     ? `首选 ${modelLabel(fallback || model)} 未返回可用结果，唯一备用 ${modelLabel(model)} 将从已保存证据接管。`
     : stage.phase === 'waiting_for_operator' || stage.executionMode === 'waiting_for_operator'
       ? '自动恢复已停止，不会继续消耗 Token；请在任务详情中选择重试或切换模型。'
       : isCreative
         ? `${modelLabel(model)} 正在${key === 'P2' ? '梳理全书结构' : '生成创意素材'}，任务不会因页面关闭而中断。`
         : '正在等待前置节点或外部任务返回；不会重复创建 Code、图片或视频。';
-  const nextStep = stage.phase === 'fallback_scheduled' ? (next ? `${next} 后启动唯一备用模型。` : '备用模型将在下一次后台推进时启动。') : key === 'P3' ? '完成后会依次保存文案、视频提示词、海报提示词和成品质检。' : key === 'P2' ? '完成后将继续创建 Code 和短链，再进入创意生成。' : stage.label || '后台会在状态变化后自动推进下一节点。';
-  return `<aside class="production-status-card ${stage.phase === 'fallback_scheduled' ? 'fallback' : ''}"><div class="production-status-icon"><i data-lucide="${stage.phase === 'fallback_scheduled' ? 'route' : 'loader-circle'}"></i></div><div><span>当前正在发生什么</span><strong>${escapeHtml(stageLabels[key] || key)} · ${escapeHtml(waitDurationLabel(stage.startedAt || run.updatedAt))}</strong><p>${escapeHtml(situation)}</p><small><b>下一步：</b>${escapeHtml(nextStep)}</small></div><div class="production-status-meta"><span>${isCreative ? modelLogoHtml(model, { compact: true }) : '自动推进'}</span><small>${stage.error ? escapeHtml(stage.error) : '状态已持久化，可关闭页面'}</small></div></aside>`;
+  const nextStep = overdue ? '请在“模型活动”确认是否已有产物；没有产物时再手动选择重试或切换模型，避免双重调用。' : stage.phase === 'fallback_scheduled' ? (next ? `${next} 后启动唯一备用模型。` : '备用模型将在下一次后台推进时启动。') : key === 'P3' ? '完成后会依次保存文案、视频提示词、海报提示词和成品质检。' : key === 'P2' ? '完成后将继续创建 Code 和短链，再进入创意生成。' : stage.label || '后台会在状态变化后自动推进下一节点。';
+  return `<aside class="production-status-card ${overdue ? 'overdue' : stage.phase === 'fallback_scheduled' ? 'fallback' : ''}"><div class="production-status-icon"><i data-lucide="${overdue ? 'circle-alert' : stage.phase === 'fallback_scheduled' ? 'route' : 'loader-circle'}"></i></div><div><span>当前正在发生什么</span><strong>${escapeHtml(stageLabels[key] || key)} · ${escapeHtml(waitDurationLabel(stage.startedAt || run.updatedAt))}${overdue ? ' · 已超时' : ''}</strong><p>${escapeHtml(situation)}</p><small><b>下一步：</b>${escapeHtml(nextStep)}</small></div><div class="production-status-meta"><span>${isCreative ? modelLogoHtml(model, { compact: true }) : '自动推进'}</span><small>${overdue ? `正常窗口 ${Math.ceil(expectedSeconds / 60)} 分钟 · 未自动重发` : stage.error ? escapeHtml(stage.error) : '状态已持久化，可关闭页面'}</small></div></aside>`;
 }
 
 function nodeDecision(run, node) {

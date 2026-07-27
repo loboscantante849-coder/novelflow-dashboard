@@ -42,8 +42,10 @@
 @media (max-width: 620px) { .model-ledger > header { align-items: flex-start; flex-direction: column; gap: 9px; } .model-ledger-row { grid-template-columns: minmax(0, 1fr) 28px; padding: 11px 14px; } .ledger-trigger, .ledger-models, .ledger-metrics { grid-column: 1; } .model-ledger-row > button { grid-column: 2; grid-row: 1; } }
 .production-status-card { display: grid; grid-template-columns: 28px minmax(0, 1fr) minmax(120px, .58fr); gap: 10px; align-items: center; margin-top: 10px; padding: 11px; border: 1px solid #b8d6ef; border-radius: 6px; background: #f6fbff; }
 .production-status-card.fallback { border-color: #efd38e; background: #fffaf0; }
+.production-status-card.overdue { border-color: #efc1b7; background: #fff8f6; }
 .production-status-icon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: #e6f2fc; color: #236f9b; }
 .production-status-card.fallback .production-status-icon { background: #fff0cf; color: #9b6813; }
+.production-status-card.overdue .production-status-icon { background: #ffe8e2; color: #ae4e3b; }
 .production-status-icon svg { width: 16px; }
 .production-status-card span, .production-status-card strong, .production-status-card p, .production-status-card small { display: block; }
 .production-status-card > div:nth-child(2) > span { color: #39759a; font-size: 9px; font-weight: 850; }
