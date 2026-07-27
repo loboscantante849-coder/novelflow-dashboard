@@ -167,6 +167,29 @@ test('verified historical candidates remain actionable when the new-book metric 
   assert.ok(scored.every((book) => book.todayScore > 0 && book.todayScore <= 100));
 });
 
+test('catalog outage automatically opens the clearly labelled verified review queue instead of an empty main ranking', () => {
+  const state = {
+    leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', windowDays: 7,
+    catalogFilters: { line: 'novelflow', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all' },
+    todayDataQuality: 'history_verified', todayBooks: [{ title: 'Verified candidate', bookSkuId: 'sku-1' }],
+    selectedBooks: new Set(['old']), leaderboard: []
+  };
+  const context = {
+    state, Date, Set,
+    document: { querySelectorAll: () => [{ dataset: { source: 'history' }, classList: { toggle() {} } }] }
+  };
+  vm.createContext(context);
+  vm.runInContext([
+    between('function leaderboardQueryKey(', 'function compactRunSnapshot('),
+    between('function activateHistoricalLeaderboardFallback(', 'function renderBatchBookBar(')
+  ].join('\n'), context);
+  assert.equal(context.activateHistoricalLeaderboardFallback('继续策划'), true);
+  assert.equal(state.leaderboardSource, 'history');
+  assert.equal(state.leaderboard[0].title, 'Verified candidate');
+  assert.equal(state.selectedBooks.size, 0);
+  assert.match(state.leaderboardWarning, /已验证投放复盘候选/);
+});
+
 test('legacy snapshots without verified metric provenance are not restored as rankings', () => {
   const snapshot = {
     savedAt: Date.now(),

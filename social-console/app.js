@@ -867,6 +867,27 @@ function responseAllowsCatalogRanking(body, books, sortKey = state.catalogSort) 
   return ['verified_metrics', 'stale_verified_metrics'].includes(quality) && catalogDataHealth(books, sortKey).selected;
 }
 
+function activateHistoricalLeaderboardFallback(reason = '') {
+  // A source outage must never strand the operator in an empty primary area.
+  // These are already verified attribution records, not a substitute for the
+  // new-book ranking: switch the view and label it as the review queue.
+  if (state.todayDataQuality !== 'history_verified' || !Array.isArray(state.todayBooks) || !state.todayBooks.length) return false;
+  state.leaderboardSource = 'history';
+  state.leaderboard = state.todayBooks.slice();
+  state.leaderboardDataQuality = 'history_verified';
+  state.leaderboardUpdated = new Date().toISOString();
+  state.leaderboardWindow = { days: 30, source: 'verified_promotion_review' };
+  state.leaderboardMetrics = null;
+  state.leaderboardWarning = `新推广中台暂不可用，当前自动切换为已验证投放复盘候选${reason ? `：${reason}` : ''}`;
+  state.leaderboardError = '';
+  state.leaderboardDataKey = leaderboardQueryKey('history');
+  state.leaderboardPage = 1;
+  state.leaderboardCoverKey = '';
+  state.selectedBooks.clear();
+  document.querySelectorAll('#leaderboardSource button').forEach((button) => button.classList.toggle('active', button.dataset.source === 'history'));
+  return true;
+}
+
 function renderBatchBookBar() {
   const bar = $('#batchBookBar');
   const count = state.selectedBooks.size;
@@ -974,6 +995,15 @@ async function loadTodayRail() {
             state.todayDataQuality = 'history_verified';
             loadTodayCovers();
             saveDashboardSnapshot();
+            // Startup requests race: the catalog failure can arrive before
+            // this fallback finishes. Recover the visible main panel here as
+            // well so it cannot remain blank until a later refresh.
+            if (state.leaderboardSource === 'catalog' && !state.leaderboard.length && state.leaderboardDataQuality === 'unavailable'
+              && activateHistoricalLeaderboardFallback('可继续策划或一键生成')) {
+              state.leaderboardLoading = false;
+              renderLeaderboard(); icons();
+              setTimeout(() => loadLeaderboard({ silent: true }), 0);
+            }
             return;
           }
         } catch {}
@@ -1902,16 +1932,25 @@ async function loadLeaderboard({ refresh = false, silent = false } = {}) {
   } catch (error) {
     if (requestId !== state.leaderboardRequestId) return;
     const hasPrevious = requestSource === 'catalog' ? catalogQualityAllowsRanking(state.leaderboard) : state.leaderboard.length > 0;
-    if (!hasPrevious) state.leaderboard = [];
-    state.leaderboardDataQuality = hasPrevious && requestSource === 'catalog' ? 'stale_verified_metrics' : (error.details?.dataQuality || 'unavailable');
-    state.leaderboardCredentialStatus = error.details?.credentialStatus || error.details?.sourceHealth?.credentialStatus || state.leaderboardCredentialStatus;
-    state.leaderboardError = error.message || '榜单数据源暂不可用';
-    state.leaderboardWarning = hasPrevious
-      ? '实时数据源暂不可用，继续展示最近一次已验证榜单'
-      : (error.details?.refreshWarning || state.leaderboardError);
-    state.leaderboardDataKey = requestKey;
-    shouldLoadCovers = hasPrevious;
-    if (!silent) showToast(hasPrevious ? '榜单刷新失败，已保留上一版可用数据' : error.message, hasPrevious ? '' : 'error');
+    const fallbackActivated = !hasPrevious && requestSource === 'catalog'
+      && activateHistoricalLeaderboardFallback('可继续策划或一键生成');
+    if (!fallbackActivated) {
+      if (!hasPrevious) state.leaderboard = [];
+      state.leaderboardDataQuality = hasPrevious && requestSource === 'catalog' ? 'stale_verified_metrics' : (error.details?.dataQuality || 'unavailable');
+      state.leaderboardCredentialStatus = error.details?.credentialStatus || error.details?.sourceHealth?.credentialStatus || state.leaderboardCredentialStatus;
+      state.leaderboardError = error.message || '榜单数据源暂不可用';
+      state.leaderboardWarning = hasPrevious
+        ? '实时数据源暂不可用，继续展示最近一次已验证榜单'
+        : (error.details?.refreshWarning || state.leaderboardError);
+      state.leaderboardDataKey = requestKey;
+      shouldLoadCovers = hasPrevious;
+    } else {
+      shouldLoadCovers = true;
+      // Replace the compact rail fallback with the complete reviewed ranking
+      // in the background. The current cards remain immediately actionable.
+      setTimeout(() => loadLeaderboard({ silent: true }), 0);
+    }
+    if (!silent) showToast(hasPrevious ? '榜单刷新失败，已保留上一版可用数据' : fallbackActivated ? '新书中台暂不可用，已自动打开投放复盘候选' : error.message, hasPrevious || fallbackActivated ? '' : 'error');
   } finally {
     if (requestId === state.leaderboardRequestId) {
       if (state.leaderboardController === controller) state.leaderboardController = null;
