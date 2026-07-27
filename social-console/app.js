@@ -283,12 +283,20 @@ function planJobResult(job) {
   return { id: job.id, book: job.artifacts?.book || { title: job.input?.title || '', sku: job.input?.sku || '' }, plan: job.artifacts?.plan || {}, evidenceScope: job.artifacts?.evidenceScope || { chapterCount: 0, sampledChapters: [] }, usage: job.artifacts?.usage || {}, modelChoice: job.input?.modelChoice || 'hy3', preferredModelChoice: job.input?.preferredModelChoice || job.input?.modelChoice || 'hy3', fallbackUsed: Boolean(job.input?.fallbackUsed), modelHistory: job.input?.modelHistory || [] };
 }
 
+function visibleCreativePlanJobs(planJobs = state.planJobs, runs = state.runs) {
+  // A completed plan becomes production input as soon as the operator adopts
+  // it. It belongs to that run's trace, not in the pending-decision queue.
+  const adoptedPlanIds = new Set((runs || []).map((run) => String(run.input?.planning?.planId || '')).filter(Boolean));
+  return (planJobs || []).filter((job) => ['queued', 'running', 'completed', 'failed'].includes(job.state)
+    && !adoptedPlanIds.has(String(job.id))).slice(0, 5);
+}
+
 function renderCreativePlanQueue() {
   const queue = $('#creativePlanQueue');
   const launcher = $('#creativePlanQueueButton');
   const count = $('#creativePlanQueueCount');
   const list = $('#planQueueList');
-  const jobs = state.planJobs.filter((job) => ['queued', 'running', 'completed', 'failed'].includes(job.state)).slice(0, 5);
+  const jobs = visibleCreativePlanJobs();
   if (queue) queue.hidden = true;
   if (launcher) launcher.hidden = !jobs.length;
   if (count) count.textContent = String(jobs.length);
@@ -368,6 +376,7 @@ function bindCreativePlanActions(result) {
       const creativeProfile = creativePlanProfile();
       const actualPlanningModel = result.usage?.model || result.modelChoice || creativeProfile.modelChoice;
       await createProduction({ title: result.book.title, sku: result.book.bookSkuId || result.book.sku, source: 'ai_plan', creativeProfile, planning: { planId: result.id || '', preferredModel: result.preferredModelChoice || actualPlanningModel, actualModel: actualPlanningModel, fallbackUsed: Boolean(result.fallbackUsed) } });
+      renderCreativePlanQueue();
       $('#creativePlanDialog').close();
       showToast(`策划由 ${modelLabel(actualPlanningModel)} 完成；生产使用 ${modelLabel(creativeProfile.modelChoice)}`);
     } catch (error) { showToast(error.message, 'error'); button.disabled = false; }

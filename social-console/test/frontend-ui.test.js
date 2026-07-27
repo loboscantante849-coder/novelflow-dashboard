@@ -190,6 +190,21 @@ test('catalog outage automatically opens the clearly labelled verified review qu
   assert.match(state.leaderboardWarning, /已验证投放复盘候选/);
 });
 
+test('adopted AI plans leave the decision queue and remain only on their production run', () => {
+  const context = { state: { planJobs: [], runs: [] }, Set, String };
+  vm.createContext(context);
+  vm.runInContext(between('function visibleCreativePlanJobs(', 'function renderCreativePlanQueue('), context);
+  const visible = context.visibleCreativePlanJobs([
+    { id: 'accepted', state: 'completed' },
+    { id: 'ready', state: 'completed' },
+    { id: 'running', state: 'running' },
+    { id: 'failed', state: 'failed' }
+  ], [
+    { input: { planning: { planId: 'accepted' } } }
+  ]);
+  assert.deepEqual(visible.map((job) => job.id), ['ready', 'running', 'failed']);
+});
+
 test('legacy snapshots without verified metric provenance are not restored as rankings', () => {
   const snapshot = {
     savedAt: Date.now(),
