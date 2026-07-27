@@ -367,6 +367,23 @@ async function finalizeCreativeDraft(redis, run) {
   try {
     creative = normalizeCreative(result, run);
   } catch (error) {
+    const coreReady = draft.parts?.posts && draft.parts?.videoPrompt && draft.parts?.posterPrompts;
+    if (draft.validationFallbackUsed && coreReady) {
+      const message = cleanError(error);
+      run.artifacts.posts = draft.parts.posts;
+      run.artifacts.translations = { language: 'zh-CN', posts: (draft.parts.posts || []).map((item) => item.zhContent) };
+      run.artifacts.videoPrompt = draft.parts.videoPrompt;
+      run.artifacts.posterPrompts = draft.parts.posterPrompts;
+      run.artifacts.qualityReview = { recommendation: 'keep', status: 'unverified', phase: 'validation_unverified', reviewedAt: now(), conclusion: '核心创意已保存；自动证据校验有一项未通过，已保留产物并提示人工复核。', why: message, target: 'package' };
+      run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), ...draft.usage.map((item) => ({ ...item, validationStatus: 'rejected', validationError: message, outputStatus: '产物保留，待人工复核' }))].slice(-24);
+      delete run.artifacts.creativeDraft;
+      run.artifacts.optimization = { status: 'validation_unverified', review: run.artifacts.qualityReview, resolvedAt: now() };
+      run.state = 'running';
+      setStage(run, 'P3', 'done', { label: '核心创意已保存，自动校验待人工复核，继续后续素材', phase: 'validation_unverified', error: message, recoverable: false });
+      addEvent(run, 'creative_validation_nonblocking', 'Core creative outputs were retained after a second validation failure; downstream media may continue with an operator review flag');
+      await saveRun(redis, run);
+      return run;
+    }
     const attempt = Number(draft.validationAttempts || 0) + 1;
     const previousModel = String(run.input?.creativeProfile?.modelChoice || 'hy3');
     if (draft.validationFallbackUsed) {
