@@ -7,6 +7,32 @@ const AC_BASE = 'https://ac.beidou.win/api/v1';
 const { setCORSHeaders } = require('./_lib/cors');
 const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
 
+const AC_OWNER_TTL_SECONDS = 180 * 86400;
+const LEGACY_LOOKUP_MAX_PAGES = 30;
+
+async function restoreLegacyTaskOwnership({ redis, token, threadId, username }) {
+  const prefix = `nf_${username}_`;
+  for (let pageIndex = 1; pageIndex <= LEGACY_LOOKUP_MAX_PAGES; pageIndex += 1) {
+    const response = await fetch(`${AC_BASE}/creative/paged-list?PageSize=100&PageIndex=${pageIndex}`, {
+      headers: { 'Authorization': `Bearer ${token}`, 'x-client': 'beidou-web', 'X-Project-Id': '1006' },
+    });
+    if (!response.ok) throw new Error('AC legacy ownership lookup failed');
+    const data = await response.json().catch(() => null);
+    const items = Array.isArray(data?.items) ? data.items : [];
+    const ownedTask = items.some((item) => (
+      item &&
+      String(item.thread_id || item.threadId || item.id || '') === String(threadId) &&
+      String(item.remark || '').startsWith(prefix)
+    ));
+    if (ownedTask) {
+      await redis.set(`ac_thread_owner:${threadId}`, username, { ex: AC_OWNER_TTL_SECONDS });
+      return true;
+    }
+    if (pageIndex >= Number(data?.pageCount || 1) || items.length === 0) break;
+  }
+  return false;
+}
+
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -35,19 +61,6 @@ module.exports = async (req, res) => {
   const tid = req.query.threadId;
   if (!tid) return res.status(400).json({ error: 'threadId required' });
 
-  // Ownership check
-  try {
-    const isAdm = await isAdminUser(redis, username, { failClosed: true });
-    if (!isAdm) {
-      const owner = await redis.get('ac_thread_owner:' + tid);
-      if (!owner || String(owner).toLowerCase() !== String(username).toLowerCase()) {
-        return res.status(403).json({ error: 'Not authorized to view this task' });
-      }
-    }
-  } catch(e) {
-    return res.status(503).json({ error: 'Task ownership is temporarily unavailable', code: 'TASK_OWNER_UNAVAILABLE' });
-  }
-
   let token = null;
   try {
     token = await redis.get('ac_token');
@@ -56,6 +69,21 @@ module.exports = async (req, res) => {
   }
   if (!token) token = process.env.AC_TOKEN;
   if (!token) return res.status(503).json({ error: 'AC Token not configured on server' });
+
+  // Ownership check. Historical tasks can outlive their original Redis entry,
+  // so verify them against the current user's strictly-prefixed AC task list.
+  try {
+    const isAdm = await isAdminUser(redis, username, { failClosed: true });
+    if (!isAdm) {
+      const owner = await redis.get('ac_thread_owner:' + tid);
+      if (!owner || String(owner).toLowerCase() !== String(username).toLowerCase()) {
+        const restored = await restoreLegacyTaskOwnership({ redis, token, threadId: tid, username });
+        if (!restored) return res.status(403).json({ error: 'Not authorized to view this task' });
+      }
+    }
+  } catch(e) {
+    return res.status(503).json({ error: 'Task ownership is temporarily unavailable', code: 'TASK_OWNER_UNAVAILABLE' });
+  }
 
   try {
     const r = await fetch(AC_BASE + `/creative/${tid}/result`, {
