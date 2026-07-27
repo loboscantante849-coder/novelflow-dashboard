@@ -22,6 +22,7 @@ test('homepage rankings use measured promotion data instead of random or catalog
   assert.match(source, /campaign_visits: 'Campaign Visits'/);
   assert.match(source, /productUpdateNotice/);
   assert.match(source, /PRODUCT_UPDATE_NOTICE_KEY = 'novelflow_product_update_20260727'/);
+  assert.match(source, /Daily book performance, Top Promotions, and personal invite codes are now available/);
   assert.match(source, /promote_earn_badge: 'Promote & Earn'/);
   assert.doesNotMatch(source, /hideLoadingAndShowContent\(\)[\s\S]{0,400}rankHeader'\)\.style\.display = 'flex'/);
 });
