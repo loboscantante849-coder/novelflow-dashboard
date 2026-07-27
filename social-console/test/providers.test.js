@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const providers = require('../api/_lib/providers');
-const { modelTemperature, operationsTimeoutForModel, parseModelJson } = providers;
+const { modelTemperature, operationsTimeoutForModel, parseModelJson, extractModelText } = providers;
 
 test('Kimi K2.7 Code receives its provider-required temperature without changing other models', () => {
   assert.equal(modelTemperature('kimi-k2.7-code', 0.25), 1);
@@ -14,6 +14,12 @@ test('creative JSON parser repairs common provider formatting without another mo
   const parsed = parseModelJson('```json\n{"content":"line one\nline two", "tags":["a","b",],}\n```', 'test-model');
   assert.equal(parsed.content, 'line one\nline two');
   assert.deepEqual(parsed.tags, ['a', 'b']);
+});
+
+test('structured provider objects remain valid model output instead of becoming empty text', () => {
+  const content = { videoPrompt: { hook: 'A source-grounded disruption' } };
+  assert.equal(extractModelText({ choices: [{ message: { content } }] }), JSON.stringify(content));
+  assert.deepEqual(parseModelJson(JSON.stringify(JSON.stringify(content))), content);
 });
 
 test('selected non-HY models receive a real completion window before fallback', () => {

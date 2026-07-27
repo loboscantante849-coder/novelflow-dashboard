@@ -458,8 +458,15 @@ function extractModelText(body) {
   const message = body.choices?.[0]?.message || body.data?.choices?.[0]?.message || {};
   const choice = message.content;
   if (typeof choice === 'string') return choice;
-  if (Array.isArray(choice)) return choice.map((item) => typeof item === 'string' ? item : String(item?.text || item?.content || '')).join('');
-  if (choice && typeof choice === 'object') return String(choice.text || choice.content || '');
+  if (Array.isArray(choice)) return choice.map((item) => {
+    if (typeof item === 'string') return item;
+    const nested = item?.text || item?.content;
+    return nested && typeof nested === 'object' ? JSON.stringify(nested) : String(nested || '');
+  }).join('');
+  if (choice && typeof choice === 'object') {
+    const nested = choice.text || choice.content;
+    return nested == null ? JSON.stringify(choice) : typeof nested === 'object' ? JSON.stringify(nested) : String(nested);
+  }
   if (message.reasoning_content) return String(message.reasoning_content);
   const parts = [];
   for (const output of body.output || []) for (const item of output.content || []) {
@@ -477,8 +484,14 @@ function parseModelJson(raw, model = 'selected AI model') {
   if (start >= 0 && end > start) candidates.push(cleaned.slice(start, end + 1));
   for (const candidate of candidates) {
     const normalized = escapeJsonControlCharacters(candidate).replace(/,\s*([}\]])/g, '$1');
-    try { return JSON.parse(candidate); } catch {}
-    if (normalized !== candidate) try { return JSON.parse(normalized); } catch {}
+    try {
+      const parsed = JSON.parse(candidate);
+      return typeof parsed === 'string' && /^[\[{]/.test(parsed.trim()) ? JSON.parse(parsed) : parsed;
+    } catch {}
+    if (normalized !== candidate) try {
+      const parsed = JSON.parse(normalized);
+      return typeof parsed === 'string' && /^[\[{]/.test(parsed.trim()) ? JSON.parse(parsed) : parsed;
+    } catch {}
   }
   throw new ProviderError(`${model} returned invalid structured output`);
 }
@@ -639,7 +652,7 @@ The videoPrompt is a high-retention vertical short-video story package, not gene
   ]);
   const sectionSpec = {
     posts: ['copy generation', postsInstruction, { posts: schema.posts }, 6000],
-    videoPrompt: ['video generation', videoInstruction, { videoPrompt: schema.videoPrompt }, 4000],
+    videoPrompt: ['video generation', videoInstruction, { videoPrompt: schema.videoPrompt }, 6000],
     posterPrompts: ['poster generation', postersInstruction, { posterPrompts: schema.posterPrompts }, 2600],
     qualityReview: ['quality review', reviewInstruction, { qualityReview: schema.qualityReview }, 1800]
   }[requestedSection];
@@ -1065,4 +1078,4 @@ async function reportRows(code, linkId, days = 90) {
 
 function sha(value) { return crypto.createHash('sha256').update(String(value)).digest('hex'); }
 
-module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, searchBooks, performanceBooks, contentDashboardBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, linkDetail, generateCreative, analyzeCreativePlan, analyzeOperations, analyzeBookCandidates, extractScreenshotText, analyzeScreenshotWithSeed, copilotReply, generateDistributionPlan, rewritePosterPrompt, findAcTask, submitAc, acResult, validateVideo, submitImage, imageResult, reportRows, sha, titleKey, modelTemperature, operationsTimeoutForModel, reserveModelFor, parseModelJson };
+module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, searchBooks, performanceBooks, contentDashboardBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, linkDetail, generateCreative, analyzeCreativePlan, analyzeOperations, analyzeBookCandidates, extractScreenshotText, analyzeScreenshotWithSeed, copilotReply, generateDistributionPlan, rewritePosterPrompt, findAcTask, submitAc, acResult, validateVideo, submitImage, imageResult, reportRows, sha, titleKey, modelTemperature, operationsTimeoutForModel, reserveModelFor, parseModelJson, extractModelText };
