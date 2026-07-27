@@ -56,4 +56,4 @@ function rankBooks(data, days) {
   return { books: ranked.map((book, index) => ({ ...book, rank: index + 1 })), window: { days, throughDate, startDate, endDate: throughDate }, metrics: { firstRead: 'new_uv / pull_uv (Bayesian-smoothed)', retention: 'not_available', d14Income: 'daily D14 income' } };
 }
 
-module.exports = { rankBooks };
+module.exports = { rankBooks, cleanTitle };

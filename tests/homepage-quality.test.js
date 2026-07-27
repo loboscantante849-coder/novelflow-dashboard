@@ -7,7 +7,7 @@ const ROOT = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 const vercel = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
 
-test('homepage rankings use real reader data instead of random numbers', () => {
+test('homepage rankings use measured promotion data instead of random or catalogue-sort data', () => {
   assert.doesNotMatch(source, /Math\.floor\(Math\.random\(\) \* 500\)/);
   assert.doesNotMatch(source, /commissionRates/);
   assert.doesNotMatch(source, /\borders:\s*Math\.floor\(Math\.random/);
@@ -15,11 +15,11 @@ test('homepage rankings use real reader data instead of random numbers', () => {
   assert.doesNotMatch(source, /1,200\+ promoters|1,200\+ promotores/);
   assert.doesNotMatch(source, /\[40,55,70,80\]/);
   assert.doesNotMatch(source, /earnBadgeTexts/);
-  assert.match(source, /uv: Number\(book\.uv \|\| book\.bookUv \|\| book\.readCount/);
-  assert.match(source, /sort\(\(a, b\) => Number\(b\.uv\) - Number\(a\.uv\)\)/);
-  assert.match(source, /hasVerifiedTrending = AppState\.books\.some\(book => Number\(book\.uv\) > 0\)/);
-  assert.match(source, /const titleKey = hasVerifiedTrending \? 'trending_now' : 'featured_books'/);
-  assert.match(source, /hasVerifiedTrending \? AppState\.books\.slice\(5, 11\) : AppState\.books\.slice\(0, 6\)/);
+  assert.match(source, /promotionVisits7d: Number\(book\.promotionVisits7d\) \|\| 0/);
+  assert.match(source, /hasMeasuredPromotionRank = AppState\.books\.some\(book => Number\(book\.promotionVisits7d\) > 0\)/);
+  assert.match(source, /const titleKey = hasMeasuredPromotionRank \? 'top_promotions_week' : 'featured_books'/);
+  assert.match(source, /filter\(book => Number\(book\.promotionVisits7d\) > 0\)/);
+  assert.match(source, /campaign_visits: 'Campaign Visits'/);
   assert.match(source, /promote_earn_badge: 'Promote & Earn'/);
   assert.doesNotMatch(source, /hideLoadingAndShowContent\(\)[\s\S]{0,400}rankHeader'\)\.style\.display = 'flex'/);
 });
@@ -31,7 +31,7 @@ test('language switching updates page metadata and translated discovery labels',
   assert.match(source, /featured_books: '✨ Libros destacados'/);
   assert.match(source, /featured_subtitle: 'Descubre libros para promocionar'/);
   assert.match(source, /genre_werewolf: 'Hombre lobo'/);
-  assert.match(source, /top_promotions: 'Libros en tendencia'/);
+  assert.match(source, /top_promotions: 'Mejores promociones'/);
   assert.match(source, /password_placeholder: 'Contraseña'/);
   assert.match(source, /perf_tab_new: 'Nuevos usuarios'/);
   assert.match(source, /toLocaleDateString\(AppState\.currentLang === 'es' \? 'es-ES' : 'en-US'/);

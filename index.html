@@ -3414,7 +3414,7 @@
             isLoggedIn: false,
             user: null,
             books: [],
-            hasVerifiedTrending: false,
+            hasMeasuredPromotionRank: false,
             filteredBooks: [],
             myBooks: [],
             selectedCandidate: null,
@@ -3563,6 +3563,8 @@
                 copied: '✅ Copied!',
                 trending_now: '🔥 Trending This Week',
                 find_next_read: 'Find your next favorite read',
+                top_promotions_week: '🔥 Top Promotions This Week',
+                top_promotions_subtitle: 'Ranked by measured campaign performance over the last 7 days',
                 featured_books: '✨ Featured Books',
                 featured_subtitle: 'Discover books to promote',
                 browse_books: 'Browse Books',
@@ -3573,8 +3575,9 @@
                 genre_young_adult: 'Young Adult',
                 genre_fantasy: 'Fantasy',
                 genre_mafia: 'Mafia',
-                top_promotions: 'Trending Books',
+                top_promotions: 'Top Promotions',
                 readers: 'Readers',
+                campaign_visits: 'Campaign Visits',
                 promote_earn_badge: 'Promote & Earn',
                 recommend_btn: 'Recommend',
                 new_label: 'New',
@@ -3825,6 +3828,8 @@
                 copied: '✅ ¡Copiado!',
                 trending_now: '🔥 Tendencias de la Semana',
                 find_next_read: 'Encuentra tu próxima lectura favorita',
+                top_promotions_week: '🔥 Promociones destacadas esta semana',
+                top_promotions_subtitle: 'Clasificadas por rendimiento medido de campaña de los últimos 7 días',
                 featured_books: '✨ Libros destacados',
                 featured_subtitle: 'Descubre libros para promocionar',
                 browse_books: 'Explorar Libros',
@@ -3835,8 +3840,9 @@
                 genre_young_adult: 'Juvenil',
                 genre_fantasy: 'Fantasía',
                 genre_mafia: 'Mafia',
-                top_promotions: 'Libros en tendencia',
+                top_promotions: 'Mejores promociones',
                 readers: 'Lectores',
+                campaign_visits: 'Visitas de campaña',
                 promote_earn_badge: 'Promociona y gana',
                 recommend_btn: 'Recomendar',
                 new_label: 'Nuevo',
@@ -4077,7 +4083,8 @@
                 author: Array.isArray(book.authors) ? book.authors.map(a => a.authorName || a).join(', ') : (book.author || ''),
                 languageCode: book.languageCode || 'en',
                 bookClassName: book.bookClassName || '',
-                uv: Number(book.uv || book.bookUv || book.readCount || 0) || 0
+                promotionVisits7d: Number(book.promotionVisits7d) || 0,
+                promotionRank: Number(book.promotionRank) || 0
             });
 
             // Try 1: Trending API with language
@@ -4153,10 +4160,10 @@
                 AppState.books = [];
             }
 
-            // A server-side sort parameter alone is not proof of a Top list.
-            // Only call a section Trending when the response carries a usable
-            // UV/read metric that the client can verify.
-            AppState.hasVerifiedTrending = AppState.books.some(book => Number(book.uv) > 0);
+            // A catalogue order is never presented as a Top list. The rank
+            // sections appear only for books that carry a measured seven-day
+            // NovelFlow campaign visit metric.
+            AppState.hasMeasuredPromotionRank = AppState.books.some(book => Number(book.promotionVisits7d) > 0);
             AppState.filteredBooks = AppState.books;
             hideLoadingAndShowContent();
             renderBookList();
@@ -4219,9 +4226,9 @@
             const section = document.getElementById('bookScrollSection');
             const title = section && section.querySelector('.book-scroll-title');
             const subtitle = section && section.querySelector('.section-subtitle');
-            const hasVerifiedTrending = Boolean(AppState.hasVerifiedTrending);
-            const titleKey = hasVerifiedTrending ? 'trending_now' : 'featured_books';
-            const subtitleKey = hasVerifiedTrending ? 'find_next_read' : 'featured_subtitle';
+            const hasMeasuredPromotionRank = Boolean(AppState.hasMeasuredPromotionRank);
+            const titleKey = hasMeasuredPromotionRank ? 'top_promotions_week' : 'featured_books';
+            const subtitleKey = hasMeasuredPromotionRank ? 'top_promotions_subtitle' : 'featured_subtitle';
             if (title) {
                 title.dataset.i18n = titleKey;
                 title.textContent = getText(titleKey);
@@ -4231,9 +4238,12 @@
                 subtitle.textContent = getText(subtitleKey);
             }
 
-            // With verified ranking data, reserve the first five books for the
-            // Top list. Otherwise this is discovery content, starting at #1.
-            const books = hasVerifiedTrending ? AppState.books.slice(5, 11) : AppState.books.slice(0, 6);
+            // With measured promotion ranking data, reserve the ranked books
+            // for the Top list. Otherwise this is discovery content, starting at #1.
+            const rankedCount = hasMeasuredPromotionRank
+                ? AppState.books.filter(book => Number(book.promotionVisits7d) > 0).length
+                : 0;
+            const books = hasMeasuredPromotionRank ? AppState.books.slice(rankedCount, rankedCount + 6) : AppState.books.slice(0, 6);
             // If not enough, fill from start
             if (books.length < 6) {
                 const extra = AppState.books.slice(0, 6 - books.length);
@@ -4263,8 +4273,8 @@
             const container = document.getElementById('rankList');
             if (!container) return;
             const rankBooks = AppState.books
-                .filter(book => Number(book.uv) > 0)
-                .sort((a, b) => Number(b.uv) - Number(a.uv))
+                .filter(book => Number(book.promotionVisits7d) > 0)
+                .sort((a, b) => Number(a.promotionRank) - Number(b.promotionRank) || Number(b.promotionVisits7d) - Number(a.promotionVisits7d))
                 .slice(0, 5);
             const rankHeader = document.getElementById('rankHeader');
             const rankSection = document.getElementById('rankSection');
@@ -4292,8 +4302,8 @@
                             <div class="rank-meta">${book.languageCode === 'es' ? 'Espanol' : 'English'}</div>
                         </div>
                         <div class="rank-stat">
-                            <div class="rank-stat-num">${Math.round(book.uv).toLocaleString()}</div>
-                            <div class="rank-stat-label">${escapeHtml(getText('readers'))}</div>
+                            <div class="rank-stat-num">${Math.round(book.promotionVisits7d).toLocaleString()}</div>
+                            <div class="rank-stat-label">${escapeHtml(getText('campaign_visits'))}</div>
                         </div>
                     </div>
                 `;
