@@ -8001,14 +8001,9 @@ function renderMyBooks() {
                             if (rResp.ok && rResp.status !== 204) {
                                 const rResult = await rResp.json().catch(() => ({data:{}}));
                                 if (rResult.newToken) saveACToken(rResult.newToken);
-                                const rData = rResult.data || {};
-                                const finalResults = Array.isArray(rData.final_result) ? rData.final_result : [];
-                                const materials = rData.materials || rData.items || rData.results || [];
-                                const allResults = finalResults.length > 0 ? finalResults : materials;
-                                if (allResults.length > 0) {
-                                    videoUrl = allResults[0].video_url || '';
-                                    coverUrl = allResults[0].cover_image_url || '';
-                                }
+                                const media = resolveReelMedia(rResult.data || {});
+                                videoUrl = media.videoUrl;
+                                coverUrl = media.coverUrl;
                             }
                         } catch(e) {}
                     }
@@ -8266,16 +8261,10 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                                 if (rResp.ok && rResp.status !== 204) {
                                     const rResult = await rResp.json().catch(() => ({data:{}}));
                                     if (rResult.newToken) saveACToken(rResult.newToken);
-                                    const rData = rResult.data || {};
-                                    const finalResults = Array.isArray(rData.final_result) ? rData.final_result : [];
-                                    const materials = rData.materials || rData.items || rData.results || [];
-                                    const allResults = finalResults.length > 0 ? finalResults : materials;
-                                    if (allResults.length > 0) {
-                                        const first = allResults[0];
-                                        videoUrl = first.video_url || '';
-                                        coverUrl = first.cover_image_url || '';
-                                        creativeText = first.creative_text || first.dialogue_content || first.landing_page_copy || '';
-                                    }
+                                    const media = resolveReelMedia(rResult.data || {});
+                                    videoUrl = media.videoUrl;
+                                    coverUrl = media.coverUrl;
+                                    creativeText = media.creativeText;
                                 }
                             } catch(e) { console.warn('Failed to fetch result for', item.thread_id, e); }
                         }
@@ -8582,6 +8571,52 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             return tmp.textContent || tmp.innerText || '';
         }
 
+        function resolveReelMedia(resultData) {
+            const candidates = [];
+            const visited = new Set();
+            const collect = (value) => {
+                if (!value || typeof value !== 'object' || visited.has(value)) return;
+                visited.add(value);
+                if (Array.isArray(value)) { value.forEach(collect); return; }
+                candidates.push(value);
+                ['final_result', 'materials', 'items', 'results', 'data', 'media', 'assets', 'output'].forEach(key => collect(value[key]));
+            };
+            collect(resultData);
+            const getVideoUrl = (item) => String(
+                item.video_url || item.videoUrl || item.file_url || item.url ||
+                item.media_url || item.mediaUrl || item.download_url || item.downloadUrl ||
+                item.fileUrl || item.video?.url || item.video?.file_url || ''
+            );
+            const mediaItem = candidates.find(item => getVideoUrl(item));
+            const textItem = candidates.find(item => item.creative_text || item.dialogue_content || item.landing_page_copy) || {};
+            if (!mediaItem) return { videoUrl: '', coverUrl: '', creativeText: textItem.creative_text || textItem.dialogue_content || textItem.landing_page_copy || '' };
+            return {
+                videoUrl: getVideoUrl(mediaItem),
+                coverUrl: String(mediaItem.cover_image_url || mediaItem.coverImageUrl || mediaItem.thumbnail_url || mediaItem.thumbnailUrl || mediaItem.poster_url || mediaItem.posterUrl || mediaItem.preview_image_url || ''),
+                creativeText: mediaItem.creative_text || mediaItem.dialogue_content || mediaItem.landing_page_copy || textItem.creative_text || textItem.dialogue_content || textItem.landing_page_copy || ''
+            };
+        }
+
+        async function downloadReelVideo(videoUrl, title) {
+            if (!videoUrl) return;
+            const filename = String(title || 'novelflow-reel').replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '') || 'novelflow-reel';
+            try {
+                const response = await fetch(videoUrl);
+                if (!response.ok) throw new Error('Video download failed');
+                const blob = await response.blob();
+                const href = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = href;
+                link.download = filename + '.mp4';
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(href);
+            } catch (_) {
+                window.open(videoUrl, '_blank', 'noopener');
+            }
+        }
+
         // Play reel video in fullscreen overlay
         function playReelVideo(videoUrl) {
             const existing = document.getElementById('reelVideoOverlay');
@@ -8591,11 +8626,14 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;';
             overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
             overlay.innerHTML = '<div style="position:relative;max-width:90vw;max-height:85vh;">' +
-                '<video src="' + videoUrl + '" controls autoplay style="max-width:90vw;max-height:80vh;border-radius:12px;background:#000;"></video>' +
+                '<video controls autoplay style="max-width:90vw;max-height:80vh;border-radius:12px;background:#000;"></video>' +
                 '<div style="position:absolute;top:-40px;right:0;display:flex;gap:8px;">' +
-                '<a href="' + videoUrl + '" download target="_blank" style="color:white;text-decoration:none;font-size:13px;padding:6px 12px;background:linear-gradient(135deg,#FF6B9D,#C084FC);border-radius:8px;">💾 Download</a>' +
-                '<button onclick="document.getElementById(\'reelVideoOverlay\').remove()" style="color:white;font-size:18px;padding:6px 12px;background:rgba(255,255,255,0.2);border:none;border-radius:8px;cursor:pointer;">✕</button>' +
+                '<button type="button" data-download-reel style="color:white;font-size:13px;padding:6px 12px;background:linear-gradient(135deg,#FF6B9D,#C084FC);border:0;border-radius:8px;cursor:pointer;">💾 Download</button>' +
+                '<button type="button" data-close-reel style="color:white;font-size:18px;padding:6px 12px;background:rgba(255,255,255,0.2);border:none;border-radius:8px;cursor:pointer;">✕</button>' +
                 '</div></div>';
+            overlay.querySelector('video').src = videoUrl;
+            overlay.querySelector('[data-download-reel]').onclick = () => downloadReelVideo(videoUrl, 'novelflow-reel');
+            overlay.querySelector('[data-close-reel]').onclick = () => overlay.remove();
             document.body.appendChild(overlay);
         }
 
@@ -8636,11 +8674,13 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             const thumb = item.coverUrl || '';
             const thumbHtml = thumb
                 ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;"' + thumbClickAction + '><img src="' + escapeHtml(thumb) + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\'">' + playOverlay + '</div>'
-                : '<div style="width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;"' + thumbClickAction + '>🎬</div>';
+                : item.videoUrl
+                    ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;background:' + placeholderGrad + ';"' + thumbClickAction + '><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px;">🎬</div><video preload="metadata" class="reels-item-thumb" src="' + escapeHtml(item.videoUrl) + '" muted playsinline onloadeddata="this.currentTime=Math.min(0.1, this.duration || 0)" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;">' + playOverlay + '</div>'
+                    : '<div style="width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🎬</div>';
             let actionsHtml = '';
             if (item.isDone) {
                 actionsHtml = '<div class="reels-item-actions">';
-                if (item.videoUrl) actionsHtml += '<a class="reels-action-btn reels-btn-save" href="' + escapeHtml(item.videoUrl) + '" download target="_blank" rel="noopener" style="text-decoration:none;" onclick="event.stopPropagation();">' + getText('save_video') + '</a>';
+                if (item.videoUrl) actionsHtml += '<button class="reels-action-btn reels-btn-save" type="button" data-video-url="' + escapeHtml(item.videoUrl) + '" data-video-title="' + escapeHtml(item.book_name || item.title || 'novelflow-reel') + '" onclick="event.stopPropagation();downloadReelVideo(this.dataset.videoUrl, this.dataset.videoTitle)">' + getText('save_video') + '</button>';
                 if (item.creativeText) actionsHtml += '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)">' + getText('copy_text') + '</button>';
                 actionsHtml += '</div>';
             } else if (item.isFail && item.thread_id) {
@@ -8703,16 +8743,10 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                                 if (rResp.ok && rResp.status !== 204) {
                                     const rResult = await rResp.json().catch(() => ({data:{}}));
                                     if (rResult.newToken) saveACToken(rResult.newToken);
-                                    const rData = rResult.data || {};
-                                    const finalResults = Array.isArray(rData.final_result) ? rData.final_result : [];
-                                    const materials = rData.materials || rData.items || rData.results || [];
-                                    const allResults = finalResults.length > 0 ? finalResults : materials;
-                                    if (allResults.length > 0) {
-                                        const first = allResults[0];
-                                        videoUrl = first.video_url || '';
-                                        coverUrl = first.cover_image_url || '';
-                                        creativeText = first.creative_text || first.dialogue_content || first.landing_page_copy || '';
-                                    }
+                                const media = resolveReelMedia(rResult.data || {});
+                                videoUrl = media.videoUrl;
+                                coverUrl = media.coverUrl;
+                                creativeText = media.creativeText;
                                 }
                             } catch(e) { console.warn('Failed to fetch result for', item.thread_id, e); }
                         }
