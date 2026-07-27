@@ -8,6 +8,8 @@ const AC_BASE = 'https://ac.beidou.win/api/v1';
 const { setCORSHeaders } = require('./_lib/cors');
 const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
 
+const AC_OWNER_TTL_SECONDS = 180 * 86400;
+
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -100,6 +102,15 @@ module.exports = async (req, res) => {
     if (newToken && redis) {
       redis.set('ac_token', newToken).catch(e => console.warn('Redis token save failed:', e.message));
     }
+
+    // The AC list itself is already filtered by the user's signed nf_<user>_
+    // remark. Refresh ownership here so historical reels can load their media
+    // result without every card scanning AC again.
+    await Promise.all(allItems.map(async (item) => {
+      const threadId = item && (item.thread_id || item.threadId || item.id);
+      if (!threadId) return;
+      await redis.set(`ac_thread_owner:${threadId}`, currentUser, { ex: AC_OWNER_TTL_SECONDS });
+    }));
 
     const result = {
       pageIndex: clientPi,

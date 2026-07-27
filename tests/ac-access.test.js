@@ -15,6 +15,7 @@ const acCreate = require('../api/ac-create');
 const acUpload = require('../api/ac-upload');
 const acRetry = require('../api/ac-retry');
 const acInterrupt = require('../api/ac-interrupt');
+const acList = require('../api/ac-list');
 const acResult = require('../api/ac-result');
 const acRefresh = require('../api/ac-refresh');
 
@@ -25,6 +26,7 @@ function authHeaders(username) {
 function response(body = {}, status = 200) {
   return {
     status,
+    ok: status >= 200 && status < 300,
     headers: { get: () => null },
     async json() { return body; },
   };
@@ -93,7 +95,65 @@ test('AC task ownership is required before calling the upstream service', async 
       assert.equal(res.statusCode, 403);
       assert.match(res.body.error, /authorized/i);
     }
-    assert.equal(upstreamCalls, 0);
+    // Result checks the caller's own AC list once to support legacy tasks
+    // whose Redis ownership record has expired; it must not call the task.
+    assert.equal(upstreamCalls, 1);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('a legacy reel in the current user AC list restores its expired result ownership', async () => {
+  const originalFetch = global.fetch;
+  const username = 'legacy-reel-user';
+  const threadId = 'legacy-thread-1';
+  let listCalls = 0;
+  let resultCalls = 0;
+  global.fetch = async (url) => {
+    if (String(url).includes('/creative/paged-list')) {
+      listCalls += 1;
+      return response({ pageCount: 1, items: [{ thread_id: threadId, remark: `nf_${username}_1700000000000` }] });
+    }
+    if (String(url).includes(`/creative/${threadId}/result`)) {
+      resultCalls += 1;
+      return response({ final_result: [{ video_url: 'https://video.example/reel.mp4' }] });
+    }
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+  try {
+    FakeRedis.reset({
+      [`nf_user_data:${username}`]: JSON.stringify({}),
+      ac_token: 'test-ac-token',
+    });
+    const result = await invoke(acResult, {
+      method: 'GET', headers: authHeaders(username), query: { threadId },
+    });
+    assert.equal(result.statusCode, 200);
+    assert.equal(resultCalls, 1);
+    assert.equal(listCalls, 1);
+    assert.equal(FakeRedis.values.get(`ac_thread_owner:${threadId}`), username);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('AC list hydrates result ownership for every signed user reel', async () => {
+  const originalFetch = global.fetch;
+  const username = 'list-owner-user';
+  const threadId = 'listed-thread-1';
+  global.fetch = async (url) => {
+    assert.match(String(url), /creative\/paged-list/);
+    return response({ pageCount: 1, items: [{ thread_id: threadId, remark: `nf_${username}_1700000000000` }] });
+  };
+  try {
+    FakeRedis.reset({
+      [`nf_user_data:${username}`]: JSON.stringify({}),
+      ac_token: 'test-ac-token',
+    });
+    const listed = await invoke(acList, { method: 'GET', headers: authHeaders(username) });
+    assert.equal(listed.statusCode, 200);
+    assert.equal(FakeRedis.values.get(`ac_thread_owner:${threadId}`), username);
+    assert.equal(FakeRedis.expiries.get(`ac_thread_owner:${threadId}`), 180 * 86400);
   } finally {
     global.fetch = originalFetch;
   }

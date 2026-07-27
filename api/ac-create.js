@@ -131,7 +131,7 @@ module.exports = async (req, res) => {
       const threadId = data.threadId || (data.data && data.data.threadId) || (data.creative && data.creative.threadId);
       if (threadId) {
         try {
-          await redis.set('ac_thread_owner:' + threadId, username, { ex: 7 * 86400 });
+          await redis.set('ac_thread_owner:' + threadId, username, { ex: 180 * 86400 });
         } catch(e) { /* non-fatal */ }
       }
     }
