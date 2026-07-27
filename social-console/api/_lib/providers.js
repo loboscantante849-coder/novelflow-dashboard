@@ -153,8 +153,10 @@ async function oidcToken(forceRefresh = false) {
     throw new ProviderError('NovelFlow OIDC authentication is not configured', { status: 503 });
   }
   const form = new URLSearchParams({
-    grant_type: 'password', client_id: 'AuthClient', username, password,
-    scope: 'openid profile roles email offline_access'
+    // Match the Writer Admin password-grant contract exactly. This endpoint
+    // issues the necessary access token without an explicit scope parameter;
+    // requesting offline_access here can be rejected as invalid_grant.
+    grant_type: 'password', client_id: 'AuthClient', username, password
   });
   const { body } = await request('https://sts.anystories.app/connect/token', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0' }, body: form

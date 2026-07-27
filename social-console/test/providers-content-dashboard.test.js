@@ -51,7 +51,7 @@ test('content dashboard refreshes an expired configured credential once after it
     }
   });
   global.fetch = async (url, options = {}) => {
-    calls.push({ url: String(url), authorization: new Headers(options.headers).get('authorization') });
+    calls.push({ url: String(url), authorization: new Headers(options.headers).get('authorization'), body: String(options.body || '') });
     if (String(url).includes('/connect/token')) {
       return new Response(JSON.stringify({ access_token: 'fresh-token' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
@@ -62,7 +62,12 @@ test('content dashboard refreshes an expired configured credential once after it
   const result = await providers.contentDashboardBooks({ startDate: '2026-07-01', endDate: '2026-07-07', maxPages: 1 });
   const dashboardCalls = calls.filter((item) => item.url.includes('/contentmiddleground/report/list'));
   assert.equal(dashboardCalls.length, 2);
-  assert.equal(calls.filter((item) => item.url.includes('/connect/token')).length, 1);
+  const tokenCalls = calls.filter((item) => item.url.includes('/connect/token'));
+  assert.equal(tokenCalls.length, 1);
+  const tokenBody = new URLSearchParams(tokenCalls[0].body);
+  assert.equal(tokenBody.get('grant_type'), 'password');
+  assert.equal(tokenBody.get('client_id'), 'AuthClient');
+  assert.equal(tokenBody.has('scope'), false);
   assert.equal(dashboardCalls[1].authorization, 'Bearer fresh-token');
   assert.equal(result.books[0].title, 'Fresh Book');
 });
