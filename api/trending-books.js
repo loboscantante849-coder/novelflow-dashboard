@@ -1,6 +1,7 @@
 /**
  * GET /api/trending-books
- * Fetches weekly top books from novelspa API, sorted by UV desc
+ * Resolves weekly top promotion books from NovelFlow's measured campaign
+ * performance, then enriches them with the authorised NovelSpa catalogue.
  * Cached in Upstash Redis for 24 hours
  * 
  * Query params:
@@ -12,6 +13,8 @@
 
 const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage/book';
 const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
+const promotionPerformance = require('../ad_id_details.json');
+const { rankBooks, cleanTitle } = require('./_lib/social-performance');
 // BOOKSTORE_TOKEN fetched via getBookstoreToken() inside handler
 
 const KV_REST_API_URL = process.env.KV_REST_API_URL;
@@ -53,75 +56,8 @@ async function kvDel(key) {
   } catch (e) { console.warn('Cache delete failed:', e.message); }
 }
 
-async function fetchBooksFromAPI(lang, category, limit) {
-  // Build API URL - try with languageCode first
-  let apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=1&pageSize=${limit}&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&bookStatus=1&orderBy=uv&orderType=desc`;
-  if (lang) apiUrl += `&languageCode=${lang}`;
-  if (category) apiUrl += `&bookClassName=${encodeURIComponent(category)}`;
-
-  console.log(`[trending] Fetching: lang=${lang}, category=${category}, limit=${limit}`);
-
-  let response;
-  try {
-    ({ response } = await bookstoreFetch(apiUrl, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    }));
-  } catch (e) {
-    console.error('[trending] API fetch error:', e.message);
-    return [];
-  }
-
-  if (!response || !response.ok) {
-    const errText = response ? await response.text().catch(() => '') : '';
-    console.error('[trending] API error:', response ? response.status : 'auth unavailable', errText);
-    return [];
-  }
-
-  let data;
-  try {
-    data = await response.json();
-  } catch (e) {
-    console.error('[trending] JSON parse error:', e.message);
-    return [];
-  }
-
-  let rawBooks = (data.data && data.data.data) || data.data || [];
-  console.log(`[trending] API returned ${rawBooks.length} books with lang=${lang}`);
-
-  // Never drop the requested language for Spanish. An English fallback would
-  // leak the wrong catalogue into the Spanish UI; English may use the
-  // unfiltered endpoint because the default catalogue is English.
-  if (rawBooks.length === 0 && lang === 'en') {
-    console.log('[trending] Retrying without languageCode filter...');
-    const fallbackUrl = `${BOOKSTORE_API_BASE}/booklist?current=1&pageSize=${limit}&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&bookStatus=1&orderBy=uv&orderType=desc`;
-    try {
-      const { response: fallbackResp } = await bookstoreFetch(fallbackUrl, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      if (fallbackResp.ok) {
-        const fallbackData = await fallbackResp.json();
-        rawBooks = (fallbackData.data && fallbackData.data.data) || fallbackData.data || [];
-        console.log(`[trending] Without lang filter: ${rawBooks.length} books`);
-      }
-    } catch (e) {
-      console.warn('[trending] Fallback fetch failed:', e.message);
-    }
-  }
-
-  if (rawBooks.length === 0) return [];
-
-  // Log sample for debugging
-  const sample = rawBooks[0];
-  const coverFields = Object.entries(sample).filter(([k, v]) => {
-    const kl = k.toLowerCase();
-    return (kl.includes('cover') || kl.includes('pic') || kl.includes('img') || kl.includes('image')) && typeof v === 'string' && v.length > 0;
-  });
-  console.log('[trending] Cover-related fields:', JSON.stringify(Object.fromEntries(coverFields)));
-  console.log('[trending] Top 3:', rawBooks.slice(0, 3).map(b => b.title + ' (uv:' + (b.uv || b.bookUv || 0) + ')').join(' | '));
-
-  const books = rawBooks.map(book => ({
+function mapCatalogBook(book, lang, promotion = null) {
+  return {
     bookId: book.bookId || book.id,
     title: book.title,
     cover: book.cover || book.coverImage || book.coverUrl || book.picUrl || book.bookCover || book.imgUrl || book.pic || '',
@@ -133,12 +69,85 @@ async function fetchBooksFromAPI(lang, category, limit) {
     languageCode: book.languageCode || lang || 'en',
     words: book.words || 0,
     chapterCount: book.chapterCount || 0,
-    uv: book.uv || book.bookUv || book.readCount || 0
-  }));
+    // This is deliberately not presented as reader count. It is only used
+    // as the measured seven-day campaign visit metric on Top Promotions.
+    promotionVisits7d: Number(promotion?.pullUv) || 0,
+    promotionRank: Number(promotion?.rank) || 0,
+    promotionScore: Number(promotion?.score) || 0
+  };
+}
 
-  // Safeguard: sort by UV descending
-  books.sort((a, b) => (b.uv || 0) - (a.uv || 0));
-  return books;
+async function getCatalogBooks(url) {
+  try {
+    const { response } = await bookstoreFetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!response || !response.ok) return [];
+    const data = await response.json();
+    return (data.data && data.data.data) || data.data || [];
+  } catch (error) {
+    console.warn('[trending] Catalogue request failed:', error.message);
+    return [];
+  }
+}
+
+async function fetchBooksFromAPI(lang, category, limit) {
+  // This endpoint is a catalogue fallback only. Upstream sorting is ignored,
+  // so no ranking claims are made from it.
+  let apiUrl = `${BOOKSTORE_API_BASE}/booklist?current=1&pageSize=${limit}&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&bookStatus=1`;
+  if (lang) apiUrl += `&languageCode=${lang}`;
+  if (category) apiUrl += `&bookClassName=${encodeURIComponent(category)}`;
+
+  console.log(`[trending] Fetching: lang=${lang}, category=${category}, limit=${limit}`);
+
+  let rawBooks = await getCatalogBooks(apiUrl);
+  console.log(`[trending] API returned ${rawBooks.length} books with lang=${lang}`);
+
+  // Never drop the requested language for Spanish. An English fallback would
+  // leak the wrong catalogue into the Spanish UI; English may use the
+  // unfiltered endpoint because the default catalogue is English.
+  if (rawBooks.length === 0 && lang === 'en') {
+    console.log('[trending] Retrying without languageCode filter...');
+    const fallbackUrl = `${BOOKSTORE_API_BASE}/booklist?current=1&pageSize=${limit}&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&bookStatus=1`;
+    rawBooks = await getCatalogBooks(fallbackUrl);
+    console.log(`[trending] Without lang filter: ${rawBooks.length} books`);
+  }
+
+  if (rawBooks.length === 0) return [];
+
+  return rawBooks.map(book => mapCatalogBook(book, lang));
+}
+
+async function fetchTopPromotionBooks(lang, limit) {
+  const ranking = rankBooks(promotionPerformance, 7);
+  const language = String(lang || 'en').toLowerCase();
+  // Search more candidates than the requested result because some historical
+  // campaign titles may no longer be authorised in the current catalogue.
+  const candidates = ranking.books.slice(0, 18);
+  const resolved = await Promise.all(candidates.map(async (promotion) => {
+    const url = `${BOOKSTORE_API_BASE}/booklist?current=1&pageSize=10&pageIndex=1&applicationId=${BOOKSTORE_APP_ID}&bookStatus=1&languageCode=${encodeURIComponent(language)}&bookName=${encodeURIComponent(promotion.title)}`;
+    const matches = await getCatalogBooks(url);
+    const expected = cleanTitle(promotion.title).toLowerCase();
+    const exact = matches.find(book => (
+      String(book.languageCode || '').toLowerCase() === language &&
+      cleanTitle(book.title).toLowerCase() === expected
+    ));
+    return exact ? mapCatalogBook(exact, language, promotion) : null;
+  }));
+  const seen = new Set();
+  const measuredBooks = resolved.filter(Boolean).filter(book => {
+    if (seen.has(book.bookId)) return false;
+    seen.add(book.bookId);
+    return true;
+  }).sort((left, right) => left.promotionRank - right.promotionRank).slice(0, limit);
+  // Fill the discovery grid with catalogue books, but keep the measured Top
+  // books first and never give fallback books a rank metric.
+  const catalogueBooks = measuredBooks.length < limit
+    ? await fetchBooksFromAPI(language, undefined, limit)
+    : [];
+  const books = measuredBooks.concat(catalogueBooks.filter(book => !seen.has(book.bookId))).slice(0, limit);
+  return { books, window: ranking.window };
 }
 
 const { setCORSHeaders } = require('./_lib/cors')
@@ -167,28 +176,31 @@ module.exports = async (req, res) => {
     const langs = ['en', 'es', ''];
     for (const cat of patterns) {
       for (const l of langs) {
+        await kvDel(`trending:v4:trending:${cat}:${l}:${effectiveLimit}`);
         await kvDel(`trending:v3:trending:${cat}:${l}:${effectiveLimit}`);
         await kvDel(`trending:v2:trending:${cat}:${l}:${effectiveLimit}`);
       }
     }
     // Re-fetch and cache
-    const freshBooks = await fetchBooksFromAPI(lang, category, effectiveLimit);
+    const ranked = !category && mode === 'refresh' ? await fetchTopPromotionBooks(lang, effectiveLimit) : { books: await fetchBooksFromAPI(lang, category, effectiveLimit) };
+    const freshBooks = ranked.books;
     const result = {
       success: true,
       mode: 'trending',
       data: freshBooks,
       total: freshBooks.length,
-      source: 'novelspa-uv-refreshed',
+      source: freshBooks.some(book => book.promotionVisits7d > 0) ? 'novelflow-promotion-performance' : 'novelspa-catalog',
+      ranking: ranked.window ? { metric: 'campaign_visits_7d', ...ranked.window } : null,
       updated: new Date().toISOString()
     };
     if (freshBooks.length > 0) {
-      const cacheKey = `trending:v3:trending:${category || 'all'}:${lang}:${effectiveLimit}`;
+      const cacheKey = `trending:v4:trending:${category || 'all'}:${lang}:${effectiveLimit}`;
       await kvSet(cacheKey, result, CACHE_TTL);
     }
     return res.status(200).json(result);
   }
 
-  const cacheKey = `trending:v3:${mode}:${category || 'all'}:${lang}:${effectiveLimit}`;
+  const cacheKey = `trending:v4:${mode}:${category || 'all'}:${lang}:${effectiveLimit}`;
 
   // Try cache first
   const cached = await kvGet(cacheKey);
@@ -197,7 +209,10 @@ module.exports = async (req, res) => {
   }
 
   // Fetch from API
-  const books = await fetchBooksFromAPI(lang, category, effectiveLimit);
+  const ranked = mode === 'trending' && !category
+    ? await fetchTopPromotionBooks(lang, effectiveLimit)
+    : { books: await fetchBooksFromAPI(lang, category, effectiveLimit) };
+  const books = ranked.books;
 
   let result;
   if (mode === 'browse' && !category) {
@@ -207,11 +222,19 @@ module.exports = async (req, res) => {
       if (!categories[cat]) categories[cat] = [];
       if (categories[cat].length < 10) categories[cat].push(book);
     });
-    result = { success: true, mode: 'browse', categories, total: books.length, source: 'novelspa-uv', updated: new Date().toISOString() };
+    result = { success: true, mode: 'browse', categories, total: books.length, source: 'novelspa-catalog', updated: new Date().toISOString() };
   } else if (mode === 'category' || category) {
-    result = { success: true, mode: 'category', data: books, total: books.length, category: category || 'all', source: 'novelspa-uv', updated: new Date().toISOString() };
+    result = { success: true, mode: 'category', data: books, total: books.length, category: category || 'all', source: 'novelspa-catalog', updated: new Date().toISOString() };
   } else {
-    result = { success: true, mode: 'trending', data: books, total: books.length, source: 'novelspa-uv', updated: new Date().toISOString() };
+    result = {
+      success: true,
+      mode: 'trending',
+      data: books,
+      total: books.length,
+      source: books.some(book => book.promotionVisits7d > 0) ? 'novelflow-promotion-performance' : 'novelspa-catalog',
+      ranking: ranked.window ? { metric: 'campaign_visits_7d', ...ranked.window } : null,
+      updated: new Date().toISOString()
+    };
   }
 
   // Only cache non-empty results
