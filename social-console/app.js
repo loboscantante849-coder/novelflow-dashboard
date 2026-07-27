@@ -1340,6 +1340,14 @@ function currentStage(run) {
   return pipelineOrder.map((key) => [key, run.stages?.[key] || {}]).find(([, value]) => !['done', 'waiting'].includes(value.status)) || pipelineOrder.map((key) => [key, run.stages?.[key] || {}]).find(([, value]) => value.status === 'waiting') || ['P6', { label: '全部完成' }];
 }
 
+function runOutcome(run) {
+  const partial = Object.entries(run.stages || {}).find(([, stage]) => stage?.status === 'partial');
+  if (run.state === 'completed' && partial) {
+    return { className: 'partial', label: `主体完成 · ${stageLabels[partial[0]] || partial[0]}部分完成` };
+  }
+  return { className: run.state, label: labels[run.state] || run.state };
+}
+
 function cover(run) {
   const book = {
     title: run.artifacts?.book?.title || run.input?.title || '',
@@ -1391,11 +1399,12 @@ function renderRunList() {
   $('#runList').innerHTML = runs.map((run) => {
     const active = currentStage(run);
     const stages = Object.values(run.stages || {});
+    const outcome = runOutcome(run);
     return `<article class="run-row ${run.id === state.selectedId ? 'selected' : ''}" data-id="${escapeHtml(run.id)}">
       <div class="book-cell">${cover(run)}<div><div class="book-name">${escapeHtml(run.input?.title)}</div><div class="book-meta">SKU ${escapeHtml(run.input?.sku)} · ${escapeHtml(new Date(run.createdAt).toLocaleDateString('zh-CN'))}</div></div></div>
       <div class="stage-meter"><div class="stage-track">${stages.map((item) => `<i class="stage-segment ${stageClass(item)}"></i>`).join('')}</div><div class="stage-label">${escapeHtml(stageLabels[active[0]] || active[0])} · ${stages.filter((item) => item.status === 'done').length}/7</div></div>
       <div class="tracking-cell"><strong>${run.artifacts?.code ? `Code ${escapeHtml(run.artifacts.code)}` : '待分配'}</strong><span>${escapeHtml(run.artifacts?.shortUrl || '短链待创建')}</span></div>
-      <div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div>
+      <div><span class="status-badge ${escapeHtml(outcome.className)}">${escapeHtml(outcome.label)}</span></div>
     </article>`;
   }).join('');
   document.querySelectorAll('.run-row').forEach((row) => row.addEventListener('click', () => openDetail(row.dataset.id)));
@@ -1612,12 +1621,14 @@ function renderFocusRun() {
   const posterCount = (run.artifacts?.images || []).filter((item) => item.url).length;
   const copyCount = (run.artifacts?.posts || []).length;
   const shortUrl = run.artifacts?.shortUrl;
+  const reviewReady = Boolean(run.artifacts?.review) || run.stages?.P6?.status === 'done';
+  const outcome = runOutcome(run);
   const completion = Math.round(completed / 7 * 100);
   content.innerHTML = `<article class="focus-card">
-    <div class="focus-book">${cover(run)}<div><div class="focus-title-row"><h2>${escapeHtml(run.input?.title)}</h2><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><p>SKU ${escapeHtml(run.input?.sku)} · ${completed}/7 个节点完成</p><div class="focus-tracking"><span>Code <strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></span>${shortUrl ? `<a href="${escapeHtml(shortUrl)}" target="_blank" rel="noopener">打开短链 <i data-lucide="external-link"></i></a>` : '<span>短链待创建</span>'}</div></div></div>
+    <div class="focus-book">${cover(run)}<div><div class="focus-title-row"><h2>${escapeHtml(run.input?.title)}</h2><span class="status-badge ${escapeHtml(outcome.className)}">${escapeHtml(outcome.label)}</span></div><p>SKU ${escapeHtml(run.input?.sku)} · ${completed}/7 个节点完成</p><div class="focus-tracking"><span>Code <strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></span>${shortUrl ? `<a href="${escapeHtml(shortUrl)}" target="_blank" rel="noopener">打开短链 <i data-lucide="external-link"></i></a>` : '<span>短链待创建</span>'}</div></div></div>
     <div class="focus-progress" aria-label="生产完成度"><div><span>生产完成度</span><strong>${completion}%</strong></div><div class="focus-progress-track"><i style="width:${completion}%"></i></div><small>${escapeHtml(videoProgress.label)}</small></div>
     <div class="focus-flow">${pipelineOrder.map((key) => `<button class="focus-step ${stageClass(run.stages?.[key])}" data-node-decision="${key}" title="查看${escapeHtml(stageLabels[key])}的决策说明"><i data-lucide="${stageIcons[key]}"></i><span>${escapeHtml(stageLabels[key])}</span></button>`).join('')}</div>
-    <div class="focus-assets"><button data-detail-target="copy"><i data-lucide="message-square-text"></i><strong>${copyCount}</strong><span>成品文案</span></button><button data-detail-target="video" class="${videoReady ? 'ready' : videoProgress.kind === 'failed' || videoProgress.kind === 'blocked' ? 'failed' : ''}"><i data-lucide="video"></i><strong>${videoReady ? '已就绪' : videoProgress.kind === 'failed' || videoProgress.kind === 'blocked' ? '生成失败' : videoProgress.kind === 'running' ? '生成中' : '等待中'}</strong><span>视频</span></button><button data-detail-target="posters" class="${posterCount === 2 ? 'ready' : ''}"><i data-lucide="images"></i><strong>${posterCount}/2</strong><span>海报</span></button><button data-detail-target="review" class="${run.artifacts?.review ? 'ready' : ''}"><i data-lucide="badge-check"></i><strong>${run.artifacts?.review ? '已就绪' : '等待中'}</strong><span>审核包</span></button></div>
+    <div class="focus-assets"><button data-detail-target="copy"><i data-lucide="message-square-text"></i><strong>${copyCount}</strong><span>成品文案</span></button><button data-detail-target="video" class="${videoReady ? 'ready' : videoProgress.kind === 'failed' || videoProgress.kind === 'blocked' ? 'failed' : ''}"><i data-lucide="video"></i><strong>${videoReady ? '已就绪' : videoProgress.kind === 'failed' || videoProgress.kind === 'blocked' ? '生成失败' : videoProgress.kind === 'running' ? '生成中' : '等待中'}</strong><span>视频</span></button><button data-detail-target="posters" class="${posterCount === 2 ? 'ready' : posterCount ? 'partial' : ''}"><i data-lucide="images"></i><strong>${posterCount}/2</strong><span>海报</span></button><button data-detail-target="review" class="${reviewReady ? 'ready' : ''}"><i data-lucide="badge-check"></i><strong>${reviewReady ? '已就绪' : '等待中'}</strong><span>审核包</span></button></div>
   </article>`;
   $('#openFocusRun').onclick = () => openDetail(run.id);
   document.querySelectorAll('[data-detail-target]').forEach((button) => button.addEventListener('click', () => openDetail(run.id, button.dataset.detailTarget)));

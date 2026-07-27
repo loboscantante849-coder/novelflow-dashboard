@@ -31,7 +31,7 @@ test('dashboard run summaries retain operational state without transferring full
   assert.deepEqual(summary.artifacts.usage.creative, { model: 'hy3', totalTokens: 1234 });
   assert.equal(summary.modelActivity.length, 8);
   assert.equal(summary.events.length, 1);
-  assert.equal(summary._summaryVersion, 3);
+  assert.equal(summary._summaryVersion, 4);
   assert.ok(bytes < 10000, `summary should be compact, received ${bytes} bytes`);
 });
 
@@ -43,4 +43,23 @@ test('detail snapshots bound chapter payloads before the browser reads them', ()
   assert.equal(detail.artifacts.evidence.chapters[0].content.length, 8000);
   assert.equal(detail._detailVersion, 1);
   assert.ok(Buffer.byteLength(JSON.stringify(detail)) < 170000);
+});
+
+test('completed review packages stay visible in compact dashboard summaries', () => {
+  const run = newRun({ title: 'Review Ready Romance', sku: 'review-sku', creativeProfile: { modelChoice: 'hy3' } });
+  run.stages.P6 = { status: 'done', label: 'Review package ready' };
+  run.artifacts.review = {
+    status: 'ready',
+    facebook: { status: 'paused', automaticPublishing: false },
+    posts: [{ content: 'large finished post' }],
+    mediaWarnings: [{ stage: 'P3_5', status: 'partial' }]
+  };
+
+  const summary = runSummary(run);
+
+  assert.deepEqual(summary.artifacts.review, {
+    status: 'ready',
+    facebook: { status: 'paused', automaticPublishing: false },
+    warningCount: 1
+  });
 });

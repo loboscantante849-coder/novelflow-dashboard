@@ -135,6 +135,18 @@ test('asset copy requests only finished posts for a summary task', async () => {
   assert.equal(state.runs[0]._summary, true);
 });
 
+test('completed runs with a partial media branch are labelled as partial outcomes', () => {
+  const context = {
+    Object,
+    labels: { completed: '已完成' },
+    stageLabels: { P3_5: '海报' }
+  };
+  vm.createContext(context);
+  vm.runInContext(between('function runOutcome(', 'function cover('), context);
+  const outcome = context.runOutcome({ state: 'completed', stages: { P3_5: { status: 'partial' }, P6: { status: 'done' } } });
+  assert.deepEqual(JSON.parse(JSON.stringify(outcome)), { className: 'partial', label: '主体完成 · 海报部分完成' });
+});
+
 test('today ranking uses its own UV context and keeps fallback retention scores bounded', () => {
   const context = { state: { catalogSort: 'ttProfit', leaderboard: [] }, Math, Number, Boolean, String };
   vm.createContext(context);

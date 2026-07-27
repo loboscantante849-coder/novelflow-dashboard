@@ -9,7 +9,7 @@ const runDetailKey = (id) => `nf_social:run_detail:${id}`;
 const planKey = (id) => `nf_social:creative_plan:${id}`;
 const runSummaryKey = (id) => `nf_social:run_summary:${id}`;
 const planSummaryKey = (id) => `nf_social:creative_plan_summary:${id}`;
-const RUN_SUMMARY_VERSION = 3;
+const RUN_SUMMARY_VERSION = 4;
 class RemoteRedis {
   constructor(url, secret) { this.url = url.replace(/\/$/, ''); this.secret = secret; }
   async call(op, args) {
@@ -134,6 +134,14 @@ function runSummary(run) {
       analytics: artifacts.analytics ? { summary: artifacts.analytics.summary } : null,
       distribution: artifacts.distribution ? { status: artifacts.distribution.status } : null,
       optimization: artifacts.optimization ? { status: artifacts.optimization.status } : null,
+      review: artifacts.review ? {
+        status: String(artifacts.review.status || 'ready'),
+        facebook: artifacts.review.facebook ? {
+          status: String(artifacts.review.facebook.status || 'paused'),
+          automaticPublishing: artifacts.review.facebook.automaticPublishing === true
+        } : { status: 'paused', automaticPublishing: false },
+        warningCount: Array.isArray(artifacts.review.mediaWarnings) ? artifacts.review.mediaWarnings.length : 0
+      } : null,
       usage: summaryUsage(artifacts.usage)
     },
     modelActivity: summaryModelActivity([...(artifacts.modelActivity || []), ...(artifacts.creativeDraft?.usage || [])]),
