@@ -213,9 +213,9 @@ async function contentDashboardBooks({ startDate, endDate, sortField = 'baseRead
     pageSize: 20,
     current: 1,
     groupings: ['productTp', 'productLine', 'isVip'],
-    // For rate/profit comparisons, first pull a high-volume candidate pool.
-    // The dashboard does not expose a server-side minimum-UV predicate.
-    sortField: minReadUnt > 0 ? 'baseReadUnt' : sortField,
+    // The dashboard endpoint does not support server-side metric sorting.
+    // Sending an unsupported sortField returns a generic upstream 500; sort
+    // the complete candidate set locally after the verified response arrives.
     sortIsAsc,
     readStartTime: startDate,
     readEndTime: endDate,
@@ -240,7 +240,11 @@ async function contentDashboardBooks({ startDate, endDate, sortField = 'baseRead
     if (remainingMs < 1200) { partial = true; break; }
     const pagePayload = { ...payload, pageIndex, current: pageIndex };
     const { body } = await adminRequest(CONTENT_DASHBOARD_API, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pagePayload), timeoutMs: Math.min(8000, remainingMs)
+      method: 'POST',
+      // These mirror the Writer Admin request contract. The service returns a
+      // generic 500 when the browser client marker or charset is omitted.
+      headers: { 'Content-Type': 'application/json; charset=utf-8', 'X-OS': 'web' },
+      body: JSON.stringify(pagePayload), timeoutMs: Math.min(8000, remainingMs)
     }, `Content dashboard ranking page ${pageIndex}`);
     const page = body?.data;
     if (!page || !Array.isArray(page.data)) throw new ProviderError(`Content dashboard ranking page ${pageIndex} returned an invalid response shape`);
