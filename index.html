@@ -386,6 +386,20 @@
         .book-item-btn:hover { background: var(--primary-deep); }
 
         /* ========== Scroll Cards ========== */
+        .product-update-notice {
+            display: flex; align-items: flex-start; gap: 9px;
+            margin: 8px var(--sp-lg) 0; padding: 9px 10px;
+            background: linear-gradient(135deg, #f5f3ff, #fdf4ff);
+            border: 1px solid #ddd6fe; border-radius: 10px;
+            color: #4c3a82; font-size: 11px; line-height: 1.4;
+        }
+        .product-update-notice[hidden] { display: none; }
+        .product-update-notice strong { color: #5b21b6; font-weight: 700; }
+        .product-update-notice-copy { flex: 1; min-width: 0; }
+        .product-update-notice-close {
+            border: 0; background: transparent; color: #7c6aa7; cursor: pointer;
+            font: inherit; font-size: 17px; line-height: 14px; padding: 0 2px;
+        }
         .book-scroll-section { padding: var(--sp-md) 0; }
         .book-scroll-title {
             font-size: 15px; font-weight: 300; letter-spacing: -0.15px;
@@ -2851,6 +2865,14 @@
                 <div>Loading books...</div>
             </div>
 
+            <aside class="product-update-notice" id="productUpdateNotice" hidden aria-live="polite">
+                <div class="product-update-notice-copy">
+                    <strong data-i18n="product_update_label">What's new · </strong>
+                    <span data-i18n="product_update_copy">Daily book performance, Top Promotions, and personal invite codes are now available.</span>
+                </div>
+                <button class="product-update-notice-close" type="button" onclick="dismissProductUpdateNotice()" aria-label="Dismiss update">&times;</button>
+            </aside>
+
             <!-- Scroll -->
             <div class="book-scroll-section" id="bookScrollSection" style="display: none;">
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:0 var(--sp-lg) var(--sp-sm);">
@@ -3578,6 +3600,8 @@
                 top_promotions: 'Top Promotions',
                 readers: 'Readers',
                 campaign_visits: 'Campaign Visits',
+                product_update_label: 'What’s new · ',
+                product_update_copy: 'Daily book performance, Top Promotions, and personal invite codes are now available.',
                 promote_earn_badge: 'Promote & Earn',
                 recommend_btn: 'Recommend',
                 new_label: 'New',
@@ -3843,6 +3867,8 @@
                 top_promotions: 'Mejores promociones',
                 readers: 'Lectores',
                 campaign_visits: 'Visitas de campaña',
+                product_update_label: 'Novedades · ',
+                product_update_copy: 'Ya puedes ver el rendimiento diario, descubrir las mejores promociones y crear tu código de invitación.',
                 promote_earn_badge: 'Promociona y gana',
                 recommend_btn: 'Recomendar',
                 new_label: 'Nuevo',
@@ -4175,6 +4201,24 @@
             document.getElementById('homeLoading').style.display = 'none';
             document.getElementById('bookListTabs').style.display = 'flex';
             document.getElementById('bookScrollSection').style.display = 'block';
+            showProductUpdateNotice();
+        }
+
+        const PRODUCT_UPDATE_NOTICE_KEY = 'novelflow_product_update_20260727';
+        function showProductUpdateNotice() {
+            const notice = document.getElementById('productUpdateNotice');
+            if (!notice) return;
+            try {
+                notice.hidden = localStorage.getItem(PRODUCT_UPDATE_NOTICE_KEY) === 'dismissed';
+            } catch (_) {
+                notice.hidden = false;
+            }
+        }
+
+        function dismissProductUpdateNotice() {
+            const notice = document.getElementById('productUpdateNotice');
+            if (notice) notice.hidden = true;
+            try { localStorage.setItem(PRODUCT_UPDATE_NOTICE_KEY, 'dismissed'); } catch (_) {}
         }
 
         // ========== Render Book List ==========
