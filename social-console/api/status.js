@@ -27,7 +27,7 @@ module.exports = async (req, res) => {
   const redis = getRedis();
   if (!redis) return res.status(503).json({ error: 'Social console storage is not configured' });
   try {
-    const [runs, videoLimit] = await Promise.all([listRunSummaries(redis, 12), videoCapacity(redis)]);
+    const [runs, videoLimit] = await Promise.all([listRunSummaries(redis, 50), videoCapacity(redis)]);
     return res.status(200).json({ runs, capabilities: {
       storage: true,
       pipeline: Boolean(process.env.NOVELFLOW_OIDC_TOKEN || (process.env.NOVELFLOW_OIDC_USERNAME && process.env.NOVELFLOW_OIDC_PASSWORD)),

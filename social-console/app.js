@@ -1526,8 +1526,52 @@ function renderStats() {
   $('#readyAssets').textContent = state.runs.reduce((sum, run) => { const assets = assetSummary(run); return sum + assets.posts + assets.posters + assets.video; }, 0);
   $('#attentionRuns').textContent = attention;
   renderModelMix();
+  renderModelLedger();
   const viewText = { operations: '所有小说的素材、进度与归因表现', library: '按书籍快速取用已完成的文案、视频、海报与追踪链接', completed: '已完成的生产任务与可复用资产', attention: '需要确认、重试或核验的任务' };
   $('#viewSubtitle').textContent = viewText[state.view] || viewText.operations;
+}
+
+function modelLedgerEntries() {
+  const sectionLabels = { storyBrief: 'P2 全书梳理', posts: 'P3 六步法文案', videoPrompt: 'P3 视频剧情', posterPrompts: 'P3 海报提示词', qualityReview: 'P3 成品质检', videoPromptRewrite: '视频提示词重写', distribution: '发布建议包' };
+  const runs = state.runs.flatMap((run) => (run.modelActivity || []).map((item) => ({
+    runId: run.id,
+    title: run.artifacts?.book?.title || run.input?.title || '未命名书籍',
+    section: sectionLabels[item.section] || item.section || 'AI 任务',
+    trigger: item.triggerReason || (item.fallbackFrom ? '一次备用模型接管' : '一键生产'),
+    requestedModel: item.requestedModel || run.input?.creativeProfile?.modelChoice || '',
+    actualModel: item.model || '',
+    fallbackFrom: item.fallbackFrom || '',
+    fallbackReason: item.fallbackReason || '',
+    tokens: Number(item.totalTokens || 0),
+    latencyMs: Number(item.latencyMs || 0),
+    status: item.outputStatus || (item.error ? '未产出，等待人工决定' : item.validationStatus === 'rejected' ? '证据校验未通过' : '产物已保存'),
+    error: item.error || '',
+    at: item.completedAt || run.updatedAt
+  })));
+  const plans = state.planJobs.flatMap((job) => {
+    const usage = job.artifacts?.usage;
+    if (!usage?.model && !job.stages?.analysis?.error) return [];
+    return [{ runId: '', planId: job.id, title: job.artifacts?.book?.title || job.input?.title || 'AI 策划', section: 'AI 策划', trigger: usage?.triggerReason || '用户发起 AI 策划', requestedModel: usage?.requestedModel || job.input?.preferredModelChoice || job.input?.modelChoice || '', actualModel: usage?.model || '', fallbackFrom: job.stages?.analysis?.fallbackFrom || '', fallbackReason: job.stages?.analysis?.fallbackReason || '', tokens: Number(usage?.totalTokens || 0), latencyMs: Number(usage?.latencyMs || 0), status: usage?.outputStatus || (job.stages?.analysis?.error ? '未产出，等待人工决定' : '策划进行中'), error: job.stages?.analysis?.error || '', at: usage?.completedAt || job.updatedAt }];
+  });
+  return [...runs, ...plans].sort((a, b) => Date.parse(b.at || 0) - Date.parse(a.at || 0));
+}
+
+function renderModelLedger() {
+  const container = $('#modelLedger');
+  if (!container) return;
+  const entries = modelLedgerEntries().slice(0, 10);
+  if (!entries.length) {
+    container.innerHTML = '<header><div><span class="eyebrow">MODEL LEDGER</span><h2>模型调用账本</h2><p>模型真正开始工作后，这里会逐项显示调用原因、模型、耗时、Token 和产物状态。</p></div><span class="ledger-policy">首选充分等待 · 最多一次备用</span></header><div class="model-ledger-empty"><i data-lucide="scan-line"></i><span>当前没有已完成或待处理的模型调用。</span></div>';
+    return;
+  }
+  const row = (entry) => {
+    const fallback = entry.fallbackFrom ? `<small class="ledger-fallback" title="${escapeHtml(entry.fallbackReason || '')}">${modelLabel(entry.fallbackFrom)} → ${entry.actualModel ? modelLabel(entry.actualModel) : '未完成'} · 一次备用</small>` : '';
+    const actual = entry.actualModel ? modelLogoHtml(entry.actualModel, { compact: true }) : '<span class="ledger-no-model">未完成</span>';
+    const action = entry.runId ? `<button type="button" data-ledger-run="${escapeHtml(entry.runId)}" title="打开任务详情"><i data-lucide="arrow-up-right"></i></button>` : '';
+    return `<article class="model-ledger-row ${entry.error ? 'failed' : ''}"><div class="ledger-book"><strong>${escapeHtml(entry.title)}</strong><span>${escapeHtml(entry.section)}</span></div><div class="ledger-trigger"><strong>${escapeHtml(entry.trigger)}</strong>${fallback}</div><div class="ledger-models"><span>请求 ${modelLogoHtml(entry.requestedModel || entry.actualModel, { compact: true })}</span><span>实际 ${actual}</span></div><div class="ledger-metrics"><span>${entry.tokens ? `${entry.tokens.toLocaleString('zh-CN')} Token` : 'Token 未返回'}</span><span>${entry.latencyMs ? `${(entry.latencyMs / 1000).toFixed(1)}s` : '耗时未返回'}</span></div><div class="ledger-output"><strong>${escapeHtml(entry.status)}</strong>${entry.error ? `<small title="${escapeHtml(entry.error)}">${escapeHtml(entry.error)}</small>` : ''}</div>${action}</article>`;
+  };
+  container.innerHTML = `<header><div><span class="eyebrow">MODEL LEDGER</span><h2>模型调用账本</h2><p>每一次模型调用都能对应到书籍、节点与实际产物，不再有后台不明调用。</p></div><span class="ledger-policy">首选充分等待 · 最多一次备用</span></header><div class="model-ledger-head"><span>书籍 / 节点</span><span>触发原因</span><span>请求 / 实际模型</span><span>消耗</span><span>产物状态</span></div><div class="model-ledger-rows">${entries.map(row).join('')}</div>`;
+  container.querySelectorAll('[data-ledger-run]').forEach((button) => button.addEventListener('click', () => openDetail(button.dataset.ledgerRun)));
 }
 
 function renderFocusRun() {
@@ -1558,8 +1602,34 @@ function renderFocusRun() {
 function pipelineNode(run, key) {
   const stage = run.stages?.[key] || { status: 'waiting' };
   const artifact = { P1: run.artifacts?.book?.bookSkuId, P2: run.artifacts?.evidence?.completed ? `${run.artifacts.evidence.completed} 章` : '', P5: run.artifacts?.code ? `Code ${run.artifacts.code}` : '', P3: run.artifacts?.posts?.length ? `${run.artifacts.posts.length} 套文案` : '', P4: run.artifacts?.video?.videoUrls?.[0] ? '可播放' : run.artifacts?.video?.threadId ? '生成中' : '', P3_5: run.artifacts?.images?.length ? `${run.artifacts.images.filter((item) => item.url).length}/2 海报` : '', P6: run.artifacts?.review ? '审核包就绪' : '' }[key] || stage.label || stage.status;
-  const stageStatus = stage.status === 'done' ? '已完成' : stage.status === 'waiting' ? '等待中' : stage.status === 'failed' ? '生成失败' : stage.status === 'blocked' ? '已阻塞' : stage.status === 'ambiguous' ? '需人工核验' : stage.status === 'partial' ? '部分完成' : stage.status === 'submitting' ? '提交中' : stage.status === 'prepared' ? '已准备' : '生成中';
+  const stageStatus = stage.status === 'done' ? '已完成' : stage.status === 'waiting' && stage.phase === 'fallback_scheduled' ? '备用模型将接管' : stage.status === 'waiting' && /recovering/.test(String(stage.phase || '')) ? '后台恢复中' : stage.status === 'waiting' ? '等待上游节点' : stage.status === 'failed' ? '生成失败' : stage.status === 'blocked' ? '已阻塞' : stage.status === 'ambiguous' ? '需人工核验' : stage.status === 'partial' ? '部分完成' : stage.status === 'submitting' ? '提交中' : stage.status === 'prepared' ? '已准备' : '生成中';
   return `<button type="button" class="flow-node ${stageClass(stage)}" data-node-decision="${key}" title="查看${escapeHtml(stageLabels[key] || key)}的决策说明"><span class="flow-node-top"><i data-lucide="${stageIcons[key] || 'circle'}"></i><span>${escapeHtml(stageLabels[key] || key)}</span></span><strong>${escapeHtml(artifact)}</strong><small>${escapeHtml(stageStatus)}</small></button>`;
+}
+
+function waitDurationLabel(value) {
+  const seconds = Math.max(0, Math.floor((Date.now() - Date.parse(value || '')) / 1000));
+  if (!Number.isFinite(seconds)) return '刚刚开始';
+  return seconds >= 60 ? `已等待 ${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒` : `已等待 ${seconds} 秒`;
+}
+
+function productionStatusHtml(run, active) {
+  const [key, stage = {}] = active || [];
+  const waiting = ['waiting', 'running', 'submitting', 'prepared'].includes(stage.status);
+  if (!waiting) return '';
+  const model = run.input?.creativeProfile?.modelChoice || 'hy3';
+  const isCreative = ['P2', 'P3'].includes(key);
+  const fallback = stage.fallbackFrom || (stage.phase === 'fallback_scheduled' ? model : '');
+  const nextAt = Date.parse(stage.nextAttemptAt || '');
+  const next = Number.isFinite(nextAt) ? new Date(nextAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+  const situation = stage.phase === 'fallback_scheduled'
+    ? `首选 ${modelLabel(fallback || model)} 未返回可用结果，唯一备用 ${modelLabel(model)} 将从已保存证据接管。`
+    : stage.phase === 'waiting_for_operator' || stage.executionMode === 'waiting_for_operator'
+      ? '自动恢复已停止，不会继续消耗 Token；请在任务详情中选择重试或切换模型。'
+      : isCreative
+        ? `${modelLabel(model)} 正在${key === 'P2' ? '梳理全书结构' : '生成创意素材'}，任务不会因页面关闭而中断。`
+        : '正在等待前置节点或外部任务返回；不会重复创建 Code、图片或视频。';
+  const nextStep = stage.phase === 'fallback_scheduled' ? (next ? `${next} 后启动唯一备用模型。` : '备用模型将在下一次后台推进时启动。') : key === 'P3' ? '完成后会依次保存文案、视频提示词、海报提示词和成品质检。' : key === 'P2' ? '完成后将继续创建 Code 和短链，再进入创意生成。' : stage.label || '后台会在状态变化后自动推进下一节点。';
+  return `<aside class="production-status-card ${stage.phase === 'fallback_scheduled' ? 'fallback' : ''}"><div class="production-status-icon"><i data-lucide="${stage.phase === 'fallback_scheduled' ? 'route' : 'loader-circle'}"></i></div><div><span>当前正在发生什么</span><strong>${escapeHtml(stageLabels[key] || key)} · ${escapeHtml(waitDurationLabel(stage.startedAt || run.updatedAt))}</strong><p>${escapeHtml(situation)}</p><small><b>下一步：</b>${escapeHtml(nextStep)}</small></div><div class="production-status-meta"><span>${isCreative ? modelLogoHtml(model, { compact: true }) : '自动推进'}</span><small>${stage.error ? escapeHtml(stage.error) : '状态已持久化，可关闭页面'}</small></div></aside>`;
 }
 
 function nodeDecision(run, node) {
@@ -1784,7 +1854,7 @@ function renderDetail() {
   const retryLabel = posterPartial ? '单独重试失败海报' : videoLimitBlocked ? `下小时重试视频${run.stages.P4.nextWindow ? `（当前额度至 ${run.stages.P4.nextWindow}）` : ''}` : '重试失败节点';
   const canRetry = run.state === 'failed' || videoLimitBlocked || posterPartial;
   panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><div class="detail-actions">${canRetry ? `<button id="retryRun" class="secondary-command"><i data-lucide="rotate-ccw"></i><span>${escapeHtml(retryLabel)}</span></button>` : ''}<button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div></div><nav class="detail-tabs" aria-label="成果模块"><button data-scroll-target="detail-overview">概览</button><button data-scroll-target="detail-decision">事前策划</button><button data-scroll-target="detail-quality">成品质检</button><button data-scroll-target="detail-copy">文案</button><button data-scroll-target="detail-video">视频</button><button data-scroll-target="detail-posters">海报</button><button data-scroll-target="detail-prompts">提示词</button><button data-scroll-target="detail-data">数据</button></nav><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header>
-    <section id="detail-overview" class="pipeline"><div class="section-heading"><div><h3>P1-P6 生产链路</h3><p>书籍核验与证据锁定后，自动完成追踪、创意、视频、海报与审核包。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div>${productionModelRouteHtml(run)}<div class="creative-strategy">${creativeProfileHtml(run.input?.creativeProfile || {})}</div><div class="production-flow">${pipelineHtml(run)}</div><div class="current-stage">${escapeHtml(active[1]?.label || labels[run.state] || run.state)}${active[1]?.error ? `：${escapeHtml(active[1].error)}` : ''}</div></section>
+    <section id="detail-overview" class="pipeline"><div class="section-heading"><div><h3>P1-P6 生产链路</h3><p>书籍核验与证据锁定后，自动完成追踪、创意、视频、海报与审核包。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div>${productionModelRouteHtml(run)}<div class="creative-strategy">${creativeProfileHtml(run.input?.creativeProfile || {})}</div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="current-stage">${escapeHtml(active[1]?.label || labels[run.state] || run.state)}${active[1]?.error ? `：${escapeHtml(active[1].error)}` : ''}</div></section>
     ${decisionHtml(run)}
     ${postProductionReviewHtml(run)}
     <section id="detail-copy" class="detail-section"><div class="section-heading"><h3>六步法成品文案</h3><div class="section-actions"><span class="language-tag">EN / 中文</span><button class="secondary-command create-variant" data-variant="creative" ${variantPending ? 'disabled' : ''}><i data-lucide="${variantPending ? 'loader-circle' : 'sparkles'}"></i><span>${variantPending ? `${escapeHtml(selectedModel)} 生成中` : `${escapeHtml(selectedModel)} 再来一版`}</span></button>${run.artifacts?.posts?.length ? removeAssetButton('copy', '文案') : ''}</div></div>${variantPending ? '<div class="optimization-alert"><div><i data-lucide="loader-circle"></i><strong>AI 正在重写创意包</strong><span>正在基于当前版本与已锁定章节证据生成双语文案、视频脚本和海报提示词。</span></div></div>' : ''}${optimizationHtml(run)}${copyHtml(run)}</section>

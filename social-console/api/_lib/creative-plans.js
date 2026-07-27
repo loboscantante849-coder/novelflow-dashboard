@@ -94,7 +94,7 @@ async function processCreativePlan(redis, plan) {
       result.plan.recommendedProfile = { ...profile(result.plan.recommendedProfile), modelChoice: plan.input.modelChoice };
       plan.artifacts.plan = result.plan;
       plan.artifacts.evidenceScope = { chapterCount: plan.artifacts.chapterList.length, sampledChapters: plan.artifacts.evidence.map((item) => item.order) };
-      plan.artifacts.usage = { model: result.model, ...result.usage };
+      plan.artifacts.usage = { model: result.model, requestedModel: plan.input.preferredModelChoice || plan.input.modelChoice, triggerReason: plan.input.fallbackUsed ? '一次备用模型接管' : '用户发起 AI 策划', outputStatus: '策划方案已保存', completedAt: new Date().toISOString(), ...result.usage };
       setStage(plan, 'analysis', 'done', { label: '智能策划已完成，可查看推荐方向', model: result.model });
       plan.state = 'completed';
       event(plan, 'plan_ready', 'Background creative plan completed');
@@ -102,18 +102,23 @@ async function processCreativePlan(redis, plan) {
       return plan;
     } catch (error) {
       if (!recoverableModelError(error)) throw error;
-      const attempt = Number(analysis.attempt || 0) + 1;
       const preferred = plan.input.preferredModelChoice || plan.input.modelChoice || 'hy3';
       const currentModel = plan.input.modelChoice || preferred;
-      const route = [...new Set([preferred, 'hy3', 'qwen3.7-max', 'seed-2.1-turbo', 'minimax-m2.7', 'kimi-k2.7-code'])];
-      const currentIndex = Math.max(0, route.indexOf(currentModel));
-      const nextModel = route[(currentIndex + 1) % route.length];
-      const nextAttemptAt = new Date(Date.now() + (attempt === 1 ? 1000 : Math.min(300000, 15000 * attempt))).toISOString();
+      const attempt = Number(analysis.attempt || 0) + 1;
+      if (plan.input.fallbackUsed) {
+        setStage(plan, 'analysis', 'failed', { label: '首选与唯一备用模型均未完成，等待你决定是否重试', attempt, nextAttemptAt: '', error: cleanError(error), fallbackFrom: currentModel, executionMode: 'waiting_for_operator' });
+        plan.state = 'failed';
+        event(plan, 'analysis_waiting_for_operator', 'Planning stopped after the single permitted reserve model failed', { error: cleanError(error), currentModel });
+        await saveCreativePlan(redis, plan);
+        return plan;
+      }
+      const nextModel = providers.reserveModelFor(preferred);
+      const nextAttemptAt = new Date(Date.now() + 1000).toISOString();
       plan.input.fallbackUsed = true;
       plan.input.modelHistory = [...new Set([...(plan.input.modelHistory || []), currentModel])];
       plan.input.modelChoice = nextModel;
-      setStage(plan, 'analysis', 'waiting', { label: `${modelLabelForPlan(plan.input.modelChoice)} 将接管策划，后台继续恢复（第 ${attempt} 次）`, attempt, nextAttemptAt, error: cleanError(error), fallbackFrom: currentModel });
-      event(plan, 'analysis_fallback_scheduled', 'Planning model request failed; the next configured model will continue from saved evidence', { error: cleanError(error), nextAttemptAt, nextModel });
+      setStage(plan, 'analysis', 'waiting', { label: `${modelLabelForPlan(nextModel)} 将作为唯一备用模型接管策划`, attempt, nextAttemptAt, error: cleanError(error), fallbackFrom: currentModel, fallbackReason: '首选模型在完整等待窗口内未返回可用结果' });
+      event(plan, 'analysis_fallback_scheduled', 'Planning model request failed; the one permitted reserve model will continue from saved evidence', { error: cleanError(error), nextAttemptAt, nextModel, fallbackFrom: currentModel });
       await saveCreativePlan(redis, plan);
       return plan;
       throw error;

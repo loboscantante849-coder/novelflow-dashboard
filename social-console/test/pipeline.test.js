@@ -57,7 +57,7 @@ test('background creative planning resumes from saved chapter evidence', async (
   assert.equal(resumed.artifacts.plan.editorialThesis, 'Use the first confrontation as the truthful hook.');
 });
 
-test('planning rotates to a reserve model after a primary timeout without losing evidence', async (t) => {
+test('planning uses one fixed reserve model after a primary timeout without losing evidence', async (t) => {
   const originals = { ...providers };
   t.after(() => Object.assign(providers, originals));
   const downloaded = [];
@@ -307,10 +307,10 @@ test('creative timeout is visible and schedules one safe automatic retry', async
   await processRun(redis, run);
   assert.equal(run.state, 'running');
   assert.equal(run.stages.P3.status, 'waiting');
-  assert.equal(run.stages.P3.phase, 'recovering');
+  assert.equal(run.stages.P3.phase, 'fallback_scheduled');
   assert.equal(run.stages.P3.recoverable, true);
   assert.equal(run.artifacts.creativeDraft.failures.posts.attempt, 1);
-  assert.match(run.events.map((event) => event.type).join(' '), /creative_section_started.*creative_section_recovering/);
+  assert.match(run.events.map((event) => event.type).join(' '), /creative_section_started.*creative_section_fallback_scheduled/);
 });
 
 test('invalid model draft is discarded and regenerated with a reserve model', async (t) => {
@@ -338,7 +338,7 @@ test('invalid model draft is discarded and regenerated with a reserve model', as
   assert.equal(run.input.creativeProfile.modelChoice, 'hy3');
   assert.deepEqual(run.artifacts.creativeDraft.parts, {});
   assert.equal(run.artifacts.creativeDraft.failures.posts.attempt, 1);
-  assert.match(run.events.map((event) => event.type).join(' '), /creative_validation_recovering/);
+  assert.match(run.events.map((event) => event.type).join(' '), /creative_validation_fallback_scheduled/);
 });
 
 test('legacy creative failure is recovered from durable tracking and evidence', async (t) => {

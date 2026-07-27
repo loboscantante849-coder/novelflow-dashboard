@@ -8,7 +8,7 @@ const runKey = (id) => `nf_social:run:${id}`;
 const planKey = (id) => `nf_social:creative_plan:${id}`;
 const runSummaryKey = (id) => `nf_social:run_summary:${id}`;
 const planSummaryKey = (id) => `nf_social:creative_plan_summary:${id}`;
-const RUN_SUMMARY_VERSION = 2;
+const RUN_SUMMARY_VERSION = 3;
 class RemoteRedis {
   constructor(url, secret) { this.url = url.replace(/\/$/, ''); this.secret = secret; }
   async call(op, args) {
@@ -74,6 +74,9 @@ function summaryStages(stages = {}) {
     error: String(stage?.error || '').slice(0, 300),
     phase: String(stage?.phase || '').slice(0, 100),
     recoverable: stage?.recoverable === true,
+    fallbackFrom: String(stage?.fallbackFrom || ''),
+    fallbackReason: String(stage?.fallbackReason || '').slice(0, 180),
+    startedAt: String(stage?.startedAt || ''),
     blockedReason: String(stage?.blockedReason || '').slice(0, 80),
     attempt: Number(stage?.attempt || 0),
     nextAttemptAt: String(stage?.nextAttemptAt || '')
@@ -88,12 +91,20 @@ function summaryUsage(usage = {}) {
 }
 
 function summaryModelActivity(activity = []) {
-  return (Array.isArray(activity) ? activity : []).slice(-4).map((item) => ({
+  return (Array.isArray(activity) ? activity : []).slice(-8).map((item) => ({
     section: String(item?.section || ''),
     requestedModel: String(item?.requestedModel || ''),
     model: String(item?.model || ''),
+    fallbackFrom: String(item?.fallbackFrom || ''),
+    fallbackModel: String(item?.fallbackModel || ''),
+    fallbackReason: String(item?.fallbackReason || '').slice(0, 180),
+    triggerReason: String(item?.triggerReason || '').slice(0, 120),
+    outputStatus: String(item?.outputStatus || '').slice(0, 120),
+    latencyMs: Number(item?.latencyMs || 0),
     totalTokens: Number(item?.totalTokens || 0),
     completedAt: String(item?.completedAt || ''),
+    error: String(item?.error || '').slice(0, 240),
+    validationStatus: String(item?.validationStatus || ''),
     recovering: item?.recovering === true,
     attempt: Number(item?.attempt || 0)
   }));
@@ -124,7 +135,7 @@ function runSummary(run) {
       optimization: artifacts.optimization ? { status: artifacts.optimization.status } : null,
       usage: summaryUsage(artifacts.usage)
     },
-    modelActivity: summaryModelActivity(artifacts.modelActivity),
+    modelActivity: summaryModelActivity([...(artifacts.modelActivity || []), ...(artifacts.creativeDraft?.usage || [])]),
     events: Array.isArray(run.events) ? run.events.slice(-1).map((event) => ({ at: event?.at, type: String(event?.type || ''), message: String(event?.message || '').slice(0, 300) })) : [],
     _summary: true,
     _summaryVersion: RUN_SUMMARY_VERSION

@@ -64,6 +64,11 @@ function operationsTimeoutForModel(modelChoice) {
   })[String(modelChoice || '').toLowerCase()] || 90000;
 }
 
+// A task may have one clearly declared reserve, never an invisible model carousel.
+function reserveModelFor(modelChoice) {
+  return String(modelChoice || '').toLowerCase() === 'hy3' ? 'deepseek' : 'hy3';
+}
+
 function copyModelConfig(profile = {}) {
   const choice = String(profile.modelChoice || 'hy3');
   if (TOKENDANCE_MODELS.has(choice)) {
@@ -559,9 +564,9 @@ function postJsonOverHttps(url, headers, payload, label, timeoutMs) {
 }
 
 async function generateCreative(book, evidence, code, shortUrl, revision = null, creativeProfile = {}, requestedSection = '') {
-  // Use a separate reviewer so the drafting model does not grade its own work.
-  // HY3 remains the default drafter; Qwen handles the smaller post-generation QA request.
-  const primaryChoice = requestedSection === 'qualityReview' ? 'qwen3.7-max' : String(creativeProfile.modelChoice || 'hy3');
+  // Keep every creative section on the operator-selected route. A fixed Qwen
+  // review made otherwise single-model jobs look like unexplained extra calls.
+  const primaryChoice = String(creativeProfile.modelChoice || 'hy3');
   const primaryConfig = copyModelConfig({ ...creativeProfile, modelChoice: primaryChoice });
   const { model } = primaryConfig;
   // Keep the generation well below the worker deadline. Ten complete chapters
@@ -623,24 +628,24 @@ The videoPrompt is a high-retention vertical short-video story package, not gene
   if (sectionSpec) {
     const startedAt = Date.now();
     const requestSectionWithFallback = async (config, timeoutMs) => sectionRequest(config, ...sectionSpec, timeoutMs);
-    const longTask = isLongRunningModel(primaryChoice) && requestedSection !== 'qualityReview';
-    const primaryTimeout = longTask ? 600000 : 31000;
-    const fallbackTimeout = longTask ? 75000 : 17000;
+    const longTask = isLongRunningModel(primaryChoice);
+    const primaryTimeout = longTask ? 600000 : Math.max(60000, operationsTimeoutForModel(primaryChoice));
+    const fallbackTimeout = longTask ? 180000 : Math.max(60000, operationsTimeoutForModel(reserveModelFor(primaryChoice)));
     let result;
     let modelUsed = model;
     try {
       result = await requestSectionWithFallback(primaryConfig, primaryTimeout);
     } catch (primaryError) {
-      // HY3 is the verified low-latency recovery route. Qwen and DeepSeek can
-      // both exceed the same serverless window, so chaining them caused a
-      // predictable double-timeout rather than a real fallback.
-      const fallback = primaryChoice === 'hy3' ? 'qwen3.7-max' : 'hy3';
+      const fallback = reserveModelFor(primaryChoice);
       try {
         const fallbackConfig = copyModelConfig({ modelChoice: fallback });
         result = await requestSectionWithFallback(fallbackConfig, fallbackTimeout);
         modelUsed = fallbackConfig.model;
       } catch (fallbackError) {
         fallbackError.ambiguous = false;
+        fallbackError.fallbackFrom = model;
+        fallbackError.fallbackModel = fallback;
+        fallbackError.fallbackReason = '首选模型在完整等待窗口内未返回可用结果，唯一备用模型也未完成';
         fallbackError.message = `Primary ${model}: ${String(primaryError.message || primaryError)}; fallback ${fallback}: ${String(fallbackError.message || fallbackError)}`.slice(0, 500);
         throw fallbackError;
       }
@@ -654,13 +659,16 @@ The videoPrompt is a high-retention vertical short-video story package, not gene
   try {
     sections = await runSections(primaryConfig);
   } catch (primaryError) {
-    const fallback = primaryChoice === 'hy3' ? 'qwen3.7-max' : 'hy3';
+    const fallback = reserveModelFor(primaryChoice);
     try {
       const fallbackConfig = copyModelConfig({ modelChoice: fallback });
       sections = await runSections(fallbackConfig);
       modelUsed = fallbackConfig.model;
     } catch (fallbackError) {
       fallbackError.ambiguous = false;
+      fallbackError.fallbackFrom = model;
+      fallbackError.fallbackModel = fallback;
+      fallbackError.fallbackReason = '首选模型在完整等待窗口内未返回可用结果，唯一备用模型也未完成';
       fallbackError.message = `Primary ${model}: ${String(primaryError.message || primaryError)}; fallback ${fallback}: ${String(fallbackError.message || fallbackError)}`.slice(0, 500);
       throw fallbackError;
     }
@@ -1039,4 +1047,4 @@ async function reportRows(code, linkId, days = 90) {
 
 function sha(value) { return crypto.createHash('sha256').update(String(value)).digest('hex'); }
 
-module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, searchBooks, performanceBooks, contentDashboardBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, linkDetail, generateCreative, analyzeCreativePlan, analyzeOperations, analyzeBookCandidates, extractScreenshotText, analyzeScreenshotWithSeed, copilotReply, generateDistributionPlan, rewritePosterPrompt, findAcTask, submitAc, acResult, validateVideo, submitImage, imageResult, reportRows, sha, titleKey, modelTemperature, operationsTimeoutForModel };
+module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, searchBooks, performanceBooks, contentDashboardBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, linkDetail, generateCreative, analyzeCreativePlan, analyzeOperations, analyzeBookCandidates, extractScreenshotText, analyzeScreenshotWithSeed, copilotReply, generateDistributionPlan, rewritePosterPrompt, findAcTask, submitAc, acResult, validateVideo, submitImage, imageResult, reportRows, sha, titleKey, modelTemperature, operationsTimeoutForModel, reserveModelFor };

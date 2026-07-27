@@ -207,7 +207,7 @@ async function p2(redis, run) {
       const result = await providers.analyzeCreativePlan(run.artifacts.book, evidence.chapters, evidence.chapterStructure, current);
       evidence.storyBrief = { status: 'ready', model: result.model, responseId: result.responseId, createdAt: now(), plan: result.plan, usage: result.usage };
       run.artifacts.storyBrief = evidence.storyBrief;
-      run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), { section: 'storyBrief', requestedModel: current, model: result.model, responseId: result.responseId, completedAt: now(), ...result.usage }].slice(-24);
+      run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), { section: 'storyBrief', requestedModel: current, model: result.model, responseId: result.responseId, completedAt: now(), triggerReason: story.fallbackUsed ? '一次备用模型接管' : '一键生产：全书故事梳理', outputStatus: '全书故事蓝图已保存', ...result.usage }].slice(-24);
       addEvent(run, 'story_intelligence_ready', 'Full-book structure map and chapter-grounded creative brief saved');
     } catch (error) {
       if (!recoverableModelError(error)) {
@@ -220,12 +220,20 @@ async function p2(redis, run) {
         return;
       }
       const attempt = Number(story.attempt || 0) + 1;
-      const route = [...new Set([preferred, 'hy3', 'deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7'])];
-      const next = route[(Math.max(0, route.indexOf(current)) + 1) % route.length];
-      const nextAttemptAt = new Date(Date.now() + Math.min(5 * 60 * 1000, 15000 * attempt)).toISOString();
-      evidence.storyBrief = { status: 'recovering', attempt, modelChoice: next, nextAttemptAt, error: cleanError(error) };
-      setStage(run, 'P2', 'waiting', { label: `全书故事梳理通道暂缓，${next} 将自动接管（第 ${attempt} 次）`, phase: 'story_intelligence_recovering', recoverable: true, nextAttemptAt, error: cleanError(error) });
-      addEvent(run, 'story_intelligence_recovering', 'Story intelligence will retry from saved chapter structure and evidence', { attempt, next, nextAttemptAt });
+      if (story.fallbackUsed) {
+        const message = cleanError(error);
+        evidence.storyBrief = { status: 'waiting_for_operator', attempt, modelChoice: current, fallbackUsed: true, error: message };
+        run.state = 'failed';
+        setStage(run, 'P2', 'failed', { label: '首选与唯一备用模型均未完成，请选择重试或切换模型', phase: 'story_intelligence_waiting_for_operator', recoverable: false, nextAttemptAt: '', error: message });
+        addEvent(run, 'story_intelligence_waiting_for_operator', 'Story intelligence stopped after the single permitted reserve model failed', { attempt, current, error: message });
+        await saveRun(redis, run);
+        return;
+      }
+      const next = providers.reserveModelFor(preferred);
+      const nextAttemptAt = new Date(Date.now() + 1000).toISOString();
+      evidence.storyBrief = { status: 'recovering', attempt, modelChoice: next, fallbackUsed: true, nextAttemptAt, error: cleanError(error), fallbackFrom: current };
+      setStage(run, 'P2', 'waiting', { label: `全书故事梳理暂缓，${next} 将作为唯一备用模型接管`, phase: 'story_intelligence_recovering', recoverable: true, nextAttemptAt, error: cleanError(error), fallbackFrom: current });
+      addEvent(run, 'story_intelligence_fallback_scheduled', 'Story intelligence will use the one permitted reserve model from saved chapter structure and evidence', { attempt, next, fallbackFrom: current, nextAttemptAt });
       await saveRun(redis, run);
       return;
     }
@@ -360,20 +368,29 @@ async function finalizeCreativeDraft(redis, run) {
     creative = normalizeCreative(result, run);
   } catch (error) {
     const attempt = Number(draft.validationAttempts || 0) + 1;
-    const nextAttemptAt = new Date(Date.now() + Math.min(300000, 15000 * attempt)).toISOString();
     const previousModel = String(run.input?.creativeProfile?.modelChoice || 'hy3');
-    const route = ['deepseek', 'hy3', 'qwen3.7-max', 'seed-2.1-turbo', 'minimax-m2.7'];
-    const nextModel = route[(Math.max(0, route.indexOf(previousModel)) + 1) % route.length];
+    if (draft.validationFallbackUsed) {
+      const message = cleanError(error);
+      run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), ...draft.usage.map((item) => ({ ...item, validationStatus: 'rejected', validationError: message, outputStatus: '证据校验未通过' }))].slice(-24);
+      run.state = 'failed';
+      setStage(run, 'P3', 'failed', { label: '首选与唯一备用模型均未通过证据校验，请人工决定下一步', phase: 'validation_waiting_for_operator', attempt, nextAttemptAt: '', error: message, recoverable: false });
+      addEvent(run, 'creative_validation_waiting_for_operator', 'Creative validation stopped after the single permitted reserve model was exhausted', { attempt, previousModel, error: message });
+      await saveRun(redis, run);
+      return run;
+    }
+    const nextAttemptAt = new Date(Date.now() + 1000).toISOString();
+    const nextModel = providers.reserveModelFor(previousModel);
     run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), ...draft.usage.map((item) => ({ ...item, validationStatus: 'rejected', validationError: cleanError(error) }))].slice(-24);
     draft.parts = {};
     draft.usage = [];
     draft.validationAttempts = attempt;
+    draft.validationFallbackUsed = true;
     draft.recoveryRevision = { instruction: 'Regenerate every creative section from the saved exact chapter evidence. Correct the prior validation failure and do not reuse unsupported quotes.', validationError: cleanError(error) };
     draft.failures = Object.fromEntries(['posts', 'videoPrompt', 'posterPrompts'].map((section) => [section, { attempt, at: now(), error: cleanError(error), nextAttemptAt }]));
     run.input.creativeProfile = { ...(run.input.creativeProfile || {}), modelChoice: nextModel };
     run.state = 'running';
-    setStage(run, 'P3', 'waiting', { label: `上一版未通过证据校验，${nextModel} 将从原文章节重新生成`, phase: 'validation_recovering', attempt, nextAttemptAt, error: cleanError(error), recoverable: true });
-    addEvent(run, 'creative_validation_recovering', 'Invalid creative draft was discarded; a reserve model will regenerate from saved chapter evidence', { attempt, previousModel, nextModel, nextAttemptAt, error: cleanError(error) });
+    setStage(run, 'P3', 'waiting', { label: `上一版未通过证据校验，${nextModel} 将作为唯一备用模型重新生成`, phase: 'validation_recovering', attempt, nextAttemptAt, error: cleanError(error), recoverable: true, fallbackFrom: previousModel });
+    addEvent(run, 'creative_validation_fallback_scheduled', 'Invalid creative draft was discarded; the one permitted reserve model will regenerate from saved chapter evidence', { attempt, previousModel, nextModel, nextAttemptAt, error: cleanError(error) });
     await saveRun(redis, run);
     return run;
   }
@@ -450,13 +467,28 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
           await saveRun(redis, latest);
           return syncRun(originalRun, latest);
         }
-        const delayMs = attempt <= 2 ? 15000 * attempt : Math.min(10 * 60 * 1000, 60000 * (attempt - 1));
-        const nextAttemptAt = new Date(Date.now() + delayMs).toISOString();
-        latestDraft.failures[pendingSection] = { attempt, at: now(), error: cleanError(error), nextAttemptAt };
+        const preferredModel = String(latest.input?.creativeProfile?.modelChoice || 'hy3');
+        const alreadyUsedReserve = latestDraft.modelRoute?.fallbackUsed === true || Boolean(error?.fallbackModel);
+        if (alreadyUsedReserve) {
+          const message = cleanError(error);
+          latestDraft.failures[pendingSection] = { attempt, at: now(), error: message, nextAttemptAt: '', recoverable: false, fallbackFrom: error?.fallbackFrom || preferredModel, fallbackModel: error?.fallbackModel || '' };
+          latest.artifacts.modelActivity = [...(latest.artifacts.modelActivity || []), { section: pendingSection, requestedModel: preferredModel, model: '', fallbackFrom: error?.fallbackFrom || preferredModel, fallbackModel: error?.fallbackModel || '', fallbackReason: error?.fallbackReason || '首选与唯一备用模型均未返回可用结果', completedAt: now(), triggerReason: '后台生产恢复', outputStatus: '未产出，等待人工决定', error: message }].slice(-24);
+          latest.artifacts.creativeDraft = latestDraft;
+          latest.state = 'failed';
+          setStage(latest, 'P3', 'failed', { label: `${creativeSectionLabels[pendingSection]}的首选与唯一备用模型均未完成，请人工决定`, phase: 'waiting_for_operator', attempt, nextAttemptAt: '', error: message, recoverable: false });
+          addEvent(latest, 'creative_section_waiting_for_operator', `${pendingSection} stopped after the single permitted reserve model was exhausted`, { attempt, error: message });
+          await saveRun(redis, latest);
+          return syncRun(originalRun, latest);
+        }
+        const reserveModel = providers.reserveModelFor(preferredModel);
+        const nextAttemptAt = new Date(Date.now() + 1000).toISOString();
+        latestDraft.modelRoute = { preferredModel, fallbackModel: reserveModel, fallbackUsed: true, fallbackFrom: preferredModel, reason: '首选模型未返回可用结果' };
+        latestDraft.failures[pendingSection] = { attempt, at: now(), error: cleanError(error), nextAttemptAt, recoverable: true, fallbackFrom: preferredModel, fallbackModel: reserveModel };
         latest.artifacts.creativeDraft = latestDraft;
+        latest.input.creativeProfile = { ...(latest.input.creativeProfile || {}), modelChoice: reserveModel };
         latest.state = 'running';
-        setStage(latest, 'P3', 'waiting', { label: `${creativeSectionLabels[pendingSection]}通道暂缓，后台自动恢复中（${attempt}）`, phase: 'recovering', attempt, nextAttemptAt, error: cleanError(error), recoverable: true });
-        addEvent(latest, 'creative_section_recovering', `${pendingSection} will continue from saved evidence`, { attempt, error: cleanError(error), nextAttemptAt });
+        setStage(latest, 'P3', 'waiting', { label: `${creativeSectionLabels[pendingSection]}暂缓，${reserveModel} 将作为唯一备用模型接管`, phase: 'fallback_scheduled', attempt, nextAttemptAt, error: cleanError(error), recoverable: true, fallbackFrom: preferredModel });
+        addEvent(latest, 'creative_section_fallback_scheduled', `${pendingSection} will use the one permitted reserve model from saved evidence`, { attempt, preferredModel, reserveModel, nextAttemptAt });
         await saveRun(redis, latest);
         return syncRun(originalRun, latest);
       });
@@ -467,7 +499,8 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
       delete latestDraft.inFlight?.[pendingSection];
       if (!latestDraft.parts[pendingSection]) {
         latestDraft.parts[pendingSection] = sectionResult.creative[pendingSection] || (pendingSection === 'qualityReview' ? {} : null);
-        latestDraft.usage.push({ section: pendingSection, requestedModel: sectionResult.requestedModel || modelLabel, model: sectionResult.model, fallbackFrom: sectionResult.fallbackFrom || '', responseId: sectionResult.responseId, latencyMs: Number(sectionResult.latencyMs || 0), completedAt: now(), ...sectionResult.usage });
+        const fallbackFrom = sectionResult.fallbackFrom || '';
+        latestDraft.usage.push({ section: pendingSection, requestedModel: sectionResult.requestedModel || modelLabel, model: sectionResult.model, fallbackFrom, responseId: sectionResult.responseId, latencyMs: Number(sectionResult.latencyMs || 0), completedAt: now(), triggerReason: fallbackFrom ? '一次备用模型接管' : pendingSection === 'qualityReview' ? '自动成品质检' : '一键生产：创意包', outputStatus: `${creativeSectionLabels[pendingSection]}已保存`, ...sectionResult.usage });
       }
       if (latestDraft.failures) delete latestDraft.failures[pendingSection];
       latest.artifacts.creativeDraft = latestDraft;
