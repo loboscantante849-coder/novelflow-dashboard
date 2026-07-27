@@ -476,9 +476,27 @@ function parseModelJson(raw, model = 'selected AI model') {
   const end = cleaned.lastIndexOf('}');
   if (start >= 0 && end > start) candidates.push(cleaned.slice(start, end + 1));
   for (const candidate of candidates) {
+    const normalized = escapeJsonControlCharacters(candidate).replace(/,\s*([}\]])/g, '$1');
     try { return JSON.parse(candidate); } catch {}
+    if (normalized !== candidate) try { return JSON.parse(normalized); } catch {}
   }
   throw new ProviderError(`${model} returned invalid structured output`);
+}
+
+function escapeJsonControlCharacters(value) {
+  let result = '';
+  let inString = false;
+  let escaped = false;
+  for (const character of String(value || '')) {
+    if (escaped) { result += character; escaped = false; continue; }
+    if (character === '\\' && inString) { result += character; escaped = true; continue; }
+    if (character === '"') { result += character; inString = !inString; continue; }
+    if (inString && character === '\n') { result += '\\n'; continue; }
+    if (inString && character === '\r') { result += '\\r'; continue; }
+    if (inString && character === '\t') { result += '\\t'; continue; }
+    result += character;
+  }
+  return result;
 }
 
 function sampledChapterStructure(chapters, limit = 80) {
@@ -620,10 +638,10 @@ The videoPrompt is a high-retention vertical short-video story package, not gene
     sectionRequest(config, 'quality review', reviewInstruction, { qualityReview: schema.qualityReview }, 1200)
   ]);
   const sectionSpec = {
-    posts: ['copy generation', postsInstruction, { posts: schema.posts }, 3800],
-    videoPrompt: ['video generation', videoInstruction, { videoPrompt: schema.videoPrompt }, 2600],
-    posterPrompts: ['poster generation', postersInstruction, { posterPrompts: schema.posterPrompts }, 1800],
-    qualityReview: ['quality review', reviewInstruction, { qualityReview: schema.qualityReview }, 1200]
+    posts: ['copy generation', postsInstruction, { posts: schema.posts }, 6000],
+    videoPrompt: ['video generation', videoInstruction, { videoPrompt: schema.videoPrompt }, 4000],
+    posterPrompts: ['poster generation', postersInstruction, { posterPrompts: schema.posterPrompts }, 2600],
+    qualityReview: ['quality review', reviewInstruction, { qualityReview: schema.qualityReview }, 1800]
   }[requestedSection];
   if (sectionSpec) {
     const startedAt = Date.now();
@@ -1047,4 +1065,4 @@ async function reportRows(code, linkId, days = 90) {
 
 function sha(value) { return crypto.createHash('sha256').update(String(value)).digest('hex'); }
 
-module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, searchBooks, performanceBooks, contentDashboardBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, linkDetail, generateCreative, analyzeCreativePlan, analyzeOperations, analyzeBookCandidates, extractScreenshotText, analyzeScreenshotWithSeed, copilotReply, generateDistributionPlan, rewritePosterPrompt, findAcTask, submitAc, acResult, validateVideo, submitImage, imageResult, reportRows, sha, titleKey, modelTemperature, operationsTimeoutForModel, reserveModelFor };
+module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, searchBooks, performanceBooks, contentDashboardBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, linkDetail, generateCreative, analyzeCreativePlan, analyzeOperations, analyzeBookCandidates, extractScreenshotText, analyzeScreenshotWithSeed, copilotReply, generateDistributionPlan, rewritePosterPrompt, findAcTask, submitAc, acResult, validateVideo, submitImage, imageResult, reportRows, sha, titleKey, modelTemperature, operationsTimeoutForModel, reserveModelFor, parseModelJson };

@@ -172,6 +172,22 @@ test('an unknown explicit run id never falls through to an unrelated runnable ru
   assert.equal(runCalls, 0);
 });
 
+test('cron never restarts a creative task that explicitly waits for an operator', async (t) => {
+  const target = run();
+  target.state = 'failed';
+  target.stages.P3 = { status: 'failed', phase: 'waiting_for_operator', recoverable: false };
+  let fullReads = 0;
+  let runCalls = 0;
+  const { result } = await invoke(t, {
+    store: { listRunSummaries: async () => [target], getRun: async () => { fullReads += 1; return target; } },
+    pipeline: { processRun: async () => { runCalls += 1; return target; } }
+  });
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.body.worked, false);
+  assert.equal(fullReads, 0);
+  assert.equal(runCalls, 0);
+});
+
 test('an unknown explicit plan id never falls through to an unrelated runnable run', async (t) => {
   const fallback = run('run_abcdef1234567890');
   let runCalls = 0;

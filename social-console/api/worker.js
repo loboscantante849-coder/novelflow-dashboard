@@ -140,6 +140,8 @@ module.exports = async (req, res) => {
       if (['queued', 'running'].includes(item.state)) return true;
       const creativeFailure = item.state === 'failed'
         && item.stages?.P3?.status === 'failed'
+        && item.stages?.P3?.recoverable !== false
+        && !['waiting_for_operator', 'validation_waiting_for_operator', 'configuration_error'].includes(String(item.stages?.P3?.phase || ''))
         && item.stages?.P1?.status === 'done'
         && item.stages?.P2?.status === 'done'
         && item.stages?.P5?.status === 'done'

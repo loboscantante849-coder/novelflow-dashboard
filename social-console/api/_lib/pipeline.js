@@ -832,6 +832,8 @@ async function processRun(redis, run) {
   const legacyPosterAmbiguous = run.stages.P3_5?.status === 'ambiguous' && run.stages.P3?.status === 'done' && !['failed', 'ambiguous', 'blocked'].includes(run.stages.P4?.status);
   const recoverableCreativeFailure = run.state === 'failed'
     && run.stages.P3?.status === 'failed'
+    && run.stages.P3?.recoverable !== false
+    && !['waiting_for_operator', 'validation_waiting_for_operator', 'configuration_error'].includes(String(run.stages.P3?.phase || ''))
     && run.artifacts?.book
     && run.artifacts?.evidence?.chapters?.length
     && run.artifacts?.code

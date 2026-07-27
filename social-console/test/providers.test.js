@@ -1,13 +1,19 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const providers = require('../api/_lib/providers');
-const { modelTemperature, operationsTimeoutForModel } = providers;
+const { modelTemperature, operationsTimeoutForModel, parseModelJson } = providers;
 
 test('Kimi K2.7 Code receives its provider-required temperature without changing other models', () => {
   assert.equal(modelTemperature('kimi-k2.7-code', 0.25), 1);
   assert.equal(modelTemperature('KIMI_K2.7_CODE', 0.55), 1);
   assert.equal(modelTemperature('hy3', 0.25), 0.25);
   assert.equal(modelTemperature('qwen3.7-max', 0.55), 0.55);
+});
+
+test('creative JSON parser repairs common provider formatting without another model call', () => {
+  const parsed = parseModelJson('```json\n{"content":"line one\nline two", "tags":["a","b",],}\n```', 'test-model');
+  assert.equal(parsed.content, 'line one\nline two');
+  assert.deepEqual(parsed.tags, ['a', 'b']);
 });
 
 test('selected non-HY models receive a real completion window before fallback', () => {
