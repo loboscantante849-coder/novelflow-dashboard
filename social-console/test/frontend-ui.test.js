@@ -205,6 +205,15 @@ test('adopted AI plans leave the decision queue and remain only on their product
   assert.deepEqual(visible.map((job) => job.id), ['ready', 'running', 'failed']);
 });
 
+test('selected quality models are not aborted by the old short UI timeout', () => {
+  const context = {};
+  vm.createContext(context);
+  vm.runInContext(between('const longBackgroundModels', 'function creativeProfileForForm('), context);
+  assert.equal(context.selectedModelWaitMs('seed-2.1-turbo'), 210000);
+  assert.equal(context.selectedModelWaitMs('qwen3.7-max'), 210000);
+  assert.equal(context.selectedModelWaitMs('hy3'), 70000);
+});
+
 test('legacy snapshots without verified metric provenance are not restored as rankings', () => {
   const snapshot = {
     savedAt: Date.now(),

@@ -215,6 +215,11 @@ function renderModelBadges() {
 }
 const longBackgroundModels = new Set(['deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'kimi-k2.7-code']);
 const usesLongBackground = (choice) => longBackgroundModels.has(String(choice || '').toLowerCase());
+function selectedModelWaitMs(choice) {
+  // The panel renders a local result immediately, so there is no reason to
+  // abort a user-selected quality model at the old 32–45 second UI timer.
+  return usesLongBackground(choice) ? 210000 : 70000;
+}
 
 function creativeProfileForForm() {
   return { copyStyle: $('#creativeStyle').value, ctaStyle: $('#ctaStyle').value, videoStyle: $('#videoStyle').value, posterStyle: $('#posterStyle').value, modelChoice: $('#modelChoice')?.value || 'hy3' };
@@ -575,7 +580,7 @@ async function runAssistant(mode) {
     result.innerHTML = assistantHtml(localAssistantAnalysis(snapshot, mode), '实时任务数据');
     bindAssistantActions(result);
     icons();
-    const body = await api('/api/assistant', { method: 'POST', body: JSON.stringify({ mode, modelChoice, snapshot }), timeoutMs: 32000 });
+    const body = await api('/api/assistant', { method: 'POST', body: JSON.stringify({ mode, modelChoice, snapshot }), timeoutMs: selectedModelWaitMs(modelChoice) });
     result.className = 'assistant-result';
     const actualModel = modelLabel(body.usage?.model || selectedModel);
     result.innerHTML = assistantHtml(body.analysis || {}, actualModel);
@@ -659,12 +664,12 @@ async function sendCopilot(text) {
   const input = $('#copilotInput'); const button = $('#copilotForm button'); input.value = ''; button.disabled = true;
   try {
     const modelChoice = $('#assistantModelChoice')?.value || 'hy3';
-    const body = await api('/api/copilot', { method: 'POST', body: JSON.stringify({ messages: state.copilotMessages, context: copilotContext(), modelChoice }), timeoutMs: 45000 });
+    const body = await api('/api/copilot', { method: 'POST', body: JSON.stringify({ messages: state.copilotMessages, context: copilotContext(), modelChoice }), timeoutMs: selectedModelWaitMs(modelChoice) });
     const reply = { role: 'assistant', content: body.message?.content || '', toolCalls: body.message?.toolCalls || [] };
     state.copilotMessages.push(reply); renderCopilotThread();
     if (reply.toolCalls.length) {
       for (const call of reply.toolCalls) state.copilotMessages.push({ role: 'tool', toolCallId: call.id, content: await executeCopilotTool(call) });
-      const final = await api('/api/copilot', { method: 'POST', body: JSON.stringify({ messages: state.copilotMessages, context: copilotContext(), modelChoice }), timeoutMs: 45000 });
+      const final = await api('/api/copilot', { method: 'POST', body: JSON.stringify({ messages: state.copilotMessages, context: copilotContext(), modelChoice }), timeoutMs: selectedModelWaitMs(modelChoice) });
       state.copilotMessages.push({ role: 'assistant', content: final.message?.content || '页面动作已完成。' });
     }
     persistCopilot(); renderCopilotThread(); icons();

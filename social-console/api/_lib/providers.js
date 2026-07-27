@@ -53,13 +53,15 @@ function modelTemperature(model, preferred) {
 }
 function operationsTimeoutForModel(modelChoice) {
   return ({
-    hy3: 10000,
-    'qwen3.7-max': 18000,
-    deepseek: 28000,
-    'seed-2.1-turbo': 15000,
-    'minimax-m2.7': 15000,
-    'kimi-k2.7-code': 18000
-  })[String(modelChoice || '').toLowerCase()] || 12000;
+    // HY3 is intentionally the fast route. Every user-selected quality model
+    // gets a real server-side completion window before any reserve is used.
+    hy3: 30000,
+    'seed-2.1-turbo': 120000,
+    deepseek: 150000,
+    'qwen3.7-max': 150000,
+    'minimax-m2.7': 150000,
+    'kimi-k2.7-code': 150000
+  })[String(modelChoice || '').toLowerCase()] || 90000;
 }
 
 function copyModelConfig(profile = {}) {
@@ -769,16 +771,15 @@ async function analyzeOperations(snapshot, mode = 'operations', modelChoice = 'h
   // healthy DeepSeek request look like a failure once the shared 22s timer won.
   // This route is non-paid, so a clearly failed text request may safely move to
   // the fast, verified reserve before falling back to metrics.
-  // Console assistance should feel immediate. Full creative and planning flows
-  // keep their larger quality budgets; this compact analysis switches quickly
-  // when a selected TokenDance route is not currently producing usable JSON.
+  // Keep the initial local dashboard summary responsive, but do not let a
+  // short network timer overwrite the operator's explicit model choice.
   const primaryTimeout = operationsTimeoutForModel(modelChoice);
   try {
     return await request(modelChoice, primaryTimeout);
   } catch (primaryError) {
     const reserve = modelChoice === 'qwen3.7-max' ? 'deepseek' : 'qwen3.7-max';
     try {
-      const reserveResult = await request(reserve, 16000);
+      const reserveResult = await request(reserve, Math.min(120000, operationsTimeoutForModel(reserve)));
       return {
         ...reserveResult,
         fallbackFrom: modelChoice,
@@ -926,7 +927,7 @@ async function copilotReply(messages, context, modelChoice = 'hy3') {
     temperature: modelTemperature(config.model, 0.25),
     max_tokens: 900
   };
-  const body = await postJsonOverHttps(`${config.baseUrl}/chat/completions`, { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' }, payload, `${config.model} copilot`, 35000);
+  const body = await postJsonOverHttps(`${config.baseUrl}/chat/completions`, { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' }, payload, `${config.model} copilot`, operationsTimeoutForModel(modelChoice));
   const message = body.choices?.[0]?.message || {};
   const toolCalls = Array.isArray(message.tool_calls) ? message.tool_calls.slice(0, 3).map((call) => ({ id: String(call.id || crypto.randomUUID()), name: String(call.function?.name || ''), arguments: String(call.function?.arguments || '{}') })) : [];
   const usage = body.usage || {};

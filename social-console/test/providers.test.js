@@ -10,11 +10,13 @@ test('Kimi K2.7 Code receives its provider-required temperature without changing
   assert.equal(modelTemperature('qwen3.7-max', 0.55), 0.55);
 });
 
-test('selected creative models receive enough time before transparent fallback', () => {
-  assert.ok(operationsTimeoutForModel('kimi-k2.7-code') >= 18000);
-  assert.ok(operationsTimeoutForModel('seed-2.1-turbo') >= 15000);
-  assert.ok(operationsTimeoutForModel('minimax-m2.7') >= 15000);
-  assert.ok(operationsTimeoutForModel('hy3') < operationsTimeoutForModel('deepseek'));
+test('selected non-HY models receive a real completion window before fallback', () => {
+  assert.ok(operationsTimeoutForModel('seed-2.1-turbo') >= 120000);
+  assert.ok(operationsTimeoutForModel('deepseek') >= 120000);
+  assert.ok(operationsTimeoutForModel('qwen3.7-max') >= 120000);
+  assert.ok(operationsTimeoutForModel('minimax-m2.7') >= 120000);
+  assert.ok(operationsTimeoutForModel('kimi-k2.7-code') >= 120000);
+  assert.ok(operationsTimeoutForModel('hy3') < operationsTimeoutForModel('seed-2.1-turbo'));
 });
 
 test('a paid image success response with invalid JSON is ambiguous', async (t) => {
