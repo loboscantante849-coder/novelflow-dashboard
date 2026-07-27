@@ -3414,6 +3414,7 @@
             isLoggedIn: false,
             user: null,
             books: [],
+            hasVerifiedTrending: false,
             filteredBooks: [],
             myBooks: [],
             selectedCandidate: null,
@@ -3562,6 +3563,8 @@
                 copied: '✅ Copied!',
                 trending_now: '🔥 Trending This Week',
                 find_next_read: 'Find your next favorite read',
+                featured_books: '✨ Featured Books',
+                featured_subtitle: 'Discover books to promote',
                 browse_books: 'Browse Books',
                 genre_all: 'All',
                 genre_romance: 'Romance',
@@ -3822,6 +3825,8 @@
                 copied: '✅ ¡Copiado!',
                 trending_now: '🔥 Tendencias de la Semana',
                 find_next_read: 'Encuentra tu próxima lectura favorita',
+                featured_books: '✨ Libros destacados',
+                featured_subtitle: 'Descubre libros para promocionar',
                 browse_books: 'Explorar Libros',
                 genre_all: 'Todos',
                 genre_romance: 'Romance',
@@ -4148,6 +4153,10 @@
                 AppState.books = [];
             }
 
+            // A server-side sort parameter alone is not proof of a Top list.
+            // Only call a section Trending when the response carries a usable
+            // UV/read metric that the client can verify.
+            AppState.hasVerifiedTrending = AppState.books.some(book => Number(book.uv) > 0);
             AppState.filteredBooks = AppState.books;
             hideLoadingAndShowContent();
             renderBookList();
@@ -4207,8 +4216,24 @@
         function renderBookScroll() {
             const container = document.getElementById('bookScrollList');
             if (!container) return;
-            // Show books starting from #6 (top 5 are in Trending This Week)
-            const books = AppState.books.slice(5, 11);
+            const section = document.getElementById('bookScrollSection');
+            const title = section && section.querySelector('.book-scroll-title');
+            const subtitle = section && section.querySelector('.section-subtitle');
+            const hasVerifiedTrending = Boolean(AppState.hasVerifiedTrending);
+            const titleKey = hasVerifiedTrending ? 'trending_now' : 'featured_books';
+            const subtitleKey = hasVerifiedTrending ? 'find_next_read' : 'featured_subtitle';
+            if (title) {
+                title.dataset.i18n = titleKey;
+                title.textContent = getText(titleKey);
+            }
+            if (subtitle) {
+                subtitle.dataset.i18n = subtitleKey;
+                subtitle.textContent = getText(subtitleKey);
+            }
+
+            // With verified ranking data, reserve the first five books for the
+            // Top list. Otherwise this is discovery content, starting at #1.
+            const books = hasVerifiedTrending ? AppState.books.slice(5, 11) : AppState.books.slice(0, 6);
             // If not enough, fill from start
             if (books.length < 6) {
                 const extra = AppState.books.slice(0, 6 - books.length);

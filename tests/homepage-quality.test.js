@@ -17,6 +17,9 @@ test('homepage rankings use real reader data instead of random numbers', () => {
   assert.doesNotMatch(source, /earnBadgeTexts/);
   assert.match(source, /uv: Number\(book\.uv \|\| book\.bookUv \|\| book\.readCount/);
   assert.match(source, /sort\(\(a, b\) => Number\(b\.uv\) - Number\(a\.uv\)\)/);
+  assert.match(source, /hasVerifiedTrending = AppState\.books\.some\(book => Number\(book\.uv\) > 0\)/);
+  assert.match(source, /const titleKey = hasVerifiedTrending \? 'trending_now' : 'featured_books'/);
+  assert.match(source, /hasVerifiedTrending \? AppState\.books\.slice\(5, 11\) : AppState\.books\.slice\(0, 6\)/);
   assert.match(source, /promote_earn_badge: 'Promote & Earn'/);
   assert.doesNotMatch(source, /hideLoadingAndShowContent\(\)[\s\S]{0,400}rankHeader'\)\.style\.display = 'flex'/);
 });
@@ -25,6 +28,8 @@ test('language switching updates page metadata and translated discovery labels',
   assert.match(source, /document\.documentElement\.lang = lang/);
   assert.match(source, /document\.title = pageTitle/);
   assert.match(source, /find_next_read: 'Encuentra tu próxima lectura favorita'/);
+  assert.match(source, /featured_books: '✨ Libros destacados'/);
+  assert.match(source, /featured_subtitle: 'Descubre libros para promocionar'/);
   assert.match(source, /genre_werewolf: 'Hombre lobo'/);
   assert.match(source, /top_promotions: 'Libros en tendencia'/);
   assert.match(source, /password_placeholder: 'Contraseña'/);
