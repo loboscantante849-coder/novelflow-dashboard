@@ -1663,7 +1663,28 @@ function productionStatusHtml(run, active) {
         ? `${modelLabel(model)} 正在${key === 'P2' ? '梳理全书结构' : '生成创意素材'}，任务不会因页面关闭而中断。`
         : '正在等待前置节点或外部任务返回；不会重复创建 Code、图片或视频。';
   const nextStep = overdue ? '请在“模型活动”确认是否已有产物；没有产物时再手动选择重试或切换模型，避免双重调用。' : stage.phase === 'fallback_scheduled' ? (next ? `${next} 后启动唯一备用模型。` : '备用模型将在下一次后台推进时启动。') : key === 'P3' ? '完成后会依次保存文案、视频提示词、海报提示词和成品质检。' : key === 'P2' ? '完成后将继续创建 Code 和短链，再进入创意生成。' : stage.label || '后台会在状态变化后自动推进下一节点。';
-  return `<aside class="production-status-card ${overdue ? 'overdue' : stage.phase === 'fallback_scheduled' ? 'fallback' : ''}"><div class="production-status-icon"><i data-lucide="${overdue ? 'circle-alert' : stage.phase === 'fallback_scheduled' ? 'route' : 'loader-circle'}"></i></div><div><span>当前正在发生什么</span><strong>${escapeHtml(stageLabels[key] || key)} · ${escapeHtml(waitDurationLabel(stage.startedAt || run.updatedAt))}${overdue ? ' · 已超时' : ''}</strong><p>${escapeHtml(situation)}</p><small><b>下一步：</b>${escapeHtml(nextStep)}</small></div><div class="production-status-meta"><span>${isCreative ? modelLogoHtml(model, { compact: true }) : '自动推进'}</span><small>${overdue ? `正常窗口 ${Math.ceil(expectedSeconds / 60)} 分钟 · 未自动重发` : stage.error ? escapeHtml(stage.error) : '状态已持久化，可关闭页面'}</small></div></aside>`;
+  const recoveryAction = overdue && key === 'P3' ? `<button class="primary-command ai-wait-recovery" data-ai-wait-recovery="${escapeHtml(run.id)}" type="button"><i data-lucide="route"></i>启用唯一备用继续</button>` : '';
+  return `<aside class="production-status-card ${overdue ? 'overdue' : stage.phase === 'fallback_scheduled' ? 'fallback' : ''}"><div class="production-status-icon"><i data-lucide="${overdue ? 'circle-alert' : stage.phase === 'fallback_scheduled' ? 'route' : 'loader-circle'}"></i></div><div><span>当前正在发生什么</span><strong>${escapeHtml(stageLabels[key] || key)} · ${escapeHtml(waitDurationLabel(stage.startedAt || run.updatedAt))}${overdue ? ' · 已超时' : ''}</strong><p>${escapeHtml(situation)}</p><small><b>下一步：</b>${escapeHtml(nextStep)}</small></div><div class="production-status-meta"><span>${isCreative ? modelLogoHtml(model, { compact: true }) : '自动推进'}</span><small>${overdue ? `正常窗口 ${Math.ceil(expectedSeconds / 60)} 分钟 · 未自动重发` : stage.error ? escapeHtml(stage.error) : '状态已持久化，可关闭页面'}</small>${recoveryAction}</div></aside>`;
+}
+
+async function recoverAiWait(id, button) {
+  button.disabled = true;
+  button.innerHTML = '<i data-lucide="loader-circle"></i>正在安排备用模型';
+  icons();
+  try {
+    const body = await api(`/api/worker?id=${encodeURIComponent(id)}&recoverCreative=1`, { method: 'POST', timeoutMs: 180000 });
+    showToast(body.recoveryScheduled ? '唯一备用模型已接管，将从已保存证据继续' : '当前节点状态已刷新，没有重复发起模型请求');
+    await loadStatus({ silent: true });
+    const current = state.runs.find((item) => item.id === id);
+    if (current) state.runs = state.runs.map((item) => item.id === id ? { ...item, _summary: true } : item);
+    state.detailFingerprint = '';
+    hydrateRunDetail(id);
+  } catch (error) {
+    button.disabled = false;
+    button.innerHTML = '<i data-lucide="route"></i>启用唯一备用继续';
+    icons();
+    showToast(`备用模型未能接管：${error.message}`, 'error');
+  }
 }
 
 function nodeDecision(run, node) {
@@ -1891,6 +1912,7 @@ function renderDetail() {
     panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header><section class="pipeline"><div class="section-heading"><div><h3>P1-P6 生产链路</h3><p>节点和恢复状态可立即查看，文案与媒体详情正在后台建立轻量快照。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="detail-sync-state"><i data-lucide="database-zap"></i><div><strong>正在补齐素材详情</strong><span>${escapeHtml(state.detailError || '后台只整理已有任务数据，不会调用模型，也不会提交付费图片或视频。')}</span></div><button id="retryDetail" class="secondary-command" type="button"><i data-lucide="refresh-cw"></i>立即检查</button></div></section><section class="detail-section"><div class="section-heading"><h3>模型活动</h3><span class="language-tag">摘要记录</span></div>${modelActivityHtml(run)}</section>`;
     $('#closeDetail')?.addEventListener('click', closeDetail);
     $('#retryDetail')?.addEventListener('click', () => hydrateRunDetail(run.id));
+    panel.querySelector('[data-ai-wait-recovery]')?.addEventListener('click', (event) => recoverAiWait(run.id, event.currentTarget));
     state.detailFingerprint = fingerprint;
     requestDetailHydration(run.id);
     icons();
@@ -1924,6 +1946,7 @@ function renderDetail() {
   panel.querySelectorAll('[data-video-prompt-action]').forEach((button) => button.addEventListener('click', () => decideVideoPrompt(run.id, button.dataset.videoPromptAction)));
   panel.querySelector('.create-variant')?.addEventListener('click', () => openConfirmation('creative', run.id));
   panel.querySelectorAll('.remove-asset').forEach((button) => button.addEventListener('click', () => removeRunAsset(run, button.dataset.removeAsset)));
+  panel.querySelector('[data-ai-wait-recovery]')?.addEventListener('click', (event) => recoverAiWait(run.id, event.currentTarget));
   panel.querySelectorAll('[data-copy-post-index]').forEach((button) => button.addEventListener('click', () => {
     const post = run.artifacts?.posts?.[Number(button.dataset.copyPostIndex)];
     const language = button.dataset.copyPostLanguage;

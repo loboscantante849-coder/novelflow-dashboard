@@ -57,6 +57,7 @@
 .production-status-meta > span { min-width: 0; }
 .production-status-meta .model-logo { max-width: 100%; }
 .production-status-meta > small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.production-status-meta .ai-wait-recovery { width: 100%; height: 30px; justify-content: center; padding: 0 8px; font-size: 9px; }
 .detail-sync-state { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 11px; border: 1px dashed #b8c9c2; border-radius: 6px; background: #fbfcfc; }
 .detail-sync-state > svg { width: 18px; color: #087f5b; }
 .detail-sync-state > div { min-width: 0; flex: 1; }

@@ -133,6 +133,28 @@ test('detail hydration rebuilds a compact snapshot without advancing providers o
   assert.equal(runCalls, 0);
 });
 
+test('explicit creative recovery schedules exactly one reserve without advancing paid stages', async (t) => {
+  const target = run();
+  target.input = { creativeProfile: { modelChoice: 'deepseek' } };
+  target.stages.P3 = { status: 'running', startedAt: new Date(Date.now() - 20 * 60 * 1000).toISOString() };
+  target.artifacts.creativeDraft = { parts: {}, usage: [], inFlight: { posts: new Date().toISOString() } };
+  let saves = 0;
+  let runCalls = 0;
+  const { result } = await invoke(t, {
+    body: { id: target.id, recoverCreative: true },
+    store: { getRun: async () => target, saveRun: async (_redis, item) => { saves += 1; return item; } },
+    pipeline: { processRun: async () => { runCalls += 1; return target; } }
+  });
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.body.recoveryScheduled, true);
+  assert.equal(target.input.creativeProfile.modelChoice, 'hy3');
+  assert.equal(target.artifacts.creativeDraft.modelRoute.fallbackUsed, true);
+  assert.equal(target.stages.P3.phase, 'fallback_scheduled');
+  assert.equal(saves, 1);
+  assert.equal(runCalls, 0);
+});
+
 test('an unknown explicit run id never falls through to an unrelated runnable run', async (t) => {
   const fallback = run('run_abcdef1234567890');
   let runCalls = 0;

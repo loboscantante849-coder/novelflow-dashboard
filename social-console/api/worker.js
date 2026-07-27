@@ -15,10 +15,10 @@ function compactStoredEvidence(run) {
   if (Array.isArray(chapters)) chapters.forEach((chapter) => { chapter.content = String(chapter.content || '').slice(0, 16000); });
 }
 
-function recoverInterruptedCreative(run) {
+function recoverInterruptedCreative(run, force = false) {
   const stage = run.stages?.P3 || {};
   const startedAt = Date.parse(stage.startedAt || '');
-  if (stage.status !== 'running' || !Number.isFinite(startedAt) || Date.now() - startedAt <= STALE_CREATIVE_MS) return false;
+  if (stage.status !== 'running' || !Number.isFinite(startedAt) || (!force && Date.now() - startedAt <= STALE_CREATIVE_MS)) return false;
   const draft = run.artifacts?.creativeDraft || { parts: {}, usage: [], failures: {} };
   draft.inFlight = {};
   const currentModel = String(run.input?.creativeProfile?.modelChoice || 'hy3');
@@ -64,6 +64,7 @@ module.exports = async (req, res) => {
     const requestedPlanId = String(req.body?.planId || req.query?.planId || '');
     const requestedCreativeSection = String(req.body?.creativeSection || req.query?.creativeSection || '');
     const detailOnly = ['1', 'true'].includes(String(req.body?.detailOnly || req.query?.detailOnly || '').toLowerCase());
+    const recoverCreative = ['1', 'true'].includes(String(req.body?.recoverCreative || req.query?.recoverCreative || '').toLowerCase());
     if (requestedId && requestedPlanId) return res.status(400).json({ error: 'Specify either id or planId, not both' });
     if (requestedCreativeSection && !requestedId) return res.status(400).json({ error: 'A run id is required for creative section work' });
     if (requestedCreativeSection && !['posts', 'videoPrompt', 'posterPrompts', 'qualityReview'].includes(requestedCreativeSection)) return res.status(400).json({ error: 'Unsupported creative section' });
@@ -75,6 +76,15 @@ module.exports = async (req, res) => {
       addEvent(run, 'detail_snapshot_rebuilt', 'A compact operator detail snapshot was rebuilt without invoking any provider');
       await saveRun(redis, run);
       return res.status(200).json({ worked: true, detailReady: true, run: runResult(run) });
+    }
+    if (recoverCreative) {
+      if (!requestedId) return res.status(400).json({ error: 'A run id is required for creative recovery' });
+      const run = await getRun(redis, requestedId);
+      if (!run) return res.status(404).json({ error: 'Run not found' });
+      compactStoredEvidence(run);
+      const recovered = recoverInterruptedCreative(run, true);
+      if (recovered) await saveRun(redis, run);
+      return res.status(200).json({ worked: recovered, recoveryScheduled: recovered && run.stages?.P3?.status === 'waiting', run: runResult(run) });
     }
 
     // A direct browser action must always advance the task the operator chose.
