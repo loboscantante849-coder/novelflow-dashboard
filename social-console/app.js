@@ -1379,8 +1379,21 @@ function renderRunList() {
 async function copyAssetText(value, message) {
   if (!value) { showToast('当前没有可复制的成品内容', 'error'); return false; }
   try {
-    if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
-    await navigator.clipboard.writeText(value);
+    const text = String(value).trim();
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      // Local HTTP previews do not always expose Clipboard API; preserve one-click copy there.
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const copied = document.execCommand('copy');
+      textarea.remove();
+      if (!copied) throw new Error('Clipboard fallback unavailable');
+    }
     showToast(message);
     return true;
   } catch {
@@ -1616,11 +1629,11 @@ function copyHtml(run) {
     const narrativeEnd = cta ? ctaIndex : (tagLine ? tagIndex : lines.length);
     return { narrative: lines.slice(0, narrativeEnd).join('\n'), cta, code, url, tagLine };
   };
-  return posts.map((post) => {
+  return posts.map((post, index) => {
     const en = footer(post.content);
     const zh = post.zhContent ? footer(post.zhContent) : null;
     const footerHtml = (item) => item && (item.cta || item.code || item.url || item.tagLine) ? `<div class="copy-footer"><div class="copy-footer-main">${item.cta ? `<span class="copy-footer-label">CTA</span><strong>${escapeHtml(item.cta)}</strong>` : ''}${item.code ? `<span class="copy-footer-label">NovelFlow 引导</span><span>${escapeHtml(item.code)}</span>` : ''}${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">打开短链 <i data-lucide="external-link"></i></a>` : ''}</div>${item.tagLine ? `<div class="copy-hashtags"><span class="copy-footer-label">发布标签</span><strong>${escapeHtml(item.tagLine)}</strong></div>` : ''}</div>` : '';
-    return `<article class="copy-output"><span class="copy-type">${escapeHtml(post.type)}</span><div class="copy-paragraphs">${paragraphs(en.narrative || post.content)}</div>${footerHtml(en)}${zh ? `<div class="copy-paragraphs translation">${paragraphs(zh.narrative || post.zhContent)}</div>${footerHtml(zh)}` : ''}</article>`;
+    return `<article class="copy-output"><div class="copy-output-head"><span class="copy-type">${escapeHtml(post.type)}</span><div class="copy-output-actions"><button class="copy-complete-post" data-copy-post-index="${index}" data-copy-post-language="en" type="button"><i data-lucide="copy"></i>复制完整英文文案</button>${zh ? `<button class="copy-complete-post subtle" data-copy-post-index="${index}" data-copy-post-language="zh" type="button"><i data-lucide="languages"></i>复制完整中文</button>` : ''}</div></div><div class="copy-paragraphs">${paragraphs(en.narrative || post.content)}</div>${footerHtml(en)}${zh ? `<div class="copy-paragraphs translation">${paragraphs(zh.narrative || post.zhContent)}</div>${footerHtml(zh)}` : ''}</article>`;
   }).join('');
 }
 
@@ -1798,6 +1811,12 @@ function renderDetail() {
   panel.querySelectorAll('[data-video-prompt-action]').forEach((button) => button.addEventListener('click', () => decideVideoPrompt(run.id, button.dataset.videoPromptAction)));
   panel.querySelector('.create-variant')?.addEventListener('click', () => openConfirmation('creative', run.id));
   panel.querySelectorAll('.remove-asset').forEach((button) => button.addEventListener('click', () => removeRunAsset(run, button.dataset.removeAsset)));
+  panel.querySelectorAll('[data-copy-post-index]').forEach((button) => button.addEventListener('click', () => {
+    const post = run.artifacts?.posts?.[Number(button.dataset.copyPostIndex)];
+    const language = button.dataset.copyPostLanguage;
+    const content = language === 'zh' ? post?.zhContent : post?.content;
+    copyAssetText(content, language === 'zh' ? '完整中文文案已复制（含 CTA 与标签）' : '完整英文发布文案已复制（含 CTA、链接与标签）');
+  }));
   panel.querySelector('[data-copy-distribution-hook]')?.addEventListener('click', () => copyAssetText(run.artifacts?.distribution?.universalHook, '通用短钩子已复制'));
   panel.querySelector('[data-generate-distribution]')?.addEventListener('click', async (event) => {
     const button = event.currentTarget;

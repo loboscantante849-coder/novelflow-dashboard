@@ -17,6 +17,14 @@
 .focus-progress-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #087f5b, #65c8a7); transition: width .3s ease; }
 .focus-progress small { display: block; margin-top: 6px; color: #87958f; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .copy-footer { margin-top: 12px; padding: 11px 12px; border: 1px solid #cfe6dc; border-radius: 6px; background: #f5fbf8; }
+.copy-output-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.copy-output-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.copy-complete-post { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; border: 1px solid #087f5b; border-radius: 5px; padding: 0 9px; background: #087f5b; color: #fff; font-size: 10px; font-weight: 850; cursor: pointer; }
+.copy-complete-post:hover { background: #056b4c; border-color: #056b4c; }
+.copy-complete-post.subtle { border-color: #cfe6dc; background: #fff; color: #087f5b; }
+.copy-complete-post.subtle:hover { background: #f1faf6; }
+.copy-complete-post svg { width: 13px; height: 13px; }
+@media (max-width: 620px) { .copy-output-head { align-items: flex-start; flex-direction: column; } .copy-output-actions { justify-content: flex-start; } }
 .copy-footer-main { display: grid; gap: 5px; }
 .copy-footer-main strong { color: #1f3f35; font-size: 12px; line-height: 1.5; }
 .copy-footer-main > span:not(.copy-footer-label) { color: #52645d; font-size: 10px; line-height: 1.45; }
