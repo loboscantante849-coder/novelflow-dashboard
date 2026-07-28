@@ -147,6 +147,22 @@ test('completed runs with a partial media branch are labelled as partial outcome
   assert.deepEqual(JSON.parse(JSON.stringify(outcome)), { className: 'partial', label: '主体完成 · 海报部分完成' });
 });
 
+test('overview KPI filters use the same task definitions as their counters', () => {
+  const state = { overviewFilter: 'active' };
+  const context = { state, Array, Object, String };
+  vm.createContext(context);
+  vm.runInContext(between('function assetSummary(', 'function libraryRuns('), context);
+  const active = { state: 'running', artifacts: {}, stages: {} };
+  const usable = { state: 'completed', artifacts: { posts: [{ content: 'ready' }], images: [], video: null }, stages: {} };
+  const partial = { state: 'completed', artifacts: {}, stages: { P3_5: { status: 'partial' } } };
+  assert.equal(context.matchesOverviewFilter(active), true);
+  assert.equal(context.matchesOverviewFilter(usable), false);
+  state.overviewFilter = 'assets';
+  assert.equal(context.matchesOverviewFilter(usable), true);
+  state.overviewFilter = 'attention';
+  assert.equal(context.matchesOverviewFilter(partial), true);
+});
+
 test('today ranking uses its own UV context and keeps fallback retention scores bounded', () => {
   const context = { state: { catalogSort: 'ttProfit', leaderboard: [] }, Math, Number, Boolean, String };
   vm.createContext(context);
@@ -165,6 +181,19 @@ test('today ranking uses its own UV context and keeps fallback retention scores 
   const scored = context.todayScore(books);
   assert.equal(scored[0].title, 'A');
   assert.ok(scored.every((book) => book.todayScore >= 0 && book.todayScore <= 100));
+});
+
+test('today recommendations reject zero, tiny-sample, and incomplete metric records', () => {
+  const context = { Math, Number };
+  vm.createContext(context);
+  vm.runInContext(between('function todayScore(', 'function historyTodayScore('), context);
+  const scored = context.todayScore([
+    { title: 'Proven', baseReadUnt: 120, firstReadUntRate: 32, read10wRate: 38, read20wRate: 24, ttProfit: 110 },
+    { title: 'One UV', baseReadUnt: 1, firstReadUntRate: 100, read10wRate: 100, read20wRate: 100, ttProfit: 0 },
+    { title: 'Zero UV', baseReadUnt: 0, firstReadUntRate: 100, read10wRate: 100, read20wRate: 100, ttProfit: 0 },
+    { title: 'Missing retention', baseReadUnt: 200, firstReadUntRate: 42, read10wRate: 0, read20wRate: 0, ttProfit: 40 }
+  ]);
+  assert.deepEqual(scored.map((book) => book.title), ['Proven']);
 });
 
 test('verified historical candidates remain actionable when the new-book metric source is unavailable', () => {
@@ -238,7 +267,7 @@ test('legacy snapshots without verified metric provenance are not restored as ra
     catalogFilters: { line: 'novelflow', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all' }
   };
   const context = {
-    state, Date,
+    state, Date, Math, Number,
     DASHBOARD_CACHE_KEY: 'snapshot', DASHBOARD_CACHE_MAX_AGE: 86400000,
     localStorage: { getItem: () => JSON.stringify(snapshot) },
     recommendationMetricsReady: () => true
@@ -246,6 +275,7 @@ test('legacy snapshots without verified metric provenance are not restored as ra
   vm.createContext(context);
   vm.runInContext([
     between('function leaderboardQueryKey(', 'function compactRunSnapshot('),
+    between('function todayScore(', 'function historyTodayScore('),
     between('function restoreDashboardSnapshot()', 'state.detailHydrating')
   ].join('\n'), context);
   context.restoreDashboardSnapshot();

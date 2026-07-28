@@ -47,17 +47,14 @@
         <div class="command-actions"><button id="deckCreateRun" class="primary-command"><i data-lucide="plus"></i><span>手动创建任务</span></button><button id="deckCreativePlan" class="secondary-command"><i data-lucide="brain-circuit"></i><span>AI 智能策划</span></button><button id="deckLeaderboard" class="secondary-command"><i data-lucide="sparkles"></i><span>智能选书</span></button><button id="weeklyReportButton" class="secondary-command"><i data-lucide="presentation"></i><span>本周简报</span></button></div>
       </section>
       <section id="todayRail" class="today-rail" aria-label="今日推荐">
-        <header class="today-rail-head"><div><span class="eyebrow">TODAY'S PICKS</span><h2>今日值得推的书</h2><p>近 7 天中台表现，按规模、首读与长读留存综合筛选。</p></div><div><button id="todayRailPrev" class="icon-button" type="button" title="上一组推荐"><i data-lucide="chevron-left"></i></button><button id="todayRailNext" class="icon-button" type="button" title="下一组推荐"><i data-lucide="chevron-right"></i></button></div></header>
+        <header class="today-rail-head"><div><span class="eyebrow">TODAY'S PICKS</span><h2>今日值得推的书</h2><p id="todayRailDescription">正在校验真实 UV、首读与长读留存样本。</p></div><div><button id="todayRailPrev" class="icon-button" type="button" title="上一组推荐"><i data-lucide="chevron-left"></i></button><button id="todayRailNext" class="icon-button" type="button" title="下一组推荐"><i data-lucide="chevron-right"></i></button></div></header>
         <div id="todayRailList" class="today-rail-list" aria-live="polite"></div>
       </section>
-      <section class="overview-band">
-        <div><span>正在生产</span><strong id="runningRuns">0</strong><small>后台持续推进</small></div>
-        <div><span>可直接使用素材</span><strong id="readyAssets">0</strong><small>文案 / 海报 / 视频</small></div>
-        <div><span>需要人工处理</span><strong id="attentionRuns">0</strong><small>失败、阻塞或歧义</small></div>
-        <div class="model-mix"><div id="modelMixChart" class="model-mix-chart"><span><strong id="modelMixPercent">--</strong><small>主力模型</small></span></div><div><span>模型调用占比</span><strong id="modelMixTop">暂无调用</strong><div id="modelMixLegend" class="model-mix-legend"></div></div></div>
+      <section class="overview-band overview-actions" aria-label="任务快捷筛选">
+        <button class="overview-kpi" data-overview-filter="active" type="button" aria-pressed="false"><span>正在生产</span><strong id="runningRuns">0</strong><small>点击查看后台持续推进的任务</small></button>
+        <button class="overview-kpi" data-overview-filter="assets" type="button" aria-pressed="false"><span>可直接使用素材</span><strong id="readyAssets">0</strong><small>点击查看已有文案、海报或视频</small></button>
+        <button class="overview-kpi" data-overview-filter="attention" type="button" aria-pressed="false"><span>需要人工处理</span><strong id="attentionRuns">0</strong><small>点击查看失败、阻塞、歧义或部分完成</small></button>
       </section>
-
-      <section id="modelLedger" class="model-ledger" aria-label="模型调用账本"></section>
 
       <section id="focusRun" class="focus-run" hidden>
         <div class="focus-heading"><div><span class="eyebrow">LATEST PRODUCTION</span><h1>最近任务</h1><p>先看已产出的素材和当前节点，再从榜单继续选书。</p></div><button id="openFocusRun" class="secondary-command"><i data-lucide="panel-right-open"></i><span>查看完整成果</span></button></div>

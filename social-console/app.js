@@ -1,5 +1,5 @@
 const storedRecommendationHistory = (() => { try { return JSON.parse(localStorage.getItem('nf_social:recommendation_history') || '[]'); } catch { return []; } })();
-const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogFilters: { line: 'novelflow', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all' }, selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', density: 'comfortable', query: '', detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, longKickKey: '', startingSku: '', planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false };
+const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogFilters: { line: 'novelflow', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all' }, selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, longKickKey: '', startingSku: '', planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0 };
 const DASHBOARD_CACHE_KEY = 'nf_social:dashboard_snapshot:v1';
 const DASHBOARD_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
 let dashboardSnapshotHandle = null;
@@ -71,7 +71,8 @@ function persistDashboardSnapshot() {
       leaderboardMetrics: state.leaderboardMetrics,
       leaderboardQueryKey: state.leaderboardDataKey || leaderboardQueryKey(),
       todayBooks: state.todayBooks.map(compactBookSnapshot),
-      todayDataQuality: state.todayDataQuality
+      todayDataQuality: state.todayDataQuality,
+      todayRecommendationDays: state.todayRecommendationDays
     }));
   } catch {}
 }
@@ -101,8 +102,12 @@ function restoreDashboardSnapshot() {
     state.leaderboardDataKey = state.leaderboard.length ? snapshot.leaderboardQueryKey : '';
     const cachedTodayBooks = Array.isArray(snapshot.todayBooks) ? snapshot.todayBooks : [];
     const trustedToday = ['verified_metrics', 'stale_verified_metrics', 'history_verified'].includes(String(snapshot.todayDataQuality || ''));
-    state.todayBooks = trustedToday && recommendationMetricsReady(cachedTodayBooks) ? cachedTodayBooks : [];
+    const cachedRecommendationDays = Number(snapshot.todayRecommendationDays || 0);
+    const cachedMinUv = cachedRecommendationDays === 30 ? 80 : 20;
+    const filteredToday = snapshot.todayDataQuality === 'history_verified' ? cachedTodayBooks : todayScore(cachedTodayBooks, cachedMinUv);
+    state.todayBooks = trustedToday && filteredToday.length >= 6 ? filteredToday : [];
     state.todayDataQuality = state.todayBooks.length ? snapshot.todayDataQuality : '';
+    state.todayRecommendationDays = state.todayBooks.length ? (cachedRecommendationDays || 7) : 0;
     state.selectedId = state.runs[0]?.id || '';
     return state.runs.length > 0 || state.leaderboard.length > 0 || state.todayBooks.length > 0;
   } catch { return false; }
@@ -118,6 +123,10 @@ state.leaderboardError = '';
 state.todayBooks = [];
 state.todayBooksLoading = false;
 state.todayBooksError = '';
+const TODAY_RECOMMENDATION_WINDOWS = [
+  { days: 7, minUv: 20, minBooks: 6 },
+  { days: 30, minUv: 80, minBooks: 6 }
+];
 state.todayDataQuality = '';
 state.statusRequest = null;
 state.statusLoading = false;
@@ -934,12 +943,25 @@ function renderBatchBookBar() {
   $('#batchBookCount').textContent = `已选 ${count} 本`;
 }
 
-function todayScore(books) {
-  const max = (key) => Math.max(1, ...books.map((book) => Number(book[key] || 0)));
-  const uv = max('baseReadUnt');
-  const first = max('firstReadUntRate');
-  const retention = Math.max(1, ...books.map((book) => Number(book.read20wRate || book.read10wRate || 0)));
-  return books.map((book) => ({ ...book, todayScore: Math.round((Number(book.baseReadUnt || 0) / uv * 45 + Number(book.firstReadUntRate || 0) / first * 30 + Number(book.read20wRate || book.read10wRate || 0) / retention * 25) * 10) / 10 })).sort((a, b) => b.todayScore - a.todayScore);
+function todayScore(books, minUv = 20) {
+  const eligible = (books || []).filter((book) => {
+    const uv = Number(book?.baseReadUnt || 0);
+    const firstRead = Number(book?.firstReadUntRate || 0);
+    const retention = Number(book?.read20wRate || book?.read10wRate || 0);
+    return Number.isFinite(uv) && uv >= minUv && Number.isFinite(firstRead) && firstRead > 0 && Number.isFinite(retention) && retention > 0;
+  });
+  const max = (key) => Math.max(1, ...eligible.map((book) => Number(book[key] || 0)));
+  const uvMax = max('baseReadUnt');
+  const firstMax = max('firstReadUntRate');
+  const retentionMax = Math.max(1, ...eligible.map((book) => Number(book.read20wRate || book.read10wRate || 0)));
+  const profitMax = max('ttProfit');
+  return eligible.map((book) => {
+    const uv = Number(book.baseReadUnt || 0);
+    const retention = Number(book.read20wRate || book.read10wRate || 0);
+    const base = uv / uvMax * 40 + Number(book.firstReadUntRate || 0) / firstMax * 25 + retention / retentionMax * 25 + Math.max(0, Number(book.ttProfit || 0)) / profitMax * 10;
+    const confidence = Math.min(1, Math.log1p(uv) / Math.log1p(uvMax));
+    return { ...book, todayScore: Math.round(base * (0.72 + confidence * 0.28) * 10) / 10 };
+  }).sort((a, b) => b.todayScore - a.todayScore || Number(b.baseReadUnt || 0) - Number(a.baseReadUnt || 0));
 }
 
 function historyTodayScore(books) {
@@ -956,6 +978,13 @@ function historyTodayScore(books) {
 function renderTodayRail() {
   const list = $('#todayRailList');
   if (!list) return;
+  const description = $('#todayRailDescription');
+  const recommendationDays = Number(state.todayRecommendationDays || 0);
+  if (description) description.textContent = state.todayDataQuality === 'history_verified'
+    ? '新书中台暂不可用，当前展示已验证的投放复盘候选。'
+    : recommendationDays
+      ? `近 ${recommendationDays} 天真实中台表现，已过滤 0 UV、低样本与指标不完整书籍。`
+      : '正在校验真实 UV、首读与长读留存样本。';
   if (state.todayBooksLoading && !state.todayBooks.length) { list.innerHTML = `<div class="today-skeleton"><i data-lucide="loader-circle"></i><span>正在读取近 7 天真实表现</span></div>${Array.from({ length: 3 }, () => '<div class="today-skeleton-card"><span></span><div><b></b><b></b><i></i><i></i></div></div>').join('')}`; return; }
   const books = state.todayBooks || [];
   if (!books.length) {
@@ -973,7 +1002,7 @@ function renderTodayRail() {
       ? '<button id="retryTodayRail" class="today-source-state stale" type="button"><i data-lucide="refresh-cw"></i>当前为最近一次已验证推荐，点击更新</button>'
       : '';
   const historical = state.todayDataQuality === 'history_verified';
-  list.innerHTML = `${sourceState}${books.slice(0, 12).map((book, index) => `<article class="today-card"><div class="today-cover" ${coverDataAttributes(book)}>${leaderboardCover(book)}</div><div class="today-card-copy"><span>${historical ? '投放候选' : '今日'} #${index + 1} · 综合 ${book.todayScore}</span><h3>${escapeHtml(book.title)}</h3><p>${escapeHtml(bookGenre(book) === 'other' ? book.category || 'Romance' : bookGenre(book))} · ${historical ? `拉起 ${compactNumber(book.pullUv)} UV` : `UV ${compactNumber(book.baseReadUnt)}`}</p><div>${historical ? `<b>D14 $${Number(book.d14Income || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</b><b>复盘 ${Number(book.score || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 })}</b>` : `<b>首读 ${percentage(book.firstReadUntRate)}</b><b>长读 ${percentage(book.read20wRate || book.read10wRate)}</b>`}</div></div><button class="today-plan" data-today-book="${index}" type="button"><i data-lucide="brain-circuit"></i>策划</button></article>`).join('')}`;
+  list.innerHTML = `${sourceState}${books.slice(0, 12).map((book, index) => `<article class="today-card"><div class="today-cover" ${coverDataAttributes(book)}>${leaderboardCover(book)}</div><div class="today-card-copy"><span>${historical ? '投放候选' : `近 ${recommendationDays} 天`} #${index + 1} · 综合 ${book.todayScore}</span><h3>${escapeHtml(book.title)}</h3><p>${escapeHtml(bookGenre(book) === 'other' ? book.category || 'Romance' : bookGenre(book))} · ${historical ? `拉起 ${compactNumber(book.pullUv)} UV` : `UV ${compactNumber(book.baseReadUnt)}`}</p><div>${historical ? `<b>D14 $${Number(book.d14Income || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</b><b>复盘 ${Number(book.score || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 })}</b>` : `<b>首读 ${percentage(book.firstReadUntRate)}</b><b>长读 ${percentage(book.read20wRate || book.read10wRate)}</b>`}</div></div><button class="today-plan" data-today-book="${index}" type="button"><i data-lucide="brain-circuit"></i>策划</button></article>`).join('')}`;
   $('#retryTodayRail')?.addEventListener('click', () => loadTodayRail());
   $('#openTodayHistory')?.addEventListener('click', openHistoryRanking);
   list.querySelectorAll('[data-today-book]').forEach((button) => button.addEventListener('click', () => { const book = books[Number(button.dataset.todayBook)]; if (book) openCreativePlanDialog(book); }));
@@ -1012,12 +1041,19 @@ async function loadTodayRail() {
   state.todayBooksLoading = true; renderTodayRail(); icons();
   state.todayRailRequest = (async () => {
     try {
-      const body = await api('/api/leaderboard?source=catalog&days=7&sort=baseReadUnt&line=novelflow&language=EN&complete=%E5%B7%B2%E5%AE%8C%E7%BB%93&status=%E4%B8%8A%E6%9E%B6&isShort=all', { timeoutMs: 50000 });
-      const candidates = (body.books || []).filter((book) => !activeRunFor(book));
-      if (!responseAllowsCatalogRanking(body, candidates, 'baseReadUnt') || !recommendationMetricsReady(candidates)) throw new Error('中台尚未返回可用于推荐的 UV、首读与留存指标');
-      state.todayBooks = todayScore(candidates).slice(0, 12);
+      let selected = null;
+      for (const window of TODAY_RECOMMENDATION_WINDOWS) {
+        const body = await api(`/api/leaderboard?source=catalog&days=${window.days}&sort=baseReadUnt&line=novelflow&language=EN&complete=%E5%B7%B2%E5%AE%8C%E7%BB%93&status=%E4%B8%8A%E6%9E%B6&isShort=all`, { timeoutMs: 50000 });
+        const candidates = (body.books || []).filter((book) => !activeRunFor(book));
+        if (!responseAllowsCatalogRanking(body, candidates, 'baseReadUnt') || !recommendationMetricsReady(candidates)) continue;
+        const ranked = todayScore(candidates, window.minUv);
+        if (ranked.length >= window.minBooks) { selected = { body, ranked, window }; break; }
+      }
+      if (!selected) throw new Error('中台真实数据中暂无足够样本的综合推荐；不会用 0 或低样本数据凑数');
+      state.todayBooks = selected.ranked.slice(0, 12);
       state.todayBooksError = '';
-      state.todayDataQuality = body.dataQuality || 'verified_metrics';
+      state.todayDataQuality = selected.body.dataQuality || 'verified_metrics';
+      state.todayRecommendationDays = selected.window.days;
       saveDashboardSnapshot();
       loadTodayCovers();
     } catch (error) {
@@ -1032,6 +1068,7 @@ async function loadTodayRail() {
             const rotated = [...candidates.filter((book) => !recent.has(String(book.bookSkuId))), ...candidates];
             state.todayBooks = historyTodayScore(rotated).slice(0, 12);
             state.todayDataQuality = 'history_verified';
+            state.todayRecommendationDays = 30;
             loadTodayCovers();
             saveDashboardSnapshot();
             // Startup requests race: the catalog failure can arrive before
@@ -1306,6 +1343,23 @@ function assetSummary(run) {
   return { posts, posters, video, tracking, total: posts + posters + video + tracking };
 }
 
+function runHasUsableAssets(run) {
+  const assets = assetSummary(run);
+  return assets.posts + assets.posters + assets.video > 0;
+}
+
+function runNeedsAttention(run) {
+  if (['failed', 'blocked', 'ambiguous'].includes(String(run?.state || ''))) return true;
+  return Object.values(run?.stages || {}).some((stage) => ['failed', 'blocked', 'ambiguous', 'partial'].includes(String(stage?.status || '')));
+}
+
+function matchesOverviewFilter(run) {
+  if (state.overviewFilter === 'active') return ['queued', 'running'].includes(run.state);
+  if (state.overviewFilter === 'assets') return runHasUsableAssets(run);
+  if (state.overviewFilter === 'attention') return runNeedsAttention(run);
+  return true;
+}
+
 function libraryRuns() {
   const query = state.query.toLowerCase();
   return state.runs.filter((run) => {
@@ -1320,8 +1374,8 @@ function filteredRuns() {
   return state.runs.filter((run) => {
     if (state.view === 'library') return false;
     if (state.view === 'completed' && run.state !== 'completed') return false;
-    if (state.view === 'attention' && !['failed', 'blocked'].includes(run.state)) return false;
-    if (state.view === 'operations' && false) return false;
+    if (state.view === 'attention' && !runNeedsAttention(run)) return false;
+    if (state.view === 'operations' && !matchesOverviewFilter(run)) return false;
     const haystack = [run.input?.title, run.input?.sku, run.artifacts?.code].join(' ').toLowerCase();
     return !query || haystack.includes(query);
   });
@@ -1555,14 +1609,18 @@ function renderAssetLibrary() {
 function renderStats() {
   const active = state.runs.filter((run) => ['queued', 'running'].includes(run.state)).length;
   const complete = state.runs.filter((run) => run.state === 'completed').length;
-  const attention = state.runs.filter((run) => ['failed', 'blocked'].includes(run.state)).length;
+  const attention = state.runs.filter(runNeedsAttention).length;
   $('#runningRuns').textContent = active;
   $('#readyAssets').textContent = state.runs.reduce((sum, run) => { const assets = assetSummary(run); return sum + assets.posts + assets.posters + assets.video; }, 0);
   $('#attentionRuns').textContent = attention;
-  renderModelMix();
-  renderModelLedger();
+  document.querySelectorAll('[data-overview-filter]').forEach((button) => {
+    const activeFilter = button.dataset.overviewFilter === state.overviewFilter;
+    button.classList.toggle('active', activeFilter);
+    button.setAttribute('aria-pressed', String(activeFilter));
+  });
   const viewText = { operations: '所有小说的素材、进度与归因表现', library: '按书籍快速取用已完成的文案、视频、海报与追踪链接', completed: '已完成的生产任务与可复用资产', attention: '需要确认、重试或核验的任务' };
-  $('#viewSubtitle').textContent = viewText[state.view] || viewText.operations;
+  const overviewText = { active: '正在生产中的任务', assets: '已有可直接使用素材的任务', attention: '失败、阻塞、歧义或部分完成的任务' };
+  $('#viewSubtitle').textContent = state.view === 'operations' && state.overviewFilter !== 'all' ? overviewText[state.overviewFilter] : (viewText[state.view] || viewText.operations);
 }
 
 function modelLedgerEntries() {
@@ -2493,8 +2551,20 @@ function openHistoryRanking() {
   $('#leaderboardSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+function setOverviewFilter(filter) {
+  const next = state.overviewFilter === filter ? 'all' : filter;
+  state.overviewFilter = next;
+  state.view = 'operations';
+  document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.view === 'operations'));
+  renderStats(); renderRunList(); icons();
+  $('#controlBand').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const labels = { all: '全部生产任务', active: '正在生产中的任务', assets: '已有可用素材的任务', attention: '需要人工处理的任务' };
+  showToast(`已显示：${labels[next]}`);
+}
+
 function switchView(view) {
   state.view = view;
+  state.overviewFilter = 'all';
   document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.view === view));
   renderStats(); renderRunList(); icons();
   const labels = { operations: '全部生产任务', library: '已生成素材', completed: '已完成任务', attention: '需要处理的任务' };
@@ -2585,6 +2655,7 @@ $('#previousBooks').addEventListener('click', () => { if (state.leaderboardPage 
 $('#nextBooks').addEventListener('click', () => { const pages = Math.ceil(catalogVisibleBooks().length / 50); if (state.leaderboardPage >= pages) return; state.leaderboardPage += 1; state.leaderboardCoverKey = ''; renderLeaderboard(); loadVisibleCovers(); $('#leaderboardSection').scrollIntoView({ behavior: 'smooth', block: 'start' }); icons(); });
 document.querySelectorAll('#leaderboardSource button').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('#leaderboardSource button').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.leaderboardSource = button.dataset.source; loadLeaderboard(); }));
 $('#runSearch').addEventListener('input', (event) => { state.query = event.target.value; renderRunList(); });
+document.querySelectorAll('[data-overview-filter]').forEach((button) => button.addEventListener('click', () => setOverviewFilter(button.dataset.overviewFilter)));
 document.querySelectorAll('.nav-item').forEach((button) => button.addEventListener('click', () => switchView(button.dataset.view)));
 document.querySelectorAll('#densityControl button').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('#densityControl button').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.density = button.dataset.density; renderRunList(); icons(); }));
 
