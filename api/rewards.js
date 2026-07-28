@@ -27,6 +27,7 @@ const STREAK_GRAND_VIP = 2;
 const STREAK_GRAND_REQUIRED = 7;
 const PER_USER_ACTION_LIMIT = 60; // per hour per user (generous, prevents abuse)
 const RATE_WINDOW = 3600;
+const MAX_REWARD_HISTORY = 100;
 
 function redisClient() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -57,11 +58,44 @@ function normalizeUserData(data) {
   data.points = Number(data.points) || 0;
   data.bonus_balance = Number(data.bonus_balance) || 0;
   data.vip_days = Number(data.vip_days) || 0;
-  data.checkin = data.checkin || { streak: 0, lastCheckin: null, history: [] };
-  data.claimed = data.claimed || {};
+  if (!data.checkin || typeof data.checkin !== 'object' || Array.isArray(data.checkin)) {
+    data.checkin = { streak: 0, lastCheckin: null, history: [] };
+  }
+  if (!data.claimed || typeof data.claimed !== 'object' || Array.isArray(data.claimed)) {
+    data.claimed = {};
+  }
+  data.reward_history = Array.isArray(data.reward_history) ? data.reward_history : [];
   if (!Array.isArray(data.checkin.history)) data.checkin.history = [];
   if (data.bind_id !== undefined && typeof data.bind_id !== 'string') data.bind_id = null;
   return data;
+}
+
+function rewardState(data) {
+  return {
+    points: Number(data.points) || 0,
+    streak: Number(data.checkin && data.checkin.streak) || 0,
+    vip_days: Number(data.vip_days) || 0,
+    bonus_balance: Number(data.bonus_balance) || 0,
+  };
+}
+
+function appendRewardHistory(data, action, before, details = {}) {
+  const after = rewardState(data);
+  const entry = {
+    action,
+    timestamp: new Date().toISOString(),
+    points_before: before.points,
+    points_after: after.points,
+    points_delta: after.points - before.points,
+    streak_before: before.streak,
+    streak_after: after.streak,
+    vip_days_before: before.vip_days,
+    vip_days_after: after.vip_days,
+    bonus_before: before.bonus_balance,
+    bonus_after: after.bonus_balance,
+    ...details,
+  };
+  data.reward_history = [...data.reward_history, entry].slice(-MAX_REWARD_HISTORY);
 }
 
 module.exports = async (req, res) => {
@@ -85,6 +119,9 @@ module.exports = async (req, res) => {
   }
 
   const { action } = req.body || {};
+  if (typeof action !== 'string' || action.length > 40) {
+    return res.status(400).json({ error: 'Invalid action', code: 'INVALID_ACTION' });
+  }
   const lock = await acquireUserDataLock(redis, username);
   if (!lock) {
     return res.status(409).json({ error: 'User data is being updated', code: 'USER_DATA_BUSY' });
@@ -95,6 +132,8 @@ module.exports = async (req, res) => {
     if (data.disabled) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
+    const before = rewardState(data);
+    let historyDetails = {};
     let result = { success: true, action };
 
     switch (action) {
@@ -158,6 +197,7 @@ module.exports = async (req, res) => {
         const pts = MISSION_POINTS[missionId];
         data.points += pts;
         data.claimed[missionId] = Date.now();
+        historyDetails = { mission_id: missionId };
         result = {
           ...result,
           points_awarded: pts,
@@ -179,6 +219,7 @@ module.exports = async (req, res) => {
           return res.status(400).json({ error: 'Bind ID contains invalid characters', code: 'INVALID_ID' });
         }
         data.bind_id = clean;
+        historyDetails = { bind_id_changed: true };
         result = {
           ...result,
           bind_id: clean,
@@ -242,6 +283,8 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: `Unknown action: ${action}`, code: 'INVALID_ACTION' });
     }
 
+    appendRewardHistory(data, action, before, historyDetails);
+
     // Include updated snapshot
     result.snapshot = {
       points: data.points,
@@ -250,6 +293,7 @@ module.exports = async (req, res) => {
       checkin: data.checkin,
       bind_id: data.bind_id || null,
       claimed: data.claimed,
+      bonus_campaign1_claimed: data.bonus_campaign1_claimed || null,
       streak_grand_claimed: data.streak_grand_claimed || null,
     };
 
