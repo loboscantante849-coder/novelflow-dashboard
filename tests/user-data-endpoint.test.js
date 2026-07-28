@@ -80,3 +80,29 @@ test('user-data preserves server fields and tombstones across stale writes', asy
   assert.deepEqual(saved.myBooks, [{ code: '1002', title: 'Keep me' }]);
   assert.equal(saved.deletedBooks['code:1001'], now);
 });
+
+test('client sync cannot forge claimed missions or reward audit history', async () => {
+  const originalHistory = [{ action: 'checkin', points_before: 10, points_after: 15 }];
+  FakeRedis.reset({
+    'nf_user_data:alice': JSON.stringify({
+      points: 15,
+      claimed: { share1: 12345 },
+      reward_history: originalHistory,
+    }),
+  });
+
+  const response = await invoke(userData, {
+    headers: authHeaders(),
+    body: {
+      data: {
+        claimed: { share3: 99999, forged: true },
+        reward_history: [{ action: 'forged', points_after: 999999 }],
+      },
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  const saved = JSON.parse(FakeRedis.values.get('nf_user_data:alice'));
+  assert.deepEqual(saved.claimed, { share1: 12345 });
+  assert.deepEqual(saved.reward_history, originalHistory);
+});

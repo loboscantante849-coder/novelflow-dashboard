@@ -37,7 +37,7 @@ function getUserFromRequest(req) {
 // CLIENT_WRITABLE_FIELDS: Only UI-state fields the client may sync.
 // All financial/balance/auth fields are SERVER-ONLY and must be changed via
 // admin tools or the /api/rewards endpoint with server-side validation.
-const CLIENT_WRITABLE_FIELDS = ['myBooks', 'deletedBooks', 'claimed', 'lastSyncAt'];
+const CLIENT_WRITABLE_FIELDS = ['myBooks', 'deletedBooks', 'lastSyncAt'];
 
 module.exports = async (req, res) => {
   if (handlePreflight(req, res, { credentials: true })) return;
@@ -117,7 +117,7 @@ module.exports = async (req, res) => {
         cleanData.lastSyncAt = Date.now();
 
         // Ensure server-managed fields are preserved and cannot be tampered with
-        const SERVER_MANAGED = ['points', 'bonus_balance', 'vip_days', 'bind_id', 'checkin',
+        const SERVER_MANAGED = ['points', 'bonus_balance', 'vip_days', 'bind_id', 'checkin', 'claimed', 'reward_history',
           'bonus_campaign1_claimed', 'streak_grand_claimed', 'disabled', 'accountType',
           'total_income_override', 'withdrawals'];
         for (const sf of SERVER_MANAGED) {
