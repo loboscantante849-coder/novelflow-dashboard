@@ -54,10 +54,15 @@ module.exports = async (req, res) => {
     return res.status(429).json({ error: 'Rate limit exceeded.', code: 'RATE_LIMIT_EXCEEDED', retryAfter: 60 });
   }
   
-  const { bookId, lang = 'en' } = req.query || {};
-  
+  const query = req.query || {};
+  const bookId = typeof query.bookId === 'string' ? query.bookId.trim() : '';
+  const lang = query.lang === undefined ? 'en' : query.lang;
+
   if (!bookId) {
     return res.status(400).json({ error: 'bookId is required', code: 'MISSING_PARAM' });
+  }
+  if (bookId.length > 128 || typeof lang !== 'string' || !['en', 'es'].includes(lang)) {
+    return res.status(400).json({ error: 'Invalid query parameters', code: 'INVALID_PARAM' });
   }
   
   try {

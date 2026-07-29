@@ -10,7 +10,7 @@ const { handlePreflight } = require('../_lib/cors');
 const { verifyAccessToken } = require('../_lib/jwt');
 const { Redis } = require('@upstash/redis');
 const { createPasswordHash, verifyPassword } = require('../_lib/password');
-const { isDisabledUser } = require('../_lib/security');
+const { checkRateLimit, getClientIp, isDisabledUser } = require('../_lib/security');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -63,9 +63,21 @@ module.exports = async (req, res) => {
     if (password.length > 128) return res.status(400).json({ error: 'Password too long' });
 
     const redis = getRedis();
-    if (!redis) return res.status(500).json({ error: 'Storage not available' });
-    if (await isDisabledUser(redis, username)) {
-      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    if (!redis) return res.status(503).json({ error: 'Storage not available' });
+    try {
+      if (await isDisabledUser(redis, username, { failClosed: true })) {
+        return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+      }
+    } catch (_error) {
+      return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
+    }
+
+    try {
+      const allowed = await checkRateLimit(redis, `nf_rate:set_password:${username}`, 10, 900, { failClosed: true }) &&
+        await checkRateLimit(redis, `nf_rate:set_password_ip:${getClientIp(req)}`, 30, 900, { failClosed: true });
+      if (!allowed) return res.status(429).json({ error: 'Too many password attempts', code: 'RATE_LIMITED' });
+    } catch (_error) {
+      return res.status(503).json({ error: 'Password service temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
     }
 
     // Check if user already has a password

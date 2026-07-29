@@ -24,9 +24,9 @@ function getLADateString() {
   return y + '-' + m + '-' + d;
 }
 
-async function reserveDailySlot(redis, key) {
-  const count = await redis.incr(key);
-  if (count === 1) await redis.expire(key, REELS_COUNTER_TTL_SECONDS);
+async function reserveDailySlots(redis, key, amount) {
+  const count = await redis.incrby(key, amount);
+  if (count === amount) await redis.expire(key, REELS_COUNTER_TTL_SECONDS);
   return count;
 }
 
@@ -134,8 +134,8 @@ module.exports = async (req, res) => {
     const userKey = 'reels_count_v2:' + username + ':' + today;
     const ipKey = 'reels_ip_count_v2:' + getClientIp(req) + ':' + today;
     const counts = await Promise.all([
-      reserveDailySlot(redis, userKey),
-      reserveDailySlot(redis, ipKey),
+      reserveDailySlots(redis, userKey, parsed.num),
+      reserveDailySlots(redis, ipKey, parsed.num),
     ]);
     currentCount = counts[0];
     if (currentCount > REELS_DAILY_LIMIT || counts[1] > REELS_IP_DAILY_LIMIT) {

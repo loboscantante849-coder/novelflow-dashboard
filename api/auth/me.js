@@ -31,15 +31,21 @@ module.exports = async (req, res) => {
 
     if (payload && !payload._refresh) {
       const userInfo = extractUserInfo(payload);
+      const username = String(payload.username || '').trim().toLowerCase();
+      if (!username) {
+        clearAuthCookies(res);
+        return res.status(200).json({ loggedIn: false });
+      }
       const redis = getRedis();
       if (!redis) {
         return res.status(503).json({ loggedIn: false, code: 'ACCOUNT_STATUS_UNAVAILABLE' });
       }
       try {
-        if (await isDisabledUser(redis, payload.username, { failClosed: true })) {
+        if (await isDisabledUser(redis, username, { failClosed: true })) {
           clearAuthCookies(res);
           return res.status(403).json({ loggedIn: false, code: 'ACCOUNT_DISABLED' });
         }
+        userInfo.hasPassword = Boolean(await redis.get('nf_user_pass:' + username));
       } catch (_error) {
         return res.status(503).json({ loggedIn: false, code: 'ACCOUNT_STATUS_UNAVAILABLE' });
       }

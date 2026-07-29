@@ -65,6 +65,7 @@ test('retired diagnostic and duplicate admin endpoints are not deployed', () => 
     'api/setup-env.js',
     'api/test-register.js',
     'api/book-covers.js',
+    'api/auth/check-password.js',
   ];
   for (const relativePath of retired) {
     assert.equal(fs.existsSync(path.join(ROOT, relativePath)), false, `${relativePath} should be removed`);
@@ -111,7 +112,8 @@ test('AC operations require an active account and verified task ownership', () =
     assert.match(fileSource, /AC_TOKEN_UNAVAILABLE/);
   }
   const meSource = fs.readFileSync(path.join(ROOT, 'api/auth/me.js'), 'utf8');
-  assert.match(meSource, /isDisabledUser\(redis, payload\.username, \{ failClosed: true \}\)/);
+  assert.match(meSource, /isDisabledUser\(redis, username, \{ failClosed: true \}\)/);
+  assert.match(meSource, /nf_user_pass:/);
   const withdrawalSource = fs.readFileSync(path.join(ROOT, 'api/withdrawals.js'), 'utf8');
   assert.match(withdrawalSource, /payment_account \|\| ''\)\.trim\(\)\.toLowerCase\(\)/);
 });

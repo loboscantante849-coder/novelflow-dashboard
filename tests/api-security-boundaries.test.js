@@ -1,6 +1,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 
 const { installFakeUpstash, invoke } = require('./helpers/endpoint');
@@ -331,4 +333,19 @@ test('retired update-stats endpoint returns only a generic 410 response', async 
   assert.equal(response.statusCode, 410);
   assert.deepEqual(response.body, { error: 'Endpoint retired' });
   assert.doesNotMatch(JSON.stringify(response.body), /repo|github|pipeline|source|cron/i);
+});
+
+test('AC and wallet endpoints never return internal exception messages', () => {
+  const files = [
+    'api/ac-retry.js',
+    'api/ac-interrupt.js',
+    'api/ac-refresh.js',
+    'api/ac-list.js',
+    'api/ac-result.js',
+    'api/withdrawals.js',
+  ];
+  for (const file of files) {
+    const source = fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8');
+    assert.doesNotMatch(source, /detail:\s*(?:e|err|error)\.message/);
+  }
 });

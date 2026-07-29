@@ -5957,6 +5957,7 @@
                     // Always load stats when logged in (wasLoggedIn guard removed - caused stats to not load when localStorage had cached login)
                     loadUserStats(AppState.user.username);
                     updateProfileUI();
+                    checkAndPromptSetPassword();
                     if (typeof loadEquityCode === 'function') loadEquityCode(accountChanged);
                     if (window.__pendingBookId) {
                         const bk = window.__pendingBookId; window.__pendingBookId = null;
@@ -5978,6 +5979,7 @@
                         // Reload per-user data after refresh
                         loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI();
                         loadUserStats(AppState.user.username);
+                        checkAndPromptSetPassword();
                         if (typeof loadEquityCode === 'function') loadEquityCode(true);
                         return;
                     }
@@ -7427,33 +7429,9 @@ function renderMyBooks() {
                 showToast('Please enter a username', 'error');
                 return;
             }
-            // Password strength is validated by backend; frontend only checks non-empty for existing users
-            // If no password provided, check if this is an old user without password (same logic as splash login)
             if (!password) {
-                try {
-                    const cpResp = await fetch('/api/auth/check-password', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify({ username })
-                    });
-                    const cpResult = await cpResp.json().catch(() => ({}));
-                    if (!cpResult.hasPassword && cpResult.userExists) {
-                        // Old user without password - allow login, register API will accept
-                    } else if (cpResult.hasPassword) {
-                        showToast('This account requires a password', 'error');
-                        const passField = document.getElementById('regPassword');
-                        if (passField) { passField.style.display = ''; passField.placeholder = 'Password (required)'; }
-                        return;
-                    } else {
-                        // Brand new user - need password to register
-                        showToast('Please set a password to create your account', 'error');
-                        return;
-                    }
-                } catch(e) {
-                    showToast('Connection error, please try again', 'error');
-                    return;
-                }
+                showToast('Please enter your password', 'error');
+                return;
             }
 
             try {
@@ -7599,7 +7577,7 @@ function renderMyBooks() {
                 loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo(); updateReelsStatusBar();
                 loadPerformanceDashboard();
                 showToast('Welcome, ' + authenticatedUsername + '!', 'success');
-                checkAndPromptSetPassword(authenticatedUsername);
+                checkAndPromptSetPassword();
                 
                 // Force show set password modal if backend says user needs one
                 if (result.mustSetPassword) {
@@ -9227,62 +9205,19 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
     
         // ========== Password System ==========
         let _splashPasswordCheckTimer = null;
-        async function checkSplashPasswordNeeded() {
-            const username = document.getElementById('splashUsername')?.value?.trim();
+        function checkSplashPasswordNeeded() {
             const passField = document.getElementById('splashPassword');
             const tipEl = document.getElementById('splashTip');
-            if (!username || username.length < 2) {
-                if (passField) { passField.style.display = ''; passField.placeholder = 'Password'; }
-                return;
-            }
-            // Debounce
             if (_splashPasswordCheckTimer) clearTimeout(_splashPasswordCheckTimer);
-            _splashPasswordCheckTimer = setTimeout(async () => {
-                try {
-                    const resp = await fetch('/api/auth/check-password', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username })
-                    });
-                    const result = await resp.json();
-                    if (result.hasPassword) {
-                        if (passField) { passField.style.display = ''; passField.placeholder = 'Enter your password'; }
-                        if (tipEl) tipEl.textContent = 'This account has a password. Enter it to login.';
-                    } else if (result.userExists) {
-                        // Old user without password - hide password field, let them just click
-                        if (passField) { passField.style.display = 'none'; passField.value = ''; }
-                        if (tipEl) tipEl.textContent = 'Welcome back! Just click Start Earning →';
-                    } else {
-                        // New user - must set password
-                        if (passField) { passField.style.display = ''; passField.placeholder = 'Set a password'; }
-                        if (tipEl) tipEl.textContent = 'New here? Set a password to create your account.';
-                    }
-                } catch(e) {
-                    if (passField) { passField.style.display = ''; passField.placeholder = 'Password'; }
-                }
-            }, 500);
+            if (passField) { passField.style.display = ''; passField.placeholder = 'Password'; }
+            if (tipEl) tipEl.textContent = 'Enter your password to continue.';
         }
 
-        async function checkRegPasswordNeeded() {
-            // Password is always required now
+        function checkRegPasswordNeeded() {
             const passField = document.getElementById('regPassword');
-            const username = document.getElementById('regUsername')?.value?.trim();
             if (passField) {
                 passField.style.display = '';
-                if (username && username.length >= 2) {
-                    // Check if existing user to adjust placeholder
-                    try {
-                        const resp = await fetch('/api/auth/check-password', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username })
-                        });
-                        const result = await resp.json();
-                        passField.placeholder = result.hasPassword ? 'Enter your password' : 'Set a password';
-                    } catch(e) {}
-                } else {
-                    passField.placeholder = 'Password';
-                }
+                passField.placeholder = 'Password';
             }
         }
 
@@ -9290,15 +9225,14 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             const modal = document.getElementById('setPasswordModal');
             if (!modal) return;
             modal.style.display = 'flex';
-            // Check if user already has password
-            fetch('/api/auth/check-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: AppState.user?.username })
-            }).then(r => r.json()).then(result => {
-                const oldRow = document.getElementById('setPasswordOldRow');
-                if (oldRow) oldRow.style.display = result.hasPassword ? '' : 'none';
-            }).catch(() => {});
+            const oldRow = document.getElementById('setPasswordOldRow');
+            if (oldRow) oldRow.style.display = '';
+            fetch('/api/auth/me', { credentials: 'include' })
+                .then(r => r.json())
+                .then(result => {
+                    if (oldRow && result.loggedIn) oldRow.style.display = result.hasPassword ? '' : 'none';
+                })
+                .catch(() => {});
         }
 
         function closeSetPasswordModal() {
@@ -9360,20 +9294,20 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
         }
 
 
-        async function checkAndPromptSetPassword(username) {
+        async function checkAndPromptSetPassword() {
             try {
-                const resp = await fetch('/api/auth/check-password', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username })
-                });
+                const resp = await fetch('/api/auth/me', { credentials: 'include' });
                 const result = await resp.json();
+                if (!result.loggedIn) return;
                 updatePasswordCardUI(result.hasPassword);
                 if (!result.hasPassword) {
-                    // Show gentle prompt after 2 seconds
-                    setTimeout(() => {
-                        showToast('💡 Tip: Set a password to protect your account!', 'info');
-                    }, 2000);
+                    const promptKey = 'novelflow_password_prompt_' + normalizeSessionUsername(AppState.user?.username);
+                    if (!sessionStorage.getItem(promptKey)) {
+                        sessionStorage.setItem(promptKey, '1');
+                        setTimeout(() => {
+                            showToast('💡 Tip: Set a password to protect your account!', 'info');
+                        }, 2000);
+                    }
                 }
             } catch(e) {
                 // Silent fail

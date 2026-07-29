@@ -19,11 +19,6 @@ const sensitiveFiles = [
   'campaign_config.json',
   'beidou-koc-monthly-data.json',
   'users.json',
-  'orders.html',
-  'admin.html',
-  'book-admin.html',
-  'migrate.html',
-  'nft-platform.html',
   'dashboard.html',
   'leaderboard.html',
   'book-submit.html',
@@ -38,6 +33,14 @@ const sensitiveFiles = [
   'SECURITY_QUICK_FIX.md',
   '投放报表API对接指南-财务数据实时查询.md',
   'ac-sdk.js',
+];
+
+const removedLegacyFiles = [
+  'orders.html',
+  'admin.html',
+  'book-admin.html',
+  'migrate.html',
+  'nft-platform.html',
 ];
 
 const protectedRoutes = [
@@ -115,6 +118,12 @@ test('clean URL aliases for internal HTML pages are protected', async () => {
 test('sensitive business files remain available to server-side code', () => {
   for (const file of sensitiveFiles) {
     assert.equal(fs.existsSync(path.join(ROOT, file)), true, `${file} must not be deleted`);
+  }
+});
+
+test('excluded legacy sales and static admin pages are absent from the deployment', () => {
+  for (const file of removedLegacyFiles) {
+    assert.equal(fs.existsSync(path.join(ROOT, file)), false, `${file} must stay removed`);
   }
 });
 

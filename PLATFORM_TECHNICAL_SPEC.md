@@ -207,7 +207,7 @@ KOC登录 → 搜索书籍 → 生成专属链接+邀请码 → 社媒推广
 | `/api/auth/login` | POST | 用户名+密码登录 | 无 |
 | `/api/auth/logout` | POST | 登出，清除Cookie | 无 |
 | `/api/auth/me` | GET | 检查当前登录态 | JWT Cookie |
-| `/api/auth/check-password` | POST | 检查用户是否设了密码 | 无 |
+| `/api/auth/check-password` | REMOVED | Password status is exposed only to the authenticated user via `/api/auth/me` | N/A |
 | `/api/auth/set-password` | POST | 设置/修改密码 | JWT Cookie |
 | `/api/auth/callback` | GET | Discord OAuth回调 | Discord OAuth |
 | `/api/auth/discord-activity` | GET | Discord活动数据 | Discord API |

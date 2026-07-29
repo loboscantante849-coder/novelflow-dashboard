@@ -45,6 +45,13 @@ class FakeRedis {
     return value;
   }
 
+  async incrby(key, amount) {
+    this._checkError();
+    const value = Number(FakeRedis.values.get(key) || 0) + Number(amount);
+    FakeRedis.values.set(key, value);
+    return value;
+  }
+
   async expire(key, seconds) {
     this._checkError();
     FakeRedis.expiries.set(key, Number(seconds));

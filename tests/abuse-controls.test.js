@@ -196,8 +196,9 @@ test('AC creation reserves atomic user and IP quotas and sends bounded values', 
   assert.equal(upstreamCalls, 1);
   const dayKey = [...FakeRedis.values.keys()].find(key => key.startsWith('reels_count_v2:alice:'));
   const ipKey = [...FakeRedis.values.keys()].find(key => key.startsWith('reels_ip_count_v2:192.0.2.20:'));
-  assert.equal(FakeRedis.values.get(dayKey), 1);
-  assert.equal(FakeRedis.values.get(ipKey), 1);
+  assert.equal(FakeRedis.values.get(dayKey), 3);
+  assert.equal(FakeRedis.values.get(ipKey), 3);
+  assert.equal(created.body.remaining, 4);
   assert.equal(FakeRedis.values.get('ac_thread_owner:thread-1'), 'alice');
 });
 
@@ -210,13 +211,13 @@ test('AC daily quota cannot be bypassed by another concurrent increment', async 
   FakeRedis.reset({
     'nf_user_data:alice': JSON.stringify({}),
     ac_token: 'test-ac-token',
-    [`reels_count_v2:alice:${today}`]: 7,
+    [`reels_count_v2:alice:${today}`]: 5,
   });
 
   const limited = await invoke(acCreate, {
     method: 'POST',
     headers: authHeaders('alice', { 'x-forwarded-for': '192.0.2.30' }),
-    body: { book_id: 'book-1', num: 1 },
+    body: { book_id: 'book-1', num: 3 },
   });
   assert.equal(limited.statusCode, 429);
   assert.equal(FakeRedis.values.get(`reels_count_v2:alice:${today}`), 8);

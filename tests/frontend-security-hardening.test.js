@@ -100,6 +100,13 @@ test('browser authentication is cookie-only and removes legacy local tokens', ()
   assert.match(source, /async function authFetch[\s\S]*credentials:\s*'include'/);
 });
 
+test('password UI reads account status only from the authenticated session endpoint', () => {
+  assert.doesNotMatch(source, /fetch\('\/api\/auth\/check-password'/);
+  const passwordUi = section('function showSetPasswordModal()', '</script>');
+  assert.match(passwordUi, /fetch\('\/api\/auth\/me', \{ credentials: 'include' \}\)/);
+  assert.match(passwordUi, /result\.hasPassword/);
+});
+
 test('logged-out bootstrap cannot read the previous account local namespace', () => {
   const storage = section('function getMyBooksKey()', 'const BOOK_TOMBSTONE_TTL_MS');
   assert.match(storage, /AppState\.isLoggedIn/);
