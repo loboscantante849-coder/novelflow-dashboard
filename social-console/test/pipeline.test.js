@@ -56,6 +56,7 @@ test('background creative planning resumes from saved chapter evidence', async (
   assert.equal(downloaded.length, 4);
   assert.equal(new Set(downloaded).size, 4);
   assert.equal(resumed.artifacts.plan.editorialThesis, 'Use the first confrontation as the truthful hook.');
+  assert.equal(resumed.input.productionRunId, undefined);
 });
 
 test('completed smart planning automatically queues one production task', async (t) => {

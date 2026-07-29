@@ -35,6 +35,15 @@ module.exports = async (req, res) => {
         await saveCreativePlan(redis, job);
         return res.status(200).json({ job: creativePlanDetail(job) });
       }
+      if (req.body?.action === 'enable_auto_start') {
+        job.input.autoStartProduction = true;
+        job.input.paidAuthorized = true;
+        job.input.promoter = job.input.promoter || 'xujt';
+        job.input.autoStartNextAttemptAt = '';
+        job.events.push({ at: new Date().toISOString(), type: 'auto_start_enabled', message: 'Operator enabled automatic production for this completed AI plan' });
+        await saveCreativePlan(redis, job);
+        return res.status(200).json({ job: creativePlanDetail(job) });
+      }
       if (req.body?.action !== 'retry') return res.status(400).json({ error: 'Unsupported planning action' });
       job.input.preferredModelChoice = job.input.preferredModelChoice || job.input.modelChoice || 'hy3';
       job.input.modelChoice = job.input.preferredModelChoice;

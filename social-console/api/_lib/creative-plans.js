@@ -57,7 +57,7 @@ function productionProfile(plan) {
 }
 
 function shouldAutoStart(plan) {
-  return plan?.state === 'completed' && plan?.input?.autoStartProduction !== false && !plan?.input?.productionRunId;
+  return plan?.state === 'completed' && plan?.input?.autoStartProduction === true && !plan?.input?.productionRunId;
 }
 
 async function autoStartProduction(redis, plan) {

@@ -104,7 +104,7 @@ module.exports = async (req, res) => {
     const runnablePlan = (item) => {
       if (item.state === 'queued') return true;
       if (item.state === 'completed') {
-        if (item.input?.autoStartProduction === false || item.input?.productionRunId) return false;
+        if (item.input?.autoStartProduction !== true || item.input?.productionRunId) return false;
         const nextAttemptAt = Date.parse(item.input?.autoStartNextAttemptAt || '');
         return !Number.isFinite(nextAttemptAt) || nextAttemptAt <= Date.now();
       }
@@ -130,7 +130,7 @@ module.exports = async (req, res) => {
         }
         let updated = plan;
         let steps = 0;
-        const needsAutoStart = (item) => item.state === 'completed' && item.input?.autoStartProduction !== false && !item.input?.productionRunId;
+        const needsAutoStart = (item) => item.state === 'completed' && item.input?.autoStartProduction === true && !item.input?.productionRunId;
         while (steps < 6 && (['queued', 'running'].includes(updated.state) || needsAutoStart(updated))) {
           updated = await processCreativePlan(redis, updated);
           steps += 1;

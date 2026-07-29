@@ -301,7 +301,7 @@ function planResultHtml(result) {
 }
 
 function planJobResult(job) {
-  return { id: job.id, book: job.artifacts?.book || { title: job.input?.title || '', sku: job.input?.sku || '' }, plan: job.artifacts?.plan || {}, evidenceScope: job.artifacts?.evidenceScope || { chapterCount: 0, sampledChapters: [] }, usage: job.artifacts?.usage || {}, modelChoice: job.input?.modelChoice || 'hy3', preferredModelChoice: job.input?.preferredModelChoice || job.input?.modelChoice || 'hy3', fallbackUsed: Boolean(job.input?.fallbackUsed), modelHistory: job.input?.modelHistory || [], autoStartProduction: job.input?.autoStartProduction !== false, productionRunId: job.input?.productionRunId || '' };
+  return { id: job.id, book: job.artifacts?.book || { title: job.input?.title || '', sku: job.input?.sku || '' }, plan: job.artifacts?.plan || {}, evidenceScope: job.artifacts?.evidenceScope || { chapterCount: 0, sampledChapters: [] }, usage: job.artifacts?.usage || {}, modelChoice: job.input?.modelChoice || 'hy3', preferredModelChoice: job.input?.preferredModelChoice || job.input?.modelChoice || 'hy3', fallbackUsed: Boolean(job.input?.fallbackUsed), modelHistory: job.input?.modelHistory || [], autoStartProduction: job.input?.autoStartProduction === true, productionRunId: job.input?.productionRunId || '' };
 }
 
 function visibleCreativePlanJobs(planJobs = state.planJobs, runs = state.runs) {
@@ -310,7 +310,7 @@ function visibleCreativePlanJobs(planJobs = state.planJobs, runs = state.runs) {
   const adoptedPlanIds = new Set((runs || []).map((run) => String(run.input?.planning?.planId || '')).filter(Boolean));
   return (planJobs || []).filter((job) => ['queued', 'running', 'completed', 'failed'].includes(job.state)
     && !adoptedPlanIds.has(String(job.id))
-    && !(job.state === 'completed' && job.input?.autoStartProduction !== false)).slice(0, 5);
+    && !(job.state === 'completed' && job.input?.autoStartProduction === true)).slice(0, 5);
 }
 
 function renderCreativePlanQueue() {
@@ -325,7 +325,7 @@ function renderCreativePlanQueue() {
   const jobHtml = jobs.map((job) => {
     const stage = Object.values(job.stages || {}).find((item) => item.status === 'running') || Object.values(job.stages || {}).find((item) => item.status === 'waiting') || job.stages?.analysis || {};
     const icon = job.state === 'completed' ? 'circle-check-big' : job.state === 'failed' ? 'circle-alert' : 'loader-circle';
-    const automatic = job.input?.autoStartProduction !== false;
+    const automatic = job.input?.autoStartProduction === true;
     const status = job.state === 'completed' ? '策划完成，生产任务已自动创建' : job.state === 'failed' ? '策划中断，点击从已保存证据恢复' : automatic ? `后台自动推进：${stage.label || 'AI 正在策划'}；完成后自动开始生产` : (stage.label || '后台策划中，可继续使用控制台');
     const dismiss = job.state === 'completed' ? `<button class="plan-dismiss" type="button" data-dismiss-plan="${escapeHtml(job.id)}" title="从策划队列移除"><i data-lucide="x"></i></button>` : '';
     return `<article class="plan-queue-item"><button class="creative-plan-job ${job.state === 'completed' ? 'done' : job.state === 'failed' ? 'failed' : ''}" type="button" data-plan-job="${escapeHtml(job.id)}"><span><strong>${escapeHtml(job.artifacts?.book?.title || job.input?.title || 'AI 智能策划')}</strong><span>${escapeHtml(status)}</span></span><i data-lucide="${icon}"></i></button>${dismiss}</article>`;
