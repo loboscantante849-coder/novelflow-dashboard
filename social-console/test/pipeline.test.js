@@ -239,6 +239,7 @@ test('one-click pipeline persists tracking and never duplicates paid submissions
     validateVideo: async () => ({ contentType: 'video/mp4', contentLength: 1234 }),
     submitImage: async (asset) => { imageSubmits += 1; return { id: `image-${asset.variant}`, status: 'queued' }; },
     imageResult: async (id) => ({ status: 'success', result: { url: `https://cdn.example/${id}.jpg` } }),
+    validateImage: async (url) => ({ contentType: 'image/jpeg', contentLength: 1234, resolvedUrl: url }),
     reportRows: async () => ({ from: '2026-04-01', to: '2026-07-17', rows: [{ dt: '2026-07-17', adId: '44444', pullUv: 100, activeUv: 40, newUv: 30, d7Income: 12 }] })
   });
   const redis = new MemoryRedis();
@@ -409,6 +410,10 @@ test('creative timeout is visible and schedules one safe automatic retry', async
   assert.equal(run.stages.P3.phase, 'fallback_scheduled');
   assert.equal(run.stages.P3.recoverable, true);
   assert.equal(run.artifacts.creativeDraft.failures.posts.attempt, 1);
+  assert.equal(run.artifacts.modelRoute.preferredModel, 'hy3');
+  assert.equal(run.artifacts.modelRoute.activeModel, 'deepseek');
+  assert.equal(run.artifacts.modelRoute.fallbackUsed, true);
+  assert.equal(run.input.creativeProfile.modelChoice, 'deepseek');
   assert.match(run.events.map((event) => event.type).join(' '), /creative_section_started.*creative_section_fallback_scheduled/);
 });
 

@@ -658,52 +658,19 @@ The videoPrompt is a high-retention vertical short-video story package, not gene
   }[requestedSection];
   if (sectionSpec) {
     const startedAt = Date.now();
-    const requestSectionWithFallback = async (config, timeoutMs) => sectionRequest(config, ...sectionSpec, timeoutMs);
     const longTask = isLongRunningModel(primaryChoice);
     const primaryTimeout = longTask ? 600000 : Math.max(60000, operationsTimeoutForModel(primaryChoice));
-    const fallbackTimeout = longTask ? 180000 : Math.max(60000, operationsTimeoutForModel(reserveModelFor(primaryChoice)));
-    let result;
-    let modelUsed = model;
-    try {
-      result = await requestSectionWithFallback(primaryConfig, primaryTimeout);
-    } catch (primaryError) {
-      const fallback = reserveModelFor(primaryChoice);
-      try {
-        const fallbackConfig = copyModelConfig({ modelChoice: fallback });
-        result = await requestSectionWithFallback(fallbackConfig, fallbackTimeout);
-        modelUsed = fallbackConfig.model;
-      } catch (fallbackError) {
-        fallbackError.ambiguous = false;
-        fallbackError.fallbackFrom = model;
-        fallbackError.fallbackModel = fallback;
-        fallbackError.fallbackReason = '首选模型在完整等待窗口内未返回可用结果，唯一备用模型也未完成';
-        fallbackError.message = `Primary ${model}: ${String(primaryError.message || primaryError)}; fallback ${fallback}: ${String(fallbackError.message || fallbackError)}`.slice(0, 500);
-        throw fallbackError;
-      }
-    }
+    // Model routing is intentionally owned by the run worker.  A section may
+    // never quietly fall back on its own: otherwise copy, video and posters
+    // can be made by different models inside one supposedly coherent run.
+    const result = await sectionRequest(primaryConfig, ...sectionSpec, primaryTimeout);
     const usage = result.body.usage || {};
-    const actualModel = String(result.body.model || modelUsed);
-    return { creative: { [requestedSection]: result.value[requestedSection] }, model: actualModel, requestedModel: model, fallbackFrom: actualModel !== model ? model : '', responseId: String(result.body.id || ''), latencyMs: Date.now() - startedAt, usage: { inputTokens: Number(usage.prompt_tokens || usage.input_tokens || 0), outputTokens: Number(usage.completion_tokens || usage.output_tokens || 0), totalTokens: Number(usage.total_tokens || 0) } };
+    const actualModel = String(result.body.model || model);
+    return { creative: { [requestedSection]: result.value[requestedSection] }, model: actualModel, requestedModel: model, fallbackFrom: '', responseId: String(result.body.id || ''), latencyMs: Date.now() - startedAt, usage: { inputTokens: Number(usage.prompt_tokens || usage.input_tokens || 0), outputTokens: Number(usage.completion_tokens || usage.output_tokens || 0), totalTokens: Number(usage.total_tokens || 0) } };
   }
-  let sections;
-  let modelUsed = model;
-  try {
-    sections = await runSections(primaryConfig);
-  } catch (primaryError) {
-    const fallback = reserveModelFor(primaryChoice);
-    try {
-      const fallbackConfig = copyModelConfig({ modelChoice: fallback });
-      sections = await runSections(fallbackConfig);
-      modelUsed = fallbackConfig.model;
-    } catch (fallbackError) {
-      fallbackError.ambiguous = false;
-      fallbackError.fallbackFrom = model;
-      fallbackError.fallbackModel = fallback;
-      fallbackError.fallbackReason = '首选模型在完整等待窗口内未返回可用结果，唯一备用模型也未完成';
-      fallbackError.message = `Primary ${model}: ${String(primaryError.message || primaryError)}; fallback ${fallback}: ${String(fallbackError.message || fallbackError)}`.slice(0, 500);
-      throw fallbackError;
-    }
-  }
+  // Full-package regeneration follows the same rule. Callers that want a
+  // reserve route must switch the run first, then make a new coherent pass.
+  const sections = await runSections(primaryConfig);
   const [posts, video, posters, review] = sections;
   const usage = sections.reduce((total, section) => {
     const item = section.body.usage || {};
@@ -712,7 +679,7 @@ The videoPrompt is a high-retention vertical short-video story package, not gene
     total.totalTokens += Number(item.total_tokens || 0);
     return total;
   }, { inputTokens: 0, outputTokens: 0, totalTokens: 0 });
-  return { creative: { posts: posts.value.posts, videoPrompt: video.value.videoPrompt, posterPrompts: posters.value.posterPrompts, qualityReview: review.value.qualityReview }, model: String(posts.body.model || modelUsed), responseId: sections.map((section) => String(section.body.id || '')).filter(Boolean).join(','), usage };
+  return { creative: { posts: posts.value.posts, videoPrompt: video.value.videoPrompt, posterPrompts: posters.value.posterPrompts, qualityReview: review.value.qualityReview }, model: String(posts.body.model || model), responseId: sections.map((section) => String(section.body.id || '')).filter(Boolean).join(','), usage };
 }
 
 async function analyzeCreativePlan(book, evidence, chapterStructure = [], modelChoice = 'hy3') {
@@ -973,23 +940,18 @@ async function copilotReply(messages, context, modelChoice = 'hy3') {
   return { message: { content: String(message.content || '').trim(), toolCalls }, model: String(body.model || config.model), usage: { inputTokens: Number(usage.prompt_tokens || 0), outputTokens: Number(usage.completion_tokens || 0), totalTokens: Number(usage.total_tokens || 0) } };
 }
 
-async function rewritePosterPrompt(book, evidence, asset, failureReason) {
-  const apiKey = secretToken('NOVELFLOW_COPY_LLM_API_KEY') || secretToken('NOVELFLOW_LLM_API_KEY');
-  if (!apiKey) throw new ProviderError('DeepSeek copy model is not configured', { status: 503 });
-  const baseUrl = env('NOVELFLOW_COPY_LLM_BASE_URL', 'https://api.deepseek.com').replace(/\/$/, '');
-  const model = env('NOVELFLOW_COPY_LLM_MODEL', 'deepseek-chat');
-  const configuredWire = env('NOVELFLOW_COPY_LLM_WIRE_API').toLowerCase();
-  const responsesApi = configuredWire === 'responses' || (!configuredWire && /\/\/(?:[^/]*\.)?max\.jojocode\.com(?:[:/]|$)/i.test(baseUrl));
+async function rewritePosterPrompt(book, evidence, asset, failureReason, modelChoice = 'deepseek') {
+  const { apiKey, baseUrl, model, responsesApi } = copyModelConfig({ modelChoice });
   const excerpts = evidence.slice(0, 4).map((item) => ({ chapter: item.order, excerpt: String(item.content || '').replace(/\s+/g, ' ').slice(0, 400) }));
   const instructions = `You repair one rejected romance-fiction image prompt for a commercial image model. Return exactly one JSON object: {"prompt":"English prompt","zhPrompt":"Simplified Chinese explanation"}. Preserve one source-grounded emotional conflict and the requested aspect ratio. Make it audit-safe: adult characters only, fully clothed, no nudity, no sexual activity, no coercion, no violence, no self-harm, no illegal activity, no weapons, no brands, no readable text, no logos, no watermark, no QR, no UI, no collage, no duplicate people or extra limbs. Prefer elegant cinematic or editorial visual language, clear pose and environment, and negative space. Do not mention the rejection in the result.`;
   const input = JSON.stringify({ book: { title: book.title, category: book.category, description: String(book.description || '').slice(0, 700) }, variant: asset.variant, originalPrompt: asset.prompt, providerFailure: String(failureReason || '').slice(0, 400), chapterEvidence: excerpts });
   const payload = responsesApi
     ? { model, input: [{ role: 'developer', content: instructions }, { role: 'user', content: input }], text: { format: { type: 'json_object' } }, temperature: 0.35, max_output_tokens: 900 }
     : { model, messages: [{ role: 'system', content: instructions }, { role: 'user', content: input }], response_format: { type: 'json_object' }, temperature: 0.35, max_tokens: 900 };
-  const body = await postJsonOverHttps(`${baseUrl}${responsesApi ? '/responses' : '/chat/completions'}`, { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, payload, 'DeepSeek poster prompt repair', 25000);
+  const body = await postJsonOverHttps(`${baseUrl}${responsesApi ? '/responses' : '/chat/completions'}`, { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, payload, `${model} poster prompt repair`, Math.max(60000, operationsTimeoutForModel(modelChoice)));
   const repaired = parseModelJson(extractModelText(body), model);
   const prompt = String(repaired.prompt || '').trim();
-  if (prompt.length < 100) throw new ProviderError('DeepSeek poster repair returned an invalid prompt');
+  if (prompt.length < 100) throw new ProviderError(`${model} poster repair returned an invalid prompt`);
   const usage = body.usage || {};
   return { prompt, zhPrompt: String(repaired.zhPrompt || '').trim(), model: String(body.model || model), responseId: String(body.id || ''), usage: { inputTokens: Number(usage.prompt_tokens || usage.input_tokens || 0), outputTokens: Number(usage.completion_tokens || usage.output_tokens || 0), totalTokens: Number(usage.total_tokens || 0) } };
 }
@@ -1043,6 +1005,18 @@ async function validateVideo(url) {
   return { contentType: type, contentLength: length };
 }
 
+async function validateImage(url) {
+  let response;
+  try { response = await fetch(url, { method: 'HEAD', redirect: 'follow' }); } catch { response = null; }
+  if (!response?.ok || !String(response.headers.get('content-type') || '').toLowerCase().startsWith('image/')) {
+    response = await fetch(url, { headers: { Range: 'bytes=0-0' }, redirect: 'follow' });
+  }
+  const type = String(response.headers.get('content-type') || '');
+  const length = Number(response.headers.get('content-length') || String(response.headers.get('content-range') || '').split('/').pop() || 0);
+  if (!response.ok || !type.toLowerCase().startsWith('image/') || length <= 0) throw new ProviderError('Generated poster could not be verified as a readable image');
+  return { contentType: type, contentLength: length, resolvedUrl: response.url || url };
+}
+
 const IMAGE_SPECS = {
   luminous_cinema: { endpoint: '/img/nano', agent_id: 4, aspectRatio: '9:16', imageSize: '2K' },
   editorial_romance: { endpoint: '/img/gpt', agent_id: 12, aspectRatio: '2:3', imageSize: '2K' }
@@ -1078,4 +1052,4 @@ async function reportRows(code, linkId, days = 90) {
 
 function sha(value) { return crypto.createHash('sha256').update(String(value)).digest('hex'); }
 
-module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, searchBooks, performanceBooks, contentDashboardBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, linkDetail, generateCreative, analyzeCreativePlan, analyzeOperations, analyzeBookCandidates, extractScreenshotText, analyzeScreenshotWithSeed, copilotReply, generateDistributionPlan, rewritePosterPrompt, findAcTask, submitAc, acResult, validateVideo, submitImage, imageResult, reportRows, sha, titleKey, modelTemperature, operationsTimeoutForModel, reserveModelFor, parseModelJson, extractModelText };
+module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, searchBooks, performanceBooks, contentDashboardBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, linkDetail, generateCreative, analyzeCreativePlan, analyzeOperations, analyzeBookCandidates, extractScreenshotText, analyzeScreenshotWithSeed, copilotReply, generateDistributionPlan, rewritePosterPrompt, findAcTask, submitAc, acResult, validateVideo, validateImage, submitImage, imageResult, reportRows, sha, titleKey, modelTemperature, operationsTimeoutForModel, reserveModelFor, parseModelJson, extractModelText };

@@ -1,9 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-test('allowed image media is redirected without buffering through Vercel', async () => {
+test('allowed image media is proxied only when the upstream is a readable image', async () => {
   const originalFetch = global.fetch;
-  global.fetch = async () => { throw new Error('media proxy must not buffer the remote image'); };
+  global.fetch = async () => new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/jpeg', 'content-length': '3' } });
   const handler = require('../api/media');
   const result = { statusCode: 200, location: '', body: null };
   const res = {
@@ -20,7 +20,6 @@ test('allowed image media is redirected without buffering through Vercel', async
     global.fetch = originalFetch;
   }
 
-  assert.equal(result.statusCode, 307);
-  assert.equal(result.location, 'https://assets.laoye.chat/gallery/poster.jpg');
-  assert.equal(result.body, null);
+  assert.equal(result.statusCode, 200);
+  assert.deepEqual([...result.body], [1, 2, 3]);
 });

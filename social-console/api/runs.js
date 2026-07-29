@@ -219,10 +219,10 @@ module.exports = async (req, res) => {
         const result = await providers.generateDistributionPlan(run.artifacts.book, {
           posts: run.artifacts.posts, videoPrompt: run.artifacts.videoPrompt, posterPrompts: run.artifacts.posterPrompts,
           storyBrief: run.artifacts.storyBrief?.plan || null
-        }, 'hy3');
+        }, run.artifacts?.modelRoute?.activeModel || run.input?.creativeProfile?.modelChoice || 'hy3');
         run.artifacts.distribution = { ...result.plan, status: 'ready', generatedAt: new Date().toISOString(), model: result.model };
         if (run.artifacts.review) run.artifacts.review.distribution = run.artifacts.distribution;
-        run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), { section: 'distribution', requestedModel: 'hy3', model: result.model, responseId: result.responseId, completedAt: new Date().toISOString(), ...result.usage }].slice(-24);
+        run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), { section: 'distribution', requestedModel: run.artifacts?.modelRoute?.activeModel || run.input?.creativeProfile?.modelChoice || 'hy3', model: result.model, responseId: result.responseId, completedAt: new Date().toISOString(), ...result.usage }].slice(-24);
         run.events.push({ at: new Date().toISOString(), type: 'distribution_ready', message: 'Manual channel recommendations and reusable hook are ready' });
         await saveRun(redis, run);
         return res.status(200).json({ run });

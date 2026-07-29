@@ -24,6 +24,24 @@ function creativeModelLabel(run) {
   })[run.input?.creativeProfile?.modelChoice] || 'AI';
 }
 
+function ensureModelRoute(run) {
+  run.artifacts = run.artifacts || {};
+  const selected = String(run.input?.creativeProfile?.modelChoice || 'hy3');
+  const existing = run.artifacts.modelRoute || {};
+  run.artifacts.modelRoute = {
+    preferredModel: String(existing.preferredModel || selected),
+    activeModel: String(existing.activeModel || selected),
+    fallbackModel: String(existing.fallbackModel || ''),
+    fallbackUsed: existing.fallbackUsed === true,
+    switchedAt: existing.switchedAt || '',
+    switchReason: existing.switchReason || ''
+  };
+  if (run.input?.creativeProfile && run.input.creativeProfile.modelChoice !== run.artifacts.modelRoute.activeModel) {
+    run.input.creativeProfile.modelChoice = run.artifacts.modelRoute.activeModel;
+  }
+  return run.artifacts.modelRoute;
+}
+
 function cleanError(error) {
   return String(error?.message || error || 'Unknown worker failure').replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [redacted]').slice(0, 500);
 }
@@ -199,8 +217,9 @@ async function p2(redis, run) {
   const retryAt = Date.parse(story.nextAttemptAt || '');
   if (story.status !== 'ready') {
     if (Number.isFinite(retryAt) && retryAt > Date.now()) return;
-    const preferred = String(run.input?.creativeProfile?.modelChoice || 'hy3');
-    const current = String(story.modelChoice || preferred);
+    const route = ensureModelRoute(run);
+    const preferred = String(route.preferredModel || run.input?.creativeProfile?.modelChoice || 'hy3');
+    const current = String(story.modelChoice || route.activeModel || preferred);
     setStage(run, 'P2', 'running', { label: `${creativeModelLabel(run)} 正在梳理全书故事结构`, phase: 'story_intelligence', error: '', nextAttemptAt: '' });
     await saveRun(redis, run);
     try {
@@ -229,9 +248,15 @@ async function p2(redis, run) {
         await saveRun(redis, run);
         return;
       }
-      const next = providers.reserveModelFor(preferred);
+      const next = providers.reserveModelFor(current);
       const nextAttemptAt = new Date(Date.now() + 1000).toISOString();
       evidence.storyBrief = { status: 'recovering', attempt, modelChoice: next, fallbackUsed: true, nextAttemptAt, error: cleanError(error), fallbackFrom: current };
+      route.activeModel = next;
+      route.fallbackModel = next;
+      route.fallbackUsed = true;
+      route.switchedAt = now();
+      route.switchReason = '全书故事梳理的首选模型未返回可用结果；本任务统一切换一次备用模型';
+      run.input.creativeProfile = { ...(run.input.creativeProfile || {}), modelChoice: next };
       setStage(run, 'P2', 'waiting', { label: `全书故事梳理暂缓，${next} 将作为唯一备用模型接管`, phase: 'story_intelligence_recovering', recoverable: true, nextAttemptAt, error: cleanError(error), fallbackFrom: current });
       addEvent(run, 'story_intelligence_fallback_scheduled', 'Story intelligence will use the one permitted reserve model from saved chapter structure and evidence', { attempt, next, fallbackFrom: current, nextAttemptAt });
       await saveRun(redis, run);
@@ -338,7 +363,9 @@ async function withCreativeMergeLock(redis, runId, work) {
 }
 
 function draftFor(run, suppressOptimizationReview) {
-  const draft = run.artifacts.creativeDraft || { parts: {}, usage: [], startedAt: now(), suppressOptimizationReview: Boolean(suppressOptimizationReview) };
+  const route = ensureModelRoute(run);
+  const draft = run.artifacts.creativeDraft || { parts: {}, usage: [], startedAt: now(), modelRoute: { ...route }, suppressOptimizationReview: Boolean(suppressOptimizationReview) };
+  draft.modelRoute = { ...route, ...(draft.modelRoute || {}), activeModel: route.activeModel, preferredModel: route.preferredModel };
   if (suppressOptimizationReview) draft.suppressOptimizationReview = true;
   return draft;
 }
@@ -417,7 +444,8 @@ async function finalizeCreativeDraft(redis, run) {
       return run;
     }
     const attempt = Number(draft.validationAttempts || 0) + 1;
-    const previousModel = String(run.input?.creativeProfile?.modelChoice || 'hy3');
+    const route = ensureModelRoute(run);
+    const previousModel = String(route.activeModel || run.input?.creativeProfile?.modelChoice || 'hy3');
     if (draft.validationFallbackUsed) {
       const message = cleanError(error);
       run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), ...draft.usage.map((item) => ({ ...item, validationStatus: 'rejected', validationError: message, outputStatus: '证据校验未通过' }))].slice(-24);
@@ -436,6 +464,12 @@ async function finalizeCreativeDraft(redis, run) {
     draft.validationFallbackUsed = true;
     draft.recoveryRevision = { instruction: 'Regenerate every creative section from the saved exact chapter evidence. Correct the prior validation failure and do not reuse unsupported quotes.', validationError: cleanError(error) };
     draft.failures = Object.fromEntries(['posts', 'videoPrompt', 'posterPrompts'].map((section) => [section, { attempt, at: now(), error: cleanError(error), nextAttemptAt }]));
+    route.activeModel = nextModel;
+    route.fallbackModel = nextModel;
+    route.fallbackUsed = true;
+    route.switchedAt = now();
+    route.switchReason = `${previousModel} 的创意结果未通过证据校验；本任务统一切换一次备用模型`;
+    draft.modelRoute = { ...route, fallbackFrom: previousModel, reason: route.switchReason };
     run.input.creativeProfile = { ...(run.input.creativeProfile || {}), modelChoice: nextModel };
     run.state = 'running';
     setStage(run, 'P3', 'waiting', { label: `上一版未通过证据校验，${nextModel} 将作为唯一备用模型重新生成`, phase: 'validation_recovering', attempt, nextAttemptAt, error: cleanError(error), recoverable: true, fallbackFrom: previousModel });
@@ -498,7 +532,8 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
     let sectionResult;
     try {
       const reviewInput = pendingSection === 'qualityReview' ? { posts: draft.parts.posts, videoPrompt: draft.parts.videoPrompt, posterPrompts: draft.parts.posterPrompts } : (revision || draft.recoveryRevision || null);
-      sectionResult = await providers.generateCreative(run.artifacts.book, run.artifacts.evidence.chapters, run.artifacts.code, run.artifacts.shortUrl, reviewInput, { ...(run.input.creativeProfile || {}), storyBrief: run.artifacts.storyBrief?.plan || null }, pendingSection);
+      const route = ensureModelRoute(run);
+      sectionResult = await providers.generateCreative(run.artifacts.book, run.artifacts.evidence.chapters, run.artifacts.code, run.artifacts.shortUrl, reviewInput, { ...(run.input.creativeProfile || {}), modelChoice: route.activeModel, storyBrief: run.artifacts.storyBrief?.plan || null }, pendingSection);
     } catch (error) {
       return withCreativeMergeLock(redis, run.id, async () => {
         const latest = await getRun(redis, run.id) || run;
@@ -516,7 +551,8 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
           await saveRun(redis, latest);
           return syncRun(originalRun, latest);
         }
-        const preferredModel = String(latest.input?.creativeProfile?.modelChoice || 'hy3');
+        const route = ensureModelRoute(latest);
+        const preferredModel = String(route.preferredModel || latest.input?.creativeProfile?.modelChoice || 'hy3');
         const alreadyUsedReserve = latestDraft.modelRoute?.fallbackUsed === true || Boolean(error?.fallbackModel);
         if (alreadyUsedReserve) {
           const message = cleanError(error);
@@ -556,15 +592,24 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
           await saveRun(redis, latest);
           return syncRun(originalRun, latest);
         }
-        const reserveModel = providers.reserveModelFor(preferredModel);
+        const activeModel = String(route.activeModel || preferredModel);
+        const reserveModel = providers.reserveModelFor(activeModel);
         const nextAttemptAt = new Date(Date.now() + 1000).toISOString();
-        latestDraft.modelRoute = { preferredModel, fallbackModel: reserveModel, fallbackUsed: true, fallbackFrom: preferredModel, reason: '首选模型未返回可用结果' };
-        latestDraft.failures[pendingSection] = { attempt, at: now(), error: cleanError(error), nextAttemptAt, recoverable: true, fallbackFrom: preferredModel, fallbackModel: reserveModel };
+        route.activeModel = reserveModel;
+        route.fallbackModel = reserveModel;
+        route.fallbackUsed = true;
+        route.switchedAt = now();
+        route.switchReason = `${activeModel} 未返回可用结果；本任务统一切换一次备用模型`;
+        latestDraft.modelRoute = { ...route, fallbackFrom: activeModel, reason: route.switchReason };
+        latestDraft.failures[pendingSection] = { attempt, at: now(), error: cleanError(error), nextAttemptAt, recoverable: true, fallbackFrom: activeModel, fallbackModel: reserveModel };
         latest.artifacts.creativeDraft = latestDraft;
         latest.input.creativeProfile = { ...(latest.input.creativeProfile || {}), modelChoice: reserveModel };
         latest.state = 'running';
-        setStage(latest, 'P3', 'waiting', { label: `${creativeSectionLabels[pendingSection]}暂缓，${reserveModel} 将作为唯一备用模型接管`, phase: 'fallback_scheduled', attempt, nextAttemptAt, error: cleanError(error), recoverable: true, fallbackFrom: preferredModel });
-        addEvent(latest, 'creative_section_fallback_scheduled', `${pendingSection} will use the one permitted reserve model from saved evidence`, { attempt, preferredModel, reserveModel, nextAttemptAt });
+        setStage(latest, 'P3', 'waiting', { label: `${creativeSectionLabels[pendingSection]}暂缓；本任务已统一切换到 ${reserveModel}`, phase: 'fallback_scheduled', attempt, nextAttemptAt, error: cleanError(error), recoverable: true, fallbackFrom: activeModel });
+        addEvent(latest, 'creative_task_model_switched', `${pendingSection} caused one task-wide model switch; all remaining creative nodes now use ${reserveModel}`, { attempt, preferredModel, activeModel, reserveModel, nextAttemptAt });
+        // Keep the legacy event name for existing operational timelines; the
+        // task-wide switch event above is the authoritative routing record.
+        addEvent(latest, 'creative_section_fallback_scheduled', `${pendingSection} scheduled the task-wide reserve route`, { attempt, preferredModel, activeModel, reserveModel, nextAttemptAt });
         await saveRun(redis, latest);
         return syncRun(originalRun, latest);
       });
@@ -731,7 +776,7 @@ async function repairFailedPoster(redis, run, asset) {
   setStage(run, 'P3_5', 'running', { label: `DeepSeek 正在修复 ${asset.variant} 提示词` });
   addEvent(run, 'image_prompt_repair_started', `${asset.variant} failed definitively; DeepSeek repair started`, { taskId: asset.taskId, error: asset.error });
   await saveRun(redis, run);
-  const repaired = await providers.rewritePosterPrompt(run.artifacts.book, run.artifacts.evidence?.chapters || [], asset, asset.error);
+  const repaired = await providers.rewritePosterPrompt(run.artifacts.book, run.artifacts.evidence?.chapters || [], asset, asset.error, ensureModelRoute(run).activeModel);
   const priorTaskId = asset.taskId;
   asset.repairHistory = [...(asset.repairHistory || []), { at: now(), taskId: priorTaskId, reason: asset.error, prompt: asset.prompt }].slice(-2);
   asset.prompt = repaired.prompt;
@@ -793,10 +838,23 @@ async function p35(redis, run) {
         asset.status = 'failed';
         asset.error = asset.error || 'Image provider reported success without a media URL';
       }
+      if (asset.status === 'success' && asset.url) {
+        try {
+          asset.mediaValidation = await providers.validateImage(asset.url);
+          asset.url = asset.mediaValidation.resolvedUrl || asset.url;
+        } catch (error) {
+          // The paid provider task is terminal.  Do not submit another paid
+          // poster automatically merely because its delivered link is bad.
+          asset.status = 'preview_failed';
+          asset.error = `Poster completed but cannot be previewed: ${cleanError(error)}`;
+          addEvent(run, 'image_preview_failed', `${asset.variant} returned a terminal task but its image URL could not be verified`, { taskId: asset.taskId, error: asset.error });
+        }
+      }
     }
   }
   const successes = run.artifacts.images.filter((item) => item.status === 'success' && item.url);
   const failures = run.artifacts.images.filter((item) => ['failed', 'expired'].includes(item.status));
+  const previewFailures = run.artifacts.images.filter((item) => item.status === 'preview_failed');
   if (successes.length === 2) {
     setStage(run, 'P3_5', 'done', { label: '2 张推广海报已生成' });
     addEvent(run, 'images_ready', 'Two poster images completed');
@@ -807,6 +865,9 @@ async function p35(redis, run) {
       return;
     }
     throw new providers.ProviderError(`${failures[0].variant} image failed: ${failures[0].error || failures[0].status}`);
+  } else if (previewFailures.length) {
+    setStage(run, 'P3_5', 'partial', { label: `${successes.length}/2 张海报可预览；${previewFailures[0].variant} 的供应商链接失效`, error: previewFailures[0].error, recoverable: false });
+    addEvent(run, 'images_partial_preview_failure', 'Poster generation ended with a non-retryable preview failure; no duplicate paid request was submitted');
   } else {
     setStage(run, 'P3_5', 'running', { label: `海报生成中 ${successes.length}/2` });
   }
@@ -839,9 +900,9 @@ async function p6(redis, run) {
     const result = await providers.generateDistributionPlan(run.artifacts.book, {
       posts: run.artifacts.posts, videoPrompt: run.artifacts.videoPrompt, posterPrompts: run.artifacts.posterPrompts,
       storyBrief: run.artifacts.storyBrief?.plan || null
-    }, 'hy3');
+    }, ensureModelRoute(run).activeModel);
     run.artifacts.distribution = { ...result.plan, status: 'ready', generatedAt: now(), model: result.model };
-    run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), { section: 'distribution', requestedModel: 'hy3', model: result.model, responseId: result.responseId, completedAt: now(), ...result.usage }].slice(-24);
+    run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), { section: 'distribution', requestedModel: ensureModelRoute(run).activeModel, model: result.model, responseId: result.responseId, completedAt: now(), ...result.usage }].slice(-24);
     addEvent(run, 'distribution_ready', 'Manual channel recommendations and reusable hook are ready');
   } catch (error) {
     // A recommendation must never hold up a completed review package. Keep a

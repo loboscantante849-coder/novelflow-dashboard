@@ -247,14 +247,19 @@ function creativeProfileHtml(profile, preview = false) {
 
 function productionModelRouteHtml(run) {
   const planning = run.input?.planning;
-  if (!planning?.actualModel) return '';
+  const taskRoute = run.artifacts?.modelRoute || {};
+  const production = taskRoute.activeModel || run.input?.creativeProfile?.modelChoice || planning?.actualModel || 'hy3';
+  const taskPreferred = taskRoute.preferredModel || production;
+  const taskSwitch = taskRoute.fallbackUsed && modelLabel(taskPreferred) !== modelLabel(production);
+  if (!planning?.actualModel) {
+    return `<div class="production-model-route"><i data-lucide="route"></i><div><span>本任务模型路线</span><strong><b>全程创意</b>${taskSwitch ? `${modelLogoHtml(taskPreferred, { compact: true })}<i data-lucide="arrow-right"></i>` : ''}${modelLogoHtml(production, { compact: true })}</strong><small>${taskSwitch ? '首选不可用后已整体切换一次；后续文案、视频、海报和质检保持同一模型。' : '文案、视频、海报和质检使用同一模型；不会按节点混用。'}</small></div></div>`;
+  }
   const preferred = planning.preferredModel || planning.actualModel;
   const actual = planning.actualModel;
-  const production = run.input?.creativeProfile?.modelChoice || planning.actualModel;
   const strategy = planning.fallbackUsed && modelLabel(preferred) !== modelLabel(actual)
     ? `${modelLogoHtml(preferred, { compact: true })}<i data-lucide="arrow-right"></i>${modelLogoHtml(actual, { compact: true })}`
     : modelLogoHtml(actual, { compact: true });
-  return `<div class="production-model-route"><i data-lucide="route"></i><div><span>模型分工</span><strong><b>策划</b>${strategy}<b>生产</b>${modelLogoHtml(production, { compact: true })}</strong></div></div>`;
+  return `<div class="production-model-route"><i data-lucide="route"></i><div><span>模型分工</span><strong><b>策划</b>${strategy}<b>生产</b>${taskSwitch ? `${modelLogoHtml(taskPreferred, { compact: true })}<i data-lucide="arrow-right"></i>` : ''}${modelLogoHtml(production, { compact: true })}</strong><small>${taskSwitch ? '生产任务已整体切换一次备用模型，后续创意节点保持同一模型。' : '生产的文案、视频、海报和质检保持同一模型。'}</small></div></div>`;
 }
 
 function renderCreativeProfilePreview() {
@@ -1976,7 +1981,7 @@ function promptHtml(run) {
   ].filter(([, value]) => value) : [];
   return `<section id="detail-prompts" class="detail-section"><div class="section-heading"><h3>双语生产提示词</h3><span class="language-tag">EN / 中文</span></div>
     ${video ? `<div class="video-story"><div class="video-story-head"><strong>短视频叙事脚本</strong><span>基于原文章节 ${escapeHtml((video.evidenceChapters || []).join(' / '))}</span></div>${beats.length ? `<div class="story-beats">${beats.map(([label, value, zh]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${zh ? `<small>${escapeHtml(zh)}</small>` : ''}</article>`).join('')}</div>` : ''}${Array.isArray(video.sourceEvidence) && video.sourceEvidence.length ? `<div class="source-evidence">${video.sourceEvidence.map((item) => `<span>Ch.${escapeHtml(item.chapter)} · “${escapeHtml(item.quote)}”</span>`).join('')}</div>` : ''}<div class="prompt-block"><strong>英文旁白与镜头执行</strong><pre>${escapeHtml(video.adCopy)}\n\n${escapeHtml(video.buildRequirement)}</pre>${video.zhAdCopy || video.zhBuildRequirement ? `<p class="translation">${escapeHtml(video.zhAdCopy || '')}\n\n${escapeHtml(video.zhBuildRequirement || '')}</p>` : ''}</div></div>` : ''}
-    ${draft?.status === 'ready_for_review' ? `<aside class="video-rewrite-review"><header><div><span>待核对视频提示词</span><strong>${escapeHtml(modelLabel(draft.model))} 已基于原文证据重写</strong></div><span>未提交视频</span></header><div class="story-beats">${[['钩子 0-2s', draft.hook, draft.zhHook], ['价值 2-5s', draft.valuePromise, draft.zhValuePromise], ['升级 5-8s', draft.escalation, draft.zhEscalation], ['反转 8-11s', draft.reversal, draft.zhReversal], ['悬念 11-15s', draft.cliffhanger, draft.zhCliffhanger]].map(([label, value, zh]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${zh ? `<small>${escapeHtml(zh)}</small>` : ''}</article>`).join('')}</div><div class="prompt-block"><strong>新旁白与镜头执行</strong><pre>${escapeHtml(draft.adCopy)}\n\n${escapeHtml(draft.buildRequirement)}</pre></div><footer><button class="secondary-command" data-video-prompt-action="discard" type="button">保留原提示词</button><button class="primary-command" data-video-prompt-action="approve" type="button">核对无误，采用新提示词</button></footer></aside>` : ''}
+    ${draft?.status === 'ready_for_review' ? `<aside class="video-rewrite-review"><header><div><span>待核对视频提示词</span><strong>${escapeHtml(modelLabel(draft.model))} 已基于原文证据重写</strong></div><span>未提交新视频</span></header><div class="story-beats">${[['钩子 0-2s', draft.hook, draft.zhHook], ['价值 2-5s', draft.valuePromise, draft.zhValuePromise], ['升级 5-8s', draft.escalation, draft.zhEscalation], ['反转 8-11s', draft.reversal, draft.zhReversal], ['悬念 11-15s', draft.cliffhanger, draft.zhCliffhanger]].map(([label, value, zh]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${zh ? `<small>${escapeHtml(zh)}</small>` : ''}</article>`).join('')}</div><div class="prompt-block"><strong>新旁白与镜头执行</strong><pre>${escapeHtml(draft.adCopy)}\n\n${escapeHtml(draft.buildRequirement)}</pre></div><footer><button class="secondary-command" data-video-prompt-action="discard" type="button">保留原提示词</button><button class="secondary-command" data-video-prompt-action="approve" type="button">仅采用新提示词</button><button class="primary-command" data-video-prompt-action="approve_and_submit" type="button"><i data-lucide="video"></i>核对无误，提交新视频</button></footer></aside>` : ''}
     ${posters.map((item) => `<div class="prompt-block"><strong>${escapeHtml(item.variant)}${item.repairCount ? ` · DeepSeek 审核修复 ${escapeHtml(item.repairCount)}/1` : ''}</strong><pre>${escapeHtml(item.prompt)}</pre>${item.zhPrompt ? `<p class="translation">${escapeHtml(item.zhPrompt)}</p>` : ''}</div>`).join('')}
   </section>`;
 }
@@ -2018,7 +2023,7 @@ function imagesHtml(run) {
   const concepts = run.artifacts?.posterPrompts || [];
   if (!images.length && concepts.length) return `<div class="media-grid">${concepts.map((item) => `<article class="poster-concept"><div><i data-lucide="sparkles"></i><strong>${escapeHtml(item.variant)}</strong><span>视觉概念已就绪，等待图像任务提交</span></div><p>${escapeHtml(item.zhPrompt || item.prompt)}</p></article>`).join('')}</div>`;
   if (!images.length) return '<div class="media-placeholder">两张推广海报将在这里显示</div>';
-  return `<div class="media-grid">${images.map((item) => { const mediaUrl = item.url ? `/api/media?url=${encodeURIComponent(item.url)}` : ''; const referenceHint = item.variant === 'luminous_cinema' && item.url ? '<span class="poster-reference-hint"><i data-lucide="clapperboard"></i>可作为 AC 参考视频</span>' : ''; return `<article class="poster-item ${item.url ? 'ready' : ''}">${item.url ? `<button class="open-image-preview" type="button" data-image-url="${escapeHtml(mediaUrl)}" data-image-label="${escapeHtml(item.variant)}"><img src="${escapeHtml(mediaUrl)}" alt="${escapeHtml(item.variant)}"><span class="poster-expand"><i data-lucide="maximize-2"></i> 预览海报</span></button>` : `<div class="poster-live"><i data-lucide="image"></i><strong>${escapeHtml(item.variant)}</strong><span>${escapeHtml(item.status || '等待生成')}${item.progress != null ? ` · ${escapeHtml(item.progress)}%` : ''}</span></div>`}<span>${escapeHtml(item.variant)} · ${escapeHtml(item.status)}</span>${referenceHint}</article>`; }).join('')}</div>`;
+  return `<div class="media-grid">${images.map((item) => { const previewable = item.status === 'success' && item.url; const mediaUrl = previewable ? `/api/media?url=${encodeURIComponent(item.url)}` : ''; const referenceHint = item.variant === 'luminous_cinema' && previewable ? '<span class="poster-reference-hint"><i data-lucide="clapperboard"></i>可作为 AC 参考视频</span>' : ''; const unavailable = item.status === 'preview_failed'; return `<article class="poster-item ${previewable ? 'ready' : ''} ${unavailable ? 'failed' : ''}">${previewable ? `<button class="open-image-preview" type="button" data-image-url="${escapeHtml(mediaUrl)}" data-image-label="${escapeHtml(item.variant)}"><img src="${escapeHtml(mediaUrl)}" alt="${escapeHtml(item.variant)}" onerror="this.closest('.poster-item').classList.add('failed');this.closest('button').disabled=true"><span class="poster-expand"><i data-lucide="maximize-2"></i> 预览海报</span></button>` : `<div class="poster-live"><i data-lucide="${unavailable ? 'image-off' : 'image'}"></i><strong>${escapeHtml(item.variant)}</strong><span>${escapeHtml(unavailable ? '供应商链接失效，未重复扣费提交' : (item.status || '等待生成'))}${item.progress != null ? ` · ${escapeHtml(item.progress)}%` : ''}</span>${unavailable && item.error ? `<small>${escapeHtml(item.error)}</small>` : ''}</div>`}<span>${escapeHtml(item.variant)} · ${escapeHtml(item.status)}</span>${referenceHint}</article>`; }).join('')}</div>`;
 }
 
 function openImageViewer(url, label) {
@@ -2527,6 +2532,14 @@ async function rewriteVideoPrompt(runId) {
 
 async function decideVideoPrompt(runId, action) {
   try {
+    if (action === 'approve_and_submit') {
+      const body = await api('/api/runs', { method: 'PATCH', body: JSON.stringify({ id: runId, action: 'approve_video_prompt' }) });
+      state.runs = state.runs.map((item) => item.id === body.run.id ? body.run : item);
+      state.detailFingerprint = ''; render();
+      showToast('新视频提示词已采用。请在确认框中确认本次付费视频提交。');
+      openConfirmation('video_revision', runId);
+      return;
+    }
     const body = await api('/api/runs', { method: 'PATCH', body: JSON.stringify({ id: runId, action: action === 'approve' ? 'approve_video_prompt' : 'discard_video_prompt' }) });
     state.runs = state.runs.map((item) => item.id === body.run.id ? body.run : item);
     state.detailFingerprint = ''; render();
