@@ -286,25 +286,31 @@ function planResultHtml(result) {
   const actualModel = result.usage?.model || result.modelChoice || 'hy3';
   const preferredModel = result.preferredModelChoice || actualModel;
   const routeText = result.fallbackUsed && modelLabel(preferredModel) !== modelLabel(actualModel) ? `${modelLabel(preferredModel)} 未及时返回，${modelLabel(actualModel)} 完成策划` : `${modelLabel(actualModel)} 完成策划`;
+  const footer = result.autoStartProduction
+    ? (result.productionRunId
+      ? `<footer><button id="openAutoProduction" class="primary-command" type="button"><i data-lucide="activity"></i><span>查看自动生产进度</span></button><button id="replanCreativePlan" class="secondary-command" type="button"><i data-lucide="refresh-cw"></i><span>重新分析</span></button></footer>`
+      : `<footer><span class="language-tag">生产任务正在由后台自动安排</span><button id="replanCreativePlan" class="secondary-command" type="button"><i data-lucide="refresh-cw"></i><span>重新分析</span></button></footer>`)
+    : `<footer><button id="confirmCreativePlan" class="primary-command" type="button"><i data-lucide="zap"></i><span>采用方案并开始生产</span></button><button id="replanCreativePlan" class="secondary-command" type="button"><i data-lucide="refresh-cw"></i><span>重新分析</span></button></footer>`;
   return `<header><div><span class="dialog-kicker">RECOMMENDED DIRECTION</span><h3>${escapeHtml(result.book.title)}</h3><p>已分析全书 ${escapeHtml(result.evidenceScope.chapterCount)} 章结构，使用第 ${escapeHtml((result.evidenceScope.sampledChapters || []).join(' / '))} 章作为关键证据样本。</p></div><span class="plan-model">${modelLogoHtml(actualModel, { compact: true })}</span></header><div class="plan-model-route"><i data-lucide="route"></i><div><strong>策划路由</strong><span>${escapeHtml(routeText)}；本次实际完成模型：${modelLogoHtml(actualModel, { compact: true })}</span></div></div>
     <div class="plan-thesis"><strong>核心推广判断</strong><p>${escapeHtml(plan.editorialThesis)}</p></div>
     <div class="plan-profile">${Object.keys(creativeProfileOptions).map((key) => profileSelect(key, profile[key] || Object.keys(creativeProfileOptions[key].values)[0])).join('')}</div>
     <div class="plan-rationale">${Object.entries(creativeProfileOptions).map(([key, definition]) => `<article><span>${escapeHtml(definition.label)}</span><strong>${escapeHtml(rationale[key] || '以章节证据为准')}</strong></article>`).join('')}</div>
     <div class="plan-blueprints"><article><span>文案蓝图</span><strong>${escapeHtml(copy.hook || '')}</strong><p>${escapeHtml(copy.emotionalArc || copy.zhSummary || '')}</p><small>CTA：${escapeHtml(copy.cta || '')}</small></article><article><span>视频剧情</span><strong>${escapeHtml(video.opening || video.arc || '')}</strong><p>${escapeHtml(video.reversal || video.zhSummary || '')}</p><small>悬念：${escapeHtml(video.cliffhanger || '')}</small></article><article><span>海报方向</span><strong>${escapeHtml(poster.moment || '')}</strong><p>${escapeHtml(poster.mood || poster.zhSummary || '')}</p></article></div>
     ${evidence.length ? `<div class="plan-evidence">${evidence.map((item) => `<article><span>Ch.${escapeHtml(item.chapter)}</span><strong>“${escapeHtml(item.quote)}”</strong><p>${escapeHtml(item.why || '')}</p></article>`).join('')}</div>` : ''}
-    <footer><button id="confirmCreativePlan" class="primary-command" type="button"><i data-lucide="zap"></i><span>采用方案并开始生产</span></button><button id="replanCreativePlan" class="secondary-command" type="button"><i data-lucide="refresh-cw"></i><span>重新分析</span></button></footer>`;
+    ${footer}`;
 }
 
 function planJobResult(job) {
-  return { id: job.id, book: job.artifacts?.book || { title: job.input?.title || '', sku: job.input?.sku || '' }, plan: job.artifacts?.plan || {}, evidenceScope: job.artifacts?.evidenceScope || { chapterCount: 0, sampledChapters: [] }, usage: job.artifacts?.usage || {}, modelChoice: job.input?.modelChoice || 'hy3', preferredModelChoice: job.input?.preferredModelChoice || job.input?.modelChoice || 'hy3', fallbackUsed: Boolean(job.input?.fallbackUsed), modelHistory: job.input?.modelHistory || [] };
+  return { id: job.id, book: job.artifacts?.book || { title: job.input?.title || '', sku: job.input?.sku || '' }, plan: job.artifacts?.plan || {}, evidenceScope: job.artifacts?.evidenceScope || { chapterCount: 0, sampledChapters: [] }, usage: job.artifacts?.usage || {}, modelChoice: job.input?.modelChoice || 'hy3', preferredModelChoice: job.input?.preferredModelChoice || job.input?.modelChoice || 'hy3', fallbackUsed: Boolean(job.input?.fallbackUsed), modelHistory: job.input?.modelHistory || [], autoStartProduction: job.input?.autoStartProduction !== false, productionRunId: job.input?.productionRunId || '' };
 }
 
 function visibleCreativePlanJobs(planJobs = state.planJobs, runs = state.runs) {
-  // A completed plan becomes production input as soon as the operator adopts
-  // it. It belongs to that run's trace, not in the pending-decision queue.
+  // Auto-planned books move directly into production. The queue is only for
+  // background work, exceptional failures, or explicitly manual planning.
   const adoptedPlanIds = new Set((runs || []).map((run) => String(run.input?.planning?.planId || '')).filter(Boolean));
   return (planJobs || []).filter((job) => ['queued', 'running', 'completed', 'failed'].includes(job.state)
-    && !adoptedPlanIds.has(String(job.id))).slice(0, 5);
+    && !adoptedPlanIds.has(String(job.id))
+    && !(job.state === 'completed' && job.input?.autoStartProduction !== false)).slice(0, 5);
 }
 
 function renderCreativePlanQueue() {
@@ -319,7 +325,8 @@ function renderCreativePlanQueue() {
   const jobHtml = jobs.map((job) => {
     const stage = Object.values(job.stages || {}).find((item) => item.status === 'running') || Object.values(job.stages || {}).find((item) => item.status === 'waiting') || job.stages?.analysis || {};
     const icon = job.state === 'completed' ? 'circle-check-big' : job.state === 'failed' ? 'circle-alert' : 'loader-circle';
-    const status = job.state === 'completed' ? '策划完成，点击查看方案' : job.state === 'failed' ? '策划中断，点击从已保存证据恢复' : (stage.label || '后台策划中，可继续使用控制台');
+    const automatic = job.input?.autoStartProduction !== false;
+    const status = job.state === 'completed' ? '策划完成，生产任务已自动创建' : job.state === 'failed' ? '策划中断，点击从已保存证据恢复' : automatic ? `后台自动推进：${stage.label || 'AI 正在策划'}；完成后自动开始生产` : (stage.label || '后台策划中，可继续使用控制台');
     const dismiss = job.state === 'completed' ? `<button class="plan-dismiss" type="button" data-dismiss-plan="${escapeHtml(job.id)}" title="从策划队列移除"><i data-lucide="x"></i></button>` : '';
     return `<article class="plan-queue-item"><button class="creative-plan-job ${job.state === 'completed' ? 'done' : job.state === 'failed' ? 'failed' : ''}" type="button" data-plan-job="${escapeHtml(job.id)}"><span><strong>${escapeHtml(job.artifacts?.book?.title || job.input?.title || 'AI 智能策划')}</strong><span>${escapeHtml(status)}</span></span><i data-lucide="${icon}"></i></button>${dismiss}</article>`;
   }).join('');
@@ -385,7 +392,11 @@ async function retryCreativePlanJob(id) {
 }
 
 function bindCreativePlanActions(result) {
-  $('#confirmCreativePlan').addEventListener('click', async () => {
+  $('#openAutoProduction')?.addEventListener('click', () => {
+    $('#creativePlanDialog').close();
+    openDetail(result.productionRunId);
+  });
+  $('#confirmCreativePlan')?.addEventListener('click', async () => {
     const button = $('#confirmCreativePlan');
     button.disabled = true;
     try {
@@ -427,7 +438,7 @@ async function analyzeCreativePlan(title, sku) {
   $('#creativePlanResult').hidden = true;
   $('#creativePlanLoading strong').textContent = `${selectedModel} 正在转入后台策划`;
   try {
-    const body = await api('/api/creative-plan', { method: 'POST', body: JSON.stringify({ title, sku, modelChoice, requestId }), timeoutMs: 15000 });
+    const body = await api('/api/creative-plan', { method: 'POST', body: JSON.stringify({ title, sku, modelChoice, requestId, autoStartProduction: true, paidAuthorized: true, promoter: 'xujt' }), timeoutMs: 15000 });
     queueCreativePlanJob(body.job, selectedModel, planningSession);
   } catch (error) {
     if (planningSession !== state.planningSession) return;

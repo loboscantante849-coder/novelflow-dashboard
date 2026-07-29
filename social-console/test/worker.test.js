@@ -206,6 +206,31 @@ test('an unknown explicit plan id never falls through to an unrelated runnable r
   assert.equal(runCalls, 0);
 });
 
+test('cron resumes a completed auto-start plan until its production task is attached', async (t) => {
+  const target = plan();
+  target.state = 'completed';
+  target.input = { autoStartProduction: true };
+  target.stages.analysis = { status: 'done' };
+  let planCalls = 0;
+  const { result } = await invoke(t, {
+    store: {
+      listCreativePlanSummaries: async () => [target],
+      getCreativePlan: async () => target
+    },
+    plans: {
+      processCreativePlan: async () => {
+        planCalls += 1;
+        target.input.productionRunId = 'run_autostart1234567890';
+        return target;
+      }
+    }
+  });
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.body.worked, true);
+  assert.equal(planCalls, 1);
+});
+
 test('an owned worker lease does not delete a replacement lease', async (t) => {
   const target = run();
   const replacement = `v1|${Date.now()}|replacement-owner`;

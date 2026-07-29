@@ -39,6 +39,8 @@ module.exports = async (req, res) => {
       job.input.preferredModelChoice = job.input.preferredModelChoice || job.input.modelChoice || 'hy3';
       job.input.modelChoice = job.input.preferredModelChoice;
       job.input.fallbackUsed = false;
+      job.input.autoStartProduction = job.input.autoStartProduction !== false;
+      job.input.paidAuthorized = job.input.paidAuthorized !== false;
       job.state = 'running';
       job.stages.analysis = { ...job.stages.analysis, status: 'waiting', attempt: 0, nextAttemptAt: '', error: '', label: '已恢复后台策划，将先尝试首选模型' };
       job.events.push({ at: new Date().toISOString(), type: 'manual_retry_requested', message: 'Operator resumed the background planning task from saved evidence' });
@@ -57,7 +59,7 @@ module.exports = async (req, res) => {
       const existing = existingId ? await getCreativePlan(redis, String(existingId)) : null;
       if (existing) return res.status(200).json({ job: existing, queued: ['queued', 'running'].includes(existing.state), duplicate: true });
     }
-    const job = newCreativePlan({ title, sku, modelChoice, preferredModelChoice: modelChoice, fallbackUsed: false, clientRequestId: requestId });
+    const job = newCreativePlan({ title, sku, modelChoice, preferredModelChoice: modelChoice, fallbackUsed: false, autoStartProduction: req.body?.autoStartProduction !== false, paidAuthorized: req.body?.paidAuthorized !== false, promoter: text(req.body?.promoter, 80) || 'xujt', clientRequestId: requestId });
     // Publish the request-id mapping only after the plan is durable. A browser
     // timeout can then safely reconcile to a real task instead of seeing a
     // mapping that points at a plan which has not finished saving yet.

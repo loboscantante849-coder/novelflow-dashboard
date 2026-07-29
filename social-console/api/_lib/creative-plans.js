@@ -1,6 +1,6 @@
 const providers = require('./providers');
 const { selectedChapters } = require('./pipeline');
-const { saveCreativePlan } = require('./store');
+const { newRun, saveRun, saveCreativePlan, listRunSummaries } = require('./store');
 
 const PROFILE_OPTIONS = {
   copyStyle: ['system_best', 'revenge_comeback', 'forbidden_tension', 'dark_redemption'],
@@ -9,6 +9,7 @@ const PROFILE_OPTIONS = {
   posterStyle: ['system_best', 'luminous_cinema', 'editorial_romance']
 };
 const LONG_RUNNING_MODELS = new Set(['deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'kimi-k2.7-code']);
+const PRODUCTION_MODELS = new Set(['deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'hy3', 'kimi-k2.7-code', 'qwen3.5-flash', 'glm-4.5-air', 'kimi-k2.5', 'minimax-m2.5', 'glm-5.2', 'kimi-k3', 'minimax-m3']);
 
 function profile(value) {
   return Object.fromEntries(Object.entries(PROFILE_OPTIONS).map(([key, allowed]) => [key, allowed.includes(String(value?.[key] || '')) ? String(value[key]) : allowed[0]]));
@@ -29,6 +30,81 @@ function cleanError(error) {
   return String(error?.message || error || 'Unknown planning failure').replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [redacted]').slice(0, 500);
 }
 
+function planningSnapshot(plan) {
+  const source = plan.artifacts?.plan || {};
+  return {
+    planId: plan.id,
+    preferredModel: String(plan.input?.preferredModelChoice || plan.input?.modelChoice || '').slice(0, 80),
+    actualModel: String(plan.artifacts?.usage?.model || plan.input?.modelChoice || '').slice(0, 80),
+    fallbackUsed: plan.input?.fallbackUsed === true,
+    completedAt: plan.stages?.analysis?.completedAt || plan.updatedAt || new Date().toISOString(),
+    strategy: {
+      editorialThesis: String(source.editorialThesis || '').slice(0, 1200),
+      rationale: source.rationale && typeof source.rationale === 'object' ? source.rationale : {},
+      recommendedProfile: source.recommendedProfile && typeof source.recommendedProfile === 'object' ? source.recommendedProfile : {},
+      copyBlueprint: source.copyBlueprint && typeof source.copyBlueprint === 'object' ? source.copyBlueprint : {},
+      videoBlueprint: source.videoBlueprint && typeof source.videoBlueprint === 'object' ? source.videoBlueprint : {},
+      posterBlueprint: source.posterBlueprint && typeof source.posterBlueprint === 'object' ? source.posterBlueprint : {},
+      evidence: Array.isArray(source.evidence) ? source.evidence.slice(0, 5).map((item) => ({ chapter: Number(item?.chapter || 0), quote: String(item?.quote || '').slice(0, 240), why: String(item?.why || '').slice(0, 300) })) : []
+    }
+  };
+}
+
+function productionProfile(plan) {
+  const recommended = profile(plan.artifacts?.plan?.recommendedProfile);
+  const requestedModel = String(plan.input?.modelChoice || 'hy3');
+  return { ...recommended, modelChoice: PRODUCTION_MODELS.has(requestedModel) ? requestedModel : 'hy3' };
+}
+
+function shouldAutoStart(plan) {
+  return plan?.state === 'completed' && plan?.input?.autoStartProduction !== false && !plan?.input?.productionRunId;
+}
+
+async function autoStartProduction(redis, plan) {
+  if (!shouldAutoStart(plan)) return plan;
+  const nextAttemptAt = Date.parse(plan.input?.autoStartNextAttemptAt || '');
+  if (Number.isFinite(nextAttemptAt) && nextAttemptAt > Date.now()) return plan;
+  try {
+    // A worker can stop after saving a run but before recording it on the plan.
+    // Reconcile by plan id so it never opens a second tracking or media path.
+    const existing = (await listRunSummaries(redis, 50)).find((run) => String(run.input?.planning?.planId || '') === String(plan.id));
+    if (existing) {
+      plan.input.productionRunId = existing.id;
+      plan.input.autoStartState = 'queued';
+      plan.input.autoStartNextAttemptAt = '';
+      event(plan, 'production_auto_reconciled', 'Existing production task linked to the completed AI plan');
+      await saveCreativePlan(redis, plan);
+      return plan;
+    }
+    const book = plan.artifacts?.book;
+    if (!book?.title || !book?.bookSkuId) throw new Error('Completed plan is missing its verified book identity');
+    const run = await saveRun(redis, newRun({
+      title: book.title,
+      sku: book.bookSkuId,
+      promoter: String(plan.input?.promoter || 'xujt').slice(0, 80),
+      videoTemplate: 'adaptive_seedance',
+      fullBookEvidence: true,
+      paidAuthorized: plan.input?.paidAuthorized !== false,
+      creativeProfile: productionProfile(plan),
+      planning: planningSnapshot(plan),
+      requestedAt: new Date().toISOString()
+    }));
+    plan.input.productionRunId = run.id;
+    plan.input.autoStartState = 'queued';
+    plan.input.autoStartNextAttemptAt = '';
+    event(plan, 'production_auto_queued', 'Completed AI plan automatically created a production task', { runId: run.id });
+    await saveCreativePlan(redis, plan);
+  } catch (error) {
+    const attempt = Number(plan.input?.autoStartAttempt || 0) + 1;
+    plan.input.autoStartAttempt = attempt;
+    plan.input.autoStartState = 'retrying';
+    plan.input.autoStartNextAttemptAt = new Date(Date.now() + Math.min(5 * 60 * 1000, attempt * 60 * 1000)).toISOString();
+    event(plan, 'production_auto_retry_scheduled', 'Production task creation will retry from the completed plan', { error: cleanError(error), attempt });
+    await saveCreativePlan(redis, plan);
+  }
+  return plan;
+}
+
 function recoverableModelError(error) {
   const status = Number(error?.status || 0);
   const message = String(error?.message || error || '').toLowerCase();
@@ -38,6 +114,8 @@ function recoverableModelError(error) {
 }
 
 async function processCreativePlan(redis, plan) {
+  if (plan.state === 'completed') return autoStartProduction(redis, plan);
+  if (!['queued', 'running'].includes(plan.state)) return plan;
   if (plan.state === 'queued') {
     plan.state = 'running';
     event(plan, 'worker_started', 'Background planning worker started');
@@ -99,7 +177,7 @@ async function processCreativePlan(redis, plan) {
       plan.state = 'completed';
       event(plan, 'plan_ready', 'Background creative plan completed');
       await saveCreativePlan(redis, plan);
-      return plan;
+      return autoStartProduction(redis, plan);
     } catch (error) {
       if (!recoverableModelError(error)) throw error;
       const preferred = plan.input.preferredModelChoice || plan.input.modelChoice || 'hy3';
@@ -137,4 +215,4 @@ function modelLabelForPlan(value) {
   return ({ deepseek: 'DeepSeek', hy3: 'HY3', 'qwen3.7-max': 'Qwen 3.7 Max', 'seed-2.1-turbo': 'Seed 2.1 Turbo', 'minimax-m2.7': 'MiniMax M2.7', 'kimi-k2.7-code': 'Kimi K2.7 Code' })[String(value)] || String(value || 'AI');
 }
 
-module.exports = { processCreativePlan };
+module.exports = { processCreativePlan, autoStartProduction, planningSnapshot };

@@ -11,6 +11,7 @@ class MemoryRedis {
   constructor() { this.values = new Map(); }
   async get(key) { return this.values.get(key) ?? null; }
   async set(key, value, options = {}) { if (options.nx && this.values.has(key)) return null; this.values.set(key, value); return 'OK'; }
+  async zrange() { return []; }
   async zadd() { return 1; }
   async del(key) { return this.values.delete(key) ? 1 : 0; }
   async incr(key) { const value = Number(this.values.get(key) || 0) + 1; this.values.set(key, value); return value; }
@@ -55,6 +56,31 @@ test('background creative planning resumes from saved chapter evidence', async (
   assert.equal(downloaded.length, 4);
   assert.equal(new Set(downloaded).size, 4);
   assert.equal(resumed.artifacts.plan.editorialThesis, 'Use the first confrontation as the truthful hook.');
+});
+
+test('completed smart planning automatically queues one production task', async (t) => {
+  const originals = { ...providers };
+  t.after(() => Object.assign(providers, originals));
+  Object.assign(providers, {
+    findExactBook: async () => ({ bookSkuId: 'auto-plan-sku', cityBookId: 'auto-plan-city', title: 'Auto Plan Romance', payPoint: 8 }),
+    listChapters: async () => Array.from({ length: 30 }, (_, index) => ({ id: `auto-c${index + 1}`, order: index + 1, title: `Chapter ${index + 1}` })),
+    chapterContent: async (id) => `${id} grounded chapter evidence`,
+    analyzeCreativePlan: async () => ({ plan: { editorialThesis: 'The verified betrayal becomes the campaign hook.', recommendedProfile: {} }, model: 'hy3', responseId: 'auto-plan-response', usage: { totalTokens: 800 } })
+  });
+  const redis = new MemoryRedis();
+  const plan = newCreativePlan({ title: 'Auto Plan Romance', sku: 'auto-plan-sku', modelChoice: 'hy3', preferredModelChoice: 'hy3', autoStartProduction: true, paidAuthorized: true, promoter: 'xujt' });
+
+  for (let index = 0; index < 8 && !plan.input.productionRunId; index += 1) await processCreativePlan(redis, plan);
+
+  assert.equal(plan.state, 'completed');
+  assert.ok(plan.input.productionRunId);
+  const created = JSON.parse(await redis.get(`nf_social:run:${plan.input.productionRunId}`));
+  assert.equal(created.input.planning.planId, plan.id);
+  assert.equal(created.input.paidAuthorized, true);
+  assert.equal(created.input.planning.strategy.editorialThesis, 'The verified betrayal becomes the campaign hook.');
+
+  await processCreativePlan(redis, plan);
+  assert.equal([...redis.values.keys()].filter((key) => key.startsWith('nf_social:run:')).length, 1);
 });
 
 test('planning uses one fixed reserve model after a primary timeout without losing evidence', async (t) => {

@@ -345,6 +345,10 @@ module.exports = async (req, res) => {
       return res.status(422).json({ error: message });
     }
     const planning = await resolvePlanning(redis, req.body?.planning);
+    if (planning?.planId) {
+      const existing = (await listRunSummaries(redis, 50)).find((item) => String(item.input?.planning?.planId || '') === planning.planId);
+      if (existing) return res.status(200).json({ run: existing, duplicate: true });
+    }
     const input = {
       title: book.title, sku: book.bookSkuId,
       promoter: text(req.body?.promoter, 80) || 'xujt',
