@@ -13,6 +13,10 @@ function validKey(key) {
   return typeof key === 'string' && key.startsWith(KEY_PREFIX) && key.length <= 240;
 }
 
+function validKeys(keys) {
+  return Array.isArray(keys) && keys.length > 0 && keys.length <= 50 && keys.every(validKey);
+}
+
 function options(value) {
   const input = value && typeof value === 'object' ? value : {};
   const output = {};
@@ -30,11 +34,13 @@ module.exports = async (req, res) => {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return res.status(503).json({ error: 'Storage is unavailable' });
   const { op, args = {} } = req.body || {};
   const key = args.key;
-  if (!validKey(key)) return res.status(400).json({ error: 'Invalid social storage key' });
+  const keys = args.keys;
+  if (op === 'mget' ? !validKeys(keys) : !validKey(key)) return res.status(400).json({ error: 'Invalid social storage key' });
   const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
   try {
     let result;
     if (op === 'get') result = await redis.get(key);
+    else if (op === 'mget') result = await redis.mget(...keys);
     else if (op === 'set') {
       if (typeof args.value !== 'string' || args.value.length > 2 * 1024 * 1024) return res.status(400).json({ error: 'Invalid value' });
       result = await redis.set(key, args.value, options(args.options));
@@ -53,3 +59,5 @@ module.exports = async (req, res) => {
     return res.status(502).json({ error: 'Social storage request failed' });
   }
 };
+
+module.exports.validKeys = validKeys;

@@ -20,6 +20,11 @@ class FakeRedis {
     return FakeRedis.values.get(key) ?? null;
   }
 
+  async mget(...keys) {
+    this._checkError();
+    return keys.map((key) => FakeRedis.values.get(key) ?? null);
+  }
+
   async set(key, value, options) {
     this._checkError();
     FakeRedis.values.set(key, value);

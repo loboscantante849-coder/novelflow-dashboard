@@ -23,6 +23,7 @@ class RemoteRedis {
     return body.result;
   }
   get(key) { return this.call('get', { key }); }
+  mget(...keys) { return this.call('mget', { keys }); }
   set(key, value, options) { return this.call('set', { key, value, options }); }
   zrange(key, start, end, options) { return this.call('zrange', { key, start, end, options }); }
   zadd(key, entry) { return this.call('zadd', { key, entry }); }
