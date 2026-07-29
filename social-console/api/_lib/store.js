@@ -9,7 +9,7 @@ const runDetailKey = (id) => `nf_social:run_detail:${id}`;
 const planKey = (id) => `nf_social:creative_plan:${id}`;
 const runSummaryKey = (id) => `nf_social:run_summary:${id}`;
 const planSummaryKey = (id) => `nf_social:creative_plan_summary:${id}`;
-const RUN_SUMMARY_VERSION = 4;
+const RUN_SUMMARY_VERSION = 5;
 class RemoteRedis {
   constructor(url, secret) { this.url = url.replace(/\/$/, ''); this.secret = secret; }
   async call(op, args) {
@@ -82,19 +82,24 @@ function summaryInput(input = {}) {
 }
 
 function summaryStages(stages = {}) {
-  return Object.fromEntries(Object.entries(stages || {}).map(([name, stage]) => [name, {
-    status: String(stage?.status || 'waiting'),
-    label: String(stage?.label || '').slice(0, 180),
-    error: String(stage?.error || '').slice(0, 300),
-    phase: String(stage?.phase || '').slice(0, 100),
-    recoverable: stage?.recoverable === true,
-    fallbackFrom: String(stage?.fallbackFrom || ''),
-    fallbackReason: String(stage?.fallbackReason || '').slice(0, 180),
-    startedAt: String(stage?.startedAt || ''),
-    blockedReason: String(stage?.blockedReason || '').slice(0, 80),
-    attempt: Number(stage?.attempt || 0),
-    nextAttemptAt: String(stage?.nextAttemptAt || '')
-  }]));
+  return Object.fromEntries(Object.entries(stages || {}).map(([name, stage]) => {
+    const summary = { status: String(stage?.status || 'waiting') };
+    const text = (key, value, limit) => {
+      const normalized = String(value || '').slice(0, limit);
+      if (normalized) summary[key] = normalized;
+    };
+    text('label', stage?.label, 180);
+    text('error', stage?.error, 300);
+    text('phase', stage?.phase, 100);
+    if (stage?.recoverable === true) summary.recoverable = true;
+    text('fallbackFrom', stage?.fallbackFrom, 100);
+    text('fallbackReason', stage?.fallbackReason, 180);
+    text('startedAt', stage?.startedAt, 80);
+    text('blockedReason', stage?.blockedReason, 80);
+    if (Number(stage?.attempt || 0) > 0) summary.attempt = Number(stage.attempt);
+    text('nextAttemptAt', stage?.nextAttemptAt, 80);
+    return [name, summary];
+  }));
 }
 
 function summaryUsage(usage = {}) {
@@ -105,23 +110,29 @@ function summaryUsage(usage = {}) {
 }
 
 function summaryModelActivity(activity = []) {
-  return (Array.isArray(activity) ? activity : []).slice(-8).map((item) => ({
-    section: String(item?.section || ''),
-    requestedModel: String(item?.requestedModel || ''),
-    model: String(item?.model || ''),
-    fallbackFrom: String(item?.fallbackFrom || ''),
-    fallbackModel: String(item?.fallbackModel || ''),
-    fallbackReason: String(item?.fallbackReason || '').slice(0, 180),
-    triggerReason: String(item?.triggerReason || '').slice(0, 120),
-    outputStatus: String(item?.outputStatus || '').slice(0, 120),
-    latencyMs: Number(item?.latencyMs || 0),
-    totalTokens: Number(item?.totalTokens || 0),
-    completedAt: String(item?.completedAt || ''),
-    error: String(item?.error || '').slice(0, 240),
-    validationStatus: String(item?.validationStatus || ''),
-    recovering: item?.recovering === true,
-    attempt: Number(item?.attempt || 0)
-  }));
+  return (Array.isArray(activity) ? activity : []).slice(-3).map((item) => {
+    const summary = {};
+    const text = (key, value, limit) => {
+      const normalized = String(value || '').slice(0, limit);
+      if (normalized) summary[key] = normalized;
+    };
+    text('section', item?.section, 100);
+    text('requestedModel', item?.requestedModel, 100);
+    text('model', item?.model, 100);
+    text('fallbackFrom', item?.fallbackFrom, 100);
+    text('fallbackModel', item?.fallbackModel, 100);
+    text('fallbackReason', item?.fallbackReason, 180);
+    text('triggerReason', item?.triggerReason, 120);
+    text('outputStatus', item?.outputStatus, 120);
+    if (Number(item?.latencyMs || 0) > 0) summary.latencyMs = Number(item.latencyMs);
+    if (Number(item?.totalTokens || 0) > 0) summary.totalTokens = Number(item.totalTokens);
+    text('completedAt', item?.completedAt, 80);
+    text('error', item?.error, 240);
+    text('validationStatus', item?.validationStatus, 80);
+    if (item?.recovering === true) summary.recovering = true;
+    if (Number(item?.attempt || 0) > 0) summary.attempt = Number(item.attempt);
+    return summary;
+  });
 }
 
 function runSummary(run) {

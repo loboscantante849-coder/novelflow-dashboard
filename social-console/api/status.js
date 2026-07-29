@@ -22,7 +22,7 @@ function discordRuntime() {
   };
 }
 function statusRunLimit(value) {
-  return Math.max(12, Math.min(50, Number(value) || 24));
+  return Math.max(12, Math.min(50, Number(value) || 12));
 }
 module.exports = async (req, res) => {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });

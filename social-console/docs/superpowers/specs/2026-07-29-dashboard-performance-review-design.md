@@ -65,7 +65,7 @@ Startup performance flow:
 ```text
 local verified snapshot -> immediate paint
         |
-        +-> GET /api/status?limit=24 -> current tasks and counters
+        +-> GET /api/status?limit=12 -> current tasks and counters
         +-> GET /api/leaderboard      -> current ranking
         +-> deferred recommendation / plan refresh
 
@@ -74,9 +74,9 @@ local verified snapshot -> immediate paint
 
 ## API contract
 
-### `GET /api/status?limit=24|50`
+### `GET /api/status?limit=12|50`
 
-Returns the existing status payload. `limit` is clamped to 12-50 and defaults to 24. The response includes `runLimit` so the browser can show whether older tasks can be requested.
+Returns the existing status payload. `limit` is clamped to 12-50 and defaults to 12. The response includes `runLimit` so the browser can show whether older tasks can be requested.
 
 ```json
 {

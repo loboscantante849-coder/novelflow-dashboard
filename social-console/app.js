@@ -1,5 +1,5 @@
 const storedRecommendationHistory = (() => { try { return JSON.parse(localStorage.getItem('nf_social:recommendation_history') || '[]'); } catch { return []; } })();
-const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogFilters: { line: 'novelflow', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all' }, historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 24, detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, longKickKey: '', startingSku: '', planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0 };
+const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogFilters: { line: 'novelflow', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all' }, historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 12, detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, longKickKey: '', startingSku: '', planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0 };
 const DASHBOARD_CACHE_KEY = 'nf_social:dashboard_snapshot:v1';
 const DASHBOARD_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
 let dashboardSnapshotHandle = null;
@@ -2809,19 +2809,23 @@ let idlePlanPolls = 0;
 function hasLiveBackgroundWork() {
   return state.runs.some((run) => ['queued', 'running'].includes(run.state)) || state.planJobs.some((job) => ['queued', 'running'].includes(job.state));
 }
-setInterval(() => {
-  if (document.hidden) return;
-  const active = hasLiveBackgroundWork();
-  loadStatus({ silent: true });
-  if (active) {
-    idlePlanPolls = 0;
-    loadCreativePlans({ silent: true });
-    kickWorker();
-  } else if (++idlePlanPolls >= 3) {
-    idlePlanPolls = 0;
-    loadCreativePlans({ silent: true });
+async function pollDashboard() {
+  let active = hasLiveBackgroundWork();
+  if (!document.hidden) {
+    await loadStatus({ silent: true });
+    active = hasLiveBackgroundWork();
+    if (active) {
+      idlePlanPolls = 0;
+      loadCreativePlans({ silent: true });
+      kickWorker();
+    } else if (++idlePlanPolls >= 3) {
+      idlePlanPolls = 0;
+      loadCreativePlans({ silent: true });
+    }
   }
-}, 8000);
+  setTimeout(pollDashboard, active && !document.hidden ? 8000 : 30000);
+}
+setTimeout(pollDashboard, 8000);
 setInterval(() => { if (!document.hidden) loadLeaderboard({ silent: true }); }, 5 * 60 * 1000);
 setInterval(pollReferenceVideos, 15000);
 setInterval(() => { if (!document.hidden) advanceTodayRail(); }, 4200);
