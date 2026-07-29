@@ -1,7 +1,22 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { newRun, runSummary, runDetail } = require('../api/_lib/store');
+const { getMany, newRun, runSummary, runDetail } = require('../api/_lib/store');
 
+test('dashboard summaries use one Redis batch read when mget is available', async () => {
+  const calls = { mget: 0, get: 0 };
+  const redis = {
+    async mget(...keys) { calls.mget += 1; return keys.map((key) => `value:${key}`); },
+    async get() { calls.get += 1; return null; }
+  };
+  const values = await getMany(redis, ['a', 'b', 'c']);
+  assert.deepEqual(values, ['value:a', 'value:b', 'value:c']);
+  assert.deepEqual(calls, { mget: 1, get: 0 });
+});
+
+test('dashboard summaries keep the remote bridge fallback without mget', async () => {
+  const redis = { async get(key) { return `value:${key}`; } };
+  assert.deepEqual(await getMany(redis, ['a', 'b']), ['value:a', 'value:b']);
+});
 test('dashboard run summaries retain operational state without transferring full planning and model payloads', () => {
   const run = newRun({
     title: 'Summary Romance',

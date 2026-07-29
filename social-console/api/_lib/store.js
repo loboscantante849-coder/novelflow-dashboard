@@ -50,6 +50,14 @@ function parseStored(value) {
   return typeof value === 'string' ? JSON.parse(value) : value;
 }
 
+async function getMany(redis, keys) {
+  if (!keys.length) return [];
+  if (typeof redis.mget === 'function') {
+    try { return await redis.mget(...keys); } catch {}
+  }
+  return Promise.all(keys.map((key) => redis.get(key)));
+}
+
 function summaryInput(input = {}) {
   const planning = input?.planning && typeof input.planning === 'object'
     ? {
@@ -219,8 +227,9 @@ async function listRunSummaries(redis, limit = 12) {
   if (!redis) return [];
   const ids = await redis.zrange(RUN_INDEX, 0, limit - 1, { rev: true });
   if (!ids.length) return [];
-  const summaries = await Promise.all(ids.map(async (id) => {
-    const stored = await redis.get(runSummaryKey(id));
+  const storedSummaries = await getMany(redis, ids.map(runSummaryKey));
+  const summaries = await Promise.all(ids.map(async (id, index) => {
+    const stored = storedSummaries[index];
     const parsed = stored ? parseStored(stored) : null;
     if (parsed?._summaryVersion === RUN_SUMMARY_VERSION) return parsed;
     // One-time lazy migration for old or oversized summaries. Subsequent
@@ -269,8 +278,9 @@ async function listCreativePlanSummaries(redis, limit = 5) {
   if (!redis) return [];
   const ids = await redis.zrange(PLAN_INDEX, 0, Math.max(limit * 3, limit) - 1, { rev: true });
   if (!ids.length) return [];
-  const summaries = await Promise.all(ids.map(async (id) => {
-    const stored = await redis.get(planSummaryKey(id));
+  const storedSummaries = await getMany(redis, ids.map(planSummaryKey));
+  const summaries = await Promise.all(ids.map(async (id, index) => {
+    const stored = storedSummaries[index];
     if (stored) return parseStored(stored);
     const full = await getCreativePlan(redis, id);
     if (!full) return null;
@@ -430,4 +440,4 @@ async function releaseVideoSlot(redis, key) {
   if (typeof key === 'string' && key.startsWith('nf_social:video_hour:')) await redis.incrby(key, -1);
 }
 
-module.exports = { getRedis, listRuns, listRunSummaries, getRun, getRunDetail, getRunSummary, saveRun, newRun, addEvent, setStage, runSummary, runDetail, listCreativePlans, listCreativePlanSummaries, getCreativePlan, saveCreativePlan, newCreativePlan, creativePlanDetail, getDiscordJob, saveDiscordJob, listDiscordJobs, listDiscordJobSummaries, removeDiscordJobFromQueue, discordJobSummary, RUN_INDEX, PLAN_INDEX, DISCORD_JOB_INDEX, DISCORD_HISTORY_INDEX, videoCapacity, reserveVideoSlot, releaseVideoSlot };
+module.exports = { getRedis, getMany, listRuns, listRunSummaries, getRun, getRunDetail, getRunSummary, saveRun, newRun, addEvent, setStage, runSummary, runDetail, listCreativePlans, listCreativePlanSummaries, getCreativePlan, saveCreativePlan, newCreativePlan, creativePlanDetail, getDiscordJob, saveDiscordJob, listDiscordJobs, listDiscordJobSummaries, removeDiscordJobFromQueue, discordJobSummary, RUN_INDEX, PLAN_INDEX, DISCORD_JOB_INDEX, DISCORD_HISTORY_INDEX, videoCapacity, reserveVideoSlot, releaseVideoSlot };
