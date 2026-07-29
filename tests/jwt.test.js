@@ -26,6 +26,15 @@ test('accepts a valid signed access token', () => {
   const token = auth.signAccessToken({ username: 'test-user' });
   assert.equal(auth.verifyJWT(token).username, 'test-user');
   assert.equal(legacyEntryPoint.verifyJWT(token).username, 'test-user');
+  assert.equal(auth.verifyAccessToken(token).username, 'test-user');
+  assert.equal(legacyEntryPoint.verifyAccessToken(token).username, 'test-user');
+});
+
+test('access-token verification rejects a valid refresh token', () => {
+  const token = auth.signRefreshToken({ username: 'test-user' });
+  assert.equal(auth.verifyJWT(token)._refresh, true);
+  assert.equal(auth.verifyAccessToken(token), null);
+  assert.equal(legacyEntryPoint.verifyAccessToken(token), null);
 });
 
 test('rejects tokens without expiry or a bounded legacy issued-at time', () => {

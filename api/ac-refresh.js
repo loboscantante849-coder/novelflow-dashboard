@@ -66,6 +66,6 @@ module.exports = async (req, res) => {
     }
     return res.status(200).json({ success: true, message: 'Token valid' });
   } catch (e) {
-    return res.status(502).json({ error: 'AC API unreachable', detail: e.message });
+    return res.status(502).json({ error: 'Video service unavailable' });
   }
 };

@@ -11,7 +11,7 @@ const {
   setAuthCookies,
 } = require('../_lib/auth');
 const { handlePreflight } = require('../_lib/cors');
-const { getRedis, validateString, stripHtml, getClientIp, isReservedUsername, isDisabledUser } = require('../_lib/security');
+const { getAuthPayload, getRedis, validateString, stripHtml, getClientIp, isReservedUsername, isDisabledUser } = require('../_lib/security');
 const { createPasswordHash, verifyPassword } = require('../_lib/password');
 
 module.exports = async (req, res) => {
@@ -44,12 +44,17 @@ module.exports = async (req, res) => {
     const legacyPasswordKey = cleanUsername !== usernameKey
       ? 'nf_user_pass:' + cleanUsername
       : null;
-    const [canonicalHash, legacyHash] = await Promise.all([
+    const [canonicalHash, legacyHash, userData] = await Promise.all([
       redis.get(passwordKey),
       legacyPasswordKey ? redis.get(legacyPasswordKey) : null,
+      redis.get('nf_user_data:' + usernameKey),
     ]);
-    if (await isDisabledUser(redis, usernameKey)) {
-      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    try {
+      if (await isDisabledUser(redis, usernameKey, { failClosed: true })) {
+        return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+      }
+    } catch (_error) {
+      return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
     }
     const storedHash = canonicalHash || legacyHash;
     if (storedHash) {
@@ -70,6 +75,17 @@ module.exports = async (req, res) => {
       }
     } else {
       // New user — must set password (min 8, strong)
+      if (userData) {
+        const session = getAuthPayload(req);
+        const sessionUsername = String(session && session.username || '').trim().toLowerCase();
+        if (sessionUsername !== usernameKey) {
+          return res.status(409).json({
+            error: 'Account recovery is required before setting a password',
+            code: 'ACCOUNT_RECOVERY_REQUIRED',
+          });
+        }
+      }
+
       if (isReservedUsername(cleanUsername)) {
         return res.status(400).json({ error: 'This username is not available' });
       }
@@ -78,7 +94,10 @@ module.exports = async (req, res) => {
       if (!/[A-Za-z]/.test(vP.value) || !/[0-9]/.test(vP.value)) {
         return res.status(400).json({ error: 'Password must contain at least one letter and one digit', needPassword: true, mustSetPassword: true });
       }
-      await redis.set(passwordKey, await createPasswordHash(vP.value));
+      const created = await redis.set(passwordKey, await createPasswordHash(vP.value), { nx: true });
+      if (!created) {
+        return res.status(409).json({ error: 'Account already exists. Please sign in.', code: 'ACCOUNT_ALREADY_EXISTS' });
+      }
     }
 
     // Clear failure counter on success

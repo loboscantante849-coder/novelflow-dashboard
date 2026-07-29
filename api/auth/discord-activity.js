@@ -15,6 +15,7 @@ const {
 } = require('../_lib/auth');
 
 const { setCORSHeaders } = require('../_lib/cors');
+const { getRedis, isDisabledUser } = require('../_lib/security');
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1504779503237333033';
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
@@ -68,6 +69,18 @@ module.exports = async (req, res) => {
 
     const userData = await userResponse.json();
 
+    const redis = getRedis();
+    if (!redis) {
+      return res.status(503).json({ error: 'Auth service unavailable' });
+    }
+    try {
+      if (await isDisabledUser(redis, userData.username, { failClosed: true })) {
+        return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+      }
+    } catch (_error) {
+      return res.status(503).json({ error: 'Auth service unavailable' });
+    }
+
     // Build token payload
     const userPayload = buildUserPayload({
       discordId: userData.id,
@@ -92,8 +105,7 @@ module.exports = async (req, res) => {
         username: userData.username,
         global_name: userData.global_name || userData.username,
         avatar: userData.avatar,
-      },
-      token: accessToken
+      }
     });
 
   } catch (error) {

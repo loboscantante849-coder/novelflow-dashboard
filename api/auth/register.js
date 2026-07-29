@@ -23,7 +23,7 @@ const {
 const { handlePreflight } = require('../_lib/cors');
 const { Redis } = require('@upstash/redis');
 const { createPasswordHash, verifyPassword } = require('../_lib/password');
-const { isDisabledUser } = require('../_lib/security');
+const { getAuthPayload, isDisabledUser } = require('../_lib/security');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -116,7 +116,6 @@ module.exports = async (req, res) => {
 
     // ---------- Business logic ----------
     let isNewUser = false;
-    let mustSetPassword = false;
     let passedAuth = false;
 
     {
@@ -129,11 +128,14 @@ module.exports = async (req, res) => {
         legacyPasswordKey ? redis.get(legacyPasswordKey) : null,
         redis.get('nf_user_data:' + usernameKey)
       ]);
-      if (await isDisabledUser(redis, usernameKey)) {
-        return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+      try {
+        if (await isDisabledUser(redis, usernameKey, { failClosed: true })) {
+          return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+        }
+      } catch (_error) {
+        return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
       }
       const storedHash = canonicalHash || legacyHash;
-      const userExists = !!(storedHash || userData);
 
       if (storedHash) {
         // Existing user with password → must verify
@@ -164,10 +166,18 @@ module.exports = async (req, res) => {
         await redis.del('nf_login_fail:' + usernameKey);
         passedAuth = true;
       } else if (userData) {
-        // Old user without password (has data but no pass hash)
-        mustSetPassword = true;
+        // Existing passwordless data must only be claimed by its current
+        // authenticated session. A username alone is not proof of ownership.
+        const session = getAuthPayload(req);
+        const sessionUsername = String(session && session.username || '').trim().toLowerCase();
+        if (sessionUsername !== usernameKey) {
+          return res.status(409).json({
+            error: 'Account recovery is required before setting a password',
+            code: 'ACCOUNT_RECOVERY_REQUIRED',
+          });
+        }
         if (!password) {
-          return res.status(401).json({
+          return res.status(400).json({
             error: 'Password setup required',
             needPassword: true,
             mustSetPassword: true,
@@ -176,7 +186,10 @@ module.exports = async (req, res) => {
         if (!isValidPassword(password)) {
           return res.status(400).json({ error: 'Password must be at least 8 characters with a letter and a number', needPassword: true, mustSetPassword: true });
         }
-        await redis.set(passwordKey, await createPasswordHash(password));
+        const created = await redis.set(passwordKey, await createPasswordHash(password), { nx: true });
+        if (!created) {
+          return res.status(409).json({ error: 'Password status changed. Please sign in again.', code: 'PASSWORD_ALREADY_SET' });
+        }
         passedAuth = true;
       } else {
         // Brand new user → require a password to register
@@ -187,7 +200,10 @@ module.exports = async (req, res) => {
         if (!isValidPassword(password)) {
           return res.status(400).json({ error: 'Password must be at least 8 characters with a letter and a number', needPassword: true, mustSetPassword: true });
         }
-        await redis.set(passwordKey, await createPasswordHash(password));
+        const created = await redis.set(passwordKey, await createPasswordHash(password), { nx: true });
+        if (!created) {
+          return res.status(409).json({ error: 'Account already exists. Please sign in.', code: 'ACCOUNT_ALREADY_EXISTS' });
+        }
         passedAuth = true;
       }
     }
@@ -235,8 +251,7 @@ module.exports = async (req, res) => {
     return res.status(200).json({
       success: true,
       username: usernameKey,
-      isNewUser,
-      ...(mustSetPassword ? { mustSetPassword: true } : {})
+      isNewUser
     });
 
   } catch (error) {

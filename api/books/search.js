@@ -22,6 +22,13 @@ function checkRateLimit(ip) {
   return { allowed: true, remaining: RATE_LIMIT - record.count };
 }
 
+function positiveInteger(value, fallback, max) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if ((typeof value !== 'string' && typeof value !== 'number') || !/^[1-9][0-9]*$/.test(String(value))) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed <= max ? parsed : null;
+}
+
 const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage/book';
 const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
 
@@ -116,7 +123,20 @@ module.exports = async (req, res) => {
   res.setHeader('X-RateLimit-Remaining', String(rateCheck.remaining));
   if (!rateCheck.allowed) return res.status(429).json({ error: 'Rate limit exceeded.' });
   
-  const { keyword = '', lang = 'en', page = 1, pageSize = 20, bookClassName = '' } = req.query || {};
+  const query = req.query || {};
+  if (!query || typeof query !== 'object' || Array.isArray(query)) {
+    return res.status(400).json({ error: 'Invalid query parameters' });
+  }
+  const keyword = typeof query.keyword === 'string' ? query.keyword.trim() : '';
+  const bookClassName = typeof query.bookClassName === 'string' ? query.bookClassName.trim() : '';
+  const lang = query.lang === undefined ? 'en' : query.lang;
+  const page = positiveInteger(query.page, 1, 100);
+  const pageSize = positiveInteger(query.pageSize, 20, 50);
+  if ((query.keyword !== undefined && typeof query.keyword !== 'string') || keyword.length > 100 ||
+      (query.bookClassName !== undefined && typeof query.bookClassName !== 'string') || bookClassName.length > 100 ||
+      typeof lang !== 'string' || !['en', 'es'].includes(lang) || page === null || pageSize === null) {
+    return res.status(400).json({ error: 'Invalid query parameters' });
+  }
   
   try {
     // If no keyword and no bookClassName, return featured books
@@ -124,14 +144,14 @@ module.exports = async (req, res) => {
       const featured = loadFeaturedBooks();
       if (featured) {
         const books = filterFeaturedByLanguage(featured.recommended, lang);
-        const start = (parseInt(page) - 1) * parseInt(pageSize);
-        const end = start + parseInt(pageSize);
+        const start = (page - 1) * pageSize;
+        const end = start + pageSize;
         return res.status(200).json({
           success: true,
           data: books.slice(start, end),
           total: books.length,
-          page: parseInt(page),
-          pageSize: parseInt(pageSize),
+          page,
+          pageSize,
           source: 'featured'
         });
       }
@@ -142,14 +162,14 @@ module.exports = async (req, res) => {
       const featured = loadFeaturedBooks();
       if (featured && featured.categories && featured.categories[bookClassName]) {
         const books = filterFeaturedByLanguage(featured.categories[bookClassName], lang);
-        const start = (parseInt(page) - 1) * parseInt(pageSize);
-        const end = start + parseInt(pageSize);
+        const start = (page - 1) * pageSize;
+        const end = start + pageSize;
         return res.status(200).json({
           success: true,
           data: books.slice(start, end),
           total: books.length,
-          page: parseInt(pageSize),
-          pageSize: parseInt(pageSize),
+          page,
+          pageSize,
           source: 'featured',
           bookClassName: bookClassName
         });
@@ -171,11 +191,12 @@ module.exports = async (req, res) => {
         });
         if (response && response.ok) {
             const data = await response.json();
-            const rawBooks = ((data.data && data.data.data) || data.data || []);
+            const rawCandidate = ((data.data && data.data.data) || data.data || []);
+            const rawBooks = Array.isArray(rawCandidate) ? rawCandidate : [];
             
             // Filter: keep books whose title contains the keyword
             const filtered = rawBooks.filter(book => {
-              const t = (book.title || '').toLowerCase();
+              const t = String(book && book.title || '').toLowerCase();
               return t.includes(keywordLower);
             });
             
@@ -221,10 +242,10 @@ module.exports = async (req, res) => {
       if (mergedBooks.length > 0 || apiSucceeded) {
         return res.status(200).json({
           success: true,
-          data: mergedBooks.slice(0, parseInt(pageSize)),
+          data: mergedBooks.slice(0, pageSize),
           total: mergedBooks.length,
-          page: parseInt(page),
-          pageSize: parseInt(pageSize),
+          page,
+          pageSize,
           source: apiSucceeded ? 'api+featured' : 'featured-fallback'
         });
       }
@@ -234,8 +255,8 @@ module.exports = async (req, res) => {
         success: true,
         data: [],
         total: 0,
-        page: parseInt(page),
-        pageSize: parseInt(pageSize),
+        page,
+        pageSize,
         source: 'empty'
       });
     }
@@ -252,7 +273,8 @@ module.exports = async (req, res) => {
     if (!response.ok) return res.status(502).json({ error: 'Upstream API error' });
     
     const data = await response.json();
-    const rawBooks = ((data.data && data.data.data) || data.data || []);
+    const rawCandidate = ((data.data && data.data.data) || data.data || []);
+    const rawBooks = Array.isArray(rawCandidate) ? rawCandidate : [];
     
     const books = rawBooks.map(book => ({
       bookId: book.bookId || book.id,
@@ -270,8 +292,8 @@ module.exports = async (req, res) => {
       success: true,
       data: books,
       total: (data.data && data.data.total) || data.total || books.length,
-      page: parseInt(page),
-      pageSize: parseInt(pageSize),
+      page,
+      pageSize,
       source: 'api'
     });
     

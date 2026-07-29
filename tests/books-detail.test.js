@@ -11,6 +11,43 @@ delete process.env.KV_REST_API_URL;
 delete process.env.KV_REST_API_TOKEN;
 
 const detail = require('../api/books/detail');
+const search = require('../api/books/search');
+
+test('book APIs reject unbounded or malformed public query values', async () => {
+  const invalidSearches = [
+    { page: '0' },
+    { pageSize: '51' },
+    { lang: 'fr' },
+    { keyword: ['book'] },
+    { keyword: 'x'.repeat(101) },
+  ];
+  for (const query of invalidSearches) {
+    const response = await invoke(search, { method: 'GET', query });
+    assert.equal(response.statusCode, 400, JSON.stringify(query));
+  }
+
+  for (const query of [
+    { bookId: 'x'.repeat(129), lang: 'en' },
+    { bookId: 'book-1', lang: 'fr' },
+    { bookId: ['book-1'], lang: 'en' },
+  ]) {
+    const response = await invoke(detail, { method: 'GET', query });
+    assert.equal(response.statusCode, 400, JSON.stringify(query));
+  }
+});
+
+test('featured book pagination returns the requested page metadata', async () => {
+  const response = await invoke(search, {
+    method: 'GET',
+    headers: { 'x-forwarded-for': '192.0.2.70' },
+    query: { lang: 'en', page: '2', pageSize: '5' },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.source, 'featured');
+  assert.equal(response.body.page, 2);
+  assert.equal(response.body.pageSize, 5);
+  assert.ok(response.body.data.length <= 5);
+});
 
 test('book detail accepts the bookstore nested list response', async () => {
   const originalFetch = global.fetch;

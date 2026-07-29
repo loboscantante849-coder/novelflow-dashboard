@@ -25,7 +25,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { handlePreflight } = require('./_lib/cors');
-const { getAuthPayload, getRedis, isAdminUser, isDisabledUser } = require('./_lib/security');
+const { checkRateLimit, getAuthPayload, getClientIp, isAdminUser, isDisabledUser } = require('./_lib/security');
 const { Redis } = require('@upstash/redis');
 const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
 
@@ -158,6 +158,18 @@ module.exports = async (req, res) => {
     return res.status(503).json({ error: 'Account status unavailable', code: e.code || 'ACCOUNT_STATUS_UNAVAILABLE' });
   }
 
+  if (req.method === 'POST' || req.method === 'PATCH') {
+    const userLimit = req.method === 'PATCH' ? 120 : 10;
+    const prefix = req.method === 'PATCH' ? 'withdrawal_admin' : 'withdrawal_submit';
+    try {
+      const allowed = await checkRateLimit(redis, `nf_rate:${prefix}:${jwtUsername}`, userLimit, 3600, { failClosed: true }) &&
+        await checkRateLimit(redis, `nf_rate:${prefix}_ip:${getClientIp(req)}`, userLimit * 3, 3600, { failClosed: true });
+      if (!allowed) return res.status(429).json({ error: 'Too many requests', code: 'RATE_LIMITED' });
+    } catch (_error) {
+      return res.status(503).json({ error: 'Wallet service temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
+    }
+  }
+
   try {
     if (req.method === 'GET') {
       // ----- ADMIN: list all withdrawals across users -----
@@ -235,7 +247,7 @@ module.exports = async (req, res) => {
           userData = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : null;
         }
       } catch (e) {
-        return res.status(500).json({ error: 'Failed to load user data', detail: e.message });
+        return res.status(503).json({ error: 'Wallet data is temporarily unavailable', code: 'WALLET_UNAVAILABLE' });
       }
       if (!userData || typeof userData !== 'object') userData = {};
 
@@ -308,7 +320,7 @@ module.exports = async (req, res) => {
         const raw = await redis.get(redisKey);
         userData = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
       } catch (e) {
-        return res.status(500).json({ error: 'Failed to load user data', detail: e.message });
+        return res.status(503).json({ error: 'Wallet data is temporarily unavailable', code: 'WALLET_UNAVAILABLE' });
       }
       if (!userData || typeof userData !== 'object') userData = {};
       if (userData.disabled) {
@@ -402,7 +414,7 @@ module.exports = async (req, res) => {
         const raw = await redis.get(redisKey);
         userData = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
       } catch (e) {
-        return res.status(500).json({ error: 'Failed to load user data', detail: e.message });
+        return res.status(503).json({ error: 'Wallet data is temporarily unavailable', code: 'WALLET_UNAVAILABLE' });
       }
       if (!userData || typeof userData !== 'object') userData = {};
       if (!Array.isArray(userData.withdrawals)) userData.withdrawals = [];

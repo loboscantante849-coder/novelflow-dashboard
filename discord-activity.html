@@ -536,7 +536,7 @@
         const AppState = { currentTab: 'home', isLoggedIn: false, user: null, featuredBooks: [], myBooks: [], currentLang: 'en', currentTaskFilter: 'all' };
         const DISCORD_CONFIG = {
             CLIENT_ID: '1504779503237333033',
-            EMBEDDED_APP_ID: '1504779503237333033', REDIRECT_URI: encodeURIComponent('https://novelflow-dashboard.vercel.app/api/auth/callback'), getOAuthURL() { return 'https://discord.com/api/oauth2/authorize?client_id=' + this.CLIENT_ID + '&redirect_uri=' + this.REDIRECT_URI + '&response_type=code&scope=identify'; } };
+            EMBEDDED_APP_ID: '1504779503237333033', getOAuthURL() { return '/api/auth/discord-start'; } };
         
         function switchTab(tabName) { AppState.currentTab = tabName; document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active')); document.getElementById('tab-' + tabName).classList.add('active'); document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); document.querySelector('.nav-item[data-tab="' + tabName + '"]').classList.add('active'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
         document.querySelectorAll('.nav-item').forEach(el => { el.addEventListener('click', () => switchTab(el.dataset.tab)); });

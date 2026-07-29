@@ -90,6 +90,16 @@ function verifyJWT(token) {
   }
 }
 
+/**
+ * Verify a token intended for an authenticated API request.
+ * Refresh tokens share the same signature format, so callers must reject
+ * their explicit marker instead of treating every valid JWT as an access token.
+ */
+function verifyAccessToken(token) {
+  const payload = verifyJWT(token);
+  return payload && payload._refresh !== true ? payload : null;
+}
+
 // ========== Token Helpers ==========
 
 function signAccessToken(payload) {
@@ -163,13 +173,14 @@ function getUserFromCookies(req) {
   const cookies = parseCookies(req);
   const token = cookies['nf_token'];
   if (!token) return null;
-  return verifyJWT(token);
+  return verifyAccessToken(token);
 }
 
 module.exports = {
   signAccessToken,
   signRefreshToken,
   verifyJWT,
+  verifyAccessToken,
   buildUserPayload,
   extractUserInfo,
   parseCookies,

@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { handlePreflight } = require('./_lib/cors');
-const { getAuthPayload, getRedis, checkRateLimit, getClientIp } = require('./_lib/security');
+const { getAuthPayload, getRedis, checkRateLimit, getClientIp, isDisabledUser } = require('./_lib/security');
 const { bookstoreFetch } = require('./_lib/bookstore-fetch');
 const {
   APPLICATION_ID,
@@ -187,11 +187,6 @@ async function releaseLock(redis, key, token) {
   }
 }
 
-async function ensureAccountEnabled(redis, username) {
-  const userData = safeParse(await redis.get(`nf_user_data:${username}`), {});
-  return !userData.disabled;
-}
-
 module.exports = async (req, res) => {
   if (handlePreflight(req, res)) return;
   if (!['GET', 'POST'].includes(req.method)) {
@@ -204,8 +199,12 @@ module.exports = async (req, res) => {
 
   const redis = getRedis();
   if (!redis) return res.status(503).json({ error: 'Storage unavailable', code: 'STORAGE_UNAVAILABLE' });
-  if (!await ensureAccountEnabled(redis, username)) {
-    return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+  try {
+    if (await isDisabledUser(redis, username, { failClosed: true })) {
+      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    }
+  } catch (_error) {
+    return res.status(503).json({ error: 'Service temporarily unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
   }
 
   if (req.method === 'GET') {
@@ -213,8 +212,13 @@ module.exports = async (req, res) => {
     return res.status(200).json({ success: true, inviteCode: publicRecord(stored) });
   }
 
-  const allowed = await checkRateLimit(redis, `nf_rate:equity:${username}`, 10, 3600) &&
-    await checkRateLimit(redis, `nf_rate:equity_ip:${getClientIp(req)}`, 30, 3600);
+  let allowed;
+  try {
+    allowed = await checkRateLimit(redis, `nf_rate:equity:${username}`, 10, 3600, { failClosed: true }) &&
+      await checkRateLimit(redis, `nf_rate:equity_ip:${getClientIp(req)}`, 30, 3600, { failClosed: true });
+  } catch (_error) {
+    return res.status(503).json({ error: 'Service temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
+  }
   if (!allowed) return res.status(429).json({ error: 'Too many requests', code: 'RATE_LIMITED' });
 
   const action = String((req.body && req.body.action) || 'create');

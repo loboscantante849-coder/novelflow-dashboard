@@ -70,6 +70,6 @@ module.exports = async (req, res) => {
     }
     return res.status(r.status).json({ success: r.status >= 200 && r.status < 300, data });
   } catch (e) {
-    return res.status(502).json({ error: 'AC API unreachable', detail: e.message });
+    return res.status(502).json({ error: 'Video service unavailable' });
   }
 };

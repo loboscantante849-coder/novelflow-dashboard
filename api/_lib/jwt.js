@@ -3,7 +3,7 @@
  * Uses JWT_SECRET env var. MUST be set in production; throws if missing.
  * No dev fallback — no secret = no tokens accepted/issued.
  */
-const { signAccessToken, verifyJWT } = require('./auth');
+const { signAccessToken, verifyJWT, verifyAccessToken } = require('./auth');
 
 function getSecret() {
   const secret = process.env.JWT_SECRET;
@@ -17,4 +17,4 @@ function createJWT(payload) {
   return signAccessToken(payload);
 }
 
-module.exports = { createJWT, verifyJWT, getSecret };
+module.exports = { createJWT, verifyJWT, verifyAccessToken, getSecret };

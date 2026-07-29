@@ -2517,7 +2517,6 @@
         input[type="text"] { min-height: 44px; font-size: 16px; }
         /* Rank items */
         .rank-item { padding: 10px 12px; }
-    }
     @media (min-width: 431px) {
         .app-container { box-shadow: 0 0 30px rgba(0,0,0,0.08); }
     }
@@ -3446,6 +3445,278 @@
             currentBook: null,
             currentRecommendText: ''
         };
+
+        // Authentication is cookie-only. Remove tokens left by older client builds.
+        try {
+            localStorage.removeItem('novelflow_ac_token');
+            localStorage.removeItem('nf_token');
+        } catch (_) {}
+
+        function normalizeSessionUsername(value) {
+            return String(value || '').trim().toLowerCase();
+        }
+
+        function makeAbortError() {
+            try { return new DOMException('The active account changed', 'AbortError'); }
+            catch (_) { const error = new Error('The active account changed'); error.name = 'AbortError'; return error; }
+        }
+
+        function isAbortError(error) {
+            return Boolean(error && error.name === 'AbortError');
+        }
+
+        function combineAbortSignals(signals) {
+            const activeSignals = (signals || []).filter(Boolean);
+            if (!activeSignals.length) return undefined;
+            if (activeSignals.length === 1) return activeSignals[0];
+            if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function') {
+                return AbortSignal.any(activeSignals);
+            }
+            const controller = new AbortController();
+            const abort = () => { if (!controller.signal.aborted) controller.abort(); };
+            activeSignals.forEach(signal => {
+                if (signal.aborted) abort();
+                else signal.addEventListener('abort', abort, { once: true });
+            });
+            return controller.signal;
+        }
+
+        function safeClientUrl(value, { allowBlob = false } = {}) {
+            try {
+                const rawValue = String(value || '').trim();
+                if (!rawValue) return '';
+                const url = new URL(rawValue, window.location.origin);
+                if (url.protocol === 'http:' || url.protocol === 'https:' || (allowBlob && url.protocol === 'blob:')) {
+                    return url.href;
+                }
+            } catch (_) {}
+            return '';
+        }
+
+        const AuthSession = {
+            epoch: 0,
+            username: '',
+            _controller: new AbortController(),
+
+            capture(expectedUsername) {
+                const username = normalizeSessionUsername(AppState.user && AppState.user.username);
+                if (!AppState.isLoggedIn || !username) return null;
+                if (expectedUsername !== undefined && normalizeSessionUsername(expectedUsername) !== username) return null;
+                return { epoch: this.epoch, username, signal: this._controller.signal };
+            },
+
+            isCurrent(snapshot) {
+                return Boolean(snapshot &&
+                    snapshot.epoch === this.epoch &&
+                    snapshot.username === this.username &&
+                    snapshot.username === normalizeSessionUsername(AppState.user && AppState.user.username) &&
+                    AppState.isLoggedIn);
+            },
+
+            isEpochCurrent(epoch) {
+                return epoch === this.epoch;
+            },
+
+            transition(username) {
+                const nextUsername = normalizeSessionUsername(username);
+                if (nextUsername === this.username) return false;
+                this.epoch += 1;
+                this.username = nextUsername;
+                this._controller.abort();
+                this._controller = new AbortController();
+                clearServerDerivedState();
+                return true;
+            }
+        };
+
+        function clearServerDerivedState() {
+            if (typeof UserStats !== 'undefined') {
+                UserStats.data = null;
+                UserStats.loading = false;
+                UserStats.loadingUser = null;
+                UserStats.requestId += 1;
+            }
+            if (typeof EquityCodeState !== 'undefined') {
+                clearTimeout(EquityCodeState.searchTimer);
+                EquityCodeState.record = null;
+                EquityCodeState.selectedBook = null;
+                EquityCodeState.results = [];
+                EquityCodeState.loading = false;
+                EquityCodeState.loadingMessage = '';
+                EquityCodeState.loadedUser = null;
+                EquityCodeState.searchRequest += 1;
+                EquityCodeState.loadRequest += 1;
+                EquityCodeState.actionRequest += 1;
+            }
+            if (typeof _lastPerfData !== 'undefined') {
+                _lastPerfData = null;
+                _lastPerfUsername = null;
+                _dailyBookDates = [];
+                _dailyBookDate = null;
+                _perfRequestId += 1;
+            }
+
+            AppState.myBooks = [];
+            AppState.currentBook = null;
+            AppState.selectedCandidate = null;
+            AppState.currentRecommendText = '';
+            const statsOverview = document.getElementById('statsOverview');
+            const statsLoadingArea = document.getElementById('statsLoadingArea');
+            const statsLastUpdated = document.getElementById('statsLastUpdated');
+            if (statsOverview) statsOverview.style.display = 'none';
+            if (statsLoadingArea) statsLoadingArea.replaceChildren();
+            if (statsLastUpdated) statsLastUpdated.style.display = 'none';
+
+            const perfData = document.getElementById('perfData');
+            const perfLogin = document.getElementById('perfLoginPrompt');
+            const perfError = document.getElementById('perfError');
+            if (perfData) perfData.style.display = 'none';
+            if (perfLogin) perfLogin.style.display = 'block';
+            if (perfError) perfError.classList.remove('visible');
+            ['perfVisits', 'perfBooks', 'perfNewUsers', 'perfLinks'].forEach(id => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = '0';
+            });
+            const perfIncome = document.getElementById('perfIncome');
+            if (perfIncome) perfIncome.textContent = '$0.00';
+            const dailyRows = document.getElementById('dailyBookRows');
+            const dailyTotal = document.getElementById('dailyBookTotal');
+            if (dailyRows) dailyRows.replaceChildren();
+            if (dailyTotal) { dailyTotal.replaceChildren(); dailyTotal.style.display = 'none'; }
+
+            ['quickReels', 'quickCopyText', 'quickLinks', 'reelsList', 'myReelsAssetList'].forEach(id => {
+                const element = document.getElementById(id);
+                if (element) element.replaceChildren();
+            });
+            if (typeof _reelsPollTimer !== 'undefined' && _reelsPollTimer) {
+                clearTimeout(_reelsPollTimer);
+                _reelsPollTimer = null;
+            }
+            if (typeof _xmpCache !== 'undefined') _xmpCache = {};
+            if (typeof _xmpCacheTime !== 'undefined') _xmpCacheTime = 0;
+            if (typeof _refImgUrls !== 'undefined') _refImgUrls = [];
+            if (typeof reelSelectedBook !== 'undefined') reelSelectedBook = null;
+            if (typeof xmpSelectedBook !== 'undefined') xmpSelectedBook = null;
+            if (typeof currentRecommendBook !== 'undefined') currentRecommendBook = null;
+            const xmpPanel = document.getElementById('reelXMPMode');
+            if (xmpPanel) delete xmpPanel.dataset.loaded;
+            const earningsModal = document.getElementById('earningsModal');
+            if (earningsModal) earningsModal.classList.remove('show');
+            ['earnDetailList', 'earnHistoryList'].forEach(id => {
+                const element = document.getElementById(id);
+                if (element) element.replaceChildren();
+            });
+            if (typeof window.resetEarningsState === 'function') window.resetEarningsState();
+            window.candidateBooks = [];
+            window.candidateSelectionUsername = '';
+            const searchResults = document.getElementById('searchResults');
+            const recommendModal = document.getElementById('recommendModal');
+            if (searchResults) searchResults.replaceChildren();
+            if (recommendModal) recommendModal.classList.remove('show');
+
+            if (typeof renderMyBooks === 'function') renderMyBooks();
+            if (typeof updateStats === 'function') updateStats();
+        }
+
+        function setAuthenticatedUser(user) {
+            const normalizedUser = {
+                ...(user || {}),
+                username: String(user && user.username || '').trim()
+            };
+            if (!normalizedUser.username) return false;
+            const changed = normalizeSessionUsername(normalizedUser.username) !== AuthSession.username;
+            if (changed && AppState.isLoggedIn && AppState.user) {
+                try {
+                    if (AppState.myBooks.length > 0) saveMyBooks({ sync: false });
+                    saveCheckinData();
+                } catch (_) {}
+                if (typeof CloudSync !== 'undefined') CloudSync.disable();
+            }
+            AuthSession.transition(normalizedUser.username);
+            AppState.user = normalizedUser;
+            AppState.isLoggedIn = true;
+            if (changed && typeof renderEquityCode === 'function') renderEquityCode();
+            return changed;
+        }
+
+        function clearAuthenticatedUser() {
+            if (typeof CloudSync !== 'undefined') CloudSync.disable();
+            AuthSession.transition('');
+            AppState.user = null;
+            AppState.isLoggedIn = false;
+            if (typeof renderEquityCode === 'function') renderEquityCode();
+            try {
+                localStorage.removeItem('novelflow_user');
+                localStorage.removeItem('novelflow_last_user');
+            } catch (_) {}
+        }
+
+        document.addEventListener('click', event => {
+            const origin = event.target instanceof Element ? event.target.closest('[data-nf-action]') : null;
+            if (!origin) return;
+            const action = origin.dataset.nfAction;
+
+            if (action === 'open-recommend') {
+                event.preventDefault();
+                openRecommendModal(origin.dataset.bookId || '');
+            } else if (action === 'copy-book-link') {
+                event.preventDefault();
+                event.stopPropagation();
+                copyBookLink(origin.dataset.bookLink || '');
+            } else if (action === 'delete-book') {
+                event.preventDefault();
+                event.stopPropagation();
+                deleteBook(origin.dataset.bookId || '', origin.dataset.bookCode || '');
+            } else if (action === 'recreate-link') {
+                event.preventDefault();
+                recreateLink(origin.dataset.bookId || '');
+            } else if (action === 'select-candidate') {
+                event.preventDefault();
+                selectCandidateAndCreate(Number(origin.dataset.candidateIndex), window.candidateSelectionUsername || '');
+            } else if (action === 'copy-text') {
+                event.preventDefault();
+                navigator.clipboard.writeText(origin.dataset.copyText || '')
+                    .then(() => showToast(origin.dataset.copyMessage || 'Copied!', 'success'))
+                    .catch(() => showToast('Copy failed', 'error'));
+            } else if (action === 'open-external') {
+                event.preventDefault();
+                const url = safeClientUrl(origin.dataset.url || '');
+                if (url) window.open(url, '_blank', 'noopener,noreferrer');
+            } else if (action === 'play-reel') {
+                event.preventDefault();
+                playReelVideo(origin.dataset.videoUrl || '');
+            } else if (action === 'download-reel') {
+                event.preventDefault();
+                event.stopPropagation();
+                downloadReelVideo(origin.dataset.videoUrl || '', origin.dataset.videoTitle || 'novelflow-reel');
+            } else if (action === 'copy-reel-text') {
+                event.preventDefault();
+                copyReelText(origin);
+            } else if (action === 'retry-reel') {
+                event.preventDefault();
+                retryReel(origin.dataset.threadId || '');
+            } else if (action === 'select-xmp-book') {
+                event.preventDefault();
+                selectXMPBook(origin);
+            } else if (action === 'select-reel-book') {
+                event.preventDefault();
+                selectReelBook(origin);
+            } else if (action === 'select-equity-book') {
+                event.preventDefault();
+                selectEquityBook(Number(origin.dataset.bookIndex));
+            } else if (action === 'remove-ref-image') {
+                event.preventDefault();
+                removeRefImg(Number(origin.dataset.imageIndex));
+            }
+        });
+
+        document.addEventListener('keydown', event => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            const origin = event.target instanceof Element ? event.target.closest('[data-nf-action]') : null;
+            if (!origin || origin.matches('button, a, input, select, textarea')) return;
+            event.preventDefault();
+            origin.click();
+        });
         
         // ========== Earn Badge Text Generator ==========
         function getEarnBadgeText() {
@@ -4012,7 +4283,7 @@
             return (I18N[AppState.currentLang] && I18N[AppState.currentLang][key]) || (I18N['en'][key]) || key;
         }
         
-        function switchLang(lang) {
+        function switchLang(lang, reloadBooks = true) {
             lang = lang === 'es' ? 'es' : 'en';
             AppState.currentLang = lang;
             AppState.searchLang = lang;
@@ -4033,8 +4304,9 @@
             if (ogDescription) ogDescription.content = pageDescription;
             applyTranslations();
             if (_lastPerfData) renderDailyBookPerformance(_lastPerfData);
-            // Reload books for the new language
-            loadBooks();
+            // Reload books for an explicit language change. Initial page setup
+            // applies translations first and lets the main bootstrap load once.
+            if (reloadBooks) loadBooks();
             // Update toggle buttons
             document.querySelectorAll('.lang-switch-btn').forEach(b => {
                 b.classList.toggle('active', b.dataset.lang === lang);
@@ -4087,7 +4359,7 @@
         // Apply saved language on load
         document.addEventListener('DOMContentLoaded', () => {
             if (AppState.currentLang !== 'en') {
-                switchLang(AppState.currentLang);
+                switchLang(AppState.currentLang, false);
             }
         });
 
@@ -4097,9 +4369,33 @@
         }
 
         // ========== Load Books from Backend API ==========
+        let _bookLoadRequestId = 0;
+        let _bookLoadController = null;
+
+        async function fetchBookSource(url, signal, timeoutMs) {
+            const timeoutController = new AbortController();
+            const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
+            try {
+                return await fetch(url, {
+                    signal: combineAbortSignals([signal, timeoutController.signal])
+                });
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        }
+
         async function loadBooks() {
             const loadingEl = document.getElementById('homeLoading');
             const bookLang = AppState.currentLang || 'en';
+            const requestId = ++_bookLoadRequestId;
+            if (_bookLoadController) _bookLoadController.abort();
+            const loadController = new AbortController();
+            _bookLoadController = loadController;
+            const isCurrentLoad = () => (
+                requestId === _bookLoadRequestId &&
+                bookLang === AppState.currentLang &&
+                !loadController.signal.aborted
+            );
 
             // Strategy: 4-tier fallback for maximum reliability
             let booksLoaded = false;
@@ -4119,51 +4415,74 @@
 
             // Try 1: Trending API with language
             try {
-                const response = await Promise.race([
-                    fetch('/api/trending-books?mode=trending&lang=' + bookLang + '&limit=30'),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
-                ]);
+                const response = await fetchBookSource(
+                    '/api/trending-books?mode=trending&lang=' + bookLang + '&limit=30',
+                    loadController.signal,
+                    14000
+                );
+                if (!isCurrentLoad()) return;
                 if (response.ok) {
                     const result = await response.json();
+                    if (!isCurrentLoad()) return;
                     if (result.success && Array.isArray(result.data) && result.data.length > 0) {
                         AppState.books = result.data.map(mapBook);
                         console.log('✅ Loaded ' + AppState.books.length + ' books from trending API (lang=' + bookLang + ')');
                         booksLoaded = true;
                     }
                 }
-            } catch (e) { console.warn('Trending API (lang) failed:', e.message); }
+            } catch (e) {
+                if (!isCurrentLoad()) return;
+                console.warn('Trending API (lang) failed:', e.message);
+            }
 
             // Try 2: Do not drop the language filter during fallback.
             if (!booksLoaded && bookLang !== 'es') {
                 try {
-                    const resp2 = await fetch('/api/trending-books?mode=trending&limit=30');
+                    const resp2 = await fetchBookSource(
+                        '/api/trending-books?mode=trending&limit=30',
+                        loadController.signal,
+                        14000
+                    );
                     const result2 = await resp2.json();
+                    if (!isCurrentLoad()) return;
                     if (result2.success && Array.isArray(result2.data) && result2.data.length > 0) {
                         AppState.books = result2.data.map(mapBook);
                         console.log('✅ Loaded ' + AppState.books.length + ' books (no lang filter)');
                         booksLoaded = true;
                     }
-                } catch(e2) { console.warn('Trending API (no lang) failed:', e2.message); }
+                } catch(e2) {
+                    if (!isCurrentLoad()) return;
+                    console.warn('Trending API (no lang) failed:', e2.message);
+                }
             }
 
             // Try 3: books/search API (returns featured-books.json data)
             if (!booksLoaded) {
                 try {
-                    const resp3 = await fetch('/api/books/search?lang=' + bookLang);
+                    const resp3 = await fetchBookSource(
+                        '/api/books/search?lang=' + bookLang,
+                        loadController.signal,
+                        10000
+                    );
                     const result3 = await resp3.json();
+                    if (!isCurrentLoad()) return;
                     if (result3.success && Array.isArray(result3.data) && result3.data.length > 0) {
                         AppState.books = result3.data.map(mapBook);
                         console.log('✅ Loaded ' + AppState.books.length + ' books from books/search');
                         booksLoaded = true;
                     }
-                } catch(e3) { console.warn('books/search failed:', e3.message); }
+                } catch(e3) {
+                    if (!isCurrentLoad()) return;
+                    console.warn('books/search failed:', e3.message);
+                }
             }
 
             // Try 4: Direct static featured-books.json (no API dependency)
             if (!booksLoaded) {
                 try {
-                    const resp4 = await fetch('/featured-books.json');
+                    const resp4 = await fetchBookSource('/featured-books.json', loadController.signal, 5000);
                     const result4 = await resp4.json();
+                    if (!isCurrentLoad()) return;
                     const allBooks = (result4.recommended || []).concat(
                         ...Object.values(result4.categories || {})
                     );
@@ -4182,8 +4501,13 @@
                         console.log('✅ Loaded ' + AppState.books.length + ' books from static featured-books.json');
                         booksLoaded = true;
                     }
-                } catch(e4) { console.warn('Static featured-books.json failed:', e4.message); }
+                } catch(e4) {
+                    if (!isCurrentLoad()) return;
+                    console.warn('Static featured-books.json failed:', e4.message);
+                }
             }
+
+            if (!isCurrentLoad()) return;
 
             if (!booksLoaded) {
                 console.error('❌ All book loading strategies failed!');
@@ -4244,13 +4568,15 @@
             container.innerHTML = books.map(book => {
                 const ratingVal = book.rating && book.rating > 0 ? book.rating : null;
                 const stars = ratingVal ? '&#9733;'.repeat(Math.floor(ratingVal)) : '';
+                const bookId = escapeHtml(book.bookId || '');
+                const cover = escapeHtml(safeClientUrl(book.cover, { allowBlob: true }));
                 const tags = (book.tags || []).slice(0, 3).filter(t => typeof t === 'string').map(t =>
                     `<span class="book-tag ${book.languageCode === 'es' ? 'lang-es' : ''}">${escapeHtml(t)}</span>`
                 ).join('');
 
                 return `
-                    <div class="book-item" onclick='openRecommendModal(${JSON.stringify(book.bookId||"")})'><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
-                        <img class="book-item-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjgiIGhlaWdodD0iOTIiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY4IiBoZWlnaHQ9IjkyIiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMzQiIHk9IjUwIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
+                    <div class="book-item" data-nf-action="open-recommend" data-book-id="${bookId}" role="button" tabindex="0"><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
+                        <img class="book-item-cover" src="${cover}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjgiIGhlaWdodD0iOTIiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY4IiBoZWlnaHQ9IjkyIiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMzQiIHk9IjUwIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
                         <div class="book-item-content">
                             <div class="book-item-title">${escapeHtml(book.title)}</div>
                             <div class="book-item-rating">
@@ -4259,7 +4585,7 @@
                             <div class="book-item-tags">${tags}</div>
                             <div class="book-item-desc">${escapeHtml(book.description) || escapeHtml(getText('no_desc'))}</div>
                             <div class="book-item-action">
-                                <button class="book-item-btn" onclick='event.stopPropagation(); openRecommendModal(${JSON.stringify(book.bookId||"")})'>${getText('recommend_btn')}</button>
+                                <button class="book-item-btn" data-nf-action="open-recommend" data-book-id="${bookId}">${getText('recommend_btn')}</button>
                             </div>
                         </div>
                     </div>
@@ -4301,11 +4627,13 @@
             container.innerHTML = books.map(book => {
                 const ratingVal = book.rating && book.rating > 0 ? book.rating : null;
                 const stars = ratingVal ? '&#9733;'.repeat(Math.floor(ratingVal)) : '';
+                const bookId = escapeHtml(book.bookId || '');
+                const cover = escapeHtml(safeClientUrl(book.cover, { allowBlob: true }));
                 const tags = (book.tags || []).slice(0, 2).filter(t => typeof t === 'string').map(t => `<span class="book-tag">${escapeHtml(t)}</span>`).join('');
 
                 return `
-                    <div class="book-scroll-card" style="position:relative" onclick='openRecommendModal(${JSON.stringify(book.bookId||"")})'><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
-                        <img class="book-scroll-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTM2IiBoZWlnaHQ9IjE3NiIgZmlsbD0iI2Y2ZjlmYyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTM2IiBoZWlnaHQ9IjE3NiIgZmlsbD0iI2Y2ZjlmYyIvPjx0ZXh0IHg9IjY4IiB5PSI5MCIgZm9udC1zaXplPSIzMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk0YTNiOCI+8J+OpfCDgvY8L3RleHQ+PC9zdmc+'">
+                    <div class="book-scroll-card" style="position:relative" data-nf-action="open-recommend" data-book-id="${bookId}" role="button" tabindex="0"><span class="earn-badge">${getEarnBadgeText(book.bookId)}</span>
+                        <img class="book-scroll-cover" src="${cover}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTM2IiBoZWlnaHQ9IjE3NiIgZmlsbD0iI2Y2ZjlmYyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTM2IiBoZWlnaHQ9IjE3NiIgZmlsbD0iI2Y2ZjlmYyIvPjx0ZXh0IHg9IjY4IiB5PSI5MCIgZm9udC1zaXplPSIzMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk0YTNiOCI+8J+OpfCDgvY8L3RleHQ+PC9zdmc+'">
                         <div class="book-scroll-info">
                             <div class="book-scroll-card-title">${escapeHtml(book.title)}</div>
                             <div class="book-scroll-rating">${ratingVal ? stars + ' ' + ratingVal.toFixed(1) : '<span class="new-badge">' + escapeHtml(getText('new_label')) + '</span>'}</div>
@@ -4340,11 +4668,13 @@
                 if (i === 0) numClass = 'top1';
                 else if (i === 1) numClass = 'top2';
                 else if (i === 2) numClass = 'top3';
+                const bookId = escapeHtml(book.bookId || '');
+                const cover = escapeHtml(safeClientUrl(book.cover, { allowBlob: true }));
 
                 return `
-                    <div class="rank-item" onclick='openRecommendModal(${JSON.stringify(book.bookId||"")})'>
+                    <div class="rank-item" data-nf-action="open-recommend" data-book-id="${bookId}" role="button" tabindex="0">
                         <div class="rank-num ${numClass}">${i + 1}</div>
-                        <img class="rank-cover" src="${escapeHtml(book.cover)}" alt="" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzQiIGhlaWdodD0iNDYiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjM0IiBoZWlnaHQ9IjQ2IiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMTciIHk9IjI4IiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
+                        <img class="rank-cover" src="${cover}" alt="" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzQiIGhlaWdodD0iNDYiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjM0IiBoZWlnaHQ9IjQ2IiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMTciIHk9IjI4IiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
                         <div class="rank-info">
                             <div class="rank-title">${escapeHtml(book.title)}</div>
                             <div class="rank-meta">${book.languageCode === 'es' ? 'Espanol' : 'English'}</div>
@@ -4730,18 +5060,17 @@
         // ========== Rewards API (server-side reward processing) ==========
         const RewardsAPI = {
             async call(action, extra = {}) {
+                const session = AuthSession.capture();
+                if (!session) throw new Error('Please login first');
                 try {
-                    const token = localStorage.getItem("nf_token") || document.cookie.match(/nf_token=([^;]+)/)?.[1];
-                    const resp = await fetch('/api/rewards', {
+                    const resp = await authFetch('/api/rewards', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         credentials: 'include',
                         body: JSON.stringify({ action, ...extra })
                     });
                     const data = await resp.json();
+                    if (!AuthSession.isCurrent(session)) throw makeAbortError();
                     if (!resp.ok) {
                         if (data.code === 'ALREADY_CHECKED_IN' || data.code === 'ALREADY_CLAIMED') {
                             // Idempotent - treat as success, refresh from server
@@ -4765,7 +5094,7 @@
                     }
                     return data;
                 } catch (e) {
-                    console.error('[RewardsAPI] Error:', e);
+                    if (!isAbortError(e)) console.error('[RewardsAPI] Error:', e);
                     throw e;
                 }
             }
@@ -4780,7 +5109,9 @@
             loadingMessage: '',
             loadedUser: null,
             searchTimer: null,
-            searchRequest: 0
+            searchRequest: 0,
+            loadRequest: 0,
+            actionRequest: 0
         };
 
         let equityConfirmAction = null;
@@ -4940,6 +5271,7 @@
 
         async function loadEquityCode(force) {
             if (!AppState.isLoggedIn || !AppState.user) {
+                EquityCodeState.loadRequest += 1;
                 EquityCodeState.record = null;
                 EquityCodeState.loadedUser = null;
                 EquityCodeState.loading = false;
@@ -4947,6 +5279,8 @@
                 return;
             }
             const username = String(AppState.user.username || '').toLowerCase();
+            const session = AuthSession.capture(username);
+            if (!session) return;
             if (!force && EquityCodeState.loadedUser === username) {
                 renderEquityCode();
                 return;
@@ -4954,19 +5288,25 @@
             EquityCodeState.loading = true;
             EquityCodeState.loadingMessage = getText('invite_code_loading');
             EquityCodeState.loadedUser = username;
+            const requestId = ++EquityCodeState.loadRequest;
             renderEquityCode();
             try {
                 const response = await authFetch('/api/equity-code', { method: 'GET' });
+                if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.loadRequest) return;
                 const data = await response.json();
+                if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.loadRequest) return;
                 if (!response.ok) throw new Error(equityApiMessage(data, 'invite_code_load_failed'));
                 EquityCodeState.record = data.inviteCode || null;
             } catch (error) {
+                if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.loadRequest || isAbortError(error)) return;
                 EquityCodeState.loadedUser = null;
                 showToast(error.message || getText('invite_code_load_failed'), 'error');
             } finally {
-                EquityCodeState.loading = false;
-                EquityCodeState.loadingMessage = '';
-                renderEquityCode();
+                if (AuthSession.isCurrent(session) && requestId === EquityCodeState.loadRequest) {
+                    EquityCodeState.loading = false;
+                    EquityCodeState.loadingMessage = '';
+                    renderEquityCode();
+                }
             }
         }
 
@@ -4985,12 +5325,15 @@
 
         async function searchEquityBooks(keyword) {
             const requestId = ++EquityCodeState.searchRequest;
+            const session = AuthSession.capture();
+            if (!session) return;
             const target = document.getElementById('equitySearchResults');
             try {
                 const params = new URLSearchParams({ keyword, lang: AppState.currentLang || 'en', pageSize: '8' });
                 const response = await authFetch('/api/books/search?' + params);
+                if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.searchRequest) return;
                 const data = await response.json();
-                if (requestId !== EquityCodeState.searchRequest) return;
+                if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.searchRequest) return;
                 if (!response.ok) throw new Error(data.error || 'Search failed');
                 EquityCodeState.results = Array.isArray(data.data) ? data.data.filter(book => book && book.bookId && book.title).slice(0, 8) : [];
                 if (!target) return;
@@ -5000,13 +5343,13 @@
                 }
                 target.innerHTML = EquityCodeState.results.map((book, index) => {
                     const cover = safeEquityCover(book.cover);
-                    return '<button class="equity-book-option" type="button" onclick="selectEquityBook(' + index + ')">' +
+                    return '<button class="equity-book-option" type="button" data-nf-action="select-equity-book" data-book-index="' + index + '">' +
                         (cover ? '<img class="equity-book-cover" src="' + escapeHtml(cover) + '" alt="">' : '') +
                         '<span class="equity-book-info"><span class="equity-book-title">' + escapeHtml(book.title) + '</span>' +
                         '<span class="equity-book-author">' + escapeHtml(book.author || book.languageCode || '') + '</span></span></button>';
                 }).join('');
             } catch (error) {
-                if (requestId === EquityCodeState.searchRequest && target) {
+                if (!isAbortError(error) && AuthSession.isCurrent(session) && requestId === EquityCodeState.searchRequest && target) {
                     target.innerHTML = '<div class="equity-empty">' + escapeHtml(getText('invite_code_search_unavailable')) + '</div>';
                 }
             }
@@ -5038,6 +5381,9 @@
         }
 
         async function generateEquityCode() {
+            const session = AuthSession.capture();
+            if (!session) return;
+            const requestId = ++EquityCodeState.actionRequest;
             const selected = EquityCodeState.selectedBook;
             const record = EquityCodeState.record;
             const previousRecord = record;
@@ -5056,11 +5402,15 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ bookId })
                 });
+                if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.actionRequest) return;
                 const data = await response.json();
+                if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.actionRequest) return;
                 if (data.inviteCode) EquityCodeState.record = data.inviteCode;
                 if (!response.ok) {
                     if (data.code === 'CREATION_IN_PROGRESS') {
-                        setTimeout(() => loadEquityCode(true), 1200);
+                        setTimeout(() => {
+                            if (AuthSession.isCurrent(session)) loadEquityCode(true);
+                        }, 1200);
                         return;
                     } else if (!data.inviteCode) {
                         EquityCodeState.record = previousRecord;
@@ -5073,13 +5423,14 @@
                 EquityCodeState.selectedBook = null;
                 showToast(getText(data.existing ? 'invite_code_ready' : 'invite_code_created'), 'success');
             } catch (error) {
+                if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.actionRequest || isAbortError(error)) return;
                 if (EquityCodeState.record && EquityCodeState.record.status === 'processing' &&
                     !(previousRecord && previousRecord.status === 'processing')) {
                     EquityCodeState.record = previousRecord;
                 }
                 showToast(error.message || getText('invite_code_create_failed'), 'error');
             } finally {
-                renderEquityCode();
+                if (AuthSession.isCurrent(session) && requestId === EquityCodeState.actionRequest) renderEquityCode();
             }
         }
 
@@ -5108,6 +5459,9 @@
         }
 
         async function unbindEquityCode() {
+            const session = AuthSession.capture();
+            if (!session) return;
+            const requestId = ++EquityCodeState.actionRequest;
             EquityCodeState.loading = true;
             EquityCodeState.loadingMessage = getText('invite_code_unbinding');
             renderEquityCode();
@@ -5117,18 +5471,23 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'unbind' })
                 });
+                if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.actionRequest) return;
                 const data = await response.json();
+                if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.actionRequest) return;
                 if (data.inviteCode) EquityCodeState.record = data.inviteCode;
                 if (!response.ok) throw new Error(equityApiMessage(data, 'invite_code_unbind_failed'));
                 EquityCodeState.selectedBook = null;
                 showToast(getText('invite_code_unbound_success'), 'success');
             } catch (error) {
+                if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.actionRequest || isAbortError(error)) return;
                 showToast(error.message || getText('invite_code_unbind_failed'), 'error');
                 throw error;
             } finally {
-                EquityCodeState.loading = false;
-                EquityCodeState.loadingMessage = '';
-                renderEquityCode();
+                if (AuthSession.isCurrent(session) && requestId === EquityCodeState.actionRequest) {
+                    EquityCodeState.loading = false;
+                    EquityCodeState.loadingMessage = '';
+                    renderEquityCode();
+                }
             }
         }
 
@@ -5521,18 +5880,23 @@
 
         // Refresh the access token using refresh token (called automatically)
         async function refreshAuth() {
+            const requestEpoch = AuthSession.epoch;
+            const timeoutController = new AbortController();
+            const timeoutId = setTimeout(() => timeoutController.abort(), 15000);
             try {
                 const response = await fetch('/api/auth/refresh', {
                     method: 'POST',
-                    credentials: 'include'
+                    credentials: 'include',
+                    signal: combineAbortSignals([AuthSession._controller.signal, timeoutController.signal])
                 });
+                if (!AuthSession.isEpochCurrent(requestEpoch)) return null;
                 if (!response.ok) {
                     return response.status === 401 || response.status === 403 ? false : null;
                 }
                 const data = await response.json();
+                if (!AuthSession.isEpochCurrent(requestEpoch)) return null;
                 if (data.success && data.user) {
-                    AppState.isLoggedIn = true;
-                    AppState.user = data.user;
+                    setAuthenticatedUser(data.user);
                     localStorage.setItem('novelflow_user', JSON.stringify(data.user));
                     localStorage.setItem('novelflow_last_user', data.user.username);
                     CloudSync.enable({ pull: false });
@@ -5541,24 +5905,27 @@
                     return true;
                 }
             } catch (e) {
-                console.warn('[Auth] Refresh failed:', e.message);
+                if (!isAbortError(e)) console.warn('[Auth] Refresh failed:', e.message);
+            } finally {
+                clearTimeout(timeoutId);
             }
             return null;
         }
 
         async function checkLoginStatus() {
+            const requestEpoch = AuthSession.epoch;
+            const timeoutController = new AbortController();
+            const timeoutId = setTimeout(() => timeoutController.abort(), 15000);
             try {
                 const response = await fetch('/api/auth/me', {
                     method: 'GET',
-                    credentials: 'include'
+                    credentials: 'include',
+                    signal: combineAbortSignals([AuthSession._controller.signal, timeoutController.signal])
                 });
                 const data = await response.json().catch(() => null);
+                if (!AuthSession.isEpochCurrent(requestEpoch)) return;
                 if (response.status === 403 && data && data.code === 'ACCOUNT_DISABLED') {
-                    AppState.isLoggedIn = false;
-                    AppState.user = null;
-                    CloudSync.disable();
-                    localStorage.removeItem('novelflow_user');
-                    localStorage.removeItem('novelflow_last_user');
+                    clearAuthenticatedUser();
                     updateProfileUI();
                     if (typeof loadEquityCode === 'function') loadEquityCode(false);
                     return;
@@ -5567,32 +5934,31 @@
                 if (!data || typeof data.loggedIn !== 'boolean') throw new Error('Invalid login status response');
                 
                 if (data.loggedIn) {
-                    const prevUser = AppState.user?.username;
                     const wasLoggedIn = AppState.isLoggedIn;
-                    AppState.isLoggedIn = true;
-                    AppState.user = {
+                    const user = {
                         username: data.username || 'User',
                         accountType: data.accountType || 'local'
                     };
+                    const accountChanged = setAuthenticatedUser(user);
                     localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
                     localStorage.setItem('novelflow_last_user', AppState.user.username);
-                    if (prevUser !== AppState.user.username) {
+                    if (accountChanged) {
                         // Enter the authenticated user's local namespace before
                         // cloud merge so data from a previous account cannot leak.
                         loadCheckinData();
                         loadMyBooks();
                     }
                     await CloudSync.enable();
-                    if (prevUser !== AppState.user.username) {
+                    const session = AuthSession.capture(user.username);
+                    if (!AuthSession.isCurrent(session)) return;
+                    if (accountChanged) {
                         updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo();
                     }
                     // Always load stats when logged in (wasLoggedIn guard removed - caused stats to not load when localStorage had cached login)
                     loadUserStats(AppState.user.username);
-                    if (!wasLoggedIn) {
-                        claimAnonymousLinks();
-                    }
                     updateProfileUI();
-                    if (typeof loadEquityCode === 'function') loadEquityCode(prevUser !== AppState.user.username);
+                    checkAndPromptSetPassword();
+                    if (typeof loadEquityCode === 'function') loadEquityCode(accountChanged);
                     if (window.__pendingBookId) {
                         const bk = window.__pendingBookId; window.__pendingBookId = null;
                         setTimeout(()=>{ try { _origOpenRecommendModal(bk); } catch(e){} }, 150);
@@ -5604,51 +5970,71 @@
                 if (data.needsRefresh) {
                     const refreshed = await refreshAuth();
                     if (refreshed) {
+                        const session = AuthSession.capture();
+                        if (!AuthSession.isCurrent(session)) return;
                         loadCheckinData();
                         loadMyBooks();
                         await CloudSync.enable();
+                        if (!AuthSession.isCurrent(session)) return;
                         // Reload per-user data after refresh
                         loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI();
                         loadUserStats(AppState.user.username);
+                        checkAndPromptSetPassword();
                         if (typeof loadEquityCode === 'function') loadEquityCode(true);
                         return;
                     }
                     if (refreshed === null) return;
                 }
             } catch (e) {
-                console.warn('Login check API failed:', e.message);
+                if (!isAbortError(e)) console.warn('Login check API failed:', e.message);
                 return;
+            } finally {
+                clearTimeout(timeoutId);
             }
 
-            AppState.isLoggedIn = false;
-            AppState.user = null;
-            CloudSync.disable();
-            localStorage.removeItem('novelflow_user');
-            localStorage.removeItem('novelflow_last_user');
+            if (!AuthSession.isEpochCurrent(requestEpoch)) return;
+            clearAuthenticatedUser();
             updateProfileUI();
             if (typeof loadEquityCode === 'function') loadEquityCode(false);
         }
 
         // Auth-aware fetch wrapper: auto-refreshes on 401
         async function authFetch(url, options = {}) {
-            const response = await fetch(url, { ...options, credentials: 'include' });
+            const requestEpoch = AuthSession.epoch;
+            const { timeout = 15000, signal: callerSignal, ...fetchOptions } = options;
+            const requestOnce = async () => {
+                const timeoutController = new AbortController();
+                const timeoutId = setTimeout(() => timeoutController.abort(), timeout);
+                try {
+                    return await fetch(url, {
+                        ...fetchOptions,
+                        credentials: 'include',
+                        signal: combineAbortSignals([callerSignal, AuthSession._controller.signal, timeoutController.signal])
+                    });
+                } finally {
+                    clearTimeout(timeoutId);
+                }
+            };
+
+            const response = await requestOnce();
+            if (!AuthSession.isEpochCurrent(requestEpoch)) throw makeAbortError();
             if (response.status !== 401) return response;
 
             // Got 401 — try refresh
             const refreshed = await refreshAuth();
             if (refreshed) {
+                if (!AuthSession.isEpochCurrent(requestEpoch)) throw makeAbortError();
                 // Retry original request with new cookies
-                return fetch(url, { ...options, credentials: 'include' });
+                const retriedResponse = await requestOnce();
+                if (!AuthSession.isEpochCurrent(requestEpoch)) throw makeAbortError();
+                return retriedResponse;
             }
 
             // Preserve the local session during a transient refresh outage.
             if (refreshed === null) return response;
 
             // Refresh also failed — user needs to re-login
-            AppState.isLoggedIn = false;
-            AppState.user = null;
-            localStorage.removeItem('novelflow_user');
-            localStorage.removeItem('novelflow_last_user');
+            clearAuthenticatedUser();
             updateProfileUI();
             return response;
         }
@@ -6005,12 +6391,12 @@
                 </div>
                 <div class="candidates-list">
                     ${candidates.map((book, i) => `
-                        <div class="candidate-card" onclick="selectCandidateAndCreate(${i}, '${discordUsername.replace(/'/g, "\\'")}')" style="cursor: pointer;">
+                        <div class="candidate-card" data-nf-action="select-candidate" data-candidate-index="${i}" role="button" tabindex="0" style="cursor: pointer;">
                             <div class="candidate-rank ${i === 0 ? 'best' : ''}">${i + 1}</div>
-                            <img class="candidate-cover" src="${book.cover}" alt="${book.title}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjgiIGhlaWdodD0iOTIiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY4IiBoZWlnaHQ9IjkyIiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMzQiIHk9IjUwIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
+                            <img class="candidate-cover" src="${escapeHtml(safeClientUrl(book.cover, { allowBlob: true }))}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjgiIGhlaWdodD0iOTIiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY4IiBoZWlnaHQ9IjkyIiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMzQiIHk9IjUwIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
                             <div class="candidate-info">
-                                <div class="candidate-title">${book.title}</div>
-                                <div class="candidate-author">${book.author || 'Unknown Author'}</div>
+                            <div class="candidate-title">${escapeHtml(book.title)}</div>
+                                <div class="candidate-author">${escapeHtml(book.author || 'Unknown Author')}</div>
                                 <div class="candidate-rating">
                                     <span class="stars">${'★'.repeat(Math.round(book.rating || 4.5))}${'☆'.repeat(5 - Math.round(book.rating || 4.5))}</span>
                                     <span class="score">${(book.rating || 4.5).toFixed(1)}</span>
@@ -6027,7 +6413,8 @@
                 <button class="btn-retry" onclick="resetForm()">&#8592; Search Again</button>
             `;
 
-            window.candidateBooks = candidates;
+            window.candidateBooks = candidates.slice();
+            window.candidateSelectionUsername = String(discordUsername || '');
         }
 
         async function selectCandidateAndCreate(index, discordUsername) {
@@ -6161,7 +6548,9 @@
         // User stats state
         const UserStats = {
             data: null,
-            loading: false
+            loading: false,
+            loadingUser: null,
+            requestId: 0
         };
 
         function updateProfileMyBooksCount() {
@@ -6172,52 +6561,32 @@
         }
 
         function getMyBooksKey() {
-            const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || '';
-            return username ? 'novelflow_mybooks_' + username : 'novelflow_mybooks';
+            const username = AppState.isLoggedIn ? normalizeSessionUsername(AppState.user?.username) : '';
+            return username ? 'novelflow_mybooks_' + username : null;
         }
         // Per-user storage key helper - all user-specific data should use this
         function getUserKey(suffix) {
-            const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || '';
-            return username ? 'novelflow_' + suffix + '_' + username : 'novelflow_' + suffix;
+            const username = AppState.isLoggedIn ? normalizeSessionUsername(AppState.user?.username) : '';
+            return 'novelflow_' + suffix + '_' + (username || 'guest');
         }
         function loadMyBooks() {
             const key = getMyBooksKey();
-            let saved = localStorage.getItem(key);
-            // Migrate from old global key if no per-user data exists
-            if (!saved) {
-                const oldData = localStorage.getItem('novelflow_mybooks');
-                if (oldData) {
-                    saved = oldData;
-                    localStorage.setItem(key, oldData);
-                    localStorage.removeItem('novelflow_mybooks');
-                }
+            if (!key) {
+                AppState.myBooks = [];
+                renderMyBooks();
+                return;
             }
-            AppState.myBooks = saved ? JSON.parse(saved) : [];
+            try {
+                const parsed = JSON.parse(localStorage.getItem(key) || '[]');
+                AppState.myBooks = Array.isArray(parsed) ? parsed.slice(0, 1000) : [];
+            } catch (_) {
+                AppState.myBooks = [];
+            }
             renderMyBooks();
             // Load user stats if logged in
             if (AppState.isLoggedIn && AppState.user && AppState.user.username) {
                 loadUserStats(AppState.user.username);
-                // Auto-claim Anonymous links that belong to this user
-                claimAnonymousLinks();
             }
-        }
-
-        async function claimAnonymousLinks() {
-            if (!AppState.myBooks || AppState.myBooks.length === 0) return;
-            const codes = AppState.myBooks.map(b => String(b.code)).filter(c => c && c !== "undefined" && c !== "null");
-            if (codes.length === 0) return;
-            try {
-                const token = localStorage.getItem("nf_token") || document.cookie.match(/nf_token=([^;]+)/)?.[1];
-                const resp = await authFetch("/api/claim-links", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", ...(token ? {"Authorization": "Bearer " + token} : {}) },
-                    body: JSON.stringify({ codes })
-                });
-                const data = await resp.json();
-                if (data.changed > 0) {
-                    console.log("Claimed " + data.changed + " Anonymous links for " + data.username);
-                }
-            } catch (e) { console.warn("claimAnonymousLinks error:", e); }
         }
 
         const BOOK_TOMBSTONE_TTL_MS = 180 * 24 * 60 * 60 * 1000;
@@ -6283,7 +6652,9 @@
         }
 
         function saveMyBooks(options = {}) {
-            localStorage.setItem(getMyBooksKey(), JSON.stringify(AppState.myBooks));
+            const key = getMyBooksKey();
+            if (!key) return;
+            localStorage.setItem(key, JSON.stringify(AppState.myBooks));
             if (options.sync !== false) CloudSync.schedulePush();
         }
 
@@ -6331,9 +6702,13 @@
             _enabledUser: null,
             _pullPromise: null,
             _hasPulled: false,
+            _pushRequest: 0,
+            _pullRequest: 0,
 
             isEnabled() {
-                return this._enabled && AppState.isLoggedIn && AppState.user && AppState.user.username;
+                return Boolean(this._enabled && AppState.isLoggedIn && AppState.user && AppState.user.username &&
+                    this._enabledUser === normalizeSessionUsername(AppState.user.username) &&
+                    this._enabledUser === AuthSession.username);
             },
 
             // Collect CLIENT-WRITABLE-ONLY data to sync (server-managed fields excluded)
@@ -6349,6 +6724,9 @@
             // Push local data to cloud
             async push() {
                 if (!this.isEnabled() || this._syncing) return;
+                const session = AuthSession.capture(this._enabledUser);
+                if (!session) return;
+                const requestId = ++this._pushRequest;
                 if (this._debounceTimer) {
                     clearTimeout(this._debounceTimer);
                     this._debounceTimer = null;
@@ -6362,8 +6740,10 @@
                         credentials: 'include',
                         body: JSON.stringify({ data })
                     });
+                    if (!AuthSession.isCurrent(session) || requestId !== this._pushRequest) return;
                     if (resp.ok) {
                         const result = await resp.json();
+                        if (!AuthSession.isCurrent(session) || requestId !== this._pushRequest) return;
                         this._busyRetryCount = 0;
                         this._lastSyncAt = result.lastSyncAt || Date.now();
                         if (result.deletedBooks) setDeletedBooks(result.deletedBooks);
@@ -6388,20 +6768,24 @@
                         this.schedulePush(delayMs, { busyRetry: true });
                     }
                 } catch (e) {
-                    console.warn('[CloudSync] Push failed:', e.message);
+                    if (!isAbortError(e)) console.warn('[CloudSync] Push failed:', e.message);
                 } finally {
-                    this._syncing = false;
+                    if (requestId === this._pushRequest) this._syncing = false;
                 }
             },
 
             // Pull cloud data and merge with local
             async pull() {
                 if (!this.isEnabled()) return false;
+                const session = AuthSession.capture(this._enabledUser);
+                if (!session) return false;
+                const requestId = ++this._pullRequest;
                 try {
                     const resp = await authFetch('/api/user-data', {
                         method: 'GET',
                         credentials: 'include'
                     });
+                    if (!AuthSession.isCurrent(session) || requestId !== this._pullRequest) return false;
                     if (resp.status === 401) {
                         console.log('[CloudSync] Token expired, refreshing...');
                         const refreshed = await this.refreshAuth();
@@ -6413,9 +6797,11 @@
                         return false;
                     }
                     const result = await resp.json();
+                    if (!AuthSession.isCurrent(session) || requestId !== this._pullRequest) return false;
                     if (!result.exists || !result.data) {
                         console.log('[CloudSync] No cloud data, pushing local data');
                         await this.push();
+                        if (!AuthSession.isCurrent(session) || requestId !== this._pullRequest) return false;
                         return true;
                     }
 
@@ -6463,7 +6849,7 @@
                     renderMyBooks();
                     // Refresh stats overview with latest data
                     if (AppState.user && AppState.user.username) {
-                        loadUserStats(AppState.user.username);
+                        loadUserStats(session.username);
                     }
                     
                     if (typeof renderCampaigns === 'function') renderCampaigns();
@@ -6472,20 +6858,25 @@
                     console.log('[CloudSync] Pull & merge OK');
                     // Push merged data back to ensure cloud has latest union
                     await this.push();
+                    if (!AuthSession.isCurrent(session) || requestId !== this._pullRequest) return false;
                     return true;
                 } catch (e) {
-                    console.warn('[CloudSync] Pull failed:', e.message);
+                    if (!isAbortError(e)) console.warn('[CloudSync] Pull failed:', e.message);
                     return false;
                 }
             },
 
             // Refresh auth token via /api/auth/refresh
             async refreshAuth() {
+                const session = AuthSession.capture(this._enabledUser);
+                if (!session) return false;
                 try {
                     const resp = await fetch('/api/auth/refresh', {
                         method: 'POST',
-                        credentials: 'include'
+                        credentials: 'include',
+                        signal: session.signal
                     });
+                    if (!AuthSession.isCurrent(session)) return false;
                     if (resp.ok) {
                         console.log('[CloudSync] Token refreshed');
                         return true;
@@ -6494,7 +6885,7 @@
                     this._enabled = false;
                     return false;
                 } catch (e) {
-                    console.warn('[CloudSync] Refresh error:', e.message);
+                    if (!isAbortError(e)) console.warn('[CloudSync] Refresh error:', e.message);
                     return false;
                 }
             },
@@ -6524,12 +6915,13 @@
                 this._enabledUser = username;
                 if (!pull || this._hasPulled) return true;
                 if (this._pullPromise) return this._pullPromise;
-                this._pullPromise = this.pull().then(success => {
-                    this._hasPulled = success === true;
+                const pullPromise = this.pull().then(success => {
+                    if (this._pullPromise === pullPromise) this._hasPulled = success === true;
                     return success;
                 }).finally(() => {
-                    this._pullPromise = null;
+                    if (this._pullPromise === pullPromise) this._pullPromise = null;
                 });
+                this._pullPromise = pullPromise;
                 return this._pullPromise;
             },
 
@@ -6540,6 +6932,9 @@
                 this._pullPromise = null;
                 this._hasPulled = false;
                 this._busyRetryCount = 0;
+                this._pushRequest += 1;
+                this._pullRequest += 1;
+                this._syncing = false;
                 if (this._debounceTimer) clearTimeout(this._debounceTimer);
             }
         };
@@ -6559,8 +6954,13 @@
 
         // Fetch and display user stats
         async function loadUserStats(username) {
-            if (UserStats.loading) return;
+            const session = AuthSession.capture(username);
+            if (!session) return false;
+            const requestedUsername = String(AppState.user.username);
+            if (UserStats.loading && UserStats.loadingUser === session.username) return false;
+            const requestId = ++UserStats.requestId;
             UserStats.loading = true;
+            UserStats.loadingUser = session.username;
             
             // Show loading
             const loadingArea = document.getElementById('statsLoadingArea');
@@ -6574,10 +6974,12 @@
             }
 
             try {
-                const response = await authFetch(`/api/my-stats?t=${Date.now()}&username=${encodeURIComponent(username)}`);
+                const response = await authFetch(`/api/my-stats?t=${Date.now()}&username=${encodeURIComponent(requestedUsername)}`);
+                if (!AuthSession.isCurrent(session) || requestId !== UserStats.requestId) return false;
                 if (!response.ok) throw new Error('Failed to fetch stats');
-                
+
                 const data = await response.json();
+                if (!AuthSession.isCurrent(session) || requestId !== UserStats.requestId) return false;
                 // my-stats returns 'links' instead of 'books' — normalize for renderMyBooks
                 if (data.links && !data.books) data.books = data.links;
                 UserStats.data = data;
@@ -6632,8 +7034,10 @@
                 
                 // Re-render books with stats
                 renderMyBooks();
-                
+                return true;
+
             } catch (error) {
+                if (!AuthSession.isCurrent(session) || requestId !== UserStats.requestId || isAbortError(error)) return false;
                 console.error('Error loading stats:', error);
                 UserStats.data = null;
                 // Show coming soon message
@@ -6642,8 +7046,12 @@
                 if (overview) overview.style.display = 'grid';
                 const loadingArea = document.getElementById('statsLoadingArea');
                 if (loadingArea) loadingArea.innerHTML = '';
+                return false;
             } finally {
-                UserStats.loading = false;
+                if (AuthSession.isCurrent(session) && requestId === UserStats.requestId) {
+                    UserStats.loading = false;
+                    UserStats.loadingUser = null;
+                }
             }
         }
 
@@ -6743,6 +7151,10 @@ function renderMyBooks() {
             container.innerHTML = sortedBooks.map(book => {
                 const key = book.link || (book.code && String(book.code)) || book.title;
                 const stats = statsMap[key] || {};
+                const safeCover = escapeHtml(safeClientUrl(book.cover, { allowBlob: true }));
+                const bookId = escapeHtml(book.bookId || '');
+                const bookCode = escapeHtml(book.code == null ? '' : String(book.code));
+                const bookLink = escapeHtml(book.link || '');
                 
                 const visits = stats.visits || 0;
                 const newUsers = stats.newUsers || stats.new_users || 0;
@@ -6751,11 +7163,11 @@ function renderMyBooks() {
                 
                 return `
                     <div class="my-book-item">
-                        <img class="my-book-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzYiIGhlaWdodD0iNDgiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjM2IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjZjZmOWZjIi8+PC9zdmc+'">
+                        <img class="my-book-cover" src="${safeCover}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzYiIGhlaWdodD0iNDgiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjM2IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjZjZmOWZjIi8+PC9zdmc+'">
                         <div class="my-book-info">
                             <div class="my-book-title">${escapeHtml(book.title)}</div>
                             <div class="my-book-code">CODE: ${escapeHtml(book.code) || 'N/A'}</div>
-                            <div class="my-book-link" onclick='copyBookLink(${JSON.stringify(book.link||"")})' title="Click to copy">${escapeHtml(book.link) || 'No link'}</div>
+                            <div class="my-book-link" data-nf-action="copy-book-link" data-book-link="${bookLink}" title="Click to copy">${escapeHtml(book.link) || 'No link'}</div>
                             <div class="my-book-stats">
                                 <span class="my-book-stat" title="Visits">&#128065; ${fmtNum(visits)}</span>
                                 <span class="my-book-stat" title="New Users">&#128100; ${fmtNum(newUsers)}</span>
@@ -6763,8 +7175,8 @@ function renderMyBooks() {
                             </div>
                         </div>
                         <div class="my-book-actions">
-                            <button class="my-book-copy" onclick='copyBookLink(${JSON.stringify(book.link||"")})'>Copy</button>
-                            <button class="my-book-delete" onclick='deleteBook(${JSON.stringify(book.bookId||"")}, ${JSON.stringify(book.code==null?"":String(book.code))})' title="Delete">🗑️</button>
+                            <button class="my-book-copy" data-nf-action="copy-book-link" data-book-link="${bookLink}">Copy</button>
+                            <button class="my-book-delete" data-nf-action="delete-book" data-book-id="${bookId}" data-book-code="${bookCode}" title="Delete">🗑️</button>
                         </div>
                     </div>
                 `;
@@ -6784,7 +7196,7 @@ function renderMyBooks() {
         // ========== Delete Book ==========
         async function deleteBook(bookId, code) {
             // Find the book to confirm it exists
-            const book = AppState.myBooks.find(b => b.bookId === bookId || (code && b.code === code));
+            const book = AppState.myBooks.find(b => (bookId && String(b.bookId || '') === String(bookId)) || (code && String(b.code || '') === String(code)));
             if (!book) {
                 showToast('Book not found', 'error');
                 return;
@@ -6797,7 +7209,7 @@ function renderMyBooks() {
             }
 
             // Remove from myBooks array
-            const index = AppState.myBooks.findIndex(b => b.bookId === bookId || (code && b.code === code));
+            const index = AppState.myBooks.findIndex(b => (bookId && String(b.bookId || '') === String(bookId)) || (code && String(b.code || '') === String(code)));
             if (index > -1) {
                 markBookDeleted(AppState.myBooks[index]);
                 AppState.myBooks.splice(index, 1);
@@ -6913,6 +7325,9 @@ function renderMyBooks() {
             container.innerHTML = AppState.myBooks.map(book => {
                 const key = book.link || (book.code && String(book.code)) || book.title;
                 const stats = statsMap[key] || {};
+                const safeCover = escapeHtml(safeClientUrl(book.cover, { allowBlob: true }));
+                const bookId = escapeHtml(book.bookId || '');
+                const bookLink = escapeHtml(book.link || '');
                 const visits = stats.visits || 0;
                 const newUsers = stats.newUsers || stats.new_users || 0;
                 const income = stats.income || stats.dn_income || stats.d14_income || 0;
@@ -6923,15 +7338,15 @@ function renderMyBooks() {
                 return `
                     <div class="my-book-expanded-item">
                         <div class="my-book-expanded-header">
-                            <img class="my-book-expanded-cover" src="${escapeHtml(book.cover)}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNjQiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMjQiIHk9IjM4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
+                            <img class="my-book-expanded-cover" src="${safeCover}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNjQiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMjQiIHk9IjM4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
                             <div class="my-book-expanded-info">
                                 <div class="my-book-expanded-title">${escapeHtml(book.title)}</div>
                                 ${isPending ? `
                                     <div class="my-book-expanded-code" style="color: var(--ink-mute);">CODE: Pending</div>
-                                    <button class="my-book-expanded-copy" onclick='recreateLink(${JSON.stringify(book.bookId||"")})' style="background: var(--ruby); margin-top: 4px;">Try Again ↻</button>
+                                    <button class="my-book-expanded-copy" data-nf-action="recreate-link" data-book-id="${bookId}" style="background: var(--ruby); margin-top: 4px;">Try Again ↻</button>
                                 ` : `
                                     <div class="my-book-expanded-code">CODE: ${escapeHtml(book.code || 'Pending')}</div>
-                                    ${hasData ? `<button class="my-book-expanded-copy" onclick='copyBookLink(${JSON.stringify(book.link||"")})'>Copy Link</button>` : ''}
+                                    ${hasData ? `<button class="my-book-expanded-copy" data-nf-action="copy-book-link" data-book-link="${bookLink}">Copy Link</button>` : ''}
                                 `}
                             </div>
                         </div>
@@ -7014,33 +7429,9 @@ function renderMyBooks() {
                 showToast('Please enter a username', 'error');
                 return;
             }
-            // Password strength is validated by backend; frontend only checks non-empty for existing users
-            // If no password provided, check if this is an old user without password (same logic as splash login)
             if (!password) {
-                try {
-                    const cpResp = await fetch('/api/auth/check-password', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify({ username })
-                    });
-                    const cpResult = await cpResp.json().catch(() => ({}));
-                    if (!cpResult.hasPassword && cpResult.userExists) {
-                        // Old user without password - allow login, register API will accept
-                    } else if (cpResult.hasPassword) {
-                        showToast('This account requires a password', 'error');
-                        const passField = document.getElementById('regPassword');
-                        if (passField) { passField.style.display = ''; passField.placeholder = 'Password (required)'; }
-                        return;
-                    } else {
-                        // Brand new user - need password to register
-                        showToast('Please set a password to create your account', 'error');
-                        return;
-                    }
-                } catch(e) {
-                    showToast('Connection error, please try again', 'error');
-                    return;
-                }
+                showToast('Please enter your password', 'error');
+                return;
             }
 
             try {
@@ -7065,13 +7456,14 @@ function renderMyBooks() {
 
                 if (response.ok && result.success) {
                     const authenticatedUsername = result.username || username;
-                    AppState.user = { username: authenticatedUsername, accountType: 'local' };
-                    AppState.isLoggedIn = true;
+                    setAuthenticatedUser({ username: authenticatedUsername, accountType: 'local' });
                     localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
                     localStorage.setItem('novelflow_last_user', authenticatedUsername);
                     loadCheckinData();
                     loadMyBooks();
+                    const session = AuthSession.capture(authenticatedUsername);
                     await CloudSync.enable();
+                    if (!AuthSession.isCurrent(session)) return;
                     updateProfileUI();
                     loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo();
                     loadPerformanceDashboard();
@@ -7093,6 +7485,11 @@ function renderMyBooks() {
         }
 
         async function handleLogout() {
+            // Persist the current namespace and invalidate its in-flight work immediately.
+            if (AppState.myBooks.length > 0) saveMyBooks({ sync: false });
+            saveCheckinData();
+            CloudSync.disable();
+            AuthSession.transition('');
             try {
                 await fetch('/api/auth/logout', {
                     method: 'GET',
@@ -7101,18 +7498,11 @@ function renderMyBooks() {
             } catch (e) {
                 console.warn('Logout API error:', e);
             }
-            
-            // Save ALL current user's data before clearing session (per-user keys persist)
-            if (AppState.myBooks.length > 0) saveMyBooks();
-            saveCheckinData(); // Save checkin data to per-user key
-            localStorage.removeItem('novelflow_user');
-            localStorage.removeItem('novelflow_last_user');
-            CloudSync.disable();
+
             // Per-user data (books, reels, checkin, points, claimed, bind_id, vip_days) 
             // uses keys like novelflow_xxx_{username} and persists across logins.
             // Only session info is cleared.
-            AppState.user = null;
-            AppState.isLoggedIn = false;
+            clearAuthenticatedUser();
             AppState.myBooks = [];
             if (typeof EquityCodeState !== 'undefined') {
                 EquityCodeState.record = null;
@@ -7171,14 +7561,15 @@ function renderMyBooks() {
                 
                 // Success
                 const authenticatedUsername = result.username || username;
-                AppState.user = { username: authenticatedUsername, accountType: 'local' };
-                AppState.isLoggedIn = true;
+                setAuthenticatedUser({ username: authenticatedUsername, accountType: 'local' });
                 localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
                 localStorage.setItem('novelflow_last_user', authenticatedUsername);
                 localStorage.setItem('novelflow_splash_done', 'true');
                 loadCheckinData();
                 loadMyBooks();
+                const session = AuthSession.capture(authenticatedUsername);
                 await CloudSync.enable();
+                if (!AuthSession.isCurrent(session)) return;
                 
                 afterLoginContinue();
                 updateProfileUI();
@@ -7186,7 +7577,7 @@ function renderMyBooks() {
                 loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo(); updateReelsStatusBar();
                 loadPerformanceDashboard();
                 showToast('Welcome, ' + authenticatedUsername + '!', 'success');
-                checkAndPromptSetPassword(authenticatedUsername);
+                checkAndPromptSetPassword();
                 
                 // Force show set password modal if backend says user needs one
                 if (result.mustSetPassword) {
@@ -7266,6 +7657,7 @@ function renderMyBooks() {
         let _chartMode = 'visits';
         let _lastPerfData = null;
         let _lastPerfUsername = null;
+        let _perfRequestId = 0;
         let _dailyBookDates = [];
         let _dailyBookDate = null;
         let _dailyBookSort = 'visits';
@@ -7700,6 +8092,7 @@ function renderMyBooks() {
             const perfErrorText = document.getElementById('perfErrorText');
             
             if (!AppState.isLoggedIn || !AppState.user || !AppState.user.username) {
+                _perfRequestId += 1;
                 if (perfData) perfData.style.display = 'none';
                 if (perfLogin) perfLogin.style.display = 'block';
                 if (perfError) perfError.classList.remove('visible');
@@ -7708,7 +8101,11 @@ function renderMyBooks() {
                 return;
             }
 
-            const currentPerfUsername = String(AppState.user.username).toLowerCase();
+            const session = AuthSession.capture();
+            if (!session) return;
+            const requestId = ++_perfRequestId;
+            const currentPerfUsername = session.username;
+            const requestedUsername = String(AppState.user.username);
             if (_lastPerfUsername !== currentPerfUsername) {
                 _lastPerfData = null;
                 _lastPerfUsername = currentPerfUsername;
@@ -7724,12 +8121,16 @@ function renderMyBooks() {
             }
             
             try {
-                const query = '?t=' + Date.now() + '&username=' + encodeURIComponent(AppState.user.username);
+                const query = '?t=' + Date.now() + '&username=' + encodeURIComponent(requestedUsername);
                 let resp = await authFetch('/api/per-link-stats' + query);
+                if (!AuthSession.isCurrent(session) || requestId !== _perfRequestId) return;
                 let data = await resp.json().catch(() => null);
+                if (!AuthSession.isCurrent(session) || requestId !== _perfRequestId) return;
                 if (!resp.ok || !data || data.error) {
                     resp = await authFetch('/api/my-stats' + query);
+                    if (!AuthSession.isCurrent(session) || requestId !== _perfRequestId) return;
                     data = await resp.json().catch(() => null);
+                    if (!AuthSession.isCurrent(session) || requestId !== _perfRequestId) return;
                     if (!resp.ok || !data || data.error) throw new Error('STATS_UNAVAILABLE');
                 }
                 // Convert daily format: { date: {visits, unique_users, new_users, income} }
@@ -7784,6 +8185,7 @@ function renderMyBooks() {
                 }
                 
             } catch (e) {
+                if (!AuthSession.isCurrent(session) || requestId !== _perfRequestId || isAbortError(e)) return;
                 console.warn('Perf dashboard load failed:', e.message);
                 if (perfErrorText) perfErrorText.textContent = getText('perf_unavailable');
                 if (perfError) perfError.classList.add('visible');
@@ -7901,7 +8303,8 @@ function renderMyBooks() {
                 const el = document.getElementById('homeLoading');
                 if (el && el.style.display !== 'none') { el.style.display = 'none'; hideLoadingAndShowContent(); }
             }, 3000);
-            loadBooks(); checkLocalLogin(); loadCheckinData(); updateCheckinUI(); loadMyBooks(); updateStats(); checkLoginStatus(); updateMissionsUI(); updatePointsDisplay(); if (typeof renderCampaigns === "function") renderCampaigns(); if (typeof updateBonusUI === "function") updateBonusUI(); if (typeof updateStreakGrandBtn === "function") updateStreakGrandBtn();
+            AppState.myBooks = [];
+            loadBooks(); checkLocalLogin(); renderMyBooks(); updateCheckinUI(); updateStats(); checkLoginStatus(); updateMissionsUI(); updatePointsDisplay(); if (typeof renderCampaigns === "function") renderCampaigns(); if (typeof updateBonusUI === "function") updateBonusUI(); if (typeof updateStreakGrandBtn === "function") updateStreakGrandBtn();
             if (typeof loadPerformanceDashboard === 'function') setTimeout(() => { loadPerformanceDashboard(); if (typeof initChartTooltip === 'function') setTimeout(initChartTooltip, 200); }, 1000);
             document.getElementById('recommendModal').addEventListener('click', e => {
                 if (e.target.classList.contains('modal-overlay')) closeModal();
@@ -7943,14 +8346,13 @@ function renderMyBooks() {
         async function loadQuickReels() {
             const el = document.getElementById('quickReels');
             if (!el) return;
+            const session = AuthSession.capture();
+            if (!session) return;
             el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:12px;">' + getText('loading') + '</div>';
             try {
-                const headers = {};
-                const savedToken = localStorage.getItem('novelflow_ac_token');
-                if (savedToken) headers['x-ac-token'] = savedToken;
-                const resp = await fetch('/api/ac-list?pageSize=50', { headers });
+                const resp = await authFetch('/api/ac-list?pageSize=50');
                 const result = await resp.json();
-                if (result.newToken) saveACToken(result.newToken);
+                if (!AuthSession.isCurrent(session)) return;
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
                 // Filter for "My" page: only show SUCCESSFULLY COMPLETED reels (pending/failed stay on creator page)
                 const completedItems = items.filter(it => {
@@ -7973,12 +8375,9 @@ function renderMyBooks() {
                     let videoUrl = '', coverUrl = '';
                     if (isDone && item.thread_id) {
                         try {
-                            const rHeaders = {};
-                            if (savedToken) rHeaders['x-ac-token'] = savedToken;
-                            const rResp = await fetch('/api/ac-result?threadId=' + item.thread_id, { headers: rHeaders });
+                            const rResp = await authFetch('/api/ac-result?threadId=' + encodeURIComponent(item.thread_id));
                             if (rResp.ok && rResp.status !== 204) {
                                 const rResult = await rResp.json().catch(() => ({data:{}}));
-                                if (rResult.newToken) saveACToken(rResult.newToken);
                                 const media = resolveReelMedia(rResult.data || {});
                                 videoUrl = media.videoUrl;
                                 coverUrl = media.coverUrl;
@@ -7987,8 +8386,10 @@ function renderMyBooks() {
                     }
                     return { ...item, isDone, isFail, videoUrl, coverUrl };
                 }));
+                if (!AuthSession.isCurrent(session)) return;
 el.innerHTML = enriched.map(renderReelCardHtml).join('');
             } catch(e) {
+                if (!AuthSession.isCurrent(session) || isAbortError(e)) return;
                 el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--danger);font-size:12px;">Failed to load</div>';
             }
         }
@@ -8004,7 +8405,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             el.innerHTML = myBooks.slice(0, 5).map(book => {
                 const shortTitle = (book.title || 'Untitled').substring(0, 30);
                 const text = book.recommendText || 'Check out "' + (book.title || '') + '" - an amazing read! ' + (book.link || '');
-                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--hairline);"><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;">' + escapeHtml(shortTitle) + '</div><div style="font-size:10px;color:var(--ink-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(text.substring(0, 60)) + '...</div></div><button onclick="navigator.clipboard.writeText(\'' + escapeHtml(text).replace(/'/g, "\\'") + '\');showToast(\'Copied!\',\'success\')" style="padding:4px 8px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;cursor:pointer;flex-shrink:0;">📋</button></div>';
+                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--hairline);"><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;">' + escapeHtml(shortTitle) + '</div><div style="font-size:10px;color:var(--ink-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(text.substring(0, 60)) + '...</div></div><button data-nf-action="copy-text" data-copy-text="' + escapeHtml(text) + '" data-copy-message="Copied!" style="padding:4px 8px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;cursor:pointer;flex-shrink:0;">📋</button></div>';
             }).join('');
         }
 
@@ -8018,7 +8419,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             }
             el.innerHTML = myBooks.filter(b => b.link).slice(0, 5).map(book => {
                 const shortTitle = (book.title || 'Untitled').substring(0, 30);
-                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--hairline);"><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;">' + escapeHtml(shortTitle) + '</div><div style="font-size:10px;color:var(--ruby);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(book.link) + '</div></div><button onclick="navigator.clipboard.writeText(\'' + escapeHtml(book.link || '').replace(/'/g, "\\'") + '\');showToast(\'Link copied!\',\'success\')" style="padding:4px 8px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;cursor:pointer;flex-shrink:0;">📋</button></div>';
+                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--hairline);"><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;">' + escapeHtml(shortTitle) + '</div><div style="font-size:10px;color:var(--ruby);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(book.link) + '</div></div><button data-nf-action="copy-text" data-copy-text="' + escapeHtml(book.link || '') + '" data-copy-message="Link copied!" style="padding:4px 8px;background:var(--ruby);color:white;border:none;border-radius:6px;font-size:10px;cursor:pointer;flex-shrink:0;">📋</button></div>';
             }).join('');
         }
 
@@ -8030,15 +8431,10 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
 
 
         // ========== AC Reels - Real API ==========
-        function saveACToken(token) {
-            localStorage.setItem('novelflow_ac_token', token);
-        }
-
-        
         // ========== Reels Daily Limit ==========
         function getReelsDailyCount() {
             const today = new Date().toISOString().split('T')[0];
-            const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || 'guest';
+            const username = AppState.isLoggedIn ? normalizeSessionUsername(AppState.user?.username) : 'guest';
             const saved = localStorage.getItem(getUserKey('reels_count'));
             if (!saved) return 0;
             try {
@@ -8051,7 +8447,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
         }
         function incrementReelsCount() {
             const today = new Date().toISOString().split('T')[0];
-            const username = AppState.user?.username || localStorage.getItem('novelflow_last_user') || 'guest';
+            const username = AppState.isLoggedIn ? normalizeSessionUsername(AppState.user?.username) : 'guest';
             const count = getReelsDailyCount() + 1;
             localStorage.setItem(getUserKey('reels_count'), JSON.stringify({ date: today, username: username, count: count }));
             updateReelsDailyInfo(); updateReelsStatusBar();
@@ -8119,7 +8515,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 try {
                     const formData = new FormData();
                     formData.append('file', file);
-                    const resp = await fetch('/api/ac-upload', { method: 'POST', body: formData });
+                    const resp = await authFetch('/api/ac-upload', { method: 'POST', body: formData, timeout: 30000 });
                     const result = await resp.json();
                     if (!resp.ok) {
                         showToast(result.error || 'Upload failed (' + resp.status + ')', 'error');
@@ -8157,7 +8553,15 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 const wrap = document.createElement('div');
                 wrap.className = 'ref-img-thumb-wrap';
                 wrap.style.cssText = 'position:relative;display:inline-block;';
-                wrap.innerHTML = '<img src="' + escapeHtml(url) + '" class="ref-img-thumb"><button class="ref-img-remove" onclick="removeRefImg(' + i + ')">✕</button>';
+                const image = document.createElement('img');
+                image.className = 'ref-img-thumb';
+                image.src = safeClientUrl(url, { allowBlob: true });
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'ref-img-remove';
+                remove.textContent = '✕';
+                remove.addEventListener('click', () => removeRefImg(i));
+                wrap.append(image, remove);
                 if (addBtn) grid.insertBefore(wrap, addBtn);
                 else grid.appendChild(wrap);
             });
@@ -8211,14 +8615,13 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             const listEl = document.getElementById('myReelsAssetList');
             const emptyEl = document.getElementById('myReelsEmptyHint');
             if (!listEl) return;
+            const session = AuthSession.capture();
+            if (!session) return;
 
             try {
-                const headers = {};
-                const savedToken = localStorage.getItem('novelflow_ac_token');
-                if (savedToken) headers['x-ac-token'] = savedToken;
-                const resp = await fetch('/api/ac-list?pageSize=50', { headers });
+                const resp = await authFetch('/api/ac-list?pageSize=50');
                 const result = await resp.json();
-                if (result.newToken) { saveACToken(result.newToken); }
+                if (!AuthSession.isCurrent(session)) return;
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
                 // Server already filters by JWT username - trust server result
                 const filteredItems = items;
@@ -8233,12 +8636,9 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                         let videoUrl = '', coverUrl = '', creativeText = '';
                         if (isDone && item.thread_id) {
                             try {
-                                const rHeaders = {};
-                                if (savedToken) rHeaders['x-ac-token'] = savedToken;
-                                const rResp = await fetch('/api/ac-result?threadId=' + item.thread_id, { headers: rHeaders });
+                                const rResp = await authFetch('/api/ac-result?threadId=' + encodeURIComponent(item.thread_id));
                                 if (rResp.ok && rResp.status !== 204) {
                                     const rResult = await rResp.json().catch(() => ({data:{}}));
-                                    if (rResult.newToken) saveACToken(rResult.newToken);
                                     const media = resolveReelMedia(rResult.data || {});
                                     videoUrl = media.videoUrl;
                                     coverUrl = media.coverUrl;
@@ -8249,6 +8649,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                         return { ...item, isDone, isFail, videoUrl, coverUrl, creativeText };
                     }));
                 }
+                if (!AuthSession.isCurrent(session)) return;
                 // Fallback: local pending
                 const knownIds2 = (typeof filteredItems !== 'undefined' && filteredItems) ? filteredItems.map(it => String(it.id || it.task_id || '')) : [];
                 const myCards = (typeof enrichedItems !== 'undefined' && enrichedItems) ? enrichedItems : buildLocalPendingReels(knownIds2);
@@ -8264,6 +8665,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                     if (emptyEl) emptyEl.style.display = '';
                 }
             } catch(e) {
+                if (!AuthSession.isCurrent(session) || isAbortError(e)) return;
                 console.error('loadMyReelsAssets error:', e);
                 const pending = buildLocalPendingReels([]);
                 if (pending.length > 0) {
@@ -8290,8 +8692,8 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                     return;
                 }
                 container.innerHTML = books.slice(0, 5).map(b =>
-                    '<div class="reel-book-option" data-bookid="' + (b.bookId || b.id) + '" onclick="selectXMPBook(this)" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--hairline);font-size:13px;display:flex;gap:8px;align-items:center;">' +
-                    '<img src="' + escapeHtml(b.cover || '') + '" style="width:30px;height:40px;border-radius:4px;object-fit:cover;" onerror="this.style.display=\'none\'">' +
+                    '<div class="reel-book-option" data-bookid="' + escapeHtml(b.bookId || b.id || '') + '" data-nf-action="select-xmp-book" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--hairline);font-size:13px;display:flex;gap:8px;align-items:center;">' +
+                    '<img src="' + escapeHtml(safeClientUrl(b.cover, { allowBlob: true })) + '" style="width:30px;height:40px;border-radius:4px;object-fit:cover;" onerror="this.style.display=\'none\'">' +
                     '<div><div style="font-weight:500;">' + escapeHtml(b.title || 'Untitled') + '</div><div style="font-size:11px;color:var(--ink-mute);">' + escapeHtml(b.author || '') + '</div></div></div>'
                 ).join('');
             } catch(e) { container.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--ink-mute);">Search failed</div>'; }
@@ -8335,7 +8737,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 let url = '/api/xmp-materials?action=list&page_size=10&material_type=video';
                 if (keyword) url += '&keyword=' + encodeURIComponent(keyword);
                 // material_type=video is already in base URL
-                const resp = await fetch(url);
+                const resp = await authFetch(url);
                 const result = await resp.json();
                 if (result.success && result.data && result.data.length > 0) {
                     // Cache the results
@@ -8355,11 +8757,12 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             const videos = data.filter(m => m.material_type === 'video').slice(0, 10);
             if (videos.length > 0) {
                 container.innerHTML = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">' + videos.map(m => {
-                        const thumb = m.url || m.file_url || '';
+                        const thumb = safeClientUrl(m.url || m.file_url || '', { allowBlob: true });
+                        const fileUrl = safeClientUrl(m.file_url || '');
                         const fallbackIcon = '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:24px;">🎬</div>';
                         let inner = thumb ? '<img src="' + escapeHtml(thumb) + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div style="display:none;align-items:center;justify-content:center;height:100%;font-size:24px;">🎬</div>' : fallbackIcon;
                         return '<div style="position:relative;border-radius:10px;overflow:hidden;background:var(--canvas-soft);cursor:pointer;aspect-ratio:9/16;border:2px solid rgba(255,107,157,0.2);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all 0.2s;" onmouseover="this.style.borderColor=\'#FF6B9D\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.borderColor=\'rgba(255,107,157,0.2)\';this.style.transform=\'none\'"' +
-                            (m.file_url ? ' onclick="window.open(\'' + escapeHtml(m.file_url).replace(/'/g, "\\'") + '\', \'_blank\')"' : '') + '>' + inner + '</div>';
+                            (fileUrl ? ' data-nf-action="open-external" data-url="' + escapeHtml(fileUrl) + '"' : '') + '>' + inner + '</div>';
                     }).join('') + '</div>';
             } else {
                 container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--ink-mute);font-size:13px;">No assets found</div>';
@@ -8380,8 +8783,8 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                     return;
                 }
                 container.innerHTML = books.slice(0, 5).map(b => 
-                    '<div class="reel-book-option" data-bookid="' + escapeHtml(b.bookId || b.id || b.book_id || '') + '" onclick="selectReelBook(this)" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--hairline);font-size:13px;display:flex;gap:8px;align-items:center;">' +
-                    '<img src="' + escapeHtml(b.cover || '') + '" style="width:30px;height:40px;border-radius:4px;object-fit:cover;" onerror="this.style.display=\'none\'">' +
+                    '<div class="reel-book-option" data-bookid="' + escapeHtml(b.bookId || b.id || b.book_id || '') + '" data-nf-action="select-reel-book" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--hairline);font-size:13px;display:flex;gap:8px;align-items:center;">' +
+                    '<img src="' + escapeHtml(safeClientUrl(b.cover, { allowBlob: true })) + '" style="width:30px;height:40px;border-radius:4px;object-fit:cover;" onerror="this.style.display=\'none\'">' +
                     '<div><div style="font-weight:500;">' + escapeHtml(b.title || 'Untitled') + '</div><div style="font-size:11px;color:var(--ink-mute);">' + escapeHtml(b.author || '') + '</div></div></div>'
                 ).join('');
             } catch(e) { container.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--ink-mute);">Search failed</div>'; }
@@ -8436,6 +8839,8 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
 
         // Core reel creation logic
         async function doCreateReel(bookId) {
+            const session = AuthSession.capture();
+            if (!session) return;
             const dailyCount = getReelsDailyCount();
             if (dailyCount >= REELS_DAILY_LIMIT) {
                 showToast(getText('toast_daily_limit'), 'error');
@@ -8448,8 +8853,6 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
 
             try {
                 const headers = { 'Content-Type': 'application/json' };
-                const savedToken = localStorage.getItem('novelflow_ac_token');
-                if (savedToken) headers['x-ac-token'] = savedToken;
 
                 // Determine if advanced mode is open
                 const isAdvOpen = document.getElementById('reelAdvPanel')?.classList.contains('open');
@@ -8462,7 +8865,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 const reelPrompt = isAdvOpen ? (document.getElementById('reelPrompt')?.value?.trim() || '') : (document.getElementById('reelDescBasic')?.value?.trim() || '');
                 const reelStartCh = isAdvOpen ? (document.getElementById('reelStartChapterAdv')?.value || '') : (document.getElementById('reelStartChapterBasic')?.value || '');
                 const reelEndCh = isAdvOpen ? (document.getElementById('reelEndChapterAdv')?.value || '') : (document.getElementById('reelEndChapterBasic')?.value || '');
-                const resp = await fetch('/api/ac-create', {
+                const resp = await authFetch('/api/ac-create', {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
@@ -8483,7 +8886,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 });
                 let result;
                 try { result = await resp.json(); } catch(e) { result = {}; }
-                if (result.newToken) { saveACToken(result.newToken); }
+                if (!AuthSession.isCurrent(session)) return;
                 if (!resp.ok) {
                     if (resp.status === 401) {
                         showToast('⚠️ Session expired. Please refresh the page and try again.', 'error');
@@ -8536,6 +8939,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                     showToast(errMsg, 'error');
                 }
             } catch (e) {
+                if (!AuthSession.isCurrent(session) || isAbortError(e)) return;
                 showToast('Failed: ' + e.message, 'error');
             }
             if (btn) { btn.disabled = false; btn.textContent = '🎬 ' + getText('create_reel'); }
@@ -8544,9 +8948,8 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
 
         // Strip HTML tags from text for display
         function stripHtml(html) {
-            const tmp = document.createElement('div');
-            tmp.innerHTML = html || '';
-            return tmp.textContent || tmp.innerText || '';
+            const parsed = new DOMParser().parseFromString(String(html || ''), 'text/html');
+            return parsed.body.textContent || '';
         }
 
         function resolveReelMedia(resultData) {
@@ -8569,17 +8972,18 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             const textItem = candidates.find(item => item.creative_text || item.dialogue_content || item.landing_page_copy) || {};
             if (!mediaItem) return { videoUrl: '', coverUrl: '', creativeText: textItem.creative_text || textItem.dialogue_content || textItem.landing_page_copy || '' };
             return {
-                videoUrl: getVideoUrl(mediaItem),
-                coverUrl: String(mediaItem.cover_image_url || mediaItem.coverImageUrl || mediaItem.thumbnail_url || mediaItem.thumbnailUrl || mediaItem.poster_url || mediaItem.posterUrl || mediaItem.preview_image_url || ''),
+                videoUrl: safeClientUrl(getVideoUrl(mediaItem), { allowBlob: true }),
+                coverUrl: safeClientUrl(mediaItem.cover_image_url || mediaItem.coverImageUrl || mediaItem.thumbnail_url || mediaItem.thumbnailUrl || mediaItem.poster_url || mediaItem.posterUrl || mediaItem.preview_image_url || '', { allowBlob: true }),
                 creativeText: mediaItem.creative_text || mediaItem.dialogue_content || mediaItem.landing_page_copy || textItem.creative_text || textItem.dialogue_content || textItem.landing_page_copy || ''
             };
         }
 
         async function downloadReelVideo(videoUrl, title) {
-            if (!videoUrl) return;
+            const safeVideoUrl = safeClientUrl(videoUrl, { allowBlob: true });
+            if (!safeVideoUrl) return;
             const filename = String(title || 'novelflow-reel').replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '') || 'novelflow-reel';
             try {
-                const response = await fetch(videoUrl);
+                const response = await fetch(safeVideoUrl);
                 if (!response.ok) throw new Error('Video download failed');
                 const blob = await response.blob();
                 const href = URL.createObjectURL(blob);
@@ -8591,12 +8995,14 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 link.remove();
                 URL.revokeObjectURL(href);
             } catch (_) {
-                window.open(videoUrl, '_blank', 'noopener');
+                window.open(safeVideoUrl, '_blank', 'noopener,noreferrer');
             }
         }
 
         // Play reel video in fullscreen overlay
         function playReelVideo(videoUrl) {
+            const safeVideoUrl = safeClientUrl(videoUrl, { allowBlob: true });
+            if (!safeVideoUrl) return;
             const existing = document.getElementById('reelVideoOverlay');
             if (existing) existing.remove();
             const overlay = document.createElement('div');
@@ -8609,8 +9015,8 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 '<button type="button" data-download-reel style="color:white;font-size:13px;padding:6px 12px;background:linear-gradient(135deg,#FF6B9D,#C084FC);border:0;border-radius:8px;cursor:pointer;">💾 Download</button>' +
                 '<button type="button" data-close-reel style="color:white;font-size:18px;padding:6px 12px;background:rgba(255,255,255,0.2);border:none;border-radius:8px;cursor:pointer;">✕</button>' +
                 '</div></div>';
-            overlay.querySelector('video').src = videoUrl;
-            overlay.querySelector('[data-download-reel]').onclick = () => downloadReelVideo(videoUrl, 'novelflow-reel');
+            overlay.querySelector('video').src = safeVideoUrl;
+            overlay.querySelector('[data-download-reel]').onclick = () => downloadReelVideo(safeVideoUrl, 'novelflow-reel');
             overlay.querySelector('[data-close-reel]').onclick = () => overlay.remove();
             document.body.appendChild(overlay);
         }
@@ -8646,23 +9052,24 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             else if (item.isFail) statusText = '❌ ' + getText('status_failed');
             else statusText = '⏳ ' + getText('status_creating');
             const placeholderGrad = 'linear-gradient(135deg, #FF6B9D33, #C084FC33)';
+            const videoUrl = safeClientUrl(item.videoUrl, { allowBlob: true });
+            const thumb = safeClientUrl(item.coverUrl, { allowBlob: true });
+            item = { ...item, videoUrl, coverUrl: thumb };
             const playOverlay = item.videoUrl ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25);border-radius:8px;"><div style="width:22px;height:22px;background:rgba(255,255,255,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;">▶</div></div>' : '';
-            const vidAttrEsc = item.videoUrl ? escapeHtml(item.videoUrl).replace(/'/g, "\'") : '';
-            const thumbClickAction = item.videoUrl ? ' onclick="playReelVideo(\'' + vidAttrEsc + '\')"' : '';
-            const thumb = item.coverUrl || '';
+            const thumbClickAction = item.videoUrl ? ' data-nf-action="play-reel" data-video-url="' + escapeHtml(item.videoUrl) + '"' : '';
             const thumbHtml = thumb
                 ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;"' + thumbClickAction + '><img src="' + escapeHtml(thumb) + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\'">' + playOverlay + '</div>'
                 : item.videoUrl
-                    ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;background:' + placeholderGrad + ';"' + thumbClickAction + '><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px;">🎬</div><video preload="metadata" class="reels-item-thumb" src="' + escapeHtml(item.videoUrl) + '" muted playsinline onloadeddata="this.currentTime=Math.min(0.1, this.duration || 0)" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;">' + playOverlay + '</div>'
+                    ? '<div style="position:relative;width:54px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;background:' + placeholderGrad + ';"' + thumbClickAction + '><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px;">🎬</div><video preload="metadata" class="reels-item-thumb" src="' + escapeHtml(item.videoUrl) + '" muted playsinline onloadedmetadata="this.currentTime=Math.min(0.1, this.duration || 0)" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"></video>' + playOverlay + '</div>'
                     : '<div style="width:54px;height:72px;border-radius:8px;background:' + placeholderGrad + ';display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🎬</div>';
             let actionsHtml = '';
             if (item.isDone) {
                 actionsHtml = '<div class="reels-item-actions">';
-                if (item.videoUrl) actionsHtml += '<button class="reels-action-btn reels-btn-save" type="button" data-video-url="' + escapeHtml(item.videoUrl) + '" data-video-title="' + escapeHtml(item.book_name || item.title || 'novelflow-reel') + '" onclick="event.stopPropagation();downloadReelVideo(this.dataset.videoUrl, this.dataset.videoTitle)">' + getText('save_video') + '</button>';
-                if (item.creativeText) actionsHtml += '<button class="reels-action-btn reels-btn-copy" onclick="copyReelText(this)">' + getText('copy_text') + '</button>';
+                if (item.videoUrl) actionsHtml += '<button class="reels-action-btn reels-btn-save" type="button" data-nf-action="download-reel" data-video-url="' + escapeHtml(item.videoUrl) + '" data-video-title="' + escapeHtml(item.book_name || item.title || 'novelflow-reel') + '">' + getText('save_video') + '</button>';
+                if (item.creativeText) actionsHtml += '<button class="reels-action-btn reels-btn-copy" data-nf-action="copy-reel-text">' + getText('copy_text') + '</button>';
                 actionsHtml += '</div>';
             } else if (item.isFail && item.thread_id) {
-                actionsHtml = '<div class="reels-item-actions"><button class="reels-action-btn" style="background:#fee;color:#c33;" onclick="retryReel(\'' + escapeHtml(item.thread_id).replace(/'/g,"\'") + '\')">Retry</button></div>';
+                actionsHtml = '<div class="reels-item-actions"><button class="reels-action-btn" style="background:#fee;color:#c33;" data-nf-action="retry-reel" data-thread-id="' + escapeHtml(item.thread_id) + '">Retry</button></div>';
             }
             let copyTextHtml = '';
             const reelMeta = JSON.parse(localStorage.getItem(getUserKey('reel_meta')) || '{}');
@@ -8675,33 +9082,31 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             return '<div class="reels-item">' + thumbHtml + '<div class="reels-item-body"><div class="reels-item-title">' + escapeHtml(item.book_name || item.title || 'Untitled') + '</div><div class="reels-item-status ' + (item.isDone ? 'done' : (item.isFail ? 'fail' : '')) + '">' + statusText + '</div>' + actionsHtml + copyTextHtml + '</div></div>';
         }
         async function retryReel(threadId) {
+            const session = AuthSession.capture();
+            if (!session || !threadId) return;
             try {
-                const headers = {};
-                const savedToken = localStorage.getItem('novelflow_ac_token');
-                if (savedToken) headers['x-ac-token'] = savedToken;
-                const resp = await fetch('/api/ac-retry', { method:'POST', headers: {...headers, 'Content-Type':'application/json'}, body: JSON.stringify({threadId}) });
+                const resp = await authFetch('/api/ac-retry', { method:'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({threadId}) });
                 const result = await resp.json();
-                if (result.newToken) saveACToken(result.newToken);
+                if (!AuthSession.isCurrent(session)) return;
                 showToast(result.success ? 'Retrying...' : ('Retry failed: ' + (result.error||'unknown')), result.success?'success':'error');
                 if (result.success) setTimeout(()=>listMyReels(), 2000);
-            } catch(e) { showToast('Retry failed: ' + e.message, 'error'); }
+            } catch(e) { if (AuthSession.isCurrent(session) && !isAbortError(e)) showToast('Retry failed: ' + e.message, 'error'); }
         }
 
         let _reelsPollTimer = null;
         async function listMyReels() {
             const listEl = document.getElementById('reelsList');
             if (!listEl) return;
+            const session = AuthSession.capture();
+            if (!session) return;
 
             // Clear any existing poll timer to prevent stacking
             if (_reelsPollTimer) { clearTimeout(_reelsPollTimer); _reelsPollTimer = null; }
 
             try {
-                const headers = {};
-                const savedToken = localStorage.getItem('novelflow_ac_token');
-                if (savedToken) headers['x-ac-token'] = savedToken;
-                const resp = await fetch('/api/ac-list?pageSize=50', { headers });
+                const resp = await authFetch('/api/ac-list?pageSize=50');
                 const result = await resp.json();
-                if (result.newToken) { saveACToken(result.newToken); }
+                if (!AuthSession.isCurrent(session)) return;
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
                 // Server already filters by JWT username - trust server result
                 const filteredItems = items;
@@ -8715,12 +9120,9 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                         let videoUrl = '', coverUrl = '', creativeText = '';
                         if (isDone && item.thread_id) {
                             try {
-                                const rHeaders = {};
-                                if (savedToken) rHeaders['x-ac-token'] = savedToken;
-                                const rResp = await fetch('/api/ac-result?threadId=' + item.thread_id, { headers: rHeaders });
+                                const rResp = await authFetch('/api/ac-result?threadId=' + encodeURIComponent(item.thread_id));
                                 if (rResp.ok && rResp.status !== 204) {
                                     const rResult = await rResp.json().catch(() => ({data:{}}));
-                                    if (rResult.newToken) saveACToken(rResult.newToken);
                                 const media = resolveReelMedia(rResult.data || {});
                                 videoUrl = media.videoUrl;
                                 coverUrl = media.coverUrl;
@@ -8731,10 +9133,11 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                         return { ...item, isDone, isFail, videoUrl, coverUrl, creativeText };
                     }));
                 }
+                if (!AuthSession.isCurrent(session)) return;
                 // Fallback: show local pending reels from localStorage if server list is empty/failed
                 const knownIds = (typeof filteredItems !== 'undefined' && filteredItems) ? filteredItems.map(it => String(it.id || it.task_id || '')) : [];
-                const pendingLocal = (typeof enrichedItems !== 'undefined' && enrichedItems) ? [] : buildLocalPendingReels(knownIds);
-                const allCards = (typeof enrichedItems !== 'undefined' && enrichedItems) ? enrichedItems : pendingLocal;
+                const pendingLocal = buildLocalPendingReels(knownIds);
+                const allCards = enrichedItems.slice();
                 // Merge: server cards first, then any local-only pending not already shown
                 const serverIds = new Set(allCards.map(c => String(c.id || c.task_id || '')));
                 for (const p of pendingLocal) {
@@ -8748,6 +9151,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                     listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">' + getText('no_reels') + '</div>';
                 }
             } catch (e) {
+                if (!AuthSession.isCurrent(session) || isAbortError(e)) return;
                 console.warn('listMyReels error, falling back to local:', e);
                 const pendingLocal = buildLocalPendingReels([]);
                 if (pendingLocal.length > 0) {
@@ -8801,62 +9205,19 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
     
         // ========== Password System ==========
         let _splashPasswordCheckTimer = null;
-        async function checkSplashPasswordNeeded() {
-            const username = document.getElementById('splashUsername')?.value?.trim();
+        function checkSplashPasswordNeeded() {
             const passField = document.getElementById('splashPassword');
             const tipEl = document.getElementById('splashTip');
-            if (!username || username.length < 2) {
-                if (passField) { passField.style.display = ''; passField.placeholder = 'Password'; }
-                return;
-            }
-            // Debounce
             if (_splashPasswordCheckTimer) clearTimeout(_splashPasswordCheckTimer);
-            _splashPasswordCheckTimer = setTimeout(async () => {
-                try {
-                    const resp = await fetch('/api/auth/check-password', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username })
-                    });
-                    const result = await resp.json();
-                    if (result.hasPassword) {
-                        if (passField) { passField.style.display = ''; passField.placeholder = 'Enter your password'; }
-                        if (tipEl) tipEl.textContent = 'This account has a password. Enter it to login.';
-                    } else if (result.userExists) {
-                        // Old user without password - hide password field, let them just click
-                        if (passField) { passField.style.display = 'none'; passField.value = ''; }
-                        if (tipEl) tipEl.textContent = 'Welcome back! Just click Start Earning →';
-                    } else {
-                        // New user - must set password
-                        if (passField) { passField.style.display = ''; passField.placeholder = 'Set a password'; }
-                        if (tipEl) tipEl.textContent = 'New here? Set a password to create your account.';
-                    }
-                } catch(e) {
-                    if (passField) { passField.style.display = ''; passField.placeholder = 'Password'; }
-                }
-            }, 500);
+            if (passField) { passField.style.display = ''; passField.placeholder = 'Password'; }
+            if (tipEl) tipEl.textContent = 'Enter your password to continue.';
         }
 
-        async function checkRegPasswordNeeded() {
-            // Password is always required now
+        function checkRegPasswordNeeded() {
             const passField = document.getElementById('regPassword');
-            const username = document.getElementById('regUsername')?.value?.trim();
             if (passField) {
                 passField.style.display = '';
-                if (username && username.length >= 2) {
-                    // Check if existing user to adjust placeholder
-                    try {
-                        const resp = await fetch('/api/auth/check-password', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username })
-                        });
-                        const result = await resp.json();
-                        passField.placeholder = result.hasPassword ? 'Enter your password' : 'Set a password';
-                    } catch(e) {}
-                } else {
-                    passField.placeholder = 'Password';
-                }
+                passField.placeholder = 'Password';
             }
         }
 
@@ -8864,15 +9225,14 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             const modal = document.getElementById('setPasswordModal');
             if (!modal) return;
             modal.style.display = 'flex';
-            // Check if user already has password
-            fetch('/api/auth/check-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: AppState.user?.username })
-            }).then(r => r.json()).then(result => {
-                const oldRow = document.getElementById('setPasswordOldRow');
-                if (oldRow) oldRow.style.display = result.hasPassword ? '' : 'none';
-            }).catch(() => {});
+            const oldRow = document.getElementById('setPasswordOldRow');
+            if (oldRow) oldRow.style.display = '';
+            fetch('/api/auth/me', { credentials: 'include' })
+                .then(r => r.json())
+                .then(result => {
+                    if (oldRow && result.loggedIn) oldRow.style.display = result.hasPassword ? '' : 'none';
+                })
+                .catch(() => {});
         }
 
         function closeSetPasswordModal() {
@@ -8934,20 +9294,20 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
         }
 
 
-        async function checkAndPromptSetPassword(username) {
+        async function checkAndPromptSetPassword() {
             try {
-                const resp = await fetch('/api/auth/check-password', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username })
-                });
+                const resp = await fetch('/api/auth/me', { credentials: 'include' });
                 const result = await resp.json();
+                if (!result.loggedIn) return;
                 updatePasswordCardUI(result.hasPassword);
                 if (!result.hasPassword) {
-                    // Show gentle prompt after 2 seconds
-                    setTimeout(() => {
-                        showToast('💡 Tip: Set a password to protect your account!', 'info');
-                    }, 2000);
+                    const promptKey = 'novelflow_password_prompt_' + normalizeSessionUsername(AppState.user?.username);
+                    if (!sessionStorage.getItem(promptKey)) {
+                        sessionStorage.setItem(promptKey, '1');
+                        setTimeout(() => {
+                            showToast('💡 Tip: Set a password to protect your account!', 'info');
+                        }, 2000);
+                    }
                 }
             } catch(e) {
                 // Silent fail
@@ -9168,19 +9528,23 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
   }
 
   function getUsername() {
-    try {
-      const u = localStorage.getItem('novelflow_last_user');
-      if (u) return u;
-    } catch(e){}
-    try {
-      const s = localStorage.getItem('novelflow_user');
-      if (s) {
-        const o = JSON.parse(s);
-        if (o && o.username) return o.username;
-      }
-    } catch(e){}
-    return '';
+    return typeof AppState !== 'undefined' && AppState.isLoggedIn && AppState.user
+      ? String(AppState.user.username || '')
+      : '';
   }
+
+  window.resetEarningsState = function() {
+    _earnData = null;
+    clearWithdrawalIdempotencyKey();
+    const card = $('earnCardBalance');
+    if (card) card.textContent = '$0.00 available';
+    ['earnAvailVal', 'earnTotalVal', 'earnPendingVal', 'earnBonusVal'].forEach(id => {
+      const element = $(id);
+      if (element) element.textContent = '$0.00';
+    });
+    const amount = $('earnAmount');
+    if (amount) amount.value = '';
+  };
 
   window.openEarningsModal = function() {
     const u = getUsername();
@@ -9215,17 +9579,20 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
   async function loadEarningsData() {
     const u = getUsername();
     if (!u) return;
+    const session = AuthSession.capture(u);
+    if (!session) return;
     try {
-      const token = localStorage.getItem('nf_token') || document.cookie.match(/nf_token=([^;]+)/)?.[1];
       const r = await authFetch('/api/withdrawals?username=' + encodeURIComponent(u), {
         credentials: 'include',
-        headers: { 'X-OS': 'web', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) }
+        headers: { 'X-OS': 'web' }
       });
       const data = await r.json();
+      if (!AuthSession.isCurrent(session)) return;
       if (!r.ok) throw new Error(data.error || ('Failed to load earnings (' + r.status + ')'));
       _earnData = data;
       renderEarnings(data);
     } catch(e) {
+      if (!AuthSession.isCurrent(session) || isAbortError(e)) return;
       console.error('[Earnings] load failed:', e);
       const de = $('earnDetailList'); if (de) de.innerHTML = '<div class="earn-empty">Failed to load: ' + escapeHtml(e.message) + '</div>';
       const he = $('earnHistoryList'); if (he) he.innerHTML = '<div class="earn-empty">—</div>';
@@ -9383,19 +9750,21 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
     const email = ($('earnEmailInput').value || '').trim();
     const normalizedEmail = email.toLowerCase();
     const u = getUsername();
+    const session = AuthSession.capture(u);
+    if (!session) return;
     const idempotencyKey = getWithdrawalIdempotencyKey([u.toLowerCase(), amt.toFixed(2), normalizedEmail].join('|'));
     btn.disabled = true;
     const origText = btn.textContent;
     btn.textContent = 'Submitting…';
     try {
-      const token = localStorage.getItem('nf_token') || document.cookie.match(/nf_token=([^;]+)/)?.[1];
       const r = await authFetch('/api/withdrawals', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json', 'X-OS': 'web', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) },
+        headers: { 'Content-Type': 'application/json', 'X-OS': 'web' },
         body: JSON.stringify({ username: u, amount: amt, payment_account: normalizedEmail, idempotency_key: idempotencyKey })
       });
       const data = await r.json();
+      if (!AuthSession.isCurrent(session)) return;
       if (!r.ok || !data.success) throw new Error(data.error || 'Submit failed');
       if (typeof showToast === 'function') showToast(data.message || "Request submitted! We'll process within 3-5 days", 'success');
       $('earnAmountInput').value = '';
@@ -9404,9 +9773,11 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
       clearWithdrawalIdempotencyKey();
       await loadEarningsData();
     } catch(e) {
+      if (!AuthSession.isCurrent(session) || isAbortError(e)) return;
       if (typeof showToast === 'function') showToast(e.message || 'Submit failed', 'error');
       else if ($('earnFormErr')) $('earnFormErr').textContent = e.message || 'Submit failed';
     } finally {
+      if (!AuthSession.isCurrent(session)) return;
       btn.textContent = origText;
       earnValidateForm();
     }

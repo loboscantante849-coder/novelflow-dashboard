@@ -21,25 +21,7 @@ const {
 } = require('../_lib/auth');
 
 const { handlePreflight } = require('../_lib/cors');
-const { Redis } = require('@upstash/redis');
-
-function getRedis() {
-  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
-  return new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
-}
-
-async function isDisabledAccount(payload) {
-  const username = String(payload && (payload.username || payload.globalName) || '').trim().toLowerCase();
-  const redis = getRedis();
-  if (!username || !redis) return false;
-  try {
-    const raw = await redis.get(`nf_user_data:${username}`);
-    const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    return Boolean(data && data.disabled);
-  } catch (_) {
-    return false;
-  }
-}
+const { getRedis, isDisabledUser } = require('../_lib/security');
 
 module.exports = async (req, res) => {
   if (handlePreflight(req, res, { credentials: true })) return;
@@ -68,9 +50,18 @@ module.exports = async (req, res) => {
       clearAuthCookies(res);
       return res.status(401).json({ error: 'Session expired', code: 'SESSION_EXPIRED' });
     }
-    if (await isDisabledAccount(payload)) {
-      clearAuthCookies(res);
-      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    const username = String(payload.username || '').trim().toLowerCase();
+    const redis = getRedis();
+    if (!username || !redis) {
+      return res.status(503).json({ error: 'Auth service unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
+    }
+    try {
+      if (await isDisabledUser(redis, username, { failClosed: true })) {
+        clearAuthCookies(res);
+        return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+      }
+    } catch (_error) {
+      return res.status(503).json({ error: 'Auth service unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
     }
 
     // Keep a fixed maximum session lifetime; active refreshes must not extend
