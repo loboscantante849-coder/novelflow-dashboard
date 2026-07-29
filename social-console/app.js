@@ -1,5 +1,5 @@
 const storedRecommendationHistory = (() => { try { return JSON.parse(localStorage.getItem('nf_social:recommendation_history') || '[]'); } catch { return []; } })();
-const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogFilters: { line: 'novelflow', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all' }, selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, longKickKey: '', startingSku: '', planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0 };
+const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogFilters: { line: 'novelflow', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all' }, historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 24, detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, longKickKey: '', startingSku: '', planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0 };
 const DASHBOARD_CACHE_KEY = 'nf_social:dashboard_snapshot:v1';
 const DASHBOARD_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
 let dashboardSnapshotHandle = null;
@@ -975,6 +975,98 @@ function historyTodayScore(books) {
   })).sort((left, right) => right.todayScore - left.todayScore || Number(right.pullUv || 0) - Number(left.pullUv || 0));
 }
 
+const historyDecisionMeta = {
+  reinvest: { label: '建议复投', icon: 'circle-check-big', action: '继续投：保留这本书，用小预算验证一套新素材。' },
+  observe: { label: '继续观察', icon: 'clock-3', action: '先补样本：继续收数，不急着放大预算。' },
+  pause: { label: '暂停扩量', icon: 'circle-pause', action: '先暂停：重做开篇钩子后，再用小预算复测。' },
+  insufficient: { label: '数据不足', icon: 'circle-help', action: '暂不判断：等待更多有效拉起和收入回传。' }
+};
+
+function metricMedian(values, positiveOnly = false) {
+  const numbers = values.map(Number).filter((value) => Number.isFinite(value) && (!positiveOnly || value > 0)).sort((a, b) => a - b);
+  if (!numbers.length) return 0;
+  const middle = Math.floor(numbers.length / 2);
+  return numbers.length % 2 ? numbers[middle] : (numbers[middle - 1] + numbers[middle]) / 2;
+}
+
+function historyReviewBooks(books) {
+  const cohort = (books || []).filter((book) => Number(book.pullUv || 0) > 0);
+  const medians = {
+    pullUv: metricMedian(cohort.map((book) => book.pullUv)),
+    firstReadRate: metricMedian(cohort.map((book) => book.firstReadRate), true),
+    d14Income: metricMedian(cohort.map((book) => book.d14Income), true),
+    incomePerUv: metricMedian(cohort.map((book) => book.incomePerUv), true),
+    score: metricMedian(cohort.map((book) => book.score), true)
+  };
+  const order = { reinvest: 0, observe: 1, pause: 2, insufficient: 3 };
+  return (books || []).map((book) => {
+    const pullUv = Number(book.pullUv || 0);
+    const firstReadRate = Number(book.firstReadRate || 0);
+    const d14Income = Number(book.d14Income || 0);
+    const incomePerUv = Number(book.incomePerUv || 0);
+    const confidence = Number(book.confidence || 0);
+    const score = Number(book.score || 0);
+    const signals = {
+      volume: pullUv >= medians.pullUv,
+      conversion: firstReadRate > 0 && firstReadRate >= medians.firstReadRate,
+      revenue: d14Income > 0 && d14Income >= medians.d14Income,
+      yield: incomePerUv > 0 && incomePerUv >= medians.incomePerUv
+    };
+    const positives = Object.values(signals).filter(Boolean).length;
+    let decision = 'insufficient';
+    if (confidence >= 30 && d14Income > 0 && score >= medians.score && positives >= 2) decision = 'reinvest';
+    else if (confidence >= 30 && positives <= 1) decision = 'pause';
+    else if (confidence >= 15 || d14Income > 0) decision = 'observe';
+    const strength = signals.volume
+      ? `拉起 ${compactNumber(pullUv)} UV，高于同批中位数 ${compactNumber(medians.pullUv)}`
+      : signals.revenue
+        ? `D14 收入 $${d14Income.toLocaleString('en-US', { maximumFractionDigits: 2 })}，高于同批中位数`
+        : signals.conversion
+          ? `首读率 ${percentage(firstReadRate)}，高于同批中位数`
+          : '当前没有明显高于同批的核心指标';
+    const risk = confidence < 30
+      ? `样本置信度 ${confidence}%，还没到 30% 判断线`
+      : !signals.conversion
+        ? `首读率 ${percentage(firstReadRate)}，低于同批中位数 ${percentage(medians.firstReadRate)}`
+        : !signals.revenue
+          ? 'D14 收入低于同批中位数，暂不适合放大'
+          : '留存数据尚未回传，长期质量仍需观察';
+    return {
+      ...book,
+      review: {
+        decision,
+        ...historyDecisionMeta[decision],
+        confidence,
+        strength,
+        risk,
+        basis: `近 ${state.windowDays} 天 · ${Number(book.assetCount || 0)} 个推广归因记录按书汇总 · 留存未接入，不参与判断`,
+        positives
+      }
+    };
+  }).sort((left, right) => order[left.review.decision] - order[right.review.decision] || Number(right.score || 0) - Number(left.score || 0));
+}
+
+function renderHistoryDecisionBar(books) {
+  const bar = $('#historyDecisionBar');
+  if (!bar) return;
+  const counts = { all: books.length, reinvest: 0, observe: 0, pause: 0, insufficient: 0 };
+  books.forEach((book) => { counts[book.review.decision] += 1; });
+  const items = [
+    ['all', '全部记录', 'list-filter'],
+    ['reinvest', historyDecisionMeta.reinvest.label, historyDecisionMeta.reinvest.icon],
+    ['observe', historyDecisionMeta.observe.label, historyDecisionMeta.observe.icon],
+    ['pause', historyDecisionMeta.pause.label, historyDecisionMeta.pause.icon],
+    ['insufficient', historyDecisionMeta.insufficient.label, historyDecisionMeta.insufficient.icon]
+  ];
+  bar.hidden = false;
+  bar.innerHTML = `<div class="history-scope"><strong>这是你们历史 Code / 链接的书级归因</strong><span>不是单条文案、海报或视频的素材表现；留存尚未接通。</span></div><div class="history-filters">${items.map(([key, label, icon]) => `<button type="button" class="history-filter ${state.historyDecisionFilter === key ? 'active' : ''}" data-history-filter="${key}" aria-pressed="${state.historyDecisionFilter === key}" ${key !== 'all' && !counts[key] ? 'disabled' : ''}><i data-lucide="${icon}"></i><span>${label}</span><b>${counts[key]}</b></button>`).join('')}</div>`;
+  bar.querySelectorAll('[data-history-filter]').forEach((button) => button.addEventListener('click', () => {
+    state.historyDecisionFilter = button.dataset.historyFilter;
+    renderLeaderboard();
+    icons();
+  }));
+}
+
 function renderTodayRail() {
   const list = $('#todayRailList');
   if (!list) return;
@@ -1110,6 +1202,8 @@ function renderLeaderboard() {
   $('#refreshLeaderboard').classList.toggle('loading', state.leaderboardLoading);
   empty.hidden = state.leaderboard.length > 0;
   const catalog = state.leaderboardSource === 'catalog';
+  grid.classList.toggle('history-mode', !catalog);
+  if (catalog) $('#historyDecisionBar').hidden = true;
   if (!catalog) {
     $('#leaderboardSection').classList.remove('metrics-pending');
     $('#leaderboardUpdated').classList.remove('warning');
@@ -1118,10 +1212,10 @@ function renderLeaderboard() {
     renderCoverRetryControl();
   }
   $('#leaderboardEyebrow').textContent = catalog ? 'CONTENT DASHBOARD' : 'PROMOTION REVIEW';
-  $('#leaderboardTitle').textContent = catalog ? '新推广表现选书' : '投放复盘 / 复投候选';
+  $('#leaderboardTitle').textContent = catalog ? '新推广表现选书' : '历史投放复盘';
   $('#leaderboardDescription').textContent = catalog
     ? '来自中台数据看板：novelflow、英语、已完结、上架。短篇/常规长篇直接对应后台“是否短篇=是/否”；按近 7/30/90 天窗口和真实业务指标排序。'
-    : '按历史归因表现复盘，仅供查看与复投判断，不混入新推广书池。';
+    : '把你们历史 Code / 链接的书级归因翻译成明确复投结论；不混入新推广书池，也不冒充单条素材表现。';
   $('#windowControl').hidden = catalog;
   $('#catalogWindowControl').hidden = !catalog;
   $('#catalogSort').hidden = !catalog;
@@ -1234,30 +1328,33 @@ function renderLeaderboard() {
     }));
     return;
   }
-  grid.innerHTML = state.leaderboard.map((book, index) => {
-    const active = activeRunFor(book);
-    const ready = book.automationReady !== false;
+  const reviewedBooks = historyReviewBooks(state.leaderboard);
+  renderHistoryDecisionBar(reviewedBooks);
+  const visibleReviews = state.historyDecisionFilter === 'all' ? reviewedBooks : reviewedBooks.filter((book) => book.review.decision === state.historyDecisionFilter);
+  grid.innerHTML = visibleReviews.length ? visibleReviews.map((book, index) => {
     const pullUv = book.pullUv;
     const firstReadRate = book.firstReadRate;
-    const retentionRate = book.retentionRate ?? book.read20wRate ?? book.read10wRate;
-    const retentionLabel = book.retentionWindow ? `${book.retentionWindow} 留存` : '长读留存';
-    return `<article class="leaderboard-card ${active ? 'in-progress' : ''}">
-      <span class="rank">#${book.rank}</span>
+    const review = book.review;
+    return `<article class="leaderboard-card history-review-card decision-${escapeHtml(review.decision)}">
+      <div class="history-decision"><i data-lucide="${escapeHtml(review.icon)}"></i><div><span>系统判断</span><strong>${escapeHtml(review.label)}</strong><small>样本置信度 ${review.confidence}%</small></div></div>
       <div class="leaderboard-cover" ${coverDataAttributes(book)}>${leaderboardCover(book)}</div>
-      <div class="leaderboard-copy"><h2>${escapeHtml(book.title)}</h2><p>拉起 ${compactNumber(pullUv)} UV · ${book.assetCount || 0} 个素材</p><div class="book-tags"><span>首读率 ${percentage(firstReadRate)}</span><span>${escapeHtml(retentionLabel)} ${percentage(retentionRate)}</span></div></div>
-      <div class="leaderboard-metrics"><span>综合评分</span><strong>${Number(book.score || 0).toFixed(1)}</strong><small>样本置信度 ${book.confidence || 0}%</small></div>
-      <button class="start-book ${active ? 'resume' : ''}" data-index="${index}" ${!ready || state.startingSku === String(book.title) ? 'disabled' : ''}>${!ready ? '书库已下架' : state.startingSku === String(book.title) ? '正在校验' : active ? '查看任务' : '智能一键生成'}<i data-lucide="${!ready ? 'circle-off' : active ? 'arrow-right' : 'zap'}"></i></button>
+      <div class="leaderboard-copy"><h2>${escapeHtml(book.title)}</h2><p>${escapeHtml(review.strength)}</p><div class="book-tags"><span>拉起 ${compactNumber(pullUv)} UV</span><span>首读 ${percentage(firstReadRate)}</span><span>D14 $${Number(book.d14Income || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}</span></div></div>
+      <div class="leaderboard-metrics"><span>下一步</span><strong>${escapeHtml(review.action.split('：')[0])}</strong><small>${escapeHtml(review.risk)}</small></div>
+      <button class="history-review-toggle" type="button" data-review-index="${index}" aria-expanded="false"><i data-lucide="list-tree"></i><span>查看判断依据</span><i data-lucide="chevron-down"></i></button>
+      <div class="history-review-detail" data-review-detail="${index}" hidden><div><span>为什么这么判断</span><strong>${escapeHtml(review.strength)}</strong><p>${escapeHtml(review.risk)}</p></div><div><span>建议怎么做</span><strong>${escapeHtml(review.action)}</strong><p>${escapeHtml(review.basis)}</p></div><div class="history-metric-grid"><span><b>${compactNumber(book.pullUv)}</b>拉起 UV</span><span><b>${percentage(book.firstReadRate)}</b>首读率</span><span><b>$${Number(book.d14Income || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}</b>D14 收入</span><span><b>${Number(book.score || 0).toFixed(1)}</b>历史综合分</span></div></div>
     </article>`;
-  }).join('');
-  grid.querySelectorAll('.start-book').forEach((button) => {
-    button.outerHTML = '<span class="history-only"><i data-lucide="chart-no-axes-combined"></i>Review data</span>';
-  });
-  const window = state.leaderboardWindow;
-  $('#leaderboardUpdated').textContent = window?.throughDate ? `数据截至 ${window.throughDate} · 近 ${window.days} 天` : '正在加载历史表现数据';
-  document.querySelectorAll('.start-book').forEach((button) => button.addEventListener('click', () => {
-    const book = state.leaderboard[Number(button.dataset.index)];
-    if (book) startProduction(book);
+  }).join('') : '<div class="history-review-empty"><i data-lucide="list-filter"></i><strong>当前分类没有记录</strong><span>选择其他判断分类继续查看。</span></div>';
+  grid.querySelectorAll('[data-review-index]').forEach((button) => button.addEventListener('click', () => {
+    const detail = grid.querySelector(`[data-review-detail="${button.dataset.reviewIndex}"]`);
+    if (!detail) return;
+    const open = detail.hidden;
+    detail.hidden = !open;
+    button.setAttribute('aria-expanded', String(open));
+    button.querySelector('span').textContent = open ? '收起判断依据' : '查看判断依据';
+    button.classList.toggle('open', open);
   }));
+  const window = state.leaderboardWindow;
+  $('#leaderboardUpdated').textContent = window?.throughDate ? `数据截至 ${window.throughDate} · 近 ${window.days} 天 · 当前显示 ${visibleReviews.length}/${reviewedBooks.length} 本` : '正在加载历史表现数据';
 }
 
 function renderLeaderboardPager(shown, available, totalPages = 1) {
@@ -1462,6 +1559,15 @@ function renderRunList() {
     </article>`;
   }).join('');
   document.querySelectorAll('.run-row').forEach((row) => row.addEventListener('click', () => openDetail(row.dataset.id)));
+  renderRunLoadMore();
+}
+
+function renderRunLoadMore() {
+  const button = $('#loadMoreRuns');
+  if (!button) return;
+  button.hidden = state.statusLimit >= 50 || state.runs.length < state.statusLimit;
+  button.disabled = state.statusLoading;
+  button.querySelector('span').textContent = state.statusLoading && state.statusLimit >= 50 ? '正在加载更早任务' : '加载更早的任务';
 }
 
 async function copyAssetText(value, message) {
@@ -1604,6 +1710,7 @@ function renderAssetLibrary() {
     const url = run?.artifacts?.video?.videoUrls?.[0] || run?.artifacts?.images?.find((item) => item?.status === 'success' && item.url)?.url;
     if (url) window.open(url, '_blank', 'noopener');
   }));
+  renderRunLoadMore();
 }
 
 function renderStats() {
@@ -1613,10 +1720,18 @@ function renderStats() {
   $('#runningRuns').textContent = active;
   $('#readyAssets').textContent = state.runs.reduce((sum, run) => { const assets = assetSummary(run); return sum + assets.posts + assets.posters + assets.video; }, 0);
   $('#attentionRuns').textContent = attention;
+  const scope = `最近 ${state.runs.length} 个任务`;
+  const scopeCopy = {
+    active: `${scope} · 点击查看后台持续推进的任务`,
+    assets: `${scope} · 点击取用已有文案、海报或视频`,
+    attention: `${scope} · 点击查看失败、阻塞、歧义或部分完成`
+  };
   document.querySelectorAll('[data-overview-filter]').forEach((button) => {
     const activeFilter = button.dataset.overviewFilter === state.overviewFilter;
     button.classList.toggle('active', activeFilter);
     button.setAttribute('aria-pressed', String(activeFilter));
+    const description = button.querySelector('small');
+    if (description) description.textContent = scopeCopy[button.dataset.overviewFilter] || description.textContent;
   });
   const viewText = { operations: '所有小说的素材、进度与归因表现', library: '按书籍快速取用已完成的文案、视频、海报与追踪链接', completed: '已完成的生产任务与可复用资产', attention: '需要确认、重试或核验的任务' };
   const overviewText = { active: '正在生产中的任务', assets: '已有可直接使用素材的任务', attention: '失败、阻塞、歧义或部分完成的任务' };
@@ -1955,6 +2070,8 @@ function renderDetail() {
   scrim.classList.toggle('open', state.detailOpen && Boolean(run));
   panel.setAttribute('aria-hidden', String(!(state.detailOpen && run)));
   scrim.setAttribute('aria-hidden', String(!(state.detailOpen && run)));
+  // Polling must not rebuild the heavy asset detail while the drawer is closed.
+  if (!state.detailOpen) return;
   if (!run) { panel.innerHTML = `<div class="detail-empty"><i data-lucide="panel-right-open"></i><strong>完整生产链路</strong><span>从历史表现榜选择一本书后，节点会实时显示产物与进度。</span>${idlePipelineHtml()}</div>`; return; }
   if (state.detailError && state.selectedId === run.id && !run._detailPartial) {
     panel.innerHTML = `<div class="detail-empty detail-error-state"><i data-lucide="triangle-alert"></i><strong>任务详情暂时没有打开</strong><span>${escapeHtml(state.detailError)}</span><button id="retryDetail" class="primary-command" type="button"><i data-lucide="refresh-cw"></i><span>重新加载详情</span></button></div>`;
@@ -2060,7 +2177,8 @@ function statusPayloadFingerprint(body) {
   return JSON.stringify({
     runs: (body.runs || []).map((run) => [run.id, run.state, run.updatedAt]),
     capabilities: body.capabilities || {},
-    videoLimit: body.videoLimit || null
+    videoLimit: body.videoLimit || null,
+    runLimit: Number(body.runLimit || state.statusLimit)
   });
 }
 
@@ -2081,7 +2199,7 @@ function renderStatusViews({ rankingChanged = false } = {}) {
 async function loadStatus({ silent = false } = {}) {
   if (state.statusLoading) return state.statusRequest;
   state.statusLoading = true;
-  const request = api('/api/status');
+  const request = api(`/api/status?limit=${state.statusLimit}`);
   state.statusRequest = request;
   try {
     const body = await request;
@@ -2095,6 +2213,7 @@ async function loadStatus({ silent = false } = {}) {
     });
     state.capabilities = body.capabilities || {};
     state.videoLimit = body.videoLimit || null;
+    state.statusLimit = Math.max(12, Math.min(50, Number(body.runLimit || state.statusLimit)));
     if (!state.selectedId || !state.runs.some((run) => run.id === state.selectedId)) state.selectedId = state.runs[0]?.id || '';
     state.statusFingerprint = fingerprint;
     if (changed) saveDashboardSnapshot();
@@ -2106,6 +2225,7 @@ async function loadStatus({ silent = false } = {}) {
   } finally {
     state.statusLoading = false;
     state.statusRequest = null;
+    renderRunLoadMore();
   }
 }
 
@@ -2655,6 +2775,13 @@ $('#previousBooks').addEventListener('click', () => { if (state.leaderboardPage 
 $('#nextBooks').addEventListener('click', () => { const pages = Math.ceil(catalogVisibleBooks().length / 50); if (state.leaderboardPage >= pages) return; state.leaderboardPage += 1; state.leaderboardCoverKey = ''; renderLeaderboard(); loadVisibleCovers(); $('#leaderboardSection').scrollIntoView({ behavior: 'smooth', block: 'start' }); icons(); });
 document.querySelectorAll('#leaderboardSource button').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('#leaderboardSource button').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.leaderboardSource = button.dataset.source; loadLeaderboard(); }));
 $('#runSearch').addEventListener('input', (event) => { state.query = event.target.value; renderRunList(); });
+$('#loadMoreRuns').addEventListener('click', async () => {
+  if (state.statusLimit >= 50 || state.statusLoading) return;
+  showToast('正在加载更早的任务，当前列表保持可用');
+  state.statusLimit = 50;
+  renderRunLoadMore();
+  await loadStatus({ silent: true });
+});
 document.querySelectorAll('[data-overview-filter]').forEach((button) => button.addEventListener('click', () => setOverviewFilter(button.dataset.overviewFilter)));
 document.querySelectorAll('.nav-item').forEach((button) => button.addEventListener('click', () => switchView(button.dataset.view)));
 document.querySelectorAll('#densityControl button').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('#densityControl button').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.density = button.dataset.density; renderRunList(); icons(); }));
@@ -2662,15 +2789,22 @@ document.querySelectorAll('#densityControl button').forEach((button) => button.a
 renderCreativeProfilePreview();
 icons();
 // Render the most recent verified state immediately, then reconcile it in the background.
-if (restoreDashboardSnapshot()) {
+const restoredDashboard = restoreDashboardSnapshot();
+if (restoredDashboard) {
   render();
-  loadVisibleCovers();
-  loadTodayCovers();
 }
 loadStatus();
-loadCreativePlans({ silent: true });
 loadLeaderboard({ silent: true });
-loadTodayRail();
+const loadSecondaryStartup = () => {
+  loadCreativePlans({ silent: true });
+  loadTodayRail();
+  if (restoredDashboard) {
+    loadVisibleCovers();
+    loadTodayCovers();
+  }
+};
+if ('requestIdleCallback' in window) window.requestIdleCallback(loadSecondaryStartup, { timeout: 800 });
+else setTimeout(loadSecondaryStartup, 120);
 let idlePlanPolls = 0;
 function hasLiveBackgroundWork() {
   return state.runs.some((run) => ['queued', 'running'].includes(run.state)) || state.planJobs.some((job) => ['queued', 'running'].includes(job.state));

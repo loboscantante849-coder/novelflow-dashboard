@@ -21,14 +21,18 @@ function discordRuntime() {
     audit: Boolean(process.env.NOVELFLOW_DISCORD_OPERATOR_TOKEN)
   };
 }
+function statusRunLimit(value) {
+  return Math.max(12, Math.min(50, Number(value) || 24));
+}
 module.exports = async (req, res) => {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   if (!requireSession(req, res)) return;
   const redis = getRedis();
   if (!redis) return res.status(503).json({ error: 'Social console storage is not configured' });
   try {
-    const [runs, videoLimit] = await Promise.all([listRunSummaries(redis, 50), videoCapacity(redis)]);
-    return res.status(200).json({ runs, capabilities: {
+    const runLimit = statusRunLimit(req.query?.limit);
+    const [runs, videoLimit] = await Promise.all([listRunSummaries(redis, runLimit), videoCapacity(redis)]);
+    return res.status(200).json({ runs, runLimit, capabilities: {
       storage: true,
       pipeline: Boolean(process.env.NOVELFLOW_OIDC_TOKEN || (process.env.NOVELFLOW_OIDC_USERNAME && process.env.NOVELFLOW_OIDC_PASSWORD)),
       video: Boolean(process.env.NOVELFLOW_AC_TOKEN),
@@ -42,3 +46,4 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'Unable to load social console status' });
   }
 };
+module.exports.statusRunLimit = statusRunLimit;

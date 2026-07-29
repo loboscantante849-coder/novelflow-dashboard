@@ -86,12 +86,12 @@ test('verified metric ranking keeps the intended actions available', () => {
 });
 
 test('unchanged status polling does not rebuild ranking or recommendation views', async () => {
-  const body = { runs: [], capabilities: { storage: true }, videoLimit: { used: 0, limit: 5, remaining: 5 } };
+  const body = { runs: [], capabilities: { storage: true }, videoLimit: { used: 0, limit: 5, remaining: 5 }, runLimit: 24 };
   const calls = { leaderboard: 0, today: 0, statusViews: 0, snapshot: 0 };
   const state = {
     runs: [], capabilities: body.capabilities, videoLimit: body.videoLimit,
-    selectedId: '', detailOpen: false, statusLoading: false, statusRequest: null,
-    statusFingerprint: JSON.stringify({ runs: [], capabilities: body.capabilities, videoLimit: body.videoLimit })
+    selectedId: '', detailOpen: false, statusLoading: false, statusRequest: null, statusLimit: 24,
+    statusFingerprint: JSON.stringify({ runs: [], capabilities: body.capabilities, videoLimit: body.videoLimit, runLimit: 24 })
   };
   const context = {
     state,
@@ -104,6 +104,7 @@ test('unchanged status polling does not rebuild ranking or recommendation views'
     renderLeaderboard() { calls.leaderboard += 1; },
     renderTodayRail() { calls.today += 1; },
     icons() {},
+    renderRunLoadMore() {},
     saveDashboardSnapshot() { calls.snapshot += 1; },
     showApp() {},
     hydrateRunDetail() {}
@@ -206,6 +207,37 @@ test('verified historical candidates remain actionable when the new-book metric 
   ]);
   assert.equal(scored[0].title, 'High revenue');
   assert.ok(scored.every((book) => book.todayScore > 0 && book.todayScore <= 100));
+});
+
+test('historical review translates book-level attribution into four explicit decisions', () => {
+  const context = {
+    state: { windowDays: 7 }, Math, Number,
+    compactNumber: (value) => String(Number(value || 0)),
+    percentage: (value) => `${Number(value || 0)}%`
+  };
+  vm.createContext(context);
+  vm.runInContext(between('const historyDecisionMeta', 'function renderTodayRail('), context);
+  const reviewed = context.historyReviewBooks([
+    { title: 'Strong', pullUv: 200, firstReadRate: 20, d14Income: 20, incomePerUv: .2, confidence: 60, score: 80, assetCount: 3 },
+    { title: 'Weak', pullUv: 50, firstReadRate: 2, d14Income: 0, incomePerUv: .01, confidence: 40, score: 20, assetCount: 2 },
+    { title: 'Mixed', pullUv: 100, firstReadRate: 10, d14Income: 5, incomePerUv: .1, confidence: 20, score: 50, assetCount: 2 },
+    { title: 'Tiny', pullUv: 10, firstReadRate: 1, d14Income: 0, incomePerUv: 0, confidence: 5, score: 10, assetCount: 1 }
+  ]);
+  const decisions = Object.fromEntries(reviewed.map((book) => [book.title, book.review.decision]));
+  assert.deepEqual(decisions, { Strong: 'reinvest', Mixed: 'observe', Weak: 'pause', Tiny: 'insufficient' });
+  assert.match(reviewed[0].review.basis, /书汇总/);
+  assert.match(reviewed[0].review.basis, /留存未接入，不参与判断/);
+});
+
+test('closed task drawer does not rebuild hidden asset detail during polling', () => {
+  const panel = { innerHTML: 'keep-existing-detail', classList: { toggle() {} }, setAttribute() {}, querySelector() { return null; }, querySelectorAll() { return []; } };
+  const scrim = { classList: { toggle() {} }, setAttribute() {} };
+  const state = { runs: [{ id: 'run-1', _summary: false, input: {}, artifacts: {}, stages: {} }], selectedId: 'run-1', detailOpen: false };
+  const context = { state, $: (selector) => selector === '#detailPanel' ? panel : scrim, Boolean, String };
+  vm.createContext(context);
+  vm.runInContext(between('function renderDetail()', 'function render()'), context);
+  context.renderDetail();
+  assert.equal(panel.innerHTML, 'keep-existing-detail');
 });
 
 test('catalog outage automatically opens the clearly labelled verified review queue instead of an empty main ranking', () => {
