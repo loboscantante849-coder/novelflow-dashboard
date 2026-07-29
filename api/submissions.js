@@ -1,17 +1,46 @@
 /**
  * GET /api/submissions
- * Returns submission list from KV.
- * Admin key → full data. No key → public-safe fields only.
+ * Administrative export of submission records from Redis.
  */
+
+'use strict';
+
 const { setCORSHeaders } = require('./_lib/cors');
-const { checkAdminKey } = require('./_lib/security');
-const { Redis } = require('@upstash/redis');
+const {
+  checkAdminKey,
+  getAuthPayload,
+  getRedis,
+  isAdminUser,
+  isDisabledUser,
+} = require('./_lib/security');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
+  if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+  const hasAdminKey = checkAdminKey(req);
+  const payload = hasAdminKey ? null : getAuthPayload(req);
+  const username = String(payload && payload.username || '').trim().toLowerCase();
+  if (!hasAdminKey && !username) {
+    return res.status(401).json({ error: 'Admin authentication required' });
+  }
+
+  const redis = getRedis();
+  if (!redis) return res.status(503).json({ error: 'Service temporarily unavailable' });
+
+  if (!hasAdminKey) {
+    try {
+      if (await isDisabledUser(redis, username, { failClosed: true })) {
+        return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+      }
+      if (!await isAdminUser(redis, username, { failClosed: true })) {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+    } catch (_error) {
+      return res.status(503).json({ error: 'Service temporarily unavailable' });
+    }
+  }
 
   try {
     const allEntries = await redis.hgetall('nf_subs');
@@ -19,34 +48,18 @@ module.exports = async (req, res) => {
       return res.status(200).json([]);
     }
 
-    let submissions = [];
-    for (const [key, v] of Object.entries(allEntries)) {
-      if (v) {
-        try { submissions.push(typeof v === 'string' ? JSON.parse(v) : v); }
-        catch (e) { /* skip */ }
+    const submissions = [];
+    for (const value of Object.values(allEntries)) {
+      if (!value) continue;
+      try {
+        submissions.push(typeof value === 'string' ? JSON.parse(value) : value);
+      } catch (_error) {
+        // Skip malformed legacy rows without preventing an administrative export.
       }
     }
-
-    // Check admin key (timing-safe, header only)
-    const isAdmin = checkAdminKey(req);
-
-    if (isAdmin) {
-      return res.status(200).json(submissions);
-    }
-
-    // Public: safe fields only
-    const safe = submissions.map(s => ({
-      bookName: s.bookName,
-      matchedBookName: s.matchedBookName,
-      status: s.status,
-      submittedAt: s.submittedAt,
-      link: s.link,
-      lang: s.lang
-    }));
-    return res.status(200).json(safe);
-
-  } catch (error) {
-    console.error('[submissions] Error:', error);
+    return res.status(200).json(submissions);
+  } catch (_error) {
+    console.error('[submissions] Redis read failed');
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

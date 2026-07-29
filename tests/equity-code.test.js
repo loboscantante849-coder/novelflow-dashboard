@@ -70,6 +70,26 @@ test('rejects disabled accounts and arbitrary book ids', async () => {
   assert.equal(invalid.body.code, 'INVALID_BOOK');
 });
 
+test('fails closed when account status or rate-limit state is unavailable', async () => {
+  FakeRedis.error = new Error('temporary account-status failure');
+  const accountUnknown = await invoke(equityCode, authenticated({ bookId: BOOK_ID }));
+  assert.equal(accountUnknown.statusCode, 503);
+  assert.equal(accountUnknown.body.code, 'ACCOUNT_STATUS_UNAVAILABLE');
+
+  FakeRedis.reset({ 'nf_user_data:alice': JSON.stringify({}) });
+  const originalIncr = FakeRedis.prototype.incr;
+  FakeRedis.prototype.incr = async function incrUnavailable() {
+    throw new Error('temporary rate-limit failure');
+  };
+  try {
+    const rateUnknown = await invoke(equityCode, authenticated({ bookId: BOOK_ID }));
+    assert.equal(rateUnknown.statusCode, 503);
+    assert.equal(rateUnknown.body.code, 'RATE_LIMIT_UNAVAILABLE');
+  } finally {
+    FakeRedis.prototype.incr = originalIncr;
+  }
+});
+
 test('creates one Facebook 1-Day VIP code for a verified SKU with a seven-day window', async () => {
   const calls = [];
   global.fetch = successFetch(calls);

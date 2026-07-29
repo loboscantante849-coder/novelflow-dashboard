@@ -7,6 +7,7 @@ const AC_BASE = 'https://ac.beidou.win/api/v1';
 
 const { setCORSHeaders } = require('./_lib/cors');
 const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
+const { isLegacyAcRemarkOwnedBy } = require('./_lib/ac-ownership');
 
 const AC_OWNER_TTL_SECONDS = 180 * 86400;
 
@@ -53,8 +54,6 @@ module.exports = async (req, res) => {
     return res.status(503).json({ error: 'Account status unavailable', code: e.code || 'ACCOUNT_STATUS_UNAVAILABLE' });
   }
 
-  const prefix = 'nf_' + currentUser + '_';
-
   const clientPs = Math.max(5, Math.min(parseInt(req.query.pageSize) || 50, 100));
   const clientPi = Math.max(1, parseInt(req.query.pageIndex) || 1);
   const TARGET_USER_REELS = 50;
@@ -91,7 +90,9 @@ module.exports = async (req, res) => {
       if (!data || !Array.isArray(data.items)) break;
       if (pi === 1) { acTotal = data.total || 0; }
 
-      const matching = data.items.filter(it => it && it.remark && String(it.remark).startsWith(prefix));
+      const matching = data.items.filter(item => (
+        item && isLegacyAcRemarkOwnedBy(item.remark, currentUser)
+      ));
       allItems.push(...matching);
 
       if (allItems.length >= TARGET_USER_REELS) break;

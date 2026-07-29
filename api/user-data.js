@@ -9,7 +9,7 @@
  * Use /api/rewards for all reward/balance mutations.
  */
 const { handlePreflight } = require('./_lib/cors');
-const { verifyJWT } = require('./_lib/jwt');
+const { verifyAccessToken } = require('./_lib/jwt');
 const { Redis } = require('@upstash/redis');
 const { mergeBookState } = require('./_lib/sync');
 const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
@@ -23,12 +23,12 @@ function getUserFromRequest(req) {
   const cookieHeader = req.headers.cookie || '';
   const match = cookieHeader.match(/nf_token=([^;]+)/);
   if (match) {
-    const payload = verifyJWT(match[1]);
+    const payload = verifyAccessToken(match[1]);
     if (payload && payload.username) return payload.username;
   }
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    const payload = verifyJWT(authHeader.slice(7));
+    const payload = verifyAccessToken(authHeader.slice(7));
     if (payload && payload.username) return payload.username;
   }
   return null;

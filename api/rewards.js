@@ -113,9 +113,13 @@ module.exports = async (req, res) => {
   const clientIp = getClientIp(req);
   const userKey = `nf_rate:rewards:${username}`;
   const ipKey = `nf_rate:rewards_ip:${clientIp}`;
-  if (!await checkRateLimit(redis, userKey, PER_USER_ACTION_LIMIT, RATE_WINDOW) ||
-      !await checkRateLimit(redis, ipKey, 30, RATE_WINDOW)) {
-    return res.status(429).json({ error: 'Too many requests', code: 'RATE_LIMITED' });
+  try {
+    if (!await checkRateLimit(redis, userKey, PER_USER_ACTION_LIMIT, RATE_WINDOW, { failClosed: true }) ||
+        !await checkRateLimit(redis, ipKey, 30, RATE_WINDOW, { failClosed: true })) {
+      return res.status(429).json({ error: 'Too many requests', code: 'RATE_LIMITED' });
+    }
+  } catch (_error) {
+    return res.status(503).json({ error: 'Service temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
   }
 
   const { action } = req.body || {};

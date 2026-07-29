@@ -12,8 +12,8 @@
 const { handlePreflight } = require('./_lib/cors');
 const { bookstoreFetch } = require('./_lib/bookstore-fetch');
 const {
-  getRedis, getClientIp, getAuthPayload, checkRateLimit,
-  validateString, stripHtml, isAdminUser,
+  getClientIp, getAuthPayload, checkRateLimit,
+  validateString, stripHtml, isDisabledUser,
 } = require('./_lib/security');
 const { normalizeRedisKey } = require('./_lib/redis-values');
 const { Redis } = require('@upstash/redis');
@@ -27,7 +27,6 @@ const STARTING_CODE = 1000;
 const MAX_CODE = 99999;
 
 // Rate limits
-const ANON_IP_LIMIT = 5;
 const AUTH_IP_LIMIT = 50;
 const USER_DAILY_LIMIT = 50;
 const RATE_WINDOW = 3600; // 1h for IP
@@ -146,10 +145,11 @@ async function findExistingForBook(redis, username, bookId) {
         }
       }
     }
+    return null;
   } catch (e) {
     console.error('[confirm] findExistingForBook error:', e.message);
+    throw e;
   }
-  return null;
 }
 
 async function releaseConfirmLock(redis, key, submissionId) {
@@ -167,41 +167,39 @@ module.exports = async (req, res) => {
   if (handlePreflight(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const redis = redisClient();
-
   // -------- AUTH (C-02) --------
   const payload = getAuthPayload(req);
-  let username = null;
-  let isAdmin = false;
-  const clientIp = getClientIp(req);
-
-  if (payload) {
-    username = payload.username;
-    isAdmin = await isAdminUser(redis, username);
-  }
-
-  // IP-based rate limit (H-04)
-  const ipKey = `nf_rate:confirm_ip:${clientIp}`;
-  const ipLimit = payload ? AUTH_IP_LIMIT : ANON_IP_LIMIT;
-  if (!await checkRateLimit(redis, ipKey, ipLimit, RATE_WINDOW)) {
-    return res.status(429).json({ error: 'Too many requests. Try again later.', code: 'RATE_LIMITED' });
-  }
-
-  if (!payload) {
+  const username = String(payload && payload.username || '').trim();
+  if (!payload || !username) {
     return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
   }
 
+  // Code allocation, deduplication, ownership checks, and rate limits all
+  // depend on Redis. Never create upstream records without those safeguards.
+  const redis = redisClient();
+  if (!redis) {
+    return res.status(503).json({ error: 'Service temporarily unavailable', code: 'STORAGE_UNAVAILABLE' });
+  }
+
+  const clientIp = getClientIp(req);
+
+  // IP-based rate limit (H-04)
+  const ipKey = `nf_rate:confirm_ip:${clientIp}`;
+  try {
+    if (!await checkRateLimit(redis, ipKey, AUTH_IP_LIMIT, RATE_WINDOW, { failClosed: true })) {
+      return res.status(429).json({ error: 'Too many requests. Try again later.', code: 'RATE_LIMITED' });
+    }
+  } catch (_error) {
+    return res.status(503).json({ error: 'Service temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
+  }
+
   // Disabled account check
-  if (redis) {
-    try {
-      const selfData = await redis.get('nf_user_data:' + String(username).toLowerCase());
-      if (selfData) {
-        const parsed = typeof selfData === 'string' ? JSON.parse(selfData) : selfData;
-        if (parsed && parsed.disabled) {
-          return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
-        }
-      }
-    } catch {}
+  try {
+    if (await isDisabledUser(redis, username, { failClosed: true })) {
+      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    }
+  } catch (_error) {
+    return res.status(503).json({ error: 'Service temporarily unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
   }
 
   // -------- SCHEMA VALIDATION (M-05) --------
@@ -234,32 +232,36 @@ module.exports = async (req, res) => {
   let existingCode = null;
   let existingLink = null;
   let existingLinkId = null;
-  if (redis) {
-    try {
-      const cached = await redis.get(dedupKey);
-      if (cached) {
-        try {
-          const c = typeof cached === 'string' ? JSON.parse(cached) : cached;
-          if (c && (c.code || c.pending)) {
-            if (c.pending) {
-              return res.status(200).json({
-                success: true,
-                status: 'pending',
-                submissionId: c.submissionId || null,
-                matchedBookName: cleanBookTitle || cleanBookName,
-                message: 'Link is being created for this book'
-              });
-            }
-            existingCode = String(c.code); existingLink = c.link || null; existingLinkId = c.linkId || null;
+  try {
+    const cached = await redis.get(dedupKey);
+    if (cached) {
+      try {
+        const c = typeof cached === 'string' ? JSON.parse(cached) : cached;
+        if (c && (c.code || c.pending)) {
+          if (c.pending) {
+            return res.status(200).json({
+              success: true,
+              status: 'pending',
+              submissionId: c.submissionId || null,
+              matchedBookName: cleanBookTitle || cleanBookName,
+              message: 'Link is being created for this book'
+            });
           }
-        } catch { if (typeof cached === 'string' && /^\d+$/.test(cached)) existingCode = cached; }
-      }
-    } catch {}
+          existingCode = String(c.code); existingLink = c.link || null; existingLinkId = c.linkId || null;
+        }
+      } catch { if (typeof cached === 'string' && /^\d+$/.test(cached)) existingCode = cached; }
+    }
+  } catch (_error) {
+    return res.status(503).json({ error: 'Service temporarily unavailable', code: 'DEDUP_UNAVAILABLE' });
   }
   // Fallback: scan-based lookup (for entries created before dedupKey was added)
   if (!existingCode) {
-    const existing = await findExistingForBook(redis, cleanUsername, bookId);
-    if (existing) { existingCode = existing.code; existingLink = existing.link; existingLinkId = existing.linkId; }
+    try {
+      const existing = await findExistingForBook(redis, cleanUsername, bookId);
+      if (existing) { existingCode = existing.code; existingLink = existing.link; existingLinkId = existing.linkId; }
+    } catch (_error) {
+      return res.status(503).json({ error: 'Service temporarily unavailable', code: 'DEDUP_UNAVAILABLE' });
+    }
   }
   if (existingCode) {
     return res.status(200).json({
@@ -273,10 +275,14 @@ module.exports = async (req, res) => {
   }
 
   // Per-user daily cap (only counted for NEW submissions, not dedup hits)
-  if (redis) {
+  {
     const userDailyKey = `nf_rate:confirm_user:${cleanUsername.toLowerCase()}:${new Date().toISOString().slice(0,10)}`;
-    if (!await checkRateLimit(redis, userDailyKey, USER_DAILY_LIMIT, DAILY_WINDOW)) {
-      return res.status(429).json({ error: 'Daily limit reached (50/day)', code: 'DAILY_LIMIT' });
+    try {
+      if (!await checkRateLimit(redis, userDailyKey, USER_DAILY_LIMIT, DAILY_WINDOW, { failClosed: true })) {
+        return res.status(429).json({ error: 'Daily limit reached (50/day)', code: 'DAILY_LIMIT' });
+      }
+    } catch (_error) {
+      return res.status(503).json({ error: 'Service temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
     }
   }
 
@@ -312,8 +318,8 @@ module.exports = async (req, res) => {
         });
       }
       confirmLockOwned = true;
-    } catch (error) {
-      console.error('[confirm] lock acquisition failed:', error.message);
+    } catch (_error) {
+      return res.status(503).json({ error: 'Service temporarily unavailable', code: 'LOCK_UNAVAILABLE' });
     }
   }
 

@@ -1,7 +1,16 @@
 const { setCORSHeaders } = require('./_lib/cors')
 const { bookstoreFetch } = require('./_lib/bookstore-fetch');
+const {
+  checkRateLimit,
+  getAuthPayload,
+  getClientIp,
+  getRedis,
+  isDisabledUser,
+} = require('./_lib/security');
 
 const SUBMIT_DEADLINE_MS = 24000;
+const SUBMIT_USER_LIMIT_PER_MINUTE = 12;
+const SUBMIT_IP_LIMIT_PER_MINUTE = 30;
 
 async function withDeadline(promise, timeoutMs) {
   let timer;
@@ -21,9 +30,38 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const payload = getAuthPayload(req);
+  const username = String(payload && payload.username || '').trim().toLowerCase();
+  if (!username) {
+    return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+  }
+
+  const redis = getRedis();
+  if (!redis) {
+    return res.status(503).json({ error: 'Service temporarily unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
+  }
+  try {
+    if (await isDisabledUser(redis, username, { failClosed: true })) {
+      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    }
+    const clientIp = getClientIp(req);
+    const [userAllowed, ipAllowed] = await Promise.all([
+      checkRateLimit(redis, `nf_rate:submit_user:${username}`, SUBMIT_USER_LIMIT_PER_MINUTE, 60, { failClosed: true }),
+      checkRateLimit(redis, `nf_rate:submit_ip:${clientIp}`, SUBMIT_IP_LIMIT_PER_MINUTE, 60, { failClosed: true }),
+    ]);
+    if (!userAllowed || !ipAllowed) {
+      return res.status(429).json({ error: 'Too many requests', code: 'RATE_LIMITED' });
+    }
+  } catch (_error) {
+    return res.status(503).json({ error: 'Service temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
+  }
+
   const { bookName, lang = 'en' } = req.body || {};
   if (typeof bookName !== 'string' || !bookName.trim() || bookName.length > 200) {
     return res.status(400).json({ error: 'bookName must be a non-empty string up to 200 characters' });
+  }
+  if (lang !== 'en' && lang !== 'es') {
+    return res.status(400).json({ error: 'lang must be en or es' });
   }
 
   const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage';
@@ -39,7 +77,7 @@ module.exports = async (req, res) => {
       SUBMIT_DEADLINE_MS,
     );
 
-    console.log(`[v20250515] [${lang}] Search for "${bookName}" found ${candidates.length} candidates`);
+    console.log(`[submit] [${lang}] Search returned ${candidates.length} candidates`);
 
     // Return candidates to frontend for user confirmation
     // Data will only be persisted when user confirms in /api/confirm

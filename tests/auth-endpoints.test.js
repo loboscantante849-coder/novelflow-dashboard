@@ -17,7 +17,9 @@ const register = require('../api/auth/register');
 const withdrawals = require('../api/withdrawals');
 const userData = require('../api/user-data');
 const rewards = require('../api/rewards');
-const { signAccessToken, verifyJWT } = require('../api/_lib/auth');
+const claimLinks = require('../api/claim-links');
+const setPassword = require('../api/auth/set-password');
+const { signAccessToken, signRefreshToken, verifyJWT } = require('../api/_lib/auth');
 const { legacyPasswordHash } = require('../api/_lib/password');
 
 function signRaw(payload, secret) {
@@ -133,6 +135,31 @@ test('refresh migrates a previous-secret session to current-secret cookies', asy
   }
 });
 
+test('refresh tokens cannot authenticate access-protected endpoints', async () => {
+  const refreshToken = signRefreshToken({ type: 'local', username: 'alice' });
+  const bearerHeaders = { authorization: `Bearer ${refreshToken}` };
+  const cookieHeaders = { cookie: `nf_token=${refreshToken}` };
+
+  const sync = await invoke(userData, { method: 'GET', headers: bearerHeaders });
+  const reward = await invoke(rewards, {
+    method: 'POST', headers: bearerHeaders, body: { action: 'checkin' },
+  });
+  const claim = await invoke(claimLinks, {
+    method: 'POST', headers: bearerHeaders, body: { codes: ['10001'] },
+  });
+  const password = await invoke(setPassword, {
+    method: 'POST', headers: cookieHeaders, body: { password: 'Password2' },
+  });
+  const session = await invoke(me, { method: 'GET', headers: cookieHeaders });
+
+  assert.equal(sync.statusCode, 401);
+  assert.equal(reward.statusCode, 401);
+  assert.equal(claim.statusCode, 401);
+  assert.equal(password.statusCode, 401);
+  assert.equal(session.statusCode, 200);
+  assert.equal(session.body.loggedIn, false);
+});
+
 test('disabled accounts are rejected by session checks and withdrawals', async () => {
   FakeRedis.reset({
     'nf_user_data:alice': JSON.stringify({ disabled: true, accountType: 'admin', withdrawals: [] }),
@@ -151,6 +178,28 @@ test('disabled accounts are rejected by session checks and withdrawals', async (
   });
   assert.equal(payout.statusCode, 403);
   assert.equal(payout.body.code, 'ACCOUNT_DISABLED');
+});
+
+test('session validation fails closed without clearing cookies during an account-status outage', async () => {
+  const accessToken = signAccessToken({ type: 'local', username: 'alice' });
+  const refreshToken = signRefreshToken({ type: 'local', username: 'alice' });
+  delete process.env.KV_REST_API_URL;
+
+  const session = await invoke(me, {
+    method: 'GET',
+    headers: { cookie: `nf_token=${accessToken}` },
+  });
+  assert.equal(session.statusCode, 503);
+  assert.equal(session.body.code, 'ACCOUNT_STATUS_UNAVAILABLE');
+  assert.equal(session.headers['set-cookie'], undefined);
+
+  const renewed = await invoke(refresh, {
+    method: 'POST',
+    headers: { cookie: `nf_refresh=${refreshToken}` },
+  });
+  assert.equal(renewed.statusCode, 503);
+  assert.equal(renewed.body.code, 'ACCOUNT_STATUS_UNAVAILABLE');
+  assert.equal(renewed.headers['set-cookie'], undefined);
 });
 
 test('disabled local accounts cannot receive a fresh login session', async () => {

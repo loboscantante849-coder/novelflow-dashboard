@@ -6,12 +6,12 @@ const AC_BASE = 'https://ac.beidou.win/api/v1';
 
 const { setCORSHeaders } = require('./_lib/cors');
 const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
+const { isLegacyAcRemarkOwnedBy } = require('./_lib/ac-ownership');
 
 const AC_OWNER_TTL_SECONDS = 180 * 86400;
 const LEGACY_LOOKUP_MAX_PAGES = 30;
 
 async function restoreLegacyTaskOwnership({ redis, token, threadId, username }) {
-  const prefix = `nf_${username}_`;
   for (let pageIndex = 1; pageIndex <= LEGACY_LOOKUP_MAX_PAGES; pageIndex += 1) {
     const response = await fetch(`${AC_BASE}/creative/paged-list?PageSize=100&PageIndex=${pageIndex}`, {
       headers: { 'Authorization': `Bearer ${token}`, 'x-client': 'beidou-web', 'X-Project-Id': '1006' },
@@ -22,7 +22,7 @@ async function restoreLegacyTaskOwnership({ redis, token, threadId, username }) 
     const ownedTask = items.some((item) => (
       item &&
       String(item.thread_id || item.threadId || item.id || '') === String(threadId) &&
-      String(item.remark || '').startsWith(prefix)
+      isLegacyAcRemarkOwnedBy(item.remark, username)
     ));
     if (ownedTask) {
       await redis.set(`ac_thread_owner:${threadId}`, username, { ex: AC_OWNER_TTL_SECONDS });

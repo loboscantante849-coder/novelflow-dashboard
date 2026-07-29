@@ -16,16 +16,18 @@ const {
 
 const { setCORSHeaders } = require('../_lib/cors');
 const { getRedis, isDisabledUser } = require('../_lib/security');
+const {
+  OAUTH_STATE_COOKIE,
+  clearOAuthStateCookie,
+  readCookie,
+  statesMatch,
+} = require('../_lib/oauth-state');
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1504779503237333033';
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 
-function getRedirectUri(req) {
-  if (req.headers.host) {
-    const proto = req.headers['x-forwarded-proto'] || 'https';
-    return proto + '://' + req.headers.host + '/api/auth/callback';
-  }
-  return 'https://novelflow-dashboard.vercel.app/api/auth/callback';
+function getRedirectUri() {
+  return process.env.DISCORD_REDIRECT_URI || 'https://novelflow.top/api/auth/callback';
 }
 
 module.exports = async (req, res) => {
@@ -33,6 +35,14 @@ module.exports = async (req, res) => {
 
   var code = req.query.code;
   var oauthError = req.query.error;
+  var receivedState = req.query.state;
+  var expectedState = readCookie(req, OAUTH_STATE_COOKIE);
+
+  clearOAuthStateCookie(res);
+
+  if (!statesMatch(expectedState, receivedState)) {
+    return res.redirect('/app-v2?auth=error');
+  }
 
   if (oauthError) {
     return res.redirect('/app-v2?auth=cancelled');
@@ -48,7 +58,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    var REDIRECT_URI = getRedirectUri(req);
+    var REDIRECT_URI = getRedirectUri();
     
     var tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
       method: 'POST',
@@ -81,7 +91,14 @@ module.exports = async (req, res) => {
     var userData = await userResponse.json();
 
     var redis = getRedis();
-    if (!redis || await isDisabledUser(redis, userData.username)) {
+    if (!redis) {
+      return res.redirect('/app-v2?auth=error');
+    }
+    try {
+      if (await isDisabledUser(redis, userData.username, { failClosed: true })) {
+        return res.redirect('/app-v2?auth=error');
+      }
+    } catch (_error) {
       return res.redirect('/app-v2?auth=error');
     }
 
@@ -98,6 +115,7 @@ module.exports = async (req, res) => {
     var userInfo = extractUserInfo(userPayload);
 
     setAuthCookies(res, accessToken, refreshToken, userInfo);
+    clearOAuthStateCookie(res);
 
     return res.redirect('/app-v2?auth=success');
 

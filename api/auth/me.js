@@ -31,9 +31,17 @@ module.exports = async (req, res) => {
 
     if (payload && !payload._refresh) {
       const userInfo = extractUserInfo(payload);
-      if (await isDisabledUser(getRedis(), payload.username)) {
-        clearAuthCookies(res);
-        return res.status(403).json({ loggedIn: false, code: 'ACCOUNT_DISABLED' });
+      const redis = getRedis();
+      if (!redis) {
+        return res.status(503).json({ loggedIn: false, code: 'ACCOUNT_STATUS_UNAVAILABLE' });
+      }
+      try {
+        if (await isDisabledUser(redis, payload.username, { failClosed: true })) {
+          clearAuthCookies(res);
+          return res.status(403).json({ loggedIn: false, code: 'ACCOUNT_DISABLED' });
+        }
+      } catch (_error) {
+        return res.status(503).json({ loggedIn: false, code: 'ACCOUNT_STATUS_UNAVAILABLE' });
       }
       // Valid access token
       return res.status(200).json({

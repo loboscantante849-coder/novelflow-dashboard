@@ -1,65 +1,78 @@
 /**
- * AC Token KV Store - Admin Only
- * Uses Upstash Redis to persist and auto-rotate AC tokens
- * 
- * POST /api/ac-kv  - Set token: { action: 'set', token: 'xxx' } (requires x-admin-key header)
- * GET  /api/ac-kv  - Health check only (never exposes token value)
+ * AC token storage. Token writes require x-admin-key; health reads also require
+ * either that key or an authenticated Redis-backed admin account.
  */
 
-const { Redis } = require('@upstash/redis');
-const crypto = require('crypto');
+'use strict';
+
 const { setCORSHeaders } = require('./_lib/cors');
+const {
+  checkAdminKey,
+  getAuthPayload,
+  getRedis,
+  isAdminUser,
+  isDisabledUser,
+} = require('./_lib/security');
 
-function getRedis() {
-  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
-  return new Redis({
-    url: process.env.KV_REST_API_URL,
-    token: process.env.KV_REST_API_TOKEN,
-  });
-}
-
-// Timing-safe admin key check; only accepts x-admin-key header (no body/query)
-function isAdmin(req) {
-  const adminKey = process.env.ADMIN_KEY;
-  if (!adminKey) return false;
-  const provided = req.headers['x-admin-key'];
-  if (!provided || typeof provided !== 'string') return false;
-  const bufA = Buffer.from(provided);
-  const bufB = Buffer.from(adminKey);
-  if (bufA.length !== bufB.length) return false;
-  return crypto.timingSafeEqual(bufA, bufB);
+async function authorizeRead(redis, username) {
+  try {
+    if (await isDisabledUser(redis, username, { failClosed: true })) {
+      return { ok: false, status: 403, error: 'Account disabled', code: 'ACCOUNT_DISABLED' };
+    }
+    if (!await isAdminUser(redis, username, { failClosed: true })) {
+      return { ok: false, status: 403, error: 'Admin access required' };
+    }
+    return { ok: true };
+  } catch (_error) {
+    return { ok: false, status: 503, error: 'Service temporarily unavailable' };
+  }
 }
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  if (req.method === 'POST' && !checkAdminKey(req)) {
+    return res.status(403).json({ error: 'Admin key required' });
+  }
+
+  const hasAdminKey = checkAdminKey(req);
+  const payload = req.method === 'GET' && !hasAdminKey ? getAuthPayload(req) : null;
+  const username = String(payload && payload.username || '').trim().toLowerCase();
+  if (req.method === 'GET' && !hasAdminKey && !username) {
+    return res.status(401).json({ error: 'Admin authentication required' });
+  }
 
   const redis = getRedis();
-  if (!redis) {
-    return res.status(503).json({ error: 'Upstash Redis not configured' });
-  }
+  if (!redis) return res.status(503).json({ error: 'Service temporarily unavailable' });
 
   if (req.method === 'GET') {
+    const authorization = hasAdminKey ? { ok: true } : await authorizeRead(redis, username);
+    if (!authorization.ok) {
+      return res.status(authorization.status).json({
+        error: authorization.error,
+        ...(authorization.code ? { code: authorization.code } : {}),
+      });
+    }
     try {
       const token = await redis.get('ac_token');
-      return res.status(200).json({ configured: !!token, status: 'ok' });
-    } catch (e) {
-      return res.status(200).json({ configured: false, status: 'error' });
+      return res.status(200).json({ configured: Boolean(token), status: 'ok' });
+    } catch (_error) {
+      return res.status(503).json({ error: 'Service temporarily unavailable' });
     }
   }
 
-  if (req.method === 'POST') {
-    if (!isAdmin(req)) {
-      return res.status(403).json({ error: 'Admin key required. Set x-admin-key header.' });
-    }
-    
-    const { action, token } = req.body || {};
-    if (action === 'set' && token && typeof token === 'string') {
-      await redis.set('ac_token', token);
-      return res.status(200).json({ success: true, message: 'Token saved' });
-    }
-    return res.status(400).json({ error: 'Invalid action. Use {action:"set", token:"xxx"}' });
+  const { action, token } = req.body || {};
+  if (action !== 'set' || typeof token !== 'string' || token.length < 1 || token.length > 8192) {
+    return res.status(400).json({ error: 'Invalid request' });
   }
-
-  return res.status(405).json({ error: 'Method not allowed' });
+  try {
+    await redis.set('ac_token', token);
+    return res.status(200).json({ success: true, message: 'Token saved' });
+  } catch (_error) {
+    return res.status(503).json({ error: 'Service temporarily unavailable' });
+  }
 };

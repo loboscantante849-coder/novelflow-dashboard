@@ -18,6 +18,7 @@ const acInterrupt = require('../api/ac-interrupt');
 const acList = require('../api/ac-list');
 const acResult = require('../api/ac-result');
 const acRefresh = require('../api/ac-refresh');
+const { isLegacyAcRemarkOwnedBy } = require('../api/_lib/ac-ownership');
 
 function authHeaders(username) {
   return { authorization: `Bearer ${signAccessToken({ username })}` };
@@ -37,6 +38,13 @@ test.beforeEach(() => {
   process.env.KV_REST_API_URL = 'https://redis.invalid';
   process.env.KV_REST_API_TOKEN = 'test-token';
   process.env.AC_TOKEN = 'test-ac-token';
+});
+
+test('legacy AC remarks require an exact owner before the numeric timestamp', () => {
+  assert.equal(isLegacyAcRemarkOwnedBy('nf_ann_1700000000000', 'ann'), true);
+  assert.equal(isLegacyAcRemarkOwnedBy('nf_ann_x_1700000000000', 'ann_x'), true);
+  assert.equal(isLegacyAcRemarkOwnedBy('nf_ann_x_1700000000000', 'ann'), false);
+  assert.equal(isLegacyAcRemarkOwnedBy('nf_ann_not-a-timestamp', 'ann'), false);
 });
 
 test('disabled accounts cannot create or upload AC work', async () => {
@@ -154,6 +162,66 @@ test('AC list hydrates result ownership for every signed user reel', async () =>
     assert.equal(listed.statusCode, 200);
     assert.equal(FakeRedis.values.get(`ac_thread_owner:${threadId}`), username);
     assert.equal(FakeRedis.expiries.get(`ac_thread_owner:${threadId}`), 180 * 86400);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('AC list excludes another user whose name shares the current user prefix', async () => {
+  const originalFetch = global.fetch;
+  const username = 'ann';
+  const ownThreadId = 'ann-thread';
+  const collidingThreadId = 'ann-x-thread';
+  global.fetch = async () => response({
+    pageCount: 1,
+    items: [
+      { thread_id: ownThreadId, remark: 'nf_ann_1700000000000' },
+      { thread_id: collidingThreadId, remark: 'nf_ann_x_1700000000000' },
+    ],
+  });
+  try {
+    FakeRedis.reset({
+      [`nf_user_data:${username}`]: JSON.stringify({}),
+      ac_token: 'test-ac-token',
+    });
+    const listed = await invoke(acList, { method: 'GET', headers: authHeaders(username) });
+
+    assert.equal(listed.statusCode, 200);
+    assert.deepEqual(listed.body.data.items.map(item => item.thread_id), [ownThreadId]);
+    assert.equal(FakeRedis.values.get(`ac_thread_owner:${ownThreadId}`), username);
+    assert.equal(FakeRedis.values.has(`ac_thread_owner:${collidingThreadId}`), false);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('legacy result ownership cannot be restored from a colliding username prefix', async () => {
+  const originalFetch = global.fetch;
+  const username = 'ann';
+  const threadId = 'ann-x-thread';
+  let resultCalls = 0;
+  global.fetch = async (url) => {
+    if (String(url).includes('/creative/paged-list')) {
+      return response({
+        pageCount: 1,
+        items: [{ thread_id: threadId, remark: 'nf_ann_x_1700000000000' }],
+      });
+    }
+    resultCalls += 1;
+    return response({ final_result: [] });
+  };
+  try {
+    FakeRedis.reset({
+      [`nf_user_data:${username}`]: JSON.stringify({}),
+      ac_token: 'test-ac-token',
+    });
+    const result = await invoke(acResult, {
+      method: 'GET', headers: authHeaders(username), query: { threadId },
+    });
+
+    assert.equal(result.statusCode, 403);
+    assert.equal(resultCalls, 0);
+    assert.equal(FakeRedis.values.has(`ac_thread_owner:${threadId}`), false);
   } finally {
     global.fetch = originalFetch;
   }

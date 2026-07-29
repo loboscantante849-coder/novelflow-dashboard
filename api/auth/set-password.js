@@ -7,7 +7,7 @@
  *  - Do NOT set Access-Control-Allow-Credentials (M-01)
  */
 const { handlePreflight } = require('../_lib/cors');
-const { verifyJWT } = require('../_lib/jwt');
+const { verifyAccessToken } = require('../_lib/jwt');
 const { Redis } = require('@upstash/redis');
 const { createPasswordHash, verifyPassword } = require('../_lib/password');
 const { isDisabledUser } = require('../_lib/security');
@@ -37,7 +37,7 @@ module.exports = async (req, res) => {
 
     const token = cookies['nf_token'];
     if (!token) return res.status(401).json({ error: 'Not logged in' });
-    const payload = verifyJWT(token);
+    const payload = verifyAccessToken(token);
     if (!payload) return res.status(401).json({ error: 'Invalid session' });
 
     const username = String(payload.username).toLowerCase();

@@ -4,6 +4,16 @@
  */
 
 const REELS_DAILY_LIMIT = 7;
+const REELS_IP_DAILY_LIMIT = 30;
+const REELS_COUNTER_TTL_SECONDS = 172800;
+const AC_REQUEST_TIMEOUT_MS = 25000;
+const ALLOWED_TEMPLATES = new Set([
+  'Ad_Plot_Video_V3', 'PPT_Porn', 'Ad_Plot_Video_V2', 'Dialogue',
+  'PPT_Multi', 'Comic', 'PPT_Porn_Loop_Video', 'Ad_Plot_Seedance',
+  'Digital', 'Extract',
+]);
+const ALLOWED_LANGUAGES = new Set(['English', 'Spanish']);
+const ALLOWED_ASPECT_RATIOS = new Set(['9:16']);
 
 function getLADateString() {
   const now = new Date();
@@ -14,21 +24,72 @@ function getLADateString() {
   return y + '-' + m + '-' + d;
 }
 
-async function getReelsCount(redis, username, today) {
-  const key = 'reels_count_v2:' + username + ':' + today;
-  const val = await redis.get(key);
-  return parseInt(val) || 0;
-}
-
-async function setReelsCount(redis, username, today, count) {
-  const key = 'reels_count_v2:' + username + ':' + today;
-  await redis.set(key, count, { ex: 172800 });
+async function reserveDailySlot(redis, key) {
+  const count = await redis.incr(key);
+  if (count === 1) await redis.expire(key, REELS_COUNTER_TTL_SECONDS);
+  return count;
 }
 
 const AC_BASE = 'https://ac.beidou.win/api/v1';
 
 const { setCORSHeaders } = require('./_lib/cors');
-const { getAuthPayload, isDisabledUser } = require('./_lib/security');
+const { getAuthPayload, getClientIp, getRedis, isDisabledUser } = require('./_lib/security');
+
+function parseInteger(value, fallback, min, max) {
+  const raw = value === undefined || value === null || value === '' ? fallback : value;
+  if ((typeof raw !== 'string' && typeof raw !== 'number') || !/^\d+$/.test(String(raw))) return null;
+  const parsed = Number(raw);
+  return Number.isSafeInteger(parsed) && parsed >= min && parsed <= max ? parsed : null;
+}
+
+function parseAcRequest(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+  const bookId = typeof body.book_id === 'string' ? body.book_id.trim() : '';
+  const template = body.template === undefined ? 'Ad_Plot_Video_V3' : body.template;
+  const language = body.language === undefined ? 'English' : body.language;
+  const aspectRatio = body.aspect_ratio === undefined ? '9:16' : body.aspect_ratio;
+  const num = parseInteger(body.num, 1, 1, 3);
+  const startChapter = parseInteger(body.start_chapter, 1, 1, 10000);
+  const endChapter = parseInteger(body.end_chapter, 5, 1, 10000);
+  const adCopy = body.ad_copy === undefined ? (body.prompt || '') : body.ad_copy;
+  const buildRequirement = body.build_requirement || '';
+  const references = body.reference_picture_list === undefined ? [] : body.reference_picture_list;
+
+  if (!bookId || bookId.length > 128 || typeof template !== 'string' || !ALLOWED_TEMPLATES.has(template)) return null;
+  if (typeof language !== 'string' || !ALLOWED_LANGUAGES.has(language)) return null;
+  if (typeof aspectRatio !== 'string' || !ALLOWED_ASPECT_RATIOS.has(aspectRatio)) return null;
+  if (num === null || startChapter === null || endChapter === null || endChapter < startChapter || endChapter - startChapter > 100) return null;
+  if (typeof adCopy !== 'string' || adCopy.length > 4000) return null;
+  if (typeof buildRequirement !== 'string' || buildRequirement.length > 1000) return null;
+  if (!Array.isArray(references) || references.length > 4) return null;
+
+  const referenceUrls = [];
+  for (const value of references) {
+    if (typeof value !== 'string' || value.length > 2048) return null;
+    try {
+      const url = new URL(value);
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+      referenceUrls.push(url.href);
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  return {
+    bookId, template, language, aspectRatio, num, startChapter, endChapter,
+    adCopy, buildRequirement, referenceUrls,
+  };
+}
+
+async function fetchWithTimeout(url, options) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AC_REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -38,15 +99,10 @@ module.exports = async (req, res) => {
   // ---- AUTH ----
   const payload = getAuthPayload(req);
   if (!payload) return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
-  const username = payload.username;
+  const username = String(payload.username || '').trim().toLowerCase();
+  if (!username) return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
 
-  let redis = null;
-  try {
-    const { Redis } = require('@upstash/redis');
-    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-      redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
-    }
-  } catch(e) {}
+  const redis = getRedis();
 
   if (!redis) return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
   try {
@@ -67,46 +123,50 @@ module.exports = async (req, res) => {
   if (!token) token = process.env.AC_TOKEN;
   if (!token) return res.status(503).json({ error: 'AC Token not configured on server' });
 
-  const body = req.body || {};
-  if (!body.book_id) return res.status(400).json({ error: 'book_id required' });
+  const parsed = parseAcRequest(req.body || {});
+  if (!parsed) return res.status(400).json({ error: 'Invalid reel request', code: 'INVALID_REQUEST' });
 
-  // Server-side daily limit using JWT username (not client-controlled)
+  // Reserve quotas atomically before the expensive upstream call. Failed
+  // attempts remain counted so repeated invalid upstream work cannot drain AC.
   const today = getLADateString();
-  let currentCount = 0;
+  let currentCount;
   try {
-    currentCount = await getReelsCount(redis, username, today);
+    const userKey = 'reels_count_v2:' + username + ':' + today;
+    const ipKey = 'reels_ip_count_v2:' + getClientIp(req) + ':' + today;
+    const counts = await Promise.all([
+      reserveDailySlot(redis, userKey),
+      reserveDailySlot(redis, ipKey),
+    ]);
+    currentCount = counts[0];
+    if (currentCount > REELS_DAILY_LIMIT || counts[1] > REELS_IP_DAILY_LIMIT) {
+      return res.status(429).json({ error: 'Daily limit reached. Try again tomorrow.', remaining: 0 });
+    }
   } catch (_error) {
     return res.status(503).json({ error: 'AC usage status is temporarily unavailable', code: 'AC_USAGE_UNAVAILABLE' });
   }
-  if (currentCount >= REELS_DAILY_LIMIT) {
-    return res.status(429).json({ error: 'Daily limit reached (7 reels/day). Try again tomorrow.', remaining: 0 });
-  }
-
-  // Use prompt as fallback for ad_copy
-  const adCopy = body.ad_copy || body.prompt || '';
 
   const acPayload = {
-    template: body.template || 'Ad_Plot_Video_V3',
-    relatedBook: { book_id: body.book_id },
-    num: body.num || 3,
-    language: body.language || 'English',
-    country: body.country || 'US',
-    ad_platform: body.ad_platform || 'Facebook',
-    start_chapter: String(body.start_chapter || '1'),
-    end_chapter: String(body.end_chapter || '5'),
-    tts_audio_voice: body.tts_audio_voice || 'Female_cur1',
-    aspect_ratio: body.aspect_ratio || '9:16',
-    is_generate_img: String(body.is_generate_img ?? 'true'),
-    copy_type: body.copy_type || '原创',
-    build_requirement: body.build_requirement || '',
-    ad_copy: adCopy,
-    word_count: body.word_count || '200词',
-    reference_picture_list: body.reference_picture_list || [],
+    template: parsed.template,
+    relatedBook: { book_id: parsed.bookId },
+    num: parsed.num,
+    language: parsed.language,
+    country: 'US',
+    ad_platform: 'Facebook',
+    start_chapter: String(parsed.startChapter),
+    end_chapter: String(parsed.endChapter),
+    tts_audio_voice: 'Female_cur1',
+    aspect_ratio: parsed.aspectRatio,
+    is_generate_img: 'true',
+    copy_type: '原创',
+    build_requirement: parsed.buildRequirement,
+    ad_copy: parsed.adCopy,
+    word_count: '200词',
+    reference_picture_list: parsed.referenceUrls,
     remark: 'nf_' + username + '_' + Date.now(),
   };
 
   try {
-    const r = await fetch(AC_BASE + '/creative/by-user', {
+    const r = await fetchWithTimeout(AC_BASE + '/creative/by-user', {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + token,
@@ -136,21 +196,19 @@ module.exports = async (req, res) => {
       }
     }
 
-    let remaining = REELS_DAILY_LIMIT - currentCount;
-    if (r.status >= 200 && r.status < 300) {
-      currentCount++;
-      if (redis) {
-        await setReelsCount(redis, username, today, currentCount);
-      }
-      remaining = REELS_DAILY_LIMIT - currentCount;
-    }
+    const remaining = Math.max(0, REELS_DAILY_LIMIT - currentCount);
 
     if (r.status === 401) {
-      return res.status(401).json({ success: false, error: 'AC service authentication failed', data });
+      return res.status(502).json({ success: false, error: 'Video service authentication failed' });
     }
 
-    return res.status(r.status).json({ success: r.status >= 200 && r.status < 300, data, remaining });
+    if (r.status < 200 || r.status >= 300) {
+      return res.status(502).json({ success: false, error: 'Video service request failed' });
+    }
+    return res.status(200).json({ success: true, data, remaining });
   } catch (e) {
-    return res.status(502).json({ error: 'AC API unreachable', detail: e.message });
+    return res.status(e && e.name === 'AbortError' ? 504 : 502).json({
+      error: e && e.name === 'AbortError' ? 'Video service timed out' : 'Video service unavailable',
+    });
   }
 };

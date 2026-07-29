@@ -3,7 +3,7 @@
  * v2.5.2 - Security fixes - 2026-07-09
  * - Removed STATIC_ADMINS hardcoded whitelist; admin status is Redis-driven only.
  */
-const { verifyJWT } = require('./auth');
+const { verifyAccessToken } = require('./auth');
 const crypto = require('crypto');
 const { Redis } = require('@upstash/redis');
 
@@ -45,12 +45,12 @@ function getClientIp(req) {
 function getAuthPayload(req) {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    const p = verifyJWT(authHeader.slice(7).trim());
+    const p = verifyAccessToken(authHeader.slice(7).trim());
     if (p) return p;
   }
   const cookies = parseCookies(req);
   if (cookies['nf_token']) {
-    const p = verifyJWT(cookies['nf_token']);
+    const p = verifyAccessToken(cookies['nf_token']);
     if (p) return p;
   }
   return null;
@@ -144,13 +144,28 @@ function checkAdminKey(req) {
  * KV-backed sliding-window-ish rate limiter (fixed-window via INCR+EXPIRE).
  * Returns true if allowed, false if over limit.
  */
-async function checkRateLimit(redis, key, limit, windowSec) {
-  if (!redis) return true;
+async function checkRateLimit(redis, key, limit, windowSec, { failClosed = false } = {}) {
+  if (!redis) {
+    if (failClosed) {
+      const error = new Error('Rate limit storage unavailable');
+      error.code = 'RATE_LIMIT_UNAVAILABLE';
+      throw error;
+    }
+    return true;
+  }
   try {
     const count = await redis.incr(key);
     if (count === 1) await redis.expire(key, windowSec);
     return count <= limit;
-  } catch { return true; } // fail-open on Redis error; don't break user flow
+  } catch (cause) {
+    if (failClosed) {
+      const error = new Error('Rate limit storage unavailable');
+      error.code = 'RATE_LIMIT_UNAVAILABLE';
+      error.cause = cause;
+      throw error;
+    }
+    return true; // Existing low-cost flows retain their fail-open behavior.
+  }
 }
 
 /**
