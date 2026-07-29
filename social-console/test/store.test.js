@@ -1,6 +1,27 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { getMany, newRun, runSummary, runDetail } = require('../api/_lib/store');
+const { createRedis, RemoteRedis, getMany, newRun, runSummary, runDetail } = require('../api/_lib/store');
+
+test('storage uses direct Upstash credentials before the remote Vercel bridge', () => {
+  const redis = createRedis({
+    KV_REST_API_URL: 'https://example.upstash.io',
+    KV_REST_API_TOKEN: 'direct-token',
+    SOCIAL_STORE_URL: 'https://example.com/api/social-store',
+    SOCIAL_STORE_SECRET: 'bridge-secret'
+  });
+
+  assert.ok(redis);
+  assert.equal(redis instanceof RemoteRedis, false);
+});
+
+test('storage keeps the authenticated bridge when direct credentials are unavailable', () => {
+  const redis = createRedis({
+    SOCIAL_STORE_URL: 'https://example.com/api/social-store',
+    SOCIAL_STORE_SECRET: 'bridge-secret'
+  });
+
+  assert.ok(redis instanceof RemoteRedis);
+});
 
 test('dashboard summaries use one Redis batch read when mget is available', async () => {
   const calls = { mget: 0, get: 0 };

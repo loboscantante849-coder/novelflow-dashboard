@@ -32,13 +32,17 @@ class RemoteRedis {
   incrby(key, amount) { return this.call('incrby', { key, amount }); }
   del(key) { return this.call('del', { key }); }
 }
-function getRedis() {
-  const bridgeUrl = process.env.SOCIAL_STORE_URL;
-  const bridgeSecret = process.env.SOCIAL_STORE_SECRET;
+function createRedis(environment = process.env) {
+  const url = environment.KV_REST_API_URL;
+  const token = environment.KV_REST_API_TOKEN;
+  if (url && token && /^https:\/\//i.test(url)) return new Redis({ url, token });
+  const bridgeUrl = environment.SOCIAL_STORE_URL;
+  const bridgeSecret = environment.SOCIAL_STORE_SECRET;
   if (bridgeUrl && bridgeSecret) return new RemoteRedis(bridgeUrl, bridgeSecret);
-  const url = process.env.KV_REST_API_URL;
-  const token = process.env.KV_REST_API_TOKEN;
-  return url && token && /^https:\/\//i.test(url) ? new Redis({ url, token }) : null;
+  return null;
+}
+function getRedis() {
+  return createRedis(process.env);
 }
 async function listRuns(redis, limit = 50) {
   if (!redis) return [];
@@ -441,4 +445,4 @@ async function releaseVideoSlot(redis, key) {
   if (typeof key === 'string' && key.startsWith('nf_social:video_hour:')) await redis.incrby(key, -1);
 }
 
-module.exports = { getRedis, getMany, listRuns, listRunSummaries, getRun, getRunDetail, getRunSummary, saveRun, newRun, addEvent, setStage, runSummary, runDetail, listCreativePlans, listCreativePlanSummaries, getCreativePlan, saveCreativePlan, newCreativePlan, creativePlanDetail, getDiscordJob, saveDiscordJob, listDiscordJobs, listDiscordJobSummaries, removeDiscordJobFromQueue, discordJobSummary, RUN_INDEX, PLAN_INDEX, DISCORD_JOB_INDEX, DISCORD_HISTORY_INDEX, videoCapacity, reserveVideoSlot, releaseVideoSlot };
+module.exports = { getRedis, createRedis, RemoteRedis, getMany, listRuns, listRunSummaries, getRun, getRunDetail, getRunSummary, saveRun, newRun, addEvent, setStage, runSummary, runDetail, listCreativePlans, listCreativePlanSummaries, getCreativePlan, saveCreativePlan, newCreativePlan, creativePlanDetail, getDiscordJob, saveDiscordJob, listDiscordJobs, listDiscordJobSummaries, removeDiscordJobFromQueue, discordJobSummary, RUN_INDEX, PLAN_INDEX, DISCORD_JOB_INDEX, DISCORD_HISTORY_INDEX, videoCapacity, reserveVideoSlot, releaseVideoSlot };
