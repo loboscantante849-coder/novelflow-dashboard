@@ -4,6 +4,14 @@ const { normalizeCreative } = require('./_lib/pipeline');
 const providers = require('./_lib/providers');
 
 const text = (value, max) => typeof value === 'string' && value.trim().length <= max ? value.trim() : '';
+const publicError = (error, fallback) => {
+  const message = String(error?.message || fallback || 'The requested operation could not be completed')
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [redacted]')
+    .replace(/\bsk-[A-Za-z0-9_-]+/gi, '[redacted]')
+    .slice(0, 500);
+  const status = Number(error?.status || 0);
+  return { status: status >= 400 && status < 600 ? status : 502, message };
+};
 const CREATIVE_PROFILE_OPTIONS = Object.freeze({
   copyStyle: new Set(['system_best', 'revenge_comeback', 'forbidden_tension', 'dark_redemption']),
   ctaStyle: new Set(['story_cliffhanger', 'identity_reveal', 'romantic_tension', 'revenge_payoff']),
@@ -364,7 +372,11 @@ module.exports = async (req, res) => {
     return res.status(202).json({ run });
   } catch (error) {
     console.error('[social/runs]', error);
-    return res.status(500).json({ error: 'Unable to persist production run' });
+    // Do not turn a model, validation, or storage diagnosis into the same
+    // unhelpful message. The client needs a safe, actionable reason to keep
+    // the failed-video rewrite path moving.
+    const failure = publicError(error, 'Unable to update production run');
+    return res.status(failure.status).json({ error: failure.message });
   }
 };
 

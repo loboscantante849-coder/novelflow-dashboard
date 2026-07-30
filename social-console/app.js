@@ -2015,7 +2015,8 @@ function videoHtml(run) {
   if (revision) assets.push(asset(revision, '重写提示词版', true));
   if (reference) assets.push(asset(reference, '参考海报版', true));
   const posterPicker = canCreateReference ? `<div class="reference-poster-picker"><div><strong>选择参考海报</strong><span>可选海报 1 或海报 2，提交前会再次确认</span></div><div class="reference-poster-options">${referencePosters.map((poster) => `<button type="button" class="reference-poster-option ${selectedReferencePoster === poster.variant ? 'selected' : ''}" data-reference-poster="${escapeHtml(poster.variant)}"><img src="${escapeHtml(`/api/media?url=${encodeURIComponent(poster.url)}`)}" alt="${escapeHtml(poster.variant)}"><span><i data-lucide="${selectedReferencePoster === poster.variant ? 'circle-dot' : 'circle'}"></i>海报 ${poster.variant === 'luminous_cinema' ? '1' : '2'}</span></button>`).join('')}</div><button id="createReferenceVideo" class="secondary-command reference-video-command" data-poster-variant="${escapeHtml(selectedReferencePoster)}"><i data-lucide="clapperboard"></i><span>用选中的海报制作 AC 视频</span></button></div>` : '';
-  return `<div class="video-assets">${assets.join('')}</div><div class="video-rework-actions">${canRewrite ? '<button id="rewriteVideoPrompt" class="secondary-command"><i data-lucide="sparkles"></i><span>重写视频提示词</span></button>' : ''}${canSubmitRevision ? '<button id="createVideoRevision" class="primary-command"><i data-lucide="video"></i><span>用核对后的提示词生成视频</span></button>' : ''}</div>${posterPicker}`;
+  const rewriteReady = run.artifacts?.videoPromptDraft?.status === 'ready_for_review';
+  return `<div class="video-assets">${assets.join('')}</div><div class="video-rework-actions">${canRewrite ? '<button id="rewriteVideoPrompt" class="secondary-command"><i data-lucide="sparkles"></i><span>重写提示词并重做视频</span></button>' : ''}${canSubmitRevision ? '<button id="createVideoRevision" class="primary-command"><i data-lucide="video"></i><span>提交核对后的新视频</span></button>' : ''}</div>${rewriteReady ? '<aside class="video-rewrite-ready"><i data-lucide="sparkles"></i><div><strong>新视频提示词已写好</strong><span>先核对剧情与镜头，再确认提交一条新的 AC 视频。</span></div><button id="reviewRewrittenVideo" class="primary-command" type="button">核对并提交新视频</button></aside>' : ''}${posterPicker}`;
 }
 
 function imagesHtml(run) {
@@ -2145,6 +2146,7 @@ function renderDetail() {
   $('#createReferenceVideo')?.addEventListener('click', (event) => openConfirmation('reference_video', run.id, { posterVariant: event.currentTarget.dataset.posterVariant }));
   $('#rewriteVideoPrompt')?.addEventListener('click', () => rewriteVideoPrompt(run.id));
   $('#createVideoRevision')?.addEventListener('click', () => openConfirmation('video_revision', run.id));
+  $('#reviewRewrittenVideo')?.addEventListener('click', () => panel.querySelector('#detail-prompts')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   panel.querySelectorAll('[data-video-prompt-action]').forEach((button) => button.addEventListener('click', () => decideVideoPrompt(run.id, button.dataset.videoPromptAction)));
   panel.querySelector('.create-variant')?.addEventListener('click', () => openConfirmation('creative', run.id));
   panel.querySelectorAll('.remove-asset').forEach((button) => button.addEventListener('click', () => removeRunAsset(run, button.dataset.removeAsset)));
@@ -2526,6 +2528,7 @@ async function rewriteVideoPrompt(runId) {
     const body = await api('/api/runs', { method: 'PATCH', body: JSON.stringify({ id: runId, action: 'rewrite_video_prompt' }), timeoutMs: 650000 });
     state.runs = state.runs.map((item) => item.id === body.run.id ? body.run : item);
     state.detailFingerprint = ''; render();
+    panel.querySelector('#detail-prompts')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     showToast(`${modelLabel(body.run.artifacts?.videoPromptDraft?.model)} 已生成待核对的视频提示词，尚未提交付费视频。`);
   } catch (error) { showToast(error.message, 'error'); }
 }
