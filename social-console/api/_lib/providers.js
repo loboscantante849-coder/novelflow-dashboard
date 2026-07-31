@@ -455,6 +455,7 @@ async function createLink(book, promoter, code, options = {}) {
 function extractModelText(body) {
   if (body.output_text) return String(body.output_text);
   if (body.response?.output_text) return String(body.response.output_text);
+  if (body.data?.output_text) return String(body.data.output_text);
   const message = body.choices?.[0]?.message || body.data?.choices?.[0]?.message || {};
   const choice = message.content;
   if (typeof choice === 'string') return choice;
@@ -467,22 +468,62 @@ function extractModelText(body) {
     const nested = choice.text || choice.content;
     return nested == null ? JSON.stringify(choice) : typeof nested === 'object' ? JSON.stringify(nested) : String(nested);
   }
+  const choiceText = body.choices?.[0]?.text || body.data?.choices?.[0]?.text;
+  if (choiceText) return typeof choiceText === 'object' ? JSON.stringify(choiceText) : String(choiceText);
   if (message.reasoning_content) return String(message.reasoning_content);
   const parts = [];
-  for (const output of body.output || []) for (const item of output.content || []) {
-    const value = typeof item.text === 'string' ? item.text : item.text?.value || item.content;
-    if (value) parts.push(String(value));
+  const outputs = body.output || body.response?.output || body.data?.output || [];
+  for (const output of Array.isArray(outputs) ? outputs : [outputs]) {
+    if (typeof output === 'string') { parts.push(output); continue; }
+    const content = output?.content || output?.message?.content || [];
+    for (const item of Array.isArray(content) ? content : [content]) {
+      const value = typeof item === 'string' ? item : typeof item?.text === 'string' ? item.text : item?.text?.value || item?.content;
+      if (value) parts.push(typeof value === 'object' ? JSON.stringify(value) : String(value));
+    }
   }
   return parts.join('');
 }
 
+function balancedJsonCandidates(value) {
+  const text = String(value || '');
+  const candidates = [];
+  let start = -1;
+  let depth = 0;
+  let quote = false;
+  let escaped = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (quote) {
+      if (escaped) { escaped = false; continue; }
+      if (character === '\\') { escaped = true; continue; }
+      if (character === '"') quote = false;
+      continue;
+    }
+    if (character === '"') { quote = true; continue; }
+    if (character === '{' || character === '[') {
+      if (depth === 0) start = index;
+      depth += 1;
+      continue;
+    }
+    if (character !== '}' && character !== ']') continue;
+    if (!depth) continue;
+    depth -= 1;
+    if (depth === 0 && start >= 0) {
+      candidates.push(text.slice(start, index + 1));
+      start = -1;
+    }
+  }
+  return candidates;
+}
+
 function parseModelJson(raw, model = 'selected AI model') {
-  const cleaned = String(raw || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-  const candidates = [cleaned];
-  const start = cleaned.indexOf('{');
-  const end = cleaned.lastIndexOf('}');
-  if (start >= 0 && end > start) candidates.push(cleaned.slice(start, end + 1));
-  for (const candidate of candidates) {
+  let cleaned = String(raw || '').trim();
+  // Some reasoning-capable gateways prepend a private reasoning block even
+  // when json_object was requested. It is not part of the model result.
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+  const candidates = [cleaned, ...balancedJsonCandidates(cleaned)];
+  for (const candidate of [...new Set(candidates.filter(Boolean))]) {
     const normalized = escapeJsonControlCharacters(candidate).replace(/,\s*([}\]])/g, '$1');
     try {
       const parsed = JSON.parse(candidate);
@@ -682,10 +723,10 @@ The videoPrompt is a high-retention vertical short-video story package, not gene
   return { creative: { posts: posts.value.posts, videoPrompt: video.value.videoPrompt, posterPrompts: posters.value.posterPrompts, qualityReview: review.value.qualityReview }, model: String(posts.body.model || model), responseId: sections.map((section) => String(section.body.id || '')).filter(Boolean).join(','), usage };
 }
 
-async function analyzeCreativePlan(book, evidence, chapterStructure = [], modelChoice = 'hy3') {
+async function analyzeCreativePlan(book, evidence, chapterStructure = [], modelChoice = 'hy3', repairInstruction = '') {
   const { apiKey, baseUrl, model, responsesApi } = copyModelConfig({ modelChoice });
   const excerpts = evidence.map((item) => ({ chapter: item.order, title: item.title, excerpt: String(item.content || '').replace(/\s+/g, ' ').slice(0, 300) }));
-  const instructions = `You are the strategy director for NovelFlow fiction social promotion. Return exactly one compact JSON object with no prose before or after it, and keep the entire response under 1200 words. Analyze the distributed full-book structure sample and four representative opening-to-late-story excerpts. Do not write a final social post or repeat the source. Recommend the strongest truthful creative direction for this exact story in concise Simplified Chinese. Ground every claim in supplied evidence and never invent themes, names, abuse, violence, romance, secrets, or reversals. Choose one value for each profile field: copyStyle is system_best|revenge_comeback|forbidden_tension|dark_redemption; ctaStyle is story_cliffhanger|identity_reveal|romantic_tension|revenge_payoff; videoStyle is five_beat|reversal|slow_burn|revenge; posterStyle is system_best|luminous_cinema|editorial_romance. When a trope is unsupported, select the truthful neutral alternative. Give a brief English blueprint for copy, video, and poster. Cite three exact short chapter quotes.`;
+  const instructions = `You are the strategy director for NovelFlow fiction social promotion. Return exactly one compact JSON object with no prose before or after it, and keep the entire response under 1200 words. Analyze the distributed full-book structure sample and four representative opening-to-late-story excerpts. Do not write a final social post or repeat the source. Recommend the strongest truthful creative direction for this exact story in concise Simplified Chinese. Ground every claim in supplied evidence and never invent themes, names, abuse, violence, romance, secrets, or reversals. Choose one value for each profile field: copyStyle is system_best|revenge_comeback|forbidden_tension|dark_redemption; ctaStyle is story_cliffhanger|identity_reveal|romantic_tension|revenge_payoff; videoStyle is five_beat|reversal|slow_burn|revenge; posterStyle is system_best|luminous_cinema|editorial_romance. When a trope is unsupported, select the truthful neutral alternative. Give a brief English blueprint for copy, video, and poster. Cite three exact short chapter quotes. ${String(repairInstruction || '')}`;
   const schema = {
     editorialThesis: 'Chinese explanation of the source-backed marketing angle',
     storySignals: ['Chinese source-backed signals'],

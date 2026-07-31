@@ -1827,7 +1827,7 @@ function renderFocusRun() {
 function pipelineNode(run, key) {
   const stage = run.stages?.[key] || { status: 'waiting' };
   const artifact = { P1: run.artifacts?.book?.bookSkuId, P2: run.artifacts?.evidence?.completed ? `${run.artifacts.evidence.completed} 章` : '', P5: run.artifacts?.code ? `Code ${run.artifacts.code}` : '', P3: run.artifacts?.posts?.length ? `${run.artifacts.posts.length} 套文案` : '', P4: run.artifacts?.video?.videoUrls?.[0] ? '可播放' : run.artifacts?.video?.threadId ? '生成中' : '', P3_5: run.artifacts?.images?.length ? `${run.artifacts.images.filter((item) => item.url).length}/2 海报` : '', P6: run.artifacts?.review ? '审核包就绪' : '' }[key] || stage.label || stage.status;
-  const stageStatus = stage.status === 'done' ? '已完成' : stage.status === 'waiting' && stage.phase === 'fallback_scheduled' ? '备用模型将接管' : stage.status === 'waiting' && /recovering/.test(String(stage.phase || '')) ? '后台恢复中' : stage.status === 'waiting' ? '等待上游节点' : stage.status === 'failed' ? '生成失败' : stage.status === 'blocked' ? '已阻塞' : stage.status === 'ambiguous' ? '需人工核验' : stage.status === 'partial' ? '部分完成' : stage.status === 'submitting' ? '提交中' : stage.status === 'prepared' ? '已准备' : '生成中';
+  const stageStatus = stage.status === 'done' ? '已完成' : stage.status === 'waiting' && stage.phase === 'fallback_scheduled' ? '备用模型将接管' : stage.status === 'waiting' && /repairing|recovering/.test(String(stage.phase || '')) ? 'AI 自动修复中' : stage.status === 'waiting' ? '等待上游节点' : stage.status === 'failed' ? '生成失败' : stage.status === 'blocked' ? '已阻塞' : stage.status === 'ambiguous' ? '需人工核验' : stage.status === 'partial' ? '部分完成' : stage.status === 'submitting' ? '提交中' : stage.status === 'prepared' ? '已准备' : '生成中';
   return `<button type="button" class="flow-node ${stageClass(stage)}" data-node-decision="${key}" title="查看${escapeHtml(stageLabels[key] || key)}的决策说明"><span class="flow-node-top"><i data-lucide="${stageIcons[key] || 'circle'}"></i><span>${escapeHtml(stageLabels[key] || key)}</span></span><strong>${escapeHtml(artifact)}</strong><small>${escapeHtml(stageStatus)}</small></button>`;
 }
 
@@ -1852,9 +1852,11 @@ function productionStatusHtml(run, active) {
   const nextAt = Date.parse(stage.nextAttemptAt || '');
   const next = Number.isFinite(nextAt) ? new Date(nextAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
   const expectedSeconds = isCreative ? (usesLongBackground(model) ? 600 : 60) : 0;
-  const overdue = expectedSeconds && waitDurationSeconds(stage.startedAt || run.updatedAt) > expectedSeconds;
+  const overdue = expectedSeconds && !/repairing/.test(String(stage.phase || '')) && waitDurationSeconds(stage.startedAt || run.updatedAt) > expectedSeconds;
   const situation = overdue
     ? `已超过 ${Math.ceil(expectedSeconds / 60)} 分钟正常等待窗口，后台尚未收到可核实的模型结果。为避免重复消耗 Token，系统没有偷偷重发请求。`
+    : /repairing/.test(String(stage.phase || ''))
+    ? `${modelLabel(model)} 已收到异常格式，正在自动修复并重试；不会重复创建 Code 或提交付费媒体。`
     : stage.phase === 'fallback_scheduled'
     ? `首选 ${modelLabel(fallback || model)} 未返回可用结果，唯一备用 ${modelLabel(model)} 将从已保存证据接管。`
     : stage.phase === 'waiting_for_operator' || stage.executionMode === 'waiting_for_operator'
@@ -1862,8 +1864,8 @@ function productionStatusHtml(run, active) {
       : isCreative
         ? `${modelLabel(model)} 正在${key === 'P2' ? '梳理全书结构' : '生成创意素材'}，任务不会因页面关闭而中断。`
         : '正在等待前置节点或外部任务返回；不会重复创建 Code、图片或视频。';
-  const nextStep = overdue ? '请在“模型活动”确认是否已有产物；没有产物时再手动选择重试或切换模型，避免双重调用。' : stage.phase === 'fallback_scheduled' ? (next ? `${next} 后启动唯一备用模型。` : '备用模型将在下一次后台推进时启动。') : key === 'P3' ? '完成后会依次保存文案、视频提示词、海报提示词和成品质检。' : key === 'P2' ? '完成后将继续创建 Code 和短链，再进入创意生成。' : stage.label || '后台会在状态变化后自动推进下一节点。';
-  const recoveryAction = overdue && key === 'P3' ? `<button class="primary-command ai-wait-recovery" data-ai-wait-recovery="${escapeHtml(run.id)}" type="button"><i data-lucide="route"></i>启用唯一备用继续</button>` : '';
+  const nextStep = overdue ? '请在“模型活动”确认是否已有产物；没有产物时再手动选择重试或切换模型，避免双重调用。' : /repairing/.test(String(stage.phase || '')) ? (next ? `${next} 前后台会自动完成修复，不需要点击。` : '后台会自动完成修复，不需要点击。') : stage.phase === 'fallback_scheduled' ? (next ? `${next} 后启动唯一备用模型。` : '备用模型将在下一次后台推进时启动。') : key === 'P3' ? '完成后会依次保存文案、视频提示词、海报提示词和成品质检。' : key === 'P2' ? '完成后将继续创建 Code 和短链，再进入创意生成。' : stage.label || '后台会在状态变化后自动推进下一节点。';
+  const recoveryAction = overdue && key === 'P3' && !/repairing/.test(String(stage.phase || '')) ? `<button class="primary-command ai-wait-recovery" data-ai-wait-recovery="${escapeHtml(run.id)}" type="button"><i data-lucide="route"></i>启用唯一备用继续</button>` : '';
   return `<aside class="production-status-card ${overdue ? 'overdue' : stage.phase === 'fallback_scheduled' ? 'fallback' : ''}"><div class="production-status-icon"><i data-lucide="${overdue ? 'circle-alert' : stage.phase === 'fallback_scheduled' ? 'route' : 'loader-circle'}"></i></div><div><span>当前正在发生什么</span><strong>${escapeHtml(stageLabels[key] || key)} · ${escapeHtml(waitDurationLabel(stage.startedAt || run.updatedAt))}${overdue ? ' · 已超时' : ''}</strong><p>${escapeHtml(situation)}</p><small><b>下一步：</b>${escapeHtml(nextStep)}</small></div><div class="production-status-meta"><span>${isCreative ? modelLogoHtml(model, { compact: true }) : '自动推进'}</span><small>${overdue ? `正常窗口 ${Math.ceil(expectedSeconds / 60)} 分钟 · 未自动重发` : stage.error ? escapeHtml(stage.error) : '状态已持久化，可关闭页面'}</small>${recoveryAction}</div></aside>`;
 }
 

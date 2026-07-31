@@ -54,6 +54,49 @@ function recoverableModelError(error) {
   return true;
 }
 
+// A malformed model response is safe to repair in the background. It is not
+// the same as a credential/configuration error and must never strand the paid
+// media branches in a failed run. Keep this list deliberately narrow so real
+// source or provider failures still remain visible.
+function structuredModelError(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  return /invalid structured output|invalid json|incomplete (?:creative|story|operations|creative strategy)|did not return a usable|missing required/.test(message);
+}
+
+function autoRecoverableCreativeFailure(run) {
+  const stage = run?.stages?.P3 || {};
+  if (run?.state !== 'failed' || stage.status !== 'failed') return false;
+  if (!['waiting_for_operator', 'validation_waiting_for_operator', 'model_output_repairing'].includes(String(stage.phase || ''))) return false;
+  return structuredModelError(stage.error) && run?.artifacts?.book && run?.artifacts?.evidence?.chapters?.length && run?.artifacts?.code && run?.artifacts?.shortUrl;
+}
+
+function autoRecoverableStoryFailure(run) {
+  const stage = run?.stages?.P2 || {};
+  if (run?.state !== 'failed' || stage.status !== 'failed') return false;
+  if (!['story_intelligence_waiting_for_operator', 'story_intelligence_repairing'].includes(String(stage.phase || ''))) return false;
+  return structuredModelError(stage.error) && run?.artifacts?.book && run?.artifacts?.evidence?.chapters?.length;
+}
+
+function sourceGroundedPlan(run) {
+  const book = run.artifacts?.book || {};
+  const evidence = (run.artifacts?.evidence?.chapters || []).slice(0, 4);
+  const quotes = evidence.map((chapter) => {
+    const text = String(chapter.content || '').replace(/\s+/g, ' ').trim();
+    const quote = (text.match(/[A-Za-z][^.!?]{24,140}[.!?]/) || [text.slice(0, 120)])[0].trim();
+    return { chapter: Number(chapter.order || 0), quote, why: '来自已锁定章节证据，仅用于让生产继续，不替代模型分析。' };
+  }).filter((item) => item.chapter > 0 && item.quote);
+  return {
+    editorialThesis: `先围绕《${String(book.title || '本书').slice(0, 80)}》中已锁定的具体冲突推进，不补写未被证据支持的反转。`,
+    storySignals: quotes.map((item) => `Ch.${item.chapter}：${item.quote.slice(0, 90)}`),
+    recommendedProfile: { copyStyle: 'system_best', ctaStyle: 'story_cliffhanger', videoStyle: 'five_beat', posterStyle: 'system_best' },
+    rationale: { copyStyle: '证据覆盖不足时先使用中性、可验证的情绪冲突。', ctaStyle: '用未解决的具体选择收尾，避免机械指令。', videoStyle: '按钩子、价值、升级、反转、悬念推进。', posterStyle: '分别保留电影感与编辑感两套视觉。' },
+    copyBlueprint: { hook: '从已锁定开篇冲突切入。', emotionalArc: '让一个具体选择逐步变得无法回避。', cta: 'See what happens when the unresolved choice becomes unavoidable.', zhSummary: '基于已保存证据继续生产。' },
+    videoBlueprint: { arc: 'A source-grounded five-beat escalation built from saved chapter evidence.', opening: 'Open on the documented disruption.', reversal: 'Show only the supported power or expectation shift.', cliffhanger: 'Hold on the choice the story has not resolved.', zhSummary: '按已锁定证据组织五拍剧情。' },
+    posterBlueprint: { moment: 'One decisive source-grounded emotional moment.', mood: 'Cinematic and editorial variants with adult, fully clothed characters.', zhSummary: '两套视觉都只使用已锁定冲突。' },
+    evidence: quotes
+  };
+}
+
 function recoverablePollingError(error) {
   if (error?.nonRecoverable) return false;
   const status = Number(error?.status || 0);
@@ -223,7 +266,7 @@ async function p2(redis, run) {
     setStage(run, 'P2', 'running', { label: `${creativeModelLabel(run)} 正在梳理全书故事结构`, phase: 'story_intelligence', error: '', nextAttemptAt: '' });
     await saveRun(redis, run);
     try {
-      const result = await providers.analyzeCreativePlan(run.artifacts.book, evidence.chapters, evidence.chapterStructure, current);
+      const result = await providers.analyzeCreativePlan(run.artifacts.book, evidence.chapters, evidence.chapterStructure, current, story.repairInstruction || '');
       evidence.storyBrief = { status: 'ready', model: result.model, responseId: result.responseId, createdAt: now(), plan: result.plan, usage: result.usage };
       run.artifacts.storyBrief = evidence.storyBrief;
       run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), { section: 'storyBrief', requestedModel: current, model: result.model, responseId: result.responseId, completedAt: now(), triggerReason: story.fallbackUsed ? '一次备用模型接管' : '一键生产：全书故事梳理', outputStatus: '全书故事蓝图已保存', ...result.usage }].slice(-24);
@@ -239,6 +282,31 @@ async function p2(redis, run) {
         return;
       }
       const attempt = Number(story.attempt || 0) + 1;
+      // Structured output errors are repairable without changing the task's
+      // model route. Give the selected reserve model two short repair passes
+      // before using the already-saved chapter evidence to keep the pipeline
+      // moving. This never touches Code or paid media.
+      if (story.fallbackUsed && structuredModelError(error) && Number(story.repairAttempts || 0) < 2) {
+        const repairAttempts = Number(story.repairAttempts || 0) + 1;
+        const nextAttemptAt = new Date(Date.now() + 1500).toISOString();
+        evidence.storyBrief = { ...story, status: 'recovering', repairAttempts, attempt, modelChoice: current, nextAttemptAt, error: cleanError(error), repairInstruction: 'Return only the required compact JSON object; preserve every supplied chapter quote.' };
+        run.state = 'running';
+        setStage(run, 'P2', 'waiting', { label: `${creativeModelLabel(run)} 正在修复故事分析格式（第 ${repairAttempts} 次）`, phase: 'story_intelligence_repairing', recoverable: true, nextAttemptAt, error: cleanError(error), attempt });
+        addEvent(run, 'story_intelligence_repair_scheduled', 'The active model will retry the saved full-book analysis with a stricter JSON-only instruction', { current, repairAttempts, nextAttemptAt });
+        await saveRun(redis, run);
+        return;
+      }
+      if (story.fallbackUsed && structuredModelError(error)) {
+        const plan = sourceGroundedPlan(run);
+        evidence.storyBrief = { status: 'ready', model: 'evidence-continuation', responseId: '', createdAt: now(), plan, usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 }, fallbackReason: cleanError(error) };
+        run.artifacts.storyBrief = evidence.storyBrief;
+        run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), { section: 'storyBrief', requestedModel: current, model: 'evidence-continuation', fallbackFrom: current, completedAt: now(), triggerReason: '模型结构修复已耗尽，使用已锁定章节继续', outputStatus: '已保存证据继续生产', error: cleanError(error) }].slice(-24);
+        run.state = 'running';
+        setStage(run, 'P2', 'done', { label: `${evidence.completed} 个章节证据已锁定；模型格式异常，已用保存证据继续`, completeness: 100, phase: 'evidence_continuation', recoverable: true, error: cleanError(error) });
+        addEvent(run, 'story_intelligence_evidence_continuation', 'The model returned malformed structure twice; production continued from the exact saved chapter evidence without inventing plot facts', { current, error: cleanError(error) });
+        await saveRun(redis, run);
+        return;
+      }
       if (story.fallbackUsed) {
         const message = cleanError(error);
         evidence.storyBrief = { status: 'waiting_for_operator', attempt, modelChoice: current, fallbackUsed: true, error: message };
@@ -427,6 +495,20 @@ async function finalizeCreativeDraft(redis, run) {
     creative = normalizeCreative(result, run);
   } catch (error) {
     const coreReady = draft.parts?.posts && draft.parts?.videoPrompt && draft.parts?.posterPrompts;
+    const repairAttempts = Number(draft.validationRepairAttempts || 0);
+    if (structuredModelError(error) && repairAttempts < 2) {
+      draft.validationRepairAttempts = repairAttempts + 1;
+      draft.parts = {};
+      draft.usage = [];
+      draft.recoveryRevision = { instruction: 'The previous package was not parseable. Return one compact JSON object with every required field and no prose outside it.', validationError: cleanError(error) };
+      draft.failures = Object.fromEntries(['posts', 'videoPrompt', 'posterPrompts'].map((section) => [section, { attempt: repairAttempts + 1, at: now(), error: cleanError(error), recoverable: true }]));
+      run.artifacts.creativeDraft = draft;
+      run.state = 'running';
+      setStage(run, 'P3', 'waiting', { label: `模型输出格式正在自动修复（第 ${repairAttempts + 1} 次）`, phase: 'model_output_repairing', attempt: repairAttempts + 1, nextAttemptAt: new Date(Date.now() + 1500).toISOString(), error: cleanError(error), recoverable: true });
+      addEvent(run, 'creative_validation_repair_scheduled', 'Malformed creative package will be regenerated from the saved chapter evidence before any paid media is touched', { repairAttempts: repairAttempts + 1, error: cleanError(error) });
+      await saveRun(redis, run);
+      return run;
+    }
     if (draft.validationFallbackUsed && coreReady) {
       const message = cleanError(error);
       run.artifacts.posts = draft.parts.posts;
@@ -556,6 +638,18 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
         const alreadyUsedReserve = latestDraft.modelRoute?.fallbackUsed === true || Boolean(error?.fallbackModel);
         if (alreadyUsedReserve) {
           const message = cleanError(error);
+          const repairAttempts = Number(latestDraft.repairAttempts?.[pendingSection] || 0);
+          if (pendingSection !== 'qualityReview' && pendingSection !== 'videoPrompt' && structuredModelError(error) && repairAttempts < 2) {
+            latestDraft.repairAttempts = { ...(latestDraft.repairAttempts || {}), [pendingSection]: repairAttempts + 1 };
+            latestDraft.recoveryRevision = { instruction: 'Previous response was not parseable. Return only the requested compact JSON object, include every required field, and keep all evidence quotes exact.', validationError: message, section: pendingSection };
+            latestDraft.failures[pendingSection] = { attempt, at: now(), error: message, nextAttemptAt: new Date(Date.now() + 1500).toISOString(), recoverable: true, repairAttempts: repairAttempts + 1 };
+            latest.artifacts.creativeDraft = latestDraft;
+            latest.state = 'running';
+            setStage(latest, 'P3', 'waiting', { label: `${creativeSectionLabels[pendingSection]} 正在自动修复模型格式（第 ${repairAttempts + 1} 次）`, phase: 'model_output_repairing', attempt, nextAttemptAt: latestDraft.failures[pendingSection].nextAttemptAt, error: message, recoverable: true });
+            addEvent(latest, 'creative_output_repair_scheduled', 'The active model will retry the malformed creative section with a stricter JSON-only instruction', { pendingSection, repairAttempts: repairAttempts + 1, model: route.activeModel });
+            await saveRun(redis, latest);
+            return syncRun(originalRun, latest);
+          }
           if (pendingSection === 'videoPrompt') {
             const fallbackVideo = groundedVideoFallback(latest, latestDraft);
             if (fallbackVideo) {
@@ -970,6 +1064,15 @@ async function processRun(redis, run) {
   }
   const legacyPosterFailure = run.stages.P3_5?.status === 'failed' && run.stages.P3?.status === 'done' && !['failed', 'ambiguous'].includes(run.stages.P4?.status);
   const legacyPosterAmbiguous = run.stages.P3_5?.status === 'ambiguous' && run.stages.P3?.status === 'done' && !['failed', 'ambiguous', 'blocked'].includes(run.stages.P4?.status);
+  if (autoRecoverableStoryFailure(run)) {
+    const story = run.artifacts.evidence.storyBrief || {};
+    run.state = 'running';
+    const nextAttemptAt = new Date().toISOString();
+    run.artifacts.evidence.storyBrief = { ...story, status: 'recovering', nextAttemptAt, repairInstruction: 'Return only the required compact JSON object; preserve every supplied chapter quote.' };
+    setStage(run, 'P2', 'waiting', { phase: 'story_intelligence_repairing', recoverable: true, nextAttemptAt, error: '', label: '旧任务的全书分析正在后台自动修复' });
+    addEvent(run, 'legacy_story_failure_recovered', 'A legacy malformed story-analysis result was reopened for automatic model repair from saved evidence');
+    await saveRun(redis, run);
+  }
   const recoverableCreativeFailure = run.state === 'failed'
     && run.stages.P3?.status === 'failed'
     && run.stages.P3?.recoverable !== false
@@ -980,7 +1083,7 @@ async function processRun(redis, run) {
     && run.artifacts?.shortUrl
     && !run.artifacts?.video
     && !(run.artifacts?.images || []).some((item) => item?.taskId);
-  if (recoverableCreativeFailure) {
+  if (recoverableCreativeFailure || autoRecoverableCreativeFailure(run)) {
     run.state = 'running';
     run.stages.P3 = { ...run.stages.P3, status: 'waiting', phase: 'recovered', attempt: 0, nextAttemptAt: '', error: '', recoverable: true, label: '旧创意失败已自动恢复，正在重新路由模型' };
     addEvent(run, 'legacy_creative_failure_recovered', 'Legacy P3 failure was restored from saved evidence and tracking data');

@@ -23,9 +23,11 @@ function recoverInterruptedCreative(run, force = false) {
   draft.inFlight = {};
   const currentModel = String(run.input?.creativeProfile?.modelChoice || 'hy3');
   if (draft.modelRoute?.fallbackUsed) {
-    run.state = 'failed';
-    run.stages.P3 = { ...stage, status: 'failed', phase: 'waiting_for_operator', recoverable: false, nextAttemptAt: '', label: '唯一备用模型任务中断，请人工选择重试', error: '后台执行窗口结束，未收到可核实的模型结果', updatedAt: new Date().toISOString() };
-    addEvent(run, 'stale_creative_waiting_for_operator', 'The one permitted reserve model ended without a verifiable result; automatic calls stopped');
+    const nextAttemptAt = new Date().toISOString();
+    run.state = 'running';
+    run.stages.P3 = { ...stage, status: 'waiting', phase: 'model_output_repairing', recoverable: true, nextAttemptAt, label: '后台模型任务中断，正在自动修复并继续', error: '上一次模型响应未完成，已从保存证据恢复', updatedAt: nextAttemptAt };
+    draft.recoveryRevision = { instruction: 'The previous response was interrupted. Return only the required compact JSON object and preserve the supplied evidence.', recoveryReason: 'stale_worker' };
+    addEvent(run, 'stale_creative_auto_repair_scheduled', 'The interrupted reserve-model creative task was reopened for an automatic repair pass from saved evidence');
   } else {
     const reserveModel = providers.reserveModelFor(currentModel);
     draft.modelRoute = { preferredModel: currentModel, fallbackModel: reserveModel, fallbackUsed: true, fallbackFrom: currentModel, reason: '首选模型后台执行窗口结束' };
@@ -153,7 +155,17 @@ module.exports = async (req, res) => {
         && item.stages?.P5?.status === 'done'
         && !item.artifacts?.video
         && !(item.artifacts?.images || []).some((asset) => asset?.taskId);
-      if (creativeFailure) return true;
+      const structuredCreativeFailure = item.state === 'failed'
+        && ['waiting_for_operator', 'validation_waiting_for_operator', 'model_output_repairing'].includes(String(item.stages?.P3?.phase || ''))
+        && /invalid structured output|invalid json|incomplete creative|missing required/i.test(String(item.stages?.P3?.error || ''))
+        && item.stages?.P1?.status === 'done'
+        && item.stages?.P2?.status === 'done'
+        && item.stages?.P5?.status === 'done';
+      const structuredStoryFailure = item.state === 'failed'
+        && ['story_intelligence_waiting_for_operator', 'story_intelligence_repairing'].includes(String(item.stages?.P2?.phase || ''))
+        && /invalid structured output|invalid json|incomplete story|incomplete creative strategy|missing required/i.test(String(item.stages?.P2?.error || ''))
+        && item.stages?.P1?.status === 'done';
+      if (creativeFailure || structuredCreativeFailure || structuredStoryFailure) return true;
       return ['failed', 'blocked'].includes(item.state)
         && item.stages?.P3?.status === 'done'
         && ['failed', 'ambiguous'].includes(item.stages?.P3_5?.status)

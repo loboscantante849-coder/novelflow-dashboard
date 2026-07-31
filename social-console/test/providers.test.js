@@ -22,6 +22,17 @@ test('structured provider objects remain valid model output instead of becoming 
   assert.deepEqual(parseModelJson(JSON.stringify(JSON.stringify(content))), content);
 });
 
+test('responses gateways with reasoning wrappers still yield the JSON payload', () => {
+  const payload = { headline: 'A grounded result' };
+  const body = { output: [{ type: 'message', content: [{ type: 'output_text', text: `<think>private planning</think>\\n${JSON.stringify(payload)}` }] }] };
+  assert.deepEqual(parseModelJson(extractModelText(body), 'test-model'), payload);
+});
+
+test('chat gateways with a text choice remain parseable', () => {
+  const payload = { videoPrompt: { hook: 'A source-grounded disruption' } };
+  assert.deepEqual(parseModelJson(extractModelText({ choices: [{ text: JSON.stringify(payload) }] }), 'test-model'), payload);
+});
+
 test('selected non-HY models receive a real completion window before fallback', () => {
   assert.ok(operationsTimeoutForModel('seed-2.1-turbo') >= 120000);
   assert.ok(operationsTimeoutForModel('deepseek') >= 120000);
