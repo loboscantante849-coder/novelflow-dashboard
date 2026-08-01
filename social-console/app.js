@@ -1,5 +1,6 @@
 const storedRecommendationHistory = (() => { try { return JSON.parse(localStorage.getItem('nf_social:recommendation_history') || '[]'); } catch { return []; } })();
 const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogFilters: { line: 'novelflow', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all' }, historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 12, detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, longKickKey: '', startingSku: '', planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0 };
+state.workerDispatches = new Map();
 const DASHBOARD_CACHE_KEY = 'nf_social:dashboard_snapshot:v1';
 const DASHBOARD_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
 let dashboardSnapshotHandle = null;
@@ -30,7 +31,14 @@ function compactRunSnapshot(run) {
       shortUrl: artifacts.shortUrl || '',
       posts: Array.isArray(artifacts.posts) ? artifacts.posts.map(() => ({ content: 'cached' })) : [],
       images: Array.isArray(artifacts.images) ? artifacts.images.map(({ status, url, variant }) => ({ status, url, variant })) : [],
-      video: artifacts.video ? { status: artifacts.video.status, videoUrls: artifacts.video.videoUrls || [], coverImageUrl: artifacts.video.coverImageUrl || '', error: artifacts.video.error || '' } : null,
+      video: artifacts.video ? {
+        status: artifacts.video.status,
+        videoUrls: artifacts.video.videoUrls || [],
+        coverImageUrl: artifacts.video.coverImageUrl || '',
+        videoModel: artifacts.video.videoModel || '',
+        isUserAdCopy: artifacts.video.isUserAdCopy === true ? true : artifacts.video.isUserAdCopy === false ? false : null,
+        error: artifacts.video.error || ''
+      } : null,
       referenceVideo: artifacts.referenceVideo ? { status: artifacts.referenceVideo.status, videoUrls: artifacts.referenceVideo.videoUrls || [] } : null,
       videoRevision: artifacts.videoRevision ? { status: artifacts.videoRevision.status, videoUrls: artifacts.videoRevision.videoUrls || [] } : null,
       analytics: artifacts.analytics ? { summary: artifacts.analytics.summary || {} } : null,
@@ -116,6 +124,12 @@ state.detailHydrating = '';
 state.detailError = '';
 state.detailHydrationJobs = new Set();
 state.detailHydrationTimers = new Map();
+// Browser polling can run while a long provider request is still in flight.
+// Keep a per-run/section dispatch lease so the same paid or model task is not
+// submitted again merely because the dashboard refreshed.
+state.workerDispatches = new Map();
+state.workerDispatchNotice = new Map();
+const WORKER_DISPATCH_COOLDOWN_MS = 90 * 1000;
 state.leaderboardWarning = '';
 state.leaderboardDataQuality = '';
 state.leaderboardCredentialStatus = '';
@@ -143,6 +157,7 @@ state.copilotMessages = (() => { try { return JSON.parse(localStorage.getItem('n
 state.copilotBusy = false;
 state.referencePosterChoice = {};
 state.todayRailPaused = false;
+state.analyticsRefresh = new Map();
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 function coverSrc(value) {
@@ -226,6 +241,17 @@ function renderModelBadges() {
 }
 const longBackgroundModels = new Set(['deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'kimi-k2.7-code']);
 const usesLongBackground = (choice) => longBackgroundModels.has(String(choice || '').toLowerCase());
+function dispatchWorkerOnce(key, payload, { wait = false, timeoutMs = 55000, cooldownMs = 75000 } = {}) {
+  const previous = state.workerDispatches.get(key);
+  if (previous && Date.now() - previous.startedAt < cooldownMs) return wait ? Promise.resolve(null) : false;
+  const entry = { startedAt: Date.now() };
+  state.workerDispatches.set(key, entry);
+  const request = wait
+    ? api('/api/worker', { method: 'POST', body: JSON.stringify(payload), timeoutMs })
+    : fetch('/api/worker', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(payload) }).catch(() => null);
+  request.finally(() => { entry.finishedAt = Date.now(); }).catch(() => {});
+  return wait ? request : true;
+}
 function selectedModelWaitMs(choice) {
   // The panel renders a local result immediately, so there is no reason to
   // abort a user-selected quality model at the old 32–45 second UI timer.
@@ -754,6 +780,54 @@ function openDetail(id, target = '') {
   hydrateRunDetail(id);
 }
 
+async function refreshRunAnalytics(id) {
+  try {
+    const button = document.querySelector(`[data-refresh-analytics="${CSS.escape(id)}"]`);
+    if (button) { button.disabled = true; button.classList.add('loading'); }
+    const days = Number(document.querySelector(`[data-analytics-days="${CSS.escape(id)}"]`)?.value || 30);
+    const body = await api('/api/runs', { method: 'PATCH', body: JSON.stringify({ id, action: 'refresh_analytics', days }), timeoutMs: 65000 });
+    if (!body?.run) return;
+    state.runs = state.runs.map((item) => item.id === id ? body.run : item);
+    state.detailFingerprint = '';
+    if (state.detailOpen && state.selectedId === id) renderDetail();
+  } catch (error) { showToast(`数据刷新失败：${error.message}；已保留上次有效结果`, 'error'); }
+  finally {
+    const button = document.querySelector(`[data-refresh-analytics="${CSS.escape(id)}"]`);
+    if (button) { button.disabled = false; button.classList.remove('loading'); }
+  }
+}
+
+function renderDataQueryResult(result) {
+  const target = $('#dataQueryResult');
+  if (!target) return;
+  if (!result) { target.innerHTML = '<span>输入追踪值后，系统会同时读取真实漏斗、putreport 和历史快照，并明确标注来源，不把不同来源重复相加。</span>'; return; }
+  if (result.error) { target.innerHTML = `<div class="data-query-error"><i data-lucide="circle-alert"></i><strong>${escapeHtml(result.error)}</strong><small>请确认 Code、linkId 或短链属于 NovelFlow。</small></div>`; icons(); return; }
+  const summary = result.sources?.socialFunnel?.summary || result.sources?.aggregate?.summary || {};
+  const format = (value) => Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+  const sourceStatus = (name, source) => `<article><header><strong>${name}</strong><span>${escapeHtml(source?.status || 'unavailable')}</span></header><div><span>拉起 UV</span><b>${format(source?.summary?.pullUv)}</b></div><div><span>激活 UV</span><b>${format(source?.summary?.activeUv)}</b></div><div><span>D7 收入</span><b>${format(source?.summary?.d7Income)}</b></div><small>${escapeHtml(source?.source || '未返回来源')}</small></article>`;
+  target.innerHTML = `<div class="data-query-head"><strong>${escapeHtml(result.identifier || result.input)}</strong><span>${escapeHtml(result.window?.from || '--')} 至 ${escapeHtml(result.window?.to || '--')}</span></div><div class="analytics-grid"><div class="metric"><span>主来源拉起 UV</span><strong>${format(summary.pullUv)}</strong></div><div class="metric"><span>主来源激活 UV</span><strong>${format(summary.activeUv)}</strong></div><div class="metric"><span>激活率</span><strong>${summary.activationRate == null ? '—' : `${format(summary.activationRate)}%`}</strong></div><div class="metric"><span>D7 收入</span><strong>${format(summary.d7Income)}</strong></div></div><div class="data-query-sources">${sourceStatus('Social funnel', result.sources?.socialFunnel)}${sourceStatus('Putreport', result.sources?.putreport)}${sourceStatus('Unified aggregate', result.sources?.aggregate)}</div><p class="data-query-guidance">${escapeHtml(result.guidance || '不同来源是独立视图，不能直接相加。')}</p>`;
+  icons();
+}
+
+async function runDataQuery() {
+  const input = $('#dataQueryInput')?.value.trim();
+  const days = Number($('#dataQueryDays')?.value || 30);
+  const error = $('#dataQueryError');
+  const button = $('#submitDataQuery');
+  if (!input) return;
+  if (error) error.textContent = '';
+  if (button) { button.disabled = true; button.classList.add('loading'); }
+  renderDataQueryResult(null);
+  try {
+    const result = await api(`/api/quick-stats?q=${encodeURIComponent(input)}&days=${days}`, { timeoutMs: 120000 });
+    renderDataQueryResult(result);
+  } catch (requestError) {
+    renderDataQueryResult({ error: requestError.message || '数据查询失败' });
+  } finally {
+    if (button) { button.disabled = false; button.classList.remove('loading'); }
+  }
+}
+
 async function hydrateRunDetail(id) {
   const run = state.runs.find((item) => item.id === id);
   if ((!run?._summary && !run?._detailPartial) || state.detailHydrating === id) return;
@@ -772,6 +846,9 @@ async function hydrateRunDetail(id) {
       const timer = state.detailHydrationTimers.get(id);
       if (timer) clearTimeout(timer);
       state.detailHydrationTimers.delete(id);
+      // Detail hydration is read-only.  Do not silently issue a fixed-window
+      // analytics request here: opening a task must never overwrite the
+      // verified P6 snapshot or make the drawer wait on a report provider.
     }
   } catch (error) {
     const current = state.runs.find((item) => item.id === id);
@@ -2002,9 +2079,18 @@ function videoHtml(run) {
   const original = run.artifacts?.video;
   const reference = run.artifacts?.referenceVideo;
   const revision = run.artifacts?.videoRevision;
+  const qualityMeta = (video) => {
+    if (!video) return '';
+    const model = String(video.videoModel || '').trim();
+    const isMini = /mini/i.test(model);
+    const modelLabel = model ? (isMini ? `mini 路由：${model}` : `完整版路由：${model}`) : '模型信息待 AC 返回';
+    const controlLabel = video.isUserAdCopy === true ? '已接收用户剧情提示词' : video.isUserAdCopy === false ? 'AC 自动剧情，需重点核对原文' : '剧情接管状态待返回';
+    const warning = isMini || video.isUserAdCopy === false ? '<small class="video-quality-warning">建议重点核对人物、事件顺序和是否出现通用壁咚/亲吻桥段。</small>' : '<small class="video-quality-note">已接入 AC 模型回传；仍需人工检查字幕、台词和关键节拍。</small>';
+    return `<div class="video-quality-meta"><span>${escapeHtml(modelLabel)}</span><span>${escapeHtml(controlLabel)}</span>${warning}</div>`;
+  };
   const asset = (video, title, referenceVersion = false) => {
     const url = video?.videoUrls?.[0];
-    if (url) return `<article class="video-asset"><div class="video-asset-head"><strong>${escapeHtml(title)}</strong>${referenceVersion ? '<span>额外版本</span>' : ''}</div><div class="video-shell"><video ${referenceVersion ? '' : 'id="resultVideo"'} controls preload="metadata" playsinline poster="${escapeHtml(video.coverImageUrl || '')}"><source src="${escapeHtml(url)}"></video></div></article>`;
+    if (url) return `<article class="video-asset"><div class="video-asset-head"><strong>${escapeHtml(title)}</strong>${referenceVersion ? '<span>额外版本</span>' : ''}</div>${qualityMeta(video)}<div class="video-shell"><video ${referenceVersion ? '' : 'id="resultVideo"'} controls preload="metadata" playsinline poster="${escapeHtml(video.coverImageUrl || '')}"><source src="${escapeHtml(url)}"></video></div></article>`;
     const state = videoState(run, video);
     return `<article class="video-asset ${state.kind}"><div class="video-asset-head"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(state.kind === 'failed' ? '需处理' : state.kind === 'running' ? '后台生成中' : '')}</span></div><div class="media-placeholder"><i data-lucide="${state.kind === 'failed' ? 'circle-alert' : state.kind === 'running' ? 'loader-circle' : 'video'}"></i>${escapeHtml(state.label)}</div></article>`;
   };
@@ -2038,10 +2124,14 @@ function openImageViewer(url, label) {
 
 function analyticsHtml(run) {
   const analytics = run.artifacts?.analytics;
-  if (!analytics) return '<div class="media-placeholder">完成后自动查询 Code 与 Link 数据</div>';
+  if (!analytics) return `<div class="analytics-empty"><span>数据尚未同步，生产完成后后台会自动跟进。</span><button class="secondary-command" data-refresh-analytics="${escapeHtml(run.id)}">立即同步</button></div>`;
   const summary = analytics.summary || {};
   const value = (number) => Number(number || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
-  return `<div class="analytics-grid"><div class="metric"><span>拉起 UV</span><strong>${value(summary.pullUv)}</strong></div><div class="metric"><span>激活 UV</span><strong>${value(summary.activeUv)}</strong></div><div class="metric"><span>激活率</span><strong>${summary.activationRate == null ? '—' : `${value(summary.activationRate)}%`}</strong></div><div class="metric"><span>D7 收入</span><strong>${value(summary.d7Income)}</strong></div></div><ul class="findings">${(analytics.findings || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+  const stream = analytics.streams || {};
+  const streamCard = (label, item) => `<article class="analytics-stream"><header><strong>${label}</strong><span>${item?.rowCount ? `${item.rowCount} 行` : '暂无行'}</span></header><div><span>拉起 UV</span><b>${value(item?.pullUv)}</b></div><div><span>激活</span><b>${value(item?.activeUv)}</b></div><div><span>D7 收入</span><b>${value(item?.d7Income)}</b></div><small>激活率 ${item?.activationRate == null ? '—' : `${value(item.activationRate)}%`}</small></article>`;
+  const last = analytics.lastSuccessfulAt || analytics.refreshedAt;
+  const status = analytics.stale ? '上次数据仍有效，本次同步会自动重试' : analytics.status === 'ready' ? '数据已验证' : analytics.status === 'pending' ? '后台同步中' : '等待首次同步';
+  return `<div class="analytics-toolbar"><div><strong>${escapeHtml(status)}</strong><small>来源 ${escapeHtml(analytics.source || '待连接')} · 窗口 ${escapeHtml(analytics.window?.from || '--')} 至 ${escapeHtml(analytics.window?.to || '--')} · 上次成功 ${last ? escapeHtml(new Date(last).toLocaleString('zh-CN')) : '--'}</small></div><select data-analytics-days="${escapeHtml(run.id)}" aria-label="数据窗口"><option value="7">近 7 天</option><option value="30" selected>近 30 天</option><option value="90">近 90 天</option></select><button class="secondary-command" data-refresh-analytics="${escapeHtml(run.id)}"><i data-lucide="refresh-cw"></i>立即同步</button></div><div class="analytics-grid"><div class="metric"><span>主流拉起 UV</span><strong>${value(summary.pullUv)}</strong></div><div class="metric"><span>主流激活 UV</span><strong>${value(summary.activeUv)}</strong></div><div class="metric"><span>主流激活率</span><strong>${summary.activationRate == null ? '—' : `${value(summary.activationRate)}%`}</strong></div><div class="metric"><span>D7 收入</span><strong>${value(summary.d7Income)}</strong></div><div class="metric"><span>D30 收入</span><strong>${value(summary.d30Income)}</strong></div></div><div class="analytics-streams">${streamCard('Promotion Code', stream.code)}${streamCard('Verified Link', stream.link)}</div>${analytics.warning ? `<p class="analytics-warning">${escapeHtml(analytics.warning)}</p>` : ''}<ul class="findings">${(analytics.findings || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
 }
 
 function eventsHtml(run) {
@@ -2153,6 +2243,7 @@ function renderDetail() {
   panel.querySelector('.create-variant')?.addEventListener('click', () => openConfirmation('creative', run.id));
   panel.querySelectorAll('.remove-asset').forEach((button) => button.addEventListener('click', () => removeRunAsset(run, button.dataset.removeAsset)));
   panel.querySelector('[data-ai-wait-recovery]')?.addEventListener('click', (event) => recoverAiWait(run.id, event.currentTarget));
+  panel.querySelector('[data-refresh-analytics]')?.addEventListener('click', () => refreshRunAnalytics(run.id));
   panel.querySelectorAll('[data-copy-post-index]').forEach((button) => button.addEventListener('click', () => {
     const post = run.artifacts?.posts?.[Number(button.dataset.copyPostIndex)];
     const language = button.dataset.copyPostLanguage;
@@ -2424,7 +2515,7 @@ function queueCreativePlanJob(job, selectedModel, planningSession = null) {
   if (!job) return false;
   state.planJobs = [job, ...state.planJobs.filter((item) => item.id !== job.id)];
   renderCreativePlanQueue(); icons();
-  fetch('/api/worker', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ planId: job.id }) }).catch(() => {});
+  dispatchWorkerOnce(`plan:${job.id}`, { planId: job.id }, { cooldownMs: 60000 });
   if (planningSession == null || planningSession === state.planningSession) $('#creativePlanDialog').close();
   showToast(`${selectedModel} 已转入后台策划，可继续操作；完成后在顶部查看方案`);
   return true;
@@ -2460,26 +2551,26 @@ async function kickWorker() {
       if (sections.length) {
         if (longTask) {
           const creativeSection = sections[0];
-          fetch('/api/worker', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: active.id, creativeSection }) }).catch(() => {});
+          dispatchWorkerOnce(`${active.id}:${creativeSection}`, { id: active.id, creativeSection }, { cooldownMs: 90000 });
           const key = `${active.id}:${creativeSection}`;
           if (state.longKickKey !== key) showToast(`${modelLabel(active.input?.creativeProfile?.modelChoice)} 已转入后台长任务，可继续使用控制台`);
           state.longKickKey = key;
           return;
         }
-        await Promise.all(sections.map((creativeSection) => api('/api/worker', { method: 'POST', body: JSON.stringify({ id: active.id, creativeSection }), timeoutMs: 55000 }).catch(() => null)));
+        await Promise.all(sections.map((creativeSection) => dispatchWorkerOnce(`${active.id}:${creativeSection}`, { id: active.id, creativeSection }, { wait: true, timeoutMs: 55000, cooldownMs: 75000 }).catch(() => null)));
         await Promise.all([loadStatus({ silent: true }), loadCreativePlans({ silent: true })]);
         return;
       }
     }
     const longTask = activePlan ? usesLongBackground(activePlan.input?.modelChoice) : usesLongBackground(active?.input?.creativeProfile?.modelChoice);
     if (longTask) {
-      fetch('/api/worker', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(activePlan ? { planId: activePlan.id } : { id: active.id }) }).catch(() => {});
+      dispatchWorkerOnce(activePlan ? `plan:${activePlan.id}` : `run:${active.id}`, activePlan ? { planId: activePlan.id } : { id: active.id }, { cooldownMs: 90000 });
       const key = activePlan ? `plan:${activePlan.id}` : `run:${active?.id}`;
       if (state.longKickKey !== key) showToast(`${modelLabel(activePlan?.input?.modelChoice || active?.input?.creativeProfile?.modelChoice)} 已转入后台长任务，可继续使用控制台`);
       state.longKickKey = key;
       return;
     }
-    await api('/api/worker', { method: 'POST', body: JSON.stringify(activePlan ? { planId: activePlan.id } : { id: active.id }), timeoutMs: 55000 });
+    await dispatchWorkerOnce(activePlan ? `plan:${activePlan.id}` : `run:${active.id}`, activePlan ? { planId: activePlan.id } : { id: active.id }, { wait: true, timeoutMs: 55000, cooldownMs: 60000 });
     await Promise.all([loadStatus({ silent: true }), loadCreativePlans({ silent: true })]);
   }
   catch (error) { showToast(error.message, 'error'); }
@@ -2734,6 +2825,9 @@ $('#createRunButton').addEventListener('click', openRunDialog);
 $('#deckCreateRun').addEventListener('click', openRunDialog);
 $('#deckCreativePlan').addEventListener('click', () => openCreativePlanDialog());
 $('#weeklyReportButton').addEventListener('click', openWeeklyReport);
+$('#dataQueryButton').addEventListener('click', () => { $('#dataQueryDialog').showModal(); $('#dataQueryInput').focus(); });
+$('#closeDataQuery').addEventListener('click', () => $('#dataQueryDialog').close());
+$('#dataQueryForm').addEventListener('submit', (event) => { event.preventDefault(); runDataQuery(); });
 $('#closeRunDialog').addEventListener('click', closeRunDialog);
 $('#closeCreativePlan').addEventListener('click', () => {
   state.planningSession = Number(state.planningSession || 0) + 1;

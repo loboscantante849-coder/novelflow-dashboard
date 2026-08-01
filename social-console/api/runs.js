@@ -1,6 +1,6 @@
 const { getRedis, getRun, getRunDetail, getRunSummary, listRunSummaries, newRun, saveRun, getCreativePlan } = require('./_lib/store');
 const { requireSession } = require('./_lib/auth');
-const { normalizeCreative } = require('./_lib/pipeline');
+const { normalizeCreative, refreshAnalytics } = require('./_lib/pipeline');
 const providers = require('./_lib/providers');
 
 const text = (value, max) => typeof value === 'string' && value.trim().length <= max ? value.trim() : '';
@@ -147,6 +147,14 @@ module.exports = async (req, res) => {
     if (req.method === 'PATCH') {
       const run = await getRun(redis, text(req.body?.id, 100));
       if (!run) return res.status(404).json({ error: 'Run not found' });
+      if (req.body?.action === 'refresh_analytics') {
+        if (!run.artifacts?.linkId && !run.artifacts?.code) return res.status(409).json({ error: 'A verified Code or link is required before querying analytics' });
+        const days = Math.max(1, Math.min(Number(req.body?.days) || 30, 180));
+        await refreshAnalytics(run, days);
+        run.events.push({ at: new Date().toISOString(), type: 'analytics_refreshed', message: `Real-time attribution refreshed for the most recent ${days} days` });
+        await saveRun(redis, run, { preserveUpdatedAt: true });
+        return res.status(200).json({ run });
+      }
       if (req.body?.action === 'delete_asset') {
         const asset = text(req.body?.asset, 40);
         const paidInFlight = (value) => ['submitting', 'running'].includes(String(value?.status || ''));

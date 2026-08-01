@@ -968,14 +968,39 @@ async function p35(redis, run) {
   await saveRun(redis, run);
 }
 
-function summarizeAnalytics(rows, code, linkId, window) {
-  const normalized = rows.filter((row) => [String(code), String(linkId)].includes(String(row.adId || '')));
+function summarizeAnalytics(rows, code, linkId, window, source = 'social_funnel_realtime') {
+  const identifiers = { code: String(code || ''), linkId: String(linkId || '') };
+  const validIdentifiers = Object.values(identifiers).filter(Boolean);
+  const normalized = (Array.isArray(rows) ? rows : []).filter((row) => validIdentifiers.includes(String(row.adId || '')));
   const number = (value) => Number(value || 0);
-  const sum = (key) => normalized.reduce((total, row) => total + number(row[key]), 0);
-  const pullUv = sum('pullUv');
-  const activeUv = sum('activeUv');
-  const newUv = sum('newUv');
-  const d7Income = sum('d7Income');
+  const sum = (items, key) => items.reduce((total, row) => total + number(row[key]), 0);
+  const summarizeStream = (items) => {
+    const pullUv = sum(items, 'pullUv');
+    const activeUv = sum(items, 'activeUv');
+    const newUv = sum(items, 'newUv');
+    const rate = (a, b) => b > 0 ? Math.round(a / b * 10000) / 100 : null;
+    return {
+      pullUv, activeUv, newUv,
+      attActiveUv: sum(items, 'attActiveUv'), attNewUv: sum(items, 'attNewUv'),
+      d0Income: sum(items, 'd0Income'), d7Income: sum(items, 'd7Income'),
+      d14Income: sum(items, 'd14Income'), d30Income: sum(items, 'd30Income'), d90Income: sum(items, 'd90Income'),
+      totalIncome: sum(items, 'totalIncome'), visits: sum(items, 'visits'),
+      activationRate: rate(activeUv, pullUv), newUserRate: rate(newUv, activeUv),
+      attributionRate: rate(sum(items, 'attActiveUv'), activeUv), rowCount: items.length
+    };
+  };
+  const codeRows = identifiers.code ? normalized.filter((row) => String(row.adId || '') === identifiers.code) : [];
+  const linkRows = identifiers.linkId ? normalized.filter((row) => String(row.adId || '') === identifiers.linkId) : [];
+  const totals = summarizeStream(normalized);
+  const stream = { code: summarizeStream(codeRows), link: summarizeStream(linkRows) };
+  // A row from Code and a row from Link can refer to the same visitor. Keep
+  // the streams separate and use the primary stream for headline numbers.
+  const primaryIdentifier = linkRows.length ? 'link' : codeRows.length ? 'code' : null;
+  const primary = primaryIdentifier ? stream[primaryIdentifier] : totals;
+  const pullUv = primary.pullUv;
+  const activeUv = primary.activeUv;
+  const newUv = primary.newUv;
+  const d7Income = primary.d7Income;
   const rate = (a, b) => b > 0 ? Math.round(a / b * 10000) / 100 : null;
   const sampleState = pullUv <= 0 ? 'no_data' : pullUv < 50 || activeUv < 10 ? 'insufficient' : pullUv < 200 || activeUv < 30 ? 'directional' : 'reliable';
   const findings = [];
@@ -984,7 +1009,32 @@ function summarizeAnalytics(rows, code, linkId, window) {
   const activationRate = rate(activeUv, pullUv);
   if (activationRate !== null && activationRate < 15 && pullUv >= 50) findings.push('拉起后激活偏低，优先检查创意承诺与落地页匹配。');
   if (activationRate !== null && activationRate >= 35) findings.push('拉起后的激活表现较好，可继续放大当前创意方向。');
-  return { status: normalized.length ? 'ready' : 'no_data', refreshedAt: now(), window, summary: { pullUv, activeUv, newUv, d7Income, activationRate, newUserRate: rate(newUv, activeUv), sampleState, rowCount: normalized.length }, findings, rows: normalized.slice(0, 500) };
+  return { status: normalized.length ? 'ready' : 'no_data', refreshedAt: now(), source, window, identifiers, primaryIdentifier, quality: { overlapWarning: Boolean(codeRows.length && linkRows.length), streamCount: [codeRows, linkRows].filter((items) => items.length).length }, streams: stream, summary: { pullUv, activeUv, newUv, d7Income, activationRate, newUserRate: rate(newUv, activeUv), sampleState, rowCount: normalized.length }, findings, rows: normalized.slice(0, 500) };
+}
+
+async function refreshAnalytics(run, days = 90) {
+  const previous = run.artifacts?.analytics && typeof run.artifacts.analytics === 'object' ? run.artifacts.analytics : null;
+  const attemptedAt = now();
+  try {
+    const report = await providers.reportRows(run.artifacts.code, run.artifacts.linkId, days);
+    const next = summarizeAnalytics(report.rows, run.artifacts.code, run.artifacts.linkId, { from: report.from, to: report.to }, report.source);
+    const usable = next.status === 'ready' || !previous || previous.status !== 'ready';
+    // Empty/zero responses are common while a report window is settling. Do
+    // not erase the last verified snapshot; expose the stale state instead.
+    if (!usable && previous?.summary?.pullUv > 0 && next.summary.pullUv === 0) {
+      run.artifacts.analytics = { ...previous, lastAttemptAt: attemptedAt, stale: true, warning: '本次报表返回空值，已保留上次有效数据', error: '' };
+    } else {
+      run.artifacts.analytics = { ...next, lastSuccessfulAt: attemptedAt, lastAttemptAt: attemptedAt, stale: false, error: '' };
+    }
+  } catch (error) {
+    if (previous?.status === 'ready') {
+      run.artifacts.analytics = { ...previous, lastAttemptAt: attemptedAt, stale: true, error: cleanError(error) };
+    } else {
+      run.artifacts.analytics = { status: 'unavailable', refreshedAt: attemptedAt, lastAttemptAt: attemptedAt, stale: true, error: cleanError(error), summary: {}, findings: ['数据接口暂时不可用，后续会自动重试。'] };
+    }
+  }
+  run.artifacts.analytics.nextRefreshAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+  return run.artifacts.analytics;
 }
 
 async function p6(redis, run) {
@@ -1022,10 +1072,12 @@ async function p6(redis, run) {
     createdAt: now()
   };
   try {
-    const report = await providers.reportRows(run.artifacts.code, run.artifacts.linkId, 90);
-    run.artifacts.analytics = summarizeAnalytics(report.rows, run.artifacts.code, run.artifacts.linkId, { from: report.from, to: report.to });
+    // Attribution is refreshed asynchronously by the analytics worker. A
+    // report provider outage must never hold the finished production package.
+    run.artifacts.analytics = run.artifacts.analytics || { status: 'pending', summary: {}, findings: [] };
+    run.artifacts.analytics.nextRefreshAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
   } catch (error) {
-    run.artifacts.analytics = { status: 'unavailable', refreshedAt: now(), error: cleanError(error), summary: {}, findings: ['数据接口暂时不可用，不影响创意资产完成。'] };
+    run.artifacts.analytics = { status: 'pending', refreshedAt: now(), error: cleanError(error), summary: {}, findings: ['数据将在后台自动跟进，不影响创意资产完成。'], nextRefreshAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() };
   }
   setStage(run, 'P6', 'done', { label: '审核包已完成，Facebook 保持手动' });
   run.state = 'completed';
@@ -1145,4 +1197,4 @@ async function processRun(redis, run) {
   }
 }
 
-module.exports = { processRun, p3, selectedChapters, normalizeCreative, summarizeAnalytics, cleanError, videoPayload, referenceVideoPayload };
+module.exports = { processRun, p3, selectedChapters, normalizeCreative, summarizeAnalytics, refreshAnalytics, cleanError, videoPayload, referenceVideoPayload };

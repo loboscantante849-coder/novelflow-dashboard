@@ -67,7 +67,7 @@ test('dashboard run summaries retain operational state without transferring full
   assert.deepEqual(summary.artifacts.usage.creative, { model: 'hy3', totalTokens: 1234 });
   assert.equal(summary.modelActivity.length, 3);
   assert.equal(summary.events.length, 1);
-  assert.equal(summary._summaryVersion, 5);
+  assert.equal(summary._summaryVersion, 6);
   assert.deepEqual(summary.stages.P1, { status: 'waiting' });
   assert.ok(bytes < 6000, `summary should be compact, received ${bytes} bytes`);
 });

@@ -628,6 +628,18 @@ test('a definitive AC 422 rejection is failed rather than ambiguous', async (t) 
   assert.equal(run.stages.P4.error, 'AC rejected payload');
 });
 
+test('analytics keeps Code and Link streams separate', () => {
+  const result = summarizeAnalytics([
+    { adId: '55555', pullUv: 20, activeUv: 4, newUv: 3, d7Income: 0 },
+    { adId: 'link-abc', pullUv: 100, activeUv: 40, newUv: 20, d7Income: 12 }
+  ], '55555', 'link-abc', { from: '2026-07-01', to: '2026-07-17' });
+  assert.equal(result.primaryIdentifier, 'link');
+  assert.equal(result.streams.code.pullUv, 20);
+  assert.equal(result.streams.link.pullUv, 100);
+  assert.equal(result.summary.pullUv, 100);
+  assert.equal(result.quality.overlapWarning, true);
+});
+
 test('analytics labels insufficient samples instead of overclaiming', () => {
   const result = summarizeAnalytics([{ adId: '55555', pullUv: 20, activeUv: 4, newUv: 3, d7Income: 0 }], '55555', '', { from: '2026-07-01', to: '2026-07-17' });
   assert.equal(result.summary.sampleState, 'insufficient');

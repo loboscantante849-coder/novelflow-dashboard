@@ -682,7 +682,7 @@ The videoPrompt is a high-retention vertical short-video story package, not gene
   };
   const shared = `You are the senior bilingual fiction social editor for NovelFlow. The supplied storyIntelligence was generated before production from the complete chapter-title structure plus distributed opening-to-late source samples. Use it to select a coherent emotional arc, angle, reversal and visual moment across the whole story. It is a planning map, not proof: every rendered plot fact and every evidence citation must still be supported by an exact quote in chapterEvidence. Use only supplied chapter facts, names and quotes. Never invent plot, relationship, violence, or identity facts. Return exactly one JSON object with every required field, no prose outside it. ${styleGuidance}${revisionInstruction}`;
   const postsInstruction = `${shared}\nCreate exactly two English posts: hook and escalation, each under 190 words plus a natural Simplified Chinese translation. Each has all six steps and 2-3 exact chapter evidence quotes under 18 words. One post must open with a short grounded first-person quoted line; the other may use a sharp narrative hook. Write 3-5 short readable paragraphs and 2-4 fitting emoji in the visible narrative. This is social copy, not an evidence report: evidence belongs ONLY in the evidence array. Do not paste evidence quotes into the finished post except for the optional opening dialogue. Every visible paragraph must advance the story, so never repeat a sentence, a quote, a detail, or a beat. Build a first-person-feeling scene: immediate disruption, concrete sensory discomfort or desire, a power/expectation reversal, then a sharply specific unresolved choice. Avoid generic summaries, vague chemistry, and explicit sexual detail. The hook version should sell the opening incident; escalation must use a different, source-backed later turning point. End each content field with four separate lines: a source-specific "See what happens when..." or "Read what happens when..." CTA; "Search Code ${code} in NovelFlow to continue the story."; the exact short URL alone; and one hashtag-only line with 5-8 source-relevant tags.`;
-  const videoInstruction = `${shared}\nCreate one premium 15-second vertical-video story package, not a synopsis. It must contain 0-2s visual disruption, 2-5s personal stake, 5-8s pressure mounting, 8-11s a genuine source-backed reversal, and 11-15s a question that cuts at the most emotionally expensive choice. The five beats must form one escalating mini-scene, not five generic captions. Give English narration with visceral, filmable detail and an explicit shot plan with locked character appearance, framing, movement, lighting and transitions. Use exactly 3 sourceEvidence objects with supplied chapter numbers and exact short quotes that occur in those chapter excerpts; do not use chapter titles as quotes. Provide natural Chinese translations. No subtitles, readable text, CTA cards, identity drift, explicit sexual content, or unsupported threats.`;
+  const videoInstruction = `${shared}\nCreate one premium vertical-video story package for AC Seedance 2.0, usually about 12 seconds. Write adCopy as CHARACTER LOCK followed by exactly three or four numbered STORY SOURCE OF TRUTH events in chronological order. Write buildRequirement as four compact blocks: 0-3s conflict object and reaction, 3-5s decisive movement or choice, 5-9s central visual action, 9-12s source-supported reversal. Keep two active adults where possible; use an object, reaction cut, mist or shadow instead of complex on-camera transformation. The package must form one escalating mini-scene, not generic captions. Give English narration and an explicit shot plan with locked character appearance, framing, movement, lighting and transitions. Use exactly 3 sourceEvidence objects with supplied chapter numbers and exact short quotes that occur in those chapter excerpts; do not use chapter titles as quotes. Provide natural Chinese translations. Prohibit subtitles, readable text, title cards, CTA cards, identity drift, character duplication, explicit sexual content, unsupported threats, and unrelated genre clichés. AC may still render text despite this prohibition, so the finished asset must be manually checked.`;
   const postersInstruction = `${shared}\nCreate exactly two source-grounded commercial image prompts with Chinese translations: luminous_cinema in 9:16 and editorial_romance in 2:3. Each must depict one decisive emotional moment, adult fully clothed characters, clear pose and environment, negative space, no readable text, logo, watermark, QR, UI, collage, duplicate people, or extra limbs.`;
   const reviewInstruction = `${shared}\nThis request runs AFTER the copy, video prompt and poster prompts already exist. Act only as a post-generation production QA editor. Assess the supplied finished package against the source and return a concise Chinese operator-facing quality review. Never call this an initial decision, strategy, plan, or reason why the package was originally created. Refer to it explicitly as a finished-package review and proposed revision. Do not expose hidden reasoning.`;
   const runSections = async (config) => Promise.all([
@@ -1029,11 +1029,14 @@ async function acResult(threadId) {
   const base = body.base_info || body.baseInfo || {};
   const results = body.final_result || body.finalResult || [];
   const videoUrls = (Array.isArray(results) ? results : []).map((item) => absoluteUrl(item.video_url || item.source_video_url)).filter(Boolean);
+  const resultItems = Array.isArray(results) ? results : [];
+  const videoModels = [...new Set(resultItems.map((item) => String(item.video_model || '').trim()).filter(Boolean))];
+  const userAdCopyValues = resultItems.map((item) => item.is_user_ad_copy).filter((value) => typeof value === 'boolean');
   const runStatus = String(body.run_status || body.status || '').toLowerCase();
   const baseStatus = String(base.status || '').toLowerCase();
   const failed = ['failed', 'error', 'cancelled', 'canceled'].includes(runStatus) || ['failed', 'error', 'cancelled', 'canceled'].includes(baseStatus);
   const complete = runStatus === 'completed' && baseStatus === 'completed';
-  return { status: failed ? (videoUrls.length ? 'partial' : 'failed') : complete ? (videoUrls.length ? 'completed' : 'completed_missing_media') : 'running', threadId, videoUrls, coverImageUrl: absoluteUrl(results?.[0]?.cover_image_url || results?.[0]?.cover_url), error: String(base.error_msg || body.message || body.error || '').slice(0, 500) };
+  return { status: failed ? (videoUrls.length ? 'partial' : 'failed') : complete ? (videoUrls.length ? 'completed' : 'completed_missing_media') : 'running', threadId, videoUrls, coverImageUrl: absoluteUrl(results?.[0]?.cover_image_url || results?.[0]?.cover_url), videoModel: videoModels.length === 1 ? videoModels[0] : videoModels.join(', '), isUserAdCopy: userAdCopyValues.length ? userAdCopyValues.every(Boolean) : null, error: String(base.error_msg || body.message || body.error || '').slice(0, 500) };
 }
 
 async function validateVideo(url) {
@@ -1080,17 +1083,158 @@ async function imageResult(taskId) {
   return body.data || {};
 }
 
-async function reportRows(code, linkId, days = 90) {
-  const reportToken = secretToken('NOVELFLOW_REPORT_TOKEN') || await oidcToken(false);
-  const endpoint = env('NOVELFLOW_REPORT_FUNNEL_API', 'https://ad.anystories.app/api/v1/novelflowmiddlegroundmanage/socialsource-code-funnel/list');
-  const end = new Date(Date.now() - 86400000);
-  const start = new Date(end.getTime() - (days - 1) * 86400000);
-  const format = (date) => date.toISOString().slice(0, 10);
-  const payload = { pageIndex: 1, pageSize: 1000, from: format(start), to: format(end), adIds: [String(code), String(linkId)].filter(Boolean), groupings: ['dt', 'ad_id'] };
-  const { body } = await request(endpoint, { method: 'POST', headers: { Authorization: `Bearer ${reportToken}`, 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(payload) }, 'Social funnel report', 55000);
-  return { rows: pageItems(body).items, from: format(start), to: format(end) };
+const PUTREPORT_API = 'https://ad.anystories.app/api/v1/novelflowmiddlegroundmanage/putreport/putreport';
+const SOCIAL_FUNNEL_API = 'https://ad.anystories.app/api/v1/novelflowmiddlegroundmanage/socialsource-code-funnel/list';
+const FUNNEL_METRICS = [
+  'pullUv', 'activeUv', 'newUv', 'attActiveUv', 'attNewUv',
+  'd0Income', 'd1Income', 'd3Income', 'd7Income', 'd14Income',
+  'd30Income', 'd90Income', 'dnIncome'
+];
+
+function reportDate(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function reportRowsFromBody(body) {
+  const data = body?.data;
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.data)) return data.data;
+  return pageItems(body).items;
+}
+
+function funnelRowsFromBody(body) {
+  let value = body?.data ?? body;
+  if (Array.isArray(value)) return value;
+  if (value?.data && typeof value.data === 'object' && !Array.isArray(value.data)) value = value.data;
+  const rows = value?.list || value?.dataSource || (Array.isArray(value?.data) ? value.data : []);
+  return Array.isArray(rows) ? rows : [];
+}
+
+function normalizedFunnelRow(row) {
+  const number = (value) => Number(value || 0);
+  return {
+    date: String(row.dt || row.date || '').slice(0, 10),
+    mediaSource: String(row.mediaSource || '').trim(),
+    adId: String(row.adId || row.adid || row.ad_id || '').trim(),
+    ...Object.fromEntries(FUNNEL_METRICS.map((key) => [key, number(row[key])])),
+    attSuccessRate: number(row.attSuccessRate)
+  };
+}
+
+function normalizedPutreportRow(row) {
+  const number = (value) => Number(value || 0);
+  return {
+    adId: String(row.adid || row.adId || row.ad_id || ''),
+    campaignId: String(row.campaignid || row.campaignId || row.campaign_id || ''),
+    adsetId: String(row.adsetid || row.adsetId || row.adset_id || ''),
+    copywritingId: String(row.copywritingid || row.copywritingId || row.copywriting_id || ''),
+    date: String(row.date || row.dt || ''),
+    pullUv: number(row.h5landingpageclickusernum ?? row.pullUv ?? row.pull_uv),
+    // Putreport has no activation field. Do not mislabel another metric.
+    activeUv: number(row.activeUv ?? row.active_uv),
+    newUv: number(row.newusernum ?? row.newUv ?? row.new_uv),
+    d0Income: number(row.d0income ?? row.d0Income ?? row.d0_income),
+    d1Income: number(row.d1income ?? row.d1Income ?? row.d1_income),
+    d3Income: number(row.d3income ?? row.d3Income ?? row.d3_income),
+    d7Income: number(row.d7income ?? row.d7Income ?? row.d7_income),
+    d14Income: number(row.d14income ?? row.d14Income ?? row.d14_income),
+    d30Income: number(row.d30income ?? row.d30Income ?? row.d30_income),
+    d90Income: number(row.d90income ?? row.d90Income ?? row.d90_income),
+    totalIncome: number(row.totalincome ?? row.totalIncome ?? row.total_income),
+    visits: number(row.h5landingpageclicknum ?? row.visits),
+  };
+}
+
+async function getReportToken(forceRefresh = false) {
+  const configured = secretToken('NOVELFLOW_REPORT_TOKEN');
+  if (configured && !forceRefresh) return configured;
+  return oidcToken(forceRefresh);
+}
+
+function reportWindow(days, range = {}) {
+  const count = Math.max(1, Math.min(Number(days) || 90, 180));
+  // The current day is usually incomplete in the reporting warehouse. Use
+  // the latest complete natural day unless an operator explicitly supplies a
+  // boundary for a live diagnostic query.
+  const to = range.to || reportDate(new Date(Date.now() - 86400000));
+  const from = range.from || reportDate(new Date(Date.parse(`${to}T00:00:00Z`) - (count - 1) * 86400000));
+  return { from, to };
+}
+
+async function reportRequest(url, payload, headers, label) {
+  const perform = async (token) => request(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', ...headers },
+    body: JSON.stringify(payload)
+  }, label, 55000);
+  try {
+    return await perform(await getReportToken(false));
+  } catch (error) {
+    const canRefresh = error.status === 401 && env('NOVELFLOW_OIDC_USERNAME') && env('NOVELFLOW_OIDC_PASSWORD');
+    if (!canRefresh) throw error;
+    return perform(await getReportToken(true));
+  }
+}
+
+async function putreportQuery(identifiers, dimension, days = 90, range = {}, groupings = [dimension, 'date'], sourceSuffix = 'realtime') {
+  const allowed = new Set(['campaignid', 'adsetid', 'adid', 'copywritingid']);
+  if (!allowed.has(dimension)) throw new ProviderError('Unsupported putreport dimension', { status: 400 });
+  const ids = identifiers.map((value) => String(value || '').trim()).filter(Boolean);
+  if (!ids.length) throw new ProviderError('A reporting identifier is required', { status: 400 });
+  const { from, to } = reportWindow(days, range);
+  const filters = {
+    productline: ['NovelFlow'], mediasource: [], mediasource2: ['SocialMedia'],
+    date: { from, to, datesLabel: '' }, campaignid: [], adsetid: [], adid: [], copywritingid: []
+  };
+  filters[dimension] = ids;
+  const payload = {
+    filters,
+    groupings
+  };
+  const response = await reportRequest(PUTREPORT_API, payload, {
+      'Content-Type': 'application/json;charset=UTF-8',
+      'X-OS': 'web', 'X-AppName': 'web-admin', 'X-AppIdentifier': 'web', 'X-AppVersion': '1.0.0,1'
+  }, 'Real-time putreport query');
+  return { rows: reportRowsFromBody(response.body).map(normalizedPutreportRow), from, to, source: `putreport_${dimension}_${sourceSuffix}`, dimension, groupings };
+}
+
+async function putreportRows(code, linkId, days = 90, range = {}) {
+  const adIds = [code, linkId].map((value) => String(value || '').trim()).filter(Boolean);
+  return putreportQuery(adIds, 'adid', days, range);
+}
+
+async function putreportDimensionRows(identifier, dimension, days = 90, range = {}) {
+  return putreportQuery([identifier], dimension, days, range);
+}
+
+async function putreportBreakdownRows(identifier, dimension, days = 90, range = {}) {
+  return putreportQuery([identifier], dimension, days, range, ['adid', 'date'], 'breakdown_realtime');
+}
+
+async function funnelReportIds(adIds, days = 90, range = {}) {
+  const ids = adIds.map((value) => String(value || '').trim()).filter(Boolean);
+  if (!ids.length) throw new ProviderError('A promotion Code or link ID is required for reporting', { status: 400 });
+  const { from, to } = reportWindow(days, range);
+  const endpoint = env('NOVELFLOW_REPORT_FUNNEL_API', SOCIAL_FUNNEL_API);
+  const rows = [];
+  for (let pageIndex = 1; pageIndex <= 10; pageIndex += 1) {
+    const payload = { pageIndex, pageSize: 1000, from, to, adIds: ids, groupings: ['dt', 'ad_id'] };
+    const response = await reportRequest(endpoint, payload, { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' }, 'Real-time social funnel query');
+    const page = funnelRowsFromBody(response.body);
+    rows.push(...page);
+    if (page.length < 1000) break;
+  }
+  return { rows: rows.map(normalizedFunnelRow), from, to, source: 'social_funnel_realtime' };
+}
+
+async function funnelReportRows(code, linkId, days = 90, range = {}) {
+  return funnelReportIds([code, linkId], days, range);
+}
+
+async function reportRows(code, linkId, days = 90, range = {}) {
+  return funnelReportRows(code, linkId, days, range);
 }
 
 function sha(value) { return crypto.createHash('sha256').update(String(value)).digest('hex'); }
 
-module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, searchBooks, performanceBooks, contentDashboardBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, linkDetail, generateCreative, analyzeCreativePlan, analyzeOperations, analyzeBookCandidates, extractScreenshotText, analyzeScreenshotWithSeed, copilotReply, generateDistributionPlan, rewritePosterPrompt, findAcTask, submitAc, acResult, validateVideo, validateImage, submitImage, imageResult, reportRows, sha, titleKey, modelTemperature, operationsTimeoutForModel, reserveModelFor, parseModelJson, extractModelText };
+module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, topBooks, searchBooks, performanceBooks, contentDashboardBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, linkDetail, generateCreative, analyzeCreativePlan, analyzeOperations, analyzeBookCandidates, extractScreenshotText, analyzeScreenshotWithSeed, copilotReply, generateDistributionPlan, rewritePosterPrompt, findAcTask, submitAc, acResult, validateVideo, validateImage, submitImage, imageResult, reportRows, funnelReportRows, funnelReportIds, putreportRows, putreportDimensionRows, putreportBreakdownRows, sha, titleKey, modelTemperature, operationsTimeoutForModel, reserveModelFor, parseModelJson, extractModelText };

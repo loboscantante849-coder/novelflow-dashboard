@@ -9,7 +9,7 @@ const runDetailKey = (id) => `nf_social:run_detail:${id}`;
 const planKey = (id) => `nf_social:creative_plan:${id}`;
 const runSummaryKey = (id) => `nf_social:run_summary:${id}`;
 const planSummaryKey = (id) => `nf_social:creative_plan_summary:${id}`;
-const RUN_SUMMARY_VERSION = 5;
+const RUN_SUMMARY_VERSION = 6;
 class RemoteRedis {
   constructor(url, secret) { this.url = url.replace(/\/$/, ''); this.secret = secret; }
   async call(op, args) {
@@ -151,11 +151,21 @@ function runSummary(run) {
       shortUrl: artifacts.shortUrl,
       linkId: artifacts.linkId,
       posts: Array.isArray(artifacts.posts) ? artifacts.posts.map((post) => ({ type: post.type, content: 'ready' })) : [],
-      video: artifacts.video ? { threadId: artifacts.video.threadId, status: artifacts.video.status, videoUrls: (artifacts.video.videoUrls || []).slice(0, 1), error: String(artifacts.video.error || '').slice(0, 300) } : null,
+      video: artifacts.video ? { threadId: artifacts.video.threadId, status: artifacts.video.status, videoUrls: (artifacts.video.videoUrls || []).slice(0, 1), videoModel: String(artifacts.video.videoModel || ''), isUserAdCopy: artifacts.video.isUserAdCopy === true ? true : artifacts.video.isUserAdCopy === false ? false : null, error: String(artifacts.video.error || '').slice(0, 300) } : null,
       referenceVideo: artifacts.referenceVideo ? { threadId: artifacts.referenceVideo.threadId, status: artifacts.referenceVideo.status, videoUrls: (artifacts.referenceVideo.videoUrls || []).slice(0, 1), error: String(artifacts.referenceVideo.error || '').slice(0, 300) } : null,
       videoRevision: artifacts.videoRevision ? { threadId: artifacts.videoRevision.threadId, status: artifacts.videoRevision.status, videoUrls: (artifacts.videoRevision.videoUrls || []).slice(0, 1), error: String(artifacts.videoRevision.error || '').slice(0, 300) } : null,
       images: Array.isArray(artifacts.images) ? artifacts.images.map((image) => ({ variant: image.variant, status: image.status, url: image.url })) : [],
-      analytics: artifacts.analytics ? { summary: artifacts.analytics.summary } : null,
+      analytics: artifacts.analytics ? {
+        status: String(artifacts.analytics.status || ''),
+        summary: artifacts.analytics.summary || {},
+        source: String(artifacts.analytics.source || ''),
+        window: artifacts.analytics.window || null,
+        lastSuccessfulAt: String(artifacts.analytics.lastSuccessfulAt || ''),
+        lastAttemptAt: String(artifacts.analytics.lastAttemptAt || ''),
+        nextRefreshAt: String(artifacts.analytics.nextRefreshAt || ''),
+        stale: artifacts.analytics.stale === true,
+        warning: String(artifacts.analytics.warning || '')
+      } : null,
       distribution: artifacts.distribution ? { status: artifacts.distribution.status } : null,
       optimization: artifacts.optimization ? { status: artifacts.optimization.status } : null,
       review: artifacts.review ? {
@@ -273,14 +283,18 @@ async function getRunSummary(redis, id) {
   const value = await redis.get(runSummaryKey(id));
   return value ? parseStored(value) : null;
 }
-async function saveRun(redis, run) {
-  run.updatedAt = new Date().toISOString();
+async function saveRun(redis, run, options = {}) {
+  const previousUpdatedAt = run.updatedAt;
+  if (!options.preserveUpdatedAt) run.updatedAt = new Date().toISOString();
   await Promise.all([
     redis.set(runKey(run.id), JSON.stringify(run)),
     redis.set(runSummaryKey(run.id), JSON.stringify(runSummary(run))),
     redis.set(runDetailKey(run.id), JSON.stringify(runDetail(run)))
   ]);
-  await redis.zadd(RUN_INDEX, { score: Date.now(), member: run.id });
+  // Analytics reconciliation must not make an old production run jump to the
+  // top of the operations list. Its own freshness fields carry that update.
+  if (!options.preserveUpdatedAt) await redis.zadd(RUN_INDEX, { score: Date.now(), member: run.id });
+  if (options.preserveUpdatedAt && previousUpdatedAt) run.updatedAt = previousUpdatedAt;
   return run;
 }
 async function listCreativePlans(redis, limit = 12) {
