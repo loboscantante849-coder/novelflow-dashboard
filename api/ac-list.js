@@ -6,11 +6,13 @@
 const AC_BASE = 'https://ac.beidou.win/api/v1';
 
 const { setCORSHeaders } = require('./_lib/cors');
-const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
+const { getAuthPayload, isAdminUser, isDisabledUser, checkRateLimit, getClientIp } = require('./_lib/security');
 const { isLegacyAcRemarkOwnedBy } = require('./_lib/ac-ownership');
 
 const AC_OWNER_TTL_SECONDS = 180 * 86400;
 const PAGE_FETCH_CONCURRENCY = 4;
+const AC_READ_USER_LIMIT = 60;
+const AC_READ_IP_LIMIT = 180;
 
 function pageError(status = 502) {
   const error = new Error('AC API error');
@@ -57,6 +59,28 @@ module.exports = async (req, res) => {
     }
   } catch (e) {
     return res.status(503).json({ error: 'Account status unavailable', code: e.code || 'ACCOUNT_STATUS_UNAVAILABLE' });
+  }
+
+  // Listing can fan out to as many as 30 upstream pages. Keep normal refreshes
+  // available while preventing one account/IP from exhausting AC or Redis.
+  try {
+    const userAllowed = await checkRateLimit(
+      redis,
+      `nf_rate:ac_read_user:${String(currentUser).toLowerCase()}`,
+      AC_READ_USER_LIMIT,
+      60,
+      { failClosed: true },
+    );
+    const ipAllowed = await checkRateLimit(
+      redis,
+      `nf_rate:ac_read_ip:${String(getClientIp(req)).slice(0, 128)}`,
+      AC_READ_IP_LIMIT,
+      60,
+      { failClosed: true },
+    );
+    if (!userAllowed || !ipAllowed) return res.status(429).json({ error: 'Too many AC requests', code: 'RATE_LIMITED' });
+  } catch (e) {
+    return res.status(503).json({ error: 'AC read service temporarily unavailable', code: e.code || 'RATE_LIMIT_UNAVAILABLE' });
   }
   let token = null;
   try {

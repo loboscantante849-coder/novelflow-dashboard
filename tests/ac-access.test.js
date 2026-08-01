@@ -195,6 +195,51 @@ test('AC list excludes another user whose name shares the current user prefix', 
   }
 });
 
+test('AC list rate limits expensive upstream reads before calling AC', async () => {
+  const originalFetch = global.fetch;
+  let upstreamCalls = 0;
+  const username = 'ac-rate-limited-user';
+  global.fetch = async () => {
+    upstreamCalls += 1;
+    return response({ pageCount: 1, items: [] });
+  };
+  try {
+    FakeRedis.reset({
+      [`nf_user_data:${username}`]: JSON.stringify({}),
+      [`nf_rate:ac_read_user:${username}`]: 60,
+      ac_token: 'test-ac-token',
+    });
+    const listed = await invoke(acList, { method: 'GET', headers: authHeaders(username) });
+    assert.equal(listed.statusCode, 429);
+    assert.equal(listed.body.code, 'RATE_LIMITED');
+    assert.equal(upstreamCalls, 0);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('AC result rejects path-like thread ids before any upstream or Redis read', async () => {
+  const originalFetch = global.fetch;
+  let upstreamCalls = 0;
+  global.fetch = async () => {
+    upstreamCalls += 1;
+    return response({ final_result: [] });
+  };
+  try {
+    const username = 'ac-thread-validation-user';
+    FakeRedis.reset({ [`nf_user_data:${username}`]: JSON.stringify({}) });
+    const result = await invoke(acResult, {
+      method: 'GET', headers: authHeaders(username), query: { threadId: '../other-task' },
+    });
+    assert.equal(result.statusCode, 400);
+    assert.equal(result.body.code, 'THREAD_ID_REQUIRED');
+    assert.equal(upstreamCalls, 0);
+    assert.equal(FakeRedis.values.has('nf_rate:ac_read_user:' + username), false);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('AC list fetches required pages in bounded batches and preserves page order/filtering', async () => {
   const originalFetch = global.fetch;
   const username = 'batched-list-user';
