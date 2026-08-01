@@ -16,6 +16,7 @@ const {
 
 const { setCORSHeaders } = require('../_lib/cors');
 const { getRedis, isDisabledUser } = require('../_lib/security');
+const { resolveDiscordIdentity } = require('../_lib/identity');
 const {
   OAUTH_STATE_COOKIE,
   clearOAuthStateCookie,
@@ -94,8 +95,18 @@ module.exports = async (req, res) => {
     if (!redis) {
       return res.redirect('/app-v2?auth=error');
     }
+    var identity = await resolveDiscordIdentity(redis, userData.id, userData.username);
+    if (!identity) {
+      return res.redirect('/app-v2?auth=identity_conflict');
+    }
+    var identityPayload = {
+      type: 'discord',
+      username: identity.username,
+      discordId: userData.id,
+      principal: identity.principal,
+    };
     try {
-      if (await isDisabledUser(redis, userData.username, { failClosed: true })) {
+      if (await isDisabledUser(redis, identityPayload, { failClosed: true })) {
         return res.redirect('/app-v2?auth=error');
       }
     } catch (_error) {
@@ -103,11 +114,13 @@ module.exports = async (req, res) => {
     }
 
     var userPayload = buildUserPayload({
+      type: 'discord',
       discordId: userData.id,
-      username: userData.username,
+      username: identity.username,
       globalName: userData.global_name || userData.username,
       avatar: userData.avatar,
       discriminator: userData.discriminator,
+      principal: identity.principal,
     });
 
     var accessToken = signAccessToken(userPayload);

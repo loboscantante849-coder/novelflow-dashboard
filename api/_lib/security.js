@@ -6,6 +6,7 @@
 const { verifyAccessToken } = require('./auth');
 const crypto = require('crypto');
 const { Redis } = require('@upstash/redis');
+const { assertAccountIdentity } = require('./identity');
 
 // Reserved usernames that cannot be registered
 const RESERVED_USERNAMES = new Set([
@@ -78,6 +79,7 @@ async function isAdminUser(redis, username, { failClosed = false } = {}) {
     return data && (data.accountType === 'admin' || data.isAdmin === true);
   } catch (cause) {
     if (failClosed) {
+      if (cause && cause.code === 'ACCOUNT_IDENTITY_CONFLICT') throw cause;
       const error = new Error('Account status unavailable');
       error.code = 'ACCOUNT_STATUS_UNAVAILABLE';
       error.cause = cause;
@@ -92,8 +94,9 @@ async function isAdminUser(redis, username, { failClosed = false } = {}) {
  * fail open during a Redis outage; mutating handlers can request fail-closed
  * behavior so an unknown account state never reaches an external API.
  */
-async function isDisabledUser(redis, username, { failClosed = false } = {}) {
-  const u = String(username || '').toLowerCase();
+async function isDisabledUser(redis, usernameOrPayload, { failClosed = false } = {}) {
+  const payload = usernameOrPayload && typeof usernameOrPayload === 'object' ? usernameOrPayload : null;
+  const u = String(payload ? payload.username : usernameOrPayload || '').toLowerCase();
   if (!u || !redis) {
     if (failClosed) {
       const error = new Error('Account status unavailable');
@@ -103,12 +106,14 @@ async function isDisabledUser(redis, username, { failClosed = false } = {}) {
     return false;
   }
   try {
+    if (payload) await assertAccountIdentity(redis, payload);
     const raw = await redis.get('nf_user_data:' + u);
     if (!raw) return false;
     const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
     return Boolean(data && data.disabled);
   } catch (cause) {
     if (failClosed) {
+      if (cause && cause.code === 'ACCOUNT_IDENTITY_CONFLICT') throw cause;
       const error = new Error('Account status unavailable');
       error.code = 'ACCOUNT_STATUS_UNAVAILABLE';
       error.cause = cause;
@@ -221,6 +226,7 @@ module.exports = {
   getAuthPayload,
   isAdminUser,
   isDisabledUser,
+  assertAccountIdentity,
   timingSafeEqual,
   checkAdminKey,
   checkRateLimit,

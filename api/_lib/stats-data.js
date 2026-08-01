@@ -240,6 +240,33 @@ function submissionIdentifier(value) {
   return normalized && normalized !== 'undefined' && normalized !== 'null' ? normalized : null;
 }
 
+const VERIFIED_ASSET_IDS_FIELD = '__verifiedAssetIds';
+
+function submissionAssetIds(record) {
+  const ids = [];
+  const linkId = submissionIdentifier(record && record.linkId);
+  const code = submissionIdentifier(record && record.code);
+  if (linkId) ids.push(linkId);
+  if (record && record.inviteCode) {
+    ids.push(`invite:${String(record.inviteCode)}`);
+  } else if (code && code !== linkId) {
+    ids.push(code);
+  }
+  return Array.from(new Set(ids));
+}
+
+function getVerifiedAssetIds(record) {
+  const value = record && record[VERIFIED_ASSET_IDS_FIELD];
+  return Array.isArray(value) ? Array.from(new Set(value.map(String).filter(Boolean))) : [];
+}
+
+function markVerifiedAssets(record, assetIds = submissionAssetIds(record)) {
+  return {
+    ...record,
+    [VERIFIED_ASSET_IDS_FIELD]: Array.from(new Set(assetIds.map(String).filter(Boolean))),
+  };
+}
+
 async function batchHashGet(redis, hashKey, fields) {
   if (!fields.length) return [];
   if (typeof redis.pipeline === 'function') {
@@ -296,14 +323,20 @@ function mergeSubmissionRecords(records) {
 
   return Array.from(groups.values(), group => {
     const merged = { ...group[0] };
+    const verifiedAssetIds = new Set();
+    for (const record of group) {
+      for (const assetId of getVerifiedAssetIds(record)) verifiedAssetIds.add(assetId);
+    }
     for (const record of group.slice(1)) {
       for (const [key, value] of Object.entries(record)) {
+        if (key === VERIFIED_ASSET_IDS_FIELD) continue;
         const current = merged[key];
         const currentMissing = current === undefined || current === null || current === '' || current === 'Unknown';
         const nextPresent = value !== undefined && value !== null && value !== '';
         if (currentMissing && nextPresent) merged[key] = value;
       }
     }
+    merged[VERIFIED_ASSET_IDS_FIELD] = Array.from(verifiedAssetIds);
     return merged;
   });
 }
@@ -343,7 +376,10 @@ async function loadSubmissions(redis, username, admin, debugLog) {
         if (!v) continue;
         try {
           const sub = typeof v === 'string' ? JSON.parse(v) : v;
-          if (sub.linkId || sub.code) subs.push(sub);
+          const recordedOwner = submissionIdentifier(sub && (sub.discordUsername || sub.username));
+          const ownerMatches = admin || !recordedOwner ||
+            recordedOwner.toLowerCase() === String(username).toLowerCase();
+          if (ownerMatches && (sub.linkId || sub.code)) subs.push(markVerifiedAssets(sub));
         } catch (_e) { /* corrupt */ }
       }
     }
@@ -364,7 +400,7 @@ async function loadSubmissions(redis, username, admin, debugLog) {
           const bookCode = submissionIdentifier(book.code);
           const bookLinkId = submissionIdentifier(book.linkId);
           if (!bookLinkId && !bookCode) continue;
-          subs.push({
+          subs.push(markVerifiedAssets({
             discordUsername: username,
             status: 'completed',
             code: bookCode,
@@ -374,7 +410,7 @@ async function loadSubmissions(redis, username, admin, debugLog) {
             bookName: book.title || book.bookName || 'Unknown',
             link: book.link || null,
             submittedAt: book.submittedAt || (book.createdAt ? new Date(book.createdAt).toISOString() : null)
-          });
+          }, []));
         }
         if (myBooks.length) debugLog?.push(`loaded ${myBooks.length} books from nf_user_data:${String(username).toLowerCase()}`);
       }
@@ -389,7 +425,7 @@ async function loadSubmissions(redis, username, admin, debugLog) {
       const equityRaw = await redis.get(`nf_equity_code:${String(username).toLowerCase()}`);
       const equity = equityRaw && typeof equityRaw === 'string' ? JSON.parse(equityRaw) : equityRaw;
       if (equity && equity.code && equity.bookId && equity.status !== 'unbound') {
-        subs.push({
+        subs.push(markVerifiedAssets({
           discordUsername: username,
           status: equity.status,
           inviteCode: String(equity.code),
@@ -398,7 +434,7 @@ async function loadSubmissions(redis, username, admin, debugLog) {
           matchedBookName: equity.bookTitle || 'Unknown',
           bookName: equity.bookTitle || 'Unknown',
           submittedAt: equity.createdAt ? new Date(equity.createdAt).toISOString() : null,
-        });
+        }, [`invite:${String(equity.code)}`]));
         debugLog?.push(`loaded equity invite:${equity.code}`);
       }
     } catch (e) {
@@ -472,9 +508,7 @@ function buildAdIdLookup(adData, usernameCanon, admin, submissions = []) {
         // Exact IDs from the authenticated user's own Redis records are safe to
         // include even when the pipeline has not assigned an owner yet.
         for (const submission of Array.isArray(submissions) ? submissions : []) {
-          if (submission?.inviteCode) s.add(`invite:${String(submission.inviteCode)}`);
-          if (submission?.linkId) s.add(String(submission.linkId));
-          if (submission?.code && !submission?.inviteCode && submission?.channel !== 'invite') s.add(String(submission.code));
+          for (const assetId of getVerifiedAssetIds(submission)) s.add(assetId);
         }
         return s;
       })();
@@ -537,7 +571,7 @@ function zeroStats() {
  * Combine the linkId and code attribution channels stored on one submission.
  * Each ad_id is counted once, even if duplicate submission metadata references it.
  */
-function aggregateSubmissionStats(submission, byAdId, seenAdIds = new Set()) {
+function aggregateSubmissionStats(submission, byAdId, seenAdIds = new Set(), { verifiedOnly = false } = {}) {
   const candidates = [];
   const linkId = submission && submission.linkId ? String(submission.linkId) : null;
   const code = submission && submission.code ? String(submission.code) : null;
@@ -546,12 +580,15 @@ function aggregateSubmissionStats(submission, byAdId, seenAdIds = new Set()) {
     candidates.push({ id: `invite:${String(submission.inviteCode)}`, channel: 'invite' });
   } else if (code && code !== linkId) candidates.push({ id: code, channel: 'code' });
 
+  const verifiedAssetIds = verifiedOnly ? new Set(getVerifiedAssetIds(submission)) : null;
+
   const combined = zeroStats();
   const assetIds = [];
   const matchedAssetIds = [];
   const channels = new Set();
 
   for (const candidate of candidates) {
+    if (verifiedAssetIds && !verifiedAssetIds.has(candidate.id)) continue;
     if (seenAdIds.has(candidate.id)) continue;
     seenAdIds.add(candidate.id);
     assetIds.push(candidate.id);
@@ -635,6 +672,9 @@ module.exports = {
   getLegacyDataJson,
   getLegacyLinkStats,
   mergeSubmissionRecords,
+  getVerifiedAssetIds,
+  markVerifiedAssets,
+  submissionAssetIds,
   loadSubmissions,
   loadCovers,
   buildAdIdLookup,

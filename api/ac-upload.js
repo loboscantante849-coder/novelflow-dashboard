@@ -18,23 +18,29 @@ const MAX_REQUEST_SIZE = MAX_FILE_SIZE + 512 * 1024;
 const UPLOAD_USER_LIMIT_PER_DAY = 20;
 const UPLOAD_IP_LIMIT_PER_DAY = 60;
 
-// Allowed MIME types and their magic byte signatures
-const ALLOWED_MIME = {
-  'image/png':  { ext: 'png',  magic: [[0x89, 0x50, 0x4E, 0x47]] },
-  'image/jpeg': { ext: 'jpeg', magic: [[0xFF, 0xD8, 0xFF]] },
-  'image/gif':  { ext: 'gif',  magic: [[0x47, 0x49, 0x46, 0x38]] },
-  'image/webp': { ext: 'webp', magic: [[0x52, 0x49, 0x46, 0x46]] }, // RIFF....WEBP
-};
-
 function detectMime(buf) {
-  for (const [mime, info] of Object.entries(ALLOWED_MIME)) {
-    for (const sig of info.magic) {
-      if (buf.length >= sig.length && sig.every((b, i) => buf[i] === b)) {
-        // webp extra check: bytes 8-11 should be 'WEBP'
-        if (mime === 'image/webp' && !(buf.length >= 12 && buf.slice(8, 12).toString('ascii') === 'WEBP')) continue;
-        return { mime, ext: info.ext };
-      }
-    }
+  if (!Buffer.isBuffer(buf)) return null;
+  if (buf.length >= 24 &&
+      buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])) &&
+      buf.subarray(12, 16).toString('ascii') === 'IHDR' &&
+      buf.readUInt32BE(16) > 0 && buf.readUInt32BE(20) > 0) {
+    return { mime: 'image/png', ext: 'png' };
+  }
+  if (buf.length >= 16 && buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF &&
+      buf[buf.length - 2] === 0xFF && buf[buf.length - 1] === 0xD9) {
+    return { mime: 'image/jpeg', ext: 'jpeg' };
+  }
+  const gifHeader = buf.length >= 13 ? buf.subarray(0, 6).toString('ascii') : '';
+  if ((gifHeader === 'GIF87a' || gifHeader === 'GIF89a') &&
+      buf.readUInt16LE(6) > 0 && buf.readUInt16LE(8) > 0) {
+    return { mime: 'image/gif', ext: 'gif' };
+  }
+  const webpChunk = buf.length >= 20 ? buf.subarray(12, 16).toString('ascii') : '';
+  if (buf.length >= 20 && buf.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      buf.subarray(8, 12).toString('ascii') === 'WEBP' &&
+      ['VP8 ', 'VP8L', 'VP8X'].includes(webpChunk) &&
+      buf.readUInt32LE(4) + 8 <= buf.length) {
+    return { mime: 'image/webp', ext: 'webp' };
   }
   return null;
 }
@@ -50,7 +56,7 @@ module.exports = async (req, res) => {
   const redis = getRedis();
   if (!redis) return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
   try {
-    if (await isDisabledUser(redis, payload.username, { failClosed: true })) {
+    if (await isDisabledUser(redis, payload, { failClosed: true })) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
   } catch (e) {
@@ -103,7 +109,7 @@ module.exports = async (req, res) => {
     const rawBody = Buffer.concat(chunks);
 
     const boundaryBuf = Buffer.from('--' + boundary);
-    const parts = [];
+    const fileParts = [];
     let pos = 0;
 
     while (pos < rawBody.length) {
@@ -136,24 +142,27 @@ module.exports = async (req, res) => {
           return res.status(400).json({ error: 'Invalid file type. Only PNG, JPEG, GIF, WebP images are allowed.' });
         }
 
-        const uniqueName = 'ref-img/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + detected.ext;
-
-        const blob = await put(uniqueName, bodyData, {
-          access: 'public',
-          contentType: detected.mime,
-        });
-
-        parts.push({ url: blob.url, pathname: blob.pathname });
+        fileParts.push({ bodyData, detected });
       }
 
       pos = nextBoundary;
     }
 
-    if (parts.length === 0) {
+    if (fileParts.length === 0) {
       return res.status(400).json({ error: 'No file found in upload' });
     }
+    if (fileParts.length !== 1) {
+      return res.status(400).json({ error: 'Upload exactly one image per request', code: 'ONE_FILE_REQUIRED' });
+    }
 
-    return res.status(200).json({ url: parts[0].url, urls: parts.map(p => p.url) });
+    const [{ bodyData, detected }] = fileParts;
+    const uniqueName = 'ref-img/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + detected.ext;
+    const blob = await put(uniqueName, bodyData, {
+      access: 'public',
+      contentType: detected.mime,
+    });
+
+    return res.status(200).json({ url: blob.url, urls: [blob.url] });
   } catch (e) {
     console.error('[ac-upload] upload failed');
     return res.status(500).json({ error: 'Upload failed' });

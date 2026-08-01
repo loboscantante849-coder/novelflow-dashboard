@@ -24,6 +24,7 @@ const { handlePreflight } = require('../_lib/cors');
 const { Redis } = require('@upstash/redis');
 const { createPasswordHash, verifyPassword } = require('../_lib/password');
 const { getAuthPayload, isDisabledUser } = require('../_lib/security');
+const { bindPasswordPrincipal, claimIdentity, resolvePasswordPrincipal } = require('../_lib/identity');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -117,6 +118,7 @@ module.exports = async (req, res) => {
     // ---------- Business logic ----------
     let isNewUser = false;
     let passedAuth = false;
+    let authenticatedPayload = null;
 
     {
       const passwordKey = 'nf_user_pass:' + usernameKey;
@@ -190,6 +192,7 @@ module.exports = async (req, res) => {
         if (!created) {
           return res.status(409).json({ error: 'Password status changed. Please sign in again.', code: 'PASSWORD_ALREADY_SET' });
         }
+        authenticatedPayload = session;
         passedAuth = true;
       } else {
         // Brand new user → require a password to register
@@ -199,6 +202,9 @@ module.exports = async (req, res) => {
         }
         if (!isValidPassword(password)) {
           return res.status(400).json({ error: 'Password must be at least 8 characters with a letter and a number', needPassword: true, mustSetPassword: true });
+        }
+        if (!await claimIdentity(redis, usernameKey, `local:${usernameKey}`)) {
+          return res.status(409).json({ error: 'This username belongs to another sign-in method', code: 'ACCOUNT_IDENTITY_CONFLICT' });
         }
         const created = await redis.set(passwordKey, await createPasswordHash(password), { nx: true });
         if (!created) {
@@ -212,8 +218,15 @@ module.exports = async (req, res) => {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
+    const passwordPrincipal = await resolvePasswordPrincipal(redis, usernameKey, authenticatedPayload);
+    if (!passwordPrincipal ||
+        !await claimIdentity(redis, usernameKey, passwordPrincipal) ||
+        !await bindPasswordPrincipal(redis, usernameKey, passwordPrincipal)) {
+      return res.status(409).json({ error: 'Account identity recovery is required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
+    }
+
     // ---------- Issue tokens ----------
-    const userPayload = buildUserPayload({ type: 'local', username: usernameKey });
+    const userPayload = buildUserPayload({ type: 'local', username: usernameKey, principal: passwordPrincipal });
     const accessToken = signAccessToken(userPayload);
     const refreshToken = signRefreshToken(userPayload);
     const userInfo = extractUserInfo(userPayload);

@@ -41,12 +41,16 @@ module.exports = async (req, res) => {
         return res.status(503).json({ loggedIn: false, code: 'ACCOUNT_STATUS_UNAVAILABLE' });
       }
       try {
-        if (await isDisabledUser(redis, username, { failClosed: true })) {
+        if (await isDisabledUser(redis, payload, { failClosed: true })) {
           clearAuthCookies(res);
           return res.status(403).json({ loggedIn: false, code: 'ACCOUNT_DISABLED' });
         }
         userInfo.hasPassword = Boolean(await redis.get('nf_user_pass:' + username));
       } catch (_error) {
+        if (_error && _error.code === 'ACCOUNT_IDENTITY_CONFLICT') {
+          clearAuthCookies(res);
+          return res.status(409).json({ loggedIn: false, code: _error.code });
+        }
         return res.status(503).json({ loggedIn: false, code: 'ACCOUNT_STATUS_UNAVAILABLE' });
       }
       // Valid access token

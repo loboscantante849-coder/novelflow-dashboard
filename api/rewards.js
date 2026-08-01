@@ -14,9 +14,10 @@
  * Auth: JWT required. All mutations apply ONLY to the authenticated user.
  */
 const { handlePreflight } = require('./_lib/cors');
-const { getAuthPayload, getRedis, checkRateLimit, getClientIp } = require('./_lib/security');
+const { assertAccountIdentity, getAuthPayload, getRedis, checkRateLimit, getClientIp } = require('./_lib/security');
 const { Redis } = require('@upstash/redis');
 const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
+const { normalizeRedisKeys } = require('./_lib/redis-values');
 
 const STREAK_POINTS = [5, 5, 5, 5, 5, 10, 15]; // day 1-7
 const MISSION_POINTS = { share1: 20, share3: 50, bindId: 30 };
@@ -105,6 +106,41 @@ function appendRewardHistory(data, action, before, details = {}) {
   data.reward_history = [...data.reward_history, entry].slice(-MAX_REWARD_HISTORY);
 }
 
+async function loadVerifiedPromotionCount(redis, username) {
+  const keys = normalizeRedisKeys(
+    await redis.smembers(`nf_user_subs:${String(username).toLowerCase()}`),
+  ).slice(0, 1000);
+  if (!keys.length) return 0;
+
+  let rows;
+  if (typeof redis.pipeline === 'function') {
+    const pipeline = redis.pipeline();
+    for (const key of keys) pipeline.hget('nf_subs', key);
+    rows = await pipeline.exec();
+  } else {
+    rows = await Promise.all(keys.map(key => redis.hget('nf_subs', key)));
+  }
+
+  const books = new Set();
+  for (let index = 0; index < rows.length; index += 1) {
+    const raw = rows[index];
+    if (!raw) continue;
+    let submission;
+    try {
+      submission = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (_error) {
+      continue;
+    }
+    if (!submission || typeof submission !== 'object' || submission.status === 'pending') continue;
+    const bookId = String(submission.bookId || '').trim();
+    const title = String(submission.matchedBookName || submission.bookName || '').trim().toLowerCase();
+    const assetId = String(submission.linkId || submission.code || keys[index] || '').trim();
+    const identity = bookId ? `book:${bookId}` : title ? `title:${title}` : assetId ? `asset:${assetId}` : '';
+    if (identity) books.add(identity);
+  }
+  return books.size;
+}
+
 module.exports = async (req, res) => {
   if (handlePreflight(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -115,6 +151,14 @@ module.exports = async (req, res) => {
   const username = String(payload.username).toLowerCase();
   const redis = redisClient();
   if (!redis) return res.status(503).json({ error: 'Database unavailable' });
+  try {
+    await assertAccountIdentity(redis, payload);
+  } catch (error) {
+    return res.status(error && error.code === 'ACCOUNT_IDENTITY_CONFLICT' ? 409 : 503).json({
+      error: 'Account identity recovery required',
+      code: error && error.code || 'ACCOUNT_STATUS_UNAVAILABLE',
+    });
+  }
 
   // Rate limit per user + IP
   const clientIp = getClientIp(req);
@@ -195,15 +239,17 @@ module.exports = async (req, res) => {
           return res.status(400).json({ error: 'Mission already claimed', code: 'ALREADY_CLAIMED' });
         }
         // Validate mission completion server-side
-        if (missionId === 'share1') {
-          const myBooks = Array.isArray(data.myBooks) ? data.myBooks : [];
-          if (myBooks.length < 1) {
-            return res.status(400).json({ error: 'Share at least 1 book first', code: 'NOT_ELIGIBLE' });
+        if (missionId === 'share1' || missionId === 'share3') {
+          let promotionCount;
+          try {
+            promotionCount = await loadVerifiedPromotionCount(redis, username);
+          } catch (_error) {
+            return res.status(503).json({ error: 'Promotion status temporarily unavailable', code: 'PROMOTION_STATUS_UNAVAILABLE' });
           }
-        } else if (missionId === 'share3') {
-          const myBooks = Array.isArray(data.myBooks) ? data.myBooks : [];
-          if (myBooks.length < 3) {
-            return res.status(400).json({ error: 'Share at least 3 books first', code: 'NOT_ELIGIBLE' });
+          const required = missionId === 'share1' ? 1 : 3;
+          if (promotionCount < required) {
+            const label = required === 1 ? '1 book' : '3 books';
+            return res.status(400).json({ error: `Share at least ${label} first`, code: 'NOT_ELIGIBLE' });
           }
         } else if (missionId === 'bindId') {
           if (!data.bind_id) {

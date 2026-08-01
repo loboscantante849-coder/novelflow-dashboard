@@ -204,7 +204,7 @@ module.exports = async (req, res) => {
   const redis = getRedis();
   if (!redis) return res.status(503).json({ error: 'Storage unavailable', code: 'STORAGE_UNAVAILABLE' });
   try {
-    if (await isDisabledUser(redis, username, { failClosed: true })) {
+    if (await isDisabledUser(redis, auth, { failClosed: true })) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
   } catch (_error) {

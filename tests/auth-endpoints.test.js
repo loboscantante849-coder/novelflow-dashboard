@@ -174,6 +174,55 @@ test('refresh tokens cannot authenticate access-protected endpoints', async () =
   assert.equal(session.body.loggedIn, false);
 });
 
+test('an existing token cannot cross an identity binding', async () => {
+  FakeRedis.reset({
+    'nf_identity_owner:targetuser': 'discord:discord-target',
+    'nf_user_data:targetuser': JSON.stringify({ bonus_balance: 90, myBooks: [{ code: 'private-code' }] }),
+  });
+  const localToken = signAccessToken({ type: 'local', username: 'targetuser' });
+
+  const sync = await invoke(userData, {
+    method: 'GET', headers: { authorization: `Bearer ${localToken}` },
+  });
+  const session = await invoke(me, {
+    method: 'GET', headers: { cookie: `nf_token=${localToken}` },
+  });
+
+  assert.equal(sync.statusCode, 409);
+  assert.equal(sync.body.code, 'ACCOUNT_IDENTITY_CONFLICT');
+  assert.equal(session.statusCode, 409);
+  assert.equal(session.body.code, 'ACCOUNT_IDENTITY_CONFLICT');
+  assert.equal(session.body.loggedIn, false);
+});
+
+test('a Discord owner can explicitly link a password without changing data identity', async () => {
+  const discordToken = signAccessToken({
+    type: 'discord',
+    username: 'discord-owner',
+    discordId: 'discord-42',
+    principal: 'discord:discord-42',
+  });
+  FakeRedis.reset({ 'nf_user_data:discord-owner': JSON.stringify({ points: 25 }) });
+
+  const configured = await invoke(setPassword, {
+    method: 'POST',
+    headers: { cookie: `nf_token=${discordToken}`, 'x-forwarded-for': '192.0.2.90' },
+    body: { password: 'Password2' },
+  });
+  assert.equal(configured.statusCode, 200);
+  assert.equal(FakeRedis.values.get('nf_identity_owner:discord-owner'), 'discord:discord-42');
+  assert.equal(FakeRedis.values.get('nf_user_pass_owner:discord-owner'), 'discord:discord-42');
+
+  const passwordLogin = await invoke(login, {
+    headers: { 'x-forwarded-for': '192.0.2.91' },
+    body: { username: 'discord-owner', password: 'Password2' },
+  });
+  assert.equal(passwordLogin.statusCode, 200);
+  const accessToken = passwordLogin.headers['set-cookie'][0].match(/^nf_token=([^;]+)/)[1];
+  assert.equal(verifyJWT(accessToken).principal, 'discord:discord-42');
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:discord-owner')).points, 25);
+});
+
 test('authenticated session reports password status without a public username oracle', async () => {
   const token = signAccessToken({ type: 'local', username: 'alice' });
   FakeRedis.reset({ 'nf_user_pass:alice': legacyPasswordHash('Password1') });

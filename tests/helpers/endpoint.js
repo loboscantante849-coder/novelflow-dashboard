@@ -45,6 +45,30 @@ class FakeRedis {
     return value;
   }
 
+  async hget(key, field) {
+    this._checkError();
+    if (FakeRedis.errorsByKey.has(key)) throw FakeRedis.errorsByKey.get(key);
+    const hash = FakeRedis.values.get(key);
+    if (!hash || typeof hash !== 'object') return null;
+    return hash instanceof Map ? (hash.get(field) ?? null) : (hash[field] ?? null);
+  }
+
+  async hgetall(key) {
+    this._checkError();
+    if (FakeRedis.errorsByKey.has(key)) throw FakeRedis.errorsByKey.get(key);
+    const hash = FakeRedis.values.get(key);
+    if (!hash || typeof hash !== 'object') return null;
+    return hash instanceof Map ? Object.fromEntries(hash) : { ...hash };
+  }
+
+  async smembers(key) {
+    this._checkError();
+    if (FakeRedis.errorsByKey.has(key)) throw FakeRedis.errorsByKey.get(key);
+    const value = FakeRedis.values.get(key);
+    if (value instanceof Set) return Array.from(value);
+    return Array.isArray(value) ? [...value] : [];
+  }
+
   async incrby(key, amount) {
     this._checkError();
     const value = Number(FakeRedis.values.get(key) || 0) + Number(amount);

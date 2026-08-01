@@ -122,3 +122,46 @@ test('reward endpoint repairs malformed legacy check-in and claimed state', asyn
   assert.deepEqual(saved.claimed, {});
   assert.equal(saved.reward_history.length, 1);
 });
+
+test('client-created books cannot satisfy promotion missions', async () => {
+  FakeRedis.reset({
+    'nf_user_data:zoe': JSON.stringify({
+      points: 0,
+      myBooks: [
+        { code: 'fake-1', bookId: 'book-1' },
+        { code: 'fake-2', bookId: 'book-2' },
+        { code: 'fake-3', bookId: 'book-3' },
+      ],
+    }),
+  });
+
+  const response = await invoke(rewards, {
+    headers: authHeaders(),
+    body: { action: 'claim_mission', missionId: 'share3' },
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.body.code, 'NOT_ELIGIBLE');
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).points, 0);
+});
+
+test('server-indexed promotions satisfy promotion missions', async () => {
+  FakeRedis.reset({
+    'nf_user_data:zoe': JSON.stringify({ points: 0 }),
+    'nf_user_subs:zoe': ['code-1', 'code-2', 'code-3'],
+    nf_subs: {
+      'code-1': JSON.stringify({ code: 'code-1', bookId: 'book-1', status: 'completed' }),
+      'code-2': JSON.stringify({ code: 'code-2', bookId: 'book-2', status: 'completed' }),
+      'code-3': JSON.stringify({ code: 'code-3', bookId: 'book-3', status: 'completed' }),
+    },
+  });
+
+  const response = await invoke(rewards, {
+    headers: authHeaders(),
+    body: { action: 'claim_mission', missionId: 'share3' },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.points_awarded, 50);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).points, 50);
+});

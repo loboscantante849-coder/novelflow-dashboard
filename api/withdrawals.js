@@ -170,7 +170,7 @@ module.exports = async (req, res) => {
   const redis = redisClient();
   const isAdmin = await isAdminUser(redis, jwtUsername);
   try {
-    if (await isDisabledUser(redis, jwtUsername, { failClosed: true })) {
+    if (await isDisabledUser(redis, payload, { failClosed: true })) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
   } catch (e) {

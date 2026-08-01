@@ -14,9 +14,10 @@ const {
   isDisabledUser,
 } = require('./_lib/security');
 
-async function authorizeRead(redis, username) {
+async function authorizeRead(redis, payload) {
+  const username = String(payload && payload.username || '').trim().toLowerCase();
   try {
-    if (await isDisabledUser(redis, username, { failClosed: true })) {
+    if (await isDisabledUser(redis, payload, { failClosed: true })) {
       return { ok: false, status: 403, error: 'Account disabled', code: 'ACCOUNT_DISABLED' };
     }
     if (!await isAdminUser(redis, username, { failClosed: true })) {
@@ -50,7 +51,7 @@ module.exports = async (req, res) => {
   if (!redis) return res.status(503).json({ error: 'Service temporarily unavailable' });
 
   if (req.method === 'GET') {
-    const authorization = hasAdminKey ? { ok: true } : await authorizeRead(redis, username);
+    const authorization = hasAdminKey ? { ok: true } : await authorizeRead(redis, payload);
     if (!authorization.ok) {
       return res.status(authorization.status).json({
         error: authorization.error,

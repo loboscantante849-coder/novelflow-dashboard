@@ -16,6 +16,7 @@ const {
 
 const { setCORSHeaders } = require('../_lib/cors');
 const { getRedis, isDisabledUser } = require('../_lib/security');
+const { resolveDiscordIdentity } = require('../_lib/identity');
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1504779503237333033';
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
@@ -73,8 +74,18 @@ module.exports = async (req, res) => {
     if (!redis) {
       return res.status(503).json({ error: 'Auth service unavailable' });
     }
+    const identity = await resolveDiscordIdentity(redis, userData.id, userData.username);
+    if (!identity) {
+      return res.status(409).json({ error: 'Account identity recovery required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
+    }
+    const identityPayload = {
+      type: 'discord',
+      username: identity.username,
+      discordId: userData.id,
+      principal: identity.principal,
+    };
     try {
-      if (await isDisabledUser(redis, userData.username, { failClosed: true })) {
+      if (await isDisabledUser(redis, identityPayload, { failClosed: true })) {
         return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
       }
     } catch (_error) {
@@ -83,11 +94,13 @@ module.exports = async (req, res) => {
 
     // Build token payload
     const userPayload = buildUserPayload({
+      type: 'discord',
       discordId: userData.id,
-      username: userData.username,
+      username: identity.username,
       globalName: userData.global_name || userData.username,
       avatar: userData.avatar,
       discriminator: userData.discriminator,
+      principal: identity.principal,
     });
 
     const accessToken = signAccessToken(userPayload);

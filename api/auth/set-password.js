@@ -11,6 +11,7 @@ const { verifyAccessToken } = require('../_lib/jwt');
 const { Redis } = require('@upstash/redis');
 const { createPasswordHash, verifyPassword } = require('../_lib/password');
 const { checkRateLimit, getClientIp, isDisabledUser } = require('../_lib/security');
+const { bindPasswordPrincipal, principalFromPayload } = require('../_lib/identity');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -65,7 +66,7 @@ module.exports = async (req, res) => {
     const redis = getRedis();
     if (!redis) return res.status(503).json({ error: 'Storage not available' });
     try {
-      if (await isDisabledUser(redis, username, { failClosed: true })) {
+      if (await isDisabledUser(redis, payload, { failClosed: true })) {
         return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
       }
     } catch (_error) {
@@ -82,6 +83,11 @@ module.exports = async (req, res) => {
 
     // Check if user already has a password
     const storedHash = await redis.get('nf_user_pass:' + username);
+    const principal = principalFromPayload(payload);
+    const passwordOwner = await redis.get('nf_user_pass_owner:' + username);
+    if (passwordOwner && String(passwordOwner) !== principal) {
+      return res.status(409).json({ error: 'Password belongs to another sign-in identity', code: 'ACCOUNT_IDENTITY_CONFLICT' });
+    }
     if (storedHash && oldPassword) {
       // Changing password - verify old password first (any length accepted for legacy pwds)
       if (typeof oldPassword !== 'string' || oldPassword.length < 1) {
@@ -94,6 +100,9 @@ module.exports = async (req, res) => {
     }
 
     // Set new password
+    if (!principal || !await bindPasswordPrincipal(redis, username, principal)) {
+      return res.status(409).json({ error: 'Account identity recovery required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
+    }
     await redis.set('nf_user_pass:' + username, await createPasswordHash(password));
 
     return res.status(200).json({ success: true, message: 'Password set successfully' });

@@ -5,6 +5,7 @@ const {
   aggregateSubmissionStats,
   buildAdIdLookup,
   buildLegacyAdIdLookup,
+  markVerifiedAssets,
   loadSubmissions,
   mergeSubmissionRecords,
 } = require('../api/_lib/stats-data');
@@ -43,10 +44,56 @@ test('an authenticated submission can recover an unmapped pipeline asset', () =>
         stats: { pull_uv: 9, dn_income: 1.5 }, daily: [],
       },
     },
-  }, 'alice', false, [{ linkId: 'unmapped-link' }]);
+  }, 'alice', false, [markVerifiedAssets({ linkId: 'unmapped-link' })]);
 
   assert.equal(lookup.byAdId['unmapped-link'].pull_uv, 9);
   assert.equal(lookup.byAdId['unmapped-link'].dn_income, 1.5);
+});
+
+test('client CloudSync asset ids cannot grant access to another promoter statistics', async () => {
+  const redis = {
+    async smembers() { return []; },
+    async get(key) {
+      if (key === 'nf_user_data:alice') {
+        return JSON.stringify({ myBooks: [{ code: 'victim-code', title: 'Forged Book' }] });
+      }
+      return null;
+    },
+  };
+  const submissions = await loadSubmissions(redis, 'alice', false, []);
+  const lookup = buildAdIdLookup({
+    by_promoter: {
+      alice: { links: [], codes: [], invites: [] },
+      victim: { links: [], codes: ['victim-code'], invites: [] },
+    },
+    ad_ids: {
+      'victim-code': {
+        ad_id: 'victim-code', channel: 'code', username_canon: 'victim',
+        stats: { pull_uv: 123, dn_income: 45.67 }, daily: [],
+      },
+    },
+  }, 'alice', false, submissions);
+
+  assert.equal(lookup.byAdId['victim-code'], undefined);
+  const result = aggregateSubmissionStats(submissions[0], lookup.byAdId);
+  assert.equal(result.pull_uv, 0);
+  assert.equal(result.dn_income, 0);
+});
+
+test('legacy fallback counts only server-verified submission identifiers', () => {
+  const lookup = buildLegacyAdIdLookup({
+    'owned-link': { visits: 7, dn_income: 1.25 },
+    'victim-code': { visits: 123, dn_income: 45.67 },
+  });
+  const submission = markVerifiedAssets(
+    { linkId: 'owned-link', code: 'victim-code' },
+    ['owned-link'],
+  );
+  const result = aggregateSubmissionStats(submission, lookup, new Set(), { verifiedOnly: true });
+
+  assert.deepEqual(result.assetIds, ['owned-link']);
+  assert.equal(result.pull_uv, 7);
+  assert.equal(result.dn_income, 1.25);
 });
 
 test('submission loading uses lowercase CloudSync keys and exact invite ownership', async () => {
@@ -75,6 +122,18 @@ test('submission loading fails visibly on Redis read errors', async () => {
     loadSubmissions(redis, 'alice', false, []),
     error => error && error.code === 'USER_DATA_UNAVAILABLE',
   );
+});
+
+test('a stale user index cannot authorize a record owned by another account', async () => {
+  const redis = {
+    async smembers() { return ['victim-code']; },
+    async hget() {
+      return JSON.stringify({ code: 'victim-code', discordUsername: 'victim', bookId: 'victim-book' });
+    },
+    async get() { return null; },
+  };
+  const submissions = await loadSubmissions(redis, 'alice', false, []);
+  assert.deepEqual(submissions, []);
 });
 
 const byAdId = {

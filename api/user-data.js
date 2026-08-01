@@ -9,29 +9,18 @@
  * Use /api/rewards for all reward/balance mutations.
  */
 const { handlePreflight } = require('./_lib/cors');
-const { verifyAccessToken } = require('./_lib/jwt');
 const { Redis } = require('@upstash/redis');
 const { mergeBookState } = require('./_lib/sync');
 const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
+const { assertAccountIdentity, checkRateLimit, getAuthPayload, getClientIp } = require('./_lib/security');
+
+const MAX_SYNC_BODY_BYTES = 512 * 1024;
+const SYNC_USER_LIMIT_PER_HOUR = 300;
+const SYNC_IP_LIMIT_PER_HOUR = 1000;
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
   return new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
-}
-
-function getUserFromRequest(req) {
-  const cookieHeader = req.headers.cookie || '';
-  const match = cookieHeader.match(/nf_token=([^;]+)/);
-  if (match) {
-    const payload = verifyAccessToken(match[1]);
-    if (payload && payload.username) return payload.username;
-  }
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const payload = verifyAccessToken(authHeader.slice(7));
-    if (payload && payload.username) return payload.username;
-  }
-  return null;
 }
 
 // CLIENT_WRITABLE_FIELDS: Only UI-state fields the client may sync.
@@ -49,9 +38,19 @@ module.exports = async (req, res) => {
     return res.status(503).json({ error: 'Cloud sync not available' });
   }
 
-  const username = getUserFromRequest(req);
+  const payload = getAuthPayload(req);
+  const username = payload && payload.username;
   if (!username) {
     return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  try {
+    await assertAccountIdentity(redis, payload);
+  } catch (error) {
+    return res.status(error && error.code === 'ACCOUNT_IDENTITY_CONFLICT' ? 409 : 503).json({
+      error: 'Account identity recovery required',
+      code: error && error.code || 'ACCOUNT_STATUS_UNAVAILABLE',
+    });
   }
 
   const redisKey = `nf_user_data:${String(username).toLowerCase()}`;
@@ -79,9 +78,32 @@ module.exports = async (req, res) => {
       if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
         return res.status(400).json({ error: 'Invalid request body' });
       }
+      let bodySize = 0;
+      try {
+        bodySize = Buffer.byteLength(JSON.stringify(req.body), 'utf8');
+      } catch (_error) {
+        return res.status(400).json({ error: 'Invalid request body' });
+      }
+      if (bodySize > MAX_SYNC_BODY_BYTES) {
+        return res.status(413).json({ error: 'Sync payload too large', code: 'SYNC_PAYLOAD_TOO_LARGE' });
+      }
       const { data } = req.body;
       if (!data || typeof data !== 'object' || Array.isArray(data)) {
         return res.status(400).json({ error: 'No data provided' });
+      }
+
+      try {
+        const normalizedUser = String(username).toLowerCase();
+        const normalizedIp = String(getClientIp(req)).slice(0, 128);
+        const [userAllowed, ipAllowed] = await Promise.all([
+          checkRateLimit(redis, `nf_rate:user_sync:${normalizedUser}`, SYNC_USER_LIMIT_PER_HOUR, 3600, { failClosed: true }),
+          checkRateLimit(redis, `nf_rate:user_sync_ip:${normalizedIp}`, SYNC_IP_LIMIT_PER_HOUR, 3600, { failClosed: true }),
+        ]);
+        if (!userAllowed || !ipAllowed) {
+          return res.status(429).json({ error: 'Too many sync requests', code: 'RATE_LIMITED' });
+        }
+      } catch (_error) {
+        return res.status(503).json({ error: 'Cloud sync temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
       }
 
       let lock;

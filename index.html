@@ -8297,6 +8297,16 @@ function renderMyBooks() {
 
         // ========== Init =========="
         document.addEventListener('DOMContentLoaded', async () => {
+            const authResult = new URLSearchParams(window.location.search).get('auth');
+            if (authResult === 'identity_conflict') {
+                setTimeout(() => showToast(
+                    AppState.currentLang === 'es'
+                        ? 'Este nombre de usuario ya está vinculado a otro método de acceso. Contacta con soporte.'
+                        : 'This username is linked to another sign-in method. Please contact support.',
+                    'error'
+                ), 200);
+                window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+            }
             // Clean up migrated - per-user storage handles data isolation now
             checkSplashStatus();
             setTimeout(() => {

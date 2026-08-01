@@ -119,6 +119,7 @@ function buildUserPayload(user) {
   if (user.avatar) p.avatar = user.avatar;
   if (user.discriminator) p.discriminator = user.discriminator;
   if (user.novelFlowId) p.novelFlowId = user.novelFlowId;
+  if (user.principal) p.principal = user.principal;
   return p;
 }
 

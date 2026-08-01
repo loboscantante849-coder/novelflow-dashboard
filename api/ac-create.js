@@ -6,7 +6,6 @@
 const REELS_DAILY_LIMIT = 7;
 const REELS_IP_DAILY_LIMIT = 30;
 const REELS_COUNTER_TTL_SECONDS = 172800;
-const AC_REQUEST_TIMEOUT_MS = 25000;
 const ALLOWED_TEMPLATES = new Set([
   'Ad_Plot_Video_V3', 'PPT_Porn', 'Ad_Plot_Video_V2', 'Dialogue',
   'PPT_Multi', 'Comic', 'PPT_Porn_Loop_Video', 'Ad_Plot_Seedance',
@@ -34,6 +33,7 @@ const AC_BASE = 'https://ac.beidou.win/api/v1';
 
 const { setCORSHeaders } = require('./_lib/cors');
 const { getAuthPayload, getClientIp, getRedis, isDisabledUser } = require('./_lib/security');
+const { fetchWithTimeout, normalizeReferenceUrl } = require('./_lib/ac-request');
 
 function parseInteger(value, fallback, min, max) {
   const raw = value === undefined || value === null || value === '' ? fallback : value;
@@ -65,30 +65,15 @@ function parseAcRequest(body) {
 
   const referenceUrls = [];
   for (const value of references) {
-    if (typeof value !== 'string' || value.length > 2048) return null;
-    try {
-      const url = new URL(value);
-      if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
-      referenceUrls.push(url.href);
-    } catch (_error) {
-      return null;
-    }
+    const normalizedUrl = normalizeReferenceUrl(value);
+    if (!normalizedUrl) return null;
+    referenceUrls.push(normalizedUrl);
   }
 
   return {
     bookId, template, language, aspectRatio, num, startChapter, endChapter,
     adCopy, buildRequirement, referenceUrls,
   };
-}
-
-async function fetchWithTimeout(url, options) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), AC_REQUEST_TIMEOUT_MS);
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
-    clearTimeout(timer);
-  }
 }
 
 module.exports = async (req, res) => {
@@ -106,7 +91,7 @@ module.exports = async (req, res) => {
 
   if (!redis) return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
   try {
-    if (await isDisabledUser(redis, username, { failClosed: true })) {
+    if (await isDisabledUser(redis, payload, { failClosed: true })) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
   } catch (e) {
@@ -192,6 +177,7 @@ module.exports = async (req, res) => {
       if (threadId) {
         try {
           await redis.set('ac_thread_owner:' + threadId, username, { ex: 180 * 86400 });
+          await redis.del(`nf_ac_list_cache:${username}`);
         } catch(e) { /* non-fatal */ }
       }
     }

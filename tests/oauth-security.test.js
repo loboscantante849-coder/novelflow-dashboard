@@ -16,6 +16,8 @@ process.env.DISCORD_REDIRECT_URI = 'https://novelflow.top/api/auth/callback';
 const discordStart = require('../api/auth/discord-start');
 const callback = require('../api/auth/callback');
 const discordActivity = require('../api/auth/discord-activity');
+const register = require('../api/auth/register');
+const { verifyJWT } = require('../api/_lib/auth');
 
 const originalFetch = global.fetch;
 
@@ -166,4 +168,54 @@ test('Discord activity rejects disabled accounts and never returns access tokens
   assert.equal(success.body.success, true);
   assert.equal(Object.hasOwn(success.body, 'token'), false);
   assert.ok(Array.isArray(success.headers['set-cookie']));
+});
+
+test('a local account and Discord account cannot share one username identity', async () => {
+  const local = await invokeRedirect(register, {
+    method: 'POST',
+    headers: { 'x-forwarded-for': '192.0.2.80' },
+    body: { username: 'targetuser', password: 'Password1' },
+  });
+  assert.equal(local.statusCode, 200);
+  assert.equal(FakeRedis.values.get('nf_identity_owner:targetuser'), 'local:targetuser');
+
+  global.fetch = async url => {
+    if (String(url).includes('/oauth2/token')) return response({ access_token: 'discord-access-token' });
+    return response({ id: 'discord-target', username: 'targetuser', global_name: 'Target User', avatar: null });
+  };
+  const state = 'identity-conflict-state';
+  const discord = await invokeRedirect(callback, {
+    headers: { cookie: `nf_oauth_state=${state}` },
+    query: { code: 'authorization-code', state },
+  });
+
+  assert.equal(discord.statusCode, 302);
+  assert.equal(discord.headers.location, '/app-v2?auth=identity_conflict');
+  assert.equal(FakeRedis.values.get('nf_identity_owner:targetuser'), 'local:targetuser');
+  assert.equal(String(discord.headers['set-cookie']).includes('nf_token='), false);
+});
+
+test('Discord username changes retain the original storage identity', async () => {
+  FakeRedis.reset({
+    'nf_discord_username:discord-1': 'old-handle',
+    'nf_identity_owner:old-handle': 'discord:discord-1',
+    'nf_user_data:old-handle': JSON.stringify({ points: 25 }),
+  });
+  global.fetch = async url => {
+    if (String(url).includes('/oauth2/token')) return response({ access_token: 'discord-access-token' });
+    return response({ id: 'discord-1', username: 'new-handle', global_name: 'Display Name', avatar: null });
+  };
+  const state = 'discord-rename-state';
+  const result = await invokeRedirect(callback, {
+    headers: { cookie: `nf_oauth_state=${state}` },
+    query: { code: 'authorization-code', state },
+  });
+
+  assert.equal(result.headers.location, '/app-v2?auth=success');
+  const accessCookie = result.headers['set-cookie'].find(cookie => cookie.startsWith('nf_token='));
+  const accessToken = accessCookie.match(/^nf_token=([^;]+)/)[1];
+  const payload = verifyJWT(accessToken);
+  assert.equal(payload.username, 'old-handle');
+  assert.equal(payload.principal, 'discord:discord-1');
+  assert.equal(FakeRedis.values.has('nf_user_data:new-handle'), false);
 });

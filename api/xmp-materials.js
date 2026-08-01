@@ -131,7 +131,7 @@ module.exports = async (req, res) => {
     return res.status(503).json({ error: 'Service temporarily unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
   }
   try {
-    if (await isDisabledUser(redis, username, { failClosed: true })) {
+    if (await isDisabledUser(redis, payload, { failClosed: true })) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
   } catch (_error) {

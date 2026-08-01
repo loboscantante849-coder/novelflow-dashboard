@@ -5,7 +5,8 @@
 const AC_BASE = 'https://ac.beidou.win/api/v1';
 
 const { setCORSHeaders } = require('./_lib/cors');
-const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
+const { checkRateLimit, getAuthPayload, getClientIp, getRedis, isAdminUser, isDisabledUser } = require('./_lib/security');
+const { fetchWithTimeout, parseThreadId } = require('./_lib/ac-request');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -16,24 +17,18 @@ module.exports = async (req, res) => {
   if (!payload) return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
   const username = payload.username;
 
-  let redis = null;
-  try {
-    const { Redis } = require('@upstash/redis');
-    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-      redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
-    }
-  } catch(e) {}
+  const tid = parseThreadId(req.body?.threadId);
+  if (!tid) return res.status(400).json({ error: 'Invalid threadId', code: 'INVALID_THREAD_ID' });
+
+  const redis = getRedis();
   if (!redis) return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
   try {
-    if (await isDisabledUser(redis, username, { failClosed: true })) {
+    if (await isDisabledUser(redis, payload, { failClosed: true })) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
   } catch (e) {
     return res.status(503).json({ error: 'Account status unavailable', code: e.code || 'ACCOUNT_STATUS_UNAVAILABLE' });
   }
-
-  const tid = req.body?.threadId;
-  if (!tid) return res.status(400).json({ error: 'threadId required' });
 
   // Ownership check
   try {
@@ -48,6 +43,16 @@ module.exports = async (req, res) => {
     return res.status(503).json({ error: 'Task ownership is temporarily unavailable', code: 'TASK_OWNER_UNAVAILABLE' });
   }
 
+  try {
+    const [userAllowed, ipAllowed] = await Promise.all([
+      checkRateLimit(redis, `nf_rate:ac_retry_user:${String(username).toLowerCase()}`, 10, 3600, { failClosed: true }),
+      checkRateLimit(redis, `nf_rate:ac_retry_ip:${String(getClientIp(req)).slice(0, 128)}`, 30, 3600, { failClosed: true }),
+    ]);
+    if (!userAllowed || !ipAllowed) return res.status(429).json({ error: 'Retry limit reached', code: 'RATE_LIMITED' });
+  } catch (_error) {
+    return res.status(503).json({ error: 'Retry service temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
+  }
+
   let token = null;
   try {
     token = await redis.get('ac_token');
@@ -58,7 +63,7 @@ module.exports = async (req, res) => {
   if (!token) return res.status(503).json({ error: 'AC Token not configured on server' });
 
   try {
-    const r = await fetch(AC_BASE + `/creative/${tid}/retry`, {
+    const r = await fetchWithTimeout(AC_BASE + `/creative/${tid}/retry`, {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token, 'x-client': 'beidou-web', 'X-Project-Id': '1006', 'Content-Type': 'application/json' }
     });
@@ -68,8 +73,13 @@ module.exports = async (req, res) => {
     if (newToken && redis) {
       redis.set('ac_token', newToken).catch(e => console.warn('Redis token save failed:', e.message));
     }
+    if (r.status >= 200 && r.status < 300) {
+      await redis.del(`nf_ac_list_cache:${String(username).toLowerCase()}`).catch(() => {});
+    }
     return res.status(r.status).json({ success: r.status >= 200 && r.status < 300, data });
   } catch (e) {
-    return res.status(502).json({ error: 'Video service unavailable' });
+    return res.status(e && e.name === 'AbortError' ? 504 : 502).json({
+      error: e && e.name === 'AbortError' ? 'Video service timed out' : 'Video service unavailable',
+    });
   }
 };

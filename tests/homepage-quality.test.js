@@ -112,7 +112,7 @@ test('AC operations require an active account and verified task ownership', () =
     assert.match(fileSource, /AC_TOKEN_UNAVAILABLE/);
   }
   const meSource = fs.readFileSync(path.join(ROOT, 'api/auth/me.js'), 'utf8');
-  assert.match(meSource, /isDisabledUser\(redis, username, \{ failClosed: true \}\)/);
+  assert.match(meSource, /isDisabledUser\(redis, payload, \{ failClosed: true \}\)/);
   assert.match(meSource, /nf_user_pass:/);
   const withdrawalSource = fs.readFileSync(path.join(ROOT, 'api/withdrawals.js'), 'utf8');
   assert.match(withdrawalSource, /payment_account \|\| ''\)\.trim\(\)\.toLowerCase\(\)/);

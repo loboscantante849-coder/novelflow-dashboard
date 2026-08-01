@@ -121,3 +121,55 @@ test('client sync cannot forge claimed missions or reward audit history', async 
   assert.deepEqual(saved.claimed, { share1: 12345 });
   assert.deepEqual(saved.reward_history, originalHistory);
 });
+
+test('client sync bounds book fields and drops nested payloads without erasing legacy fields', async () => {
+  FakeRedis.reset({
+    'nf_user_data:alice': JSON.stringify({
+      myBooks: [{ code: '1001', title: 'Old title', legacyServerField: { keep: true } }],
+    }),
+  });
+
+  const response = await invoke(userData, {
+    headers: authHeaders(),
+    body: {
+      data: {
+        myBooks: [{
+          code: '1001',
+          title: 'x'.repeat(500),
+          recommendText: 'y'.repeat(9000),
+          arbitraryNested: { forged: true },
+          tags: Array(30).fill('tag'),
+        }],
+      },
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  const saved = JSON.parse(FakeRedis.values.get('nf_user_data:alice'));
+  assert.equal(saved.myBooks[0].title.length, 300);
+  assert.equal(saved.myBooks[0].recommendText.length, 8000);
+  assert.equal(saved.myBooks[0].tags.length, 20);
+  assert.equal(saved.myBooks[0].arbitraryNested, undefined);
+  assert.deepEqual(saved.myBooks[0].legacyServerField, { keep: true });
+});
+
+test('client sync rejects oversized and over-limit writes before storage', async () => {
+  FakeRedis.reset({ 'nf_user_data:alice': JSON.stringify({ myBooks: [] }) });
+  const oversized = await invoke(userData, {
+    headers: authHeaders(),
+    body: { data: { myBooks: [{ code: '1001', description: 'x'.repeat(600 * 1024) }] } },
+  });
+  assert.equal(oversized.statusCode, 413);
+  assert.deepEqual(JSON.parse(FakeRedis.values.get('nf_user_data:alice')).myBooks, []);
+
+  FakeRedis.reset({
+    'nf_user_data:alice': JSON.stringify({ myBooks: [] }),
+    'nf_rate:user_sync:alice': 300,
+  });
+  const limited = await invoke(userData, {
+    headers: authHeaders(),
+    body: { data: { myBooks: [{ code: '1001' }] } },
+  });
+  assert.equal(limited.statusCode, 429);
+  assert.deepEqual(JSON.parse(FakeRedis.values.get('nf_user_data:alice')).myBooks, []);
+});

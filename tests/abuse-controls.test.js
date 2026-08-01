@@ -156,6 +156,8 @@ test('AC creation rejects oversized client controls before upstream work', async
     { book_id: 'book-1', start_chapter: 20, end_chapter: 2 },
     { book_id: 'book-1', ad_copy: 'x'.repeat(4001) },
     { book_id: 'book-1', reference_picture_list: ['javascript:alert(1)'] },
+    { book_id: 'book-1', reference_picture_list: ['http://169.254.169.254/latest/meta-data'] },
+    { book_id: 'book-1', reference_picture_list: ['https://example.com/ref.jpg'] },
     { book_id: 'book-1', reference_picture_list: Array(5).fill('https://example.com/ref.jpg') },
   ];
 
@@ -180,7 +182,7 @@ test('AC creation reserves atomic user and IP quotas and sends bounded values', 
     assert.equal(body.num, 3);
     assert.equal(body.relatedBook.book_id, 'book-1');
     assert.equal(body.template, 'Comic');
-    assert.deepEqual(body.reference_picture_list, ['https://example.com/ref.jpg']);
+    assert.deepEqual(body.reference_picture_list, ['https://novelflow-test.public.blob.vercel-storage.com/ref.jpg']);
     return upstreamResponse({ threadId: 'thread-1' });
   };
 
@@ -189,7 +191,7 @@ test('AC creation reserves atomic user and IP quotas and sends bounded values', 
     headers: authHeaders('alice', { 'x-forwarded-for': '192.0.2.20' }),
     body: {
       book_id: 'book-1', template: 'Comic', num: 3,
-      reference_picture_list: ['https://example.com/ref.jpg'],
+      reference_picture_list: ['https://novelflow-test.public.blob.vercel-storage.com/ref.jpg'],
     },
   });
   assert.equal(created.statusCode, 200);
@@ -245,6 +247,53 @@ test('AC upload rejects declared and streamed oversized requests before Blob wri
     },
   });
   assert.equal(streamed.statusCode, 413);
+});
+
+test('AC upload rejects prefix-only images and multiple files before Blob writes', async () => {
+  const blobModulePath = require.resolve('@vercel/blob');
+  require(blobModulePath);
+  const originalBlobExports = require.cache[blobModulePath].exports;
+  let blobWrites = 0;
+  require.cache[blobModulePath].exports = {
+    put: async () => {
+      blobWrites += 1;
+      return { url: 'https://novelflow-test.public.blob.vercel-storage.com/ref.png', pathname: 'ref.png' };
+    },
+  };
+
+  const multipart = (files, boundary) => Buffer.concat(files.flatMap((file, index) => [
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${index}.png"\r\nContent-Type: image/png\r\n\r\n`),
+    file,
+    Buffer.from('\r\n'),
+  ]).concat(Buffer.from(`--${boundary}--\r\n`)));
+  const invokeUpload = async body => invoke(acUpload, {
+    method: 'POST',
+    headers: authHeaders('alice', {
+      'content-type': 'multipart/form-data; boundary=upload-boundary',
+      'content-length': String(body.length),
+    }),
+    async *[Symbol.asyncIterator]() { yield body; },
+  });
+
+  try {
+    FakeRedis.reset({ 'nf_user_data:alice': JSON.stringify({}) });
+    const prefixOnly = await invokeUpload(multipart([Buffer.from([0x89, 0x50, 0x4E, 0x47])], 'upload-boundary'));
+    assert.equal(prefixOnly.statusCode, 400);
+    assert.equal(blobWrites, 0);
+
+    const png = Buffer.alloc(24);
+    Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]).copy(png, 0);
+    Buffer.from('IHDR').copy(png, 12);
+    png.writeUInt32BE(1, 16);
+    png.writeUInt32BE(1, 20);
+    FakeRedis.reset({ 'nf_user_data:alice': JSON.stringify({}) });
+    const multiple = await invokeUpload(multipart([png, png], 'upload-boundary'));
+    assert.equal(multiple.statusCode, 400);
+    assert.equal(multiple.body.code, 'ONE_FILE_REQUIRED');
+    assert.equal(blobWrites, 0);
+  } finally {
+    require.cache[blobModulePath].exports = originalBlobExports;
+  }
 });
 
 test('legacy anonymous code claiming is closed without mutating business data', async () => {

@@ -11,8 +11,12 @@ const { isLegacyAcRemarkOwnedBy } = require('./_lib/ac-ownership');
 
 const AC_OWNER_TTL_SECONDS = 180 * 86400;
 const PAGE_FETCH_CONCURRENCY = 4;
-const AC_READ_USER_LIMIT = 60;
-const AC_READ_IP_LIMIT = 180;
+const AC_LIST_USER_LIMIT = 6;
+const AC_LIST_IP_LIMIT = 30;
+const AC_LIST_TIMEOUT_MS = 8000;
+const AC_LIST_CACHE_SECONDS = 45;
+
+const { fetchWithTimeout } = require('./_lib/ac-request');
 
 function pageError(status = 502) {
   const error = new Error('AC API error');
@@ -20,10 +24,10 @@ function pageError(status = 502) {
   return error;
 }
 
-async function fetchAcPage(token, pageIndex, pageSize) {
-  const response = await fetch(AC_BASE + `/creative/paged-list?PageSize=${pageSize}&PageIndex=${pageIndex}`, {
+async function fetchAcPage(token, pageIndex, pageSize, deadlineAt) {
+  const response = await fetchWithTimeout(AC_BASE + `/creative/paged-list?PageSize=${pageSize}&PageIndex=${pageIndex}`, {
     headers: { 'Authorization': 'Bearer ' + token, 'x-client': 'beidou-web', 'X-Project-Id': '1006' }
-  });
+  }, deadlineAt - Date.now());
   const data = await response.json().catch(() => null);
   if (response.status < 200 || response.status >= 300) throw pageError(response.status);
   if (!data || !Array.isArray(data.items)) throw pageError();
@@ -54,7 +58,7 @@ module.exports = async (req, res) => {
   } catch(e) {}
   if (!redis) return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
   try {
-    if (await isDisabledUser(redis, currentUser, { failClosed: true })) {
+    if (await isDisabledUser(redis, payload, { failClosed: true })) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
   } catch (e) {
@@ -66,15 +70,15 @@ module.exports = async (req, res) => {
   try {
     const userAllowed = await checkRateLimit(
       redis,
-      `nf_rate:ac_read_user:${String(currentUser).toLowerCase()}`,
-      AC_READ_USER_LIMIT,
+      `nf_rate:ac_list_user:${String(currentUser).toLowerCase()}`,
+      AC_LIST_USER_LIMIT,
       60,
       { failClosed: true },
     );
     const ipAllowed = await checkRateLimit(
       redis,
-      `nf_rate:ac_read_ip:${String(getClientIp(req)).slice(0, 128)}`,
-      AC_READ_IP_LIMIT,
+      `nf_rate:ac_list_ip:${String(getClientIp(req)).slice(0, 128)}`,
+      AC_LIST_IP_LIMIT,
       60,
       { failClosed: true },
     );
@@ -105,15 +109,16 @@ module.exports = async (req, res) => {
   const MAX_PAGES = 30;
 
   try {
+    const deadlineAt = Date.now() + AC_LIST_TIMEOUT_MS;
     let allItems = [];
     let newToken = null;
     let acTotal = 0;
 
     if (isAdm) {
       const ps = clientPs, pi = clientPi;
-      const r = await fetch(AC_BASE + `/creative/paged-list?PageSize=${ps}&PageIndex=${pi}`, {
+      const r = await fetchWithTimeout(AC_BASE + `/creative/paged-list?PageSize=${ps}&PageIndex=${pi}`, {
         headers: { 'Authorization': 'Bearer ' + token, 'x-client': 'beidou-web', 'X-Project-Id': '1006' }
-      });
+      }, deadlineAt - Date.now());
       newToken = r.headers.get('accesstoken') || null;
       const data = await r.json().catch(() => null);
       if (newToken && redis) {
@@ -122,7 +127,27 @@ module.exports = async (req, res) => {
       return res.status(r.status).json({ success: r.status >= 200 && r.status < 300, data });
     }
 
-    const firstPage = await fetchAcPage(token, 1, 100);
+    const cacheKey = `nf_ac_list_cache:${String(currentUser).toLowerCase()}`;
+    try {
+      const cachedRaw = await redis.get(cacheKey);
+      const cached = typeof cachedRaw === 'string' ? JSON.parse(cachedRaw) : cachedRaw;
+      if (cached && Array.isArray(cached.items)) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            pageIndex: clientPi,
+            pageSize: cached.items.length,
+            total: cached.items.length,
+            pageCount: 1,
+            items: cached.items,
+          },
+        });
+      }
+    } catch (_error) {
+      // A missing or corrupt cache must not hide the live list.
+    }
+
+    const firstPage = await fetchAcPage(token, 1, 100, deadlineAt);
     newToken = firstPage.accessToken;
     acTotal = firstPage.data.total || 0;
     let pageCount = Math.max(1, Math.min(Number(firstPage.data.pageCount) || 1, MAX_PAGES));
@@ -145,7 +170,7 @@ module.exports = async (req, res) => {
       for (let pageIndex = start; pageIndex < start + PAGE_FETCH_CONCURRENCY && pageIndex <= pageCount; pageIndex += 1) {
         pageIndexes.push(pageIndex);
       }
-      const results = await Promise.allSettled(pageIndexes.map(pageIndex => fetchAcPage(token, pageIndex, 100)));
+      const results = await Promise.allSettled(pageIndexes.map(pageIndex => fetchAcPage(token, pageIndex, 100, deadlineAt)));
       // Process in page order, so a failure after the first page that satisfies
       // the target is not treated as a required page from this speculative batch.
       for (let index = 0; index < results.length; index += 1) {
@@ -177,8 +202,17 @@ module.exports = async (req, res) => {
       items: allItems
     };
 
+    try {
+      await redis.set(cacheKey, JSON.stringify({ items: allItems }), { ex: AC_LIST_CACHE_SECONDS });
+    } catch (_error) {
+      // Cache writes are optional; ownership hydration above remains authoritative.
+    }
+
     return res.status(200).json({ success: true, data: result });
   } catch (e) {
+    if (e && e.name === 'AbortError') {
+      return res.status(504).json({ success: false, error: 'Video service timed out' });
+    }
     if (e && e.acStatus) {
       return res.status(e.acStatus).json({ success: false, error: 'AC API error' });
     }

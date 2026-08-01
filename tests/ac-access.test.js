@@ -167,6 +167,35 @@ test('AC list hydrates result ownership for every signed user reel', async () =>
   }
 });
 
+test('AC list reuses a short server cache instead of repeating page fanout', async () => {
+  const originalFetch = global.fetch;
+  const username = 'cached-list-user';
+  let upstreamCalls = 0;
+  global.fetch = async () => {
+    upstreamCalls += 1;
+    return response({
+      pageCount: 1,
+      items: [{ thread_id: 'cached-thread', remark: `nf_${username}_1700000000000` }],
+    });
+  };
+  try {
+    FakeRedis.reset({
+      [`nf_user_data:${username}`]: JSON.stringify({}),
+      ac_token: 'test-ac-token',
+    });
+    const first = await invoke(acList, { method: 'GET', headers: authHeaders(username) });
+    const second = await invoke(acList, { method: 'GET', headers: authHeaders(username) });
+
+    assert.equal(first.statusCode, 200);
+    assert.equal(second.statusCode, 200);
+    assert.equal(upstreamCalls, 1);
+    assert.deepEqual(second.body.data.items.map(item => item.thread_id), ['cached-thread']);
+    assert.equal(FakeRedis.expiries.get(`nf_ac_list_cache:${username}`), 45);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('AC list excludes another user whose name shares the current user prefix', async () => {
   const originalFetch = global.fetch;
   const username = 'ann';
@@ -206,12 +235,50 @@ test('AC list rate limits expensive upstream reads before calling AC', async () 
   try {
     FakeRedis.reset({
       [`nf_user_data:${username}`]: JSON.stringify({}),
-      [`nf_rate:ac_read_user:${username}`]: 60,
+      [`nf_rate:ac_list_user:${username}`]: 6,
       ac_token: 'test-ac-token',
     });
     const listed = await invoke(acList, { method: 'GET', headers: authHeaders(username) });
     assert.equal(listed.statusCode, 429);
     assert.equal(listed.body.code, 'RATE_LIMITED');
+    assert.equal(upstreamCalls, 0);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('AC retry and interrupt reject malformed ids and enforce action limits', async () => {
+  const originalFetch = global.fetch;
+  let upstreamCalls = 0;
+  global.fetch = async () => {
+    upstreamCalls += 1;
+    return response({ ok: true });
+  };
+  try {
+    const username = 'ac-action-limited-user';
+    const headers = authHeaders(username);
+    FakeRedis.reset({ [`nf_user_data:${username}`]: JSON.stringify({}) });
+    const malformed = await invoke(acRetry, {
+      method: 'POST', headers, body: { threadId: '../other-task' },
+    });
+    assert.equal(malformed.statusCode, 400);
+    assert.equal(malformed.body.code, 'INVALID_THREAD_ID');
+
+    FakeRedis.reset({
+      [`nf_user_data:${username}`]: JSON.stringify({}),
+      'ac_thread_owner:owned-task': username,
+      [`nf_rate:ac_retry_user:${username}`]: 10,
+      [`nf_rate:ac_interrupt_user:${username}`]: 30,
+      ac_token: 'test-ac-token',
+    });
+    const retry = await invoke(acRetry, {
+      method: 'POST', headers, body: { threadId: 'owned-task' },
+    });
+    const interrupt = await invoke(acInterrupt, {
+      method: 'POST', headers, body: { threadId: 'owned-task' },
+    });
+    assert.equal(retry.statusCode, 429);
+    assert.equal(interrupt.statusCode, 429);
     assert.equal(upstreamCalls, 0);
   } finally {
     global.fetch = originalFetch;

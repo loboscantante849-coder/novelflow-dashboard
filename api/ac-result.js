@@ -10,12 +10,15 @@ const { isLegacyAcRemarkOwnedBy } = require('./_lib/ac-ownership');
 
 const AC_OWNER_TTL_SECONDS = 180 * 86400;
 const LEGACY_LOOKUP_MAX_PAGES = 30;
+const AC_RESULT_TIMEOUT_MS = 8000;
 
-async function restoreLegacyTaskOwnership({ redis, token, threadId, username }) {
+const { fetchWithTimeout, parseThreadId } = require('./_lib/ac-request');
+
+async function restoreLegacyTaskOwnership({ redis, token, threadId, username, deadlineAt }) {
   for (let pageIndex = 1; pageIndex <= LEGACY_LOOKUP_MAX_PAGES; pageIndex += 1) {
-    const response = await fetch(`${AC_BASE}/creative/paged-list?PageSize=100&PageIndex=${pageIndex}`, {
+    const response = await fetchWithTimeout(`${AC_BASE}/creative/paged-list?PageSize=100&PageIndex=${pageIndex}`, {
       headers: { 'Authorization': `Bearer ${token}`, 'x-client': 'beidou-web', 'X-Project-Id': '1006' },
-    });
+    }, deadlineAt - Date.now());
     if (!response.ok) throw new Error('AC legacy ownership lookup failed');
     const data = await response.json().catch(() => null);
     const items = Array.isArray(data?.items) ? data.items : [];
@@ -51,15 +54,15 @@ module.exports = async (req, res) => {
   } catch(e) {}
   if (!redis) return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
   try {
-    if (await isDisabledUser(redis, username, { failClosed: true })) {
+    if (await isDisabledUser(redis, payload, { failClosed: true })) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
   } catch (e) {
     return res.status(503).json({ error: 'Account status unavailable', code: e.code || 'ACCOUNT_STATUS_UNAVAILABLE' });
   }
 
-  const tid = req.query.threadId;
-  if (!tid || typeof tid !== 'string' || tid.length > 200 || /[\s/?#\\\u0000-\u001f]/.test(tid)) {
+  const tid = parseThreadId(req.query.threadId);
+  if (!tid) {
     return res.status(400).json({ error: 'threadId required', code: 'THREAD_ID_REQUIRED' });
   }
 
@@ -68,15 +71,15 @@ module.exports = async (req, res) => {
   try {
     const userAllowed = await checkRateLimit(
       redis,
-      `nf_rate:ac_read_user:${String(username).toLowerCase()}`,
-      60,
+      `nf_rate:ac_result_user:${String(username).toLowerCase()}`,
+      120,
       60,
       { failClosed: true },
     );
     const ipAllowed = await checkRateLimit(
       redis,
-      `nf_rate:ac_read_ip:${String(getClientIp(req)).slice(0, 128)}`,
-      180,
+      `nf_rate:ac_result_ip:${String(getClientIp(req)).slice(0, 128)}`,
+      360,
       60,
       { failClosed: true },
     );
@@ -94,6 +97,8 @@ module.exports = async (req, res) => {
   if (!token) token = process.env.AC_TOKEN;
   if (!token) return res.status(503).json({ error: 'AC Token not configured on server' });
 
+  const deadlineAt = Date.now() + AC_RESULT_TIMEOUT_MS;
+
   // Ownership check. Historical tasks can outlive their original Redis entry,
   // so verify them against the current user's strictly-prefixed AC task list.
   try {
@@ -101,18 +106,28 @@ module.exports = async (req, res) => {
     if (!isAdm) {
       const owner = await redis.get('ac_thread_owner:' + tid);
       if (!owner || String(owner).toLowerCase() !== String(username).toLowerCase()) {
-        const restored = await restoreLegacyTaskOwnership({ redis, token, threadId: tid, username });
+        const [scanUserAllowed, scanIpAllowed] = await Promise.all([
+          checkRateLimit(redis, `nf_rate:ac_legacy_scan_user:${String(username).toLowerCase()}`, 2, 3600, { failClosed: true }),
+          checkRateLimit(redis, `nf_rate:ac_legacy_scan_ip:${String(getClientIp(req)).slice(0, 128)}`, 6, 3600, { failClosed: true }),
+        ]);
+        if (!scanUserAllowed || !scanIpAllowed) {
+          return res.status(429).json({ error: 'Legacy task lookup limit reached', code: 'RATE_LIMITED' });
+        }
+        const restored = await restoreLegacyTaskOwnership({ redis, token, threadId: tid, username, deadlineAt });
         if (!restored) return res.status(403).json({ error: 'Not authorized to view this task' });
       }
     }
   } catch(e) {
+    if (e && e.name === 'AbortError') {
+      return res.status(504).json({ error: 'Video service timed out' });
+    }
     return res.status(503).json({ error: 'Task ownership is temporarily unavailable', code: 'TASK_OWNER_UNAVAILABLE' });
   }
 
   try {
-    const r = await fetch(AC_BASE + `/creative/${tid}/result`, {
+    const r = await fetchWithTimeout(AC_BASE + `/creative/${tid}/result`, {
       headers: { 'Authorization': 'Bearer ' + token, 'x-client': 'beidou-web', 'X-Project-Id': '1006' }
-    });
+    }, deadlineAt - Date.now());
     const newToken = r.headers.get('accesstoken') || null;
     const data = await r.json().catch(() => null);
 
@@ -122,6 +137,8 @@ module.exports = async (req, res) => {
 
     return res.status(r.status).json({ success: r.status >= 200 && r.status < 300, data });
   } catch (e) {
-    return res.status(502).json({ error: 'Video service unavailable' });
+    return res.status(e && e.name === 'AbortError' ? 504 : 502).json({
+      error: e && e.name === 'AbortError' ? 'Video service timed out' : 'Video service unavailable',
+    });
   }
 };

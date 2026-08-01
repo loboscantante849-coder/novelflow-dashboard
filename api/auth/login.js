@@ -13,6 +13,7 @@ const {
 const { handlePreflight } = require('../_lib/cors');
 const { getAuthPayload, getRedis, validateString, stripHtml, getClientIp, isReservedUsername, isDisabledUser } = require('../_lib/security');
 const { createPasswordHash, verifyPassword } = require('../_lib/password');
+const { bindPasswordPrincipal, claimIdentity, resolvePasswordPrincipal } = require('../_lib/identity');
 
 module.exports = async (req, res) => {
   if (handlePreflight(req, res, { credentials: true })) return;
@@ -57,6 +58,7 @@ module.exports = async (req, res) => {
       return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
     }
     const storedHash = canonicalHash || legacyHash;
+    let authenticatedPayload = null;
     if (storedHash) {
       const vP = validateString(rawPass, { name: 'password', maxLen: 200, required: true });
       if (!vP.ok) return res.status(401).json({ error: 'Password required', needPassword: true });
@@ -84,6 +86,7 @@ module.exports = async (req, res) => {
             code: 'ACCOUNT_RECOVERY_REQUIRED',
           });
         }
+        authenticatedPayload = session;
       }
 
       if (isReservedUsername(cleanUsername)) {
@@ -94,6 +97,12 @@ module.exports = async (req, res) => {
       if (!/[A-Za-z]/.test(vP.value) || !/[0-9]/.test(vP.value)) {
         return res.status(400).json({ error: 'Password must contain at least one letter and one digit', needPassword: true, mustSetPassword: true });
       }
+      const newPrincipal = authenticatedPayload
+        ? await resolvePasswordPrincipal(redis, usernameKey, authenticatedPayload)
+        : `local:${usernameKey}`;
+      if (!newPrincipal || !await claimIdentity(redis, usernameKey, newPrincipal)) {
+        return res.status(409).json({ error: 'This username belongs to another sign-in method', code: 'ACCOUNT_IDENTITY_CONFLICT' });
+      }
       const created = await redis.set(passwordKey, await createPasswordHash(vP.value), { nx: true });
       if (!created) {
         return res.status(409).json({ error: 'Account already exists. Please sign in.', code: 'ACCOUNT_ALREADY_EXISTS' });
@@ -103,7 +112,14 @@ module.exports = async (req, res) => {
     // Clear failure counter on success
     await redis.del(failKey).catch(() => {});
 
-    const userPayload = buildUserPayload({ type: 'local', username: usernameKey });
+    const passwordPrincipal = await resolvePasswordPrincipal(redis, usernameKey, authenticatedPayload);
+    if (!passwordPrincipal ||
+        !await claimIdentity(redis, usernameKey, passwordPrincipal) ||
+        !await bindPasswordPrincipal(redis, usernameKey, passwordPrincipal)) {
+      return res.status(409).json({ error: 'Account identity recovery is required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
+    }
+
+    const userPayload = buildUserPayload({ type: 'local', username: usernameKey, principal: passwordPrincipal });
     const accessToken = signAccessToken(userPayload);
     const refreshToken = signRefreshToken(userPayload);
     const userInfo = extractUserInfo(userPayload);

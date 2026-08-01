@@ -44,7 +44,7 @@ module.exports = async (req, res) => {
 
   let admin;
   try {
-    if (await isDisabledUser(redis, jwtUsername, { failClosed: true })) {
+    if (await isDisabledUser(redis, payload, { failClosed: true })) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
     admin = await isAdminUser(redis, jwtUsername, { failClosed: true });
@@ -307,7 +307,7 @@ module.exports = async (req, res) => {
     for (const sub of submissions) {
       const linkId = sub.linkId ? String(sub.linkId) : null;
       const code = sub.code ? String(sub.code) : null;
-      const stats = aggregateSubmissionStats(sub, legacyByAdId, seenAdIds);
+      const stats = aggregateSubmissionStats(sub, legacyByAdId, seenAdIds, { verifiedOnly: true });
 
       const daily = {};
       for (const [dt, row] of Object.entries(stats.daily || {})) {

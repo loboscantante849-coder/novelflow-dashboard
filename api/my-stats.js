@@ -17,7 +17,7 @@ const {
   loadSubmissions, loadCovers,
   buildAdIdLookup, aggregateSubmissionStats, zeroStats, r2,
 } = require('./_lib/stats-data');
-const { getAuthPayload, isAdminUser } = require('./_lib/security');
+const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
@@ -35,12 +35,8 @@ module.exports = async (req, res) => {
   const redis = getRedis();
   if (!redis) return res.status(503).json({ error: 'Statistics temporarily unavailable', code: 'STORAGE_UNAVAILABLE' });
   try {
-    const selfData = await redis.get('nf_user_data:' + String(jwtUsername).toLowerCase());
-    if (selfData) {
-      const parsed = typeof selfData === 'string' ? JSON.parse(selfData) : selfData;
-      if (parsed && parsed.disabled) {
-        return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
-      }
+    if (await isDisabledUser(redis, payload, { failClosed: true })) {
+      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
   } catch (_e) {
     return res.status(503).json({ error: 'Statistics temporarily unavailable', code: 'STORAGE_UNAVAILABLE' });

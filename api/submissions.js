@@ -31,7 +31,7 @@ module.exports = async (req, res) => {
 
   if (!hasAdminKey) {
     try {
-      if (await isDisabledUser(redis, username, { failClosed: true })) {
+      if (await isDisabledUser(redis, payload, { failClosed: true })) {
         return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
       }
       if (!await isAdminUser(redis, username, { failClosed: true })) {
