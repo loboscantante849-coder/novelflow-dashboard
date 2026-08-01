@@ -40,6 +40,21 @@ test('user-data returns 400 for missing or non-object data', async () => {
   assert.equal(arrayData.statusCode, 400);
 });
 
+test('user-data fails closed instead of replacing corrupt records', async () => {
+  FakeRedis.reset({ 'nf_user_data:alice': '{not-json' });
+  const loaded = await invoke(userData, { headers: authHeaders(), method: 'GET' });
+  assert.equal(loaded.statusCode, 503);
+  assert.equal(loaded.body.code, 'USER_DATA_CORRUPT');
+
+  const saved = await invoke(userData, {
+    headers: authHeaders(),
+    body: { data: { myBooks: [{ code: '1001' }] } },
+  });
+  assert.equal(saved.statusCode, 503);
+  assert.equal(saved.body.code, 'USER_DATA_CORRUPT');
+  assert.equal(FakeRedis.values.get('nf_user_data:alice'), '{not-json');
+});
+
 test('user-data preserves server fields and tombstones across stale writes', async () => {
   const now = Date.now();
   FakeRedis.reset({

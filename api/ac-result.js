@@ -5,7 +5,7 @@
 const AC_BASE = 'https://ac.beidou.win/api/v1';
 
 const { setCORSHeaders } = require('./_lib/cors');
-const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
+const { getAuthPayload, isAdminUser, isDisabledUser, checkRateLimit, getClientIp } = require('./_lib/security');
 const { isLegacyAcRemarkOwnedBy } = require('./_lib/ac-ownership');
 
 const AC_OWNER_TTL_SECONDS = 180 * 86400;
@@ -59,7 +59,31 @@ module.exports = async (req, res) => {
   }
 
   const tid = req.query.threadId;
-  if (!tid) return res.status(400).json({ error: 'threadId required' });
+  if (!tid || typeof tid !== 'string' || tid.length > 200 || /[\s/?#\\\u0000-\u001f]/.test(tid)) {
+    return res.status(400).json({ error: 'threadId required', code: 'THREAD_ID_REQUIRED' });
+  }
+
+  // Result lookup may perform a legacy multi-page ownership scan before the
+  // actual upstream request. Share the bounded read budget with /api/ac-list.
+  try {
+    const userAllowed = await checkRateLimit(
+      redis,
+      `nf_rate:ac_read_user:${String(username).toLowerCase()}`,
+      60,
+      60,
+      { failClosed: true },
+    );
+    const ipAllowed = await checkRateLimit(
+      redis,
+      `nf_rate:ac_read_ip:${String(getClientIp(req)).slice(0, 128)}`,
+      180,
+      60,
+      { failClosed: true },
+    );
+    if (!userAllowed || !ipAllowed) return res.status(429).json({ error: 'Too many AC requests', code: 'RATE_LIMITED' });
+  } catch (e) {
+    return res.status(503).json({ error: 'AC read service temporarily unavailable', code: e.code || 'RATE_LIMIT_UNAVAILABLE' });
+  }
 
   let token = null;
   try {

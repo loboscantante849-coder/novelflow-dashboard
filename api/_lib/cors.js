@@ -16,12 +16,15 @@ const ALLOWED_ORIGINS = [
 ];
 
 const LOCALHOST_RE = /^http:\/\/localhost:\d{1,5}$/;
+function isProduction() {
+  return process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+}
 
 function getAllowedOrigin(req) {
   const origin = (req.headers && req.headers.origin) || '';
   if (!origin) return null;
   if (ALLOWED_ORIGINS.indexOf(origin) !== -1) return origin;
-  if (LOCALHOST_RE.test(origin)) return origin;
+  if (!isProduction() && LOCALHOST_RE.test(origin)) return origin;
   return null;
 }
 

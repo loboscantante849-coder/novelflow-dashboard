@@ -65,7 +65,12 @@ module.exports = async (req, res) => {
       // Parse if string
       let parsed = data;
       if (typeof data === 'string') {
-        try { parsed = JSON.parse(data); } catch { parsed = {}; }
+        try { parsed = JSON.parse(data); } catch {
+          return res.status(503).json({ error: 'User data is temporarily unavailable', code: 'USER_DATA_CORRUPT' });
+        }
+      }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return res.status(503).json({ error: 'User data is temporarily unavailable', code: 'USER_DATA_CORRUPT' });
       }
       return res.status(200).json({ exists: true, data: parsed });
     }
@@ -79,7 +84,12 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'No data provided' });
       }
 
-      const lock = await acquireUserDataLock(redis, username);
+      let lock;
+      try {
+        lock = await acquireUserDataLock(redis, username);
+      } catch (_error) {
+        return res.status(503).json({ error: 'User data storage is temporarily unavailable', code: 'USER_DATA_UNAVAILABLE' });
+      }
       if (!lock) {
         return res.status(409).json({ error: 'User data is being updated', code: 'USER_DATA_BUSY' });
       }
@@ -89,7 +99,12 @@ module.exports = async (req, res) => {
         let existing = await redis.get(redisKey);
         if (existing) {
           if (typeof existing === 'string') {
-            try { existing = JSON.parse(existing); } catch { existing = {}; }
+            try { existing = JSON.parse(existing); } catch {
+              return res.status(503).json({ error: 'User data is temporarily unavailable', code: 'USER_DATA_CORRUPT' });
+            }
+          }
+          if (existing && (typeof existing !== 'object' || Array.isArray(existing))) {
+            return res.status(503).json({ error: 'User data is temporarily unavailable', code: 'USER_DATA_CORRUPT' });
           }
         }
         if (!existing || typeof existing !== 'object') existing = {};
@@ -141,6 +156,6 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
     console.error('User data sync error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(503).json({ error: 'User data is temporarily unavailable', code: 'USER_DATA_UNAVAILABLE' });
   }
 };

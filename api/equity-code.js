@@ -181,7 +181,11 @@ function markUnbound(record, now = Date.now()) {
 
 async function releaseLock(redis, key, token) {
   try {
-    if (await redis.get(key) === token) await redis.del(key);
+    await redis.eval(
+      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+      [key],
+      [token],
+    );
   } catch (_error) {
     // The lock expires automatically.
   }
@@ -208,8 +212,12 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'GET') {
-    const stored = await loadRecord(redis, username);
-    return res.status(200).json({ success: true, inviteCode: publicRecord(stored) });
+    try {
+      const stored = await loadRecord(redis, username);
+      return res.status(200).json({ success: true, inviteCode: publicRecord(stored) });
+    } catch (_error) {
+      return res.status(503).json({ error: 'Storage temporarily unavailable', code: 'STORAGE_UNAVAILABLE' });
+    }
   }
 
   let allowed;
@@ -232,14 +240,23 @@ module.exports = async (req, res) => {
 
   const key = lockKey(username);
   const lockToken = crypto.randomUUID();
-  const locked = await redis.set(key, lockToken, { nx: true, ex: LOCK_SECONDS });
+  let locked;
+  try {
+    locked = await redis.set(key, lockToken, { nx: true, ex: LOCK_SECONDS });
+  } catch (_error) {
+    return res.status(503).json({ error: 'Storage temporarily unavailable', code: 'STORAGE_UNAVAILABLE' });
+  }
   if (!locked) {
-    const current = await loadRecord(redis, username);
-    return res.status(409).json({
-      error: 'An invite code update is already in progress',
-      code: action === 'create' ? 'CREATION_IN_PROGRESS' : 'UPDATE_IN_PROGRESS',
-      inviteCode: publicRecord(current),
-    });
+    try {
+      const current = await loadRecord(redis, username);
+      return res.status(409).json({
+        error: 'An invite code update is already in progress',
+        code: action === 'create' ? 'CREATION_IN_PROGRESS' : 'UPDATE_IN_PROGRESS',
+        inviteCode: publicRecord(current),
+      });
+    } catch (_error) {
+      return res.status(503).json({ error: 'Storage temporarily unavailable', code: 'STORAGE_UNAVAILABLE' });
+    }
   }
 
   try {

@@ -6,10 +6,33 @@
 const AC_BASE = 'https://ac.beidou.win/api/v1';
 
 const { setCORSHeaders } = require('./_lib/cors');
-const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
+const { getAuthPayload, isAdminUser, isDisabledUser, checkRateLimit, getClientIp } = require('./_lib/security');
 const { isLegacyAcRemarkOwnedBy } = require('./_lib/ac-ownership');
 
 const AC_OWNER_TTL_SECONDS = 180 * 86400;
+const PAGE_FETCH_CONCURRENCY = 4;
+const AC_READ_USER_LIMIT = 60;
+const AC_READ_IP_LIMIT = 180;
+
+function pageError(status = 502) {
+  const error = new Error('AC API error');
+  error.acStatus = status;
+  return error;
+}
+
+async function fetchAcPage(token, pageIndex, pageSize) {
+  const response = await fetch(AC_BASE + `/creative/paged-list?PageSize=${pageSize}&PageIndex=${pageIndex}`, {
+    headers: { 'Authorization': 'Bearer ' + token, 'x-client': 'beidou-web', 'X-Project-Id': '1006' }
+  });
+  const data = await response.json().catch(() => null);
+  if (response.status < 200 || response.status >= 300) throw pageError(response.status);
+  if (!data || !Array.isArray(data.items)) throw pageError();
+  return {
+    pageIndex,
+    data,
+    accessToken: response.headers.get('accesstoken') || null,
+  };
+}
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -36,6 +59,28 @@ module.exports = async (req, res) => {
     }
   } catch (e) {
     return res.status(503).json({ error: 'Account status unavailable', code: e.code || 'ACCOUNT_STATUS_UNAVAILABLE' });
+  }
+
+  // Listing can fan out to as many as 30 upstream pages. Keep normal refreshes
+  // available while preventing one account/IP from exhausting AC or Redis.
+  try {
+    const userAllowed = await checkRateLimit(
+      redis,
+      `nf_rate:ac_read_user:${String(currentUser).toLowerCase()}`,
+      AC_READ_USER_LIMIT,
+      60,
+      { failClosed: true },
+    );
+    const ipAllowed = await checkRateLimit(
+      redis,
+      `nf_rate:ac_read_ip:${String(getClientIp(req)).slice(0, 128)}`,
+      AC_READ_IP_LIMIT,
+      60,
+      { failClosed: true },
+    );
+    if (!userAllowed || !ipAllowed) return res.status(429).json({ error: 'Too many AC requests', code: 'RATE_LIMITED' });
+  } catch (e) {
+    return res.status(503).json({ error: 'AC read service temporarily unavailable', code: e.code || 'RATE_LIMIT_UNAVAILABLE' });
   }
   let token = null;
   try {
@@ -77,27 +122,38 @@ module.exports = async (req, res) => {
       return res.status(r.status).json({ success: r.status >= 200 && r.status < 300, data });
     }
 
-    for (let pi = 1; pi <= MAX_PAGES; pi++) {
-      const ps = 100;
-      const r = await fetch(AC_BASE + `/creative/paged-list?PageSize=${ps}&PageIndex=${pi}`, {
-        headers: { 'Authorization': 'Bearer ' + token, 'x-client': 'beidou-web', 'X-Project-Id': '1006' }
-      });
-      if (!newToken) newToken = r.headers.get('accesstoken') || null;
-      if (r.status < 200 || r.status >= 300) {
-        return res.status(r.status).json({ success: false, error: 'AC API error' });
-      }
-      const data = await r.json().catch(() => null);
-      if (!data || !Array.isArray(data.items)) break;
-      if (pi === 1) { acTotal = data.total || 0; }
+    const firstPage = await fetchAcPage(token, 1, 100);
+    newToken = firstPage.accessToken;
+    acTotal = firstPage.data.total || 0;
+    let pageCount = Math.max(1, Math.min(Number(firstPage.data.pageCount) || 1, MAX_PAGES));
+    let stop = false;
 
-      const matching = data.items.filter(item => (
+    const processPage = (page) => {
+      if (!newToken && page.accessToken) newToken = page.accessToken;
+      const matching = page.data.items.filter(item => (
         item && isLegacyAcRemarkOwnedBy(item.remark, currentUser)
       ));
       allItems.push(...matching);
+      const reportedPageCount = Math.max(1, Number(page.data.pageCount) || 1);
+      pageCount = Math.min(pageCount, reportedPageCount, MAX_PAGES);
+      stop = allItems.length >= TARGET_USER_REELS || page.pageIndex >= pageCount || page.data.items.length === 0;
+    };
 
-      if (allItems.length >= TARGET_USER_REELS) break;
-      if (pi >= (data.pageCount || 1)) break;
-      if (data.items.length === 0) break;
+    processPage(firstPage);
+    for (let start = 2; !stop && start <= pageCount; start += PAGE_FETCH_CONCURRENCY) {
+      const pageIndexes = [];
+      for (let pageIndex = start; pageIndex < start + PAGE_FETCH_CONCURRENCY && pageIndex <= pageCount; pageIndex += 1) {
+        pageIndexes.push(pageIndex);
+      }
+      const results = await Promise.allSettled(pageIndexes.map(pageIndex => fetchAcPage(token, pageIndex, 100)));
+      // Process in page order, so a failure after the first page that satisfies
+      // the target is not treated as a required page from this speculative batch.
+      for (let index = 0; index < results.length; index += 1) {
+        const result = results[index];
+        if (result.status === 'rejected') throw result.reason;
+        processPage(result.value);
+        if (stop) break;
+      }
     }
 
     if (newToken && redis) {
@@ -123,6 +179,9 @@ module.exports = async (req, res) => {
 
     return res.status(200).json({ success: true, data: result });
   } catch (e) {
+    if (e && e.acStatus) {
+      return res.status(e.acStatus).json({ success: false, error: 'AC API error' });
+    }
     return res.status(502).json({ error: 'Video service unavailable' });
   }
 };

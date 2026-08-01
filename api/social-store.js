@@ -27,11 +27,15 @@ module.exports = async (req, res) => {
   if (!process.env.SOCIAL_STORE_SECRET || !safeEqual(String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''), process.env.SOCIAL_STORE_SECRET)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return res.status(503).json({ error: 'Storage is unavailable' });
+  // Legacy social storage must never share the core NovelFlow user-data Redis.
+  // It stays retired unless a dedicated Social KV is explicitly configured.
+  const socialUrl = process.env.SOCIAL_KV_REST_API_URL;
+  const socialToken = process.env.SOCIAL_KV_REST_API_TOKEN;
+  if (!socialUrl || !socialToken) return res.status(410).json({ error: 'Social storage endpoint retired', code: 'SOCIAL_STORE_RETIRED' });
   const { op, args = {} } = req.body || {};
   const key = args.key;
   if (!validKey(key)) return res.status(400).json({ error: 'Invalid social storage key' });
-  const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+  const redis = new Redis({ url: socialUrl, token: socialToken });
   try {
     let result;
     if (op === 'get') result = await redis.get(key);
@@ -39,7 +43,7 @@ module.exports = async (req, res) => {
       if (typeof args.value !== 'string' || args.value.length > 2 * 1024 * 1024) return res.status(400).json({ error: 'Invalid value' });
       result = await redis.set(key, args.value, options(args.options));
     } else if (op === 'zrange') {
-      if (!Number.isInteger(args.start) || !Number.isInteger(args.end)) return res.status(400).json({ error: 'Invalid range' });
+      if (!Number.isInteger(args.start) || !Number.isInteger(args.end) || args.start < 0 || args.end < args.start || args.end - args.start > 1000) return res.status(400).json({ error: 'Invalid range' });
       result = await redis.zrange(key, args.start, args.end, options(args.options));
     } else if (op === 'zadd') {
       if (!args.entry || !Number.isFinite(args.entry.score) || typeof args.entry.member !== 'string' || !validKey(`${KEY_PREFIX}run:${args.entry.member}`)) return res.status(400).json({ error: 'Invalid sorted-set entry' });

@@ -18,7 +18,7 @@
  * A submission's distinct linkId and code channels are combined; duplicate ad_ids are counted once.
  */
 const { setCORSHeaders } = require('./_lib/cors');
-const { getAuthPayload, isAdminUser } = require('./_lib/security');
+const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
 const {
   getRedis, canonize, resolvePromoterKey,
   getAdIdDetails, getLegacyLinkStats,
@@ -40,11 +40,16 @@ module.exports = async (req, res) => {
   // Client-requested username (for self or admin cross-view)
   const requestedUsername = req.query.username || (req.body && req.body.username);
   const redis = getRedis();
+  if (!redis) return res.status(503).json({ error: 'Statistics temporarily unavailable', code: 'STORAGE_UNAVAILABLE' });
 
-  // Admin check via Redis (no static whitelist)
-  let admin = false;
-  if (redis) {
-    try { admin = await isAdminUser(redis, jwtUsername); } catch(e) { admin = false; }
+  let admin;
+  try {
+    if (await isDisabledUser(redis, jwtUsername, { failClosed: true })) {
+      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    }
+    admin = await isAdminUser(redis, jwtUsername, { failClosed: true });
+  } catch (_error) {
+    return res.status(503).json({ error: 'Statistics temporarily unavailable', code: 'STORAGE_UNAVAILABLE' });
   }
 
   // Non-admin can only view their own stats
@@ -86,7 +91,7 @@ module.exports = async (req, res) => {
 
     // =================== PRIMARY PATH ===================
     if (adData) {
-      const { byAdId, promoterEntries } = buildAdIdLookup(adData, usernameCanon, admin);
+      const { byAdId, promoterEntries } = buildAdIdLookup(adData, usernameCanon, admin, submissions);
 
       const links = [];
       const aggDaily = {};
@@ -98,6 +103,7 @@ module.exports = async (req, res) => {
         for (const sub of submissions) {
           if (sub.linkId) nfSubsByAdId.set(String(sub.linkId), sub);
           if (sub.code) nfSubsByAdId.set(String(sub.code), sub);
+          if (sub.inviteCode) nfSubsByAdId.set(`invite:${String(sub.inviteCode)}`, sub);
         }
         for (const [pCanon, pEntry] of Object.entries(promoterEntries || {})) {
           const adIds = Array.from(new Set([
@@ -142,7 +148,7 @@ module.exports = async (req, res) => {
               visits: st.pull_uv || 0,
               unique_users: st.pull_uv || 0,
               new_users: st.new_uv || 0,
-              d14_income: dn,
+              d14_income: r2(st.d14_income),
               dn_income: dn,
               channel,
               daily,
@@ -185,7 +191,7 @@ module.exports = async (req, res) => {
             visits: st.pull_uv || 0,
             unique_users: st.pull_uv || 0,
             new_users: st.new_uv || 0,
-            d14_income: dn,
+            d14_income: r2(st.d14_income),
             dn_income: dn,
             channel,
             assetIds: st.assetIds,
@@ -250,7 +256,7 @@ module.exports = async (req, res) => {
             visits: st.pull_uv || 0,
             unique_users: st.pull_uv || 0,
             new_users: st.new_uv || 0,
-            d14_income: dn, dn_income: dn,
+            d14_income: r2(st.d14_income), dn_income: dn,
             channel,
             daily: dailyRow,
           });

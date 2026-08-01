@@ -227,6 +227,22 @@ test('GET preserves an expired code instead of removing it', async () => {
   assert.equal(res.body.inviteCode.code, '90032');
 });
 
+test('GET returns a controlled storage error when Redis is unavailable', async () => {
+  FakeRedis.reset({ 'nf_user_data:alice': JSON.stringify({}) });
+  const originalGet = FakeRedis.prototype.get;
+  FakeRedis.prototype.get = async function (key) {
+    if (key === 'nf_equity_code:alice') throw new Error('temporary Redis failure');
+    return originalGet.call(this, key);
+  };
+  try {
+    const res = await invoke(equityCode, { ...authenticated(), method: 'GET' });
+    assert.equal(res.statusCode, 503);
+    assert.equal(res.body.code, 'STORAGE_UNAVAILABLE');
+  } finally {
+    FakeRedis.prototype.get = originalGet;
+  }
+});
+
 test('unbind disables the remote code and starts a seven-day cooldown', async () => {
   const now = Date.now();
   FakeRedis.reset({

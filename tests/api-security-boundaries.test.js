@@ -36,6 +36,8 @@ const xmpMaterials = require('../api/xmp-materials');
 const submissions = require('../api/submissions');
 const acKv = require('../api/ac-kv');
 const updateStats = require('../api/update-stats');
+const socialStore = require('../api/social-store');
+const cors = require('../api/_lib/cors');
 
 const originalFetch = global.fetch;
 
@@ -70,6 +72,20 @@ test.beforeEach(() => {
 
 test.after(() => {
   global.fetch = originalFetch;
+});
+
+test('production CORS does not allow arbitrary localhost origins', () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousVercelEnv = process.env.VERCEL_ENV;
+  try {
+    process.env.NODE_ENV = 'production';
+    process.env.VERCEL_ENV = 'production';
+    assert.equal(cors.getAllowedOrigin({ headers: { origin: 'http://localhost:8765' } }), null);
+    assert.equal(cors.getAllowedOrigin({ headers: { origin: 'https://novelflow.top' } }), 'https://novelflow.top');
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = previousNodeEnv;
+    if (previousVercelEnv === undefined) delete process.env.VERCEL_ENV; else process.env.VERCEL_ENV = previousVercelEnv;
+  }
 });
 
 test('XMP requires an access token before checking configuration or calling upstream', async () => {
@@ -333,6 +349,19 @@ test('retired update-stats endpoint returns only a generic 410 response', async 
   assert.equal(response.statusCode, 410);
   assert.deepEqual(response.body, { error: 'Endpoint retired' });
   assert.doesNotMatch(JSON.stringify(response.body), /repo|github|pipeline|source|cron/i);
+});
+
+test('legacy social storage never falls back to the core user-data Redis', async () => {
+  delete process.env.SOCIAL_KV_REST_API_URL;
+  delete process.env.SOCIAL_KV_REST_API_TOKEN;
+  process.env.SOCIAL_STORE_SECRET = 'social-test-secret';
+  const result = await invoke(socialStore, {
+    method: 'POST',
+    headers: { authorization: 'Bearer social-test-secret' },
+    body: { op: 'get', args: { key: 'nf_social:test' } },
+  });
+  assert.equal(result.statusCode, 410);
+  assert.equal(result.body.code, 'SOCIAL_STORE_RETIRED');
 });
 
 test('AC and wallet endpoints never return internal exception messages', () => {

@@ -128,7 +128,10 @@ async function findExistingForBook(redis, username, bookId) {
         let sub;
         try { sub = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { continue; }
         if (sub && String(sub.bookId) === String(bookId) && sub.code && sub.status !== 'failed') {
-          return { code: String(sub.code), link: sub.link || null, linkId: sub.linkId || null };
+          return {
+            code: String(sub.code), link: sub.link || null, linkId: sub.linkId || null,
+            submission: sub,
+          };
         }
       }
     }
@@ -140,7 +143,20 @@ async function findExistingForBook(redis, username, bookId) {
       if (ud && Array.isArray(ud.myBooks)) {
         for (const b of ud.myBooks) {
           if (b && String(b.bookId || b.id) === String(bookId) && (b.code || b.link)) {
-            return { code: b.code ? String(b.code) : null, link: b.link || null, linkId: b.linkId || null };
+            return {
+              code: b.code ? String(b.code) : null, link: b.link || null, linkId: b.linkId || null,
+              submission: {
+                discordUsername: username,
+                status: 'completed',
+                bookId: b.bookId || b.id,
+                matchedBookName: b.title || b.bookName || 'Unknown',
+                bookName: b.title || b.bookName || 'Unknown',
+                code: b.code ? String(b.code) : null,
+                link: b.link || null,
+                linkId: b.linkId || null,
+                submittedAt: b.submittedAt || null,
+              },
+            };
           }
         }
       }
@@ -160,6 +176,90 @@ async function releaseConfirmLock(redis, key, submissionId) {
     if (record?.pending && record.submissionId === submissionId) await redis.del(key);
   } catch (error) {
     console.error('[confirm] lock release failed:', error.message);
+  }
+}
+
+async function persistSubmissionIndexes(redis, username, submission) {
+  const code = String(submission.code);
+  const userKey = `nf_user_subs:${String(username).toLowerCase()}`;
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await redis.hset('nf_subs', { [code]: JSON.stringify(submission) });
+      await redis.sadd(userKey, code);
+      const saved = await redis.hget('nf_subs', code);
+      if (!saved) throw new Error('submission record verification failed');
+      const members = await redis.smembers(userKey);
+      if (!members.some(member => normalizeRedisKey(member) === code)) throw new Error('submission index verification failed');
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+  const error = new Error(`Promotion record could not be persisted: ${lastError?.message || 'unknown error'}`);
+  error.code = 'SUBMISSION_PERSIST_FAILED';
+  throw error;
+}
+
+async function repairSubmissionIndex(redis, username, code, submission = null) {
+  const normalizedCode = String(code || '').trim();
+  if (!normalizedCode) return false;
+  const raw = await redis.hget('nf_subs', normalizedCode);
+  if (!raw && submission && String(submission.code || '') === normalizedCode) {
+    await redis.hset('nf_subs', { [normalizedCode]: JSON.stringify(submission) });
+  } else if (!raw) {
+    return false;
+  }
+  const userKey = `nf_user_subs:${String(username).toLowerCase()}`;
+  await redis.sadd(userKey, normalizedCode);
+  const members = await redis.smembers(userKey);
+  return members.some(member => normalizeRedisKey(member) === normalizedCode);
+}
+
+async function persistUserBook(redis, username, submission) {
+  const userKey = `nf_user_data:${String(username).toLowerCase()}`;
+  let lock = null;
+  try {
+    lock = await acquireUserDataLock(redis, username);
+    if (!lock) {
+      const error = new Error('user data is busy');
+      error.code = 'USER_DATA_BUSY';
+      throw error;
+    }
+    const raw = await redis.get(userKey);
+    let data = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      const error = new Error('user data is corrupt');
+      error.code = 'USER_DATA_CORRUPT';
+      throw error;
+    }
+    if (!Array.isArray(data.myBooks)) data.myBooks = [];
+    const key = String(submission.code || submission.linkId || submission.bookId || '');
+    const index = data.myBooks.findIndex(book => (
+      book && (String(book.code || book.linkId || book.bookId || '') === key ||
+        (submission.bookId && String(book.bookId || '') === String(submission.bookId)))
+    ));
+    const existingBook = index >= 0 && data.myBooks[index] && typeof data.myBooks[index] === 'object'
+      ? data.myBooks[index]
+      : null;
+    const book = {
+      bookId: submission.bookId,
+      title: submission.matchedBookName || submission.bookName || 'Unknown',
+      bookName: submission.bookName || submission.matchedBookName || 'Unknown',
+      // A retry/repair must not erase a cover already synced to the account.
+      cover: existingBook?.cover || '',
+      submittedAt: submission.submittedAt || new Date().toISOString(),
+    };
+    if (submission.code) book.code = String(submission.code);
+    if (submission.link) book.link = submission.link;
+    if (submission.linkId) book.linkId = submission.linkId;
+    if (index >= 0) data.myBooks[index] = { ...data.myBooks[index], ...book };
+    else data.myBooks.push(book);
+    data.lastSyncAt = Date.now();
+    await redis.set(userKey, JSON.stringify(data));
+  } finally {
+    await releaseUserDataLock(redis, lock);
   }
 }
 
@@ -232,6 +332,7 @@ module.exports = async (req, res) => {
   let existingCode = null;
   let existingLink = null;
   let existingLinkId = null;
+  let existingSubmission = null;
   try {
     const cached = await redis.get(dedupKey);
     if (cached) {
@@ -248,6 +349,7 @@ module.exports = async (req, res) => {
             });
           }
           existingCode = String(c.code); existingLink = c.link || null; existingLinkId = c.linkId || null;
+          existingSubmission = c.submission && typeof c.submission === 'object' ? c.submission : null;
         }
       } catch { if (typeof cached === 'string' && /^\d+$/.test(cached)) existingCode = cached; }
     }
@@ -258,20 +360,31 @@ module.exports = async (req, res) => {
   if (!existingCode) {
     try {
       const existing = await findExistingForBook(redis, cleanUsername, bookId);
-      if (existing) { existingCode = existing.code; existingLink = existing.link; existingLinkId = existing.linkId; }
+      if (existing) {
+        existingCode = existing.code;
+        existingLink = existing.link;
+        existingLinkId = existing.linkId;
+        existingSubmission = existing.submission || null;
+      }
     } catch (_error) {
       return res.status(503).json({ error: 'Service temporarily unavailable', code: 'DEDUP_UNAVAILABLE' });
     }
   }
   if (existingCode) {
-    return res.status(200).json({
-      success: true,
-      status: 'existing',
-      code: existingCode,
-      link: existingLink,
-      linkId: existingLinkId,
-      message: 'Link already exists for this book'
-    });
+    try {
+      const repaired = await repairSubmissionIndex(redis, cleanUsername, existingCode, existingSubmission);
+      if (!repaired) return res.status(503).json({ error: 'Promotion record is being repaired. Please retry.', code: 'SUBMISSION_INDEX_UNAVAILABLE' });
+      return res.status(200).json({
+        success: true,
+        status: 'existing',
+        code: existingCode,
+        link: existingLink,
+        linkId: existingLinkId,
+        message: 'Link already exists for this book'
+      });
+    } catch (_error) {
+      return res.status(503).json({ error: 'Promotion record is being repaired. Please retry.', code: 'SUBMISSION_INDEX_UNAVAILABLE' });
+    }
   }
 
   // Per-user daily cap (only counted for NEW submissions, not dedup hits)
@@ -443,41 +556,25 @@ module.exports = async (req, res) => {
     }
 
     if (redis) {
-      await redis.hset('nf_subs', { [String(finalCode)]: JSON.stringify(completedSub) });
-      await redis.sadd(`nf_user_subs:${cleanUsername.toLowerCase()}`, String(finalCode));
+      // Keep a complete recovery record before indexing it. A retry can use it
+      // to restore a hash/set index after a transient write failure.
       // Fast dedup key: (username, bookId) → {code, link, linkId}
       try {
         await redis.set(dedupKey, JSON.stringify({
           code: String(finalCode),
           link: completedSub.link || null,
-          linkId: completedSub.linkId || null
-        }));
-      } catch (e) { console.error('[confirm] dedupKey write failed:', e.message); }
-      // Also add to nf_user_data:<u>.myBooks if we can merge
-      let userDataLock = null;
-      try {
-        userDataLock = await acquireUserDataLock(redis, cleanUsername);
-        if (!userDataLock) throw new Error('user data is busy; submission remains in nf_subs');
-        const rawUd = await redis.get(`nf_user_data:${cleanUsername.toLowerCase()}`);
-        let ud = rawUd ? (typeof rawUd === 'string' ? JSON.parse(rawUd) : rawUd) : null;
-        if (!ud) ud = { myBooks: [] };
-        if (!Array.isArray(ud.myBooks)) ud.myBooks = [];
-        ud.myBooks.push({
-          bookId,
-          title: cleanBookTitle || cleanBookName,
-          bookName: cleanBookName,
-          code: String(finalCode),
-          link: completedSub.link || null,
           linkId: completedSub.linkId || null,
-          cover: '',
-          submittedAt: completedSub.submittedAt,
-        });
-        ud.lastSyncAt = Date.now();
-        await redis.set(`nf_user_data:${cleanUsername.toLowerCase()}`, JSON.stringify(ud));
+          submission: completedSub,
+        }), { ex: 86400 });
+      } catch (e) { console.error('[confirm] dedupKey write failed:', e.message); }
+      await persistSubmissionIndexes(redis, cleanUsername, completedSub);
+      try {
+        await persistUserBook(redis, cleanUsername, completedSub);
       } catch (e) {
         console.error('[confirm] myBooks merge failed:', e.message);
-      } finally {
-        await releaseUserDataLock(redis, userDataLock);
+        const persistenceError = new Error(`User promotion data could not be merged: ${e.message}`);
+        persistenceError.code = e.code || 'USER_DATA_UNAVAILABLE';
+        throw persistenceError;
       }
     }
 
