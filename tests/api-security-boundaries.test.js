@@ -37,6 +37,7 @@ const submissions = require('../api/submissions');
 const acKv = require('../api/ac-kv');
 const updateStats = require('../api/update-stats');
 const socialStore = require('../api/social-store');
+const cors = require('../api/_lib/cors');
 
 const originalFetch = global.fetch;
 
@@ -71,6 +72,20 @@ test.beforeEach(() => {
 
 test.after(() => {
   global.fetch = originalFetch;
+});
+
+test('production CORS does not allow arbitrary localhost origins', () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousVercelEnv = process.env.VERCEL_ENV;
+  try {
+    process.env.NODE_ENV = 'production';
+    process.env.VERCEL_ENV = 'production';
+    assert.equal(cors.getAllowedOrigin({ headers: { origin: 'http://localhost:8765' } }), null);
+    assert.equal(cors.getAllowedOrigin({ headers: { origin: 'https://novelflow.top' } }), 'https://novelflow.top');
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = previousNodeEnv;
+    if (previousVercelEnv === undefined) delete process.env.VERCEL_ENV; else process.env.VERCEL_ENV = previousVercelEnv;
+  }
 });
 
 test('XMP requires an access token before checking configuration or calling upstream', async () => {
