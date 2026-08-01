@@ -5,6 +5,7 @@ const {
   aggregateSubmissionStats,
   buildAdIdLookup,
   buildLegacyAdIdLookup,
+  loadSubmissions,
   mergeSubmissionRecords,
 } = require('../api/_lib/stats-data');
 
@@ -31,6 +32,49 @@ test('keeps an invite code separate from the same numeric promotion code', () =>
   assert.equal(lookup.byAdId['invite:90031'].ad_id, '90031');
   assert.equal(lookup.byAdId['invite:90031'].channel, 'invite');
   assert.equal(lookup.byAdId['invite:90031'].book_id, '64b8c91e0123456789abcdef');
+});
+
+test('an authenticated submission can recover an unmapped pipeline asset', () => {
+  const lookup = buildAdIdLookup({
+    by_promoter: {},
+    ad_ids: {
+      'unmapped-link': {
+        ad_id: 'unmapped-link', channel: 'link', username_canon: null,
+        stats: { pull_uv: 9, dn_income: 1.5 }, daily: [],
+      },
+    },
+  }, 'alice', false, [{ linkId: 'unmapped-link' }]);
+
+  assert.equal(lookup.byAdId['unmapped-link'].pull_uv, 9);
+  assert.equal(lookup.byAdId['unmapped-link'].dn_income, 1.5);
+});
+
+test('submission loading uses lowercase CloudSync keys and exact invite ownership', async () => {
+  const reads = [];
+  const redis = {
+    async smembers(key) { reads.push(key); return []; },
+    async get(key) {
+      reads.push(key);
+      if (key === 'nf_user_data:alice') return JSON.stringify({ myBooks: [{ code: '1001', bookId: 'book-1', title: 'Book One' }] });
+      if (key === 'nf_equity_code:alice') return JSON.stringify({ status: 'active', code: '90031', bookId: 'book-2', bookTitle: 'Invite Book' });
+      return null;
+    },
+  };
+
+  const submissions = await loadSubmissions(redis, 'Alice', false, []);
+  assert.ok(reads.includes('nf_user_subs:alice'));
+  assert.ok(reads.includes('nf_user_data:alice'));
+  assert.ok(reads.includes('nf_equity_code:alice'));
+  assert.equal(submissions.some(item => item.code === '1001' && item.bookId === 'book-1'), true);
+  assert.equal(submissions.some(item => item.inviteCode === '90031' && item.bookId === 'book-2'), true);
+});
+
+test('submission loading fails visibly on Redis read errors', async () => {
+  const redis = { async smembers() { throw new Error('temporary Redis failure'); } };
+  await assert.rejects(
+    loadSubmissions(redis, 'alice', false, []),
+    error => error && error.code === 'USER_DATA_UNAVAILABLE',
+  );
 });
 
 const byAdId = {

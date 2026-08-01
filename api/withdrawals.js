@@ -135,6 +135,25 @@ function makeId() {
   return 'wd_' + Date.now().toString(36) + '_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
 }
 
+function parseStoredUserData(raw) {
+  if (raw == null) return {};
+  let data;
+  try {
+    data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch (cause) {
+    const error = new Error('Wallet data is corrupt');
+    error.code = 'WALLET_DATA_CORRUPT';
+    error.cause = cause;
+    throw error;
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    const error = new Error('Wallet data is corrupt');
+    error.code = 'WALLET_DATA_CORRUPT';
+    throw error;
+  }
+  return data;
+}
+
 // ---------- Handler ----------
 module.exports = async (req, res) => {
   if (handlePreflight(req, res)) return;
@@ -155,6 +174,20 @@ module.exports = async (req, res) => {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
   } catch (e) {
+    // `isDisabledUser` deliberately fails closed when the account record cannot
+    // be parsed. Preserve the more actionable wallet-corruption code for
+    // mutating wallet requests, while still treating an actual Redis outage as
+    // an account-status outage. No mutation is attempted in either case.
+    if (e && e.code === 'ACCOUNT_STATUS_UNAVAILABLE' && (req.method === 'POST' || req.method === 'PATCH') && redis) {
+      try {
+        const raw = await redis.get(`nf_user_data:${jwtUsername}`);
+        parseStoredUserData(raw);
+      } catch (walletError) {
+        if (walletError && walletError.code === 'WALLET_DATA_CORRUPT') {
+          return res.status(503).json({ error: 'Wallet data is temporarily unavailable', code: walletError.code });
+        }
+      }
+    }
     return res.status(503).json({ error: 'Account status unavailable', code: e.code || 'ACCOUNT_STATUS_UNAVAILABLE' });
   }
 
@@ -244,15 +277,18 @@ module.exports = async (req, res) => {
       try {
         if (redis) {
           const raw = await redis.get(redisKey);
-          userData = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : null;
+          userData = parseStoredUserData(raw);
         }
       } catch (e) {
-        return res.status(503).json({ error: 'Wallet data is temporarily unavailable', code: 'WALLET_UNAVAILABLE' });
+        return res.status(503).json({ error: 'Wallet data is temporarily unavailable', code: e.code || 'WALLET_UNAVAILABLE' });
       }
-      if (!userData || typeof userData !== 'object') userData = {};
+      if (userData && (typeof userData !== 'object' || Array.isArray(userData))) {
+        return res.status(503).json({ error: 'Wallet data is temporarily unavailable', code: 'WALLET_DATA_CORRUPT' });
+      }
+      if (!userData) userData = {};
 
       const dnIncome = getPromoterDnIncome(targetUser);
-      const balances = computeBalances(userData, dnIncome, await getIncomeAdjustment(redis, targetUser));
+      const balances = computeBalances(userData, dnIncome, await getIncomeAdjustment(redis, targetUser, { failClosed: true }));
 
       const d = getDataJson();
       const uRaw = (d.users || {})[targetUser] ||
@@ -306,7 +342,12 @@ module.exports = async (req, res) => {
         return res.status(503).json({ error: 'Wallet storage unavailable', code: 'WALLET_UNAVAILABLE' });
       }
 
-      const lock = await acquireUserDataLock(redis, targetUser);
+      let lock;
+      try {
+        lock = await acquireUserDataLock(redis, targetUser);
+      } catch (_error) {
+        return res.status(503).json({ error: 'Wallet storage temporarily unavailable', code: 'WALLET_UNAVAILABLE' });
+      }
       if (!lock) {
         return res.status(409).json({ error: 'Another withdrawal is being submitted', code: 'WALLET_BUSY' });
       }
@@ -318,11 +359,14 @@ module.exports = async (req, res) => {
       let userData;
       try {
         const raw = await redis.get(redisKey);
-        userData = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+        userData = parseStoredUserData(raw);
       } catch (e) {
-        return res.status(503).json({ error: 'Wallet data is temporarily unavailable', code: 'WALLET_UNAVAILABLE' });
+        return res.status(503).json({ error: 'Wallet data is temporarily unavailable', code: e.code || 'WALLET_UNAVAILABLE' });
       }
-      if (!userData || typeof userData !== 'object') userData = {};
+      if (userData && (typeof userData !== 'object' || Array.isArray(userData))) {
+        return res.status(503).json({ error: 'Wallet data is temporarily unavailable', code: 'WALLET_DATA_CORRUPT' });
+      }
+      if (!userData) userData = {};
       if (userData.disabled) {
         return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
       }
@@ -401,7 +445,12 @@ module.exports = async (req, res) => {
         return res.status(503).json({ error: 'Wallet storage unavailable', code: 'WALLET_UNAVAILABLE' });
       }
 
-      const lock = await acquireUserDataLock(redis, targetUser);
+      let lock;
+      try {
+        lock = await acquireUserDataLock(redis, targetUser);
+      } catch (_error) {
+        return res.status(503).json({ error: 'Wallet storage temporarily unavailable', code: 'WALLET_UNAVAILABLE' });
+      }
       if (!lock) {
         return res.status(409).json({ error: 'Another wallet update is in progress', code: 'WALLET_BUSY' });
       }
@@ -412,11 +461,14 @@ module.exports = async (req, res) => {
       let userData;
       try {
         const raw = await redis.get(redisKey);
-        userData = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+        userData = parseStoredUserData(raw);
       } catch (e) {
-        return res.status(503).json({ error: 'Wallet data is temporarily unavailable', code: 'WALLET_UNAVAILABLE' });
+        return res.status(503).json({ error: 'Wallet data is temporarily unavailable', code: e.code || 'WALLET_UNAVAILABLE' });
       }
-      if (!userData || typeof userData !== 'object') userData = {};
+      if (userData && (typeof userData !== 'object' || Array.isArray(userData))) {
+        return res.status(503).json({ error: 'Wallet data is temporarily unavailable', code: 'WALLET_DATA_CORRUPT' });
+      }
+      if (!userData) userData = {};
       if (!Array.isArray(userData.withdrawals)) userData.withdrawals = [];
 
       const wIdx = userData.withdrawals.findIndex(w => w && w.id === request_id);
@@ -438,7 +490,7 @@ module.exports = async (req, res) => {
       await redis.set(redisKey, JSON.stringify(userData));
 
       const dnIncome = getPromoterDnIncome(targetUser);
-      const newBalances = computeBalances(userData, dnIncome, await getIncomeAdjustment(redis, targetUser));
+      const newBalances = computeBalances(userData, dnIncome, await getIncomeAdjustment(redis, targetUser, { failClosed: true }));
 
       return res.status(200).json({
         success: true,
@@ -458,6 +510,6 @@ module.exports = async (req, res) => {
     if (err && err.code === 'INCOME_ADJUSTMENT_UNAVAILABLE') {
       return res.status(503).json({ error: 'Wallet balance is temporarily unavailable', code: err.code });
     }
-    return res.status(500).json({ error: 'Internal error' });
+    return res.status(503).json({ error: 'Wallet service temporarily unavailable', code: 'WALLET_UNAVAILABLE' });
   }
 };

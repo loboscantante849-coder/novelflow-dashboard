@@ -195,6 +195,96 @@ test('AC list excludes another user whose name shares the current user prefix', 
   }
 });
 
+test('AC list fetches required pages in bounded batches and preserves page order/filtering', async () => {
+  const originalFetch = global.fetch;
+  const username = 'batched-list-user';
+  const requestedPages = [];
+  let active = 0;
+  let maxActive = 0;
+  const pageResponse = (pageIndex) => ({
+    status: 200,
+    ok: true,
+    headers: {
+      get: (name) => String(name).toLowerCase() === 'accesstoken'
+        ? `refreshed-token-${pageIndex}`
+        : null,
+    },
+    async json() {
+      return {
+        pageCount: 5,
+        items: [
+          { thread_id: `owned-${pageIndex}`, remark: `nf_${username}_170000000000${pageIndex}` },
+          { thread_id: `other-${pageIndex}`, remark: 'nf_other-user_1700000000000' },
+        ],
+      };
+    },
+  });
+
+  global.fetch = async (url) => {
+    const pageIndex = Number(new URL(url).searchParams.get('PageIndex'));
+    requestedPages.push(pageIndex);
+    if (pageIndex === 1) return pageResponse(pageIndex);
+    active += 1;
+    maxActive = Math.max(maxActive, active);
+    await new Promise(resolve => setTimeout(resolve, (6 - pageIndex) * 4));
+    active -= 1;
+    return pageResponse(pageIndex);
+  };
+  try {
+    FakeRedis.reset({
+      [`nf_user_data:${username}`]: JSON.stringify({}),
+      ac_token: 'test-ac-token',
+    });
+    const listed = await invoke(acList, { method: 'GET', headers: authHeaders(username) });
+
+    assert.equal(listed.statusCode, 200);
+    assert.equal(maxActive, 4);
+    assert.deepEqual(requestedPages, [1, 2, 3, 4, 5]);
+    assert.deepEqual(
+      listed.body.data.items.map(item => item.thread_id),
+      ['owned-1', 'owned-2', 'owned-3', 'owned-4', 'owned-5'],
+    );
+    assert.equal(listed.body.data.items.some(item => item.thread_id.startsWith('other-')), false);
+    assert.equal(FakeRedis.values.get('ac_token'), 'refreshed-token-1');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('AC list fails the whole request when a required page fails', async () => {
+  const originalFetch = global.fetch;
+  const username = 'failed-page-user';
+  global.fetch = async (url) => {
+    const pageIndex = Number(new URL(url).searchParams.get('PageIndex'));
+    if (pageIndex === 3) return response({ error: 'upstream failure' }, 503);
+    return {
+      status: 200,
+      ok: true,
+      headers: { get: () => null },
+      async json() {
+        return {
+          pageCount: 4,
+          items: [{ thread_id: `owned-${pageIndex}`, remark: `nf_${username}_170000000000${pageIndex}` }],
+        };
+      },
+    };
+  };
+  try {
+    FakeRedis.reset({
+      [`nf_user_data:${username}`]: JSON.stringify({}),
+      ac_token: 'test-ac-token',
+    });
+    const listed = await invoke(acList, { method: 'GET', headers: authHeaders(username) });
+
+    assert.equal(listed.statusCode, 503);
+    assert.equal(listed.body.success, false);
+    assert.equal(listed.body.error, 'AC API error');
+    assert.equal(FakeRedis.values.has('ac_thread_owner:owned-1'), false);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('legacy result ownership cannot be restored from a colliding username prefix', async () => {
   const originalFetch = global.fetch;
   const username = 'ann';

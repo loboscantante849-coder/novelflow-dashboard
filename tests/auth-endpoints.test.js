@@ -413,6 +413,25 @@ test('withdrawal creation fails closed when the income adjustment cannot be read
   assert.equal(FakeRedis.values.has(`nf_withdrawal_lock:${username}`), false);
 });
 
+test('wallet mutations never replace a corrupt user record', async () => {
+  const username = 'withdraw_corrupt_test_user';
+  FakeRedis.reset({ [`nf_user_data:${username}`]: '{not-json' });
+  const accessToken = signAccessToken({ type: 'local', username });
+  const response = await invoke(withdrawals, {
+    method: 'POST',
+    headers: { cookie: `nf_token=${accessToken}` },
+    body: {
+      amount: 20,
+      payment_account: 'corrupt@example.com',
+      idempotency_key: 'withdraw-corrupt-test-20260801',
+    },
+  });
+
+  assert.equal(response.statusCode, 503);
+  assert.equal(response.body.code, 'WALLET_DATA_CORRUPT');
+  assert.equal(FakeRedis.values.get(`nf_user_data:${username}`), '{not-json');
+});
+
 test('register rejects reserved new usernames', async () => {
   const res = await invoke(register, {
     body: { username: 'Admin', password: 'Password1' },

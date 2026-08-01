@@ -93,6 +93,18 @@ test('reward endpoint rejects malformed actions before mutation', async () => {
   assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).points, 690);
 });
 
+test('reward mutations never replace a corrupt user record', async () => {
+  FakeRedis.reset({ 'nf_user_data:zoe': '{not-json' });
+  const response = await invoke(rewards, {
+    headers: authHeaders(),
+    body: { action: 'bind_id', bind_id: 'zoe-reader-1' },
+  });
+
+  assert.equal(response.statusCode, 503);
+  assert.equal(response.body.code, 'USER_DATA_CORRUPT');
+  assert.equal(FakeRedis.values.get('nf_user_data:zoe'), '{not-json');
+});
+
 test('reward endpoint repairs malformed legacy check-in and claimed state', async () => {
   FakeRedis.reset({
     'nf_user_data:zoe': JSON.stringify({ points: 690, checkin: 'broken', claimed: [] }),

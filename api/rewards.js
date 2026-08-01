@@ -46,7 +46,14 @@ function safeParse(v, fallback) {
 
 async function getUserData(redis, username) {
   const raw = await redis.get(`nf_user_data:${username}`);
-  return safeParse(raw, {});
+  if (!raw) return {};
+  const parsed = safeParse(raw, null);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    const error = new Error('User data is corrupt');
+    error.code = 'USER_DATA_CORRUPT';
+    throw error;
+  }
+  return parsed;
 }
 
 async function saveUserData(redis, username, data) {
@@ -126,7 +133,12 @@ module.exports = async (req, res) => {
   if (typeof action !== 'string' || action.length > 40) {
     return res.status(400).json({ error: 'Invalid action', code: 'INVALID_ACTION' });
   }
-  const lock = await acquireUserDataLock(redis, username);
+  let lock;
+  try {
+    lock = await acquireUserDataLock(redis, username);
+  } catch (_error) {
+    return res.status(503).json({ error: 'Reward storage is temporarily unavailable', code: 'REWARD_STORAGE_UNAVAILABLE' });
+  }
   if (!lock) {
     return res.status(409).json({ error: 'User data is being updated', code: 'USER_DATA_BUSY' });
   }
@@ -306,7 +318,10 @@ module.exports = async (req, res) => {
 
   } catch (error) {
     console.error('[rewards] Error:', error);
-    return res.status(500).json({ error: 'Internal server error', code: 'INTERNAL_ERROR' });
+    if (error?.code === 'USER_DATA_CORRUPT') {
+      return res.status(503).json({ error: 'User data is temporarily unavailable', code: error.code });
+    }
+    return res.status(503).json({ error: 'Reward service temporarily unavailable', code: 'REWARD_STORAGE_UNAVAILABLE' });
   } finally {
     await releaseUserDataLock(redis, lock);
   }

@@ -108,3 +108,89 @@ test('a network retry cannot allocate a second code while the first request is r
     global.fetch = originalFetch;
   }
 });
+
+test('a retry restores the submission index after a transient persistence failure', async () => {
+  FakeRedis.reset();
+  hashes.clear();
+  sets.clear();
+
+  const originalFetch = global.fetch;
+  const originalHset = FakeRedis.prototype.hset;
+  let failedWrites = 0;
+  let codeCreationCalls = 0;
+  FakeRedis.prototype.hset = async function (key, values) {
+    if (key === 'nf_subs' && failedWrites < 2) {
+      failedWrites += 1;
+      throw new Error('temporary persistence failure');
+    }
+    return originalHset.call(this, key, values);
+  };
+  global.fetch = async (url, options = {}) => {
+    const target = String(url);
+    if (target.includes('savebookpromotionkeywords')) {
+      codeCreationCalls += 1;
+      return response({ data: true });
+    }
+    if (target.includes('SocialMediaChannelConfig')) return response({ data: { data: [] } });
+    if (target.endsWith('/SocialMediaLinkConfig') && options.body) return response({ code: 200, data: 'link-id-1234567890' });
+    if (target.includes('/SocialMediaLinkConfig/link-id-1234567890')) {
+      return response({ code: 200, data: { shortUrl: 'social.example/s/test' } });
+    }
+    throw new Error(`Unexpected fetch: ${target}`);
+  };
+
+  try {
+    const token = signAccessToken({ username: 'alice' });
+    const failed = await invoke(confirm, request(token));
+    assert.equal(failed.statusCode, 502);
+
+    const recovery = JSON.parse(FakeRedis.values.get('nf_confirm_dedup:alice:book-1'));
+    assert.equal(recovery.code, '1000');
+    assert.equal(recovery.submission.code, '1000');
+
+    const retried = await invoke(confirm, request(token));
+    assert.equal(retried.statusCode, 200);
+    assert.equal(retried.body.status, 'existing');
+    assert.equal(retried.body.code, '1000');
+    assert.equal(codeCreationCalls, 1);
+    assert.ok(hashes.get('nf_subs').has('1000'));
+    assert.ok(sets.get('nf_user_subs:alice').has('1000'));
+  } finally {
+    FakeRedis.prototype.hset = originalHset;
+    global.fetch = originalFetch;
+  }
+});
+
+test('a successful confirmation repair preserves an existing synced cover', async () => {
+  FakeRedis.reset({
+    'nf_user_data:alice': JSON.stringify({
+      myBooks: [{ bookId: 'book-1', title: 'Old title', cover: 'https://cdn.example/cover.jpg' }],
+    }),
+  });
+  hashes.clear();
+  sets.clear();
+
+  const originalFetch = global.fetch;
+  global.fetch = async (url, options = {}) => {
+    const target = String(url);
+    if (target.includes('savebookpromotionkeywords')) return response({ data: true });
+    if (target.includes('SocialMediaChannelConfig')) return response({ data: { data: [] } });
+    if (target.endsWith('/SocialMediaLinkConfig') && options.body) return response({ code: 200, data: 'link-id-1234567890' });
+    if (target.includes('/SocialMediaLinkConfig/link-id-1234567890')) {
+      return response({ code: 200, data: { shortUrl: 'social.example/s/test' } });
+    }
+    throw new Error(`Unexpected fetch: ${target}`);
+  };
+
+  try {
+    const token = signAccessToken({ username: 'alice' });
+    const result = await invoke(confirm, request(token));
+    assert.equal(result.statusCode, 200);
+    const saved = JSON.parse(FakeRedis.values.get('nf_user_data:alice'));
+    assert.equal(saved.myBooks.length, 1);
+    assert.equal(saved.myBooks[0].cover, 'https://cdn.example/cover.jpg');
+    assert.equal(saved.myBooks[0].code, '1000');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});

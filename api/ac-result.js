@@ -59,7 +59,9 @@ module.exports = async (req, res) => {
   }
 
   const tid = req.query.threadId;
-  if (!tid) return res.status(400).json({ error: 'threadId required' });
+  if (!tid || typeof tid !== 'string' || tid.length > 200) {
+    return res.status(400).json({ error: 'threadId required', code: 'THREAD_ID_REQUIRED' });
+  }
 
   let token = null;
   try {

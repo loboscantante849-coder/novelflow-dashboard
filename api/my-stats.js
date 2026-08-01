@@ -33,16 +33,17 @@ module.exports = async (req, res) => {
 
   // Check if the JWT user has been disabled (dirty account lockout)
   const redis = getRedis();
-  if (redis) {
-    try {
-      const selfData = await redis.get('nf_user_data:' + String(jwtUsername).toLowerCase());
-      if (selfData) {
-        const parsed = typeof selfData === 'string' ? JSON.parse(selfData) : selfData;
-        if (parsed && parsed.disabled) {
-          return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
-        }
+  if (!redis) return res.status(503).json({ error: 'Statistics temporarily unavailable', code: 'STORAGE_UNAVAILABLE' });
+  try {
+    const selfData = await redis.get('nf_user_data:' + String(jwtUsername).toLowerCase());
+    if (selfData) {
+      const parsed = typeof selfData === 'string' ? JSON.parse(selfData) : selfData;
+      if (parsed && parsed.disabled) {
+        return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
       }
-    } catch (_e) { /* ignore */ }
+    }
+  } catch (_e) {
+    return res.status(503).json({ error: 'Statistics temporarily unavailable', code: 'STORAGE_UNAVAILABLE' });
   }
 
   const isAdmin = await isAdminUser(redis, jwtUsername);
@@ -103,7 +104,7 @@ module.exports = async (req, res) => {
         usernameCanon = k;
       }
       const { byAdId, promoterEntry, promoterEntries } =
-        buildAdIdLookup(adData, usernameCanon, isAdmin);
+        buildAdIdLookup(adData, usernameCanon, isAdmin, submissions);
 
       if (isAdmin) {
         const books = [];
@@ -114,6 +115,7 @@ module.exports = async (req, res) => {
         for (const sub of submissions) {
           if (sub.linkId) nfSubsByAdId.set(String(sub.linkId), sub);
           if (sub.code) nfSubsByAdId.set(String(sub.code), sub);
+          if (sub.inviteCode) nfSubsByAdId.set(`invite:${String(sub.inviteCode)}`, sub);
         }
 
         for (const [pCanon, pEntry] of Object.entries(promoterEntries || {})) {
@@ -156,7 +158,7 @@ module.exports = async (req, res) => {
               visits: st.pull_uv || 0,
               unique_users: st.pull_uv || 0,
               new_users: st.new_uv || 0,
-              d14_income: dn,
+              d14_income: r2(st.d14_income),
               dn_income: dn,
               channel,
             });
@@ -226,7 +228,7 @@ module.exports = async (req, res) => {
           visits: st.pull_uv || 0,
           unique_users: st.pull_uv || 0,
           new_users: st.new_uv || 0,
-          d14_income: dn,
+          d14_income: r2(st.d14_income),
           dn_income: dn,
           channel,
           assetIds: st.assetIds,
@@ -278,7 +280,7 @@ module.exports = async (req, res) => {
             visits: st.pull_uv || 0,
             unique_users: st.pull_uv || 0,
             new_users: st.new_uv || 0,
-            d14_income: dn,
+            d14_income: r2(st.d14_income),
             dn_income: dn,
             channel: channel + ' (synced)',
           });
@@ -371,7 +373,7 @@ module.exports = async (req, res) => {
           visits: l.visits || l.total_visits || l.unique_visitors || 0,
           unique_users: l.unique_visitors || l.unique_users || l.visits || 0,
           new_users: l.new_users || 0,
-          d14_income: dn,
+          d14_income: r2(l.d14_income || 0),
           dn_income: dn,
           channel: l.channel || 'link',
         });

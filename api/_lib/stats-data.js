@@ -21,7 +21,7 @@ const LINK_STATS_URL =
 const CACHE_TTL_MS = 5 * 60 * 1000;          // 5 minutes
 const MAX_STALE_CACHE_MS = 2 * 60 * 60 * 1000; // never serve a day's-old warm cache
 const FETCH_TIMEOUT_MS = 8000;               // 8s per attempt
-const FETCH_RETRIES = 1;                     // retry once on failure
+const FETCH_RETRIES = 0;                     // local snapshot is the bounded fallback
 // ADMIN_USERNAMES removed — admin status is Redis-driven via isAdminUser() in security.js.
 // This isAdmin() kept as backward-compat signature: always returns false (no static whitelist).
 // Callers should use isAdminUser(redis, jwtUsername) from _lib/security.js instead.
@@ -62,6 +62,28 @@ const ALIAS_VARIANTS = {
 let AD_CACHE = { data: null, expires: 0, fetchedAt: 0 };
 let DATA_JSON_CACHE = { data: null, expires: 0, fetchedAt: 0 };
 let LINK_STATS_CACHE = { data: null, expires: 0, fetchedAt: 0 };
+
+// These snapshots are deployed with the dashboard. They are the last-known-good
+// data source when GitHub is slow or unavailable during a serverless cold start.
+function loadBundledJson(relativePath, validate) {
+  try {
+    const value = require(relativePath);
+    return validate(value) ? value : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+const BUNDLED_AD_DATA = loadBundledJson('../../ad_id_details.json', value => (
+  value && typeof value === 'object' && value.ad_ids && typeof value.ad_ids === 'object' &&
+  value.by_promoter && typeof value.by_promoter === 'object'
+));
+const BUNDLED_DATA_JSON = loadBundledJson('../../data.json', value => (
+  value && typeof value === 'object' && value.users && typeof value.users === 'object'
+));
+const BUNDLED_LINK_STATS = loadBundledJson('../../link-stats.json', value => (
+  value && typeof value === 'object' && value.links && typeof value.links === 'object'
+));
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -163,6 +185,11 @@ async function getAdIdDetails(debugLog) {
     return AD_CACHE.data;
   }
   if (AD_CACHE.data) debugLog?.push('ad_id_details: stale cache exceeded maximum age');
+  if (BUNDLED_AD_DATA) {
+    debugLog?.push(`ad_id_details: using bundled snapshot (remote failed: ${lastErr?.message || 'unknown'})`);
+    AD_CACHE = { data: BUNDLED_AD_DATA, expires: Date.now() + CACHE_TTL_MS, fetchedAt: Date.now() };
+    return BUNDLED_AD_DATA;
+  }
   debugLog?.push(`ad_id_details: all fetches failed: ${lastErr?.message}`);
   return null;
 }
@@ -177,9 +204,13 @@ async function getLegacyDataJson(debugLog) {
     return data;
   } catch (e) {
     debugLog?.push(`data.json fallback fetch failed: ${e.message}`);
-    return DATA_JSON_CACHE.data && now - DATA_JSON_CACHE.fetchedAt <= MAX_STALE_CACHE_MS
-      ? DATA_JSON_CACHE.data
-      : null;
+    if (DATA_JSON_CACHE.data && now - DATA_JSON_CACHE.fetchedAt <= MAX_STALE_CACHE_MS) return DATA_JSON_CACHE.data;
+    if (BUNDLED_DATA_JSON) {
+      debugLog?.push('data.json fallback: using bundled snapshot');
+      DATA_JSON_CACHE = { data: BUNDLED_DATA_JSON, expires: Date.now() + CACHE_TTL_MS, fetchedAt: Date.now() };
+      return BUNDLED_DATA_JSON;
+    }
+    return null;
   }
 }
 
@@ -193,9 +224,13 @@ async function getLegacyLinkStats(debugLog) {
     return data;
   } catch (e) {
     debugLog?.push(`link-stats.json fallback fetch failed: ${e.message}`);
-    return LINK_STATS_CACHE.data && now - LINK_STATS_CACHE.fetchedAt <= MAX_STALE_CACHE_MS
-      ? LINK_STATS_CACHE.data
-      : null;
+    if (LINK_STATS_CACHE.data && now - LINK_STATS_CACHE.fetchedAt <= MAX_STALE_CACHE_MS) return LINK_STATS_CACHE.data;
+    if (BUNDLED_LINK_STATS) {
+      debugLog?.push('link-stats.json fallback: using bundled snapshot');
+      LINK_STATS_CACHE = { data: BUNDLED_LINK_STATS, expires: Date.now() + CACHE_TTL_MS, fetchedAt: Date.now() };
+      return BUNDLED_LINK_STATS;
+    }
+    return null;
   }
 }
 
@@ -203,6 +238,16 @@ function submissionIdentifier(value) {
   if (value === undefined || value === null) return null;
   const normalized = String(value).trim();
   return normalized && normalized !== 'undefined' && normalized !== 'null' ? normalized : null;
+}
+
+async function batchHashGet(redis, hashKey, fields) {
+  if (!fields.length) return [];
+  if (typeof redis.pipeline === 'function') {
+    const pipeline = redis.pipeline();
+    fields.forEach(field => pipeline.hget(hashKey, field));
+    return pipeline.exec();
+  }
+  return Promise.all(fields.map(field => redis.hget(hashKey, field)));
 }
 
 /**
@@ -232,7 +277,7 @@ function mergeSubmissionRecords(records) {
   source.forEach((record, index) => {
     const keys = [
       ['link', submissionIdentifier(record.linkId)],
-      ['code', submissionIdentifier(record.code)],
+      [record.inviteCode ? 'invite' : 'code', submissionIdentifier(record.inviteCode || record.code)],
     ];
     for (const [kind, value] of keys) {
       if (!value) continue;
@@ -268,7 +313,7 @@ function mergeSubmissionRecords(records) {
  *
  * For admins: returns every non-pending entry from nf_subs hash.
  * For regular users: returns the union of nf_user_subs:<lowercase> set +
- *                    nf_user_data:<username>.myBooks (CloudSync).
+ *                    nf_user_data:<lowercase username>.myBooks (CloudSync).
  *
  * Returns an array of submission objects, de-duplicated by linkId + code.
  */
@@ -293,7 +338,7 @@ async function loadSubmissions(redis, username, admin, debugLog) {
     const BATCH = 50;
     for (let i = 0; i < subKeys.length; i += BATCH) {
       const batch = subKeys.slice(i, i + BATCH);
-      const values = await Promise.all(batch.map(k => redis.hget('nf_subs', k)));
+      const values = await batchHashGet(redis, 'nf_subs', batch);
       for (const v of values) {
         if (!v) continue;
         try {
@@ -303,14 +348,16 @@ async function loadSubmissions(redis, username, admin, debugLog) {
       }
     }
   } catch (e) {
-    debugLog?.push(`nf_subs read error: ${e.message}`);
+    const error = new Error(`User promotion data unavailable: ${e.message}`);
+    error.code = 'USER_DATA_UNAVAILABLE';
+    throw error;
   }
 
   // Merge nf_user_data:<username>.myBooks. A CloudSync row can bridge legacy
   // link-only and code-only records, so de-duplicate after loading both sources.
   if (!admin) {
     try {
-      const kvData = await redis.get(`nf_user_data:${username}`);
+      const kvData = await redis.get(`nf_user_data:${String(username).toLowerCase()}`);
       const myBooks = kvData && typeof kvData === 'string' ? JSON.parse(kvData)?.myBooks : kvData?.myBooks;
       if (Array.isArray(myBooks)) {
         for (const book of myBooks) {
@@ -329,10 +376,35 @@ async function loadSubmissions(redis, username, admin, debugLog) {
             submittedAt: book.submittedAt || (book.createdAt ? new Date(book.createdAt).toISOString() : null)
           });
         }
-        if (myBooks.length) debugLog?.push(`loaded ${myBooks.length} books from nf_user_data:${username}`);
+        if (myBooks.length) debugLog?.push(`loaded ${myBooks.length} books from nf_user_data:${String(username).toLowerCase()}`);
       }
     } catch (e) {
-      debugLog?.push(`nf_user_data merge skipped: ${e.message}`);
+      const error = new Error(`User cloud data unavailable: ${e.message}`);
+      error.code = 'USER_DATA_UNAVAILABLE';
+      throw error;
+    }
+    // Equity codes are a separate, server-owned asset namespace. Include the
+    // authenticated user's exact invite code without guessing ownership.
+    try {
+      const equityRaw = await redis.get(`nf_equity_code:${String(username).toLowerCase()}`);
+      const equity = equityRaw && typeof equityRaw === 'string' ? JSON.parse(equityRaw) : equityRaw;
+      if (equity && equity.code && equity.bookId && equity.status !== 'unbound') {
+        subs.push({
+          discordUsername: username,
+          status: equity.status,
+          inviteCode: String(equity.code),
+          code: String(equity.code),
+          bookId: equity.bookId,
+          matchedBookName: equity.bookTitle || 'Unknown',
+          bookName: equity.bookTitle || 'Unknown',
+          submittedAt: equity.createdAt ? new Date(equity.createdAt).toISOString() : null,
+        });
+        debugLog?.push(`loaded equity invite:${equity.code}`);
+      }
+    } catch (e) {
+      const error = new Error(`Equity code data unavailable: ${e.message}`);
+      error.code = 'USER_DATA_UNAVAILABLE';
+      throw error;
     }
   }
 
@@ -349,13 +421,19 @@ async function loadCovers(redis, bookIds, debugLog) {
   if (!redis || !bookIds.length) return covers;
   try {
     const uniq = [...new Set(bookIds.map(String).filter(Boolean))];
-    const values = await Promise.all(uniq.map(bid => redis.hget('nf_book_covers', bid)));
-    for (let i = 0; i < uniq.length; i++) {
-      if (values[i]) covers[uniq[i]] = values[i];
+    const BATCH = 50;
+    for (let offset = 0; offset < uniq.length; offset += BATCH) {
+      const batch = uniq.slice(offset, offset + BATCH);
+      const values = await batchHashGet(redis, 'nf_book_covers', batch);
+      for (let i = 0; i < batch.length; i++) {
+        if (values[i]) covers[batch[i]] = values[i];
+      }
     }
     debugLog?.push(`covers: ${Object.keys(covers).length}/${uniq.length} found`);
   } catch (e) {
-    debugLog?.push(`cover lookup failed: ${e.message}`);
+    const error = new Error(`Book cover data unavailable: ${e.message}`);
+    error.code = 'USER_DATA_UNAVAILABLE';
+    throw error;
   }
   return covers;
 }
@@ -368,7 +446,7 @@ async function loadCovers(redis, bookIds, debugLog) {
  *
  * Daily is normalized into a date-keyed object for easy aggregation.
  */
-function buildAdIdLookup(adData, usernameCanon, admin) {
+function buildAdIdLookup(adData, usernameCanon, admin, submissions = []) {
   const byAdId = {};
   if (!adData || !adData.ad_ids) return { byAdId, promoterEntry: null, promoterEntries: null };
 
@@ -385,11 +463,19 @@ function buildAdIdLookup(adData, usernameCanon, admin) {
   const allowedAdIds = admin
     ? null
     : (() => {
-        if (!promoterEntry) return new Set();
         const s = new Set();
-        (promoterEntry.links || []).forEach(a => s.add(String(a)));
-        (promoterEntry.codes || []).forEach(a => s.add(String(a)));
-        (promoterEntry.invites || []).forEach(a => s.add(`invite:${String(a)}`));
+        if (promoterEntry) {
+          (promoterEntry.links || []).forEach(a => s.add(String(a)));
+          (promoterEntry.codes || []).forEach(a => s.add(String(a)));
+          (promoterEntry.invites || []).forEach(a => s.add(`invite:${String(a)}`));
+        }
+        // Exact IDs from the authenticated user's own Redis records are safe to
+        // include even when the pipeline has not assigned an owner yet.
+        for (const submission of Array.isArray(submissions) ? submissions : []) {
+          if (submission?.inviteCode) s.add(`invite:${String(submission.inviteCode)}`);
+          if (submission?.linkId) s.add(String(submission.linkId));
+          if (submission?.code && !submission?.inviteCode && submission?.channel !== 'invite') s.add(String(submission.code));
+        }
         return s;
       })();
 
@@ -456,7 +542,9 @@ function aggregateSubmissionStats(submission, byAdId, seenAdIds = new Set()) {
   const linkId = submission && submission.linkId ? String(submission.linkId) : null;
   const code = submission && submission.code ? String(submission.code) : null;
   if (linkId) candidates.push({ id: linkId, channel: 'link' });
-  if (code && code !== linkId) candidates.push({ id: code, channel: 'code' });
+  if (submission?.inviteCode) {
+    candidates.push({ id: `invite:${String(submission.inviteCode)}`, channel: 'invite' });
+  } else if (code && code !== linkId) candidates.push({ id: code, channel: 'code' });
 
   const combined = zeroStats();
   const assetIds = [];

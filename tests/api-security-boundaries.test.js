@@ -36,6 +36,7 @@ const xmpMaterials = require('../api/xmp-materials');
 const submissions = require('../api/submissions');
 const acKv = require('../api/ac-kv');
 const updateStats = require('../api/update-stats');
+const socialStore = require('../api/social-store');
 
 const originalFetch = global.fetch;
 
@@ -333,6 +334,19 @@ test('retired update-stats endpoint returns only a generic 410 response', async 
   assert.equal(response.statusCode, 410);
   assert.deepEqual(response.body, { error: 'Endpoint retired' });
   assert.doesNotMatch(JSON.stringify(response.body), /repo|github|pipeline|source|cron/i);
+});
+
+test('legacy social storage never falls back to the core user-data Redis', async () => {
+  delete process.env.SOCIAL_KV_REST_API_URL;
+  delete process.env.SOCIAL_KV_REST_API_TOKEN;
+  process.env.SOCIAL_STORE_SECRET = 'social-test-secret';
+  const result = await invoke(socialStore, {
+    method: 'POST',
+    headers: { authorization: 'Bearer social-test-secret' },
+    body: { op: 'get', args: { key: 'nf_social:test' } },
+  });
+  assert.equal(result.statusCode, 410);
+  assert.equal(result.body.code, 'SOCIAL_STORE_RETIRED');
 });
 
 test('AC and wallet endpoints never return internal exception messages', () => {
