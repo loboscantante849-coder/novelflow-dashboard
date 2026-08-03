@@ -299,7 +299,9 @@ module.exports = async (req, res) => {
         return res.status(cachedFailure.httpStatus || 502).json(unavailableCatalogPayload(cachedFailure));
       }
     }
-    const result = source === 'history' ? await providers.performanceBooks(days) : await catalogBooks(days, sortField, filters, { deadlineMs: isCron ? 105000 : 14000 });
+    const result = source === 'history'
+      ? await providers.performanceBooks(days)
+      : await catalogBooks(days, sortField, filters, { deadlineMs: isCron ? 105000 : refresh ? 65000 : 14000 });
     let books = await enrichBooks(result.books, source === 'catalog');
     if (source === 'history') books = await mergeHistoryMetrics(books, days, redis);
     if (!books.length) throw new providers.ProviderError('Top-book source returned no usable books');

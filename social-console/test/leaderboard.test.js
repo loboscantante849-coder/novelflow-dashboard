@@ -158,6 +158,25 @@ test('catalog retries the previous complete day when yesterday is not published 
   assert.equal(firstEnd.getTime() - secondEnd.getTime(), 86400000);
 });
 
+test('an explicit Top 200 refresh receives the long server budget', async (t) => {
+  const originals = { contentDashboardBooks: providers.contentDashboardBooks, topBooks: providers.topBooks };
+  t.after(() => Object.assign(providers, originals));
+  let deadlineMs = 0;
+  providers.contentDashboardBooks = async (input) => {
+    deadlineMs = input.deadlineMs;
+    return {
+      books: [{ bookSkuId: 'long-refresh-1', title: 'Long Window Ranking', source: 'content_dashboard', baseReadUnt: 42, firstReadUntRate: 25 }],
+      total: 1,
+      minReadUnt: 0
+    };
+  };
+  providers.topBooks = async () => [];
+  const res = await invokeLeaderboard(new MemoryRedis(), { days: '90', refresh: '1' });
+
+  assert.equal(res.statusCode, 200);
+  assert.ok(deadlineMs >= 60000);
+});
+
 test('catalog failure cooldown avoids repeating a known unavailable source', async (t) => {
   const original = providers.contentDashboardBooks;
   t.after(() => { providers.contentDashboardBooks = original; });
