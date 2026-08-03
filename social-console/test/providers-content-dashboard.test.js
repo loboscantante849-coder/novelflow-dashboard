@@ -99,3 +99,31 @@ test('exact book lookup falls back to a SKU-verified canonical record', async (t
   assert.equal(book.title, 'Canonical Book Title');
   assert.equal(book.cover, 'https://cdn.example/canonical-cover.jpg');
 });
+
+test('exact book lookup uses the legacy SKU keyword path only with an exact identifier match', async (t) => {
+  const originalFetch = global.fetch;
+  const previousToken = process.env.NOVELFLOW_OIDC_TOKEN;
+  process.env.NOVELFLOW_OIDC_TOKEN = 'test-keyword-token';
+  const requests = [];
+  t.after(() => {
+    global.fetch = originalFetch;
+    if (previousToken === undefined) delete process.env.NOVELFLOW_OIDC_TOKEN;
+    else process.env.NOVELFLOW_OIDC_TOKEN = previousToken;
+  });
+  global.fetch = async (url) => {
+    const requestUrl = new URL(String(url));
+    requests.push(requestUrl);
+    const record = requestUrl.searchParams.get('keyword')
+      ? [{ bookSkuId: 'keyword-sku', id: 'keyword-city-id', title: 'Keyword Canonical Title', cover: 'https://cdn.example/keyword-cover.jpg' }]
+      : [];
+    return new Response(JSON.stringify({ code: 200, data: { data: record, total: record.length } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+
+  const book = await providers.findExactBook('Unmatched Dashboard Title', 'keyword-sku');
+
+  assert.equal(requests.length, 3);
+  assert.equal(requests[2].searchParams.get('keyword'), 'keyword-sku');
+  assert.equal(book.bookSkuId, 'keyword-sku');
+  assert.equal(book.title, 'Keyword Canonical Title');
+  assert.equal(book.cover, 'https://cdn.example/keyword-cover.jpg');
+});

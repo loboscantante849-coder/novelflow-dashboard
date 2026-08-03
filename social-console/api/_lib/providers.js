@@ -207,6 +207,10 @@ async function findExactBook(title, sku) {
     const { body: skuBody } = await adminRequest(`${BOOK_API}?${qs({ current: 1, pageIndex: 1, pageSize: 3, applicationId: APPLICATION_ID, bookStatus: 1, bookId: sku })}`, {}, 'Exact book SKU lookup');
     match = pageItems(skuBody).items.find((item) => itemSku(item) === String(sku)) || null;
   }
+  if (!match && sku) {
+    const { body: keywordBody } = await adminRequest(`${BOOK_API}?${qs({ current: 1, pageIndex: 1, pageSize: 3, applicationId: APPLICATION_ID, bookStatus: 1, keyword: sku })}`, {}, 'Exact book SKU keyword lookup');
+    match = pageItems(keywordBody).items.find((item) => itemSku(item) === String(sku)) || null;
+  }
   if (!match) throw new ProviderError(`Could not resolve one exact bookstore record for “${cleanTitle(title)}”`, { status: 404 });
   if (sku && itemSku(match) !== String(sku)) throw new ProviderError('Book SKU lookup returned a different record', { status: 409 });
   if (!sku && titleKey(match.title) !== titleKey(title)) throw new ProviderError('Book title search returned a different record', { status: 409 });
