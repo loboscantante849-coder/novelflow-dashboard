@@ -1,4 +1,4 @@
-const { getRedis, getRun, getRunDetail, getRunSummary, listRunSummaries, newRun, saveRun, getCreativePlan } = require('./_lib/store');
+const { getRedis, getRun, getRunDetail, getRunSummary, listRunSummaries, newRun, saveRun, getCreativePlan, registerActiveRun, findActiveRun, acquireRunCreation, releaseRunCreation } = require('./_lib/store');
 const { requireSession } = require('./_lib/auth');
 const { normalizeCreative, refreshAnalytics } = require('./_lib/pipeline');
 const providers = require('./_lib/providers');
@@ -36,6 +36,31 @@ function sanitizePlanning(value) {
     actualModel: CREATIVE_PROFILE_OPTIONS.modelChoice.has(String(value.actualModel || '')) ? String(value.actualModel) : '',
     fallbackUsed: value.fallbackUsed === true
   };
+}
+
+function buildRunInput(book, body = {}, planning = null) {
+  return {
+    title: book.title,
+    sku: book.bookSkuId,
+    source: text(body.source, 100) || 'manual',
+    automationMode: 'one_click',
+    promoter: text(body.promoter, 80) || 'xujt',
+    videoTemplate: text(body.videoTemplate, 80) || 'adaptive_seedance',
+    fullBookEvidence: body.fullBookEvidence !== false,
+    paidAuthorized: body.paidAuthorized === true,
+    creativeProfile: sanitizeCreativeProfile(body.creativeProfile),
+    planning,
+    requestedAt: new Date().toISOString()
+  };
+}
+
+async function waitForActiveRun(redis, sku, attempts = 6) {
+  for (let index = 0; index < attempts; index += 1) {
+    const existing = await findActiveRun(redis, sku);
+    if (existing) return existing;
+    if (index < attempts - 1) await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return null;
 }
 
 // Full runs contain every downloaded chapter and provider payload. Returning
@@ -365,19 +390,26 @@ module.exports = async (req, res) => {
       const existing = (await listRunSummaries(redis, 50)).find((item) => String(item.input?.planning?.planId || '') === planning.planId);
       if (existing) return res.status(200).json({ run: existing, duplicate: true });
     }
-    const input = {
-      title: book.title, sku: book.bookSkuId,
-      promoter: text(req.body?.promoter, 80) || 'xujt',
-      videoTemplate: text(req.body?.videoTemplate, 80) || 'adaptive_seedance',
-      fullBookEvidence: req.body?.fullBookEvidence !== false,
-      paidAuthorized: req.body?.paidAuthorized === true,
-      creativeProfile: sanitizeCreativeProfile(req.body?.creativeProfile),
-      planning,
-      requestedAt: new Date().toISOString()
-    };
+    const input = buildRunInput(book, req.body || {}, planning);
     if (!input.paidAuthorized) return res.status(400).json({ error: 'One-click paid generation authorization is required' });
-    const run = await saveRun(redis, newRun(input));
-    return res.status(202).json({ run });
+    // A double-click or an ambiguous network response must never create a
+    // second paid-media path for the same book. The short lock covers the
+    // creation race; the durable SKU pointer covers the lifetime of a run.
+    const lock = await acquireRunCreation(redis, input.sku);
+    if (!lock.acquired) {
+      const existing = await waitForActiveRun(redis, input.sku);
+      if (existing) return res.status(200).json({ run: existing, duplicate: true });
+      return res.status(409).json({ error: 'A one-click task for this book is being created; please wait for its status to appear.' });
+    }
+    try {
+      const existing = await findActiveRun(redis, input.sku);
+      if (existing) return res.status(200).json({ run: existing, duplicate: true });
+      const run = await saveRun(redis, newRun(input));
+      await registerActiveRun(redis, run);
+      return res.status(202).json({ run });
+    } finally {
+      await releaseRunCreation(redis, lock);
+    }
   } catch (error) {
     console.error('[social/runs]', error);
     // Do not turn a model, validation, or storage diagnosis into the same
@@ -391,3 +423,5 @@ module.exports = async (req, res) => {
 module.exports.copyAssetPayload = copyAssetPayload;
 module.exports.listRunsPayload = listRunsPayload;
 module.exports.loadRunView = loadRunView;
+module.exports.buildRunInput = buildRunInput;
+module.exports.waitForActiveRun = waitForActiveRun;

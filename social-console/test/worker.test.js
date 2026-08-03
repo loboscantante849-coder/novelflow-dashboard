@@ -277,6 +277,31 @@ test('an owned worker lease does not delete a replacement lease', async (t) => {
   assert.equal(await redis.get(`nf_social:lock:${target.id}`), replacement);
 });
 
+test('a creative section request cannot overlap the task-wide worker lease', async (t) => {
+  const target = run();
+  const redis = new MemoryRedis();
+  await redis.set(`nf_social:lock:${target.id}`, `v1|${Date.now()}|main-worker-owner`);
+  let creativeCalls = 0;
+  let runCalls = 0;
+
+  const { result } = await invoke(t, {
+    redis,
+    body: { id: target.id, creativeSection: 'posts' },
+    store: { getRun: async () => target },
+    pipeline: {
+      p3: async () => { creativeCalls += 1; return target; },
+      processRun: async () => { runCalls += 1; return target; }
+    }
+  });
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.body.locked, true);
+  assert.equal(result.body.worked, false);
+  assert.equal(result.body.section, 'posts');
+  assert.equal(creativeCalls, 0);
+  assert.equal(runCalls, 0);
+});
+
 test('a stale worker lease is recovered from the latest saved run state', async (t) => {
   const target = run();
   const redis = new MemoryRedis();

@@ -155,7 +155,17 @@ module.exports = async (req, res) => {
     }
 
     const runnable = (item) => {
-      if (['queued', 'running'].includes(item.state)) return true;
+      if (item.state === 'queued') return true;
+      if (item.state === 'running') {
+        const retryAt = Date.parse(item.stages?.P4?.nextAttemptAt || '');
+        const waitingForVideoCapacity = item.stages?.P4?.status === 'prepared'
+          && item.stages?.P4?.blockedReason === 'hourly_video_limit'
+          && Number.isFinite(retryAt)
+          && retryAt > Date.now();
+        const posterFinished = ['done', 'partial', 'ambiguous'].includes(String(item.stages?.P3_5?.status || ''));
+        if (waitingForVideoCapacity && posterFinished) return false;
+        return true;
+      }
       const creativeFailure = item.state === 'failed'
         && item.stages?.P3?.status === 'failed'
         && item.stages?.P3?.recoverable !== false
@@ -197,7 +207,10 @@ module.exports = async (req, res) => {
 
     if (requestedCreativeSection) {
       if (run.stages?.P3?.status === 'done') return res.status(200).json({ worked: false, completed: true, run: runResult(run) });
-      const leaseState = await acquireRecoverableLease(redis, `nf_social:creative_section:${run.id}:${requestedCreativeSection}`);
+      // Section calls from an older dashboard must share the task-wide lease.
+      // This prevents a late old-model response from racing a generic worker
+      // that already switched the route or moved into paid media.
+      const leaseState = await acquireRecoverableLease(redis, `nf_social:lock:${run.id}`);
       if (!leaseState) return res.status(200).json({ worked: false, locked: true, section: requestedCreativeSection });
       try {
         const updated = await p3(redis, run, null, false, requestedCreativeSection);

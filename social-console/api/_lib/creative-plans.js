@@ -1,6 +1,6 @@
 const providers = require('./providers');
 const { selectedChapters } = require('./pipeline');
-const { newRun, saveRun, saveCreativePlan, listRunSummaries } = require('./store');
+const { newRun, saveRun, saveCreativePlan, listRunSummaries, registerActiveRun, findActiveRun, acquireRunCreation, releaseRunCreation } = require('./store');
 
 const PROFILE_OPTIONS = {
   copyStyle: ['system_best', 'revenge_comeback', 'forbidden_tension', 'dark_redemption'],
@@ -78,22 +78,49 @@ async function autoStartProduction(redis, plan) {
     }
     const book = plan.artifacts?.book;
     if (!book?.title || !book?.bookSkuId) throw new Error('Completed plan is missing its verified book identity');
-    const run = await saveRun(redis, newRun({
-      title: book.title,
-      sku: book.bookSkuId,
-      promoter: String(plan.input?.promoter || 'xujt').slice(0, 80),
-      videoTemplate: 'adaptive_seedance',
-      fullBookEvidence: true,
-      paidAuthorized: plan.input?.paidAuthorized !== false,
-      creativeProfile: productionProfile(plan),
-      planning: planningSnapshot(plan),
-      requestedAt: new Date().toISOString()
-    }));
-    plan.input.productionRunId = run.id;
-    plan.input.autoStartState = 'queued';
-    plan.input.autoStartNextAttemptAt = '';
-    event(plan, 'production_auto_queued', 'Completed AI plan automatically created a production task', { runId: run.id });
-    await saveCreativePlan(redis, plan);
+    const lock = await acquireRunCreation(redis, book.bookSkuId);
+    if (!lock.acquired) {
+      const existingBookRun = await findActiveRun(redis, book.bookSkuId);
+      if (!existingBookRun) throw new Error('The verified book already has a production task being created');
+      plan.input.productionRunId = existingBookRun.id;
+      plan.input.autoStartState = 'linked_existing';
+      plan.input.autoStartNextAttemptAt = '';
+      event(plan, 'production_auto_reconciled_by_book', 'The completed plan linked to the existing active production for this book', { runId: existingBookRun.id });
+      await saveCreativePlan(redis, plan);
+      return plan;
+    }
+    try {
+      const existingBookRun = await findActiveRun(redis, book.bookSkuId);
+      if (existingBookRun) {
+        plan.input.productionRunId = existingBookRun.id;
+        plan.input.autoStartState = 'linked_existing';
+        plan.input.autoStartNextAttemptAt = '';
+        event(plan, 'production_auto_reconciled_by_book', 'The completed plan linked to the existing active production for this book', { runId: existingBookRun.id });
+        await saveCreativePlan(redis, plan);
+        return plan;
+      }
+      const run = await saveRun(redis, newRun({
+        title: book.title,
+        sku: book.bookSkuId,
+        source: 'ai_plan',
+        automationMode: 'one_click',
+        promoter: String(plan.input?.promoter || 'xujt').slice(0, 80),
+        videoTemplate: 'adaptive_seedance',
+        fullBookEvidence: true,
+        paidAuthorized: plan.input?.paidAuthorized !== false,
+        creativeProfile: productionProfile(plan),
+        planning: planningSnapshot(plan),
+        requestedAt: new Date().toISOString()
+      }));
+      await registerActiveRun(redis, run);
+      plan.input.productionRunId = run.id;
+      plan.input.autoStartState = 'queued';
+      plan.input.autoStartNextAttemptAt = '';
+      event(plan, 'production_auto_queued', 'Completed AI plan automatically created a production task', { runId: run.id });
+      await saveCreativePlan(redis, plan);
+    } finally {
+      await releaseRunCreation(redis, lock);
+    }
   } catch (error) {
     const attempt = Number(plan.input?.autoStartAttempt || 0) + 1;
     plan.input.autoStartAttempt = attempt;

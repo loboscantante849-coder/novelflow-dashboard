@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { copyAssetPayload, listRunsPayload, loadRunView } = require('../api/runs');
+const { copyAssetPayload, listRunsPayload, loadRunView, buildRunInput } = require('../api/runs');
 
 test('copy asset payload excludes full-book evidence and provider diagnostics', () => {
   const run = {
@@ -42,4 +42,25 @@ test('run detail falls back immediately to the compact summary while its snapsho
   assert.equal(result.run._summary, false);
   assert.equal(result.run._detailPartial, true);
   assert.equal(result.run.stages.P3.status, 'running');
+});
+
+test('one-click run input keeps source and full-book evidence decisions', () => {
+  const input = buildRunInput({ title: 'Exact Romance', bookSkuId: 'sku-42' }, {
+    source: 'catalog_30d',
+    fullBookEvidence: true,
+    paidAuthorized: true,
+    promoter: 'xujt'
+  }, null);
+  assert.equal(input.source, 'catalog_30d');
+  assert.equal(input.automationMode, 'one_click');
+  assert.equal(input.fullBookEvidence, true);
+  assert.equal(input.paidAuthorized, true);
+});
+
+test('one-click mode is enforced even when a caller sends a different mode', () => {
+  const input = buildRunInput({ title: 'Exact Romance', bookSkuId: 'sku-42' }, {
+    automationMode: 'manual',
+    paidAuthorized: true
+  }, null);
+  assert.equal(input.automationMode, 'one_click');
 });

@@ -50,6 +50,7 @@
         <header class="today-rail-head"><div><span class="eyebrow">TODAY'S PICKS</span><h2>今日值得推的书</h2><p id="todayRailDescription">正在校验真实 UV、首读与长读留存样本。</p></div><div><button id="todayRailPrev" class="icon-button" type="button" title="上一组推荐"><i data-lucide="chevron-left"></i></button><button id="todayRailNext" class="icon-button" type="button" title="下一组推荐"><i data-lucide="chevron-right"></i></button></div></header>
         <div id="todayRailList" class="today-rail-list" aria-live="polite"></div>
       </section>
+      <section id="oneClickStatus" class="one-click-status" aria-live="polite" hidden></section>
       <section class="overview-band overview-actions" aria-label="任务快捷筛选">
         <button class="overview-kpi" data-overview-filter="active" type="button" aria-pressed="false"><span>正在生产</span><strong id="runningRuns">0</strong><small>点击查看后台持续推进的任务</small></button>
         <button class="overview-kpi" data-overview-filter="assets" type="button" aria-pressed="false"><span>可直接使用素材</span><strong id="readyAssets">0</strong><small>点击查看已有文案、海报或视频</small></button>
@@ -69,7 +70,7 @@
         <section id="historyDecisionBar" class="history-decision-bar" aria-label="复投判断筛选" hidden></section>
         <div id="leaderboard" class="leaderboard-grid" aria-live="polite"></div>
         <div id="leaderboardPager" class="leaderboard-pager" hidden><span id="leaderboardCount">第 1/1 页 · 0 本</span><div><button id="previousBooks" class="secondary-command" type="button"><i data-lucide="chevron-left"></i>上一页</button><button id="nextBooks" class="secondary-command" type="button">下一页 50 本<i data-lucide="chevron-right"></i></button></div></div>
-        <div id="batchBookBar" class="batch-book-bar" hidden><span id="batchBookCount">已选 0 本</span><small>可继续筛选或逐本进入智能策划</small><button id="clearBookSelection" class="icon-button" type="button" title="清除选择"><i data-lucide="x"></i></button></div>
+        <div id="batchBookBar" class="batch-book-bar" hidden><span id="batchBookCount">已选 0 本</span><small>点击一次即可全部入队，后台按书独立推进；视频仍受每小时 5 条安全锁保护。</small><button id="startSelectedBooks" class="primary-command batch-start" type="button"><i data-lucide="zap"></i><span>一键生成已选</span></button><button id="clearBookSelection" class="icon-button" type="button" title="清除选择"><i data-lucide="x"></i></button></div>
         <div id="leaderboardEmpty" class="leaderboard-empty" hidden><i data-lucide="cloud-off"></i><strong>今日榜单暂不可用</strong><span>任务与已有素材不受影响，可稍后刷新。</span></div>
       </section>
 

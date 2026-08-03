@@ -368,3 +368,128 @@ test('cover markup shows a readable fallback before the remote image decodes', (
   assert.match(html, /onload="handleCoverImageLoad\(this\)"/);
   assert.match(html, /onerror="handleCoverImageError\(this\)"/);
 });
+
+test('worker dispatch lease releases after the request settles and keeps only a short debounce', async () => {
+  let now = 1000;
+  let settle;
+  const DateShim = class extends Date { static now() { return now; } };
+  const context = {
+    state: { workerDispatches: new Map(), workerDispatchNotice: new Map() },
+    Date: DateShim, Promise,
+    WORKER_DISPATCH_COOLDOWN_MS: 4000,
+    WORKER_DISPATCH_STALE_MS: 720000,
+    fetch: () => new Promise((resolve) => { settle = resolve; }),
+    api: async () => ({ ok: true })
+  };
+  vm.createContext(context);
+  vm.runInContext(between('function workerDispatchBusy(', 'function selectedModelWaitMs('), context);
+  assert.equal(context.dispatchWorkerOnce('run:1', { id: 'run-1' }), true);
+  assert.equal(context.dispatchWorkerOnce('run:1', { id: 'run-1' }), false);
+  settle({ ok: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  now += 4001;
+  assert.equal(context.dispatchWorkerOnce('run:1', { id: 'run-1' }), true);
+});
+
+test('a selected book exposes a stable pending production identity', () => {
+  const state = { pendingProductions: new Map([['sku:sku-42', { title: 'Queued Book' }]]) };
+  const context = { state, String };
+  vm.createContext(context);
+  vm.runInContext(between('function productionIdentity(', 'function bookIsShort('), context);
+  assert.equal(context.pendingProductionFor({ title: 'Queued Book', bookSkuId: 'sku-42' }).title, 'Queued Book');
+  assert.equal(context.productionIdentity({ title: 'Queued Book', sku: 'sku-42' }), 'sku:sku-42');
+});
+
+test('kick targets every active run instead of only the first one', () => {
+  const context = { usesLongBackground: () => false, Date, Number, String };
+  vm.createContext(context);
+  vm.runInContext(between('function dispatchesForRun(', 'async function kickWorker('), context);
+  const runs = [
+    { id: 'run-1', state: 'running', stages: { P1: { status: 'running' } }, input: { creativeProfile: { modelChoice: 'hy3' } } },
+    { id: 'run-2', state: 'running', stages: { P1: { status: 'running' } }, input: { creativeProfile: { modelChoice: 'hy3' } } }
+  ];
+  const targets = runs.flatMap(context.dispatchesForRun);
+  assert.deepEqual(targets.map((item) => item.key), ['run:run-1', 'run:run-2']);
+});
+
+test('automatic production uses one task-wide worker route instead of parallel model sections', () => {
+  const source = between('function dispatchesForRun(', 'async function kickWorker(');
+  assert.doesNotMatch(source, /creativeSection/);
+  assert.match(source, /key: `run:\$\{run\.id\}`/);
+});
+
+test('one-click status keeps a durable active run visible after request setup settles', () => {
+  const panelSource = between('function activeAutopilotItems(', 'function todayScore(');
+  assert.match(panelSource, /state\.runs/);
+  assert.match(panelSource, /autopilot\?\.nextActionLabel/);
+  assert.match(panelSource, /data-open-autopilot/);
+  assert.match(panelSource, /关闭页面也会继续/);
+});
+
+test('blocked and paid-failed runs protect a book from duplicate one-click creation', () => {
+  const context = { state: { runs: [] }, String, Array };
+  vm.createContext(context);
+  vm.runInContext(between('function productionIdentity(', 'function bookIsShort('), context);
+  const book = { title: 'Protected Book', bookSkuId: 'sku-protected' };
+  const blocked = { state: 'blocked', input: { title: book.title, sku: book.bookSkuId }, artifacts: {} };
+  const paidFailed = { state: 'failed', input: { title: book.title, sku: book.bookSkuId }, artifacts: { video: { threadId: 'paid-video-task' }, images: [] } };
+  const ordinaryFailed = { state: 'failed', input: { title: book.title, sku: book.bookSkuId }, artifacts: { video: null, images: [] } };
+  context.state.runs = [blocked];
+  assert.equal(context.activeRunFor(book), blocked);
+  context.state.runs = [paidFailed];
+  assert.equal(context.activeRunFor(book), paidFailed);
+  context.state.runs = [ordinaryFailed];
+  assert.equal(context.activeRunFor(book), undefined);
+});
+
+test('status reconciliation ignores an older completed run for the same book', () => {
+  const pending = { title: 'Repeat Book', sku: 'sku-repeat', status: 'submitting', startedAt: Date.parse('2026-08-03T08:00:00.000Z') };
+  const state = {
+    pendingProductions: new Map([['sku:sku-repeat', pending]]),
+    runs: [{ id: 'old-run', state: 'completed', createdAt: '2026-07-01T00:00:00.000Z', input: { title: pending.title, sku: pending.sku }, artifacts: {} }]
+  };
+  const context = { state, String, Array, Number, Date };
+  vm.createContext(context);
+  vm.runInContext([
+    between('function productionIdentity(', 'function bookIsShort('),
+    between('function reconcilePendingProductions()', 'function renderStatusViews(')
+  ].join('\n'), context);
+  context.reconcilePendingProductions();
+  assert.equal(state.pendingProductions.has('sku:sku-repeat'), true);
+});
+
+test('a recovered planning job clears the misleading failed pending state', () => {
+  const pending = { title: 'Recovered Plan', sku: 'plan-sku', status: 'failed', error: 'request timed out' };
+  const state = { planJobs: [], pendingProductions: new Map([['sku:plan-sku', pending]]), planningSession: 1 };
+  const context = {
+    state, String,
+    renderCreativePlanQueue() {}, renderOneClickStatus() {}, icons() {}, dispatchWorkerOnce() {}, showToast() {},
+    $: () => ({ close() {} })
+  };
+  vm.createContext(context);
+  vm.runInContext([
+    between('function productionIdentity(', 'function runMatchesBook('),
+    between('function queueCreativePlanJob(', 'async function recoverCreativePlanRequest(')
+  ].join('\n'), context);
+  context.queueCreativePlanJob({ id: 'plan-1', input: { title: pending.title, sku: pending.sku } }, 'HY3', 1);
+  assert.equal(pending.status, 'planning');
+  assert.equal(pending.error, '');
+  assert.equal(pending.planId, 'plan-1');
+});
+
+test('video capacity waiting is shown as an automatic queue, not an unsubmitted task', () => {
+  const context = { Date, Number };
+  vm.createContext(context);
+  vm.runInContext(between('function videoState(', 'function videoHtml('), context);
+  const result = context.videoState({ stages: { P4: { status: 'prepared', blockedReason: 'hourly_video_limit', label: '额度已满，已自动排队', nextAttemptAt: '2026-08-03T09:00:00.000Z' } } }, null);
+  assert.equal(result.kind, 'queued');
+  assert.match(result.label, /自动排队/);
+  assert.doesNotMatch(result.label, /等待提交/);
+});
+
+test('duplicate run responses are opened without claiming a second task was created', () => {
+  const createSource = between('async function createProduction(', 'async function startProduction(');
+  assert.match(createSource, /body\.duplicate/);
+  assert.match(createSource, /已有任务/);
+  assert.match(createSource, /_creationDuplicate/);
+});

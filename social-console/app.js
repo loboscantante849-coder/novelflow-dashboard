@@ -1,6 +1,12 @@
 const storedRecommendationHistory = (() => { try { return JSON.parse(localStorage.getItem('nf_social:recommendation_history') || '[]'); } catch { return []; } })();
-const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogFilters: { line: 'novelflow', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all' }, historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 12, detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, longKickKey: '', startingSku: '', planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0 };
-state.workerDispatches = new Map();
+const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogFilters: { line: 'novelflow', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all' }, historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 12, detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, kickPromise: null, longKickKey: '', startingSku: '', planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0 };
+// These browser-only maps make the first click feel immediate while the
+// durable run remains the source of truth. They are intentionally not
+// persisted: a refresh reconciles them from /api/status.
+state.pendingProductions = new Map();
+state.productionRequests = new Map();
+state.batchStarting = false;
+state.batchProgress = null;
 const DASHBOARD_CACHE_KEY = 'nf_social:dashboard_snapshot:v1';
 const DASHBOARD_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
 let dashboardSnapshotHandle = null;
@@ -129,7 +135,8 @@ state.detailHydrationTimers = new Map();
 // submitted again merely because the dashboard refreshed.
 state.workerDispatches = new Map();
 state.workerDispatchNotice = new Map();
-const WORKER_DISPATCH_COOLDOWN_MS = 90 * 1000;
+const WORKER_DISPATCH_COOLDOWN_MS = 4000;
+const WORKER_DISPATCH_STALE_MS = 12 * 60 * 1000;
 state.leaderboardWarning = '';
 state.leaderboardDataQuality = '';
 state.leaderboardCredentialStatus = '';
@@ -241,16 +248,39 @@ function renderModelBadges() {
 }
 const longBackgroundModels = new Set(['deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'kimi-k2.7-code']);
 const usesLongBackground = (choice) => longBackgroundModels.has(String(choice || '').toLowerCase());
-function dispatchWorkerOnce(key, payload, { wait = false, timeoutMs = 55000, cooldownMs = 75000 } = {}) {
+function workerDispatchBusy(key, cooldownMs = WORKER_DISPATCH_COOLDOWN_MS) {
   const previous = state.workerDispatches.get(key);
-  if (previous && Date.now() - previous.startedAt < cooldownMs) return wait ? Promise.resolve(null) : false;
-  const entry = { startedAt: Date.now() };
+  if (!previous) return false;
+  const now = Date.now();
+  if (!previous.finishedAt) return now - previous.startedAt < WORKER_DISPATCH_STALE_MS;
+  return now - previous.finishedAt < cooldownMs;
+}
+
+function dispatchWorkerOnce(key, payload, { wait = false, timeoutMs = 55000, cooldownMs = WORKER_DISPATCH_COOLDOWN_MS } = {}) {
+  if (workerDispatchBusy(key, cooldownMs)) return wait ? Promise.resolve(null) : false;
+  const entry = { startedAt: Date.now(), payload };
   state.workerDispatches.set(key, entry);
+  state.workerDispatchNotice.set(key, { status: 'dispatched', at: entry.startedAt });
   const request = wait
     ? api('/api/worker', { method: 'POST', body: JSON.stringify(payload), timeoutMs })
-    : fetch('/api/worker', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(payload) }).catch(() => null);
-  request.finally(() => { entry.finishedAt = Date.now(); }).catch(() => {});
-  return wait ? request : true;
+    : fetch('/api/worker', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(payload) });
+  const settled = request.then((result) => {
+    entry.finishedAt = Date.now();
+    entry.ok = true;
+    state.workerDispatchNotice.set(key, { status: 'accepted', at: entry.finishedAt });
+    return result;
+  }, (error) => {
+    entry.finishedAt = Date.now();
+    entry.ok = false;
+    entry.error = String(error?.message || error || 'Worker request failed');
+    state.workerDispatchNotice.set(key, { status: 'retrying', at: entry.finishedAt, error: entry.error });
+    if (wait) throw error;
+    return null;
+  });
+  // Fire-and-forget calls still own their lease until fetch settles. Once it
+  // settles the lease is released immediately, leaving only a short debounce.
+  if (!wait) { settled.catch(() => null); return true; }
+  return settled;
 }
 function selectedModelWaitMs(choice) {
   // The panel renders a local result immediately, so there is no reason to
@@ -463,6 +493,9 @@ async function analyzeCreativePlan(title, sku) {
   state.planning = true;
   const modelChoice = $('#planningRequestModel')?.value || 'hy3';
   const selectedModel = modelLabel(modelChoice);
+  const planningPending = markPendingProduction({ title, sku, source: 'ai_plan', creativeProfile: { modelChoice } });
+  planningPending.status = 'planning';
+  renderOneClickStatus();
   const requestId = crypto.randomUUID();
   $('#creativePlanForm').hidden = true;
   $('#creativePlanLoading').hidden = false;
@@ -478,6 +511,9 @@ async function analyzeCreativePlan(title, sku) {
       const recovered = await recoverCreativePlanRequest(requestId, selectedModel, planningSession);
       if (planningSession !== state.planningSession || recovered) return;
     }
+    planningPending.status = 'failed';
+    planningPending.error = error.message || '策划请求失败';
+    renderOneClickStatus();
     const result = $('#creativePlanResult');
     result.hidden = false;
     result.innerHTML = `<div class="ai-failure"><i data-lucide="circle-alert"></i><strong>后台任务尚未确认</strong><p>${escapeHtml(error.message)}</p><div><button id="retryCreativePlan" class="primary-command" type="button">继续确认任务</button><button id="changeCreativePlanModel" class="secondary-command" type="button">换模型新建</button><button id="editCreativePlan" class="secondary-command" type="button">返回修改</button></div></div>`;
@@ -950,8 +986,31 @@ function renderCoverRetryControl() {
   button.setAttribute('aria-label', button.title);
 }
 
+function productionIdentity({ title = '', bookSkuId = '', sku = '' } = {}) {
+  const normalizedSku = String(bookSkuId || sku || '').trim();
+  return normalizedSku ? `sku:${normalizedSku}` : `title:${String(title || '').trim().toLowerCase()}`;
+}
+
+function runMatchesBook(run, book) {
+  const bookSku = String(book?.bookSkuId || book?.sku || '').trim();
+  const runSku = String(run?.input?.sku || '').trim();
+  if (bookSku && runSku && bookSku === runSku) return true;
+  return String(run?.input?.title || '').trim().toLowerCase() === String(book?.title || '').trim().toLowerCase();
+}
+
+function runProtectsBook(run) {
+  if (['queued', 'running', 'blocked'].includes(String(run?.state || ''))) return true;
+  if (run?.state !== 'failed') return false;
+  return Boolean(run.artifacts?.video?.threadId)
+    || (Array.isArray(run.artifacts?.images) && run.artifacts.images.some((item) => item?.taskId));
+}
+
 function activeRunFor(book) {
-  return state.runs.find((run) => (book.bookSkuId && String(run.input?.sku) === String(book.bookSkuId) || String(run.input?.title || '').trim().toLowerCase() === String(book.title || '').trim().toLowerCase()) && ['queued', 'running'].includes(run.state));
+  return state.runs.find((run) => runMatchesBook(run, book) && runProtectsBook(run));
+}
+
+function pendingProductionFor(book) {
+  return state.pendingProductions?.get?.(productionIdentity(book));
 }
 
 function bookIsShort(book) {
@@ -1032,8 +1091,74 @@ function activateHistoricalLeaderboardFallback(reason = '') {
 function renderBatchBookBar() {
   const bar = $('#batchBookBar');
   const count = state.selectedBooks.size;
-  bar.hidden = count === 0;
-  $('#batchBookCount').textContent = `已选 ${count} 本`;
+  const working = state.batchStarting;
+  bar.hidden = count === 0 && !working;
+  $('#batchBookCount').textContent = working && state.batchProgress
+    ? `正在入队 ${state.batchProgress.completed}/${state.batchProgress.total} 本`
+    : `已选 ${count} 本`;
+  const start = $('#startSelectedBooks');
+  if (start) {
+    start.disabled = working || count === 0;
+    start.innerHTML = working
+      ? '<i data-lucide="loader-circle"></i><span>后台入队中</span>'
+      : `<i data-lucide="zap"></i><span>一键生成已选 ${count} 本</span>`;
+  }
+  const clear = $('#clearBookSelection');
+  if (clear) clear.disabled = working;
+}
+
+function pendingProductionLabel(item) {
+  if (item.status === 'failed') return `任务未入队：${item.error || '连接失败'}`;
+  if (item.status === 'planning') return 'AI 正在先分析全书，完成后自动进入生产';
+  if (item.status === 'accepted') return '任务已建立，后台正在接管';
+  return '已点击 · 正在创建唯一任务，不需要再次点击';
+}
+
+function activeAutopilotItems() {
+  return state.runs
+    .filter((run) => ['queued', 'running', 'blocked', 'failed'].includes(run.state) && run.autopilot?.enabled !== false)
+    .slice(0, 6)
+    .map((run) => {
+      const done = Object.values(run.stages || {}).filter((stage) => stage.status === 'done').length;
+      const live = currentStage(run);
+      const model = modelLabel(run.artifacts?.modelRoute?.activeModel || run.input?.creativeProfile?.modelChoice || 'hy3');
+      const next = run.autopilot?.nextActionLabel || live?.[1]?.label || stageLabels[live?.[0]] || '后台正在推进';
+      return {
+        kind: 'run', key: `run:${run.id}`, runId: run.id, title: run.input?.title || run.artifacts?.book?.title || '未命名任务',
+        status: run.state, startedAt: Date.parse(run.updatedAt || run.createdAt || '') || 0,
+        label: `${next} · ${done}/7 节点 · ${model}`
+      };
+    });
+}
+
+function renderOneClickStatus() {
+  const panel = $('#oneClickStatus');
+  if (!panel) return;
+  const pending = [...state.pendingProductions.values()].sort((left, right) => right.startedAt - left.startedAt);
+  const active = activeAutopilotItems();
+  const activeBooks = new Set(active.map((item) => String(item.title || '').trim().toLowerCase()));
+  const items = [...pending.filter((item) => !activeBooks.has(String(item.title || '').trim().toLowerCase())), ...active];
+  panel.hidden = items.length === 0;
+  if (!items.length) { panel.innerHTML = ''; return; }
+  panel.innerHTML = `<header><span><i data-lucide="zap"></i></span><div><strong>一键生产已接管</strong><small>后台会连续完成书籍核验、全书策划、Code / Link、创意、视频、海报与审核包；关闭页面也会继续。</small></div></header><div class="one-click-items">${items.map((item) => {
+    const failed = item.status === 'failed';
+    const blocked = item.status === 'blocked';
+    const icon = failed || blocked ? 'triangle-alert' : item.kind === 'run' ? 'activity' : 'loader-circle';
+    const label = item.kind === 'run' ? item.label : pendingProductionLabel(item);
+    const action = item.kind === 'run'
+      ? `<button type="button" data-open-autopilot="${escapeHtml(item.runId)}">${failed || blocked ? '查看修复' : '查看进度'}</button>`
+      : failed
+        ? `<button type="button" data-retry-production="${escapeHtml(item.key)}">重新入队</button>`
+        : '<b>后台推进中</b>';
+    return `<article class="${item.kind === 'run' ? 'active' : ''} ${failed ? 'failed' : ''} ${blocked ? 'blocked' : ''}"><span class="one-click-pulse"><i data-lucide="${icon}"></i></span><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(label)}</small></div>${action}</article>`;
+  }).join('')}</div>`;
+  panel.querySelectorAll('[data-retry-production]').forEach((button) => button.addEventListener('click', () => {
+    const item = state.pendingProductions.get(button.dataset.retryProduction);
+    if (!item) return;
+    state.pendingProductions.delete(item.key);
+    createProduction({ title: item.title, sku: item.sku, source: item.source, creativeProfile: item.creativeProfile || {} }).catch((error) => showToast(error.message, 'error'));
+  }));
+  panel.querySelectorAll('[data-open-autopilot]').forEach((button) => button.addEventListener('click', () => openDetail(button.dataset.openAutopilot)));
 }
 
 function todayScore(books, minUv = 20) {
@@ -1187,10 +1312,15 @@ function renderTodayRail() {
       ? '<button id="retryTodayRail" class="today-source-state stale" type="button"><i data-lucide="refresh-cw"></i>当前为最近一次已验证推荐，点击更新</button>'
       : '';
   const historical = state.todayDataQuality === 'history_verified';
-  list.innerHTML = `${sourceState}${books.slice(0, 12).map((book, index) => `<article class="today-card"><div class="today-cover" ${coverDataAttributes(book)}>${leaderboardCover(book)}</div><div class="today-card-copy"><span>${historical ? '投放候选' : `近 ${recommendationDays} 天`} #${index + 1} · 综合 ${book.todayScore}</span><h3>${escapeHtml(book.title)}</h3><p>${escapeHtml(bookGenre(book) === 'other' ? book.category || 'Romance' : bookGenre(book))} · ${historical ? `拉起 ${compactNumber(book.pullUv)} UV` : `UV ${compactNumber(book.baseReadUnt)}`}</p><div>${historical ? `<b>D14 $${Number(book.d14Income || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</b><b>复盘 ${Number(book.score || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 })}</b>` : `<b>首读 ${percentage(book.firstReadUntRate)}</b><b>长读 ${percentage(book.read20wRate || book.read10wRate)}</b>`}</div></div><button class="today-plan" data-today-book="${index}" type="button"><i data-lucide="brain-circuit"></i>策划</button></article>`).join('')}`;
+  list.innerHTML = `${sourceState}${books.slice(0, 12).map((book, index) => {
+    const active = activeRunFor(book);
+    const pending = typeof pendingProductionFor === 'function' ? pendingProductionFor(book) : null;
+    return `<article class="today-card ${active || pending ? 'in-progress' : ''}"><div class="today-cover" ${coverDataAttributes(book)}>${leaderboardCover(book)}</div><div class="today-card-copy"><span>${historical ? '投放候选' : `近 ${recommendationDays} 天`} #${index + 1} · 综合 ${book.todayScore}</span><h3>${escapeHtml(book.title)}</h3><p>${escapeHtml(bookGenre(book) === 'other' ? book.category || 'Romance' : bookGenre(book))} · ${historical ? `拉起 ${compactNumber(book.pullUv)} UV` : `UV ${compactNumber(book.baseReadUnt)}`}</p><div>${historical ? `<b>D14 $${Number(book.d14Income || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</b><b>复盘 ${Number(book.score || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 })}</b>` : `<b>首读 ${percentage(book.firstReadUntRate)}</b><b>长读 ${percentage(book.read20wRate || book.read10wRate)}</b>`}</div></div><div class="today-card-actions"><button class="today-start" data-today-start="${index}" type="button" ${pending && pending.status !== 'failed' ? 'disabled' : ''}><i data-lucide="${active ? 'arrow-right' : pending ? pending.status === 'failed' ? 'rotate-ccw' : 'loader-circle' : 'zap'}"></i>${active ? '查看任务' : pending ? pending.status === 'failed' ? '重新入队' : '已入队' : '一键生成'}</button>${!active && !pending ? `<button class="today-plan" data-today-book="${index}" type="button"><i data-lucide="brain-circuit"></i>先策划</button>` : ''}</div></article>`;
+  }).join('')}`;
   $('#retryTodayRail')?.addEventListener('click', () => loadTodayRail());
   $('#openTodayHistory')?.addEventListener('click', openHistoryRanking);
   list.querySelectorAll('[data-today-book]').forEach((button) => button.addEventListener('click', () => { const book = books[Number(button.dataset.todayBook)]; if (book) openCreativePlanDialog(book); }));
+  list.querySelectorAll('[data-today-start]').forEach((button) => button.addEventListener('click', () => { const book = books[Number(button.dataset.todayStart)]; if (book) startProduction(book); }));
 }
 
 async function loadTodayCovers() {
@@ -1363,19 +1493,28 @@ function renderLeaderboard() {
     grid.innerHTML = displayedBooks.map((book) => {
       const index = state.leaderboard.indexOf(book);
       const active = activeRunFor(book);
+      const pending = typeof pendingProductionFor === 'function' ? pendingProductionFor(book) : null;
       const rankingActionable = selectedMetricReady && book.automationReady !== false;
-      const ready = Boolean(active) || rankingActionable;
+      const ready = Boolean(active || pending) || rankingActionable;
+      const completedStages = active ? Object.values(active.stages || {}).filter((stage) => stage.status === 'done').length : 0;
+      const liveStage = active ? currentStage(active) : null;
+      const progressLabel = pending
+        ? pendingProductionLabel(pending)
+        : active
+          ? `${liveStage?.[1]?.label || stageLabels[liveStage?.[0]] || '后台生产中'} · ${completedStages}/7 节点`
+          : '';
       const metric = state.catalogSort === 'ttProfit'
         ? `$${Number(book.ttProfit || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
         : state.catalogSort === 'baseReadUnt'
           ? compactNumber(book.baseReadUnt)
           : percentage(book[state.catalogSort]);
-      return `<article class="leaderboard-card ${active ? 'in-progress' : ''} ${selectedMetricReady ? '' : 'metrics-disabled'}">
+      return `<article class="leaderboard-card ${active || pending ? 'in-progress' : ''} ${selectedMetricReady ? '' : 'metrics-disabled'}">
         <span class="rank">${selectedMetricReady ? `#${book.rank}` : '待验证'}</span><label class="select-book" title="${selectedMetricReady ? '加入批量选择' : '真实指标恢复后可选择'}"><input type="checkbox" data-select-sku="${escapeHtml(book.bookSkuId)}" ${state.selectedBooks.has(String(book.bookSkuId)) ? 'checked' : ''} ${selectedMetricReady ? '' : 'disabled'}><span></span></label>
         <div class="leaderboard-cover" ${coverDataAttributes(book)}>${leaderboardCover(book)}</div>
         <div class="leaderboard-copy"><h2>${escapeHtml(book.title)}</h2>${health.uv || health.firstRead ? `<p>阅读 ${health.uv ? compactNumber(book.baseReadUnt) : '—'} UV · 首读 ${health.firstRead ? percentage(book.firstReadUntRate) : '—'}</p><div class="book-tags"><span>10w 留存 ${health.read10w ? percentage(book.read10wRate) : '—'}</span><span>20w 留存 ${health.read20w ? percentage(book.read20wRate) : '—'}</span></div>` : '<p>书籍已核验 · 中台业务指标同步中</p><div class="book-tags"><span>不使用 0 UV 虚假排序</span><span>恢复后自动更新</span></div>'}</div>
         <div class="leaderboard-metrics"><span>${escapeHtml(sortLabel)}</span><strong>${selectedMetricReady ? metric : '—'}</strong><small>${selectedMetricReady ? escapeHtml(book.productLine || 'astranovel') : '指标同步中'}</small></div>
-        <div class="book-commands">${!active ? `<button class="plan-book" data-index="${index}" ${!rankingActionable ? 'disabled' : ''} title="${rankingActionable ? '先由 AI 分析原文与创意方向' : '等待真实业务指标恢复'}"><i data-lucide="brain-circuit"></i><span>智能策划</span></button>` : ''}<button class="start-book ${active ? 'resume' : ''}" data-index="${index}" ${!ready || state.startingSku === String(book.title) ? 'disabled' : ''}>${active ? '查看任务' : !rankingActionable ? '等待真实指标' : state.startingSku === String(book.title) ? '正在校验' : '智能一键生成'}<i data-lucide="${!ready ? 'circle-off' : active ? 'arrow-right' : 'zap'}"></i></button></div>
+        ${progressLabel ? `<div class="book-live-progress"><span><i data-lucide="${pending ? pending.status === 'failed' ? 'triangle-alert' : 'loader-circle' : 'activity'}"></i>${escapeHtml(progressLabel)}</span><i style="width:${pending ? 8 : Math.max(8, Math.round(completedStages / 7 * 100))}%"></i></div>` : ''}
+        <div class="book-commands">${!active && !pending ? `<button class="plan-book" data-index="${index}" ${!rankingActionable ? 'disabled' : ''} title="${rankingActionable ? '先由 AI 分析原文与创意方向' : '等待真实业务指标恢复'}"><i data-lucide="brain-circuit"></i><span>先策划</span></button>` : ''}<button class="start-book ${active ? 'resume' : ''}" data-index="${index}" ${!ready || (pending && pending.status !== 'failed') || state.startingSku === String(book.title) ? 'disabled' : ''}>${active ? ['blocked', 'failed'].includes(active.state) ? '查看修复' : '查看任务' : pending ? pending.status === 'failed' ? '重新入队' : '已入队' : !rankingActionable ? '等待真实指标' : state.startingSku === String(book.title) ? '正在入队' : '一键生成'}<i data-lucide="${!ready ? 'circle-off' : active ? ['blocked', 'failed'].includes(active.state) ? 'triangle-alert' : 'arrow-right' : pending ? pending.status === 'failed' ? 'rotate-ccw' : 'loader-circle' : 'zap'}"></i></button></div>
       </article>`;
     }).join('');
     const window = state.leaderboardWindow;
@@ -1410,7 +1549,7 @@ function renderLeaderboard() {
         <div class="leaderboard-cover" ${coverDataAttributes(book)}>${leaderboardCover(book)}</div>
         <div class="leaderboard-copy"><h2>${escapeHtml(book.title)}</h2><p>书库排序 · ${escapeHtml(book.category || 'English fiction')}</p><div class="book-tags"><span>在架可推广</span><span>SKU ${escapeHtml(book.bookSkuId || '—')}</span></div></div>
         <div class="leaderboard-metrics"><span>书库排名</span><strong>#${book.rank}</strong><small>${escapeHtml(book.category || 'English fiction')}</small></div>
-        <button class="start-book ${active ? 'resume' : ''}" data-index="${index}" ${!ready || state.startingSku === String(book.title) ? 'disabled' : ''}>${!ready ? '暂不可用' : state.startingSku === String(book.title) ? '正在校验' : active ? '查看任务' : '智能一键生成'}<i data-lucide="${!ready ? 'circle-off' : active ? 'arrow-right' : 'zap'}"></i></button>
+        <button class="start-book ${active ? 'resume' : ''}" data-index="${index}" ${!ready || state.startingSku === String(book.title) ? 'disabled' : ''}>${!ready ? '暂不可用' : state.startingSku === String(book.title) ? '正在校验' : active ? ['blocked', 'failed'].includes(active.state) ? '查看修复' : '查看任务' : '智能一键生成'}<i data-lucide="${!ready ? 'circle-off' : active ? ['blocked', 'failed'].includes(active.state) ? 'triangle-alert' : 'arrow-right' : 'zap'}"></i></button>
       </article>`;
     }).join('');
     const window = state.leaderboardWindow;
@@ -2066,11 +2205,17 @@ function promptHtml(run) {
 }
 
 function videoState(run, video) {
-  const stage = run.stages?.P4?.status;
+  const stageDetail = run.stages?.P4 || {};
+  const stage = stageDetail.status;
   if (video?.videoUrls?.[0]) return { label: '视频已生成，可播放', kind: 'ready' };
   if (video?.status === 'failed' || ['failed', 'ambiguous'].includes(stage)) return { label: `生成失败：${video?.error || run.stages?.P4?.error || '请打开任务查看处理入口'}`, kind: 'failed' };
   if (video?.status === 'running' || video?.status === 'submitting' || ['running', 'submitting'].includes(stage)) return { label: '视频生成中，后台持续反馈进度', kind: 'running' };
   if (stage === 'blocked') return { label: run.stages?.P4?.label || '视频已阻塞，等待处理', kind: 'blocked' };
+  if (stage === 'prepared' && stageDetail.blockedReason === 'hourly_video_limit') {
+    const retryAt = Date.parse(stageDetail.nextAttemptAt || '');
+    const retryLabel = Number.isFinite(retryAt) ? new Date(retryAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
+    return { label: `${stageDetail.label || '本小时视频额度已满，已自动排队'}${retryLabel ? ` · 预计 ${retryLabel} 后继续` : ''}`, kind: 'queued' };
+  }
   if (stage === 'prepared') return { label: '视频任务已准备，等待提交', kind: 'prepared' };
   return { label: '等待视频任务进入生成', kind: 'waiting' };
 }
@@ -2092,7 +2237,7 @@ function videoHtml(run) {
     const url = video?.videoUrls?.[0];
     if (url) return `<article class="video-asset"><div class="video-asset-head"><strong>${escapeHtml(title)}</strong>${referenceVersion ? '<span>额外版本</span>' : ''}</div>${qualityMeta(video)}<div class="video-shell"><video ${referenceVersion ? '' : 'id="resultVideo"'} controls preload="metadata" playsinline poster="${escapeHtml(video.coverImageUrl || '')}"><source src="${escapeHtml(url)}"></video></div></article>`;
     const state = videoState(run, video);
-    return `<article class="video-asset ${state.kind}"><div class="video-asset-head"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(state.kind === 'failed' ? '需处理' : state.kind === 'running' ? '后台生成中' : '')}</span></div><div class="media-placeholder"><i data-lucide="${state.kind === 'failed' ? 'circle-alert' : state.kind === 'running' ? 'loader-circle' : 'video'}"></i>${escapeHtml(state.label)}</div></article>`;
+    return `<article class="video-asset ${state.kind}"><div class="video-asset-head"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(state.kind === 'failed' ? '需处理' : state.kind === 'running' ? '后台生成中' : state.kind === 'queued' ? '已自动排队' : '')}</span></div><div class="media-placeholder"><i data-lucide="${state.kind === 'failed' ? 'circle-alert' : state.kind === 'running' ? 'loader-circle' : state.kind === 'queued' ? 'clock-3' : 'video'}"></i>${escapeHtml(state.label)}</div></article>`;
   };
   const referencePosters = (run.artifacts?.images || []).filter((item) => ['luminous_cinema', 'editorial_romance'].includes(item.variant) && item.url);
   const selectedReferencePoster = state.referencePosterChoice[run.id] || referencePosters[0]?.variant || '';
@@ -2281,7 +2426,7 @@ function renderDetail() {
 }
 
 function render() {
-  renderCapabilities(); renderStats(); renderTodayRail(); renderFocusRun(); renderLeaderboard(); renderRunList(); renderDetail(); renderCreativePlanQueue(); renderModelBadges(); icons();
+  renderCapabilities(); renderStats(); renderTodayRail(); renderOneClickStatus(); renderFocusRun(); renderLeaderboard(); renderRunList(); renderDetail(); renderCreativePlanQueue(); renderModelBadges(); icons();
 }
 
 function statusPayloadFingerprint(body) {
@@ -2294,12 +2439,28 @@ function statusPayloadFingerprint(body) {
 }
 
 function activeRunBookFingerprint(runs = state.runs) {
-  return runs.filter((run) => ['queued', 'running'].includes(run.state)).map((run) => `${run.input?.sku || ''}:${String(run.input?.title || '').trim().toLowerCase()}`).sort().join('|');
+  return runs.filter(runProtectsBook).map((run) => `${run.input?.sku || ''}:${String(run.input?.title || '').trim().toLowerCase()}`).sort().join('|');
+}
+
+function reconcilePendingProductions() {
+  for (const [key, pending] of state.pendingProductions.entries()) {
+    const earliestCreatedAt = Number(pending.startedAt || 0) - 5000;
+    const run = pending.runId
+      ? state.runs.find((candidate) => candidate.id === pending.runId)
+      : state.runs.find((candidate) => runProtectsBook(candidate)
+        && runMatchesBook(candidate, pending)
+        && Date.parse(candidate.createdAt || '') >= earliestCreatedAt);
+    if (!run) continue;
+    pending.runId = run.id;
+    pending.status = 'accepted';
+    state.pendingProductions.delete(key);
+  }
 }
 
 function renderStatusViews({ rankingChanged = false } = {}) {
   renderCapabilities();
   renderStats();
+  renderOneClickStatus();
   renderFocusRun();
   renderRunList();
   renderDetail();
@@ -2322,6 +2483,7 @@ async function loadStatus({ silent = false } = {}) {
       const previous = existing.get(summary.id);
       return previous && !previous._summary && previous.updatedAt === summary.updatedAt ? previous : summary;
     });
+    reconcilePendingProductions();
     state.capabilities = body.capabilities || {};
     state.videoLimit = body.videoLimit || null;
     state.statusLimit = Math.max(12, Math.min(50, Number(body.runLimit || state.statusLimit)));
@@ -2503,7 +2665,16 @@ async function loadCreativePlans({ silent = false } = {}) {
   try {
     const body = await api('/api/creative-plan', { timeoutMs: 10000 });
     state.planJobs = body.jobs || [];
+    for (const pending of state.pendingProductions?.values?.() || []) {
+      if (pending.status !== 'planning') continue;
+      const job = state.planJobs.find((item) => String(item.input?.title || item.artifacts?.book?.title || '').trim().toLowerCase() === String(pending.title || '').trim().toLowerCase());
+      if (job?.state === 'failed') {
+        pending.status = 'failed';
+        pending.error = job.stages?.analysis?.error || 'AI 策划未完成';
+      }
+    }
     renderCreativePlanQueue(); icons();
+    renderOneClickStatus();
     return body;
   } catch (error) {
     if (!silent) showToast(error.message, 'error');
@@ -2513,9 +2684,18 @@ async function loadCreativePlans({ silent = false } = {}) {
 
 function queueCreativePlanJob(job, selectedModel, planningSession = null) {
   if (!job) return false;
+  const pendingKey = productionIdentity({ title: job.input?.title || job.artifacts?.book?.title, sku: job.input?.sku || job.artifacts?.book?.bookSkuId });
+  const pending = state.pendingProductions.get(pendingKey)
+    || [...state.pendingProductions.values()].find((item) => String(item.title || '').trim().toLowerCase() === String(job.input?.title || '').trim().toLowerCase());
+  if (pending) {
+    pending.status = 'planning';
+    pending.error = '';
+    pending.planId = job.id;
+  }
   state.planJobs = [job, ...state.planJobs.filter((item) => item.id !== job.id)];
+  renderOneClickStatus();
   renderCreativePlanQueue(); icons();
-  dispatchWorkerOnce(`plan:${job.id}`, { planId: job.id }, { cooldownMs: 60000 });
+  dispatchWorkerOnce(`plan:${job.id}`, { planId: job.id });
   if (planningSession == null || planningSession === state.planningSession) $('#creativePlanDialog').close();
   showToast(`${selectedModel} 已转入后台策划，可继续操作；完成后在顶部查看方案`);
   return true;
@@ -2532,49 +2712,61 @@ async function recoverCreativePlanRequest(requestId, selectedModel, planningSess
   return false;
 }
 
+function dispatchesForRun(run) {
+  const draft = run.artifacts?.creativeDraft;
+  if (run?.stages?.P1?.status === 'done' && run?.stages?.P2?.status === 'done' && run?.stages?.P5?.status === 'done' && run?.stages?.P3?.status !== 'done' && Object.keys(draft?.inFlight || {}).some((section) => draft.inFlight[section])) return [];
+  const videoRetryAt = Date.parse(run.stages?.P4?.nextAttemptAt || '');
+  const waitingForVideoCapacity = run.stages?.P4?.status === 'prepared'
+    && run.stages?.P4?.blockedReason === 'hourly_video_limit'
+    && Number.isFinite(videoRetryAt)
+    && videoRetryAt > Date.now();
+  const posterFinished = ['done', 'partial', 'ambiguous'].includes(String(run.stages?.P3_5?.status || ''));
+  if (waitingForVideoCapacity && posterFinished) return [];
+  const modelChoice = run.input?.creativeProfile?.modelChoice || 'hy3';
+  return [{ key: `run:${run.id}`, payload: { id: run.id }, modelChoice, longTask: usesLongBackground(modelChoice) }];
+}
+
+function dispatchesForPlan(job) {
+  const modelChoice = job.input?.modelChoice || 'hy3';
+  return [{ key: `plan:${job.id}`, payload: { planId: job.id }, modelChoice, longTask: usesLongBackground(modelChoice) }];
+}
+
 async function kickWorker() {
-  if (state.kicking) return;
-  const activePlan = state.planJobs.find((job) => ['queued', 'running'].includes(job.state));
-  const active = state.runs.find((run) => ['queued', 'running'].includes(run.state));
-  if (!activePlan && !active) { state.longKickKey = ''; return; }
+  if (state.kickPromise) return state.kickPromise;
+  const plans = state.planJobs.filter((job) => ['queued', 'running'].includes(job.state));
+  const runs = state.runs.filter((run) => ['queued', 'running'].includes(run.state));
+  if (!plans.length && !runs.length) { state.longKickKey = ''; return 0; }
   state.kicking = true;
-  try {
-    if (!activePlan && active?.stages?.P1?.status === 'done' && active?.stages?.P2?.status === 'done' && active?.stages?.P5?.status === 'done' && active?.stages?.P3?.status !== 'done') {
-      const draft = active.artifacts?.creativeDraft || { parts: {}, inFlight: {} };
-      const retryReady = (section) => {
-        const retryAt = Date.parse(draft.failures?.[section]?.nextAttemptAt || '');
-        return !Number.isFinite(retryAt) || retryAt <= Date.now();
-      };
-      const core = ['posts', 'videoPrompt', 'posterPrompts'].filter((section) => !draft.parts?.[section] && !draft.inFlight?.[section] && retryReady(section));
-      const longTask = usesLongBackground(active.input?.creativeProfile?.modelChoice);
-      const sections = core.length ? (longTask ? core.slice(0, 1) : core) : (!draft.parts?.qualityReview && !draft.inFlight?.qualityReview && retryReady('qualityReview') && draft.parts?.posts && draft.parts?.videoPrompt && draft.parts?.posterPrompts ? ['qualityReview'] : []);
-      if (sections.length) {
-        if (longTask) {
-          const creativeSection = sections[0];
-          dispatchWorkerOnce(`${active.id}:${creativeSection}`, { id: active.id, creativeSection }, { cooldownMs: 90000 });
-          const key = `${active.id}:${creativeSection}`;
-          if (state.longKickKey !== key) showToast(`${modelLabel(active.input?.creativeProfile?.modelChoice)} 已转入后台长任务，可继续使用控制台`);
-          state.longKickKey = key;
-          return;
-        }
-        await Promise.all(sections.map((creativeSection) => dispatchWorkerOnce(`${active.id}:${creativeSection}`, { id: active.id, creativeSection }, { wait: true, timeoutMs: 55000, cooldownMs: 75000 }).catch(() => null)));
-        await Promise.all([loadStatus({ silent: true }), loadCreativePlans({ silent: true })]);
-        return;
+  state.kickPromise = (async () => {
+    const targets = [...plans.flatMap(dispatchesForPlan), ...runs.flatMap(dispatchesForRun)];
+    let dispatched = 0;
+    let longNoticeShown = false;
+    for (const target of targets) {
+      // Older open tabs may still have a section request in flight. Do not
+      // overlap it with the single task-wide worker route.
+      if (target.key.startsWith('run:')) {
+        const runId = target.key.slice(4);
+        const hasSectionLease = ['posts', 'videoPrompt', 'posterPrompts', 'qualityReview'].some((section) => workerDispatchBusy(`${runId}:${section}`));
+        if (hasSectionLease) continue;
+      }
+      if (!dispatchWorkerOnce(target.key, target.payload, { cooldownMs: WORKER_DISPATCH_COOLDOWN_MS })) continue;
+      dispatched += 1;
+      if (target.longTask && !longNoticeShown) {
+        longNoticeShown = true;
+        showToast(`${modelLabel(target.modelChoice)} 已转入后台，页面不会阻塞；状态会自动更新`);
       }
     }
-    const longTask = activePlan ? usesLongBackground(activePlan.input?.modelChoice) : usesLongBackground(active?.input?.creativeProfile?.modelChoice);
-    if (longTask) {
-      dispatchWorkerOnce(activePlan ? `plan:${activePlan.id}` : `run:${active.id}`, activePlan ? { planId: activePlan.id } : { id: active.id }, { cooldownMs: 90000 });
-      const key = activePlan ? `plan:${activePlan.id}` : `run:${active?.id}`;
-      if (state.longKickKey !== key) showToast(`${modelLabel(activePlan?.input?.modelChoice || active?.input?.creativeProfile?.modelChoice)} 已转入后台长任务，可继续使用控制台`);
-      state.longKickKey = key;
-      return;
+    if (dispatched) {
+      renderOneClickStatus();
+      // Reconcile the cheap durable summary shortly after dispatch. The
+      // provider request itself remains outside the click's critical path.
+      setTimeout(() => loadStatus({ silent: true }), 450);
     }
-    await dispatchWorkerOnce(activePlan ? `plan:${activePlan.id}` : `run:${active.id}`, activePlan ? { planId: activePlan.id } : { id: active.id }, { wait: true, timeoutMs: 55000, cooldownMs: 60000 });
-    await Promise.all([loadStatus({ silent: true }), loadCreativePlans({ silent: true })]);
-  }
-  catch (error) { showToast(error.message, 'error'); }
-  finally { state.kicking = false; }
+    return dispatched;
+  })();
+  try { return await state.kickPromise; }
+  catch (error) { showToast(error.message, 'error'); return 0; }
+  finally { state.kickPromise = null; state.kicking = false; }
 }
 
 async function retryRun(id) {
@@ -2732,35 +2924,139 @@ function openRunDialog() {
 
 function closeRunDialog() { $('#runDialog').close(); }
 
-async function createProduction({ title, sku = '', source = 'manual', creativeProfile = {}, planning = null }) {
-  const body = await api('/api/runs', { method: 'POST', body: JSON.stringify({ title, sku, promoter: 'xujt', paidAuthorized: true, fullBookEvidence: false, source, creativeProfile, planning }) });
-  state.selectedId = body.run.id;
-  state.detailOpen = true;
-  state.detailFingerprint = '';
-  state.runs.unshift(body.run);
-  render();
-  await kickWorker();
-  showToast(`已为《${body.run.input.title}》启动智能生产`);
-  return body.run;
+function upsertRun(run) {
+  if (!run?.id) return;
+  const index = state.runs.findIndex((item) => item.id === run.id);
+  if (index < 0) state.runs.unshift(run);
+  else state.runs[index] = run;
+}
+
+function markPendingProduction({ title, sku = '', source = 'manual', creativeProfile = {} }) {
+  const key = productionIdentity({ title, sku });
+  const existing = state.pendingProductions.get(key);
+  if (existing && existing.status !== 'failed') return existing;
+  const pending = { key, title: String(title || ''), sku: String(sku || ''), source, creativeProfile, status: 'submitting', startedAt: Date.now(), error: '' };
+  state.pendingProductions.set(key, pending);
+  renderOneClickStatus();
+  renderLeaderboard();
+  icons();
+  return pending;
+}
+
+async function createProduction({ title, sku = '', source = 'manual', creativeProfile = {}, planning = null, kick = true, notify = true }) {
+  const key = productionIdentity({ title, sku });
+  const previousRequest = state.productionRequests.get(key);
+  if (previousRequest) return previousRequest;
+  const previousPending = state.pendingProductions.get(key);
+  if (previousPending && previousPending.status !== 'failed') {
+    if (previousPending.runId) openDetail(previousPending.runId);
+    return null;
+  }
+  const pending = markPendingProduction({ title, sku, source, creativeProfile });
+  const request = (async () => {
+    try {
+      const body = await api('/api/runs', { method: 'POST', body: JSON.stringify({ title, sku, promoter: 'xujt', paidAuthorized: true, fullBookEvidence: true, source, creativeProfile, planning }) });
+      if (!body?.run?.id) throw new Error('后台没有返回可追踪的任务 ID，请稍后重试');
+      pending.status = 'accepted';
+      pending.runId = body.run.id;
+      body.run._creationDuplicate = body.duplicate === true;
+      state.pendingProductions.delete(key);
+      state.selectedId = body.run.id;
+      state.detailOpen = true;
+      state.detailFingerprint = '';
+      upsertRun(body.run);
+      render();
+      // Do not make the click wait for a model/provider request. The worker
+      // lease and the next status poll continue the same durable run.
+      if (kick && (!body.duplicate || ['queued', 'running'].includes(body.run.state))) kickWorker().catch((error) => showToast(error.message, 'error'));
+      if (notify) showToast(body.duplicate
+        ? `《${body.run.input.title}》已有任务，已为你打开${['blocked', 'failed'].includes(body.run.state) ? '修复状态' : '当前进度'}`
+        : `已为《${body.run.input.title}》入队，后台正在自动推进`);
+      return body.run;
+    } catch (error) {
+      pending.status = 'failed';
+      pending.error = error.message || '任务提交失败';
+      pending.finishedAt = Date.now();
+      renderOneClickStatus();
+      renderLeaderboard();
+      icons();
+      throw error;
+    }
+  })();
+  state.productionRequests.set(key, request);
+  try { return await request; }
+  finally { if (state.productionRequests.get(key) === request) state.productionRequests.delete(key); }
 }
 
 async function startProduction(book) {
+  const pending = pendingProductionFor(book);
+  if (pending) {
+    if (pending.status === 'failed') {
+      state.pendingProductions.delete(pending.key);
+      renderOneClickStatus();
+      return startProduction(book);
+    }
+    if (pending.runId) openDetail(pending.runId);
+    else showToast(`《${book.title}》已经入队，后台正在连接，不需要重复点击`);
+    return;
+  }
   const existing = activeRunFor(book);
   if (existing) {
     openDetail(existing.id);
     return;
   }
-  if (state.startingSku) return;
+  const key = productionIdentity(book);
+  if (state.productionRequests.has(key)) {
+    showToast(`《${book.title}》正在入队，请在上方状态卡查看`);
+    return;
+  }
   state.startingSku = String(book.title);
-  renderLeaderboard(); icons();
+  renderLeaderboard();
+  renderOneClickStatus();
+  icons();
   try {
     await createProduction({ title: book.title, sku: book.bookSkuId || '', source: `catalog_${state.catalogDays}d` });
   } catch (error) {
-    showToast(error.message, 'error');
+    showToast(`《${book.title}》入队失败：${error.message}`, 'error');
   } finally {
     state.startingSku = '';
-    renderLeaderboard(); icons();
+    renderLeaderboard();
+    renderOneClickStatus();
+    icons();
   }
+}
+
+async function startSelectedProductions() {
+  if (state.batchStarting) return;
+  const books = [...state.selectedBooks].map((sku) => state.leaderboard.find((book) => String(book.bookSkuId) === String(sku))).filter((book) => book && !activeRunFor(book) && !pendingProductionFor(book));
+  if (!books.length) { showToast('请先勾选至少一本有真实指标的书'); return; }
+  state.batchStarting = true;
+  state.batchProgress = { total: books.length, completed: 0, failed: 0 };
+  renderBatchBookBar();
+  icons();
+  let accepted = 0;
+  let existing = 0;
+  for (const book of books) {
+    try {
+      const run = await createProduction({ title: book.title, sku: book.bookSkuId || '', source: `catalog_${state.catalogDays}d_batch`, kick: false, notify: false });
+      if (run?._creationDuplicate) existing += 1; else accepted += 1;
+    } catch {
+      state.batchProgress.failed += 1;
+    }
+    state.batchProgress.completed += 1;
+    renderBatchBookBar();
+    renderOneClickStatus();
+    icons();
+  }
+  state.selectedBooks.clear();
+  state.batchStarting = false;
+  const progress = state.batchProgress;
+  state.batchProgress = null;
+  renderBatchBookBar();
+  await kickWorker();
+  showToast(`已入队 ${accepted}/${books.length} 本，后台将按任务独立推进${existing ? `；${existing} 本已有任务，未重复创建` : ''}${progress.failed ? `；${progress.failed} 本需重试` : ''}`);
+  renderOneClickStatus();
+  icons();
 }
 
 $('#loginForm').addEventListener('submit', async (event) => {
@@ -2894,6 +3190,7 @@ document.querySelectorAll('#catalogWindowControl button').forEach((button) => bu
 $('#catalogSort').addEventListener('change', (event) => { state.catalogSort = event.target.value; loadLeaderboard(); });
 document.querySelectorAll('[data-catalog-filter]').forEach((input) => input.addEventListener('change', (event) => { state.catalogFilters[event.target.dataset.catalogFilter] = event.target.value; loadLeaderboard(); }));
 $('#clearBookSelection').addEventListener('click', () => { state.selectedBooks.clear(); renderLeaderboard(); icons(); });
+$('#startSelectedBooks').addEventListener('click', startSelectedProductions);
 $('#previousBooks').addEventListener('click', () => { if (state.leaderboardPage <= 1) return; state.leaderboardPage -= 1; state.leaderboardCoverKey = ''; renderLeaderboard(); loadVisibleCovers(); $('#leaderboardSection').scrollIntoView({ behavior: 'smooth', block: 'start' }); icons(); });
 $('#nextBooks').addEventListener('click', () => { const pages = Math.ceil(catalogVisibleBooks().length / 50); if (state.leaderboardPage >= pages) return; state.leaderboardPage += 1; state.leaderboardCoverKey = ''; renderLeaderboard(); loadVisibleCovers(); $('#leaderboardSection').scrollIntoView({ behavior: 'smooth', block: 'start' }); icons(); });
 document.querySelectorAll('#leaderboardSource button').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('#leaderboardSource button').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.leaderboardSource = button.dataset.source; loadLeaderboard(); }));

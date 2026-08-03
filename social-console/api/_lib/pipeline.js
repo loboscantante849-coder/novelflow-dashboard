@@ -414,7 +414,8 @@ function nextCreativeAttempt(stage) {
   return Math.min(2, Number(stage.attempt || 0) + 1);
 }
 
-const creativeSectionOrder = ['posts', 'videoPrompt', 'posterPrompts', 'qualityReview'];
+const creativeCoreSections = ['posts', 'videoPrompt', 'posterPrompts'];
+const creativeSectionOrder = [...creativeCoreSections, 'qualityReview'];
 const creativeSectionLabels = { posts: '双语六步法文案', videoPrompt: '视频剧情包', posterPrompts: '海报提示词', qualityReview: '质量审查' };
 const longCreativeModels = new Set(['deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'kimi-k2.7-code']);
 
@@ -439,9 +440,52 @@ function draftFor(run, suppressOptimizationReview) {
 }
 
 function pendingCreativeSections(draft) {
-  const core = ['posts', 'videoPrompt', 'posterPrompts'].filter((key) => !draft.parts[key]);
+  const core = creativeCoreSections.filter((key) => !draft.parts[key]);
   if (core.length) return core;
   return draft.parts.qualityReview ? [] : ['qualityReview'];
+}
+
+function discardCreativeCoreForModelSwitch(run, draft, { fromModel, toModel, triggerSection, error }) {
+  const discardedSections = creativeSectionOrder.filter((section) => draft.parts?.[section]);
+  const discardedUsage = [...(draft.usage || [])];
+  if (discardedUsage.length) {
+    run.artifacts.modelActivity = [
+      ...(run.artifacts.modelActivity || []),
+      ...discardedUsage.map((item) => ({
+        ...item,
+        validationStatus: 'discarded_model_switch',
+        outputStatus: '已从最终创意包移除，由唯一备用模型统一重新生成',
+        discardReason: `${triggerSection} triggered the task-wide switch from ${fromModel} to ${toModel}`
+      }))
+    ].slice(-24);
+  }
+  draft.discardedGenerations = [
+    ...(draft.discardedGenerations || []),
+    {
+      at: now(),
+      fromModel,
+      toModel,
+      triggerSection,
+      sections: discardedSections,
+      totalTokens: discardedUsage.reduce((total, item) => total + Number(item.totalTokens || 0), 0),
+      error: cleanError(error)
+    }
+  ].slice(-4);
+  // Every core output must come from the same task route. A completed primary
+  // section is accounted for above, but cannot survive into the reserve draft.
+  draft.parts = {};
+  draft.usage = [];
+  draft.inFlight = {};
+  draft.repairAttempts = {};
+  draft.validationRepairAttempts = 0;
+  draft.validationFallbackUsed = true;
+  draft.recoveryRevision = {
+    instruction: 'Regenerate every core creative section with the active reserve model so copy, video, and poster directions form one coherent package. Use only the saved exact chapter evidence.',
+    failedSection: triggerSection,
+    previousModel: fromModel,
+    validationError: cleanError(error)
+  };
+  return discardedSections;
 }
 
 function groundedVideoFallback(run, draft) {
@@ -612,9 +656,13 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
     modelLabel = creativeModelLabel(run);
     draft = run.artifacts.creativeDraft;
     let sectionResult;
+    let requestRouteModel = '';
+    let requestRouteSwitchedAt = '';
     try {
       const reviewInput = pendingSection === 'qualityReview' ? { posts: draft.parts.posts, videoPrompt: draft.parts.videoPrompt, posterPrompts: draft.parts.posterPrompts } : (revision || draft.recoveryRevision || null);
       const route = ensureModelRoute(run);
+      requestRouteModel = String(route.activeModel || '');
+      requestRouteSwitchedAt = String(route.switchedAt || '');
       sectionResult = await providers.generateCreative(run.artifacts.book, run.artifacts.evidence.chapters, run.artifacts.code, run.artifacts.shortUrl, reviewInput, { ...(run.input.creativeProfile || {}), modelChoice: route.activeModel, storyBrief: run.artifacts.storyBrief?.plan || null }, pendingSection);
     } catch (error) {
       return withCreativeMergeLock(redis, run.id, async () => {
@@ -623,6 +671,28 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
         delete latestDraft.inFlight?.[pendingSection];
         latestDraft.failures = { ...(latestDraft.failures || {}) };
         const attempt = Number(latestDraft.failures[pendingSection]?.attempt || 0) + 1;
+        const route = ensureModelRoute(latest);
+        const staleCoreFailure = creativeCoreSections.includes(pendingSection)
+          && requestRouteModel
+          && (String(route.activeModel || '') !== requestRouteModel || String(route.switchedAt || '') !== requestRouteSwitchedAt);
+        if (staleCoreFailure) {
+          latest.artifacts.modelActivity = [...(latest.artifacts.modelActivity || []), {
+            section: pendingSection,
+            requestedModel: requestRouteModel,
+            model: '',
+            completedAt: now(),
+            triggerReason: '模型路线切换前已发出的请求',
+            outputStatus: '返回时任务已切换模型，该失败不影响新路线',
+            validationStatus: 'discarded_stale_route',
+            error: cleanError(error)
+          }].slice(-24);
+          latest.artifacts.creativeDraft = latestDraft;
+          latest.state = 'running';
+          setStage(latest, 'P3', 'waiting', { label: '旧模型请求已结束，继续生成统一模型创意包', phase: 'stale_route_discarded', error: '', nextAttemptAt: '' });
+          addEvent(latest, 'creative_stale_failure_discarded', `${pendingSection} failed after the task route changed and did not affect the reserve package`, { requestRouteModel, activeModel: route.activeModel, error: cleanError(error) });
+          await saveRun(redis, latest);
+          return syncRun(originalRun, latest);
+        }
         if (!recoverableModelError(error)) {
           const message = cleanError(error);
           latestDraft.failures[pendingSection] = { attempt, at: now(), error: message, nextAttemptAt: '', recoverable: false };
@@ -633,7 +703,6 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
           await saveRun(redis, latest);
           return syncRun(originalRun, latest);
         }
-        const route = ensureModelRoute(latest);
         const preferredModel = String(route.preferredModel || latest.input?.creativeProfile?.modelChoice || 'hy3');
         const alreadyUsedReserve = latestDraft.modelRoute?.fallbackUsed === true || Boolean(error?.fallbackModel);
         if (alreadyUsedReserve) {
@@ -689,6 +758,9 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
         const activeModel = String(route.activeModel || preferredModel);
         const reserveModel = providers.reserveModelFor(activeModel);
         const nextAttemptAt = new Date(Date.now() + 1000).toISOString();
+        const discardedSections = creativeCoreSections.includes(pendingSection)
+          ? discardCreativeCoreForModelSwitch(latest, latestDraft, { fromModel: activeModel, toModel: reserveModel, triggerSection: pendingSection, error })
+          : [];
         route.activeModel = reserveModel;
         route.fallbackModel = reserveModel;
         route.fallbackUsed = true;
@@ -700,7 +772,7 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
         latest.input.creativeProfile = { ...(latest.input.creativeProfile || {}), modelChoice: reserveModel };
         latest.state = 'running';
         setStage(latest, 'P3', 'waiting', { label: `${creativeSectionLabels[pendingSection]}暂缓；本任务已统一切换到 ${reserveModel}`, phase: 'fallback_scheduled', attempt, nextAttemptAt, error: cleanError(error), recoverable: true, fallbackFrom: activeModel });
-        addEvent(latest, 'creative_task_model_switched', `${pendingSection} caused one task-wide model switch; all remaining creative nodes now use ${reserveModel}`, { attempt, preferredModel, activeModel, reserveModel, nextAttemptAt });
+        addEvent(latest, 'creative_task_model_switched', `${pendingSection} caused one task-wide model switch; the complete creative package now uses ${reserveModel}`, { attempt, preferredModel, activeModel, reserveModel, nextAttemptAt, discardedSections });
         // Keep the legacy event name for existing operational timelines; the
         // task-wide switch event above is the authoritative routing record.
         addEvent(latest, 'creative_section_fallback_scheduled', `${pendingSection} scheduled the task-wide reserve route`, { attempt, preferredModel, activeModel, reserveModel, nextAttemptAt });
@@ -712,6 +784,30 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
       const latest = await getRun(redis, run.id) || run;
       const latestDraft = draftFor(latest, suppressOptimizationReview);
       delete latestDraft.inFlight?.[pendingSection];
+      const latestRoute = ensureModelRoute(latest);
+      const staleCoreResult = creativeCoreSections.includes(pendingSection)
+        && requestRouteModel
+        && (String(latestRoute.activeModel || '') !== requestRouteModel || String(latestRoute.switchedAt || '') !== requestRouteSwitchedAt);
+      if (staleCoreResult) {
+        latest.artifacts.modelActivity = [...(latest.artifacts.modelActivity || []), {
+          section: pendingSection,
+          requestedModel: requestRouteModel,
+          model: sectionResult.model,
+          responseId: sectionResult.responseId,
+          latencyMs: Number(sectionResult.latencyMs || 0),
+          completedAt: now(),
+          triggerReason: '模型路线切换前已发出的请求',
+          outputStatus: '返回时任务已切换模型，该结果已丢弃',
+          validationStatus: 'discarded_stale_route',
+          ...sectionResult.usage
+        }].slice(-24);
+        latest.artifacts.creativeDraft = latestDraft;
+        latest.state = 'running';
+        setStage(latest, 'P3', 'waiting', { label: '旧模型结果已丢弃，继续生成统一模型创意包', phase: 'stale_route_discarded', error: '', nextAttemptAt: '' });
+        addEvent(latest, 'creative_stale_result_discarded', `${pendingSection} completed after the task route changed and was excluded from the final package`, { requestRouteModel, activeModel: latestRoute.activeModel });
+        await saveRun(redis, latest);
+        return syncRun(originalRun, latest);
+      }
       if (!latestDraft.parts[pendingSection]) {
         latestDraft.parts[pendingSection] = sectionResult.creative[pendingSection] || (pendingSection === 'qualityReview' ? {} : null);
         const fallbackFrom = sectionResult.fallbackFrom || '';
@@ -765,6 +861,8 @@ function threadId(value) {
 
 async function p4(redis, run) {
   const stage = run.stages.P4;
+  const capacityRetryAt = Date.parse(stage.nextAttemptAt || '');
+  if (stage.status === 'prepared' && stage.blockedReason === 'hourly_video_limit' && Number.isFinite(capacityRetryAt) && capacityRetryAt > Date.now()) return;
   if (stage.status === 'waiting') {
     const prepared = videoPayload(run);
     run.artifacts.video = { status: 'prepared', remark: prepared.remark, payload: prepared.payload, threadId: '', videoUrls: [] };
@@ -780,15 +878,16 @@ async function p4(redis, run) {
     if (reconciled) {
       video.threadId = threadId(reconciled);
       video.status = 'running';
-      setStage(run, 'P4', 'running', { label: '已找回视频任务，正在生成', threadId: video.threadId });
+      setStage(run, 'P4', 'running', { label: '已找回视频任务，正在生成', threadId: video.threadId, blockedReason: '', nextAttemptAt: '' });
       await saveRun(redis, run);
       return;
     }
     const slot = await reserveVideoSlot(redis);
     if (!slot.granted) {
-      setStage(run, 'P4', 'blocked', { label: `本小时视频额度已满（${slot.limit}/${slot.limit}），下小时可重试`, blockedReason: 'hourly_video_limit', nextWindow: slot.label });
-      run.state = 'blocked';
-      addEvent(run, 'video_hour_limit', `Video submission blocked: ${slot.limit}/${slot.limit} slots already reserved this hour`);
+      const nextAttemptAt = new Date(Date.now() + Math.max(60, Number(slot.expiresIn || 60)) * 1000).toISOString();
+      setStage(run, 'P4', 'prepared', { label: `本小时视频额度已满（${slot.limit}/${slot.limit}），已自动排队到下一小时`, blockedReason: 'hourly_video_limit', nextWindow: slot.label, nextAttemptAt, recoverable: true });
+      run.state = 'running';
+      addEvent(run, 'video_hour_waiting', `Video capacity is full; the saved task will resume after ${nextAttemptAt} while other branches continue`, { nextAttemptAt, limit: slot.limit });
       await saveRun(redis, run);
       return;
     }
@@ -803,7 +902,7 @@ async function p4(redis, run) {
       if (!video.threadId) throw new providers.ProviderError('AC accepted the request without a thread ID', { ambiguous: true });
       video.status = 'running';
       video.submittedAt = now();
-      setStage(run, 'P4', 'running', { label: '视频已提交，正在生成', threadId: video.threadId });
+      setStage(run, 'P4', 'running', { label: '视频已提交，正在生成', threadId: video.threadId, blockedReason: '', nextAttemptAt: '' });
       addEvent(run, 'video_submitted', 'One paid AC video submitted', { threadId: video.threadId });
       await saveRun(redis, run);
       return;
@@ -817,7 +916,7 @@ async function p4(redis, run) {
     if (!reconciled) throw new providers.ProviderError('Video submission outcome is ambiguous; automatic retry is disabled', { ambiguous: true });
     video.threadId = threadId(reconciled);
     video.status = 'running';
-    setStage(run, 'P4', 'running', { label: '已找回视频任务，正在生成', threadId: video.threadId });
+    setStage(run, 'P4', 'running', { label: '已找回视频任务，正在生成', threadId: video.threadId, blockedReason: '', nextAttemptAt: '' });
     await saveRun(redis, run);
     return;
   }
@@ -1176,6 +1275,15 @@ async function processRunOnce(redis, run) {
       activeStage = 'P3';
       addEvent(run, 'creative_optimization_auto_applied', `No operator decision after one minute; ${creativeModelLabel(run)} is applying the recommended refinement.`);
       await p3(redis, run, { posts: run.artifacts.posts, videoPrompt: run.artifacts.videoPrompt, posterPrompts: run.artifacts.posterPrompts }, true);
+      return run;
+    }
+    const videoCapacityRetryAt = Date.parse(run.stages.P4.nextAttemptAt || '');
+    const videoWaitingForCapacity = run.stages.P4.status === 'prepared'
+      && run.stages.P4.blockedReason === 'hourly_video_limit'
+      && Number.isFinite(videoCapacityRetryAt)
+      && videoCapacityRetryAt > Date.now();
+    if (videoWaitingForCapacity) {
+      if (!posterTerminal(run.stages.P3_5.status)) { activeStage = 'P3_5'; await advancePosters(redis, run); return run; }
       return run;
     }
     // Once both paid branches have durable task IDs, alternate polling. This

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const providers = require('../api/_lib/providers');
 const { processRun, processRunBatch, p3, selectedChapters, summarizeAnalytics } = require('../api/_lib/pipeline');
 const { processCreativePlan } = require('../api/_lib/creative-plans');
-const { newRun, newCreativePlan, reserveVideoSlot } = require('../api/_lib/store');
+const { newRun, newCreativePlan, reserveVideoSlot, saveRun, registerActiveRun } = require('../api/_lib/store');
 
 providers.generateDistributionPlan = async () => ({ plan: { universalHook: 'One choice changes everything.', zhUniversalHook: '一个选择改变一切。', channels: [{ name: 'NovelFlow推书', reason: 'General manual channel.', bestFor: ['copy', 'video', 'poster'] }] }, model: 'hy3', responseId: 'distribution-test', usage: { totalTokens: 40 } });
 
@@ -81,6 +81,22 @@ test('completed smart planning automatically queues one production task', async 
   assert.equal(created.input.planning.strategy.editorialThesis, 'The verified betrayal becomes the campaign hook.');
 
   await processCreativePlan(redis, plan);
+  assert.equal([...redis.values.keys()].filter((key) => key.startsWith('nf_social:run:')).length, 1);
+});
+
+test('completed planning links to an existing book run instead of creating a second paid path', async () => {
+  const redis = new MemoryRedis();
+  const existing = await saveRun(redis, newRun({ title: 'Shared Romance', sku: 'shared-sku', paidAuthorized: true, automationMode: 'one_click' }));
+  await registerActiveRun(redis, existing);
+  const plan = newCreativePlan({ title: 'Shared Romance', sku: 'shared-sku', modelChoice: 'hy3', autoStartProduction: true, paidAuthorized: true });
+  plan.state = 'completed';
+  plan.artifacts.book = { title: 'Shared Romance', bookSkuId: 'shared-sku' };
+  plan.artifacts.plan = { editorialThesis: 'Use the verified source conflict.', recommendedProfile: {} };
+
+  await processCreativePlan(redis, plan);
+
+  assert.equal(plan.input.productionRunId, existing.id);
+  assert.equal(plan.input.autoStartState, 'linked_existing');
   assert.equal([...redis.values.keys()].filter((key) => key.startsWith('nf_social:run:')).length, 1);
 });
 
@@ -541,6 +557,74 @@ test('creative timeout is visible and schedules one safe automatic retry', async
   assert.match(run.events.map((event) => event.type).join(' '), /creative_section_started.*creative_section_fallback_scheduled/);
 });
 
+test('a task-wide model switch regenerates completed core sections instead of mixing models', async (t) => {
+  const originals = { ...providers };
+  t.after(() => Object.assign(providers, originals));
+  const packageData = creative();
+  const calls = [];
+  providers.generateCreative = async (...args) => {
+    const profile = args[5];
+    const section = args[6];
+    const modelChoice = profile.modelChoice;
+    calls.push(`${modelChoice}:${section}`);
+    if (modelChoice === 'hy3' && section === 'posts') {
+      return {
+        creative: { posts: packageData.posts.map((post) => ({ ...post, zhContent: 'HY3 discarded copy' })) },
+        model: 'hy3', responseId: 'hy3-posts', usage: { inputTokens: 70, outputTokens: 41, totalTokens: 111 }
+      };
+    }
+    if (modelChoice === 'hy3' && section === 'videoPrompt') throw new providers.ProviderError('HY3 video prompt timed out', { status: 504 });
+    const value = section === 'qualityReview'
+      ? { recommendation: 'keep', status: 'verified', conclusion: 'The reserve package is coherent.', why: 'Every core section uses the same source evidence and model route.', target: 'package' }
+      : section === 'posts'
+        ? packageData.posts.map((post) => ({ ...post, zhContent: 'DeepSeek final copy' }))
+        : packageData[section];
+    return { creative: { [section]: value }, model: 'deepseek', responseId: `deepseek-${section}`, usage: { inputTokens: 6, outputTokens: 4, totalTokens: 10 } };
+  };
+  const redis = new MemoryRedis();
+  const run = newRun({ title: 'Unified Route Romance', sku: 'route-sku', promoter: 'xujt', paidAuthorized: true, creativeProfile: { modelChoice: 'hy3' } });
+  run.state = 'running';
+  run.stages.P1.status = 'done';
+  run.stages.P2.status = 'done';
+  run.stages.P5.status = 'done';
+  run.artifacts.book = { bookSkuId: 'route-sku', title: 'Unified Route Romance' };
+  run.artifacts.evidence = { chapters: [
+    { order: 1, content: 'A sufficiently long exact quote copied from chapter one. She found the signed contract before dawn.' },
+    { order: 2, content: 'A sufficiently long exact quote copied from chapter two. The promise trapped her between duty and freedom. She placed the evidence on his desk.' }
+  ] };
+  run.artifacts.code = '44444';
+  run.artifacts.shortUrl = 'https://social.example/s/abc';
+  await redis.set(`nf_social:run:${run.id}`, JSON.stringify(run));
+
+  await p3(redis, run, null, false, 'posts');
+  assert.equal(run.artifacts.creativeDraft.parts.posts[0].zhContent, 'HY3 discarded copy');
+  assert.equal(run.artifacts.creativeDraft.usage[0].totalTokens, 111);
+
+  await p3(redis, run, null, false, 'videoPrompt');
+  assert.equal(run.artifacts.modelRoute.activeModel, 'deepseek');
+  assert.deepEqual(run.artifacts.creativeDraft.parts, {});
+  assert.deepEqual(run.artifacts.creativeDraft.usage, []);
+  assert.deepEqual(run.artifacts.creativeDraft.discardedGenerations[0].sections, ['posts']);
+  assert.equal(run.artifacts.modelActivity.at(-1).validationStatus, 'discarded_model_switch');
+  assert.equal(run.artifacts.modelActivity.at(-1).totalTokens, 111);
+
+  for (let step = 0; step < 4; step += 1) await p3(redis, run);
+
+  assert.equal(run.stages.P3.status, 'done');
+  assert.equal(run.artifacts.posts[0].zhContent, 'DeepSeek final copy');
+  assert.equal(run.artifacts.posts.some((post) => post.zhContent === 'HY3 discarded copy'), false);
+  assert.equal(run.artifacts.usage.creative.totalTokens, 40);
+  assert.deepEqual(calls, [
+    'hy3:posts',
+    'hy3:videoPrompt',
+    'deepseek:posts',
+    'deepseek:videoPrompt',
+    'deepseek:posterPrompts',
+    'deepseek:qualityReview'
+  ]);
+  assert.deepEqual(run.artifacts.modelActivity.filter((item) => item.validationStatus !== 'discarded_model_switch').map((item) => item.model), ['deepseek', 'deepseek', 'deepseek', 'deepseek']);
+});
+
 test('invalid model draft is discarded and regenerated with a reserve model', async (t) => {
   const originals = { ...providers };
   t.after(() => Object.assign(providers, originals));
@@ -643,6 +727,25 @@ test('video submission capacity reserves no more than five slots per hour', asyn
   assert.equal(slots.filter((slot) => slot.granted).length, 5);
   assert.equal(slots.at(-1).granted, false);
   assert.equal(slots.at(-1).used, 5);
+});
+
+test('a full video hour queues the video but keeps the poster branch moving', async () => {
+  const redis = new MemoryRedis();
+  for (let index = 0; index < 5; index += 1) assert.equal((await reserveVideoSlot(redis)).granted, true);
+  const run = mediaReadyRun();
+  run.stages.P4 = { status: 'prepared' };
+  run.stages.P3_5 = { status: 'waiting' };
+  run.artifacts.video = { status: 'prepared', remark: 'capacity-wait', payload: {}, threadId: '', videoUrls: [] };
+
+  await processRun(redis, run);
+  assert.equal(run.state, 'running');
+  assert.equal(run.stages.P4.status, 'prepared');
+  assert.equal(run.stages.P4.blockedReason, 'hourly_video_limit');
+  assert.ok(Date.parse(run.stages.P4.nextAttemptAt) > Date.now());
+
+  await processRun(redis, run);
+  assert.equal(run.stages.P3_5.status, 'prepared');
+  assert.equal(run.artifacts.images.length, 2);
 });
 
 test('nonrecoverable P2 model configuration errors stop background recovery', async (t) => {

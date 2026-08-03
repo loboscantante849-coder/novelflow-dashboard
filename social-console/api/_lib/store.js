@@ -9,7 +9,81 @@ const runDetailKey = (id) => `nf_social:run_detail:${id}`;
 const planKey = (id) => `nf_social:creative_plan:${id}`;
 const runSummaryKey = (id) => `nf_social:run_summary:${id}`;
 const planSummaryKey = (id) => `nf_social:creative_plan_summary:${id}`;
-const RUN_SUMMARY_VERSION = 6;
+const ACTIVE_RUN_TTL = 90 * 24 * 60 * 60;
+const RUN_CREATE_LOCK_TTL = 120;
+const activeRunKey = (sku) => `nf_social:active_run:${crypto.createHash('sha256').update(String(sku || '').trim().toLowerCase()).digest('hex').slice(0, 32)}`;
+const runCreateLockKey = (sku) => `nf_social:run_create_lock:${crypto.createHash('sha256').update(String(sku || '').trim().toLowerCase()).digest('hex').slice(0, 32)}`;
+const RUN_SUMMARY_VERSION = 7;
+
+const AUTOPILOT_STAGES = Object.freeze(['P1', 'P2', 'P5', 'P3', 'P3_5', 'P4', 'P6']);
+const AUTOPILOT_LABELS = Object.freeze({
+  P1: '核验书籍身份',
+  P2: '读取章节并建立证据',
+  P5: '创建并验证 Code / 短链',
+  P3: '生成文案与创意提示词',
+  P3_5: '生成推广海报',
+  P4: '提交并等待视频生成',
+  P6: '组装审核包并开启数据跟进'
+});
+
+function runIsActive(run) {
+  const state = String(run?.state || '');
+  if (['queued', 'running', 'blocked'].includes(state)) return true;
+  if (state !== 'failed') return false;
+  const videoTask = Boolean(run?.artifacts?.video?.threadId);
+  const posterTask = (Array.isArray(run?.artifacts?.images) ? run.artifacts.images : []).some((item) => item?.taskId);
+  return videoTask || posterTask;
+}
+
+function nextAutopilotAction(run) {
+  const stages = run?.stages || {};
+  const pending = AUTOPILOT_STAGES.find((name) => String(stages[name]?.status || 'waiting') !== 'done');
+  if (!pending) return { nextAction: 'done', nextActionLabel: '全部生产节点已完成' };
+  const stage = stages[pending] || {};
+  const label = String(stage.label || AUTOPILOT_LABELS[pending] || pending).slice(0, 180);
+  return { nextAction: pending, nextActionLabel: label };
+}
+
+/**
+ * Return a small, safe, and backwards-compatible projection of the durable
+ * one-click state. Old runs do not have this object; their state is derived
+ * from the existing pipeline stages without rewriting the run on read.
+ */
+function autopilotProjection(run, options = {}) {
+  const now = options.now || new Date().toISOString();
+  const current = run?.autopilot && typeof run.autopilot === 'object' ? run.autopilot : {};
+  const inputMode = String(run?.input?.automationMode || '').trim();
+  const mode = String(current.mode || inputMode || 'legacy').slice(0, 40);
+  const enabled = current.enabled === false ? false : (current.enabled === true || mode === 'one_click');
+  const action = nextAutopilotAction(run);
+  const state = String(run?.state || 'queued');
+  let status;
+  if (state === 'completed' || action.nextAction === 'done') status = 'completed';
+  else if (state === 'blocked' || Object.values(run?.stages || {}).some((stage) => ['ambiguous', 'blocked'].includes(String(stage?.status || '')))) status = 'blocked';
+  else if (state === 'failed') status = 'failed';
+  else if (state === 'queued') {
+    // A caller may save a stage transition before it flips the top-level
+    // state. Treat that durable stage evidence as running instead of leaving
+    // the dashboard on a stale queued badge.
+    const hasProgress = Object.values(run?.stages || {}).some((stage) => !['waiting', ''].includes(String(stage?.status || '')));
+    status = hasProgress ? 'running' : 'queued';
+  }
+  else {
+    const pending = run?.stages?.[action.nextAction];
+    status = pending && ['waiting', 'prepared'].includes(String(pending.status || '')) && Date.parse(pending.nextAttemptAt || '') > Date.now()
+      ? 'waiting'
+      : 'running';
+  }
+  return {
+    enabled,
+    mode,
+    status,
+    queuedAt: String(current.queuedAt || run?.createdAt || now),
+    lastProgressAt: String(options.progress ? now : (current.lastProgressAt || run?.updatedAt || run?.createdAt || now)),
+    nextAction: action.nextAction,
+    nextActionLabel: action.nextActionLabel
+  };
+}
 class RemoteRedis {
   constructor(url, secret) { this.url = url.replace(/\/$/, ''); this.secret = secret; }
   async call(op, args) {
@@ -76,6 +150,9 @@ function summaryInput(input = {}) {
   return {
     title: String(input?.title || ''),
     sku: String(input?.sku || ''),
+    source: String(input?.source || '').slice(0, 100),
+    automationMode: String(input?.automationMode || '').slice(0, 40),
+    fullBookEvidence: input?.fullBookEvidence !== false,
     creativeProfile: input?.creativeProfile && typeof input.creativeProfile === 'object' ? input.creativeProfile : {},
     ...(planning ? { planning } : {})
   };
@@ -143,6 +220,7 @@ function runSummary(run) {
     createdAt: run.createdAt,
     updatedAt: run.updatedAt,
     input: summaryInput(run.input),
+    autopilot: autopilotProjection(run),
     state: run.state,
     stages: summaryStages(run.stages),
     artifacts: {
@@ -154,7 +232,7 @@ function runSummary(run) {
       video: artifacts.video ? { threadId: artifacts.video.threadId, status: artifacts.video.status, videoUrls: (artifacts.video.videoUrls || []).slice(0, 1), videoModel: String(artifacts.video.videoModel || ''), isUserAdCopy: artifacts.video.isUserAdCopy === true ? true : artifacts.video.isUserAdCopy === false ? false : null, error: String(artifacts.video.error || '').slice(0, 300) } : null,
       referenceVideo: artifacts.referenceVideo ? { threadId: artifacts.referenceVideo.threadId, status: artifacts.referenceVideo.status, videoUrls: (artifacts.referenceVideo.videoUrls || []).slice(0, 1), error: String(artifacts.referenceVideo.error || '').slice(0, 300) } : null,
       videoRevision: artifacts.videoRevision ? { threadId: artifacts.videoRevision.threadId, status: artifacts.videoRevision.status, videoUrls: (artifacts.videoRevision.videoUrls || []).slice(0, 1), error: String(artifacts.videoRevision.error || '').slice(0, 300) } : null,
-      images: Array.isArray(artifacts.images) ? artifacts.images.map((image) => ({ variant: image.variant, status: image.status, url: image.url })) : [],
+      images: Array.isArray(artifacts.images) ? artifacts.images.map((image) => ({ variant: image.variant, status: image.status, taskId: image.taskId, url: image.url })) : [],
       analytics: artifacts.analytics ? {
         status: String(artifacts.analytics.status || ''),
         summary: artifacts.analytics.summary || {},
@@ -187,6 +265,7 @@ function runSummary(run) {
 
 function runDetail(run) {
   const copy = JSON.parse(JSON.stringify(run));
+  copy.autopilot = autopilotProjection(copy);
   const artifacts = copy.artifacts || {};
   if (artifacts.book) artifacts.book.description = String(artifacts.book.description || '').slice(0, 4000);
   delete artifacts.chapterList;
@@ -285,7 +364,12 @@ async function getRunSummary(redis, id) {
 }
 async function saveRun(redis, run, options = {}) {
   const previousUpdatedAt = run.updatedAt;
-  if (!options.preserveUpdatedAt) run.updatedAt = new Date().toISOString();
+  const now = new Date().toISOString();
+  if (!options.preserveUpdatedAt) run.updatedAt = now;
+  // Keep this state on the durable run itself so a browser can disappear and
+  // the next worker/cron request can still explain exactly what happens next.
+  // Analytics-only saves preserve the last production progress timestamp.
+  run.autopilot = autopilotProjection(run, { now, progress: !options.preserveUpdatedAt });
   await Promise.all([
     redis.set(runKey(run.id), JSON.stringify(run)),
     redis.set(runSummaryKey(run.id), JSON.stringify(runSummary(run))),
@@ -297,6 +381,53 @@ async function saveRun(redis, run, options = {}) {
   if (options.preserveUpdatedAt && previousUpdatedAt) run.updatedAt = previousUpdatedAt;
   return run;
 }
+
+/** Register the currently active run for a book. The value is only an
+ * identifier; all run data remains in the normal nf_social run keys. */
+async function registerActiveRun(redis, run) {
+  const sku = String(run?.input?.sku || '').trim();
+  if (!redis || !sku || !run?.id) return run;
+  await redis.set(activeRunKey(sku), run.id, { ex: ACTIVE_RUN_TTL });
+  return run;
+}
+
+/**
+ * Find a queued/running/ambiguous production for the same SKU. The pointer is
+ * fast for new runs; the bounded index scan keeps old runs (created before the
+ * pointer existed) compatible. Terminal pointers are lazily removed.
+ */
+async function findActiveRun(redis, sku) {
+  const normalizedSku = String(sku || '').trim();
+  if (!redis || !normalizedSku) return null;
+  const pointer = await redis.get(activeRunKey(normalizedSku));
+  if (pointer) {
+    const run = await getRun(redis, String(pointer));
+    if (run && runIsActive(run) && String(run.input?.sku || '').trim().toLowerCase() === normalizedSku.toLowerCase()) return run;
+    await redis.del(activeRunKey(normalizedSku)).catch(() => {});
+  }
+  const summaries = await listRunSummaries(redis, 50);
+  const match = summaries.find((run) => runIsActive(run) && String(run.input?.sku || '').trim().toLowerCase() === normalizedSku.toLowerCase());
+  if (match) await registerActiveRun(redis, match);
+  return match || null;
+}
+
+async function acquireRunCreation(redis, sku) {
+  const normalizedSku = String(sku || '').trim();
+  if (!redis || !normalizedSku) return { acquired: false, token: '', key: '' };
+  const key = runCreateLockKey(normalizedSku);
+  const token = crypto.randomUUID();
+  const result = await redis.set(key, token, { nx: true, ex: RUN_CREATE_LOCK_TTL });
+  return { acquired: result === true || String(result || '').toUpperCase() === 'OK', token, key };
+}
+
+async function releaseRunCreation(redis, lock) {
+  if (!redis || !lock?.key) return;
+  try {
+    const current = await redis.get(lock.key);
+    if (String(current || '') === String(lock.token || '')) await redis.del(lock.key);
+  } catch {}
+}
+
 async function listCreativePlans(redis, limit = 12) {
   if (!redis) return [];
   const ids = await redis.zrange(PLAN_INDEX, 0, limit - 1, { rev: true });
@@ -419,16 +550,24 @@ function stageMap() {
 }
 function newRun(input) {
   const now = new Date().toISOString();
-  return {
+  const normalizedInput = {
+    ...(input && typeof input === 'object' ? input : {}),
+    source: String(input?.source || 'manual').slice(0, 100),
+    automationMode: String(input?.automationMode || 'one_click').slice(0, 40) || 'one_click',
+    fullBookEvidence: input?.fullBookEvidence !== false
+  };
+  const run = {
     id: `run_${crypto.randomUUID().replace(/-/g, '')}`,
     createdAt: now,
     updatedAt: now,
-    input,
+    input: normalizedInput,
     state: 'queued',
     stages: stageMap(),
     artifacts: { book: null, evidence: null, code: null, shortUrl: null, linkId: null, posts: [], translations: null, videoPrompt: null, posterPrompts: [], video: null, images: [], review: null, analytics: null, usage: {} },
     events: [{ at: now, type: 'queued', message: 'Full production run queued' }]
   };
+  run.autopilot = autopilotProjection(run, { now });
+  return run;
 }
 function addEvent(run, type, message, data = undefined) {
   run.events = Array.isArray(run.events) ? run.events : [];
@@ -437,9 +576,11 @@ function addEvent(run, type, message, data = undefined) {
 }
 function setStage(run, name, status, extra = {}) {
   const previous = run.stages[name] || {};
-  run.stages[name] = { ...previous, ...extra, status, updatedAt: new Date().toISOString() };
-  if (status === 'running' && !run.stages[name].startedAt) run.stages[name].startedAt = new Date().toISOString();
-  if (status === 'done' && !run.stages[name].completedAt) run.stages[name].completedAt = new Date().toISOString();
+  const now = new Date().toISOString();
+  run.stages[name] = { ...previous, ...extra, status, updatedAt: now };
+  if (status === 'running' && !run.stages[name].startedAt) run.stages[name].startedAt = now;
+  if (status === 'done' && !run.stages[name].completedAt) run.stages[name].completedAt = now;
+  run.autopilot = autopilotProjection(run, { now, progress: true });
   return run.stages[name];
 }
 
@@ -470,4 +611,4 @@ async function releaseVideoSlot(redis, key) {
   if (typeof key === 'string' && key.startsWith('nf_social:video_hour:')) await redis.incrby(key, -1);
 }
 
-module.exports = { getRedis, createRedis, RemoteRedis, getMany, listRuns, listRunSummaries, getRun, getRunDetail, getRunSummary, saveRun, newRun, addEvent, setStage, runSummary, runDetail, listCreativePlans, listCreativePlanSummaries, getCreativePlan, saveCreativePlan, newCreativePlan, creativePlanDetail, getDiscordJob, saveDiscordJob, listDiscordJobs, listDiscordJobSummaries, removeDiscordJobFromQueue, discordJobSummary, RUN_INDEX, PLAN_INDEX, DISCORD_JOB_INDEX, DISCORD_HISTORY_INDEX, videoCapacity, reserveVideoSlot, releaseVideoSlot };
+module.exports = { getRedis, createRedis, RemoteRedis, getMany, listRuns, listRunSummaries, getRun, getRunDetail, getRunSummary, saveRun, registerActiveRun, findActiveRun, acquireRunCreation, releaseRunCreation, newRun, addEvent, setStage, runSummary, runDetail, autopilotProjection, runIsActive, nextAutopilotAction, activeRunKey, runCreateLockKey, listCreativePlans, listCreativePlanSummaries, getCreativePlan, saveCreativePlan, newCreativePlan, creativePlanDetail, getDiscordJob, saveDiscordJob, listDiscordJobs, listDiscordJobSummaries, removeDiscordJobFromQueue, discordJobSummary, RUN_INDEX, PLAN_INDEX, DISCORD_JOB_INDEX, DISCORD_HISTORY_INDEX, videoCapacity, reserveVideoSlot, releaseVideoSlot };
