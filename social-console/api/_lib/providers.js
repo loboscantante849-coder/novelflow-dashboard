@@ -198,12 +198,21 @@ async function findExactBook(title, sku) {
   const { body } = await adminRequest(`${BOOK_API}?${qs({ current: 1, pageIndex: 1, pageSize: 50, applicationId: APPLICATION_ID, bookName: title })}`, {}, 'Exact book lookup');
   const items = pageItems(body).items;
   const candidates = items.filter((item) => titleKey(item.title) === titleKey(title));
-  const match = sku ? candidates.find((item) => String(item.bookSkuId || '') === String(sku)) : candidates.length === 1 ? candidates[0] : items.length === 1 ? items[0] : null;
+  const itemSku = (item) => String(item?.bookSkuId || item?.bookId || '');
+  let match = sku ? candidates.find((item) => itemSku(item) === String(sku)) : candidates.length === 1 ? candidates[0] : items.length === 1 ? items[0] : null;
+  // The performance dashboard can retain an older display title while its SKU
+  // still points at the canonical bookstore record. A direct bookId lookup is
+  // authoritative only when the returned identifier exactly matches that SKU.
+  if (!match && sku) {
+    const { body: skuBody } = await adminRequest(`${BOOK_API}?${qs({ current: 1, pageIndex: 1, pageSize: 3, applicationId: APPLICATION_ID, bookStatus: 1, bookId: sku })}`, {}, 'Exact book SKU lookup');
+    match = pageItems(skuBody).items.find((item) => itemSku(item) === String(sku)) || null;
+  }
   if (!match) throw new ProviderError(`Could not resolve one exact bookstore record for “${cleanTitle(title)}”`, { status: 404 });
-  if (titleKey(match.title) !== titleKey(title)) throw new ProviderError('Book title search returned a different record', { status: 409 });
+  if (sku && itemSku(match) !== String(sku)) throw new ProviderError('Book SKU lookup returned a different record', { status: 409 });
+  if (!sku && titleKey(match.title) !== titleKey(title)) throw new ProviderError('Book title search returned a different record', { status: 409 });
   const category = match.aiCategory || {};
   return {
-    bookSkuId: String(match.bookSkuId || ''), cityBookId: String(match.id || ''), title: String(match.title || ''),
+    bookSkuId: itemSku(match), cityBookId: String(match.id || ''), title: String(match.title || ''),
     cover: coverUrl(match.cover), category: typeof category === 'object' ? String(category.categoryName || '') : String(category),
     tags: (match.aiTags || match.tags || []).map((item) => typeof item === 'object' ? String(item.tagName || '') : String(item)).filter(Boolean),
     description: String(match.description || match.bookDescription || match.introduction || match.blurb || ''),

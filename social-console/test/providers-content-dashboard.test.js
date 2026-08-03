@@ -71,3 +71,31 @@ test('content dashboard refreshes an expired configured credential once after it
   assert.equal(dashboardCalls[1].authorization, 'Bearer fresh-token');
   assert.equal(result.books[0].title, 'Fresh Book');
 });
+
+test('exact book lookup falls back to a SKU-verified canonical record', async (t) => {
+  const originalFetch = global.fetch;
+  const previousToken = process.env.NOVELFLOW_OIDC_TOKEN;
+  process.env.NOVELFLOW_OIDC_TOKEN = 'test-book-token';
+  const requests = [];
+  t.after(() => {
+    global.fetch = originalFetch;
+    if (previousToken === undefined) delete process.env.NOVELFLOW_OIDC_TOKEN;
+    else process.env.NOVELFLOW_OIDC_TOKEN = previousToken;
+  });
+  global.fetch = async (url) => {
+    const requestUrl = new URL(String(url));
+    requests.push(requestUrl);
+    const record = requestUrl.searchParams.get('bookId')
+      ? { bookId: 'target-sku', id: 'canonical-city-id', title: 'Canonical Book Title', cover: 'https://cdn.example/canonical-cover.jpg' }
+      : { bookSkuId: 'different-sku', id: 'different-city-id', title: 'Different Book' };
+    return new Response(JSON.stringify({ code: 200, data: { data: [record], total: 1 } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+
+  const book = await providers.findExactBook('Stale Dashboard Title', 'target-sku');
+
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].searchParams.get('bookId'), 'target-sku');
+  assert.equal(book.bookSkuId, 'target-sku');
+  assert.equal(book.title, 'Canonical Book Title');
+  assert.equal(book.cover, 'https://cdn.example/canonical-cover.jpg');
+});
