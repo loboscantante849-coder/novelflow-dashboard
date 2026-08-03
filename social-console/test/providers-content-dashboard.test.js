@@ -86,7 +86,7 @@ test('exact book lookup falls back to a SKU-verified canonical record', async (t
     const requestUrl = new URL(String(url));
     requests.push(requestUrl);
     const record = requestUrl.searchParams.get('bookId')
-      ? { bookId: 'target-sku', id: 'canonical-city-id', title: 'Canonical Book Title', cover: 'https://cdn.example/canonical-cover.jpg' }
+      ? { skuId: 'target-sku', id: 'canonical-city-id', title: 'Canonical Book Title', cover: 'https://cdn.example/canonical-cover.jpg' }
       : { bookSkuId: 'different-sku', id: 'different-city-id', title: 'Different Book' };
     return new Response(JSON.stringify({ code: 200, data: { data: [record], total: 1 } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   };

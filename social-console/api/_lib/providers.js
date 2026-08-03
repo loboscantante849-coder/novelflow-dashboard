@@ -198,7 +198,7 @@ async function findExactBook(title, sku) {
   const { body } = await adminRequest(`${BOOK_API}?${qs({ current: 1, pageIndex: 1, pageSize: 50, applicationId: APPLICATION_ID, bookName: title })}`, {}, 'Exact book lookup');
   const items = pageItems(body).items;
   const candidates = items.filter((item) => titleKey(item.title) === titleKey(title));
-  const itemSku = (item) => String(item?.bookSkuId || item?.bookId || '');
+  const itemSku = (item) => String(item?.bookSkuId || item?.bookId || item?.skuId || '');
   let match = sku ? candidates.find((item) => itemSku(item) === String(sku)) : candidates.length === 1 ? candidates[0] : items.length === 1 ? items[0] : null;
   // The performance dashboard can retain an older display title while its SKU
   // still points at the canonical bookstore record. A direct bookId lookup is
