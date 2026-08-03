@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const providers = require('../api/_lib/providers');
-const { processRun, p3, selectedChapters, summarizeAnalytics } = require('../api/_lib/pipeline');
+const { processRun, processRunBatch, p3, selectedChapters, summarizeAnalytics } = require('../api/_lib/pipeline');
 const { processCreativePlan } = require('../api/_lib/creative-plans');
 const { newRun, newCreativePlan, reserveVideoSlot } = require('../api/_lib/store');
 
@@ -273,6 +273,130 @@ function mediaReadyRun() {
   run.artifacts.optimization = { status: 'kept' };
   return run;
 }
+
+test('one-click batch crosses free stage boundaries and stops after one paid video submission', async (t) => {
+  const originals = { ...providers };
+  t.after(() => Object.assign(providers, originals));
+  let videoSubmits = 0;
+  let videoPolls = 0;
+  Object.assign(providers, {
+    findAcTask: async () => null,
+    submitAc: async () => { videoSubmits += 1; return { threadId: 'thread-batch-one-click' }; },
+    acResult: async () => {
+      videoPolls += 1;
+      return { status: 'running', threadId: 'thread-batch-one-click', videoUrls: [] };
+    }
+  });
+  const redis = new MemoryRedis();
+  const run = mediaReadyRun();
+  run.stages.P3_5 = { status: 'done' };
+
+  const first = await processRunBatch(redis, run, { maxSteps: 8, maxRuntimeMs: 30000 });
+
+  assert.equal(first.progressed, true);
+  assert.equal(first.steps, 2);
+  assert.equal(first.stopReason, 'media_submitted');
+  assert.equal(run.stages.P4.status, 'running');
+  assert.equal(run.artifacts.video.threadId, 'thread-batch-one-click');
+  assert.equal(videoSubmits, 1);
+  assert.equal(videoPolls, 0);
+
+  const second = await processRunBatch(redis, run, { maxSteps: 8, maxRuntimeMs: 30000 });
+  assert.equal(second.steps, 1);
+  assert.equal(second.stopReason, 'media_poll');
+  assert.equal(videoSubmits, 1);
+  assert.equal(videoPolls, 1);
+  assert.equal(run.artifacts.video.threadId, 'thread-batch-one-click');
+});
+
+test('one-click batch stops on a future retry instead of spinning', async () => {
+  const redis = new MemoryRedis();
+  const run = mediaReadyRun();
+  run.stages.P3 = {
+    status: 'waiting',
+    phase: 'fallback_scheduled',
+    nextAttemptAt: new Date(Date.now() + 60000).toISOString()
+  };
+  const result = await processRunBatch(redis, run, { maxSteps: 20, maxRuntimeMs: 30000 });
+  assert.equal(result.steps, 0);
+  assert.equal(result.progressed, false);
+  assert.equal(result.stopReason, 'backoff');
+});
+
+test('one-click batch ignores retry timestamps retained on completed stages', async () => {
+  const redis = new MemoryRedis();
+  const run = mediaReadyRun();
+  run.stages.P1.nextAttemptAt = new Date(Date.now() + 60000).toISOString();
+  run.stages.P1.status = 'done';
+  run.stages.P3_5 = { status: 'done' };
+  run.stages.P4 = { status: 'done' };
+  run.stages.P6 = { status: 'done' };
+  run.state = 'completed';
+  const result = await processRunBatch(redis, run, { maxSteps: 20, maxRuntimeMs: 30000 });
+  assert.equal(result.stopReason, 'completed');
+  assert.equal(result.steps, 0);
+});
+
+test('one-click batch completes every P3 model section without another browser kick', async (t) => {
+  const originals = { ...providers };
+  t.after(() => Object.assign(providers, originals));
+  const packageData = creative();
+  const sections = [];
+  providers.generateCreative = async (...args) => {
+    const section = args[6];
+    sections.push(section);
+    return {
+      creative: { [section]: section === 'qualityReview' ? {} : packageData[section] },
+      model: 'hy3', responseId: `batch-${section}`, usage: { totalTokens: 50 }
+    };
+  };
+  const redis = new MemoryRedis();
+  const run = mediaReadyRun();
+  run.stages.P3 = { status: 'waiting' };
+  run.stages.P3_5 = { status: 'done' };
+  run.stages.P4 = { status: 'done' };
+  run.artifacts.evidence = { chapters: [
+    { order: 1, content: 'A sufficiently long exact quote copied from chapter one. She found the signed contract before dawn.' },
+    { order: 2, content: 'A sufficiently long exact quote copied from chapter two. The promise trapped her between duty and freedom. She placed the evidence on his desk.' }
+  ] };
+  run.artifacts.posts = [];
+  run.artifacts.videoPrompt = null;
+  run.artifacts.posterPrompts = [];
+  delete run.artifacts.qualityReview;
+  delete run.artifacts.optimization;
+
+  const result = await processRunBatch(redis, run, { maxSteps: 10, maxRuntimeMs: 30000 });
+
+  assert.deepEqual(sections, ['posts', 'videoPrompt', 'posterPrompts', 'qualityReview']);
+  assert.equal(run.stages.P3.status, 'done');
+  assert.equal(run.state, 'completed');
+  assert.equal(result.stopReason, 'completed');
+  assert.ok(result.steps >= 5);
+});
+
+test('video polling backoff does not block the independent poster branch', async (t) => {
+  const originals = { ...providers };
+  t.after(() => Object.assign(providers, originals));
+  let imageSubmits = 0;
+  let videoPolls = 0;
+  Object.assign(providers, {
+    submitImage: async (asset) => { imageSubmits += 1; return { id: `image-${asset.variant}`, status: 'queued' }; },
+    acResult: async () => { videoPolls += 1; return { status: 'running', threadId: 'video-in-flight', videoUrls: [] }; }
+  });
+  const redis = new MemoryRedis();
+  const run = mediaReadyRun();
+  run.stages.P4 = { status: 'running', nextAttemptAt: new Date(Date.now() + 60000).toISOString() };
+  run.artifacts.video = { status: 'running', threadId: 'video-in-flight', videoUrls: [] };
+  run.stages.P3_5 = { status: 'waiting' };
+
+  const result = await processRunBatch(redis, run, { maxSteps: 8, maxRuntimeMs: 30000 });
+
+  assert.equal(result.stopReason, 'media_submitted');
+  assert.equal(imageSubmits, 1);
+  assert.equal(videoPolls, 0);
+  assert.equal(run.artifacts.images[0].taskId, 'image-luminous_cinema');
+  assert.equal(run.artifacts.video.threadId, 'video-in-flight');
+});
 
 test('definitive poster failure is nonblocking and video still completes', async (t) => {
   const originals = { ...providers };

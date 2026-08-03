@@ -1108,7 +1108,13 @@ async function advancePosters(redis, run) {
   }
 }
 
-async function processRun(redis, run) {
+// Process exactly one durable pipeline transition.  Keeping this primitive
+// single-step is important for callers that need a tight request budget and
+// for the paid-media idempotency tests below.  The worker uses
+// `processRunBatch` (defined after this function) to make a one-click request
+// continue through all immediately-runnable free stages without requiring a
+// browser click for every node.
+async function processRunOnce(redis, run) {
   if (run.state === 'queued') {
     run.state = 'running';
     addEvent(run, 'worker_started', 'One-click production started');
@@ -1175,6 +1181,10 @@ async function processRun(redis, run) {
     // Once both paid branches have durable task IDs, alternate polling. This
     // keeps poster progress visible while AC is still rendering a video.
     if (run.stages.P4.status === 'running' && !posterTerminal(run.stages.P3_5.status)) {
+      const videoRetryAt = Date.parse(run.stages.P4.nextAttemptAt || '');
+      if (Number.isFinite(videoRetryAt) && videoRetryAt > Date.now()) {
+        activeStage = 'P3_5'; await advancePosters(redis, run); return run;
+      }
       run.artifacts.mediaPollTurn = run.artifacts.mediaPollTurn === 'posters' ? 'video' : 'posters';
       if (run.artifacts.mediaPollTurn === 'posters') { activeStage = 'P3_5'; await advancePosters(redis, run); return run; }
       activeStage = 'P4'; await p4(redis, run); return run;
@@ -1197,4 +1207,173 @@ async function processRun(redis, run) {
   }
 }
 
-module.exports = { processRun, p3, selectedChapters, normalizeCreative, summarizeAnalytics, refreshAnalytics, cleanError, videoPayload, referenceVideoPayload };
+// A compact fingerprint is enough to tell whether a worker invocation made a
+// durable transition.  We deliberately exclude `updatedAt`: analytics and
+// diagnostic saves may update that timestamp without advancing production.
+function runProgressFingerprint(run) {
+  const stageNames = ['P1', 'P2', 'P3', 'P3_5', 'P4', 'P5', 'P6'];
+  const stages = stageNames.map((name) => {
+    const stage = run?.stages?.[name] || {};
+    return [name, stage.status || '', stage.phase || '', stage.cursor || 0,
+      stage.nextAttemptAt || '', stage.attempt || 0, stage.retryCount || 0,
+      stage.codeAttempts || 0, stage.threadId || ''].join(':');
+  }).join('|');
+  const artifacts = run?.artifacts || {};
+  const imageState = (Array.isArray(artifacts.images) ? artifacts.images : [])
+    .map((item) => [item.variant || '', item.status || '', item.taskId || '', item.url || ''].join(':')).join('|');
+  const video = artifacts.video || {};
+  const creative = artifacts.creativeDraft || {};
+  const parts = Object.keys(creative.parts || {}).sort().join(',');
+  return [run?.state || '', stages, artifacts.code || '', artifacts.linkId || '',
+    artifacts.shortUrl || '', video.status || '', video.threadId || '',
+    (video.videoUrls || [])[0] || '', video.lastCheckedAt || '', imageState, parts].join('||');
+}
+
+function stageProgressFingerprint(stage = {}) {
+  return [stage.status || '', stage.phase || '', stage.cursor || 0,
+    stage.nextAttemptAt || '', stage.attempt || 0, stage.retryCount || 0,
+    stage.codeAttempts || 0, stage.threadId || '', stage.error || ''].join(':');
+}
+
+function pendingFutureRetry(run) {
+  const future = (stage) => {
+    // Stage objects retain diagnostic retry timestamps after completion.  A
+    // stale timestamp on a `done`/`prepared` stage must never freeze the
+    // one-click worker forever.
+    if (!['waiting', 'running'].includes(String(stage?.status || ''))) return false;
+    const at = Date.parse(stage?.nextAttemptAt || '');
+    return Number.isFinite(at) && at > Date.now();
+  };
+  if (future(run?.stages?.P2) || future(run?.stages?.P3)) return true;
+  const videoBackoff = future(run?.stages?.P4);
+  const posterBackoff = future(run?.stages?.P3_5);
+  // Media branches are independent.  A temporary AC poll backoff must not
+  // stop a poster from being prepared/submitted, and vice versa.
+  if (videoBackoff && posterBackoff) return true;
+  if (videoBackoff && posterTerminal(run?.stages?.P3_5?.status)) return true;
+  if (posterBackoff && terminal(run?.stages?.P4?.status)) return true;
+  return false;
+}
+
+function externalMediaInFlight(run) {
+  const videoStage = run?.stages?.P4 || {};
+  const video = run?.artifacts?.video || {};
+  const videoInFlight = ['submitting', 'running'].includes(String(videoStage.status || ''))
+    && (video.threadId || video.status === 'submitting' || video.status === 'running');
+  const posterStage = run?.stages?.P3_5 || {};
+  const images = Array.isArray(run?.artifacts?.images) ? run.artifacts.images : [];
+  const posterInFlight = ['submitting', 'running'].includes(String(posterStage.status || ''))
+    && images.some((item) => ['submitting', 'running', 'queued'].includes(String(item?.status || '')) && item?.taskId);
+  return { videoInFlight, posterInFlight };
+}
+
+function mediaPollFingerprint(run) {
+  const video = run?.artifacts?.video || {};
+  const images = Array.isArray(run?.artifacts?.images) ? run.artifacts.images : [];
+  return {
+    video: [video.status || '', video.threadId || '', video.lastCheckedAt || '',
+      video.lastPollError || '', (video.videoUrls || [])[0] || ''].join(':'),
+    posters: images.map((item) => [item.variant || '', item.status || '', item.taskId || '',
+      item.lastCheckedAt || '', item.error || '', item.url || ''].join(':')).join('|')
+  };
+}
+
+/**
+ * Advance a run through all work that is safe to do in the current request.
+ *
+ * The old worker called `processRun` once, so P1 -> P2 -> P5 -> P3 required a
+ * separate cron tick or a browser action for every transition.  This batch
+ * wrapper removes that artificial click boundary while retaining hard safety
+ * boundaries:
+ *
+ * - every transition is persisted by the existing stage functions;
+ * - a future retry/backoff pauses the batch;
+ * - once an external paid task is submitted, at most one poll is performed in
+ *   this invocation and the durable task ID is left for the next worker tick;
+ * - no progress means stop, preventing a hot loop on a locked or waiting run;
+ * - the caller can bound steps/time for the deployment's function budget.
+ */
+async function processRunBatch(redis, run, options = {}) {
+  const maxSteps = Math.max(1, Math.min(Number(options.maxSteps) || 10, 30));
+  const maxRuntimeMs = Math.max(5000, Math.min(Number(options.maxRuntimeMs) || 240000, 700000));
+  const stopAfterMedia = options.stopAfterMedia !== false;
+  const startedAt = Date.now();
+  const stages = [];
+  let steps = 0;
+  let progressed = false;
+  let stopReason = 'max_steps';
+
+  while (steps < maxSteps && Date.now() - startedAt < maxRuntimeMs) {
+    if (!run || ['completed', 'failed', 'blocked'].includes(String(run.state || ''))) {
+      stopReason = run?.state === 'completed' ? 'completed' : run?.state === 'failed' ? 'failed' : run?.state === 'blocked' ? 'blocked' : 'missing';
+      break;
+    }
+    if (pendingFutureRetry(run)) {
+      stopReason = 'backoff';
+      break;
+    }
+    const before = runProgressFingerprint(run);
+    const beforeStages = Object.fromEntries(Object.entries(run.stages || {})
+      .map(([name, stage]) => [name, stageProgressFingerprint(stage)]));
+    const beforeMedia = externalMediaInFlight(run);
+    const beforeMediaPoll = mediaPollFingerprint(run);
+    const updated = await processRunOnce(redis, run);
+    run = updated || run;
+    steps += 1;
+    const after = runProgressFingerprint(run);
+    const changed = before !== after;
+    progressed = progressed || changed;
+    const afterMedia = externalMediaInFlight(run);
+    const afterMediaPoll = mediaPollFingerprint(run);
+    const changedStages = Object.entries(run.stages || {}).filter(([name, stage]) => beforeStages[name] !== stageProgressFingerprint(stage)).map(([name]) => name);
+    stages.push(...changedStages);
+
+    if (!changed) {
+      stopReason = 'no_progress';
+      break;
+    }
+    if (['completed', 'failed', 'blocked'].includes(String(run.state || ''))) {
+      stopReason = run.state;
+      break;
+    }
+    // Do not spin on paid-provider polling.  A transition into an external
+    // in-flight state is already useful progress; leave the durable ID for the
+    // next cron tick so the provider is not hammered and no duplicate charge
+    // can be caused by a second browser request.
+    if (stopAfterMedia && ((!beforeMedia.videoInFlight && afterMedia.videoInFlight)
+      || (!beforeMedia.posterInFlight && afterMedia.posterInFlight))) {
+      stopReason = 'media_submitted';
+      break;
+    }
+    const videoPolled = beforeMedia.videoInFlight && afterMedia.videoInFlight
+      && !changedStages.includes('P3_5')
+      && (beforeMediaPoll.video !== afterMediaPoll.video || changedStages.includes('P4') || changedStages.length === 0);
+    const posterPolled = beforeMedia.posterInFlight && afterMedia.posterInFlight
+      && !changedStages.includes('P4')
+      && (beforeMediaPoll.posters !== afterMediaPoll.posters || changedStages.includes('P3_5') || changedStages.length === 0);
+    if (stopAfterMedia && (videoPolled || posterPolled)) {
+      stopReason = 'media_poll';
+      break;
+    }
+    if (pendingFutureRetry(run)) {
+      stopReason = 'backoff';
+      break;
+    }
+  }
+  if (steps >= maxSteps && stopReason === 'max_steps') stopReason = 'max_steps';
+  else if (Date.now() - startedAt >= maxRuntimeMs && !['completed', 'failed', 'blocked'].includes(String(run?.state || ''))) stopReason = 'time_budget';
+  return {
+    run,
+    steps,
+    progressed,
+    stopReason,
+    elapsedMs: Date.now() - startedAt,
+    stages: [...new Set(stages)]
+  };
+}
+
+async function processRun(redis, run, options = {}) {
+  return options?.batch ? processRunBatch(redis, run, options) : processRunOnce(redis, run);
+}
+
+module.exports = { processRun, processRunOnce, processRunBatch, p3, selectedChapters, normalizeCreative, summarizeAnalytics, refreshAnalytics, cleanError, videoPayload, referenceVideoPayload };

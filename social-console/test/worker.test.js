@@ -112,6 +112,34 @@ test('manual run requests take priority over queued Discord work', async (t) => 
   assert.equal(discordCalls, 0);
 });
 
+test('run worker requests bounded one-click batch advancement and exposes its progress', async (t) => {
+  const target = run();
+  let options;
+  const { result } = await invoke(t, {
+    body: { id: target.id },
+    store: { getRun: async () => target },
+    pipeline: {
+      processRun: async (_redis, item, value) => {
+        options = value;
+        item.stages.P3 = { status: 'done' };
+        return { run: item, steps: 4, progressed: true, stopReason: 'media_submitted', elapsedMs: 3210, stages: ['P2', 'P5', 'P3', 'P4'] };
+      }
+    }
+  });
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(options.batch, true);
+  assert.equal(options.stopAfterMedia, true);
+  assert.equal(result.body.worked, true);
+  assert.deepEqual(result.body.batch, {
+    steps: 4,
+    progressed: true,
+    elapsedMs: 3210,
+    stopReason: 'media_submitted',
+    stages: ['P2', 'P5', 'P3', 'P4']
+  });
+});
+
 test('detail hydration rebuilds a compact snapshot without advancing providers or pipeline', async (t) => {
   const target = run();
   target.artifacts.evidence = { chapters: [{ order: 1, content: 'x'.repeat(50000) }] };

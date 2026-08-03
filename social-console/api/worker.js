@@ -9,6 +9,16 @@ const providers = require('./_lib/providers');
 const WORKER_LEASE_SECONDS = 810;
 const STALE_LEASE_MS = 825000;
 const STALE_CREATIVE_MS = 14 * 60 * 1000;
+// A worker invocation may now advance several immediately-runnable stages,
+// but keeps a hard budget so one slow provider cannot starve the cron queue.
+// Paid media is intentionally handed back after one submit/poll; the next
+// tick resumes from the persisted external task ID.
+// A fresh run needs roughly 18 durable transitions (identity, five evidence
+// batches, tracking, four creative sections, media preparation).  Keep the
+// ceiling above that so a fast model can genuinely reach paid submission in
+// one worker kick; the runtime budget still stops slow model calls safely.
+const BATCH_MAX_STEPS = 24;
+const BATCH_RUNTIME_MS = 240000;
 
 function compactStoredEvidence(run) {
   const chapters = run.artifacts?.evidence?.chapters;
@@ -205,8 +215,24 @@ module.exports = async (req, res) => {
         await saveRun(redis, run);
       }
       if (interruptedCreative) await saveRun(redis, run);
-      const updated = await processRun(redis, run);
-      return res.status(200).json({ worked: true, run: runResult(updated) });
+      const batch = await processRun(redis, run, {
+        batch: true,
+        maxSteps: BATCH_MAX_STEPS,
+        maxRuntimeMs: BATCH_RUNTIME_MS,
+        stopAfterMedia: true
+      });
+      const updated = batch?.run || run;
+      return res.status(200).json({
+        worked: Boolean(batch?.progressed ?? true),
+        run: runResult(updated),
+        batch: {
+          steps: Number(batch?.steps || 0),
+          progressed: Boolean(batch?.progressed),
+          elapsedMs: Number(batch?.elapsedMs || 0),
+          stopReason: String(batch?.stopReason || ''),
+          stages: Array.isArray(batch?.stages) ? batch.stages : []
+        }
+      });
     } finally { await releaseLease(redis, leaseState.lease); }
   } catch (error) {
     console.error('[social/worker]', error);
