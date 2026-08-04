@@ -330,22 +330,32 @@ function creativePlanDetail(plan) {
 }
 async function listRunSummaries(redis, limit = 12) {
   if (!redis) return [];
-  const ids = await redis.zrange(RUN_INDEX, 0, limit - 1, { rev: true });
-  if (!ids.length) return [];
-  const storedSummaries = await getMany(redis, ids.map(runSummaryKey));
-  const summaries = await Promise.all(ids.map(async (id, index) => {
-    const stored = storedSummaries[index];
-    const parsed = stored ? parseStored(stored) : null;
-    if (parsed?._summaryVersion === RUN_SUMMARY_VERSION) return parsed;
-    // One-time lazy migration for old or oversized summaries. Subsequent
-    // dashboard loads only read the versioned compact projection.
-    const full = await getRun(redis, id);
-    if (!full) return null;
-    const summary = runSummary(full);
-    await redis.set(runSummaryKey(id), JSON.stringify(summary));
-    return summary;
-  }));
-  return summaries.filter(Boolean);
+  // Archived runs stay durable for audit and external-task reconciliation,
+  // but must never crowd the operator's active history list.
+  const visible = [];
+  const pageSize = Math.max(Math.min(limit * 3, 150), 50);
+  let offset = 0;
+  while (visible.length < limit) {
+    const ids = await redis.zrange(RUN_INDEX, offset, offset + pageSize - 1, { rev: true });
+    if (!ids.length) break;
+    const storedSummaries = await getMany(redis, ids.map(runSummaryKey));
+    const summaries = await Promise.all(ids.map(async (id, index) => {
+      const stored = storedSummaries[index];
+      const parsed = stored ? parseStored(stored) : null;
+      if (parsed?._summaryVersion === RUN_SUMMARY_VERSION) return parsed;
+      // One-time lazy migration for old or oversized summaries. Subsequent
+      // dashboard loads only read the versioned compact projection.
+      const full = await getRun(redis, id);
+      if (!full) return null;
+      const summary = runSummary(full);
+      await redis.set(runSummaryKey(id), JSON.stringify(summary));
+      return summary;
+    }));
+    visible.push(...summaries.filter((item) => item && item.state !== 'archived'));
+    if (ids.length < pageSize) break;
+    offset += ids.length;
+  }
+  return visible.slice(0, limit);
 }
 async function getRun(redis, id) {
   if (!redis || !/^[a-z0-9_-]{12,80}$/i.test(String(id || ''))) return null;

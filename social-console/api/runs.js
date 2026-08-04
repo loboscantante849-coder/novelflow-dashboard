@@ -1,4 +1,4 @@
-const { getRedis, getRun, getRunDetail, getRunSummary, listRunSummaries, newRun, saveRun, getCreativePlan, registerActiveRun, findActiveRun, acquireRunCreation, releaseRunCreation } = require('./_lib/store');
+const { getRedis, getRun, getRunDetail, getRunSummary, listRuns, listRunSummaries, newRun, saveRun, getCreativePlan, registerActiveRun, findActiveRun, acquireRunCreation, releaseRunCreation } = require('./_lib/store');
 const { requireSession } = require('./_lib/auth');
 const { normalizeCreative, refreshAnalytics } = require('./_lib/pipeline');
 const providers = require('./_lib/providers');
@@ -123,6 +123,23 @@ async function listRunsPayload(redis, loader = listRunSummaries) {
   return { runs: await loader(redis, 50) };
 }
 
+async function archiveFailedRuns(redis, loader = listRuns) {
+  // Read the durable index, rather than just the currently visible list, so a
+  // failed task cannot reappear after older entries are paged into view.
+  const runs = await loader(redis, 500);
+  const archived = [];
+  for (const run of runs) {
+    const hasFailedStage = Object.values(run?.stages || {}).some((stage) => stage?.status === 'failed');
+    if (run?.state !== 'failed' && !hasFailedStage) continue;
+    run.state = 'archived';
+    run.archivedAt = new Date().toISOString();
+    run.events = [...(run.events || []), { at: run.archivedAt, type: 'failed_run_archived', message: 'Operator cleared this failed task from the production console; external Code, links, and paid task records remain unchanged' }].slice(-80);
+    await saveRun(redis, run);
+    archived.push(run.id);
+  }
+  return archived;
+}
+
 async function loadRunView(redis, id, detailLoader = getRunDetail, summaryLoader = getRunSummary, detailDeadlineMs = 2500) {
   // A drawer must never wait on a large/legacy detail snapshot before it can
   // show the durable progress summary. The summary is written with every run
@@ -182,6 +199,9 @@ module.exports = async (req, res) => {
       return res.status(200).json(await listRunsPayload(redis));
     }
     if (req.method === 'PATCH') {
+      if (req.body?.action === 'archive_failed_all') {
+        return res.status(200).json({ archived: await archiveFailedRuns(redis) });
+      }
       const run = await getRun(redis, text(req.body?.id, 100));
       if (!run) return res.status(404).json({ error: 'Run not found' });
       if (req.body?.action === 'refresh_analytics') {
@@ -437,3 +457,4 @@ module.exports.listRunsPayload = listRunsPayload;
 module.exports.loadRunView = loadRunView;
 module.exports.buildRunInput = buildRunInput;
 module.exports.waitForActiveRun = waitForActiveRun;
+module.exports.archiveFailedRuns = archiveFailedRuns;

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { copyAssetPayload, listRunsPayload, loadRunView, buildRunInput } = require('../api/runs');
+const { copyAssetPayload, listRunsPayload, loadRunView, buildRunInput, archiveFailedRuns } = require('../api/runs');
 
 test('copy asset payload excludes full-book evidence and provider diagnostics', () => {
   const run = {
@@ -73,4 +73,24 @@ test('one-click mode is enforced even when a caller sends a different mode', () 
     paidAuthorized: true
   }, null);
   assert.equal(input.automationMode, 'one_click');
+});
+
+test('clearing failed tasks archives only failed runs and preserves their durable assets', async () => {
+  const failed = {
+    id: 'failed-run-1234', state: 'failed', stages: { P3: { status: 'failed' } },
+    artifacts: { code: 'NF-123', shortLink: 'https://example.com/s/123', video: { threadId: 'paid-video-1', status: 'failed' } }, events: []
+  };
+  const completed = { id: 'complete-run-12', state: 'completed', stages: { P6: { status: 'done' } }, artifacts: { code: 'NF-456' }, events: [] };
+  const saves = [];
+  const redis = {
+    async set(key, value) { saves.push({ key, value }); return 'OK'; },
+    async zadd() { return 1; }
+  };
+  const archived = await archiveFailedRuns(redis, async () => [failed, completed]);
+  assert.deepEqual(archived, [failed.id]);
+  assert.equal(failed.state, 'archived');
+  assert.equal(failed.artifacts.code, 'NF-123');
+  assert.equal(failed.artifacts.video.threadId, 'paid-video-1');
+  assert.equal(completed.state, 'completed');
+  assert.ok(saves.length >= 3);
 });

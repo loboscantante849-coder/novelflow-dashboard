@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createRedis, RemoteRedis, getMany, newRun, runSummary, runDetail, setStage, saveRun, findActiveRun, registerActiveRun, acquireRunCreation, releaseRunCreation, runIsActive } = require('../api/_lib/store');
+const { createRedis, RemoteRedis, getMany, listRunSummaries, newRun, runSummary, runDetail, setStage, saveRun, findActiveRun, registerActiveRun, acquireRunCreation, releaseRunCreation, runIsActive } = require('../api/_lib/store');
 
 test('storage uses direct Upstash credentials before the remote Vercel bridge', () => {
   const redis = createRedis({
@@ -37,6 +37,26 @@ test('dashboard summaries use one Redis batch read when mget is available', asyn
 test('dashboard summaries keep the remote bridge fallback without mget', async () => {
   const redis = { async get(key) { return `value:${key}`; } };
   assert.deepEqual(await getMany(redis, ['a', 'b']), ['value:a', 'value:b']);
+});
+test('dashboard summary lists skip archived tasks without hiding usable history', async () => {
+  const archived = newRun({ title: 'Archived failure', sku: 'archived-failure' });
+  archived.state = 'archived';
+  const visible = newRun({ title: 'Visible success', sku: 'visible-success' });
+  visible.state = 'completed';
+  const values = new Map([
+    [`nf_social:run_summary:${archived.id}`, JSON.stringify(runSummary(archived))],
+    [`nf_social:run_summary:${visible.id}`, JSON.stringify(runSummary(visible))]
+  ]);
+  const redis = {
+    async zrange(_key, start, end) { return [archived.id, visible.id].slice(start, end + 1); },
+    async mget(...keys) { return keys.map((key) => values.get(key) || null); },
+    async get(key) { return values.get(key) || null; },
+    async set(key, value) { values.set(key, value); return 'OK'; }
+  };
+
+  const summaries = await listRunSummaries(redis, 1);
+  assert.deepEqual(summaries.map((item) => item.id), [visible.id]);
+  assert.ok(values.has(`nf_social:run_summary:${archived.id}`));
 });
 test('dashboard run summaries retain operational state without transferring full planning and model payloads', () => {
   const run = newRun({

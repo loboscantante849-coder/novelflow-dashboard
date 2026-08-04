@@ -145,8 +145,8 @@ state.todayBooks = [];
 state.todayBooksLoading = false;
 state.todayBooksError = '';
 const TODAY_RECOMMENDATION_WINDOWS = [
-  { days: 7, minUv: 100, minBooks: 6 },
-  { days: 30, minUv: 100, minBooks: 6 }
+  { days: 7, minUv: 0, minBooks: 1 },
+  { days: 30, minUv: 0, minBooks: 1 }
 ];
 state.todayDataQuality = '';
 state.statusRequest = null;
