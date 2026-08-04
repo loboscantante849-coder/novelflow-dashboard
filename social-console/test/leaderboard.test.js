@@ -177,6 +177,27 @@ test('an explicit Top 200 refresh receives the long server budget', async (t) =>
   assert.ok(deadlineMs >= 60000);
 });
 
+test('catalog enforces a promotion-scale UV threshold for every time window', async (t) => {
+  const originals = { contentDashboardBooks: providers.contentDashboardBooks, topBooks: providers.topBooks };
+  t.after(() => Object.assign(providers, originals));
+  const requests = [];
+  providers.topBooks = async () => [];
+  providers.contentDashboardBooks = async (input) => {
+    requests.push(input);
+    return {
+      books: [{ bookSkuId: `qualified-${input.minReadUnt}`, title: 'Qualified Book', source: 'content_dashboard', baseReadUnt: input.minReadUnt, firstReadUntRate: 35, read10wRate: 20 }],
+      total: 1, candidateTotal: 200, qualifiedTotal: 1, observedTopUv: input.minReadUnt, fetched: 200
+    };
+  };
+  const seven = await invokeLeaderboard(new MemoryRedis(), { days: '7', refresh: '1' });
+  const thirty = await invokeLeaderboard(new MemoryRedis(), { days: '30', refresh: '1' });
+  const ninety = await invokeLeaderboard(new MemoryRedis(), { days: '90', refresh: '1' });
+  assert.deepEqual(requests.map((request) => request.minReadUnt), [300, 1000, 3000]);
+  assert.equal(seven.body.metrics.promotionMinUv, 300);
+  assert.equal(thirty.body.metrics.promotionMinUv, 1000);
+  assert.equal(ninety.body.metrics.promotionMinUv, 3000);
+});
+
 test('catalog failure cooldown avoids repeating a known unavailable source', async (t) => {
   const original = providers.contentDashboardBooks;
   t.after(() => { providers.contentDashboardBooks = original; });

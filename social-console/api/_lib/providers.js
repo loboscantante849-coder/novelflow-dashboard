@@ -304,12 +304,36 @@ async function contentDashboardBooks({ startDate, endDate, sortField = 'baseRead
     isShort: [0, 1].includes(Number(filters.isShort)) ? Number(filters.isShort) === 1 : shortValue(item.isShort ?? item.shortStory ?? item.shortBook),
     source: 'content_dashboard'
   })).filter((book) => book.title && book.bookSkuId);
-  const books = records
+  const normalizedRate = (value) => {
+    const numeric = Number(value || 0);
+    if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+    return Math.min(numeric > 1 ? numeric / 100 : numeric, 1);
+  };
+  const maxUv = Math.max(...records.map((book) => Number(book.baseReadUnt || 0)), 1);
+  const maxProfit = Math.max(...records.map((book) => Number(book.ttProfit || 0)), 0);
+  const scoredRecords = records.map((book) => {
+    const uvScore = Math.log1p(Math.max(0, Number(book.baseReadUnt || 0))) / Math.log1p(maxUv);
+    const firstReadScore = normalizedRate(book.firstReadUntRate);
+    const longReadScore = Math.max(normalizedRate(book.read20wRate), normalizedRate(book.read10wRate));
+    const profitScore = maxProfit > 0 ? Math.max(0, Number(book.ttProfit || 0)) / maxProfit : 0;
+    return { ...book, promotionScore: Number((100 * (uvScore * .45 + firstReadScore * .25 + longReadScore * .25 + profitScore * .05)).toFixed(2)) };
+  });
+  const books = scoredRecords
     .filter((book) => book.baseReadUnt >= minReadUnt)
     .sort((left, right) => Number(right[sortField] || 0) - Number(left[sortField] || 0) || right.baseReadUnt - left.baseReadUnt)
     .slice(0, 200)
     .map((book, index) => ({ ...book, rank: index + 1 }));
-  return { books, total: Number(total || records.length), minReadUnt, payload, partial, fetched: records.length };
+  return {
+    books,
+    total: Number(total || records.length),
+    candidateTotal: records.length,
+    qualifiedTotal: books.length,
+    observedTopUv: Math.max(...records.map((book) => Number(book.baseReadUnt || 0)), 0),
+    minReadUnt,
+    payload,
+    partial,
+    fetched: records.length
+  };
 }
 
 async function topBooks(limit = 200) {

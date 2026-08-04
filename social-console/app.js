@@ -1,5 +1,5 @@
 const storedRecommendationHistory = (() => { try { return JSON.parse(localStorage.getItem('nf_social:recommendation_history') || '[]'); } catch { return []; } })();
-const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogFilters: { line: 'novelflow', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all' }, historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 12, detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, kickPromise: null, longKickKey: '', startingSku: '', planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0 };
+const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'promotionScore', catalogFilters: { line: 'novelflow', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all' }, historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 12, detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, kickPromise: null, longKickKey: '', startingSku: '', planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0 };
 // These browser-only maps make the first click feel immediate while the
 // durable run remains the source of truth. They are intentionally not
 // persisted: a refresh reconciles them from /api/status.
@@ -145,8 +145,8 @@ state.todayBooks = [];
 state.todayBooksLoading = false;
 state.todayBooksError = '';
 const TODAY_RECOMMENDATION_WINDOWS = [
-  { days: 7, minUv: 20, minBooks: 6 },
-  { days: 30, minUv: 80, minBooks: 6 }
+  { days: 7, minUv: 300, minBooks: 6 },
+  { days: 30, minUv: 1000, minBooks: 6 }
 ];
 state.todayDataQuality = '';
 state.statusRequest = null;
@@ -201,7 +201,7 @@ const labels = { queued: '排队中', running: '生产中', completed: '已完�
 const stageLabels = { P1: '选书', P2: '证据', P3: '创意', P3_5: '海报', P4: '视频', P5: 'Code', P6: '审核' };
 const stageIcons = { P1: 'book-open-check', P2: 'library', P3: 'message-square-text', P3_5: 'images', P4: 'video', P5: 'link-2', P6: 'badge-check' };
 const pipelineOrder = ['P1', 'P2', 'P5', 'P3', 'P4', 'P3_5', 'P6'];
-const catalogSortLabels = { baseReadUnt: '阅读 UV', firstReadUntRate: '首读率', read10wRate: '10 万字留存', read20wRate: '20 万字留存', ttProfit: '利润' };
+const catalogSortLabels = { promotionScore: '推广综合分', baseReadUnt: '阅读 UV', firstReadUntRate: '首读率', read10wRate: '10 万字留存', read20wRate: '20 万字留存', ttProfit: '利润' };
 
 let iconFrame = 0;
 function icons() {
@@ -1044,8 +1044,9 @@ function catalogDataHealth(books = state.leaderboard, sortKey = state.catalogSor
   const read10w = metricHasSignal(books, 'read10wRate');
   const read20w = metricHasSignal(books, 'read20wRate');
   const profit = metricHasSignal(books, 'ttProfit');
-  const byMetric = { baseReadUnt: uv, firstReadUntRate: firstRead, read10wRate: read10w, read20wRate: read20w, ttProfit: profit };
-  return { uv, firstRead, read10w, read20w, profit, selected: Boolean(byMetric[sortKey]), any: uv || firstRead || read10w || read20w || profit };
+  const promotionScore = metricHasSignal(books, 'promotionScore');
+  const byMetric = { promotionScore, baseReadUnt: uv, firstReadUntRate: firstRead, read10wRate: read10w, read20wRate: read20w, ttProfit: profit };
+  return { uv, firstRead, read10w, read20w, profit, promotionScore, selected: Boolean(byMetric[sortKey]), any: uv || firstRead || read10w || read20w || profit };
 }
 
 function catalogQualityAllowsRanking(books = state.leaderboard, quality = state.leaderboardDataQuality) {
@@ -1466,13 +1467,19 @@ function renderLeaderboard() {
   if (catalog) {
     const sortLabel = catalogSortLabels[state.catalogSort] || '阅读 UV';
     const visibleBooks = catalogVisibleBooks();
+    const promotionMinUv = Number(state.leaderboardMetrics?.promotionMinUv || state.leaderboardMetrics?.minReadUnt || 0);
+    const observedTopUv = Number(state.leaderboardMetrics?.observedTopUv || 0);
+    const candidateTotal = Number(state.leaderboardMetrics?.candidateTotal || state.leaderboardMetrics?.fetched || visibleBooks.length);
     if (!visibleBooks.length) {
       grid.innerHTML = '';
       empty.hidden = false;
-      empty.innerHTML = '<i data-lucide="list-filter"></i><strong>当前组合没有匹配书籍</strong><span>真实榜单仍然有效，可调整长短篇或题材筛选。</span>';
+      const sampleMessage = promotionMinUv
+        ? `本时间窗没有达到推广样本门槛（阅读 UV ≥ ${compactNumber(promotionMinUv)}）的书${observedTopUv ? `；当前最高仅 ${compactNumber(observedTopUv)} UV` : ''}。低样本书只作观察，不允许进入一键生产。`
+        : '真实榜单仍然有效，可调整长短篇或题材筛选。';
+      empty.innerHTML = `<i data-lucide="list-filter"></i><strong>${promotionMinUv ? '当前没有可推广级候选' : '当前组合没有匹配书籍'}</strong><span>${escapeHtml(sampleMessage)}</span>`;
       $('#leaderboardSection').classList.remove('metrics-pending');
       $('#leaderboardUpdated').classList.remove('warning');
-      $('#leaderboardUpdated').textContent = `Top ${state.leaderboard.length} 已加载 · 当前筛选 0 本`;
+      $('#leaderboardUpdated').textContent = promotionMinUv ? `候选池 ${candidateTotal} 本 · 推广级 0 本 · UV 门槛 ${compactNumber(promotionMinUv)}` : `Top ${state.leaderboard.length} 已加载 · 当前筛选 0 本`;
       state.selectedBooks.clear();
       renderLeaderboardPager(0, 0);
       renderBatchBookBar();
@@ -1502,6 +1509,8 @@ function renderLeaderboard() {
           : '';
       const metric = state.catalogSort === 'ttProfit'
         ? `$${Number(book.ttProfit || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+        : state.catalogSort === 'promotionScore'
+          ? `${Number(book.promotionScore || 0).toFixed(0)} / 100`
         : state.catalogSort === 'baseReadUnt'
           ? compactNumber(book.baseReadUnt)
           : percentage(book[state.catalogSort]);
@@ -1517,7 +1526,7 @@ function renderLeaderboard() {
     const window = state.leaderboardWindow;
     $('#leaderboardUpdated').classList.toggle('warning', !selectedMetricReady);
     $('#leaderboardUpdated').textContent = selectedMetricReady
-      ? (window?.throughDate ? `${window.startDate} 至 ${window.throughDate} · ${sortLabel} · Top ${visibleBooks.length}${state.leaderboardWarning ? ` · ${state.leaderboardWarning}` : ''}` : '正在加载中台业务数据')
+      ? (window?.throughDate ? `${window.startDate} 至 ${window.throughDate} · ${sortLabel} · 推广级 ${visibleBooks.length}/${candidateTotal}${promotionMinUv ? ` · UV ≥ ${compactNumber(promotionMinUv)}` : ''}${state.catalogSort === 'promotionScore' ? ' · UV 45% / 首读 25% / 长读 25% / 利润 5%' : ''}${state.leaderboardWarning ? ` · ${state.leaderboardWarning}` : ''}` : '正在加载中台业务数据')
       : `已找到 ${visibleBooks.length} 本书，但中台 ${sortLabel} 尚未通过验证 · 已禁止按榜单启动`;
     renderLeaderboardPager(displayedBooks.length, visibleBooks.length, totalPages);
     document.querySelectorAll('.start-book').forEach((button) => button.addEventListener('click', () => {

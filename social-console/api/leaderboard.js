@@ -2,7 +2,7 @@ const { getRedis } = require('./_lib/store');
 const { requireSession } = require('./_lib/auth');
 const providers = require('./_lib/providers');
 
-const CATALOG_CACHE_VERSION = 'v12';
+const CATALOG_CACHE_VERSION = 'v13';
 const VERIFIED_CATALOG_SOURCE = 'content_dashboard_performance';
 const CATALOG_METRIC_KEYS = ['baseReadUnt', 'firstReadUntRate', 'read10wRate', 'read20wRate', 'ttProfit'];
 
@@ -234,19 +234,23 @@ function catalogFilters(query) {
 async function catalogBooks(days, sortField, filters, options = {}) {
   const startedAt = Date.now();
   const deadlineMs = Math.max(4000, Number(options.deadlineMs || 14000));
-  const minReadUnt = sortField === 'baseReadUnt' ? 0 : (days === 7 ? 50 : days === 30 ? 150 : 300);
+  // A book with a high conversion rate over a few dozen reads is an
+  // observation, not a production recommendation. Apply the same minimum
+  // exposure requirement to every sort mode so rate-based sorting cannot
+  // elevate statistically meaningless records above proven books.
+  const promotionMinUv = days === 7 ? 300 : days === 30 ? 1000 : 3000;
   const load = async (lagDays) => {
     const remainingMs = Math.max(1200, deadlineMs - (Date.now() - startedAt));
     const window = rangeForDays(days, lagDays);
     const result = await providers.contentDashboardBooks({
       ...window,
       sortField,
-      minReadUnt,
+      minReadUnt: promotionMinUv,
       filters,
       maxPages: 10,
       deadlineMs: remainingMs
     });
-    return { ...result, window: { days, dataLagDays: lagDays, throughDate: window.endDate, startDate: window.startDate, endDate: window.endDate } };
+    return { ...result, promotionMinUv, window: { days, dataLagDays: lagDays, throughDate: window.endDate, startDate: window.startDate, endDate: window.endDate } };
   };
   try {
     return await load(1);
@@ -269,8 +273,8 @@ module.exports = async (req, res) => {
   const days = source === 'history'
     ? ([3, 7, 30].includes(Number(req.query?.days)) ? Number(req.query.days) : 7)
     : ([7, 30, 90].includes(Number(req.query?.days)) ? Number(req.query.days) : 30);
-  const allowedSorts = new Set(['baseReadUnt', 'firstReadUntRate', 'read10wRate', 'read20wRate', 'ttProfit']);
-  const sortField = allowedSorts.has(String(req.query?.sort)) ? String(req.query.sort) : 'baseReadUnt';
+  const allowedSorts = new Set(['promotionScore', 'baseReadUnt', 'firstReadUntRate', 'read10wRate', 'read20wRate', 'ttProfit']);
+  const sortField = allowedSorts.has(String(req.query?.sort)) ? String(req.query.sort) : 'promotionScore';
   const filters = source === 'catalog' ? catalogFilters(req.query) : null;
   const day = shanghaiDay();
   const filterKey = source === 'catalog' ? `${filters.productLine[0]}:${filters.language}:${filters.completeSts}:${filters.status}:${String(filters.isShort)}` : 'performance';
@@ -312,7 +316,7 @@ module.exports = async (req, res) => {
       source: source === 'history' ? 'unified_funnel_performance' : 'content_dashboard_performance',
       selectionMode: source,
       window: result.window,
-      metrics: result.metrics || { sortField, candidateTotal: result.total, minReadUnt: result.minReadUnt || 0, filters, partial: Boolean(result.partial), fetched: Number(result.fetched || books.length) }
+      metrics: result.metrics || { sortField, candidateTotal: Number(result.candidateTotal || result.total || result.fetched || books.length), qualifiedTotal: Number(result.qualifiedTotal || books.length), observedTopUv: Number(result.observedTopUv || 0), promotionMinUv: Number(result.promotionMinUv || result.minReadUnt || 0), minReadUnt: Number(result.promotionMinUv || result.minReadUnt || 0), filters, partial: Boolean(result.partial), fetched: Number(result.fetched || books.length) }
     };
     if (source === 'catalog') {
       if (!hasVerifiedCatalogMetrics(payload)) throw new providers.ProviderError('Content dashboard ranking did not include verified metric provenance');

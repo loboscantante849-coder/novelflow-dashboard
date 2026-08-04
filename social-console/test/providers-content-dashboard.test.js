@@ -32,6 +32,31 @@ test('content dashboard uses the Writer Admin request contract and sorts locally
   assert.deepEqual(result.books.map((book) => book.title), ['First', 'Second']);
 });
 
+test('promotion score ranks only statistically qualified books and balances scale with conversion', async (t) => {
+  const originalFetch = global.fetch;
+  const previousToken = process.env.NOVELFLOW_OIDC_TOKEN;
+  process.env.NOVELFLOW_OIDC_TOKEN = 'test-dashboard-token';
+  t.after(() => {
+    global.fetch = originalFetch;
+    if (previousToken === undefined) delete process.env.NOVELFLOW_OIDC_TOKEN;
+    else process.env.NOVELFLOW_OIDC_TOKEN = previousToken;
+  });
+  global.fetch = async () => new Response(JSON.stringify({ code: 200, data: { total: 3, data: [
+    { skuId: 'tiny', title: 'Tiny Sample', baseReadUnt: 71, firstReadUntRate: 90, read10wRate: 90, read20wRate: 80, ttProfit: 5 },
+    { skuId: 'scale', title: 'Scale Winner', baseReadUnt: 2000, firstReadUntRate: 35, read10wRate: 25, read20wRate: 18, ttProfit: 80 },
+    { skuId: 'balanced', title: 'Balanced Winner', baseReadUnt: 1200, firstReadUntRate: 55, read10wRate: 45, read20wRate: 35, ttProfit: 70 }
+  ] } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  const result = await providers.contentDashboardBooks({
+    startDate: '2026-07-01', endDate: '2026-07-07', sortField: 'promotionScore', minReadUnt: 300,
+    filters: { productLine: ['novelflow'], language: 'EN' }, maxPages: 1
+  });
+  assert.deepEqual(result.books.map((book) => book.title), ['Balanced Winner', 'Scale Winner']);
+  assert.equal(result.candidateTotal, 3);
+  assert.equal(result.qualifiedTotal, 2);
+  assert.equal(result.observedTopUv, 2000);
+  assert.ok(result.books.every((book) => book.promotionScore > 0));
+});
+
 test('content dashboard refreshes an expired configured credential once after its masked 500', async (t) => {
   const originalFetch = global.fetch;
   const previous = {
