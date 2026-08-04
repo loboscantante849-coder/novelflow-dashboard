@@ -1433,9 +1433,9 @@ function renderLeaderboard() {
     renderCoverRetryControl();
   }
   $('#leaderboardEyebrow').textContent = catalog ? 'CONTENT DASHBOARD' : 'PROMOTION REVIEW';
-  $('#leaderboardTitle').textContent = catalog ? '新推广表现选书' : '历史投放复盘';
+  $('#leaderboardTitle').textContent = catalog ? '从真实榜单选一本' : '历史投放复盘';
   $('#leaderboardDescription').textContent = catalog
-    ? '来自中台数据看板：novelflow、英语、已完结、上架。短篇/常规长篇直接对应后台“是否短篇=是/否”；按近 7/30/90 天窗口和真实业务指标排序。'
+    ? 'NovelFlow 中台全书库数据，按近 7/30/90 天窗口和真实业务指标排序。'
     : '把你们历史 Code / 链接的书级归因翻译成明确复投结论；不混入新推广书池，也不冒充单条素材表现。';
   $('#windowControl').hidden = catalog;
   $('#catalogWindowControl').hidden = !catalog;
@@ -1971,7 +1971,7 @@ function renderStats() {
     const description = button.querySelector('small');
     if (description) description.textContent = scopeCopy[button.dataset.overviewFilter] || description.textContent;
   });
-  const viewText = { operations: '所有小说的素材、进度与归因表现', library: '按书籍快速取用已完成的文案、视频、海报与追踪链接', completed: '已完成的生产任务与可复用资产', attention: '需要确认、重试或核验的任务' };
+  const viewText = { operations: '素材、生产进度与发布后的真实表现', library: '按书籍快速取用已完成的文案、视频、海报与追踪链接', completed: '已完成的生产任务与可复用资产', attention: '需要确认、重试或核验的任务' };
   const overviewText = { active: '正在生产中的任务', assets: '已有可直接使用素材的任务', attention: '失败、阻塞、歧义或部分完成的任务' };
   $('#viewSubtitle').textContent = state.view === 'operations' && state.overviewFilter !== 'all' ? overviewText[state.overviewFilter] : (viewText[state.view] || viewText.operations);
 }
