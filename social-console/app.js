@@ -2745,6 +2745,14 @@ function dispatchesForRun(run) {
   return [{ key: `run:${run.id}`, payload: { id: run.id }, modelChoice, longTask: usesLongBackground(modelChoice) }];
 }
 
+function hasAutomaticCreativeRecovery(run) {
+  const stage = run?.stages?.P3 || {};
+  const recoverablePhase = ['waiting_for_operator', 'validation_waiting_for_operator', 'model_output_repairing'].includes(String(stage.phase || ''));
+  const structuredFailure = /invalid structured output|invalid json|incomplete creative|missing required/i.test(String(stage.error || ''));
+  return run?.state === 'failed' && stage.status === 'failed' && recoverablePhase && structuredFailure
+    && Boolean(run.artifacts?.book && run.artifacts?.evidence?.chapters?.length && run.artifacts?.code && run.artifacts?.shortUrl);
+}
+
 function dispatchesForPlan(job) {
   const modelChoice = job.input?.modelChoice || 'hy3';
   return [{ key: `plan:${job.id}`, payload: { planId: job.id }, modelChoice, longTask: usesLongBackground(modelChoice) }];
@@ -2753,7 +2761,7 @@ function dispatchesForPlan(job) {
 async function kickWorker() {
   if (state.kickPromise) return state.kickPromise;
   const plans = state.planJobs.filter((job) => ['queued', 'running'].includes(job.state));
-  const runs = state.runs.filter((run) => ['queued', 'running'].includes(run.state));
+  const runs = state.runs.filter((run) => ['queued', 'running'].includes(run.state) || hasAutomaticCreativeRecovery(run));
   if (!plans.length && !runs.length) { state.longKickKey = ''; return 0; }
   state.kicking = true;
   state.kickPromise = (async () => {
@@ -3227,7 +3235,7 @@ const restoredDashboard = restoreDashboardSnapshot();
 if (restoredDashboard) {
   render();
 }
-loadStatus();
+loadStatus().then(() => { if (hasLiveBackgroundWork()) kickWorker(); });
 loadLeaderboard({ silent: true });
 const loadSecondaryStartup = () => {
   loadCreativePlans({ silent: true });
@@ -3241,7 +3249,7 @@ if ('requestIdleCallback' in window) window.requestIdleCallback(loadSecondarySta
 else setTimeout(loadSecondaryStartup, 120);
 let idlePlanPolls = 0;
 function hasLiveBackgroundWork() {
-  return state.runs.some((run) => ['queued', 'running'].includes(run.state)) || state.planJobs.some((job) => ['queued', 'running'].includes(job.state));
+  return state.runs.some((run) => ['queued', 'running'].includes(run.state) || hasAutomaticCreativeRecovery(run)) || state.planJobs.some((job) => ['queued', 'running'].includes(job.state));
 }
 async function pollDashboard() {
   let active = hasLiveBackgroundWork();

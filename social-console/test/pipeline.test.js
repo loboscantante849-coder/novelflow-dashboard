@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const providers = require('../api/_lib/providers');
-const { processRun, processRunBatch, p3, selectedChapters, summarizeAnalytics } = require('../api/_lib/pipeline');
+const { processRun, processRunBatch, p3, selectedChapters, sourceGroundedCreativeFallback, summarizeAnalytics } = require('../api/_lib/pipeline');
 const { processCreativePlan } = require('../api/_lib/creative-plans');
 const { newRun, newCreativePlan, reserveVideoSlot, saveRun, registerActiveRun } = require('../api/_lib/store');
 
@@ -33,6 +33,27 @@ test('chapter selector produces complete opening and escalation evidence without
   assert.equal(new Set(selected.map((item) => item.id)).size, 10);
   assert.equal(selected.filter((item) => item.source === 'opening').length, 6);
   assert.equal(selected.filter((item) => item.source === 'escalation').length, 4);
+});
+
+test('malformed creative routes can continue from exact saved chapter evidence without paid submission', () => {
+  const quotes = [
+    'She found the signed contract before dawn, and every promise she had trusted suddenly felt like a trap.',
+    'He closed the office door behind her and said the final clause had never been an offer at all.',
+    'She placed the evidence on his desk before he could destroy it, then waited for him to look up.'
+  ];
+  const run = {
+    artifacts: {
+      code: '44486', shortUrl: 'https://social.example/s/rescue',
+      evidence: { chapters: quotes.map((content, index) => ({ order: index + 1, content })) }
+    }
+  };
+  const creative = sourceGroundedCreativeFallback(run);
+  assert.ok(creative);
+  assert.equal(creative.posts.length, 2);
+  assert.equal(creative.videoPrompt.sourceEvidence.length, 3);
+  assert.equal(creative.posterPrompts.length, 2);
+  assert.equal(creative.qualityReview.status, 'unverified');
+  assert.match(creative.posts[0].content, /Code 44486/);
 });
 
 test('background creative planning resumes from saved chapter evidence', async (t) => {

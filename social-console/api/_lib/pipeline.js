@@ -520,6 +520,87 @@ function groundedVideoFallback(run, draft) {
   };
 }
 
+function sourceGroundedCreativeFallback(run) {
+  const chapters = run.artifacts?.evidence?.chapters || [];
+  const evidence = [];
+  for (const chapter of chapters) {
+    const content = String(chapter.content || '').replace(/\s+/g, ' ').trim();
+    const quote = (content.match(/[A-Za-z][^.!?]{36,180}[.!?]/) || [])[0]?.trim();
+    if (quote && !evidence.some((item) => item.quote === quote)) evidence.push({ chapter: Number(chapter.order), quote });
+    if (evidence.length >= 3) break;
+  }
+  if (evidence.length < 3 || !run.artifacts?.shortUrl || !run.artifacts?.code) return null;
+  const [opening, pressure, turn] = evidence;
+  const tags = '#NovelFlow #RomanceReads #BookTok #RomanceBooks #MustRead #Fiction';
+  const makePost = (type, lead, middle, ending, cited) => {
+    const sixSteps = {
+      hook: lead.quote,
+      pain: middle.quote,
+      sensory: `The moment hangs on one choice: ${middle.quote}`,
+      contrast: ending.quote,
+      deepDesire: 'To reach the truth before the next choice closes every way back.',
+      emotionalCta: `See what happens when the truth behind this choice can no longer stay hidden.`
+    };
+    const narrative = type === 'hook'
+      ? `"${lead.quote}"\n\nThat one line changes the air around every choice that follows. The pressure is already there, sharp and personal, and nobody gets to pretend it is harmless. ${middle.quote} 🖤\n\nThen the story turns just enough to make escape feel impossible. ${ending.quote} The question is no longer whether it matters. It is what this moment will cost. 🔥`
+      : `"${lead.quote}"\n\nWhat looked survivable becomes something far more dangerous when the consequences finally arrive. ${middle.quote} 💔\n\nAnd then comes the shift nobody can take back. ${ending.quote} Every promise, every fear, and every impossible choice is suddenly on the line. 🩸`;
+    return {
+      type,
+      sixSteps,
+      evidence: cited,
+      content: `${narrative}\n\n${sixSteps.emotionalCta}\nFind it in NovelFlow with Code ${run.artifacts.code}.\n${run.artifacts.shortUrl}\n${tags}`,
+      zhContent: `原文证据续航版：围绕第 ${lead.chapter}、${middle.chapter}、${ending.chapter} 章已锁定冲突，使用故事悬念 CTA 与 NovelFlow Code ${run.artifacts.code}。`
+    };
+  };
+  const creative = {
+    posts: [
+      makePost('hook', opening, pressure, turn, [opening, pressure]),
+      makePost('escalation', pressure, turn, opening, [pressure, turn])
+    ],
+    videoPrompt: {
+      hook: opening.quote,
+      valuePromise: pressure.quote,
+      escalation: `Pressure rises around: ${pressure.quote}`,
+      reversal: turn.quote,
+      cliffhanger: 'Hold on the choice whose consequences have not yet been resolved.',
+      sourceEvidence: evidence,
+      evidenceChapters: evidence.map((item) => item.chapter),
+      adCopy: `${opening.quote} ${pressure.quote} ${turn.quote}`,
+      buildRequirement: '0-2s: open on the exact documented disruption. 2-5s: show the protagonist reacting to the personal stake. 5-8s: tighten visual pressure around the documented conflict. 8-11s: reveal the supported shift in expectation. 11-15s: hold on the unresolved choice. Vertical 9:16, adult characters, cinematic continuity, consistent wardrobe and appearance, no subtitles, readable text, logos, CTA cards, or invented plot points.',
+      zhHook: `钩子：${opening.quote}`,
+      zhValuePromise: `价值：${pressure.quote}`,
+      zhEscalation: `升级：${pressure.quote}`,
+      zhReversal: `反转：${turn.quote}`,
+      zhCliffhanger: '悬念：停在原文尚未解决的选择上。'
+    },
+    posterPrompts: [
+      { variant: 'luminous_cinema', prompt: `Cinematic vertical romance poster, adult protagonists, a decisive emotional confrontation grounded in this exact story beat: ${opening.quote}. Show the documented pressure and the later shift without adding events, readable facial emotion, dramatic rim lighting, refined contemporary romance cover composition, 4:5, no text, no logos, no watermark, no childlike appearance.`, zhPrompt: '电影感：围绕原文已锁定的决定性冲突，强调人物情绪和光影。' },
+      { variant: 'editorial_romance', prompt: `Editorial romance poster, adult protagonists, elegant restrained tension drawn only from these supported story beats: ${pressure.quote} ${turn.quote}. Sophisticated fashion-magazine framing, realistic cinematic texture, intimate but non-explicit emotional distance, 4:5, no text, no logos, no watermark, consistent adult appearance and wardrobe.`, zhPrompt: '编辑感：围绕原文冲突与反转，克制而具有张力。' }
+    ],
+    qualityReview: { recommendation: 'keep', status: 'unverified', conclusion: '模型未能返回可解析结构；已从锁定章节证据生成可用的续航创意包。', why: '文案、视频剧情和海报提示词只使用已保存的章节原句与中性叙事连接，不新增剧情事实。', target: 'package' }
+  };
+  try { return normalizeCreative({ creative }, run); } catch { return null; }
+}
+
+function applySourceGroundedCreativeFallback(run, creative, error) {
+  const message = cleanError(error || 'Both model routes returned malformed structured output');
+  run.artifacts.posts = creative.posts;
+  run.artifacts.translations = { language: 'zh-CN', posts: creative.posts.map((item) => item.zhContent) };
+  run.artifacts.videoPrompt = creative.videoPrompt;
+  run.artifacts.posterPrompts = creative.posterPrompts;
+  run.artifacts.qualityReview = creative.qualityReview;
+  run.artifacts.optimization = { status: 'evidence_continuation', review: creative.qualityReview, resolvedAt: now() };
+  run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), {
+    section: 'creativePackage', requestedModel: run.artifacts?.modelRoute?.activeModel || run.input?.creativeProfile?.modelChoice || 'AI', model: 'evidence-continuation',
+    fallbackFrom: run.artifacts?.modelRoute?.activeModel || '', completedAt: now(), triggerReason: '两条模型路线均未返回可解析结构',
+    outputStatus: '已从锁定原文证据生成续航创意包；后续媒体可继续', error: message
+  }].slice(-24);
+  delete run.artifacts.creativeDraft;
+  run.state = 'running';
+  setStage(run, 'P3', 'done', { label: '模型格式异常；已从锁定原文证据生成创意包并继续后续素材', phase: 'evidence_continuation', recoverable: false, error: message });
+  addEvent(run, 'creative_evidence_continuation', 'Both model routes returned malformed structure; a validated creative package was built from saved exact chapter evidence so downstream work can continue', { error: message });
+}
+
 async function finalizeCreativeDraft(redis, run) {
   const draft = run.artifacts.creativeDraft;
   if (!draft || pendingCreativeSections(draft).length) return run;
@@ -745,6 +826,14 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
             await saveRun(redis, latest);
             const finalized = await finalizeCreativeDraft(redis, latest);
             return syncRun(originalRun, finalized);
+          }
+          if (pendingSection === 'posts' && structuredModelError(error)) {
+            const fallbackCreative = sourceGroundedCreativeFallback(latest);
+            if (fallbackCreative) {
+              applySourceGroundedCreativeFallback(latest, fallbackCreative, message);
+              await saveRun(redis, latest);
+              return syncRun(originalRun, latest);
+            }
           }
           latestDraft.failures[pendingSection] = { attempt, at: now(), error: message, nextAttemptAt: '', recoverable: false, fallbackFrom: error?.fallbackFrom || preferredModel, fallbackModel: error?.fallbackModel || '' };
           latest.artifacts.modelActivity = [...(latest.artifacts.modelActivity || []), { section: pendingSection, requestedModel: preferredModel, model: '', fallbackFrom: error?.fallbackFrom || preferredModel, fallbackModel: error?.fallbackModel || '', fallbackReason: error?.fallbackReason || '首选与唯一备用模型均未返回可用结果', completedAt: now(), triggerReason: '后台生产恢复', outputStatus: '未产出，等待人工决定', error: message }].slice(-24);
@@ -1240,7 +1329,15 @@ async function processRunOnce(redis, run) {
     && run.artifacts?.shortUrl
     && !run.artifacts?.video
     && !(run.artifacts?.images || []).some((item) => item?.taskId);
-  if (recoverableCreativeFailure || autoRecoverableCreativeFailure(run)) {
+  const structuredLegacyCreativeFailure = autoRecoverableCreativeFailure(run);
+  if (structuredLegacyCreativeFailure) {
+    const fallbackCreative = sourceGroundedCreativeFallback(run);
+    if (fallbackCreative) {
+      applySourceGroundedCreativeFallback(run, fallbackCreative, run.stages.P3.error);
+      await saveRun(redis, run);
+    }
+  }
+  if (recoverableCreativeFailure || (structuredLegacyCreativeFailure && run.stages.P3?.status !== 'done')) {
     run.state = 'running';
     run.stages.P3 = { ...run.stages.P3, status: 'waiting', phase: 'recovered', attempt: 0, nextAttemptAt: '', error: '', recoverable: true, label: '旧创意失败已自动恢复，正在重新路由模型' };
     addEvent(run, 'legacy_creative_failure_recovered', 'Legacy P3 failure was restored from saved evidence and tracking data');
@@ -1484,4 +1581,4 @@ async function processRun(redis, run, options = {}) {
   return options?.batch ? processRunBatch(redis, run, options) : processRunOnce(redis, run);
 }
 
-module.exports = { processRun, processRunOnce, processRunBatch, p3, selectedChapters, normalizeCreative, summarizeAnalytics, refreshAnalytics, cleanError, videoPayload, referenceVideoPayload };
+module.exports = { processRun, processRunOnce, processRunBatch, p3, selectedChapters, normalizeCreative, sourceGroundedCreativeFallback, summarizeAnalytics, refreshAnalytics, cleanError, videoPayload, referenceVideoPayload };

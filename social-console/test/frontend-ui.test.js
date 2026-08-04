@@ -434,6 +434,19 @@ test('kick targets every active run instead of only the first one', () => {
   assert.deepEqual(targets.map((item) => item.key), ['run:run-1', 'run:run-2']);
 });
 
+test('a malformed creative package is treated as background recovery work instead of a dead task', () => {
+  const context = {};
+  vm.createContext(context);
+  vm.runInContext(between('function hasAutomaticCreativeRecovery(', 'function dispatchesForPlan('), context);
+  const run = {
+    state: 'failed', stages: { P3: { status: 'failed', phase: 'waiting_for_operator', error: 'deepseek returned invalid structured output' } },
+    artifacts: { book: { title: 'Book' }, evidence: { chapters: [{ order: 1, content: 'evidence' }] }, code: '44486', shortUrl: 'https://social.example/s/x' }
+  };
+  assert.equal(context.hasAutomaticCreativeRecovery(run), true);
+  run.stages.P3.error = 'AC video ended with failed';
+  assert.equal(context.hasAutomaticCreativeRecovery(run), false);
+});
+
 test('automatic production uses one task-wide worker route instead of parallel model sections', () => {
   const source = between('function dispatchesForRun(', 'async function kickWorker(');
   assert.doesNotMatch(source, /creativeSection/);
