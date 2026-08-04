@@ -2750,7 +2750,6 @@ async function kickWorker() {
   state.kickPromise = (async () => {
     const targets = [...plans.flatMap(dispatchesForPlan), ...runs.flatMap(dispatchesForRun)];
     let dispatched = 0;
-    let longNoticeShown = false;
     for (const target of targets) {
       // Older open tabs may still have a section request in flight. Do not
       // overlap it with the single task-wide worker route.
@@ -2761,10 +2760,6 @@ async function kickWorker() {
       }
       if (!dispatchWorkerOnce(target.key, target.payload, { cooldownMs: WORKER_DISPATCH_COOLDOWN_MS })) continue;
       dispatched += 1;
-      if (target.longTask && !longNoticeShown) {
-        longNoticeShown = true;
-        showToast(`${modelLabel(target.modelChoice)} 已转入后台，页面不会阻塞；状态会自动更新`);
-      }
     }
     if (dispatched) {
       renderOneClickStatus();

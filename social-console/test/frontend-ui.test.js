@@ -391,6 +391,28 @@ test('worker dispatch lease releases after the request settles and keeps only a 
   assert.equal(context.dispatchWorkerOnce('run:1', { id: 'run-1' }), true);
 });
 
+test('background polling does not repeatedly toast when it dispatches a long-running model task', async () => {
+  let toastCount = 0;
+  const state = { kickPromise: null, kicking: false, planJobs: [], runs: [{ id: 'run-1', state: 'running' }] };
+  const context = {
+    state,
+    dispatchesForPlan: () => [],
+    dispatchesForRun: () => [{ key: 'run:run-1', payload: { id: 'run-1' }, longTask: true, modelChoice: 'deepseek' }],
+    workerDispatchBusy: () => false,
+    dispatchWorkerOnce: () => true,
+    WORKER_DISPATCH_COOLDOWN_MS: 4000,
+    renderOneClickStatus() {},
+    loadStatus: async () => {},
+    setTimeout() {},
+    showToast() { toastCount += 1; }
+  };
+  vm.createContext(context);
+  vm.runInContext(between('async function kickWorker()', 'async function retryRun('), context);
+  await context.kickWorker();
+  await context.kickWorker();
+  assert.equal(toastCount, 0);
+});
+
 test('a selected book exposes a stable pending production identity', () => {
   const state = { pendingProductions: new Map([['sku:sku-42', { title: 'Queued Book' }]]) };
   const context = { state, String };
