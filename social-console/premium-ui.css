@@ -65,6 +65,13 @@
 .detail-sync-state strong { color: #26363d; font-size: 11px; }
 .detail-sync-state span { margin-top: 3px; color: #6c7973; font-size: 9px; line-height: 1.45; }
 .detail-sync-state button { flex: none; height: 30px; padding: 0 8px; font-size: 9px; }
+.detail-sync-state.is-syncing > svg { animation: detail-sync-spin 1.1s linear infinite; }
+.asset-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.asset-summary > div { min-height: 58px; display: grid; align-content: center; gap: 3px; padding: 9px; border: 1px solid #dce6e1; border-radius: 5px; background: #fbfcfc; }
+.asset-summary strong { color: #087f5b; font-size: 19px; line-height: 1; }
+.asset-summary span { color: #6c7973; font-size: 9px; }
+@keyframes detail-sync-spin { to { transform: rotate(360deg); } }
+@media (max-width: 520px) { .asset-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .production-status-card { grid-template-columns: 28px minmax(0, 1fr); } .production-status-meta { grid-column: 2; padding: 7px 0 0; border-top: 1px solid #d8e9f4; border-left: 0; } }
 .copy-output-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
 .copy-output-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }

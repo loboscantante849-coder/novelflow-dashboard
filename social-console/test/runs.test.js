@@ -32,16 +32,26 @@ test('default runs payload uses bounded summaries instead of full chapter eviden
   assert.deepEqual(payload, { runs: [{ id: 'run-summary', _summary: true }] });
 });
 
-test('run detail falls back immediately to the compact summary while its snapshot is rebuilt', async () => {
+test('run detail reads the compact summary first and falls back when its snapshot is unavailable', async () => {
   const calls = [];
   const result = await loadRunView({ marker: 'redis' }, 'run-slow',
     async () => { calls.push('detail'); return null; },
     async () => { calls.push('summary'); return { id: 'run-slow', _summary: true, stages: { P3: { status: 'running' } } }; });
-  assert.deepEqual(calls, ['detail', 'summary']);
+  assert.deepEqual(calls, ['summary', 'detail']);
   assert.equal(result.partial, true);
   assert.equal(result.run._summary, false);
   assert.equal(result.run._detailPartial, true);
   assert.equal(result.run.stages.P3.status, 'running');
+});
+
+test('run detail returns the summary projection when a legacy snapshot exceeds its deadline', async () => {
+  const result = await loadRunView({ marker: 'redis' }, 'run-late',
+    async () => new Promise((resolve) => setTimeout(() => resolve({ id: 'run-late', full: true }), 30)),
+    async () => ({ id: 'run-late', _summary: true, stages: { P3: { status: 'waiting' } } }),
+    5);
+  assert.equal(result.partial, true);
+  assert.equal(result.run._detailPartial, true);
+  assert.equal(result.run.stages.P3.status, 'waiting');
 });
 
 test('one-click run input keeps source and full-book evidence decisions', () => {

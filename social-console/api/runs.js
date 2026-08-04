@@ -123,11 +123,23 @@ async function listRunsPayload(redis, loader = listRunSummaries) {
   return { runs: await loader(redis, 50) };
 }
 
-async function loadRunView(redis, id, detailLoader = getRunDetail, summaryLoader = getRunSummary) {
-  const detail = await detailLoader(redis, id);
-  if (detail) return { run: detail, partial: false };
+async function loadRunView(redis, id, detailLoader = getRunDetail, summaryLoader = getRunSummary, detailDeadlineMs = 2500) {
+  // A drawer must never wait on a large/legacy detail snapshot before it can
+  // show the durable progress summary. The summary is written with every run
+  // transition, while an older detail snapshot can be rebuilt in the background.
   const summary = await summaryLoader(redis, id);
-  return summary ? { run: { ...summary, _summary: false, _detailPartial: true }, partial: true } : { run: null, partial: false };
+  if (!summary) {
+    const detail = await detailLoader(redis, id);
+    return detail ? { run: detail, partial: false } : { run: null, partial: false };
+  }
+  let timeout;
+  const detail = await Promise.race([
+    Promise.resolve().then(() => detailLoader(redis, id)).catch(() => null),
+    new Promise((resolve) => { timeout = setTimeout(() => resolve(null), detailDeadlineMs); })
+  ]);
+  clearTimeout(timeout);
+  if (detail) return { run: detail, partial: false };
+  return { run: { ...summary, _summary: false, _detailPartial: true }, partial: true };
 }
 
 async function resolvePlanning(redis, value) {

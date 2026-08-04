@@ -129,7 +129,7 @@ function restoreDashboardSnapshot() {
 state.detailHydrating = '';
 state.detailError = '';
 state.detailHydrationJobs = new Set();
-state.detailHydrationTimers = new Map();
+state.detailHydrationAttempts = new Set();
 // Browser polling can run while a long provider request is still in flight.
 // Keep a per-run/section dispatch lease so the same paid or model task is not
 // submitted again merely because the dashboard refreshed.
@@ -871,25 +871,21 @@ async function hydrateRunDetail(id) {
   state.detailFingerprint = '';
   renderDetail();
   try {
-    const body = await api(`/api/runs?id=${encodeURIComponent(id)}`, { timeoutMs: 30000 });
+    // Full evidence is deliberately non-critical to opening a task. The API
+    // returns a compact, interactive projection after 2.5s when a legacy
+    // detail record is slow, so this short client budget is only a last guard.
+    const body = await api(`/api/runs?id=${encodeURIComponent(id)}`, { timeoutMs: 8000 });
     if (!body?.run) throw new Error('服务端没有返回完整任务记录');
     state.runs = state.runs.map((item) => item.id === id ? body.run : item);
     state.detailError = '';
     state.detailFingerprint = '';
     render();
     if (body.partial || body.run._detailPartial) requestDetailHydration(id);
-    else {
-      const timer = state.detailHydrationTimers.get(id);
-      if (timer) clearTimeout(timer);
-      state.detailHydrationTimers.delete(id);
-      // Detail hydration is read-only.  Do not silently issue a fixed-window
-      // analytics request here: opening a task must never overwrite the
-      // verified P6 snapshot or make the drawer wait on a report provider.
-    }
+    // Detail hydration is read-only. Do not silently issue analytics here:
+    // opening a task must never overwrite verified P6 data or wait on reports.
   } catch (error) {
     const current = state.runs.find((item) => item.id === id);
-    if (current) state.runs = state.runs.map((item) => item.id === id ? { ...item, _summary: false, _detailPartial: true } : item);
-    state.detailError = `${error.message || '详情加载失败'}；已保留任务摘要，后台继续补齐详情`;
+    state.detailError = `完整素材暂未同步（${error.message || '请求未完成'}）。任务进度、Code 和已完成素材仍可立即使用。`;
     state.detailFingerprint = '';
     renderDetail();
     requestDetailHydration(id);
@@ -899,22 +895,23 @@ async function hydrateRunDetail(id) {
 }
 
 function requestDetailHydration(id) {
-  if (!state.detailHydrationJobs.has(id)) {
-    state.detailHydrationJobs.add(id);
-    fetch(`/api/worker?id=${encodeURIComponent(id)}&detailOnly=1`, { method: 'POST', credentials: 'same-origin' })
-      .catch(() => null)
-      .finally(() => state.detailHydrationJobs.delete(id));
-  }
-  if (state.detailHydrationTimers.has(id)) return;
-  const timer = setTimeout(() => {
-    state.detailHydrationTimers.delete(id);
-    if (state.detailOpen && state.selectedId === id) hydrateRunDetail(id);
-  }, 5000);
-  state.detailHydrationTimers.set(id, timer);
+  // Rebuild at most once automatically. The old five-second retry loop could
+  // turn one slow record into an endless queue of duplicate HTTP requests.
+  if (state.detailHydrationJobs.has(id) || state.detailHydrationAttempts.has(id)) return;
+  state.detailHydrationAttempts.add(id);
+  state.detailHydrationJobs.add(id);
+  fetch(`/api/worker?id=${encodeURIComponent(id)}&detailOnly=1`, { method: 'POST', credentials: 'same-origin' })
+    .then((response) => {
+      if (!response.ok || !state.detailOpen || state.selectedId !== id) return null;
+      return hydrateRunDetail(id);
+    })
+    .catch(() => null)
+    .finally(() => state.detailHydrationJobs.delete(id));
 }
 
 function retryRunDetail(id) {
   state.detailError = '';
+  state.detailHydrationAttempts.delete(id);
   state.detailFingerprint = '';
   renderDetail();
   hydrateRunDetail(id);
@@ -2295,6 +2292,7 @@ function distributionHtml(run) {
 function modelActivityHtml(run) {
   const completed = [...(run.modelActivity || []), ...(run.artifacts?.modelActivity || []), ...(run.artifacts?.creativeDraft?.usage || [])];
   const failures = Object.entries(run.artifacts?.creativeDraft?.failures || {}).map(([section, item]) => ({ section, ...item, recovering: true }));
+  const validationUnverified = run.stages?.P3?.phase === 'validation_unverified' || run.artifacts?.qualityReview?.status === 'unverified';
   const rows = [...completed.map((item) => ({ ...item, recovering: false })), ...failures]
     .sort((a, b) => Date.parse(b.completedAt || b.at || 0) - Date.parse(a.completedAt || a.at || 0))
     .slice(0, 12);
@@ -2312,7 +2310,16 @@ function modelActivityHtml(run) {
     const latency = Number(item.latencyMs || 0);
     const actualBadge = item.recovering ? '<span class="model-logo model-logo-generic compact"><b>...</b><em>自动路由</em></span>' : modelLogoHtml(actualModel, { compact: true });
     const requestedBadge = modelLogoHtml(requestedModel, { compact: true });
-    return `<article class="model-activity-row ${item.recovering ? 'recovering' : rejected ? 'rejected' : 'ready'}"><span class="model-activity-state"><i data-lucide="${item.recovering ? 'loader-circle' : rejected ? 'triangle-alert' : 'circle-check-big'}"></i></span><div class="model-activity-main"><div><strong>${escapeHtml(creativeSectionNames[item.section] || item.section || '创意')}</strong>${actualBadge}<span>${escapeHtml(item.recovering ? `第 ${item.attempt || 1} 次通道暂缓，${retryText} 后继续` : rejected ? `${actual} 已返回，但证据校验未通过，正在自动重做` : switched ? `${requested} 未及时返回，${actual} 已接管` : `${actual} 已返回`)}</span></div><small>请求 ${requestedBadge} · 实际 ${actualBadge}</small></div><div class="model-activity-metrics">${latency ? `<span>${(latency / 1000).toFixed(1)}s</span>` : ''}${tokens ? `<span>${tokens.toLocaleString('zh-CN')} tokens</span>` : ''}${item.responseId ? `<span title="${escapeHtml(item.responseId)}">ID ${escapeHtml(String(item.responseId).slice(-8))}</span>` : ''}</div></article>`;
+    const outcome = item.recovering
+      ? `第 ${item.attempt || 1} 次自动修复已排队，${retryText} 后继续`
+      : rejected && validationUnverified
+        ? `${actual} 的成品已保留，质检待复核，不阻塞后续素材`
+        : rejected
+          ? `${actual} 已返回，证据校验正在后台自动修复`
+          : switched
+            ? `${requested} 未及时返回，${actual} 已接管`
+            : `${actual} 已返回`;
+    return `<article class="model-activity-row ${item.recovering ? 'recovering' : rejected ? 'rejected' : 'ready'}"><span class="model-activity-state"><i data-lucide="${item.recovering ? 'loader-circle' : rejected ? 'triangle-alert' : 'circle-check-big'}"></i></span><div class="model-activity-main"><div><strong>${escapeHtml(creativeSectionNames[item.section] || item.section || '创意')}</strong>${actualBadge}<span>${escapeHtml(outcome)}</span></div><small>请求 ${requestedBadge} · 实际 ${actualBadge}</small></div><div class="model-activity-metrics">${latency ? `<span>${(latency / 1000).toFixed(1)}s</span>` : ''}${tokens ? `<span>${tokens.toLocaleString('zh-CN')} tokens</span>` : ''}${item.responseId ? `<span title="${escapeHtml(item.responseId)}">ID ${escapeHtml(String(item.responseId).slice(-8))}</span>` : ''}</div></article>`;
   }).join('')}</div>`;
 }
 
@@ -2327,14 +2334,16 @@ function renderDetail() {
   // Polling must not rebuild the heavy asset detail while the drawer is closed.
   if (!state.detailOpen) return;
   if (!run) { panel.innerHTML = `<div class="detail-empty"><i data-lucide="panel-right-open"></i><strong>完整生产链路</strong><span>从历史表现榜选择一本书后，节点会实时显示产物与进度。</span>${idlePipelineHtml()}</div>`; return; }
-  if (state.detailError && state.selectedId === run.id && !run._detailPartial) {
-    panel.innerHTML = `<div class="detail-empty detail-error-state"><i data-lucide="triangle-alert"></i><strong>任务详情暂时没有打开</strong><span>${escapeHtml(state.detailError)}</span><button id="retryDetail" class="primary-command" type="button"><i data-lucide="refresh-cw"></i><span>重新加载详情</span></button></div>`;
-    $('#retryDetail')?.addEventListener('click', () => retryRunDetail(run.id));
-    icons();
-    return;
-  }
   if (run._summary) {
-    panel.innerHTML = `<div class="detail-empty"><i data-lucide="loader-circle"></i><strong>正在打开任务摘要</strong><span>${escapeHtml(run.artifacts?.book?.title || run.input?.title || '该任务')} 的节点先显示，素材详情随后补齐。</span><small>页面不会因完整任务记录较大而锁死。</small></div>`;
+    const active = currentStage(run);
+    const assets = assetSummary(run);
+    const syncing = state.detailHydrating === run.id;
+    const detailMessage = state.detailError || (syncing ? '正在加载可预览的完整素材；这不会阻塞当前任务。' : '任务已可操作。完整文案、视频和海报会在后台轻量同步。');
+    panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title || run.artifacts?.book?.title || '任务')}</h2><p>SKU ${escapeHtml(run.input?.sku || run.artifacts?.book?.bookSkuId || '--')} · Run ${escapeHtml(run.id.slice(-10))}</p></div><button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header><section class="pipeline"><div class="section-heading"><div><h3>P1-P6 生产链路</h3><p>已完成节点、当前卡点和可用追踪信息即时展示。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="detail-sync-state ${syncing ? 'is-syncing' : ''}"><i data-lucide="${syncing ? 'loader-circle' : state.detailError ? 'circle-alert' : 'database-zap'}"></i><div><strong>${syncing ? '正在同步完整素材' : state.detailError ? '完整素材稍后可用' : '任务摘要已就绪'}</strong><span>${escapeHtml(detailMessage)}</span></div><button id="retryDetail" class="secondary-command" type="button" ${syncing ? 'disabled' : ''}><i data-lucide="refresh-cw"></i>${syncing ? '同步中' : '加载完整素材'}</button></div></section><section class="detail-section"><div class="section-heading"><h3>已可用产物</h3><span class="language-tag">无需等待</span></div><div class="asset-summary"><div><strong>${assets.posts}</strong><span>文案</span></div><div><strong>${assets.video}</strong><span>视频</span></div><div><strong>${assets.posters}</strong><span>海报</span></div><div><strong>${assets.tracking}</strong><span>追踪链接</span></div></div></section><section class="detail-section"><div class="section-heading"><h3>模型活动</h3><span class="language-tag">摘要记录</span></div>${modelActivityHtml(run)}</section>`;
+    $('#closeDetail')?.addEventListener('click', closeDetail);
+    $('#retryDetail')?.addEventListener('click', () => retryRunDetail(run.id));
+    state.detailFingerprint = `${run.id}:${run.updatedAt}:${run.state}:${syncing}:${state.detailError}`;
+    icons();
     return;
   }
   const fingerprint = `${run.id}:${run.updatedAt}:${run.state}:${state.creativeVariantRunId}`;
@@ -2492,7 +2501,8 @@ async function loadStatus({ silent = false } = {}) {
     if (changed) saveDashboardSnapshot();
     showApp();
     if (changed) renderStatusViews({ rankingChanged: previousActiveBooks !== activeRunBookFingerprint() });
-    if (state.detailOpen && state.selectedId && !state.detailError) hydrateRunDetail(state.selectedId);
+    // Polling refreshes only the compact progress projection. Rehydrating the
+    // full task on every poll made a slow detail record starve the whole UI.
   } catch (error) {
     if (!silent) showToast(error.message, 'error');
   } finally {
