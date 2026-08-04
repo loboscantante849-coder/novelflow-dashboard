@@ -92,5 +92,5 @@ test('clearing failed tasks archives only failed runs and preserves their durabl
   assert.equal(failed.artifacts.code, 'NF-123');
   assert.equal(failed.artifacts.video.threadId, 'paid-video-1');
   assert.equal(completed.state, 'completed');
-  assert.ok(saves.length >= 3);
+  assert.equal(saves.length, 3);
 });

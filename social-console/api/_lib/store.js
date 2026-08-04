@@ -58,7 +58,8 @@ function autopilotProjection(run, options = {}) {
   const action = nextAutopilotAction(run);
   const state = String(run?.state || 'queued');
   let status;
-  if (state === 'completed' || action.nextAction === 'done') status = 'completed';
+  if (state === 'archived') status = 'archived';
+  else if (state === 'completed' || action.nextAction === 'done') status = 'completed';
   else if (state === 'blocked' || Object.values(run?.stages || {}).some((stage) => ['ambiguous', 'blocked'].includes(String(stage?.status || '')))) status = 'blocked';
   else if (state === 'failed') status = 'failed';
   else if (state === 'queued') {

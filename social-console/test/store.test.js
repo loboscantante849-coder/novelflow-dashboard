@@ -58,6 +58,11 @@ test('dashboard summary lists skip archived tasks without hiding usable history'
   assert.deepEqual(summaries.map((item) => item.id), [visible.id]);
   assert.ok(values.has(`nf_social:run_summary:${archived.id}`));
 });
+test('archived runs retain an archived autopilot state', () => {
+  const run = newRun({ title: 'Archived task', sku: 'archived-task' });
+  run.state = 'archived';
+  assert.equal(runSummary(run).autopilot.status, 'archived');
+});
 test('dashboard run summaries retain operational state without transferring full planning and model payloads', () => {
   const run = newRun({
     title: 'Summary Romance',

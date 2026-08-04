@@ -134,7 +134,10 @@ async function archiveFailedRuns(redis, loader = listRuns) {
     run.state = 'archived';
     run.archivedAt = new Date().toISOString();
     run.events = [...(run.events || []), { at: run.archivedAt, type: 'failed_run_archived', message: 'Operator cleared this failed task from the production console; external Code, links, and paid task records remain unchanged' }].slice(-80);
-    await saveRun(redis, run);
+    // Archiving is intentionally invisible to ordering: the task should
+    // disappear from the console without rewriting its place in the durable
+    // history index or touching its external tracking/media records.
+    await saveRun(redis, run, { preserveUpdatedAt: true });
     archived.push(run.id);
   }
   return archived;
