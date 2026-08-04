@@ -192,10 +192,10 @@ test('catalog enforces a promotion-scale UV threshold for every time window', as
   const seven = await invokeLeaderboard(new MemoryRedis(), { days: '7', refresh: '1' });
   const thirty = await invokeLeaderboard(new MemoryRedis(), { days: '30', refresh: '1' });
   const ninety = await invokeLeaderboard(new MemoryRedis(), { days: '90', refresh: '1' });
-  assert.deepEqual(requests.map((request) => request.minReadUnt), [300, 1000, 3000]);
-  assert.equal(seven.body.metrics.promotionMinUv, 300);
-  assert.equal(thirty.body.metrics.promotionMinUv, 1000);
-  assert.equal(ninety.body.metrics.promotionMinUv, 3000);
+  assert.deepEqual(requests.map((request) => request.minReadUnt), [100, 100, 100]);
+  assert.equal(seven.body.metrics.promotionMinUv, 100);
+  assert.equal(thirty.body.metrics.promotionMinUv, 100);
+  assert.equal(ninety.body.metrics.promotionMinUv, 100);
 });
 
 test('catalog failure cooldown avoids repeating a known unavailable source', async (t) => {

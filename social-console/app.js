@@ -1,5 +1,5 @@
 const storedRecommendationHistory = (() => { try { return JSON.parse(localStorage.getItem('nf_social:recommendation_history') || '[]'); } catch { return []; } })();
-const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'promotionScore', catalogFilters: { line: 'novelflow', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all' }, historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 12, detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, kickPromise: null, longKickKey: '', startingSku: '', planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0 };
+const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogFilters: { line: 'novelflow', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all' }, historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 12, detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, kickPromise: null, longKickKey: '', startingSku: '', planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0 };
 // These browser-only maps make the first click feel immediate while the
 // durable run remains the source of truth. They are intentionally not
 // persisted: a refresh reconciles them from /api/status.
@@ -145,8 +145,8 @@ state.todayBooks = [];
 state.todayBooksLoading = false;
 state.todayBooksError = '';
 const TODAY_RECOMMENDATION_WINDOWS = [
-  { days: 7, minUv: 300, minBooks: 6 },
-  { days: 30, minUv: 1000, minBooks: 6 }
+  { days: 7, minUv: 100, minBooks: 6 },
+  { days: 30, minUv: 100, minBooks: 6 }
 ];
 state.todayDataQuality = '';
 state.statusRequest = null;
@@ -1526,7 +1526,7 @@ function renderLeaderboard() {
     const window = state.leaderboardWindow;
     $('#leaderboardUpdated').classList.toggle('warning', !selectedMetricReady);
     $('#leaderboardUpdated').textContent = selectedMetricReady
-      ? (window?.throughDate ? `${window.startDate} 至 ${window.throughDate} · ${sortLabel} · 推广级 ${visibleBooks.length}/${candidateTotal}${promotionMinUv ? ` · UV ≥ ${compactNumber(promotionMinUv)}` : ''}${state.catalogSort === 'promotionScore' ? ' · UV 45% / 首读 25% / 长读 25% / 利润 5%' : ''}${state.leaderboardWarning ? ` · ${state.leaderboardWarning}` : ''}` : '正在加载中台业务数据')
+      ? (window?.throughDate ? `${window.startDate} 至 ${window.throughDate} · ${sortLabel} · 可推广 ${visibleBooks.length}/${candidateTotal}${promotionMinUv ? ` · UV ≥ ${compactNumber(promotionMinUv)}` : ''}${state.leaderboardWarning ? ` · ${state.leaderboardWarning}` : ''}` : '正在加载中台业务数据')
       : `已找到 ${visibleBooks.length} 本书，但中台 ${sortLabel} 尚未通过验证 · 已禁止按榜单启动`;
     renderLeaderboardPager(displayedBooks.length, visibleBooks.length, totalPages);
     document.querySelectorAll('.start-book').forEach((button) => button.addEventListener('click', () => {
