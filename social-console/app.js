@@ -56,7 +56,9 @@ function compactRunSnapshot(run) {
 
 function compactBookSnapshot(book) {
   return {
-    rank: book.rank, title: book.title, bookSkuId: book.bookSkuId, cover: book.cover || '',
+    // Covers are intentionally not persisted. Restoring fifty remote image
+    // URLs can delay the first useful API responses on a cold browser load.
+    rank: book.rank, title: book.title, bookSkuId: book.bookSkuId,
     category: book.category || '', tags: Array.isArray(book.tags) ? book.tags.slice(0, 8) : [],
     description: String(book.description || '').slice(0, 240), productLine: book.productLine || '',
     isShort: book.isShort, automationReady: book.automationReady,
@@ -106,7 +108,8 @@ function restoreDashboardSnapshot() {
     state.videoLimit = snapshot.videoLimit || null;
     const cachedLeaderboardMatches = snapshot.leaderboardQueryKey === leaderboardQueryKey();
     const trustedLeaderboard = ['verified_metrics', 'stale_verified_metrics'].includes(String(snapshot.leaderboardDataQuality || ''));
-    state.leaderboard = cachedLeaderboardMatches && trustedLeaderboard && Array.isArray(snapshot.leaderboard) ? snapshot.leaderboard : [];
+    state.leaderboard = cachedLeaderboardMatches && trustedLeaderboard && Array.isArray(snapshot.leaderboard)
+      ? snapshot.leaderboard.map(({ cover, ...book }) => book) : [];
     state.leaderboardUpdated = snapshot.leaderboardUpdated || '';
     state.leaderboardWarning = snapshot.leaderboardWarning || '';
     state.leaderboardDataQuality = state.leaderboard.length ? snapshot.leaderboardDataQuality : '';
@@ -114,7 +117,7 @@ function restoreDashboardSnapshot() {
     state.leaderboardWindow = snapshot.leaderboardWindow || null;
     state.leaderboardMetrics = snapshot.leaderboardMetrics || null;
     state.leaderboardDataKey = state.leaderboard.length ? snapshot.leaderboardQueryKey : '';
-    const cachedTodayBooks = Array.isArray(snapshot.todayBooks) ? snapshot.todayBooks : [];
+    const cachedTodayBooks = Array.isArray(snapshot.todayBooks) ? snapshot.todayBooks.map(({ cover, ...book }) => book) : [];
     const trustedToday = ['verified_metrics', 'stale_verified_metrics', 'history_verified'].includes(String(snapshot.todayDataQuality || ''));
     const cachedRecommendationDays = Number(snapshot.todayRecommendationDays || 0);
     const cachedMinUv = cachedRecommendationDays === 30 ? 80 : 20;
@@ -1180,6 +1183,20 @@ function todayScore(books, minUv = 20) {
   }).sort((a, b) => b.todayScore - a.todayScore || Number(b.baseReadUnt || 0) - Number(a.baseReadUnt || 0));
 }
 
+function syncTodayRailFromLeaderboard() {
+  const trusted = ['verified_metrics', 'stale_verified_metrics'].includes(String(state.leaderboardDataQuality || '').toLowerCase());
+  const candidates = Array.isArray(state.leaderboard) ? state.leaderboard : [];
+  if (state.leaderboardSource !== 'catalog' || !trusted || !recommendationMetricsReady(candidates)) {
+    state.todayBooks = [];
+    state.todayDataQuality = '';
+    state.todayRecommendationDays = 0;
+    return;
+  }
+  state.todayBooks = todayScore(candidates, 0).slice(0, 12);
+  state.todayDataQuality = state.leaderboardDataQuality;
+  state.todayRecommendationDays = Number(state.catalogDays || 30);
+}
+
 function historyTodayScore(books) {
   const max = (key) => Math.max(1, ...books.map((book) => Number(book[key] || 0)));
   const uv = max('pullUv');
@@ -1286,6 +1303,11 @@ function renderHistoryDecisionBar(books) {
 function renderTodayRail() {
   const list = $('#todayRailList');
   if (!list) return;
+  const books = state.todayBooks || [];
+  const rail = $('#todayRail');
+  // Recommendations are secondary. Do not reserve a large blank surface
+  // while the primary book picker is already usable.
+  if (rail) rail.hidden = !books.length && !state.todayBooksLoading;
   const description = $('#todayRailDescription');
   const recommendationDays = Number(state.todayRecommendationDays || 0);
   if (description) description.textContent = state.todayDataQuality === 'history_verified'
@@ -1294,7 +1316,6 @@ function renderTodayRail() {
       ? `近 ${recommendationDays} 天真实中台表现，已过滤 0 UV、低样本与指标不完整书籍。`
       : '正在校验真实 UV、首读与长读留存样本。';
   if (state.todayBooksLoading && !state.todayBooks.length) { list.innerHTML = `<div class="today-skeleton"><i data-lucide="loader-circle"></i><span>正在读取近 7 天真实表现</span></div>${Array.from({ length: 3 }, () => '<div class="today-skeleton-card"><span></span><div><b></b><b></b><i></i><i></i></div></div>').join('')}`; return; }
-  const books = state.todayBooks || [];
   if (!books.length) {
     list.innerHTML = state.todayBooksError
       ? '<button id="retryTodayRail" class="today-loading today-retry" type="button"><i data-lucide="refresh-cw"></i><span>中台指标正在同步，点击重新读取今日推荐</span></button>'
@@ -1351,60 +1372,16 @@ async function loadTodayCovers() {
 
 async function loadTodayRail() {
   if (state.todayRailRequest) return state.todayRailRequest;
-  state.todayBooksLoading = true; renderTodayRail(); icons();
   state.todayRailRequest = (async () => {
-    try {
-      let selected = null;
-      for (const window of TODAY_RECOMMENDATION_WINDOWS) {
-        const body = await api(`/api/leaderboard?source=catalog&days=${window.days}&sort=baseReadUnt&line=novelflow&language=EN&complete=%E5%B7%B2%E5%AE%8C%E7%BB%93&status=%E4%B8%8A%E6%9E%B6&isShort=all`, { timeoutMs: 50000 });
-        const candidates = (body.books || []).filter((book) => !activeRunFor(book));
-        if (!responseAllowsCatalogRanking(body, candidates, 'baseReadUnt') || !recommendationMetricsReady(candidates)) continue;
-        const ranked = todayScore(candidates, window.minUv);
-        if (ranked.length >= window.minBooks) { selected = { body, ranked, window }; break; }
-      }
-      if (!selected) throw new Error('中台真实数据中暂无足够样本的综合推荐；不会用 0 或低样本数据凑数');
-      state.todayBooks = selected.ranked.slice(0, 12);
-      state.todayBooksError = '';
-      state.todayDataQuality = selected.body.dataQuality || 'verified_metrics';
-      state.todayRecommendationDays = selected.window.days;
-      saveDashboardSnapshot();
-      loadTodayCovers();
-    } catch (error) {
-      // Keep the last successful rail visible while the source refreshes.
-      state.todayBooksError = error.message || '今日推荐同步失败';
-      if (!state.todayBooks.length) {
-        try {
-          const history = await api('/api/leaderboard?source=history&days=30', { timeoutMs: 25000 });
-          const candidates = (history.books || []).filter((book) => !activeRunFor(book) && book.automationReady !== false);
-          if (candidates.length) {
-            const recent = new Set(state.recommendationHistory || []);
-            const rotated = [...candidates.filter((book) => !recent.has(String(book.bookSkuId))), ...candidates];
-            state.todayBooks = historyTodayScore(rotated).slice(0, 12);
-            state.todayDataQuality = 'history_verified';
-            state.todayRecommendationDays = 30;
-            loadTodayCovers();
-            saveDashboardSnapshot();
-            // Startup requests race: the catalog failure can arrive before
-            // this fallback finishes. Recover the visible main panel here as
-            // well so it cannot remain blank until a later refresh.
-            if (state.leaderboardSource === 'catalog' && !state.leaderboard.length && state.leaderboardDataQuality === 'unavailable'
-              && activateHistoricalLeaderboardFallback('可继续策划或一键生成')) {
-              state.leaderboardLoading = false;
-              renderLeaderboard(); icons();
-              setTimeout(() => loadLeaderboard({ silent: true }), 0);
-            }
-            return;
-          }
-        } catch {}
-      }
-      state.todayDataQuality = state.todayBooks.length ? 'stale_verified_metrics' : 'unavailable';
-    } finally {
-      state.todayBooksLoading = false;
-      state.todayRailRequest = null;
-      renderTodayRail(); icons();
-    }
+    if (!state.leaderboard.length) await loadLeaderboard({ silent: true });
+    syncTodayRailFromLeaderboard();
+    state.todayBooksError = '';
+    renderTodayRail();
+    icons();
+    return state.todayBooks;
   })();
-  return state.todayRailRequest;
+  try { return await state.todayRailRequest; }
+  finally { state.todayRailRequest = null; }
 }
 
 function advanceTodayRail() {
@@ -2561,7 +2538,10 @@ async function loadLeaderboard({ refresh = false, silent = false } = {}) {
       && catalogQualityAllowsRanking(state.leaderboard)
       && !incomingEligible;
     if (!keepVerifiedMetrics) {
-      state.leaderboard = incomingEligible ? incomingBooks : [];
+      // A bounded cover worker owns image requests. Letting provider cover
+      // URLs through here makes a cold dashboard start fifty image downloads
+      // before the primary controls become responsive.
+      state.leaderboard = incomingEligible ? incomingBooks.map(({ cover, ...book }) => book) : [];
       state.leaderboardUpdated = body.generatedAt || '';
       state.leaderboardWindow = body.window || null;
       state.leaderboardMetrics = body.metrics || null;
@@ -2577,6 +2557,7 @@ async function loadLeaderboard({ refresh = false, silent = false } = {}) {
     state.leaderboardDataKey = requestKey;
     state.leaderboardPage = 1;
     state.leaderboardCoverKey = '';
+    syncTodayRailFromLeaderboard();
     saveDashboardSnapshot();
     shouldLoadCovers = state.leaderboard.length > 0;
   } catch (error) {
@@ -2605,7 +2586,7 @@ async function loadLeaderboard({ refresh = false, silent = false } = {}) {
     if (requestId === state.leaderboardRequestId) {
       if (state.leaderboardController === controller) state.leaderboardController = null;
       state.leaderboardLoading = false;
-      renderLeaderboard(); icons();
+      renderLeaderboard(); renderTodayRail(); icons();
       // Covers are decorative and load only after the ranking interaction is ready.
       if (shouldLoadCovers) loadVisibleCovers();
     }
@@ -2614,7 +2595,16 @@ async function loadLeaderboard({ refresh = false, silent = false } = {}) {
 
 async function loadVisibleCovers() {
   if (state.leaderboardSource !== 'catalog') return;
-  const visiblePage = catalogVisibleBooks().slice((state.leaderboardPage - 1) * 50, state.leaderboardPage * 50);
+  const nearViewportSkus = new Set([...document.querySelectorAll('#leaderboard .leaderboard-cover[data-cover-sku]')]
+    .filter((node) => {
+      const rect = node.getBoundingClientRect();
+      return rect.bottom >= -160 && rect.top <= window.innerHeight + 720;
+    })
+    .map((node) => String(node.dataset.coverSku || '')));
+  const visiblePage = catalogVisibleBooks()
+    .slice((state.leaderboardPage - 1) * 50, state.leaderboardPage * 50)
+    .filter((book) => nearViewportSkus.has(String(book.bookSkuId || '')))
+    .slice(0, 12);
   const now = Date.now();
   const pageBooks = visiblePage.filter((book) => {
     const sku = String(book.bookSkuId || '');
@@ -2636,6 +2626,7 @@ async function loadVisibleCovers() {
       const failedSkus = new Map((body.failed || []).map((item) => [String(item.sku), String(item.kind || 'unknown')]));
       if (Object.keys(covers).length) {
         state.leaderboard = state.leaderboard.map((book) => covers[String(book.bookSkuId)] ? { ...book, cover: covers[String(book.bookSkuId)] } : book);
+        state.todayBooks = state.todayBooks.map((book) => covers[String(book.bookSkuId)] ? { ...book, cover: covers[String(book.bookSkuId)] } : book);
         Object.keys(covers).forEach((sku) => state.coverFailures.delete(String(sku)));
         saveDashboardSnapshot(); updateCoverNodes(covers);
       }
@@ -3239,11 +3230,7 @@ loadStatus().then(() => { if (hasLiveBackgroundWork()) kickWorker(); });
 loadLeaderboard({ silent: true });
 const loadSecondaryStartup = () => {
   loadCreativePlans({ silent: true });
-  loadTodayRail();
-  if (restoredDashboard) {
-    loadVisibleCovers();
-    loadTodayCovers();
-  }
+  if (restoredDashboard) loadVisibleCovers();
 };
 if ('requestIdleCallback' in window) window.requestIdleCallback(loadSecondaryStartup, { timeout: 800 });
 else setTimeout(loadSecondaryStartup, 120);
@@ -3276,3 +3263,8 @@ document.addEventListener('visibilitychange', () => {
   scheduleCoverRetry();
   if (hasLiveBackgroundWork()) loadStatus({ silent: true });
 });
+let coverScrollTimer = null;
+window.addEventListener('scroll', () => {
+  if (coverScrollTimer || state.leaderboardSource !== 'catalog') return;
+  coverScrollTimer = setTimeout(() => { coverScrollTimer = null; loadVisibleCovers(); }, 180);
+}, { passive: true });
