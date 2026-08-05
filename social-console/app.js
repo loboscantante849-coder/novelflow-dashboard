@@ -133,6 +133,11 @@ state.detailHydrating = '';
 state.detailError = '';
 state.detailHydrationJobs = new Set();
 state.detailHydrationAttempts = new Set();
+// Completed legacy runs may predate the lean asset snapshot. Warm those
+// records quietly after the dashboard becomes usable, so opening a finished
+// task does not make the operator wait on its first visit.
+state.readyAssetCache = new Map();
+state.readyAssetRequests = new Map();
 // Browser polling can run while a long provider request is still in flight.
 // Keep a per-run/section dispatch lease so the same paid or model task is not
 // submitted again merely because the dashboard refreshed.
@@ -819,6 +824,34 @@ function openDetail(id, target = '') {
   hydrateRunDetail(id);
 }
 
+function loadReadyAssetSnapshot(id) {
+  if (state.readyAssetCache.has(id)) return Promise.resolve(state.readyAssetCache.get(id));
+  if (state.readyAssetRequests.has(id)) return state.readyAssetRequests.get(id);
+  const request = api(`/api/runs?id=${encodeURIComponent(id)}&asset=ready`, { timeoutMs: 45000 })
+    .then((body) => {
+      if (!body?.run) throw new Error('服务端没有返回已生成素材');
+      state.readyAssetCache.set(id, body.run);
+      return body.run;
+    })
+    .finally(() => state.readyAssetRequests.delete(id));
+  state.readyAssetRequests.set(id, request);
+  return request;
+}
+
+function warmReadyAssetSnapshots() {
+  const queue = state.runs
+    .filter((run) => run?._summary && runHasUsableAssets(run) && !state.readyAssetCache.has(run.id))
+    .slice(0, 12);
+  if (!queue.length) return;
+  const workers = Array.from({ length: Math.min(2, queue.length) }, async () => {
+    while (queue.length) {
+      const run = queue.shift();
+      try { await loadReadyAssetSnapshot(run.id); } catch {}
+    }
+  });
+  Promise.all(workers).catch(() => {});
+}
+
 async function refreshRunAnalytics(id) {
   try {
     const button = document.querySelector(`[data-refresh-analytics="${CSS.escape(id)}"]`);
@@ -877,9 +910,8 @@ async function hydrateRunDetail(id) {
     // Finished assets have their own bounded projection. It never waits for
     // chapter evidence or provider diagnostics, so a completed task opens
     // even when an old full-detail snapshot is too large to read quickly.
-    const body = await api(`/api/runs?id=${encodeURIComponent(id)}&asset=ready`, { timeoutMs: 45000 });
-    if (!body?.run) throw new Error('服务端没有返回完整任务记录');
-    state.runs = state.runs.map((item) => item.id === id ? body.run : item);
+    const readyAssets = await loadReadyAssetSnapshot(id);
+    state.runs = state.runs.map((item) => item.id === id ? readyAssets : item);
     state.detailError = '';
     state.detailFingerprint = '';
     render();
@@ -2512,6 +2544,7 @@ async function loadStatus({ silent = false } = {}) {
     if (changed) saveDashboardSnapshot();
     showApp();
     if (changed) renderStatusViews({ rankingChanged: previousActiveBooks !== activeRunBookFingerprint() });
+    warmReadyAssetSnapshots();
     // Polling refreshes only the compact progress projection. Rehydrating the
     // full task on every poll made a slow detail record starve the whole UI.
   } catch (error) {
