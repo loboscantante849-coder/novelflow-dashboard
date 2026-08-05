@@ -6,6 +6,7 @@ const DISCORD_JOB_INDEX = 'nf_social:discord:jobs';
 const DISCORD_HISTORY_INDEX = 'nf_social:discord:history';
 const runKey = (id) => `nf_social:run:${id}`;
 const runDetailKey = (id) => `nf_social:run_detail:${id}`;
+const runAssetsKey = (id) => `nf_social:run_assets:${id}`;
 const planKey = (id) => `nf_social:creative_plan:${id}`;
 const runSummaryKey = (id) => `nf_social:run_summary:${id}`;
 const planSummaryKey = (id) => `nf_social:creative_plan_summary:${id}`;
@@ -293,6 +294,101 @@ function runDetail(run) {
   copy._detailVersion = 1;
   return copy;
 }
+
+// Opening a completed task only needs its finished assets. Keep that path
+// independent from chapter evidence and provider diagnostics so a large legacy
+// run cannot make the production drawer look empty.
+function assetText(value, limit = 12000) {
+  return String(value || '').slice(0, limit);
+}
+
+function assetVideo(video) {
+  if (!video || typeof video !== 'object') return null;
+  return {
+    status: assetText(video.status, 80),
+    threadId: assetText(video.threadId, 160),
+    videoUrls: Array.isArray(video.videoUrls) ? video.videoUrls.slice(0, 3).map((url) => assetText(url, 4000)) : [],
+    coverImageUrl: assetText(video.coverImageUrl, 4000),
+    videoModel: assetText(video.videoModel, 160),
+    isUserAdCopy: video.isUserAdCopy === true ? true : video.isUserAdCopy === false ? false : null,
+    error: assetText(video.error, 500)
+  };
+}
+
+function assetPrompt(prompt) {
+  if (!prompt || typeof prompt !== 'object') return null;
+  const copy = {};
+  for (const key of ['status', 'model', 'hook', 'zhHook', 'valuePromise', 'zhValuePromise', 'escalation', 'zhEscalation', 'reversal', 'zhReversal', 'cliffhanger', 'zhCliffhanger', 'adCopy', 'zhAdCopy', 'buildRequirement', 'zhBuildRequirement']) {
+    if (prompt[key] != null) copy[key] = assetText(prompt[key], 12000);
+  }
+  if (Array.isArray(prompt.evidenceChapters)) copy.evidenceChapters = prompt.evidenceChapters.slice(0, 12).map((value) => assetText(value, 60));
+  return copy;
+}
+
+function assetAnalytics(analytics) {
+  if (!analytics || typeof analytics !== 'object') return null;
+  const stream = (value) => value && typeof value === 'object' ? {
+    rowCount: Number(value.rowCount || 0), pullUv: Number(value.pullUv || 0), activeUv: Number(value.activeUv || 0),
+    d7Income: Number(value.d7Income || 0), activationRate: value.activationRate == null ? null : Number(value.activationRate)
+  } : null;
+  return {
+    status: assetText(analytics.status, 80), source: assetText(analytics.source, 200), window: analytics.window || null,
+    summary: analytics.summary && typeof analytics.summary === 'object' ? analytics.summary : {},
+    streams: { code: stream(analytics.streams?.code), link: stream(analytics.streams?.link) },
+    findings: Array.isArray(analytics.findings) ? analytics.findings.slice(0, 12).map((item) => assetText(item, 500)) : [],
+    lastSuccessfulAt: assetText(analytics.lastSuccessfulAt, 80), refreshedAt: assetText(analytics.refreshedAt, 80),
+    stale: analytics.stale === true, warning: assetText(analytics.warning, 500)
+  };
+}
+
+function assetDistribution(distribution) {
+  if (!distribution || typeof distribution !== 'object') return null;
+  return {
+    status: assetText(distribution.status, 80), model: assetText(distribution.model, 120),
+    universalHook: assetText(distribution.universalHook, 1200), zhUniversalHook: assetText(distribution.zhUniversalHook, 1200),
+    channels: Array.isArray(distribution.channels) ? distribution.channels.slice(0, 12).map((channel) => ({
+      name: assetText(channel?.name, 120), reason: assetText(channel?.reason, 600),
+      bestFor: Array.isArray(channel?.bestFor) ? channel.bestFor.slice(0, 5).map((item) => assetText(item, 60)) : []
+    })) : []
+  };
+}
+
+function runAssets(run) {
+  const artifacts = run?.artifacts || {};
+  const book = artifacts.book || {};
+  return {
+    id: run.id,
+    createdAt: run.createdAt,
+    updatedAt: run.updatedAt,
+    input: summaryInput(run.input),
+    autopilot: autopilotProjection(run),
+    state: run.state,
+    stages: summaryStages(run.stages),
+    artifacts: {
+      book: book ? { title: assetText(book.title, 500), bookSkuId: assetText(book.bookSkuId, 200), cover: assetText(book.cover, 4000), description: assetText(book.description, 4000) } : null,
+      code: assetText(artifacts.code, 200),
+      shortUrl: assetText(artifacts.shortUrl, 4000),
+      linkId: assetText(artifacts.linkId, 200),
+      posts: Array.isArray(artifacts.posts) ? artifacts.posts.map((post) => ({ type: assetText(post?.type, 120), content: assetText(post?.content), zhContent: assetText(post?.zhContent) })) : [],
+      images: Array.isArray(artifacts.images) ? artifacts.images.map((image) => ({ variant: assetText(image?.variant, 120), status: assetText(image?.status, 80), taskId: assetText(image?.taskId, 200), url: assetText(image?.url, 4000), progress: Number.isFinite(Number(image?.progress)) ? Number(image.progress) : undefined, error: assetText(image?.error, 500), prompt: assetText(image?.prompt, 5000), zhPrompt: assetText(image?.zhPrompt, 5000) })) : [],
+      video: assetVideo(artifacts.video),
+      referenceVideo: assetVideo(artifacts.referenceVideo),
+      videoRevision: assetVideo(artifacts.videoRevision),
+      videoPrompt: assetPrompt(artifacts.videoPrompt),
+      videoPromptDraft: assetPrompt(artifacts.videoPromptDraft),
+      posterPrompts: Array.isArray(artifacts.posterPrompts) ? artifacts.posterPrompts.slice(0, 4).map((item) => ({ variant: assetText(item?.variant, 120), prompt: assetText(item?.prompt, 7000), zhPrompt: assetText(item?.zhPrompt, 7000), repairCount: Number(item?.repairCount || 0) })) : [],
+      distribution: assetDistribution(artifacts.distribution),
+      analytics: assetAnalytics(artifacts.analytics),
+      review: artifacts.review ? { status: assetText(artifacts.review.status, 80) } : null,
+      usage: summaryUsage(artifacts.usage),
+      modelActivity: summaryModelActivity([...(artifacts.modelActivity || []), ...(artifacts.creativeDraft?.usage || [])])
+    },
+    modelActivity: summaryModelActivity([...(artifacts.modelActivity || []), ...(artifacts.creativeDraft?.usage || [])]),
+    events: Array.isArray(run.events) ? run.events.slice(-30).map((event) => ({ at: event?.at, type: assetText(event?.type, 100), message: assetText(event?.message, 500) })) : [],
+    _assetOnly: true,
+    _assetVersion: 1
+  };
+}
 function creativePlanSummary(plan) {
   const artifacts = plan?.artifacts || {};
   return {
@@ -373,6 +469,17 @@ async function getRunSummary(redis, id) {
   const value = await redis.get(runSummaryKey(id));
   return value ? parseStored(value) : null;
 }
+async function getRunAssets(redis, id) {
+  if (!redis || !/^[a-z0-9_-]{12,80}$/i.test(String(id || ''))) return null;
+  const value = await redis.get(runAssetsKey(id));
+  return value ? parseStored(value) : null;
+}
+async function saveRunAssets(redis, run) {
+  if (!redis || !run?.id) return null;
+  const assets = runAssets(run);
+  await redis.set(runAssetsKey(run.id), JSON.stringify(assets));
+  return assets;
+}
 async function saveRun(redis, run, options = {}) {
   const previousUpdatedAt = run.updatedAt;
   const now = new Date().toISOString();
@@ -384,7 +491,8 @@ async function saveRun(redis, run, options = {}) {
   await Promise.all([
     redis.set(runKey(run.id), JSON.stringify(run)),
     redis.set(runSummaryKey(run.id), JSON.stringify(runSummary(run))),
-    redis.set(runDetailKey(run.id), JSON.stringify(runDetail(run)))
+    redis.set(runDetailKey(run.id), JSON.stringify(runDetail(run))),
+    redis.set(runAssetsKey(run.id), JSON.stringify(runAssets(run)))
   ]);
   // Analytics reconciliation must not make an old production run jump to the
   // top of the operations list. Its own freshness fields carry that update.
@@ -622,4 +730,4 @@ async function releaseVideoSlot(redis, key) {
   if (typeof key === 'string' && key.startsWith('nf_social:video_hour:')) await redis.incrby(key, -1);
 }
 
-module.exports = { getRedis, createRedis, RemoteRedis, getMany, listRuns, listRunSummaries, getRun, getRunDetail, getRunSummary, saveRun, registerActiveRun, findActiveRun, acquireRunCreation, releaseRunCreation, newRun, addEvent, setStage, runSummary, runDetail, autopilotProjection, runIsActive, nextAutopilotAction, activeRunKey, runCreateLockKey, listCreativePlans, listCreativePlanSummaries, getCreativePlan, saveCreativePlan, newCreativePlan, creativePlanDetail, getDiscordJob, saveDiscordJob, listDiscordJobs, listDiscordJobSummaries, removeDiscordJobFromQueue, discordJobSummary, RUN_INDEX, PLAN_INDEX, DISCORD_JOB_INDEX, DISCORD_HISTORY_INDEX, videoCapacity, reserveVideoSlot, releaseVideoSlot };
+module.exports = { getRedis, createRedis, RemoteRedis, getMany, listRuns, listRunSummaries, getRun, getRunDetail, getRunSummary, getRunAssets, saveRunAssets, saveRun, registerActiveRun, findActiveRun, acquireRunCreation, releaseRunCreation, newRun, addEvent, setStage, runSummary, runDetail, runAssets, autopilotProjection, runIsActive, nextAutopilotAction, activeRunKey, runCreateLockKey, listCreativePlans, listCreativePlanSummaries, getCreativePlan, saveCreativePlan, newCreativePlan, creativePlanDetail, getDiscordJob, saveDiscordJob, listDiscordJobs, listDiscordJobSummaries, removeDiscordJobFromQueue, discordJobSummary, RUN_INDEX, PLAN_INDEX, DISCORD_JOB_INDEX, DISCORD_HISTORY_INDEX, videoCapacity, reserveVideoSlot, releaseVideoSlot };

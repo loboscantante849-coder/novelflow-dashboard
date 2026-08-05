@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createRedis, RemoteRedis, getMany, listRunSummaries, newRun, runSummary, runDetail, setStage, saveRun, findActiveRun, registerActiveRun, acquireRunCreation, releaseRunCreation, runIsActive } = require('../api/_lib/store');
+const { createRedis, RemoteRedis, getMany, listRunSummaries, newRun, runSummary, runDetail, runAssets, setStage, saveRun, findActiveRun, registerActiveRun, acquireRunCreation, releaseRunCreation, runIsActive } = require('../api/_lib/store');
 
 test('storage uses direct Upstash credentials before the remote Vercel bridge', () => {
   const redis = createRedis({
@@ -107,6 +107,22 @@ test('detail snapshots bound chapter payloads before the browser reads them', ()
   assert.ok(Buffer.byteLength(JSON.stringify(detail)) < 170000);
 });
 
+test('ready asset snapshots keep finished media and copy without chapter payloads', () => {
+  const run = newRun({ title: 'Ready Asset Romance', sku: 'ready-asset-sku' });
+  run.artifacts.evidence = { chapters: [{ order: 1, content: 'chapter evidence'.repeat(5000) }] };
+  run.artifacts.posts = [{ type: 'dialogue_hook', content: 'Finished English copy', zhContent: '完成中文文案' }];
+  run.artifacts.images = [{ variant: 'luminous_cinema', status: 'success', url: 'https://example.com/poster.jpg', prompt: 'p'.repeat(9000) }];
+  run.artifacts.video = { status: 'success', threadId: 'video-1', videoUrls: ['https://example.com/video.mp4'] };
+  const assets = runAssets(run);
+
+  assert.equal(assets._assetOnly, true);
+  assert.equal(assets.artifacts.posts[0].content, 'Finished English copy');
+  assert.equal(assets.artifacts.images[0].url, 'https://example.com/poster.jpg');
+  assert.equal(assets.artifacts.video.videoUrls[0], 'https://example.com/video.mp4');
+  assert.equal(assets.artifacts.evidence, undefined);
+  assert.ok(Buffer.byteLength(JSON.stringify(assets)) < 50000);
+});
+
 test('completed review packages stay visible in compact dashboard summaries', () => {
   const run = newRun({ title: 'Review Ready Romance', sku: 'review-sku', creativeProfile: { modelChoice: 'hy3' } });
   run.stages.P6 = { status: 'done', label: 'Review package ready' };
@@ -169,6 +185,7 @@ test('saveRun advances autopilot progress but analytics-only saves do not move i
   await new Promise((resolve) => setTimeout(resolve, 3));
   await saveRun(redis, run, { preserveUpdatedAt: true });
   assert.equal(run.autopilot.lastProgressAt, progressed);
+  assert.ok(values.has(`nf_social:run_assets:${run.id}`));
 });
 
 test('active run pointer and creation lock prevent duplicate one-click tasks', async () => {

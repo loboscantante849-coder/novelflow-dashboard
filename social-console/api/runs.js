@@ -1,4 +1,4 @@
-const { getRedis, getRun, getRunDetail, getRunSummary, listRuns, listRunSummaries, newRun, saveRun, getCreativePlan, registerActiveRun, findActiveRun, acquireRunCreation, releaseRunCreation } = require('./_lib/store');
+const { getRedis, getRun, getRunDetail, getRunSummary, getRunAssets, saveRunAssets, runAssets, listRuns, listRunSummaries, newRun, saveRun, getCreativePlan, registerActiveRun, findActiveRun, acquireRunCreation, releaseRunCreation } = require('./_lib/store');
 const { requireSession } = require('./_lib/auth');
 const { normalizeCreative, refreshAnalytics } = require('./_lib/pipeline');
 const providers = require('./_lib/providers');
@@ -193,6 +193,21 @@ module.exports = async (req, res) => {
   try {
     if (req.method === 'GET') {
       const id = text(req.query?.id, 100);
+      if (id && req.query?.asset === 'ready') {
+        let assets = await getRunAssets(redis, id);
+        if (!assets) {
+          // Old records have the bounded detail projection even though they
+          // predate the dedicated asset snapshot. Prefer it over the raw run
+          // so migration does not pull a full book's chapter payload.
+          const legacy = await getRunDetail(redis, id) || await getRun(redis, id);
+          if (legacy) {
+            assets = runAssets(legacy);
+            await saveRunAssets(redis, legacy);
+          }
+        }
+        if (!assets) return res.status(404).json({ error: 'Run not found' });
+        return res.status(200).json({ run: assets });
+      }
       const view = id ? await loadRunView(redis, id) : { run: null, partial: false };
       if (id && !view.run) return res.status(404).json({ error: 'Run not found' });
       if (id && req.query?.asset === 'copy') return !view.partial ? res.status(200).json(copyAssetPayload(view.run)) : res.status(202).json({ pending: true, posts: [] });

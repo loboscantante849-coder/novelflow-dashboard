@@ -874,24 +874,22 @@ async function hydrateRunDetail(id) {
   state.detailFingerprint = '';
   renderDetail();
   try {
-    // Full evidence is deliberately non-critical to opening a task. The API
-    // returns a compact, interactive projection after 2.5s when a legacy
-    // detail record is slow, so this short client budget is only a last guard.
-    const body = await api(`/api/runs?id=${encodeURIComponent(id)}`, { timeoutMs: 8000 });
+    // Finished assets have their own bounded projection. It never waits for
+    // chapter evidence or provider diagnostics, so a completed task opens
+    // even when an old full-detail snapshot is too large to read quickly.
+    const body = await api(`/api/runs?id=${encodeURIComponent(id)}&asset=ready`, { timeoutMs: 45000 });
     if (!body?.run) throw new Error('服务端没有返回完整任务记录');
     state.runs = state.runs.map((item) => item.id === id ? body.run : item);
     state.detailError = '';
     state.detailFingerprint = '';
     render();
-    if (body.partial || body.run._detailPartial) requestDetailHydration(id);
-    // Detail hydration is read-only. Do not silently issue analytics here:
-    // opening a task must never overwrite verified P6 data or wait on reports.
+    // Opening a task is read-only. Do not silently issue analytics, model, or
+    // paid-media work from a detail click.
   } catch (error) {
     const current = state.runs.find((item) => item.id === id);
     state.detailError = `完整素材暂未同步（${error.message || '请求未完成'}）。任务进度、Code 和已完成素材仍可立即使用。`;
     state.detailFingerprint = '';
     renderDetail();
-    requestDetailHydration(id);
   } finally {
     if (state.detailHydrating === id) state.detailHydrating = '';
   }
@@ -2343,6 +2341,33 @@ function renderDetail() {
   const variantPending = state.creativeVariantRunId === run.id;
   const retryLabel = posterPartial ? '单独重试失败海报' : videoLimitBlocked ? `下小时重试视频${run.stages.P4.nextWindow ? `（当前额度至 ${run.stages.P4.nextWindow}）` : ''}` : '重试失败节点';
   const canRetry = run.state === 'failed' || videoLimitBlocked || posterPartial;
+  if (run._assetOnly) {
+    // Asset snapshots deliberately exclude source chapters and provider payloads.
+    // They are for immediate review and reuse, not for silently triggering a
+    // second creative or paid-media submission from an old task.
+    const assetRun = { ...run, artifacts: { ...run.artifacts, images: [], videoPromptDraft: null } };
+    panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title || run.artifacts?.book?.title || '任务')}</h2><p>SKU ${escapeHtml(run.input?.sku || run.artifacts?.book?.bookSkuId || '--')} · Run ${escapeHtml(run.id.slice(-10))}</p></div><button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div><nav class="detail-tabs" aria-label="成品模块"><button data-scroll-target="detail-overview">概览</button><button data-scroll-target="detail-copy">文案</button><button data-scroll-target="detail-video">视频</button><button data-scroll-target="detail-posters">海报</button><button data-scroll-target="detail-prompts">提示词</button><button data-scroll-target="detail-data">数据</button></nav><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header>
+      <section id="detail-overview" class="pipeline"><div class="section-heading"><div><h3>已生成素材</h3><p>这里直接展示已保存的成品，不等待章节全文或模型诊断。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}</section>
+      <section id="detail-copy" class="detail-section"><div class="section-heading"><h3>六步法成品文案</h3><span class="language-tag">EN / 中文</span></div>${copyHtml(run)}</section>
+      <section id="detail-video" class="detail-section"><div class="section-heading"><h3>AC 视频预览</h3><span class="language-tag">已保存版本</span></div>${videoHtml(assetRun)}</section>
+      <section id="detail-posters" class="detail-section"><div class="section-heading"><h3>推广海报</h3><span class="language-tag">已保存版本</span></div>${imagesHtml(run)}</section>
+      ${promptHtml(assetRun)}
+      <section id="detail-data" class="detail-section"><div class="section-heading"><h3>实际数据反馈</h3><span class="language-tag">Code + Link</span></div>${analyticsHtml(run)}</section>
+      <section id="detail-review" class="detail-section"><h3>运行记录</h3><div class="event-list">${eventsHtml(run)}</div></section>`;
+    $('#closeDetail')?.addEventListener('click', closeDetail);
+    panel.querySelectorAll('[data-copy-post-index]').forEach((button) => button.addEventListener('click', () => {
+      const post = run.artifacts?.posts?.[Number(button.dataset.copyPostIndex)];
+      const chinese = button.dataset.copyPostLanguage === 'zh';
+      copyAssetText(chinese ? post?.zhContent : post?.content, chinese ? '完整中文文案已复制（含 CTA 与标签）' : '完整英文发布文案已复制（含 CTA、链接与标签）');
+    }));
+    panel.querySelectorAll('.open-image-preview').forEach((button) => button.addEventListener('click', () => openImageViewer(button.dataset.imageUrl, button.dataset.imageLabel)));
+    panel.querySelector('[data-refresh-analytics]')?.addEventListener('click', () => refreshRunAnalytics(run.id));
+    panel.querySelectorAll('[data-node-decision]').forEach((button) => button.addEventListener('click', () => { state.selectedNode = button.dataset.nodeDecision; showToast(`${stageLabels[state.selectedNode] || state.selectedNode} 的已保存状态已显示在概览中`); }));
+    panel.querySelectorAll('[data-scroll-target]').forEach((button) => button.addEventListener('click', () => panel.querySelector(`#${button.dataset.scrollTarget}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })));
+    state.detailFingerprint = `${run.id}:${run.updatedAt}:assets`;
+    icons();
+    return;
+  }
   if (run._detailPartial) {
     panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header><section class="pipeline"><div class="section-heading"><div><h3>P1-P6 生产链路</h3><p>节点和恢复状态可立即查看，文案与媒体详情正在后台建立轻量快照。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="detail-sync-state"><i data-lucide="database-zap"></i><div><strong>正在补齐素材详情</strong><span>${escapeHtml(state.detailError || '后台只整理已有任务数据，不会调用模型，也不会提交付费图片或视频。')}</span></div><button id="retryDetail" class="secondary-command" type="button"><i data-lucide="refresh-cw"></i>立即检查</button></div></section><section class="detail-section"><div class="section-heading"><h3>模型活动</h3><span class="language-tag">摘要记录</span></div>${modelActivityHtml(run)}</section>`;
     $('#closeDetail')?.addEventListener('click', closeDetail);
@@ -3153,12 +3178,12 @@ document.querySelectorAll('[data-report-days]').forEach((button) => button.addEv
   state.weeklyReportDays = Number(button.dataset.reportDays);
   loadWeeklyReport();
 }));
-$('#deepseekAssistant').addEventListener('click', openAssistant);
-$('#closeAssistant').addEventListener('click', () => $('#assistantDialog').close());
+$('#deepseekAssistant')?.addEventListener('click', openAssistant);
+$('#closeAssistant')?.addEventListener('click', () => $('#assistantDialog')?.close());
 document.querySelectorAll('[data-assistant-mode]').forEach((button) => button.addEventListener('click', () => runAssistant(button.dataset.assistantMode)));
-$('#copilotForm').addEventListener('submit', (event) => { event.preventDefault(); sendCopilot($('#copilotInput').value); });
+$('#copilotForm')?.addEventListener('submit', (event) => { event.preventDefault(); sendCopilot($('#copilotInput')?.value || ''); });
 $('#modelChoice').addEventListener('change', renderModelBadges);
-$('#assistantModelChoice').addEventListener('change', renderModelBadges);
+$('#assistantModelChoice')?.addEventListener('change', renderModelBadges);
 $('#todayRailPrev').addEventListener('click', () => $('#todayRailList').scrollBy({ left: -620, behavior: 'smooth' }));
 $('#todayRailNext').addEventListener('click', () => $('#todayRailList').scrollBy({ left: 620, behavior: 'smooth' }));
 $('#todayRailList').addEventListener('mouseenter', () => { state.todayRailPaused = true; });
