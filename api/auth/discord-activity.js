@@ -17,6 +17,7 @@ const {
 const { setCORSHeaders } = require('../_lib/cors');
 const { getRedis, isDisabledUser } = require('../_lib/security');
 const { resolveDiscordIdentity } = require('../_lib/identity');
+const { extractReferralCode, finalizePendingReferral, stageReferral } = require('../_lib/referrals');
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1504779503237333033';
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
@@ -34,6 +35,7 @@ module.exports = async (req, res) => {
 
   try {
     const { code } = req.body;
+    const referralCode = extractReferralCode(req);
 
     if (!code) {
       return res.status(400).json({ error: 'Code is required' });
@@ -74,6 +76,10 @@ module.exports = async (req, res) => {
     if (!redis) {
       return res.status(503).json({ error: 'Auth service unavailable' });
     }
+    const mappingKey = `nf_discord_username:${String(userData.id || '').trim()}`;
+    const previousMapping = await redis.get(mappingKey);
+    const candidateUsername = String(previousMapping || userData.username || '').trim().toLowerCase();
+    const hadUserData = candidateUsername ? Boolean(await redis.get(`nf_user_data:${candidateUsername}`)) : false;
     const identity = await resolveDiscordIdentity(redis, userData.id, userData.username);
     if (!identity) {
       return res.status(409).json({ error: 'Account identity recovery required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
@@ -90,6 +96,15 @@ module.exports = async (req, res) => {
       }
     } catch (_error) {
       return res.status(503).json({ error: 'Auth service unavailable' });
+    }
+
+    if (!previousMapping && !hadUserData && referralCode) {
+      try {
+        await stageReferral(redis, identity.username, referralCode);
+        await finalizePendingReferral(redis, identity.username);
+      } catch (error) {
+        console.warn('[discord-activity] Referral binding deferred:', error && error.code || error && error.message);
+      }
     }
 
     // Build token payload

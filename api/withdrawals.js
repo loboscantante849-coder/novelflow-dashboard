@@ -21,47 +21,39 @@
  *     withdrawals:   [{id, amount, fee, net_amount, payment_account, status, created_at, processed_at?, processed_by?, admin_note?}]
  *        status: 'pending' | 'approved' | 'rejected'
  */
-const path = require('path');
-const fs = require('fs');
 const crypto = require('crypto');
 const { handlePreflight } = require('./_lib/cors');
 const { checkRateLimit, getAuthPayload, getClientIp, isAdminUser, isDisabledUser } = require('./_lib/security');
 const { Redis } = require('@upstash/redis');
 const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
+const { getAdIdDetails, getLegacyDataJson, resolvePromoterKey } = require('./_lib/stats-data');
+const {
+  buildEarningsDetail,
+  buildIncomeProfile,
+  computeWalletBalances,
+} = require('./_lib/commission-policy');
 
 function redisClient() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
   return new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
 }
 
-// ---------- Load data.json (pipeline output bundled on Vercel) ----------
-let _dataJsonCache = null;
-function getDataJson() {
-  if (_dataJsonCache) return _dataJsonCache;
-  const candidates = [
-    path.join(__dirname, '..', 'data.json'),
-    path.join(process.cwd(), 'data.json'),
-  ];
-  for (const p of candidates) {
-    try {
-      if (fs.existsSync(p)) {
-        _dataJsonCache = JSON.parse(fs.readFileSync(p, 'utf8'));
-        return _dataJsonCache;
-      }
-    } catch (_e) { /* try next */ }
+async function loadIncomeSources() {
+  const [data, adData] = await Promise.all([
+    getLegacyDataJson(),
+    getAdIdDetails(),
+  ]);
+  if (!data || !data.users) {
+    const error = new Error('Income source is temporarily unavailable');
+    error.code = 'INCOME_SOURCE_UNAVAILABLE';
+    throw error;
   }
-  return { users: {} };
+  return { data, adData };
 }
 
-function getPromoterDnIncome(username) {
-  const d = getDataJson();
-  const users = d.users || {};
-  if (users[username]) return Number(users[username].subscription_revenue_dn || 0);
-  const lower = String(username).toLowerCase();
-  for (const key of Object.keys(users)) {
-    if (key.toLowerCase() === lower) return Number(users[key].subscription_revenue_dn || 0);
-  }
-  return 0;
+function promoterIncomeProfile(sources, username) {
+  const resolved = sources.adData ? resolvePromoterKey(username, sources.adData) : username;
+  return buildIncomeProfile(sources.data, resolved || username);
 }
 
 // ---------- Helpers ----------
@@ -75,39 +67,6 @@ function canonizeUser(raw) {
   // Allow CJK, Latin letters, digits, underscore, dot, @, hyphen, space
   if (!/^[\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9_.@\- ]{1,50}$/.test(s)) return null;
   return s.toLowerCase();
-}
-
-function computeBalances(userData, totalDnIncome, incomeAdjustment = 0) {
-  const bonus = Number(userData && userData.bonus_balance) || 0;
-  const withdrawals = Array.isArray(userData && userData.withdrawals) ? userData.withdrawals : [];
-  const approvedTotal = withdrawals
-    .filter(w => w && w.status === 'approved')
-    .reduce((s, w) => s + (Number(w.amount) || 0), 0);
-  const pendingTotal = withdrawals
-    .filter(w => w && w.status === 'pending')
-    .reduce((s, w) => s + (Number(w.amount) || 0), 0);
-  const rejectedTotal = withdrawals
-    .filter(w => w && w.status === 'rejected')
-    .reduce((s, w) => s + (Number(w.amount) || 0), 0);
-  // Frozen = pending (申请审核中，已从可用余额扣除)
-  // Available = total earned - approved(已打款) - pending(冻结中)
-  // rejected 不计入扣减（被拒绝后钱回到可用余额）
-  const adjustedIncome = totalDnIncome + (Number(incomeAdjustment) || 0);
-  const available = Math.max(0, bonus + adjustedIncome - approvedTotal - pendingTotal);
-  return {
-    bonus_balance: Number(bonus.toFixed(2)),
-    total_earned: Number((bonus + adjustedIncome).toFixed(2)),
-    source_total_dn_income: Number(totalDnIncome.toFixed(2)),
-    income_adjustment: Number((Number(incomeAdjustment) || 0).toFixed(2)),
-    total_dn_income: Number(totalDnIncome.toFixed(2)),
-    approved_total: Number(approvedTotal.toFixed(2)),
-    pending_total: Number(pendingTotal.toFixed(2)),
-    frozen_total: Number(pendingTotal.toFixed(2)),
-    rejected_total: Number(rejectedTotal.toFixed(2)),
-    available_balance: Number(available.toFixed(2)),
-    pending_settlement: Number(pendingTotal.toFixed(2)),
-    withdrawals: withdrawals.slice().sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))),
-  };
 }
 
 async function getIncomeAdjustment(redis, username, { failClosed = false } = {}) {
@@ -216,6 +175,7 @@ module.exports = async (req, res) => {
           return res.status(400).json({ error: 'Invalid status filter; use pending|approved|rejected|all' });
         }
         if (!redis) return res.status(500).json({ error: 'Redis not configured' });
+        const incomeSources = await loadIncomeSources();
 
         // SCAN all nf_user_data:* keys
         const all = [];
@@ -232,15 +192,17 @@ module.exports = async (req, res) => {
               let ud = v;
               if (typeof v === 'string') { try { ud = JSON.parse(v); } catch(_) { return; } }
               if (!ud || typeof ud !== 'object' || !Array.isArray(ud.withdrawals)) return;
-              const uname = k.replace(/^nf_user_data:/, '');
-              for (const w of ud.withdrawals) {
+               const uname = k.replace(/^nf_user_data:/, '');
+               const incomeProfile = promoterIncomeProfile(incomeSources, uname);
+               const walletIncome = computeWalletBalances(ud, incomeProfile, 0).commission_income;
+               for (const w of ud.withdrawals) {
                 if (!w || !w.id) continue;
                 const st = (w.status || 'pending').toLowerCase();
                 if (wantStatus !== 'all' && st !== wantStatus) continue;
                 all.push({
                   username: uname,
                   ...w,
-                  dn_income: Number(getPromoterDnIncome(uname)).toFixed(2),
+                  dn_income: Number(walletIncome).toFixed(2),
                 });
               }
             });
@@ -287,19 +249,13 @@ module.exports = async (req, res) => {
       }
       if (!userData) userData = {};
 
-      const dnIncome = getPromoterDnIncome(targetUser);
-      const balances = computeBalances(userData, dnIncome, await getIncomeAdjustment(redis, targetUser, { failClosed: true }));
-
-      const d = getDataJson();
-      const uRaw = (d.users || {})[targetUser] ||
-        Object.values(d.users || {}).find(v => String(v.name || '').toLowerCase() === targetUser);
-      let daily = [];
-      if (uRaw && uRaw.subscription_revenue_dn_daily) {
-        daily = Object.entries(uRaw.subscription_revenue_dn_daily)
-          .map(([date, val]) => ({ date, amount: Number(val) || 0 }))
-          .sort((a, b) => b.date.localeCompare(a.date))
-          .slice(0, 30);
-      }
+      const incomeProfile = promoterIncomeProfile(await loadIncomeSources(), targetUser);
+      const balances = computeWalletBalances(
+        userData,
+        incomeProfile,
+        await getIncomeAdjustment(redis, targetUser, { failClosed: true }),
+      );
+      const daily = buildEarningsDetail(incomeProfile, userData, 30);
 
       return res.status(200).json({
         success: true,
@@ -388,9 +344,9 @@ module.exports = async (req, res) => {
         });
       }
 
-      const dnIncome = getPromoterDnIncome(targetUser);
+      const incomeProfile = promoterIncomeProfile(await loadIncomeSources(), targetUser);
       const incomeAdjustment = await getIncomeAdjustment(redis, targetUser, { failClosed: true });
-      const balances = computeBalances(userData, dnIncome, incomeAdjustment);
+      const balances = computeWalletBalances(userData, incomeProfile, incomeAdjustment);
 
       if (amt > balances.available_balance + 0.001) {
         return res.status(400).json({
@@ -415,7 +371,7 @@ module.exports = async (req, res) => {
       userData.withdrawals.push(request);
 
       await redis.set(redisKey, JSON.stringify(userData));
-      const updatedBalances = computeBalances(userData, dnIncome, incomeAdjustment);
+      const updatedBalances = computeWalletBalances(userData, incomeProfile, incomeAdjustment);
 
       return res.status(200).json({
         success: true,
@@ -489,8 +445,12 @@ module.exports = async (req, res) => {
       // approved 时钱从 pending → approved（available_balance 也会自然下降）
       await redis.set(redisKey, JSON.stringify(userData));
 
-      const dnIncome = getPromoterDnIncome(targetUser);
-      const newBalances = computeBalances(userData, dnIncome, await getIncomeAdjustment(redis, targetUser, { failClosed: true }));
+      const incomeProfile = promoterIncomeProfile(await loadIncomeSources(), targetUser);
+      const newBalances = computeWalletBalances(
+        userData,
+        incomeProfile,
+        await getIncomeAdjustment(redis, targetUser, { failClosed: true }),
+      );
 
       return res.status(200).json({
         success: true,
@@ -507,7 +467,7 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error('[withdrawals] error:', err);
-    if (err && err.code === 'INCOME_ADJUSTMENT_UNAVAILABLE') {
+    if (err && (err.code === 'INCOME_ADJUSTMENT_UNAVAILABLE' || err.code === 'INCOME_SOURCE_UNAVAILABLE')) {
       return res.status(503).json({ error: 'Wallet balance is temporarily unavailable', code: err.code });
     }
     return res.status(503).json({ error: 'Wallet service temporarily unavailable', code: 'WALLET_UNAVAILABLE' });

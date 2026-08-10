@@ -10,6 +10,7 @@
  */
 const { Redis } = require('@upstash/redis');
 const { normalizeRedisKeys } = require('./redis-values');
+const { isSystemStatsBucket } = require('./promoter-access');
 
 const AD_ID_DETAILS_URL =
   'https://raw.githubusercontent.com/loboscantante849-coder/novelflow-dashboard/main/ad_id_details.json';
@@ -120,6 +121,7 @@ function canonize(name) {
  *      record's username_canon (covers new/one-off mappings not in the hardcoded table).
  */
 function resolvePromoterKey(rawName, adData) {
+  if (isSystemStatsBucket(rawName)) return null;
   const canon = canonize(rawName);
   if (!canon) return null;
   if (adData?.by_promoter?.[canon]) return canon;

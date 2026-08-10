@@ -2,8 +2,14 @@
 
 const { setCORSHeaders } = require('../_lib/cors');
 const { buildOAuthStateCookie, createOAuthState } = require('../_lib/oauth-state');
+const { normalizeReferralCode } = require('../_lib/referrals');
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1504779503237333033';
+const REFERRAL_COOKIE = 'nf_referral_code';
+
+function buildReferralCookie(code, maxAge = 600) {
+  return `${REFERRAL_COOKIE}=${encodeURIComponent(code)}; HttpOnly; Secure; SameSite=Lax; Path=/api/auth/callback; Max-Age=${maxAge}`;
+}
 
 function getRedirectUri() {
   return process.env.DISCORD_REDIRECT_URI || 'https://novelflow.top/api/auth/callback';
@@ -21,6 +27,9 @@ module.exports = async (req, res) => {
   authorizeUrl.searchParams.set('scope', 'identify');
   authorizeUrl.searchParams.set('state', state);
 
-  res.setHeader('Set-Cookie', buildOAuthStateCookie(state));
+  const cookies = [buildOAuthStateCookie(state)];
+  const referralCode = normalizeReferralCode(req.query && req.query.ref);
+  if (referralCode) cookies.push(buildReferralCookie(referralCode));
+  res.setHeader('Set-Cookie', cookies);
   return res.redirect(302, authorizeUrl.href);
 };

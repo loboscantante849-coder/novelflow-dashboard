@@ -1,3 +1,5 @@
+const { isProtectedPromoterUsername } = require('./promoter-access');
+
 function normalizeIdentityUsername(value) {
   const username = String(value || '').trim().toLowerCase();
   return username && username.length <= 50 ? username : null;
@@ -65,7 +67,20 @@ async function resolveDiscordIdentity(redis, discordIdValue, currentUsernameValu
   const principal = `discord:${discordId}`;
   const mappingKey = `nf_discord_username:${discordId}`;
   let username = normalizeIdentityUsername(await redis.get(mappingKey));
-  if (!username) username = currentUsername;
+  if (!username) {
+    username = currentUsername;
+    const [identityOwner, passwordOwner, passwordHash, userData] = await Promise.all([
+      redis.get(`nf_identity_owner:${username}`),
+      redis.get(`nf_user_pass_owner:${username}`),
+      redis.get(`nf_user_pass:${username}`),
+      redis.get(`nf_user_data:${username}`),
+    ]);
+    if (identityOwner) {
+      if (String(identityOwner) !== principal) return null;
+    } else if (passwordOwner || passwordHash || userData || isProtectedPromoterUsername(username)) {
+      return null;
+    }
+  }
   if (!await claimIdentity(redis, username, principal)) return null;
   if (!await redis.get(mappingKey)) {
     await redis.set(mappingKey, username, { nx: true });

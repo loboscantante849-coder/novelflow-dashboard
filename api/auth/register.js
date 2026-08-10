@@ -23,8 +23,10 @@ const {
 const { handlePreflight } = require('../_lib/cors');
 const { Redis } = require('@upstash/redis');
 const { createPasswordHash, verifyPassword } = require('../_lib/password');
-const { getAuthPayload, isDisabledUser } = require('../_lib/security');
+const { getAuthPayload, isDisabledUser, isReservedUsername } = require('../_lib/security');
 const { bindPasswordPrincipal, claimIdentity, resolvePasswordPrincipal } = require('../_lib/identity');
+const { isProtectedPromoterUsername } = require('../_lib/promoter-access');
+const { extractReferralCode, finalizePendingReferral, stageReferral, validateReferral } = require('../_lib/referrals');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -54,11 +56,6 @@ async function rlCheck(redis, key, limit, windowSec) {
 
 const USERNAME_RE = /^[\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9_.@\- ]{1,50}$/;
 const PASSWORD_MIN = 8;
-const RESERVED_USERNAMES = new Set([
-  'admin', 'administrator', 'root', 'xujt', 'system', 'novelflow',
-  'api', 'verifycron', 'support', 'help', 'moderator', 'mod',
-  'official', 'staff', 'owner', 'webmaster', 'null', 'undefined'
-]);
 function isValidPassword(p) {
   if (typeof p !== 'string' || p.length < PASSWORD_MIN) return false;
   return /[A-Za-z]/.test(p) && /[0-9]/.test(p);
@@ -75,13 +72,17 @@ module.exports = async (req, res) => {
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
       return res.status(400).json({ error: 'Invalid request body' });
     }
-    const { username, password } = body;
+    const { username, password, referral_code: bodyReferralCode } = body;
     if (typeof username !== 'string') {
       return res.status(400).json({ error: 'Username must be a string' });
     }
     if (password !== undefined && password !== null && typeof password !== 'string') {
       return res.status(400).json({ error: 'Password must be a string' });
     }
+    if (bodyReferralCode !== undefined && bodyReferralCode !== null && typeof bodyReferralCode !== 'string') {
+      return res.status(400).json({ error: 'Referral code must be a string', code: 'INVALID_REFERRAL_CODE' });
+    }
+    const referralCode = extractReferralCode(req);
 
     const cleanUsername = username.trim();
     if (!USERNAME_RE.test(cleanUsername)) {
@@ -92,7 +93,7 @@ module.exports = async (req, res) => {
     const usernameKey = cleanUsername.toLowerCase();
 
     // Reject reserved usernames to prevent admin privilege escalation
-    if (RESERVED_USERNAMES.has(usernameKey)) {
+    if (isReservedUsername(usernameKey)) {
       return res.status(400).json({ error: 'This username is not available' });
     }
 
@@ -119,6 +120,7 @@ module.exports = async (req, res) => {
     let isNewUser = false;
     let passedAuth = false;
     let authenticatedPayload = null;
+    let referralToBind = null;
 
     {
       const passwordKey = 'nf_user_pass:' + usernameKey;
@@ -196,12 +198,27 @@ module.exports = async (req, res) => {
         passedAuth = true;
       } else {
         // Brand new user → require a password to register
+        if (isProtectedPromoterUsername(usernameKey)) {
+          return res.status(409).json({
+            error: 'This promoter account requires identity recovery',
+            code: 'PROMOTER_RECOVERY_REQUIRED',
+          });
+        }
         isNewUser = true;
         if (!password) {
           return res.status(400).json({ error: 'Password required (min 8 characters with a letter and a number)', needPassword: true, mustSetPassword: true });
         }
         if (!isValidPassword(password)) {
           return res.status(400).json({ error: 'Password must be at least 8 characters with a letter and a number', needPassword: true, mustSetPassword: true });
+        }
+        try {
+          const validatedReferral = await validateReferral(redis, usernameKey, referralCode);
+          referralToBind = validatedReferral && validatedReferral.referral_code;
+        } catch (error) {
+          return res.status(error && error.code === 'SELF_REFERRAL' ? 409 : 400).json({
+            error: error.message || 'Invalid referral code',
+            code: error.code || 'INVALID_REFERRAL_CODE',
+          });
         }
         if (!await claimIdentity(redis, usernameKey, `local:${usernameKey}`)) {
           return res.status(409).json({ error: 'This username belongs to another sign-in method', code: 'ACCOUNT_IDENTITY_CONFLICT' });
@@ -224,6 +241,12 @@ module.exports = async (req, res) => {
         !await bindPasswordPrincipal(redis, usernameKey, passwordPrincipal)) {
       return res.status(409).json({ error: 'Account identity recovery is required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
     }
+    try {
+      if (isNewUser && referralToBind) await stageReferral(redis, usernameKey, referralToBind);
+      await finalizePendingReferral(redis, usernameKey);
+    } catch (error) {
+      console.warn('[auth/register] Referral binding deferred:', error && error.code || error && error.message);
+    }
 
     // ---------- Issue tokens ----------
     const userPayload = buildUserPayload({ type: 'local', username: usernameKey, principal: passwordPrincipal });
@@ -238,7 +261,8 @@ module.exports = async (req, res) => {
       const feishuWebhook = process.env.FEISHU_SIGNUP_WEBHOOK;
       if (feishuWebhook) {
         // Best-effort fire-and-forget, don't block response
-        const ref = (req.query && (req.query.ref || req.query.linkId)) ||
+        const ref = referralCode ||
+                    (req.query && (req.query.ref || req.query.linkId)) ||
                     (req.headers && req.headers['x-referral']) ||
                     (req.headers && req.headers.referer && (() => {
                       try { const u = new URL(req.headers.referer); return u.searchParams.get('code') || u.searchParams.get('linkId') || ''; } catch { return ''; } })()) ||

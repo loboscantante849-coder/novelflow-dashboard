@@ -7,12 +7,14 @@ const { verifyAccessToken } = require('./auth');
 const crypto = require('crypto');
 const { Redis } = require('@upstash/redis');
 const { assertAccountIdentity } = require('./identity');
+const { isSystemStatsBucket } = require('./promoter-access');
 
 // Reserved usernames that cannot be registered
 const RESERVED_USERNAMES = new Set([
   'admin', 'administrator', 'root', 'xujt', 'system', 'novelflow',
   'api', 'verifycron', 'support', 'help', 'moderator', 'mod',
-  'official', 'staff', 'owner', 'webmaster', 'null', 'undefined'
+  'official', 'staff', 'owner', 'webmaster', 'null', 'undefined',
+  '_unmapped'
 ]);
 
 function getRedis() {
@@ -215,7 +217,8 @@ function isStrongPassword(pwd) {
 
 /** Check whether a username is reserved (cannot be registered). */
 function isReservedUsername(username) {
-  return RESERVED_USERNAMES.has(String(username || '').toLowerCase());
+  const normalized = String(username || '').trim().toLowerCase();
+  return RESERVED_USERNAMES.has(normalized) || isSystemStatsBucket(normalized);
 }
 
 module.exports = {

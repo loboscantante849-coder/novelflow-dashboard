@@ -18,6 +18,7 @@ const callback = require('../api/auth/callback');
 const discordActivity = require('../api/auth/discord-activity');
 const register = require('../api/auth/register');
 const { verifyJWT } = require('../api/_lib/auth');
+const { ensureReferralCode } = require('../api/_lib/referrals');
 
 const originalFetch = global.fetch;
 
@@ -119,7 +120,11 @@ test('Discord callback rejects missing or mismatched state before token exchange
 });
 
 test('Discord callback consumes valid state and clears it alongside auth cookies', async () => {
-  FakeRedis.reset({ 'nf_user_data:discord-user': JSON.stringify({}) });
+  FakeRedis.reset({
+    'nf_discord_username:discord-1': 'discord-user',
+    'nf_identity_owner:discord-user': 'discord:discord-1',
+    'nf_user_data:discord-user': JSON.stringify({}),
+  });
   let externalCalls = 0;
   global.fetch = async (url) => {
     externalCalls += 1;
@@ -146,13 +151,40 @@ test('Discord callback consumes valid state and clears it alongside auth cookies
   assert.ok(cookies.some(cookie => cookie.startsWith('nf_oauth_state=;')));
 });
 
+test('a new Discord account binds the HttpOnly referral hint once', async () => {
+  const invite = await ensureReferralCode(new FakeRedis(), 'campaign-parent');
+  const start = await invokeRedirect(discordStart, { query: { ref: invite.referral_code } });
+  const startCookies = start.headers['set-cookie'];
+  assert.ok(Array.isArray(startCookies));
+  const stateCookie = startCookies.find(cookie => cookie.startsWith('nf_oauth_state='));
+  const referralCookie = startCookies.find(cookie => cookie.startsWith('nf_referral_code='));
+  const state = stateCookie.match(/^nf_oauth_state=([^;]+)/)[1];
+  assert.ok(referralCookie);
+
+  global.fetch = async url => {
+    if (String(url).includes('/oauth2/token')) return response({ access_token: 'discord-access-token' });
+    return response({ id: 'discord-referred', username: 'discord-child', global_name: 'Discord Child', avatar: null });
+  };
+  const result = await invokeRedirect(callback, {
+    headers: { cookie: `nf_oauth_state=${state}; nf_referral_code=${invite.referral_code}` },
+    query: { code: 'authorization-code', state },
+  });
+  assert.equal(result.headers.location, '/app-v2?auth=success');
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_referrer_of:v1:discord-child')).parent, 'campaign-parent');
+  assert.ok(result.headers['set-cookie'].some(cookie => cookie.startsWith('nf_referral_code=;')));
+});
+
 test('Discord activity rejects disabled accounts and never returns access tokens', async () => {
   global.fetch = async (url) => {
     if (String(url).includes('/oauth2/token')) return response({ access_token: 'discord-access-token' });
     return response({ id: 'discord-1', username: 'discord-user', global_name: 'Discord User', avatar: null });
   };
 
-  FakeRedis.reset({ 'nf_user_data:discord-user': JSON.stringify({ disabled: true }) });
+  FakeRedis.reset({
+    'nf_discord_username:discord-1': 'discord-user',
+    'nf_identity_owner:discord-user': 'discord:discord-1',
+    'nf_user_data:discord-user': JSON.stringify({ disabled: true }),
+  });
   const disabled = await invokeRedirect(discordActivity, {
     method: 'POST', body: { code: 'authorization-code' },
   });
@@ -160,7 +192,11 @@ test('Discord activity rejects disabled accounts and never returns access tokens
   assert.equal(disabled.body.code, 'ACCOUNT_DISABLED');
   assert.equal(disabled.headers['set-cookie'], undefined);
 
-  FakeRedis.reset({ 'nf_user_data:discord-user': JSON.stringify({}) });
+  FakeRedis.reset({
+    'nf_discord_username:discord-1': 'discord-user',
+    'nf_identity_owner:discord-user': 'discord:discord-1',
+    'nf_user_data:discord-user': JSON.stringify({}),
+  });
   const success = await invokeRedirect(discordActivity, {
     method: 'POST', body: { code: 'authorization-code' },
   });
@@ -168,6 +204,52 @@ test('Discord activity rejects disabled accounts and never returns access tokens
   assert.equal(success.body.success, true);
   assert.equal(Object.hasOwn(success.body, 'token'), false);
   assert.ok(Array.isArray(success.headers['set-cookie']));
+});
+
+test('Discord cannot claim a legacy account that predates identity ownership records', async () => {
+  FakeRedis.reset({
+    'nf_user_data:legacy-wallet-user': JSON.stringify({ bonus_balance: 40 }),
+    'nf_user_pass:legacy-wallet-user': 'legacy-password-hash',
+  });
+  global.fetch = async url => {
+    if (String(url).includes('/oauth2/token')) return response({ access_token: 'discord-access-token' });
+    return response({ id: 'discord-attacker', username: 'legacy-wallet-user', global_name: 'Legacy Wallet User', avatar: null });
+  };
+
+  const state = 'legacy-wallet-conflict';
+  const callbackResult = await invokeRedirect(callback, {
+    headers: { cookie: `nf_oauth_state=${state}` },
+    query: { code: 'authorization-code', state },
+  });
+  assert.equal(callbackResult.headers.location, '/app-v2?auth=identity_conflict');
+  assert.equal(FakeRedis.values.has('nf_identity_owner:legacy-wallet-user'), false);
+  assert.equal(String(callbackResult.headers['set-cookie']).includes('nf_token='), false);
+
+  const activityResult = await invokeRedirect(discordActivity, {
+    method: 'POST',
+    body: { code: 'authorization-code' },
+  });
+  assert.equal(activityResult.statusCode, 409);
+  assert.equal(activityResult.body.code, 'ACCOUNT_IDENTITY_CONFLICT');
+  assert.equal(activityResult.headers['set-cookie'], undefined);
+  assert.equal(FakeRedis.values.has('nf_discord_username:discord-attacker'), false);
+});
+
+test('Discord cannot claim a promoter reserved by the reporting snapshot', async () => {
+  global.fetch = async url => {
+    if (String(url).includes('/oauth2/token')) return response({ access_token: 'discord-access-token' });
+    return response({ id: 'discord-promoter-collision', username: 'tom', global_name: 'Tom', avatar: null });
+  };
+  const state = 'protected-promoter-conflict';
+  const result = await invokeRedirect(callback, {
+    headers: { cookie: `nf_oauth_state=${state}` },
+    query: { code: 'authorization-code', state },
+  });
+
+  assert.equal(result.headers.location, '/app-v2?auth=identity_conflict');
+  assert.equal(FakeRedis.values.has('nf_identity_owner:tom'), false);
+  assert.equal(FakeRedis.values.has('nf_discord_username:discord-promoter-collision'), false);
+  assert.equal(String(result.headers['set-cookie']).includes('nf_token='), false);
 });
 
 test('a local account and Discord account cannot share one username identity', async () => {

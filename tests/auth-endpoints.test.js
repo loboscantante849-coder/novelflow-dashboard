@@ -490,3 +490,23 @@ test('register rejects reserved new usernames', async () => {
   assert.equal(res.body.error, 'This username is not available');
   assert.equal(FakeRedis.values.has('nf_user_pass:Admin'), false);
 });
+
+test('register rejects the unmapped system income bucket', async () => {
+  const res = await invoke(register, {
+    body: { username: '_unmapped', password: 'Password1' },
+  });
+
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.error, 'This username is not available');
+  assert.equal(FakeRedis.values.has('nf_user_pass:_unmapped'), false);
+});
+
+test('brand new accounts cannot claim a protected promoter identity', async () => {
+  const res = await invoke(register, {
+    body: { username: 'tom', password: 'Password1' },
+  });
+
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.code, 'PROMOTER_RECOVERY_REQUIRED');
+  assert.equal(FakeRedis.values.has('nf_user_pass:tom'), false);
+});

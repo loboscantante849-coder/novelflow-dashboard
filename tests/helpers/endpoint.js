@@ -69,6 +69,47 @@ class FakeRedis {
     return Array.isArray(value) ? [...value] : [];
   }
 
+  async sadd(key, ...members) {
+    this._checkError();
+    if (FakeRedis.errorsByKey.has(key)) throw FakeRedis.errorsByKey.get(key);
+    const existing = FakeRedis.values.get(key);
+    const set = existing instanceof Set ? existing : new Set(Array.isArray(existing) ? existing : []);
+    let added = 0;
+    for (const member of members.flat()) {
+      const size = set.size;
+      set.add(member);
+      if (set.size > size) added += 1;
+    }
+    FakeRedis.values.set(key, set);
+    return added;
+  }
+
+  async scard(key) {
+    this._checkError();
+    if (FakeRedis.errorsByKey.has(key)) throw FakeRedis.errorsByKey.get(key);
+    const value = FakeRedis.values.get(key);
+    if (value instanceof Set) return value.size;
+    return Array.isArray(value) ? new Set(value).size : 0;
+  }
+
+  async mget(...keys) {
+    this._checkError();
+    const list = keys.length === 1 && Array.isArray(keys[0]) ? keys[0] : keys;
+    return Promise.all(list.map(key => this.get(key)));
+  }
+
+  async scan(_cursor, options = {}) {
+    this._checkError();
+    const match = String(options.match || '*');
+    const pattern = match
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*/g, '.*')
+      .replace(/\?/g, '.');
+    const regex = new RegExp(`^${pattern}$`);
+    const keys = Array.from(FakeRedis.values.keys()).filter(key => regex.test(String(key)));
+    return ['0', keys];
+  }
+
   async incrby(key, amount) {
     this._checkError();
     const value = Number(FakeRedis.values.get(key) || 0) + Number(amount);
@@ -123,7 +164,8 @@ function createResponse() {
       this.headers[String(name).toLowerCase()] = value;
       return this;
     },
-    end() {
+    end(body) {
+      if (body !== undefined) this.body = body;
       this.ended = true;
       return this;
     },

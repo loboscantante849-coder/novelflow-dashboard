@@ -1077,6 +1077,91 @@
         }
         .campaign-cta:disabled { background: rgba(0,0,0,0.08); color: var(--ink-mute); cursor: not-allowed; }
         .campaign-cta:not(:disabled):active { transform: scale(0.96); }
+
+        /* Limited subsidy activity */
+        .activity-overlay {
+            position: fixed; inset: 0; z-index: 12500; display: none;
+            align-items: center; justify-content: center; padding: 20px;
+            background: rgba(13,37,61,0.58);
+        }
+        .activity-overlay.show { display: flex; animation: fadeIn 0.2s ease; }
+        .activity-panel {
+            width: min(520px, 100%); max-height: min(760px, 92vh);
+            display: flex; flex-direction: column; overflow: hidden;
+            background: var(--canvas); border-radius: 8px; box-shadow: 0 20px 60px rgba(13,37,61,0.28);
+        }
+        .activity-header {
+            min-height: 56px; display: grid; grid-template-columns: 34px minmax(0, 1fr) 34px;
+            align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--hairline);
+            background: var(--canvas); flex-shrink: 0;
+        }
+        .activity-title { min-width: 0; text-align: center; color: var(--ink); font-size: 16px; font-weight: 700; }
+        .activity-close {
+            width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+            border: 0; border-radius: 50%; background: var(--canvas-soft); color: var(--ink-secondary);
+            font: inherit; font-size: 21px; line-height: 1; cursor: pointer;
+        }
+        .activity-close:hover { background: var(--hairline); color: var(--ink); }
+        .activity-body { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+        .activity-hero { padding: 18px 18px 16px; background: #172033; color: white; }
+        .activity-hero-kicker { color: #FCD34D; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .activity-hero-title { margin-top: 5px; font-size: 21px; font-weight: 700; line-height: 1.25; }
+        .activity-window { margin-top: 7px; color: rgba(255,255,255,0.72); font-size: 12px; line-height: 1.45; }
+        .activity-note { padding: 10px 18px; background: #FFF7ED; color: #9A3412; font-size: 11px; line-height: 1.5; }
+        .activity-shared-id { padding: 12px 18px 2px; }
+        .activity-shared-id { padding: 14px 18px; background: white; border-bottom: 1px solid var(--hairline); }
+        .activity-task-list { background: var(--canvas); }
+        .activity-task { padding: 16px 18px; border-top: 1px solid var(--hairline); }
+        .activity-task:first-child { border-top: 0; }
+        .activity-task-head { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 9px; align-items: start; }
+        .activity-task-icon { font-size: 21px; line-height: 28px; text-align: center; }
+        .activity-task-title { color: var(--ink); font-size: 14px; font-weight: 700; line-height: 1.35; }
+        .activity-task-copy { margin-top: 3px; color: var(--ink-secondary); font-size: 11px; line-height: 1.5; }
+        .activity-form { margin-top: 12px; }
+        .activity-field-label { display: block; margin-bottom: 5px; color: var(--ink-secondary); font-size: 11px; font-weight: 600; }
+        .activity-input-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+        .activity-input-stack { display: grid; grid-template-columns: 1fr; gap: 9px; }
+        .activity-input {
+            width: 100%; min-width: 0; min-height: 42px; padding: 9px 10px;
+            border: 1px solid var(--hairline); border-radius: 7px; background: white;
+            color: var(--ink); font: inherit; font-size: 16px;
+        }
+        .activity-input:focus { outline: 2px solid rgba(83,58,253,0.16); border-color: var(--primary); }
+        .activity-action {
+            min-height: 42px; padding: 9px 14px; border: 0; border-radius: 7px;
+            background: var(--primary); color: var(--on-primary); font: inherit;
+            font-size: 12px; font-weight: 700; line-height: 1.25; cursor: pointer; white-space: nowrap;
+        }
+        .activity-action.secondary { background: #0D9460; color: white; }
+        .activity-action:disabled { background: var(--hairline); color: var(--ink-mute); cursor: not-allowed; }
+        .activity-claim-state { margin-top: 10px; color: var(--success); font-size: 11px; font-weight: 600; line-height: 1.45; }
+        .activity-claim-state.pending { color: #B45309; }
+        .activity-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 12px; border: 1px solid var(--hairline); border-radius: 7px; overflow: hidden; }
+        .activity-metric { min-width: 0; padding: 9px 5px; text-align: center; border-left: 1px solid var(--hairline); }
+        .activity-metric:first-child { border-left: 0; }
+        .activity-metric-value { color: var(--ink); font-size: 15px; font-weight: 700; font-feature-settings: "tnum"; }
+        .activity-metric-label { margin-top: 2px; color: var(--ink-mute); font-size: 9px; line-height: 1.25; overflow-wrap: anywhere; }
+        .activity-referral { margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--hairline); }
+        .activity-referral-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+        .activity-referral-row > div { min-width: 0; }
+        .activity-referral-url { min-width: 0; color: var(--ink-secondary); font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+        .activity-copy-btn {
+            width: 38px; height: 38px; border: 1px solid var(--hairline); border-radius: 7px;
+            background: white; color: var(--primary); font-size: 17px; cursor: pointer;
+        }
+        .activity-copy-btn:hover { border-color: var(--primary); background: var(--canvas-soft); }
+        .activity-loading, .activity-error { padding: 34px 20px; text-align: center; color: var(--ink-mute); font-size: 12px; line-height: 1.5; }
+        .activity-error { color: var(--danger); }
+        .activity-retry { margin-top: 12px; }
+        @media (max-width: 480px) {
+            .activity-overlay { align-items: flex-end; padding: 0; }
+            .activity-panel { width: 100%; max-height: 92dvh; border-radius: 8px 8px 0 0; }
+            .activity-input-row { grid-template-columns: 1fr; }
+            .activity-action { width: 100%; white-space: normal; }
+            .activity-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .activity-metric:nth-child(3) { border-left: 0; border-top: 1px solid var(--hairline); }
+            .activity-metric:nth-child(4) { border-top: 1px solid var(--hairline); }
+        }
         .bonus-profile-card {
             margin: 10px var(--sp-lg) 0;
             background: linear-gradient(135deg, #FED7AA, #C084FC, #F472B6);
@@ -3134,7 +3219,7 @@
             <!-- Tasks v2.5.0: Checkin + Campaigns + Bonus -->
             <div class="missions-section">
                 <div class="missions-header">
-                    <span>🎯 Tasks & Rewards</span>
+                    <span data-i18n="tasks_rewards_title">🎯 Tasks &amp; Rewards</span>
                     <div class="points-badge" id="pointsBadge">0 <span data-i18n="pts">pts</span></div>
                 </div>
 
@@ -3205,8 +3290,8 @@
 
                 <!-- Campaign Missions (horizontal scroll) -->
                 <div class="campaigns-header">
-                    <div class="campaigns-title">🎯 Campaign Missions</div>
-                    <div style="font-size:11px;color:var(--ink-mute);">Swipe →</div>
+                    <div class="campaigns-title" data-i18n="campaign_missions_title">🎯 Campaign Missions</div>
+                    <div style="font-size:11px;color:var(--ink-mute);" data-i18n="campaign_swipe_hint">Swipe →</div>
                 </div>
                 <div class="campaign-scroll-list" id="campaignList">
                     <!-- rendered by renderCampaigns() -->
@@ -3422,6 +3507,20 @@
         </div>
     </div>
 
+    <!-- Limited subsidy activity -->
+    <div class="activity-overlay" id="activityModal" role="dialog" aria-modal="true" aria-labelledby="activityModalTitle" onclick="if(event.target===this)closeActivityModal()">
+        <div class="activity-panel">
+            <div class="activity-header">
+                <div aria-hidden="true"></div>
+                <div class="activity-title" id="activityModalTitle" data-i18n="activity_modal_title">Limited Subsidy</div>
+                <button class="activity-close" type="button" onclick="closeActivityModal()" aria-label="Close" title="Close">&times;</button>
+            </div>
+            <div class="activity-body" id="activityModalBody" aria-live="polite">
+                <div class="activity-loading" data-i18n="activity_loading">Loading activity...</div>
+            </div>
+        </div>
+    </div>
+
     <script src="/daily-book-performance.js"></script>
     <script>
         // v2.5.1: Global HTML escape for XSS protection
@@ -3445,6 +3544,64 @@
             currentBook: null,
             currentRecommendText: ''
         };
+
+        // Capture recommender attribution before authentication. The server is the
+        // source of truth; this short-lived client hint only survives the signup flow.
+        const REFERRAL_STORAGE_KEY = 'novelflow_referral_code';
+        const REFERRAL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+        function normalizeClientReferralCode(value) {
+            const code = String(value || '').trim();
+            return /^[A-Za-z0-9_-]{8,80}$/.test(code) ? code : '';
+        }
+        function writeReferralStorage(code) {
+            const record = JSON.stringify({ code, capturedAt: Date.now() });
+            try { sessionStorage.setItem(REFERRAL_STORAGE_KEY, record); } catch (_) {}
+            try { localStorage.setItem(REFERRAL_STORAGE_KEY, record); } catch (_) {}
+        }
+        function readReferralStorage(storage) {
+            try {
+                const raw = storage.getItem(REFERRAL_STORAGE_KEY);
+                if (!raw) return '';
+                let value = raw;
+                try { value = JSON.parse(raw); } catch (_) {}
+                const code = normalizeClientReferralCode(value && typeof value === 'object' ? value.code : value);
+                const capturedAt = Number(value && typeof value === 'object' ? value.capturedAt : 0);
+                if (!code || (capturedAt && Date.now() - capturedAt > REFERRAL_TTL_MS)) {
+                    storage.removeItem(REFERRAL_STORAGE_KEY);
+                    return '';
+                }
+                return code;
+            } catch (_) { return ''; }
+        }
+        function getStoredReferralCode() {
+            try {
+                const sessionCode = readReferralStorage(sessionStorage);
+                if (sessionCode) return sessionCode;
+            } catch (_) {}
+            try { return readReferralStorage(localStorage); } catch (_) { return ''; }
+        }
+        function clearStoredReferralCode() {
+            try { sessionStorage.removeItem(REFERRAL_STORAGE_KEY); } catch (_) {}
+            try { localStorage.removeItem(REFERRAL_STORAGE_KEY); } catch (_) {}
+        }
+        function buildRegistrationPayload(username, password) {
+            const payload = { username, password: password || undefined };
+            const referralCode = getStoredReferralCode();
+            if (referralCode) payload.referral_code = referralCode;
+            return payload;
+        }
+        function captureReferralCode() {
+            try {
+                const url = new URL(window.location.href);
+                const code = normalizeClientReferralCode(url.searchParams.get('ref'));
+                if (code) writeReferralStorage(code);
+                if (url.searchParams.has('ref') && window.history && window.history.replaceState) {
+                    url.searchParams.delete('ref');
+                    window.history.replaceState({}, document.title, url.pathname + (url.search ? url.search : '') + url.hash);
+                }
+            } catch (_) {}
+        }
+        captureReferralCode();
 
         // Authentication is cookie-only. Remove tokens left by older client builds.
         try {
@@ -3613,6 +3770,18 @@
             const recommendModal = document.getElementById('recommendModal');
             if (searchResults) searchResults.replaceChildren();
             if (recommendModal) recommendModal.classList.remove('show');
+            if (typeof ActivityState !== 'undefined') {
+                ActivityState.data = null;
+                ActivityState.error = '';
+                ActivityState.loading = false;
+                ActivityState.loadedUser = null;
+                ActivityState.requestId += 1;
+                ActivityState.submitting = '';
+                ActivityState.form = { novelFlowId: '', facebookUrl: '' };
+            }
+            const activityModal = document.getElementById('activityModal');
+            if (activityModal) activityModal.classList.remove('show');
+            document.body.style.overflow = '';
 
             if (typeof renderMyBooks === 'function') renderMyBooks();
             if (typeof updateStats === 'function') updateStats();
@@ -3656,7 +3825,10 @@
             if (!origin) return;
             const action = origin.dataset.nfAction;
 
-            if (action === 'open-recommend') {
+            if (action === 'open-activity') {
+                event.preventDefault();
+                openActivityModal();
+            } else if (action === 'open-recommend') {
                 event.preventDefault();
                 openRecommendModal(origin.dataset.bookId || '');
             } else if (action === 'copy-book-link') {
@@ -3880,6 +4052,75 @@
                 new_label: 'New',
                 show_more: 'Show more',
                 show_less: 'Show less',
+                tasks_rewards_title: '🎯 Tasks & Rewards',
+                campaign_missions_title: '🎯 Campaign Missions',
+                campaign_swipe_hint: 'Swipe →',
+                campaign_limited_name: 'Limited Subsidy',
+                campaign_limited_reward: '2-day VIP · $1 bonus · invite VIP',
+                campaign_limited_status: 'Limited-time activity',
+                campaign_limited_ended: 'Activity ended',
+                campaign_limited_ribbon: 'LIMITED',
+                campaign_ended_ribbon: 'ENDED',
+                campaign_limited_cta: 'View rewards',
+                activity_modal_title: 'Limited Subsidy',
+                activity_kicker: 'All-user reward · Limited-time support',
+                activity_loading: 'Loading activity...',
+                activity_login: 'Log in to view and submit activity rewards.',
+                activity_ended: 'This activity has ended. Existing submissions remain in the review queue.',
+                activity_upcoming: 'This activity has not started yet.',
+                activity_active_until: 'Active until',
+                activity_batch_note: 'Rewards are reviewed and fulfilled in batches. Submitting a claim does not change your promotion or wallet data automatically.',
+                activity_vip_title: '2-Day VIP for Everyone',
+                activity_vip_copy: 'Enter your NovelFlow ID to request 2 VIP days. One claim per account and per ID.',
+                activity_id_label: 'NovelFlow ID',
+                activity_id_placeholder: 'Enter your NovelFlow ID',
+                activity_vip_claim: 'Claim 2-Day VIP',
+                activity_vip_submitted: 'Submitted · 2 VIP days are pending batch fulfillment.',
+                activity_fb_title: 'Facebook Book Post',
+                activity_fb_copy: 'Recommend one novel in the official NovelFlow Facebook group, then submit the group post link for manual review.',
+                activity_fb_url_label: 'Facebook group post URL',
+                activity_fb_url_placeholder: 'https://facebook.com/groups/.../posts/...',
+                activity_fb_submit: 'Submit for $1 Bonus',
+                activity_fb_submitted: 'Submitted · $1 bonus is pending manual review.',
+                activity_invite_title: 'Invite Rewards',
+                activity_invite_copy: 'Every 2 new registrations unlocks 3 VIP days at 2/4/6/8. Reach 10 registrations to unlock 20 extra VIP days.',
+                activity_invite_link: 'Your personal invite link',
+                activity_invite_link_copy: 'Share this link to count new registrations during the activity.',
+                activity_invite_link_ready: 'Invite link ready',
+                activity_verified: 'New registrations',
+                activity_earned: 'Earned days',
+                activity_claimed: 'Claimed days',
+                activity_available: 'Available days',
+                activity_invite_claim: 'Claim VIP days',
+                activity_invite_none: 'No new invite reward is available yet.',
+                activity_invite_submitted: 'Submitted · VIP days are pending batch fulfillment.',
+                activity_recommender_title: 'NovelFlow Recommender',
+                activity_recommender_copy: 'With 5+ measured new users, apply for a badge and 5% of invited promoters\' gross promotion income. First 50 positions only.',
+                activity_recommender_progress: 'Eligibility',
+                activity_recommender_measured: 'Measured users',
+                activity_recommender_apply: 'Apply for Recommender',
+                activity_recommender_applied: 'Application active',
+                activity_recommender_slot: 'Position',
+                activity_recommender_link: 'Personal referral link',
+                activity_copy_link: 'Copy referral link',
+                activity_copied: 'Referral link copied',
+                activity_retry: 'Retry',
+                activity_close: 'Close',
+                activity_success_vip: 'VIP request submitted.',
+                activity_success_facebook: 'Facebook post submitted for review.',
+                activity_success_invite: 'Invite VIP request submitted.',
+                activity_success_recommender: 'Recommender application submitted.',
+                activity_stats_unavailable: 'Promotion stats are temporarily unavailable. Try again later.',
+                activity_stats_stale: 'Promotion stats are updating. Try again later.',
+                activity_storage_unavailable: 'Activity service is temporarily unavailable. Try again later.',
+                activity_rate_limited: 'Too many attempts. Please try again later.',
+                activity_invalid_id: 'Enter a valid NovelFlow ID.',
+                activity_invalid_url: 'Enter an HTTPS Facebook group post URL.',
+                activity_id_immutable: 'Your NovelFlow ID is fixed for this activity.',
+                activity_identifier_used: 'This ID or post has already been used for this activity.',
+                activity_recommender_not_eligible: 'At least 5 measured new users are required before applying.',
+                activity_recommender_full: 'The first 50 recommender positions are full.',
+                activity_busy: 'Another activity request is being processed. Try again shortly.',
                 login_to_see: 'Login to see your stats',
                 no_desc: 'No description available.',
                 no_books_cat: 'No books found for this category',
@@ -4274,6 +4515,75 @@
                 daily_books_assets: 'recursos',
                 perf_unavailable: 'Las estadísticas no están disponibles temporalmente.',
                 retry_btn: 'Reintentar',
+                tasks_rewards_title: '\ud83c\udfaf Tareas y recompensas',
+                campaign_missions_title: '\ud83c\udfaf Misiones de campa\u00f1a',
+                campaign_swipe_hint: 'Desliza \u2192',
+                campaign_limited_name: 'Subsidio por tiempo limitado',
+                campaign_limited_reward: '2 d\u00edas VIP \u00b7 $1 de bonus \u00b7 VIP por invitaciones',
+                campaign_limited_status: 'Actividad por tiempo limitado',
+                campaign_limited_ended: 'Actividad finalizada',
+                campaign_limited_ribbon: 'LIMITADA',
+                campaign_ended_ribbon: 'FINALIZADA',
+                campaign_limited_cta: 'Ver recompensas',
+                activity_modal_title: 'Subsidio por tiempo limitado',
+                activity_kicker: 'Recompensa para todos \u00b7 Apoyo por tiempo limitado',
+                activity_loading: 'Cargando actividad...',
+                activity_login: 'Inicia sesi\u00f3n para consultar y enviar recompensas.',
+                activity_ended: 'La actividad termin\u00f3. Las solicitudes existentes siguen en la cola de revisi\u00f3n.',
+                activity_upcoming: 'La actividad todav\u00eda no ha comenzado.',
+                activity_active_until: 'Activa hasta',
+                activity_batch_note: 'Las recompensas se revisan y entregan por lotes. Enviar una solicitud no cambia autom\u00e1ticamente tus datos de promoci\u00f3n ni tu saldo.',
+                activity_vip_title: '2 d\u00edas VIP para todos',
+                activity_vip_copy: 'Introduce tu ID de NovelFlow para solicitar 2 d\u00edas VIP. Un solo reclamo por cuenta y por ID.',
+                activity_id_label: 'ID de NovelFlow',
+                activity_id_placeholder: 'Introduce tu ID de NovelFlow',
+                activity_vip_claim: 'Solicitar 2 d\u00edas VIP',
+                activity_vip_submitted: 'Enviado \u00b7 2 d\u00edas VIP pendientes de entrega por lote.',
+                activity_fb_title: 'Publicaci\u00f3n de libro en Facebook',
+                activity_fb_copy: 'Recomienda una novela en el grupo oficial de NovelFlow y env\u00eda el enlace de la publicaci\u00f3n para revisi\u00f3n manual.',
+                activity_fb_url_label: 'URL de la publicaci\u00f3n del grupo',
+                activity_fb_url_placeholder: 'https://facebook.com/groups/.../posts/...',
+                activity_fb_submit: 'Enviar por bonus de $1',
+                activity_fb_submitted: 'Enviado \u00b7 bonus de $1 pendiente de revisi\u00f3n manual.',
+                activity_invite_title: 'Recompensas por invitaci\u00f3n',
+                activity_invite_copy: 'Cada 2 nuevos registros desbloquea 3 d\u00edas VIP en 2/4/6/8. Con 10 registros desbloqueas 20 d\u00edas VIP extra.',
+                activity_invite_link: 'Tu enlace personal de invitaci\u00f3n',
+                activity_invite_link_copy: 'Comparte este enlace para contar nuevos registros durante la actividad.',
+                activity_invite_link_ready: 'Enlace de invitaci\u00f3n listo',
+                activity_verified: 'Nuevos registros',
+                activity_earned: 'D\u00edas ganados',
+                activity_claimed: 'D\u00edas reclamados',
+                activity_available: 'D\u00edas disponibles',
+                activity_invite_claim: 'Solicitar d\u00edas VIP',
+                activity_invite_none: 'Todav\u00eda no hay una nueva recompensa por invitaci\u00f3n.',
+                activity_invite_submitted: 'Enviado \u00b7 d\u00edas VIP pendientes de entrega por lote.',
+                activity_recommender_title: 'Recomendador de NovelFlow',
+                activity_recommender_copy: 'Con 5+ nuevos usuarios medidos puedes solicitar una insignia y el 5% de los ingresos brutos de promoci\u00f3n de tus invitados. Solo las primeras 50 posiciones.',
+                activity_recommender_progress: 'Elegibilidad',
+                activity_recommender_measured: 'Usuarios medidos',
+                activity_recommender_apply: 'Solicitar ser recomendador',
+                activity_recommender_applied: 'Solicitud activa',
+                activity_recommender_slot: 'Posici\u00f3n',
+                activity_recommender_link: 'Enlace personal de referencia',
+                activity_copy_link: 'Copiar enlace de referencia',
+                activity_copied: 'Enlace de referencia copiado',
+                activity_retry: 'Reintentar',
+                activity_close: 'Cerrar',
+                activity_success_vip: 'Solicitud VIP enviada.',
+                activity_success_facebook: 'Publicaci\u00f3n enviada para revisi\u00f3n.',
+                activity_success_invite: 'Solicitud de VIP por invitaci\u00f3n enviada.',
+                activity_success_recommender: 'Solicitud de recomendador enviada.',
+                activity_stats_unavailable: 'Las estad\u00edsticas de promoci\u00f3n no est\u00e1n disponibles temporalmente. Int\u00e9ntalo m\u00e1s tarde.',
+                activity_stats_stale: 'Las estad\u00edsticas de promoci\u00f3n se est\u00e1n actualizando. Int\u00e9ntalo m\u00e1s tarde.',
+                activity_storage_unavailable: 'El servicio de actividades no est\u00e1 disponible temporalmente. Int\u00e9ntalo m\u00e1s tarde.',
+                activity_rate_limited: 'Demasiados intentos. Int\u00e9ntalo m\u00e1s tarde.',
+                activity_invalid_id: 'Introduce un ID de NovelFlow v\u00e1lido.',
+                activity_invalid_url: 'Introduce una URL HTTPS de una publicaci\u00f3n de grupo de Facebook.',
+                activity_id_immutable: 'Tu ID de NovelFlow queda fijado para esta actividad.',
+                activity_identifier_used: 'Este ID o esta publicaci\u00f3n ya se us\u00f3 en esta actividad.',
+                activity_recommender_not_eligible: 'Necesitas al menos 5 nuevos usuarios medidos antes de solicitarlo.',
+                activity_recommender_full: 'Las primeras 50 posiciones de recomendador ya est\u00e1n ocupadas.',
+                activity_busy: 'Se est\u00e1 procesando otra solicitud. Int\u00e9ntalo de nuevo en breve.',
                 login_to_see: 'Inicia sesión para ver tus estadísticas',
             }
         };
@@ -4303,6 +4613,8 @@
             if (ogTitle) ogTitle.content = pageTitle;
             if (ogDescription) ogDescription.content = pageDescription;
             applyTranslations();
+            if (typeof renderCampaigns === 'function') renderCampaigns();
+            if (typeof renderActivityModal === 'function') renderActivityModal();
             if (_lastPerfData) renderDailyBookPerformance(_lastPerfData);
             // Reload books for an explicit language change. Initial page setup
             // applies translations first and lets the main bootstrap load once.
@@ -4354,6 +4666,11 @@
                     el.textContent = dict[key];
                 }
             });
+            if (typeof renderCampaigns === 'function') renderCampaigns();
+            const activityModal = document.getElementById('activityModal');
+            if (activityModal && activityModal.classList.contains('show') && typeof renderActivityModal === 'function') {
+                renderActivityModal();
+            }
         }
         
         // Apply saved language on load
@@ -5565,88 +5882,389 @@
             return localStorage.getItem(getUserKey('streak_grand_claimed')) !== null;
         }
 
-        const CAMPAIGNS = [
-            {
-                id: 'campaign1',
-                name: 'Social Share Campaign',
-                desc: 'Share books on social media',
-                icon: '📣',
-                reward: '$9.00 or 21d VIP',
-                rewardAmt: 9.00,
-                status: 'completed',
-                ctaLabel: 'Finished',
-                ribbon: 'COMPLETED',
-            },
-            {
-                id: 'campaign2',
-                name: 'Campaign #2',
-                desc: 'Bigger rewards, new missions',
-                icon: '🚀',
-                reward: 'TBD',
-                rewardAmt: 0,
-                status: 'locked',
-                startDate: '2026-07-28',
-                ctaLabel: 'Coming Soon',
-                ribbon: 'LOCKED',
-            }
-        ];
+        const ACTIVITY_FALLBACK_END_AT = '2026-08-17T15:59:59.999Z';
+        const ActivityState = {
+            data: null,
+            error: '',
+            loading: false,
+            loadedUser: null,
+            requestId: 0,
+            submitting: '',
+            opener: null,
+            form: { novelFlowId: '', facebookUrl: '' }
+        };
 
         function renderCampaigns() {
             const list = document.getElementById('campaignList');
             if (!list) return;
-            const now = new Date();
-            list.innerHTML = CAMPAIGNS.map(c => {
-                let status = c.status;
-                let ribbonClass = 'finished';
-                let ctaDisabled = true;
-                let ctaLabel = c.ctaLabel;
-                let ctaAction = '';
-                let extraBadge = '';
-
-                if (c.id === 'campaign2') {
-                    const start = new Date(c.startDate + 'T00:00:00');
-                    if (now >= start) {
-                        status = 'ongoing';
-                        ribbonClass = '';
-                        ctaDisabled = false;
-                        ctaLabel = 'Join Now';
-                        ctaAction = "joinCampaign('campaign2')";
-                    } else {
-                        status = 'locked';
-                        ribbonClass = 'locked';
-                        ctaDisabled = true;
-                        ctaLabel = '🔒 Starts July 28';
-                        ctaAction = "showToast('Campaign starts July 28, 2026', 'info')";
-                    }
-                }
-                if (c.id === 'campaign1' && isCampaign1Winner()) {
-                    ribbonClass = 'claimed';
-                    c.ribbon = 'CLAIMED';
-                    extraBadge = '<div style="font-size:10px;color:#059669;font-weight:700;margin-top:2px;">🎉 $9.00 Claimed</div>';
-                }
-
-                return '' +
-                    '<div class="campaign-card ' + status + '">' +
-                        '<div class="campaign-banner">' +
-                            '<span>' + c.icon + '</span>' +
-                            '<div class="campaign-ribbon ' + ribbonClass + '">' + c.ribbon + '</div>' +
-                        '</div>' +
-                        '<div class="campaign-body">' +
-                            '<div class="campaign-name">' + c.name + '</div>' +
-                            '<div class="campaign-reward">Reward: <span class="amt">' + c.reward + '</span></div>' +
-                            extraBadge +
-                            '<div class="campaign-status">' + (status === 'locked' ? '🔒 Starts July 28' : (status === 'completed' ? '✓ Finished' : '🔥 Ongoing')) + '</div>' +
-                            '<button class="campaign-cta" ' + (ctaDisabled ? 'disabled' : '') + ' onclick="' + (ctaAction || 'return false;') + '">' + ctaLabel + '</button>' +
-                        '</div>' +
-                    '</div>';
-            }).join('');
+            const serverWindow = ActivityState.data && ActivityState.data.window;
+            const activityEnded = serverWindow
+                ? Boolean(serverWindow.ended)
+                : Date.now() > Date.parse(ACTIVITY_FALLBACK_END_AT);
+            const rewardLabel = AppState.currentLang === 'es' ? 'Recompensa' : 'Reward';
+            const campaign1Claimed = isCampaign1Winner();
+            const campaign1Ribbon = campaign1Claimed ? 'CLAIMED' : 'COMPLETED';
+            const campaign1Badge = campaign1Claimed
+                ? '<div style="font-size:10px;color:#059669;font-weight:700;margin-top:2px;">$9.00 Claimed</div>'
+                : '';
+            const campaign1 = '' +
+                '<div class="campaign-card completed">' +
+                    '<div class="campaign-banner"><span>📣</span><div class="campaign-ribbon ' + (campaign1Claimed ? 'claimed' : 'finished') + '">' + campaign1Ribbon + '</div></div>' +
+                    '<div class="campaign-body">' +
+                        '<div class="campaign-name">Social Share Campaign</div>' +
+                        '<div class="campaign-reward">' + rewardLabel + ': <span class="amt">$9.00 or 21d VIP</span></div>' +
+                        campaign1Badge +
+                        '<div class="campaign-status">✓ Finished</div>' +
+                        '<button class="campaign-cta" type="button" disabled>Finished</button>' +
+                    '</div>' +
+                '</div>';
+            const limited = '' +
+                '<div class="campaign-card ' + (activityEnded ? 'completed' : 'ongoing') + '">' +
+                    '<div class="campaign-banner"><span>🎁</span><div class="campaign-ribbon ' + (activityEnded ? 'finished' : '') + '">' +
+                        escapeHtml(getText(activityEnded ? 'campaign_ended_ribbon' : 'campaign_limited_ribbon')) +
+                    '</div></div>' +
+                    '<div class="campaign-body">' +
+                        '<div class="campaign-name">' + escapeHtml(getText('campaign_limited_name')) + '</div>' +
+                        '<div class="campaign-reward">' + escapeHtml(rewardLabel) + ': <span class="amt">' + escapeHtml(getText('campaign_limited_reward')) + '</span></div>' +
+                        '<div class="campaign-status">' + escapeHtml(activityEnded ? getText('campaign_limited_ended') : getText('campaign_limited_status')) + '</div>' +
+                        '<button class="campaign-cta" type="button" data-nf-action="open-activity">' + escapeHtml(getText('campaign_limited_cta')) + '</button>' +
+                    '</div>' +
+                '</div>';
+            list.innerHTML = campaign1 + limited;
         }
 
-        function joinCampaign(id) {
-            if (id === 'campaign2') {
-                showToast('🚀 Campaign #2 details will be announced on July 28 — stay tuned!', 'info');
+        function activityWindow() {
+            if (ActivityState.data && ActivityState.data.window) return ActivityState.data.window;
+            const end = Date.parse(ACTIVITY_FALLBACK_END_AT);
+            return { active: Date.now() <= end, ended: Date.now() > end, upcoming: false, endsAt: ACTIVITY_FALLBACK_END_AT };
+        }
+
+        function formatActivityDate(value) {
+            const date = new Date(value);
+            if (!Number.isFinite(date.getTime())) return '';
+            return date.toLocaleString(AppState.currentLang === 'es' ? 'es-ES' : 'en-US', {
+                year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+        }
+
+        function activityApiMessage(data, fallbackKey) {
+            const codeMap = {
+                AUTH_REQUIRED: 'activity_login',
+                ACTIVITY_ENDED: 'activity_ended',
+                ACTIVITY_NOT_STARTED: 'activity_upcoming',
+                ACTIVITY_STORAGE_UNAVAILABLE: 'activity_storage_unavailable',
+                PROMOTION_STATS_UNAVAILABLE: 'activity_stats_unavailable',
+                STATS_STALE: 'activity_stats_stale',
+                RATE_LIMITED: 'activity_rate_limited',
+                INVALID_NOVELFLOW_ID: 'activity_invalid_id',
+                INVALID_FACEBOOK_URL: 'activity_invalid_url',
+                IDENTIFIER_ALREADY_USED: 'activity_identifier_used',
+                NOVELFLOW_ID_IMMUTABLE: 'activity_id_immutable',
+                NO_REWARD_AVAILABLE: 'activity_invite_none',
+                RECOMMENDER_NOT_ELIGIBLE: 'activity_recommender_not_eligible',
+                RECOMMENDER_SLOTS_FULL: 'activity_recommender_full',
+                ACTIVITY_BUSY: 'activity_busy'
+            };
+            return getText(codeMap[data && data.code] || fallbackKey || 'activity_storage_unavailable');
+        }
+
+        function normalizeActivityNovelFlowId(value) {
+            const id = String(value || '').trim();
+            return /^[A-Za-z0-9_-]{3,64}$/.test(id) ? id : '';
+        }
+
+        function normalizeActivityFacebookUrl(value) {
+            try {
+                const url = new URL(String(value || '').trim());
+                const host = url.hostname.toLowerCase();
+                const allowedHost = host === 'facebook.com' || host.endsWith('.facebook.com') || host === 'fb.com' || host.endsWith('.fb.com');
+                const match = url.pathname.match(/^\/groups\/([A-Za-z0-9._-]+)\/(?:posts|permalink)\/([A-Za-z0-9._-]+)\/?$/i);
+                if (url.protocol !== 'https:' || !allowedHost || !match) return '';
+                return 'https://www.facebook.com/groups/' + match[1].toLowerCase() + '/posts/' + match[2];
+            } catch (_) { return ''; }
+        }
+
+        function updateActivityField(field, value) {
+            if (field === 'novelFlowId' || field === 'facebookUrl') ActivityState.form[field] = String(value || '').slice(0, field === 'facebookUrl' ? 2048 : 64);
+        }
+
+        function renderActivityModal() {
+            const body = document.getElementById('activityModalBody');
+            const title = document.getElementById('activityModalTitle');
+            const close = document.querySelector('#activityModal .activity-close');
+            if (title) title.textContent = getText('activity_modal_title');
+            if (close) {
+                close.setAttribute('aria-label', getText('activity_close'));
+                close.setAttribute('title', getText('activity_close'));
+            }
+            if (!body) return;
+            if (!AppState.isLoggedIn) {
+                body.innerHTML = '<div class="activity-error">' + escapeHtml(getText('activity_login')) + '</div>';
+                return;
+            }
+            if (ActivityState.loading && !ActivityState.data) {
+                body.innerHTML = '<div class="activity-loading">' + escapeHtml(getText('activity_loading')) + '</div>';
+                return;
+            }
+            if (ActivityState.error && !ActivityState.data) {
+                body.innerHTML = '<div class="activity-error">' + escapeHtml(ActivityState.error) +
+                    '<div><button class="activity-action activity-retry" type="button" onclick="loadActivityRewards(true)">' + escapeHtml(getText('activity_retry')) + '</button></div></div>';
+                return;
+            }
+
+            const data = ActivityState.data || {};
+            const claims = data.claims || {};
+            const eligibility = data.eligibility || {};
+            const invite = data.invite || {};
+            const recommender = data.recommender || null;
+            const windowState = activityWindow();
+            const active = Boolean(windowState.active);
+            const busy = Boolean(ActivityState.submitting);
+            const campaignInvites = Math.max(0, Math.floor(Number(eligibility.campaignInvites) || 0));
+            const recommenderMeasured = Math.max(0, Math.floor(Number(eligibility.recommenderMeasuredNewUsers) || 0));
+            const earnedDays = Math.max(0, Math.floor(Number(eligibility.totalDays) || 0));
+            const inviteEvents = data.fulfillment_events && Array.isArray(data.fulfillment_events.invite_vip)
+                ? data.fulfillment_events.invite_vip
+                : [];
+            const claimedDays = inviteEvents.reduce((sum, event) => sum + Math.max(0, Math.floor(Number(event && event.reward_days) || 0)), 0);
+            const availableDays = Number.isFinite(Number(invite.reward_days_available))
+                ? Math.max(0, Math.floor(Number(invite.reward_days_available)))
+                : Math.max(0, earnedDays - claimedDays);
+            const referralUrl = String(invite.referral_url || recommender && recommender.referral_url || '');
+            const idValue = escapeHtml(ActivityState.form.novelFlowId);
+            const facebookValue = escapeHtml(ActivityState.form.facebookUrl);
+            const windowCopy = windowState.ended
+                ? getText('activity_ended')
+                : (windowState.upcoming
+                    ? getText('activity_upcoming')
+                    : getText('activity_active_until') + ' ' + formatActivityDate(windowState.endsAt));
+            const disabled = !active || busy ? ' disabled' : '';
+            const vipState = claims.vip2
+                ? '<div class="activity-claim-state pending">' + escapeHtml(getText('activity_vip_submitted')) + '</div>'
+                : '';
+            const facebookState = claims.facebook
+                ? '<div class="activity-claim-state pending">' + escapeHtml(getText('activity_fb_submitted')) + '</div>'
+                : '';
+            const inviteState = inviteEvents.length || claims.invite_vip
+                ? '<div class="activity-claim-state pending">' + escapeHtml(getText('activity_invite_submitted')) + '</div>'
+                : '';
+            let recommenderAction = '';
+            if (recommender) {
+                recommenderAction = '<div class="activity-claim-state">' + escapeHtml(getText('activity_recommender_applied')) +
+                    ' · ' + escapeHtml(getText('activity_recommender_slot')) + ' #' + escapeHtml(recommender.slot || '') + '</div>';
+            } else {
+                recommenderAction = '<div class="activity-form"><button class="activity-action secondary" type="button" onclick="submitActivityReward(\'apply_recommender\')"' +
+                    ((!active || busy || !eligibility.recommenderEligible) ? ' disabled' : '') + '>' +
+                    escapeHtml(ActivityState.submitting === 'apply_recommender' ? getText('activity_loading') : getText('activity_recommender_apply')) + '</button></div>' +
+                    '<div class="activity-claim-state pending">' + escapeHtml(getText('activity_recommender_measured')) + ': ' + recommenderMeasured + '/5</div>';
+            }
+
+            body.innerHTML = '' +
+                '<div class="activity-hero"><div class="activity-hero-kicker">' + escapeHtml(getText('activity_kicker')) + '</div>' +
+                    '<div class="activity-hero-title">' + escapeHtml(getText('activity_modal_title')) + '</div>' +
+                    '<div class="activity-window">' + escapeHtml(windowCopy) + '</div></div>' +
+                '<div class="activity-note">' + escapeHtml(getText('activity_batch_note')) + '</div>' +
+                '<div class="activity-shared-id"><label class="activity-field-label" for="activityNovelFlowId">' + escapeHtml(getText('activity_id_label')) + '</label>' +
+                    '<input class="activity-input" id="activityNovelFlowId" type="text" inputmode="text" maxlength="64" autocomplete="off" value="' + idValue + '" placeholder="' + escapeHtml(getText('activity_id_placeholder')) + '" oninput="updateActivityField(\'novelFlowId\',this.value)"></div>' +
+                '<div class="activity-task-list">' +
+                    '<section class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">👑</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_vip_title')) + '</div>' +
+                        '<div class="activity-task-copy">' + escapeHtml(getText('activity_vip_copy')) + '</div></div></div>' +
+                        (claims.vip2 ? vipState : '<div class="activity-form"><button class="activity-action" type="button" onclick="submitActivityReward(\'claim_vip2\')"' + disabled + '>' + escapeHtml(ActivityState.submitting === 'claim_vip2' ? getText('activity_loading') : getText('activity_vip_claim')) + '</button></div>') + '</section>' +
+                    '<section class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">f</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_fb_title')) + '</div>' +
+                        '<div class="activity-task-copy">' + escapeHtml(getText('activity_fb_copy')) + '</div></div></div>' +
+                        (claims.facebook ? facebookState : '<div class="activity-form activity-input-stack"><label><span class="activity-field-label">' + escapeHtml(getText('activity_fb_url_label')) + '</span>' +
+                            '<input class="activity-input" type="url" maxlength="2048" autocomplete="url" value="' + facebookValue + '" placeholder="' + escapeHtml(getText('activity_fb_url_placeholder')) + '" oninput="updateActivityField(\'facebookUrl\',this.value)"></label>' +
+                            '<button class="activity-action" type="button" onclick="submitActivityReward(\'submit_facebook\')"' + disabled + '>' + escapeHtml(ActivityState.submitting === 'submit_facebook' ? getText('activity_loading') : getText('activity_fb_submit')) + '</button></div>') + '</section>' +
+                    '<section class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">＋</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_invite_title')) + '</div>' +
+                        '<div class="activity-task-copy">' + escapeHtml(getText('activity_invite_copy')) + '</div></div></div>' +
+                        (referralUrl ? '<div class="activity-referral"><div class="activity-field-label">' + escapeHtml(getText('activity_invite_link')) + '</div>' +
+                            '<div class="activity-referral-row"><div><div class="activity-referral-url">' + escapeHtml(referralUrl) + '</div>' +
+                            '<div class="activity-task-copy">' + escapeHtml(getText('activity_invite_link_copy')) + '</div></div>' +
+                            '<button class="activity-copy-btn" type="button" onclick="copyActivityReferral()" aria-label="' + escapeHtml(getText('activity_copy_link')) + '" title="' + escapeHtml(getText('activity_copy_link')) + '">⧉</button></div></div>' : '') +
+                        '<div class="activity-metrics"><div class="activity-metric"><div class="activity-metric-value">' + campaignInvites + '</div><div class="activity-metric-label">' + escapeHtml(getText('activity_verified')) + '</div></div>' +
+                            '<div class="activity-metric"><div class="activity-metric-value">' + earnedDays + '</div><div class="activity-metric-label">' + escapeHtml(getText('activity_earned')) + '</div></div>' +
+                            '<div class="activity-metric"><div class="activity-metric-value">' + claimedDays + '</div><div class="activity-metric-label">' + escapeHtml(getText('activity_claimed')) + '</div></div>' +
+                            '<div class="activity-metric"><div class="activity-metric-value">' + availableDays + '</div><div class="activity-metric-label">' + escapeHtml(getText('activity_available')) + '</div></div></div>' +
+                        '<div class="activity-form"><button class="activity-action" type="button" onclick="submitActivityReward(\'claim_invite_vip\')"' + ((!active || busy || availableDays <= 0) ? ' disabled' : '') + '>' +
+                            escapeHtml(ActivityState.submitting === 'claim_invite_vip' ? getText('activity_loading') : getText('activity_invite_claim')) + '</button></div>' +
+                        (availableDays <= 0 ? '<div class="activity-claim-state pending">' + escapeHtml(getText('activity_invite_none')) + '</div>' : inviteState) + '</section>' +
+                    '<section class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">◆</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_recommender_title')) + '</div>' +
+                        '<div class="activity-task-copy">' + escapeHtml(getText('activity_recommender_copy')) + '</div></div></div>' + recommenderAction + '</section>' +
+                '</div>';
+        }
+
+        async function loadActivityRewards(force) {
+            if (!AppState.isLoggedIn || !AppState.user) {
+                renderActivityModal();
+                return;
+            }
+            const username = normalizeSessionUsername(AppState.user.username);
+            const session = AuthSession.capture(username);
+            if (!session) return;
+            if (!force && ActivityState.loadedUser === username && ActivityState.data) {
+                renderActivityModal();
+                return;
+            }
+            const requestId = ++ActivityState.requestId;
+            ActivityState.loading = true;
+            ActivityState.error = '';
+            ActivityState.loadedUser = username;
+            renderActivityModal();
+            try {
+                const response = await authFetch('/api/activity-rewards', { method: 'GET' });
+                const data = await response.json().catch(() => ({}));
+                if (!AuthSession.isCurrent(session) || requestId !== ActivityState.requestId) return;
+                if (!response.ok) throw Object.assign(new Error(activityApiMessage(data)), { activityData: data });
+                ActivityState.data = data;
+                if (!ActivityState.form.novelFlowId) {
+                    const savedClaim = data.claims && (data.claims.vip2 || data.claims.facebook || data.claims.invite_vip);
+                    if (savedClaim && savedClaim.novelflow_id) ActivityState.form.novelFlowId = String(savedClaim.novelflow_id);
+                }
+                renderCampaigns();
+            } catch (error) {
+                if (!AuthSession.isCurrent(session) || requestId !== ActivityState.requestId || isAbortError(error)) return;
+                ActivityState.error = error.message || getText('activity_storage_unavailable');
+            } finally {
+                if (AuthSession.isCurrent(session) && requestId === ActivityState.requestId) {
+                    ActivityState.loading = false;
+                    renderActivityModal();
+                }
             }
         }
+
+        async function submitActivityReward(action) {
+            const allowedActions = ['claim_vip2', 'submit_facebook', 'claim_invite_vip', 'apply_recommender'];
+            if (!allowedActions.includes(action) || ActivityState.submitting) return;
+            const session = AuthSession.capture();
+            if (!session) {
+                closeActivityModal();
+                window.__openActivityAfterLogin = true;
+                openAuthModal('tasks');
+                return;
+            }
+            const payload = { action };
+            if (action !== 'apply_recommender') {
+                const novelFlowId = normalizeActivityNovelFlowId(ActivityState.form.novelFlowId);
+                if (!novelFlowId) {
+                    showToast(getText('activity_invalid_id'), 'error');
+                    document.getElementById('activityNovelFlowId')?.focus();
+                    return;
+                }
+                payload.novelflow_id = novelFlowId;
+            }
+            if (action === 'submit_facebook') {
+                const facebookUrl = normalizeActivityFacebookUrl(ActivityState.form.facebookUrl);
+                if (!facebookUrl) {
+                    showToast(getText('activity_invalid_url'), 'error');
+                    return;
+                }
+                payload.facebook_url = facebookUrl;
+            }
+            ActivityState.submitting = action;
+            renderActivityModal();
+            try {
+                const response = await authFetch('/api/activity-rewards', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!AuthSession.isCurrent(session)) return;
+                if (!response.ok) throw Object.assign(new Error(activityApiMessage(data)), { activityData: data });
+                if (ActivityState.data) {
+                    if (data.eligibility) ActivityState.data.eligibility = data.eligibility;
+                    if (data.invite) ActivityState.data.invite = data.invite;
+                    if (data.application) ActivityState.data.recommender = data.application;
+                    if (data.claim) {
+                        const claimKey = action === 'claim_vip2' ? 'vip2' : (action === 'submit_facebook' ? 'facebook' : 'invite_vip');
+                        ActivityState.data.claims = ActivityState.data.claims || {};
+                        ActivityState.data.claims[claimKey] = data.claim;
+                    }
+                }
+                const successKey = action === 'claim_vip2' ? 'activity_success_vip'
+                    : (action === 'submit_facebook' ? 'activity_success_facebook'
+                    : (action === 'claim_invite_vip' ? 'activity_success_invite' : 'activity_success_recommender'));
+                showToast(getText(successKey), 'success');
+                await loadActivityRewards(true);
+            } catch (error) {
+                if (!AuthSession.isCurrent(session) || isAbortError(error)) return;
+                showToast(error.message || getText('activity_storage_unavailable'), 'error');
+            } finally {
+                if (AuthSession.isCurrent(session)) {
+                    ActivityState.submitting = '';
+                    renderActivityModal();
+                }
+            }
+        }
+
+        function copyActivityReferral() {
+            const data = ActivityState.data || {};
+            const referralUrl = String(data.invite && data.invite.referral_url || data.recommender && data.recommender.referral_url || '');
+            if (!referralUrl) return;
+            const copied = () => showToast(getText('activity_copied'), 'success');
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(referralUrl).then(copied).catch(() => showToast(getText('invite_code_copy_failed'), 'error'));
+                return;
+            }
+            const textarea = document.createElement('textarea');
+            textarea.value = referralUrl;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try { document.execCommand('copy'); copied(); } catch (_) { showToast(getText('invite_code_copy_failed'), 'error'); }
+            textarea.remove();
+        }
+
+        function openActivityModal() {
+            if (!AppState.isLoggedIn) {
+                window.__openActivityAfterLogin = true;
+                openAuthModal('tasks');
+                return;
+            }
+            const modal = document.getElementById('activityModal');
+            if (!modal) return;
+            ActivityState.opener = document.activeElement;
+            modal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+            renderActivityModal();
+            loadActivityRewards(false);
+            setTimeout(() => modal.querySelector('.activity-close')?.focus(), 0);
+        }
+
+        function closeActivityModal() {
+            const modal = document.getElementById('activityModal');
+            if (modal) modal.classList.remove('show');
+            document.body.style.overflow = '';
+            if (ActivityState.opener && typeof ActivityState.opener.focus === 'function') ActivityState.opener.focus();
+            ActivityState.opener = null;
+        }
+
+        document.addEventListener('keydown', event => {
+            const modal = document.getElementById('activityModal');
+            if (!modal || !modal.classList.contains('show')) return;
+            if (event.key === 'Escape') {
+                closeActivityModal();
+                return;
+            }
+            if (event.key !== 'Tab') return;
+            const focusable = Array.from(modal.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])'));
+            if (!focusable.length) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (!modal.contains(document.activeElement)) {
+                event.preventDefault();
+                (event.shiftKey ? last : first).focus();
+                return;
+            }
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        });
 
         async function claimStreakGrandPrize() {
             try {
@@ -7439,12 +8057,15 @@ function renderMyBooks() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ username, password: password || undefined })
+                    body: JSON.stringify(buildRegistrationPayload(username, password))
                 });
 
                 let result;
                 try { result = await response.json(); } catch(e) { result = {}; }
                 console.log('Register API response:', response.status, JSON.stringify(result));
+                if (!response.ok && (result.code === 'INVALID_REFERRAL_CODE' || result.code === 'SELF_REFERRAL')) {
+                    clearStoredReferralCode();
+                }
 
                 if (!response.ok && result.needPassword) {
                     // User has a password set - show the password field
@@ -7455,6 +8076,7 @@ function renderMyBooks() {
                 }
 
                 if (response.ok && result.success) {
+                    clearStoredReferralCode();
                     const authenticatedUsername = result.username || username;
                     setAuthenticatedUser({ username: authenticatedUsername, accountType: 'local' });
                     localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
@@ -7542,11 +8164,14 @@ function renderMyBooks() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ username, password: password || undefined }),
+                    body: JSON.stringify(buildRegistrationPayload(username, password)),
                     signal: controller.signal
                 });
                 clearTimeout(timeoutId);
                 const result = await resp.json();
+                if (!resp.ok && (result.code === 'INVALID_REFERRAL_CODE' || result.code === 'SELF_REFERRAL')) {
+                    clearStoredReferralCode();
+                }
                 
                 if (!resp.ok && result.needPassword) {
                     const passField = document.getElementById('splashPassword');
@@ -7560,6 +8185,7 @@ function renderMyBooks() {
                 }
                 
                 // Success
+                clearStoredReferralCode();
                 const authenticatedUsername = result.username || username;
                 setAuthenticatedUser({ username: authenticatedUsername, accountType: 'local' });
                 localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
@@ -8253,6 +8879,10 @@ function renderMyBooks() {
             window.__authRedirectTab = null;
             if (tab) switchTab(tab);
             if (typeof loadEquityCode === 'function') loadEquityCode(true);
+            if (window.__openActivityAfterLogin) {
+                window.__openActivityAfterLogin = false;
+                setTimeout(() => openActivityModal(), 120);
+            }
             if (window.__pendingBookId) {
                 const bk = window.__pendingBookId; window.__pendingBookId = null;
                 setTimeout(()=>{ try { _origOpenRecommendModal(bk); } catch(e){} }, 150);
