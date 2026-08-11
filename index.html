@@ -1180,24 +1180,26 @@
         .activity-section .activity-referral { margin-top: 16px; padding-top: 14px; }
         .activity-section .activity-copy-btn { width: auto; min-width: 56px; padding: 0 10px; font-size: 11px; font-weight: 700; }
         .activity-section .activity-claim-state { margin-top: 13px; }
-        .activity-reminder-overlay { position: fixed; inset: 0; z-index: 12490; display: none; align-items: flex-start; justify-content: center; padding: 72px 16px 18px; background: rgba(13,37,61,0.22); }
+        .activity-reminder-overlay { position: fixed; inset: 0; z-index: 12490; display: none; align-items: center; justify-content: center; padding: 24px 16px; background: rgba(0,0,0,0.68); }
         .activity-reminder-overlay.show { display: flex; animation: fadeIn .18s ease; }
-        .activity-reminder-card { width: min(430px, 100%); overflow: hidden; border: 1px solid rgba(255,255,255,0.8); border-radius: 14px; background: white; box-shadow: 0 18px 50px rgba(13,37,61,0.24); }
-        .activity-reminder-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; background: #172033; color: white; }
-        .activity-reminder-badge { color: #FCD34D; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-        .activity-reminder-close { width: 30px; height: 30px; border: 0; border-radius: 50%; background: rgba(255,255,255,0.1); color: white; font: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
-        .activity-reminder-close:hover { background: rgba(255,255,255,0.2); }
-        .activity-reminder-content { padding: 16px 16px 14px; }
-        .activity-reminder-title { color: var(--ink); font-size: 17px; font-weight: 800; line-height: 1.25; }
-        .activity-reminder-copy { margin-top: 6px; color: var(--ink-secondary); font-size: 12px; line-height: 1.5; }
-        .activity-reminder-note { margin-top: 10px; padding: 9px 10px; border-radius: 8px; background: #F8FAFC; color: var(--ink-mute); font-size: 11px; line-height: 1.4; }
+        .activity-reminder-card { position: relative; width: min(460px, 100%); max-height: calc(100dvh - 28px); overflow-y: auto; border: 1px solid #9E7A3D; border-radius: 16px; background: #090806; box-shadow: 0 24px 70px rgba(0,0,0,0.55); scrollbar-width: thin; scrollbar-color: #9E7A3D #16110A; }
+        .activity-reminder-poster-wrap { position: relative; display: flex; justify-content: center; overflow: hidden; background: #050505; }
+        .activity-reminder-poster { display: block; width: 100%; max-height: min(66vh, 620px); object-fit: contain; background: #050505; }
+        .activity-reminder-top { position: absolute; z-index: 1; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px 30px; background: linear-gradient(180deg, rgba(0,0,0,0.82), transparent); color: white; }
+        .activity-reminder-badge { color: #E7C17A; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+        .activity-reminder-close { width: 32px; height: 32px; border: 1px solid rgba(231,193,122,0.85); border-radius: 50%; background: rgba(0,0,0,0.52); color: #F5D99D; font: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
+        .activity-reminder-close:hover { background: rgba(231,193,122,0.18); }
+        .activity-reminder-content { padding: 15px 16px 12px; background: #090806; }
+        .activity-reminder-title { color: #F0CF91; font-size: 17px; font-weight: 800; line-height: 1.25; }
+        .activity-reminder-copy { margin-top: 5px; color: #D6C6A8; font-size: 12px; line-height: 1.45; }
+        .activity-reminder-note { margin-top: 9px; padding: 8px 10px; border: 1px solid rgba(158,122,61,0.36); border-radius: 8px; background: #15100A; color: #BDA985; font-size: 11px; line-height: 1.4; }
         .activity-reminder-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-top: 14px; }
-        .activity-reminder-action { min-height: 40px; padding: 8px 10px; border: 1px solid var(--hairline); border-radius: 8px; background: white; color: var(--ink-secondary); font: inherit; font-size: 11px; font-weight: 700; line-height: 1.25; cursor: pointer; }
-        .activity-reminder-action.primary { border-color: var(--primary); background: var(--primary); color: var(--on-primary); }
-        .activity-reminder-action:hover { filter: brightness(.98); transform: translateY(-1px); }
-        .activity-reminder-footer { display: flex; justify-content: flex-end; padding: 0 16px 14px; }
-        .activity-reminder-today { border: 0; background: transparent; color: var(--ink-mute); font: inherit; font-size: 10px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
-        .activity-reminder-today:hover { color: var(--ink); }
+        .activity-reminder-action { min-height: 42px; padding: 8px 10px; border: 1px solid #9E7A3D; border-radius: 8px; background: transparent; color: #E6C890; font: inherit; font-size: 11px; font-weight: 700; line-height: 1.25; cursor: pointer; }
+        .activity-reminder-action.primary { border-color: #E0B866; background: #B7863A; color: #120D06; }
+        .activity-reminder-action:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .activity-reminder-footer { display: flex; justify-content: flex-end; padding: 0 16px 14px; background: #090806; }
+        .activity-reminder-today { border: 0; background: transparent; color: #A99575; font: inherit; font-size: 10px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+        .activity-reminder-today:hover { color: #E6C890; }
         @media (max-width: 480px) {
             .activity-overlay { align-items: flex-end; padding: 0; }
             .activity-panel { width: 100%; max-height: 92dvh; border-radius: 14px 14px 0 0; }
@@ -1209,8 +1211,9 @@
             .activity-tabs { gap: 4px; padding: 8px 10px; }
             .activity-tab { min-height: 36px; font-size: 10px; }
             .activity-section { padding: 16px 16px 20px; }
-            .activity-reminder-overlay { align-items: flex-end; padding: 0; }
-            .activity-reminder-card { width: 100%; border-radius: 14px 14px 0 0; }
+            .activity-reminder-overlay { align-items: flex-end; padding: 10px 0 0; }
+            .activity-reminder-card { width: 100%; max-height: calc(100dvh - 10px); border-radius: 16px 16px 0 0; }
+            .activity-reminder-poster { max-height: 62dvh; }
             .activity-reminder-actions { grid-template-columns: 1fr; }
         }
         .bonus-profile-card {
@@ -3574,9 +3577,12 @@
 
     <div class="activity-reminder-overlay" id="activityReminder" role="dialog" aria-modal="true" aria-labelledby="activityReminderTitle" aria-hidden="true" onclick="if(event.target===this)dismissActivityReminder(false)">
         <div class="activity-reminder-card">
-            <div class="activity-reminder-top">
-                <div class="activity-reminder-badge" data-i18n="activity_reminder_badge">Today</div>
-                <button class="activity-reminder-close" type="button" onclick="dismissActivityReminder(false)" data-i18n-aria-label="activity_close" aria-label="Close" title="Close">&times;</button>
+            <div class="activity-reminder-poster-wrap">
+                <img class="activity-reminder-poster" src="/novelflow-promo-poster.png" data-i18n-alt="activity_reminder_poster_alt" alt="NovelFlow Nationwide Promo Season" loading="eager" decoding="async">
+                <div class="activity-reminder-top">
+                    <div class="activity-reminder-badge" data-i18n="activity_reminder_badge">Today</div>
+                    <button class="activity-reminder-close" type="button" onclick="dismissActivityReminder(false)" data-i18n-aria-label="activity_close" aria-label="Close" title="Close">&times;</button>
+                </div>
             </div>
             <div class="activity-reminder-content">
                 <div class="activity-reminder-title" id="activityReminderTitle" data-i18n="activity_reminder_title">New rewards are live</div>
@@ -4203,6 +4209,7 @@
                 activity_personal_code: 'Personal invite code',
                 activity_unique_note: 'This code and link are unique to your account and stay stable.',
                 activity_preview_note: 'Preview only — this code is not live.',
+                activity_reminder_poster_alt: 'NovelFlow Nationwide Promo Season poster',
                 activity_reminder_badge: 'Today',
                 activity_reminder_title: 'New rewards are live',
                 activity_reminder_copy: 'Check today\'s limited activity and apply for the Recommender program.',
@@ -4680,6 +4687,7 @@
                 activity_personal_code: 'Código personal de invitación',
                 activity_unique_note: 'Este código y enlace son únicos de tu cuenta y se mantienen estables.',
                 activity_preview_note: 'Solo vista previa — este código no está activo.',
+                activity_reminder_poster_alt: 'Póster de la temporada promocional nacional de NovelFlow',
                 activity_reminder_badge: 'Hoy',
                 activity_reminder_title: 'Nuevas recompensas disponibles',
                 activity_reminder_copy: 'Consulta la actividad de hoy y solicita el programa de recomendadores.',
@@ -4733,6 +4741,7 @@
             applyTranslations();
             if (typeof renderCampaigns === 'function') renderCampaigns();
             if (typeof renderActivityModal === 'function') renderActivityModal();
+            if (typeof updateActivityReminderLanguage === 'function') updateActivityReminderLanguage();
             if (_lastPerfData) renderDailyBookPerformance(_lastPerfData);
             // Reload books for an explicit language change. Initial page setup
             // applies translations first and lets the main bootstrap load once.
@@ -6032,6 +6041,17 @@
         function activityReminderWrite(kind, username, date, storage) {
             try { storage.setItem(activityReminderKey(kind, username, date), '1'); } catch (_) {}
         }
+        function updateActivityReminderLanguage() {
+            const reminder = document.getElementById('activityReminder');
+            if (!reminder) return;
+            const reminderClose = reminder.querySelector('.activity-reminder-close');
+            if (reminderClose) {
+                reminderClose.setAttribute('aria-label', getText('activity_close'));
+                reminderClose.setAttribute('title', getText('activity_close'));
+            }
+            const poster = reminder.querySelector('.activity-reminder-poster');
+            if (poster) poster.alt = getText('activity_reminder_poster_alt');
+        }
         function dismissActivityReminder(today) {
             const reminder = document.getElementById('activityReminder');
             const username = activityReminderUsername();
@@ -6057,11 +6077,7 @@
             activityReminderWrite('shown', username, date, sessionStorage);
             const reminder = document.getElementById('activityReminder');
             if (!reminder) return false;
-            const reminderClose = reminder.querySelector('.activity-reminder-close');
-            if (reminderClose) {
-                reminderClose.setAttribute('aria-label', getText('activity_close'));
-                reminderClose.setAttribute('title', getText('activity_close'));
-            }
+            updateActivityReminderLanguage();
             ActivityState.reminderOpener = document.activeElement;
             reminder.classList.add('show');
             reminder.setAttribute('aria-hidden', 'false');
