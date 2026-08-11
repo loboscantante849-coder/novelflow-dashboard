@@ -1175,6 +1175,7 @@
         .activity-referral-code-label { color: var(--ink-mute); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
         .activity-referral-code code { min-width: 0; color: var(--ink); font: 700 12px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
         .activity-unique-note { margin-top: 8px; color: var(--ink-mute); font-size: 11px; line-height: 1.45; }
+        .activity-preview-note { margin-top: 8px; color: #9A3412; font-size: 10px; font-weight: 700; line-height: 1.4; }
         .activity-section .activity-metrics { margin-top: 16px; }
         .activity-section .activity-referral { margin-top: 16px; padding-top: 14px; }
         .activity-section .activity-copy-btn { width: auto; min-width: 56px; padding: 0 10px; font-size: 11px; font-weight: 700; }
@@ -4201,6 +4202,7 @@
                 activity_tab_recommender: 'Recommender',
                 activity_personal_code: 'Personal invite code',
                 activity_unique_note: 'This code and link are unique to your account and stay stable.',
+                activity_preview_note: 'Preview only — this code is not live.',
                 activity_reminder_badge: 'Today',
                 activity_reminder_title: 'New rewards are live',
                 activity_reminder_copy: 'Check today\'s limited activity and apply for the Recommender program.',
@@ -4677,6 +4679,7 @@
                 activity_tab_recommender: 'Recomendador',
                 activity_personal_code: 'Código personal de invitación',
                 activity_unique_note: 'Este código y enlace son únicos de tu cuenta y se mantienen estables.',
+                activity_preview_note: 'Solo vista previa — este código no está activo.',
                 activity_reminder_badge: 'Hoy',
                 activity_reminder_title: 'Nuevas recompensas disponibles',
                 activity_reminder_copy: 'Consulta la actividad de hoy y solicita el programa de recomendadores.',
@@ -6224,6 +6227,7 @@
             const referralUrl = String(invite.referral_url || (recommender && recommender.referral_url) || '');
             const referralCodeRaw = String(invite.referral_code || (recommender && recommender.referral_code) || '');
             const referralCode = /^[A-Za-z0-9_-]{8,80}$/.test(referralCodeRaw) ? referralCodeRaw : '';
+            const previewNote = invite.preview_only ? '<div class="activity-preview-note">' + escapeHtml(getText('activity_preview_note')) + '</div>' : '';
             const idValue = escapeHtml(ActivityState.form.novelFlowId);
             const facebookValue = escapeHtml(ActivityState.form.facebookUrl);
             const windowCopy = windowState.ended ? getText('activity_ended') : (windowState.upcoming ? getText('activity_upcoming') : getText('activity_active_until') + ' ' + formatActivityDate(windowState.endsAt));
@@ -6241,7 +6245,7 @@
             const facebookSection = '<section class="activity-section" role="tabpanel"><div class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">f</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_fb_title')) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_fb_copy')) + '</div></div></div>' +
                 (claims.facebook ? facebookState : '<div class="activity-form activity-input-stack"><label><span class="activity-field-label">' + escapeHtml(getText('activity_fb_url_label')) + '</span><input class="activity-input" type="url" maxlength="2048" autocomplete="url" value="' + facebookValue + '" placeholder="' + escapeHtml(getText('activity_fb_url_placeholder')) + '" oninput="updateActivityField(\'facebookUrl\',this.value)"></label><button class="activity-action" type="button" onclick="submitActivityReward(\'submit_facebook\')"' + disabled + '>' + escapeHtml(ActivityState.submitting === 'submit_facebook' ? getText('activity_loading') : getText('activity_fb_submit')) + '</button></div>') + '</div></section>';
             const referralMarkup = referralUrl ? '<div class="activity-referral"><div class="activity-field-label">' + escapeHtml(getText('activity_invite_link')) + '</div><div class="activity-referral-row"><div><div class="activity-referral-url">' + escapeHtml(referralUrl) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_invite_link_copy')) + '</div></div><button class="activity-copy-btn" type="button" onclick="copyActivityReferral()" aria-label="' + escapeHtml(getText('activity_copy_link')) + '" title="' + escapeHtml(getText('activity_copy_link')) + '">Copy</button></div></div>' : '';
-            const codeMarkup = referralCode ? '<div class="activity-referral-code"><span class="activity-referral-code-label">' + escapeHtml(getText('activity_personal_code')) + '</span><code>' + escapeHtml(referralCode) + '</code></div><div class="activity-unique-note">' + escapeHtml(getText('activity_unique_note')) + '</div>' : '';
+            const codeMarkup = referralCode ? '<div class="activity-referral-code"><span class="activity-referral-code-label">' + escapeHtml(getText('activity_personal_code')) + '</span><code>' + escapeHtml(referralCode) + '</code></div><div class="activity-unique-note">' + escapeHtml(getText('activity_unique_note')) + '</div>' + previewNote : '';
             const inviteSection = '<section class="activity-section" role="tabpanel"><div class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">+</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_invite_title')) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_invite_copy')) + '</div></div></div>' + referralMarkup + codeMarkup +
                 '<div class="activity-metrics"><div class="activity-metric"><div class="activity-metric-value">' + campaignInvites + '</div><div class="activity-metric-label">' + escapeHtml(getText('activity_verified')) + '</div></div><div class="activity-metric"><div class="activity-metric-value">' + earnedDays + '</div><div class="activity-metric-label">' + escapeHtml(getText('activity_earned')) + '</div></div><div class="activity-metric"><div class="activity-metric-value">' + claimedDays + '</div><div class="activity-metric-label">' + escapeHtml(getText('activity_claimed')) + '</div></div><div class="activity-metric"><div class="activity-metric-value">' + availableDays + '</div><div class="activity-metric-label">' + escapeHtml(getText('activity_available')) + '</div></div></div>' +
                 '<div class="activity-form"><button class="activity-action" type="button" onclick="submitActivityReward(\'claim_invite_vip\')"' + ((!active || busy || availableDays <= 0) ? ' disabled' : '') + '>' + escapeHtml(ActivityState.submitting === 'claim_invite_vip' ? getText('activity_loading') : getText('activity_invite_claim')) + '</button></div>' + (availableDays <= 0 ? '<div class="activity-claim-state pending">' + escapeHtml(getText('activity_invite_none')) + '</div>' : inviteState) + '</div></section>';
