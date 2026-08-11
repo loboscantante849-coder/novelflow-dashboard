@@ -10418,6 +10418,12 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
     if (!u) return;
     const session = AuthSession.capture(u);
     if (!session) return;
+    ['earnAvailVal', 'earnTotalVal', 'earnPendingVal', 'earnBonusVal'].forEach(id => {
+      const element = $(id);
+      if (element) element.textContent = 'Loading...';
+    });
+    const card = $('earnCardBalance');
+    if (card) card.textContent = 'Loading...';
     try {
       const r = await authFetch('/api/withdrawals?username=' + encodeURIComponent(u), {
         credentials: 'include',
@@ -10431,6 +10437,12 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
     } catch(e) {
       if (!AuthSession.isCurrent(session) || isAbortError(e)) return;
       console.error('[Earnings] load failed:', e);
+      ['earnAvailVal', 'earnTotalVal', 'earnPendingVal', 'earnBonusVal'].forEach(id => {
+        const element = $(id);
+        if (element) element.textContent = 'Unavailable';
+      });
+      const card = $('earnCardBalance');
+      if (card) card.textContent = 'Unavailable';
       const de = $('earnDetailList'); if (de) de.innerHTML = '<div class="earn-empty">Failed to load: ' + escapeHtml(e.message) + '</div>';
       const he = $('earnHistoryList'); if (he) he.innerHTML = '<div class="earn-empty">—</div>';
     }
