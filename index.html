@@ -1153,14 +1153,64 @@
         .activity-loading, .activity-error { padding: 34px 20px; text-align: center; color: var(--ink-mute); font-size: 12px; line-height: 1.5; }
         .activity-error { color: var(--danger); }
         .activity-retry { margin-top: 12px; }
+
+        /* Activity redesign: compact tabs keep one task in focus at a time. */
+        .activity-panel { width: min(600px, 100%); max-height: min(780px, 92vh); border-radius: 14px; }
+        .activity-hero { padding: 20px 22px 18px; background: #172033; }
+        .activity-note { padding: 10px 22px; }
+        .activity-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 10px 14px; background: var(--canvas-soft); border-bottom: 1px solid var(--hairline); }
+        .activity-tab { min-width: 0; min-height: 38px; padding: 7px 5px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--ink-secondary); font: inherit; font-size: 11px; font-weight: 700; line-height: 1.2; cursor: pointer; }
+        .activity-tab:hover { background: white; color: var(--ink); }
+        .activity-tab.active { background: white; border-color: var(--hairline); color: var(--primary); box-shadow: 0 2px 7px rgba(13,37,61,0.08); }
+        .activity-tab:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+        .activity-section { padding: 18px 22px 22px; background: var(--canvas); }
+        .activity-section .activity-task { padding: 0; border: 0; }
+        .activity-section .activity-task-head { grid-template-columns: 34px minmax(0, 1fr); gap: 11px; }
+        .activity-section .activity-task-icon { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: #EEF2FF; color: var(--primary); font-size: 16px; font-weight: 800; }
+        .activity-section .activity-task-title { font-size: 16px; }
+        .activity-section .activity-task-copy { max-width: 50rem; font-size: 12px; }
+        .activity-section .activity-form { margin-top: 16px; }
+        .activity-section .activity-action { min-height: 44px; }
+        .activity-referral-code { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding: 9px 10px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--canvas-soft); }
+        .activity-referral-code-label { color: var(--ink-mute); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+        .activity-referral-code code { min-width: 0; color: var(--ink); font: 700 12px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+        .activity-unique-note { margin-top: 8px; color: var(--ink-mute); font-size: 11px; line-height: 1.45; }
+        .activity-section .activity-metrics { margin-top: 16px; }
+        .activity-section .activity-referral { margin-top: 16px; padding-top: 14px; }
+        .activity-section .activity-copy-btn { width: auto; min-width: 56px; padding: 0 10px; font-size: 11px; font-weight: 700; }
+        .activity-section .activity-claim-state { margin-top: 13px; }
+        .activity-reminder-overlay { position: fixed; inset: 0; z-index: 12490; display: none; align-items: flex-start; justify-content: center; padding: 72px 16px 18px; background: rgba(13,37,61,0.22); }
+        .activity-reminder-overlay.show { display: flex; animation: fadeIn .18s ease; }
+        .activity-reminder-card { width: min(430px, 100%); overflow: hidden; border: 1px solid rgba(255,255,255,0.8); border-radius: 14px; background: white; box-shadow: 0 18px 50px rgba(13,37,61,0.24); }
+        .activity-reminder-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; background: #172033; color: white; }
+        .activity-reminder-badge { color: #FCD34D; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+        .activity-reminder-close { width: 30px; height: 30px; border: 0; border-radius: 50%; background: rgba(255,255,255,0.1); color: white; font: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
+        .activity-reminder-close:hover { background: rgba(255,255,255,0.2); }
+        .activity-reminder-content { padding: 16px 16px 14px; }
+        .activity-reminder-title { color: var(--ink); font-size: 17px; font-weight: 800; line-height: 1.25; }
+        .activity-reminder-copy { margin-top: 6px; color: var(--ink-secondary); font-size: 12px; line-height: 1.5; }
+        .activity-reminder-note { margin-top: 10px; padding: 9px 10px; border-radius: 8px; background: #F8FAFC; color: var(--ink-mute); font-size: 11px; line-height: 1.4; }
+        .activity-reminder-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-top: 14px; }
+        .activity-reminder-action { min-height: 40px; padding: 8px 10px; border: 1px solid var(--hairline); border-radius: 8px; background: white; color: var(--ink-secondary); font: inherit; font-size: 11px; font-weight: 700; line-height: 1.25; cursor: pointer; }
+        .activity-reminder-action.primary { border-color: var(--primary); background: var(--primary); color: var(--on-primary); }
+        .activity-reminder-action:hover { filter: brightness(.98); transform: translateY(-1px); }
+        .activity-reminder-footer { display: flex; justify-content: flex-end; padding: 0 16px 14px; }
+        .activity-reminder-today { border: 0; background: transparent; color: var(--ink-mute); font: inherit; font-size: 10px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+        .activity-reminder-today:hover { color: var(--ink); }
         @media (max-width: 480px) {
             .activity-overlay { align-items: flex-end; padding: 0; }
-            .activity-panel { width: 100%; max-height: 92dvh; border-radius: 8px 8px 0 0; }
+            .activity-panel { width: 100%; max-height: 92dvh; border-radius: 14px 14px 0 0; }
             .activity-input-row { grid-template-columns: 1fr; }
             .activity-action { width: 100%; white-space: normal; }
             .activity-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .activity-metric:nth-child(3) { border-left: 0; border-top: 1px solid var(--hairline); }
             .activity-metric:nth-child(4) { border-top: 1px solid var(--hairline); }
+            .activity-tabs { gap: 4px; padding: 8px 10px; }
+            .activity-tab { min-height: 36px; font-size: 10px; }
+            .activity-section { padding: 16px 16px 20px; }
+            .activity-reminder-overlay { align-items: flex-end; padding: 0; }
+            .activity-reminder-card { width: 100%; border-radius: 14px 14px 0 0; }
+            .activity-reminder-actions { grid-template-columns: 1fr; }
         }
         .bonus-profile-card {
             margin: 10px var(--sp-lg) 0;
@@ -3521,6 +3571,27 @@
         </div>
     </div>
 
+    <div class="activity-reminder-overlay" id="activityReminder" role="dialog" aria-modal="true" aria-labelledby="activityReminderTitle" aria-hidden="true" onclick="if(event.target===this)dismissActivityReminder(false)">
+        <div class="activity-reminder-card">
+            <div class="activity-reminder-top">
+                <div class="activity-reminder-badge" data-i18n="activity_reminder_badge">Today</div>
+                <button class="activity-reminder-close" type="button" onclick="dismissActivityReminder(false)" data-i18n-aria-label="activity_close" aria-label="Close" title="Close">&times;</button>
+            </div>
+            <div class="activity-reminder-content">
+                <div class="activity-reminder-title" id="activityReminderTitle" data-i18n="activity_reminder_title">New rewards are live</div>
+                <div class="activity-reminder-copy" data-i18n="activity_reminder_copy">Check today's limited activity and apply for the Recommender program.</div>
+                <div class="activity-reminder-note" data-i18n="activity_reminder_note">Your personal invite link is unique to your account and stays stable.</div>
+                <div class="activity-reminder-actions">
+                    <button class="activity-reminder-action primary" type="button" onclick="openActivityFromReminder('recommender')" data-i18n="activity_reminder_recommender">Apply as Recommender</button>
+                    <button class="activity-reminder-action" type="button" onclick="openActivityFromReminder('invites')" data-i18n="activity_reminder_open">View activity</button>
+                </div>
+            </div>
+            <div class="activity-reminder-footer">
+                <button class="activity-reminder-today" type="button" onclick="dismissActivityReminder(true)" data-i18n="activity_reminder_today">Don't remind me today</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/daily-book-performance.js"></script>
     <script>
         // v2.5.1: Global HTML escape for XSS protection
@@ -3771,16 +3842,24 @@
             if (searchResults) searchResults.replaceChildren();
             if (recommendModal) recommendModal.classList.remove('show');
             if (typeof ActivityState !== 'undefined') {
+                if (ActivityState.reminderTimer) clearTimeout(ActivityState.reminderTimer);
                 ActivityState.data = null;
                 ActivityState.error = '';
                 ActivityState.loading = false;
                 ActivityState.loadedUser = null;
                 ActivityState.requestId += 1;
                 ActivityState.submitting = '';
+                ActivityState.activeSection = 'vip';
+                ActivityState.reminderTimer = null;
                 ActivityState.form = { novelFlowId: '', facebookUrl: '' };
             }
             const activityModal = document.getElementById('activityModal');
             if (activityModal) activityModal.classList.remove('show');
+            const activityReminder = document.getElementById('activityReminder');
+            if (activityReminder) {
+                activityReminder.classList.remove('show');
+                activityReminder.setAttribute('aria-hidden', 'true');
+            }
             document.body.style.overflow = '';
 
             if (typeof renderMyBooks === 'function') renderMyBooks();
@@ -3805,6 +3884,7 @@
             AppState.user = normalizedUser;
             AppState.isLoggedIn = true;
             if (changed && typeof renderEquityCode === 'function') renderEquityCode();
+            scheduleDailyActivityReminder();
             return changed;
         }
 
@@ -3813,6 +3893,15 @@
             AuthSession.transition('');
             AppState.user = null;
             AppState.isLoggedIn = false;
+            if (typeof ActivityState !== 'undefined' && ActivityState.reminderTimer) {
+                clearTimeout(ActivityState.reminderTimer);
+                ActivityState.reminderTimer = null;
+            }
+            const activityReminder = document.getElementById('activityReminder');
+            if (activityReminder) {
+                activityReminder.classList.remove('show');
+                activityReminder.setAttribute('aria-hidden', 'true');
+            }
             if (typeof renderEquityCode === 'function') renderEquityCode();
             try {
                 localStorage.removeItem('novelflow_user');
@@ -4106,6 +4195,19 @@
                 activity_copied: 'Referral link copied',
                 activity_retry: 'Retry',
                 activity_close: 'Close',
+                activity_tab_vip: 'VIP',
+                activity_tab_facebook: 'Facebook',
+                activity_tab_invites: 'Invites',
+                activity_tab_recommender: 'Recommender',
+                activity_personal_code: 'Personal invite code',
+                activity_unique_note: 'This code and link are unique to your account and stay stable.',
+                activity_reminder_badge: 'Today',
+                activity_reminder_title: 'New rewards are live',
+                activity_reminder_copy: 'Check today\'s limited activity and apply for the Recommender program.',
+                activity_reminder_note: 'Your personal invite link is unique to your account and stays stable.',
+                activity_reminder_recommender: 'Apply as Recommender',
+                activity_reminder_open: 'View activity',
+                activity_reminder_today: "Don't remind me today",
                 activity_success_vip: 'VIP request submitted.',
                 activity_success_facebook: 'Facebook post submitted for review.',
                 activity_success_invite: 'Invite VIP request submitted.',
@@ -4569,6 +4671,19 @@
                 activity_copied: 'Enlace de referencia copiado',
                 activity_retry: 'Reintentar',
                 activity_close: 'Cerrar',
+                activity_tab_vip: 'VIP',
+                activity_tab_facebook: 'Facebook',
+                activity_tab_invites: 'Invitaciones',
+                activity_tab_recommender: 'Recomendador',
+                activity_personal_code: 'Código personal de invitación',
+                activity_unique_note: 'Este código y enlace son únicos de tu cuenta y se mantienen estables.',
+                activity_reminder_badge: 'Hoy',
+                activity_reminder_title: 'Nuevas recompensas disponibles',
+                activity_reminder_copy: 'Consulta la actividad de hoy y solicita el programa de recomendadores.',
+                activity_reminder_note: 'Tu enlace personal de invitación es único de tu cuenta y se mantiene estable.',
+                activity_reminder_recommender: 'Solicitar ser recomendador',
+                activity_reminder_open: 'Ver actividad',
+                activity_reminder_today: 'No volver a avisar hoy',
                 activity_success_vip: 'Solicitud VIP enviada.',
                 activity_success_facebook: 'Publicaci\u00f3n enviada para revisi\u00f3n.',
                 activity_success_invite: 'Solicitud de VIP por invitaci\u00f3n enviada.',
@@ -5891,8 +6006,79 @@
             requestId: 0,
             submitting: '',
             opener: null,
+            activeSection: 'vip',
+            reminderTimer: null,
+            reminderOpener: null,
             form: { novelFlowId: '', facebookUrl: '' }
         };
+
+        const ACTIVITY_SECTIONS = ['vip', 'facebook', 'invites', 'recommender'];
+        function activityReminderDateKey() {
+            const now = new Date();
+            return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+        }
+        function activityReminderUsername() {
+            return normalizeSessionUsername(AppState.user && AppState.user.username) || '';
+        }
+        function activityReminderKey(kind, username, date) {
+            return 'novelflow_activity_reminder_' + kind + '_' + encodeURIComponent(username) + '_' + date;
+        }
+        function activityReminderRead(kind, username, date, storage) {
+            try { return storage.getItem(activityReminderKey(kind, username, date)) === '1'; } catch (_) { return false; }
+        }
+        function activityReminderWrite(kind, username, date, storage) {
+            try { storage.setItem(activityReminderKey(kind, username, date), '1'); } catch (_) {}
+        }
+        function dismissActivityReminder(today) {
+            const reminder = document.getElementById('activityReminder');
+            const username = activityReminderUsername();
+            const date = activityReminderDateKey();
+            if (today && username) activityReminderWrite('optout', username, date, localStorage);
+            if (reminder) {
+                reminder.classList.remove('show');
+                reminder.setAttribute('aria-hidden', 'true');
+            }
+            if (ActivityState.reminderOpener && typeof ActivityState.reminderOpener.focus === 'function') ActivityState.reminderOpener.focus();
+            ActivityState.reminderOpener = null;
+        }
+        function showDailyActivityReminder() {
+            if (!AppState.isLoggedIn || !AppState.user || !activityWindow().active) return false;
+            if (document.getElementById('activityModal')?.classList.contains('show')) return false;
+            const username = activityReminderUsername();
+            if (!username) return false;
+            const date = activityReminderDateKey();
+            let alreadyShown = activityReminderRead('shown', username, date, localStorage) || activityReminderRead('optout', username, date, localStorage);
+            if (!alreadyShown) alreadyShown = activityReminderRead('shown', username, date, sessionStorage) || activityReminderRead('optout', username, date, sessionStorage);
+            if (alreadyShown) return false;
+            activityReminderWrite('shown', username, date, localStorage);
+            activityReminderWrite('shown', username, date, sessionStorage);
+            const reminder = document.getElementById('activityReminder');
+            if (!reminder) return false;
+            const reminderClose = reminder.querySelector('.activity-reminder-close');
+            if (reminderClose) {
+                reminderClose.setAttribute('aria-label', getText('activity_close'));
+                reminderClose.setAttribute('title', getText('activity_close'));
+            }
+            ActivityState.reminderOpener = document.activeElement;
+            reminder.classList.add('show');
+            reminder.setAttribute('aria-hidden', 'false');
+            setTimeout(() => reminder.querySelector('.activity-reminder-close')?.focus(), 0);
+            return true;
+        }
+        function scheduleDailyActivityReminder() {
+            if (!AppState.isLoggedIn || !AppState.user) return;
+            if (ActivityState.reminderTimer) clearTimeout(ActivityState.reminderTimer);
+            const session = AuthSession.capture(AppState.user.username);
+            if (!session) return;
+            ActivityState.reminderTimer = setTimeout(() => {
+                ActivityState.reminderTimer = null;
+                if (AuthSession.isCurrent(session)) showDailyActivityReminder();
+            }, 480);
+        }
+        function openActivityFromReminder(section) {
+            dismissActivityReminder(false);
+            openActivityModal(section);
+        }
 
         function renderCampaigns() {
             const list = document.getElementById('campaignList');
@@ -5988,6 +6174,13 @@
             if (field === 'novelFlowId' || field === 'facebookUrl') ActivityState.form[field] = String(value || '').slice(0, field === 'facebookUrl' ? 2048 : 64);
         }
 
+
+        function setActivitySection(section) {
+            if (!ACTIVITY_SECTIONS.includes(section)) return;
+            ActivityState.activeSection = section;
+            renderActivityModal();
+        }
+
         function renderActivityModal() {
             const body = document.getElementById('activityModalBody');
             const title = document.getElementById('activityModalTitle');
@@ -6023,74 +6216,44 @@
             const campaignInvites = Math.max(0, Math.floor(Number(eligibility.campaignInvites) || 0));
             const recommenderMeasured = Math.max(0, Math.floor(Number(eligibility.recommenderMeasuredNewUsers) || 0));
             const earnedDays = Math.max(0, Math.floor(Number(eligibility.totalDays) || 0));
-            const inviteEvents = data.fulfillment_events && Array.isArray(data.fulfillment_events.invite_vip)
-                ? data.fulfillment_events.invite_vip
-                : [];
+            const inviteEvents = data.fulfillment_events && Array.isArray(data.fulfillment_events.invite_vip) ? data.fulfillment_events.invite_vip : [];
             const claimedDays = inviteEvents.reduce((sum, event) => sum + Math.max(0, Math.floor(Number(event && event.reward_days) || 0)), 0);
             const availableDays = Number.isFinite(Number(invite.reward_days_available))
                 ? Math.max(0, Math.floor(Number(invite.reward_days_available)))
                 : Math.max(0, earnedDays - claimedDays);
-            const referralUrl = String(invite.referral_url || recommender && recommender.referral_url || '');
+            const referralUrl = String(invite.referral_url || (recommender && recommender.referral_url) || '');
+            const referralCodeRaw = String(invite.referral_code || (recommender && recommender.referral_code) || '');
+            const referralCode = /^[A-Za-z0-9_-]{8,80}$/.test(referralCodeRaw) ? referralCodeRaw : '';
             const idValue = escapeHtml(ActivityState.form.novelFlowId);
             const facebookValue = escapeHtml(ActivityState.form.facebookUrl);
-            const windowCopy = windowState.ended
-                ? getText('activity_ended')
-                : (windowState.upcoming
-                    ? getText('activity_upcoming')
-                    : getText('activity_active_until') + ' ' + formatActivityDate(windowState.endsAt));
+            const windowCopy = windowState.ended ? getText('activity_ended') : (windowState.upcoming ? getText('activity_upcoming') : getText('activity_active_until') + ' ' + formatActivityDate(windowState.endsAt));
             const disabled = !active || busy ? ' disabled' : '';
-            const vipState = claims.vip2
-                ? '<div class="activity-claim-state pending">' + escapeHtml(getText('activity_vip_submitted')) + '</div>'
-                : '';
-            const facebookState = claims.facebook
-                ? '<div class="activity-claim-state pending">' + escapeHtml(getText('activity_fb_submitted')) + '</div>'
-                : '';
-            const inviteState = inviteEvents.length || claims.invite_vip
-                ? '<div class="activity-claim-state pending">' + escapeHtml(getText('activity_invite_submitted')) + '</div>'
-                : '';
-            let recommenderAction = '';
+            const vipState = claims.vip2 ? '<div class="activity-claim-state pending">' + escapeHtml(getText('activity_vip_submitted')) + '</div>' : '';
+            const facebookState = claims.facebook ? '<div class="activity-claim-state pending">' + escapeHtml(getText('activity_fb_submitted')) + '</div>' : '';
+            const inviteState = inviteEvents.length || claims.invite_vip ? '<div class="activity-claim-state pending">' + escapeHtml(getText('activity_invite_submitted')) + '</div>' : '';
+            const section = ACTIVITY_SECTIONS.includes(ActivityState.activeSection) ? ActivityState.activeSection : 'vip';
+            const tabKeys = { vip: 'activity_tab_vip', facebook: 'activity_tab_facebook', invites: 'activity_tab_invites', recommender: 'activity_tab_recommender' };
+            const tabs = ACTIVITY_SECTIONS.map(tab => '<button class="activity-tab' + (tab === section ? ' active' : '') + '" type="button" role="tab" aria-selected="' + (tab === section ? 'true' : 'false') + '" onclick="setActivitySection(\'' + tab + '\')">' + escapeHtml(getText(tabKeys[tab])) + '</button>').join('');
+            const sharedId = '<div class="activity-form"><label class="activity-field-label" for="activityNovelFlowId">' + escapeHtml(getText('activity_id_label')) + '</label>' +
+                '<input class="activity-input" id="activityNovelFlowId" type="text" inputmode="text" maxlength="64" autocomplete="off" value="' + idValue + '" placeholder="' + escapeHtml(getText('activity_id_placeholder')) + '" oninput="updateActivityField(\'novelFlowId\',this.value)"></div>';
+            const vipSection = '<section class="activity-section" role="tabpanel"><div class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">VIP</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_vip_title')) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_vip_copy')) + '</div></div></div>' + sharedId +
+                (claims.vip2 ? vipState : '<div class="activity-form"><button class="activity-action" type="button" onclick="submitActivityReward(\'claim_vip2\')"' + disabled + '>' + escapeHtml(ActivityState.submitting === 'claim_vip2' ? getText('activity_loading') : getText('activity_vip_claim')) + '</button></div>') + '</div></section>';
+            const facebookSection = '<section class="activity-section" role="tabpanel"><div class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">f</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_fb_title')) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_fb_copy')) + '</div></div></div>' +
+                (claims.facebook ? facebookState : '<div class="activity-form activity-input-stack"><label><span class="activity-field-label">' + escapeHtml(getText('activity_fb_url_label')) + '</span><input class="activity-input" type="url" maxlength="2048" autocomplete="url" value="' + facebookValue + '" placeholder="' + escapeHtml(getText('activity_fb_url_placeholder')) + '" oninput="updateActivityField(\'facebookUrl\',this.value)"></label><button class="activity-action" type="button" onclick="submitActivityReward(\'submit_facebook\')"' + disabled + '>' + escapeHtml(ActivityState.submitting === 'submit_facebook' ? getText('activity_loading') : getText('activity_fb_submit')) + '</button></div>') + '</div></section>';
+            const referralMarkup = referralUrl ? '<div class="activity-referral"><div class="activity-field-label">' + escapeHtml(getText('activity_invite_link')) + '</div><div class="activity-referral-row"><div><div class="activity-referral-url">' + escapeHtml(referralUrl) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_invite_link_copy')) + '</div></div><button class="activity-copy-btn" type="button" onclick="copyActivityReferral()" aria-label="' + escapeHtml(getText('activity_copy_link')) + '" title="' + escapeHtml(getText('activity_copy_link')) + '">Copy</button></div></div>' : '';
+            const codeMarkup = referralCode ? '<div class="activity-referral-code"><span class="activity-referral-code-label">' + escapeHtml(getText('activity_personal_code')) + '</span><code>' + escapeHtml(referralCode) + '</code></div><div class="activity-unique-note">' + escapeHtml(getText('activity_unique_note')) + '</div>' : '';
+            const inviteSection = '<section class="activity-section" role="tabpanel"><div class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">+</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_invite_title')) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_invite_copy')) + '</div></div></div>' + referralMarkup + codeMarkup +
+                '<div class="activity-metrics"><div class="activity-metric"><div class="activity-metric-value">' + campaignInvites + '</div><div class="activity-metric-label">' + escapeHtml(getText('activity_verified')) + '</div></div><div class="activity-metric"><div class="activity-metric-value">' + earnedDays + '</div><div class="activity-metric-label">' + escapeHtml(getText('activity_earned')) + '</div></div><div class="activity-metric"><div class="activity-metric-value">' + claimedDays + '</div><div class="activity-metric-label">' + escapeHtml(getText('activity_claimed')) + '</div></div><div class="activity-metric"><div class="activity-metric-value">' + availableDays + '</div><div class="activity-metric-label">' + escapeHtml(getText('activity_available')) + '</div></div></div>' +
+                '<div class="activity-form"><button class="activity-action" type="button" onclick="submitActivityReward(\'claim_invite_vip\')"' + ((!active || busy || availableDays <= 0) ? ' disabled' : '') + '>' + escapeHtml(ActivityState.submitting === 'claim_invite_vip' ? getText('activity_loading') : getText('activity_invite_claim')) + '</button></div>' + (availableDays <= 0 ? '<div class="activity-claim-state pending">' + escapeHtml(getText('activity_invite_none')) + '</div>' : inviteState) + '</div></section>';
+            let recommenderAction;
             if (recommender) {
-                recommenderAction = '<div class="activity-claim-state">' + escapeHtml(getText('activity_recommender_applied')) +
-                    ' · ' + escapeHtml(getText('activity_recommender_slot')) + ' #' + escapeHtml(recommender.slot || '') + '</div>';
+                recommenderAction = '<div class="activity-claim-state">' + escapeHtml(getText('activity_recommender_applied')) + ' · ' + escapeHtml(getText('activity_recommender_slot')) + ' #' + escapeHtml(recommender.slot || '') + '</div>';
             } else {
-                recommenderAction = '<div class="activity-form"><button class="activity-action secondary" type="button" onclick="submitActivityReward(\'apply_recommender\')"' +
-                    ((!active || busy || !eligibility.recommenderEligible) ? ' disabled' : '') + '>' +
-                    escapeHtml(ActivityState.submitting === 'apply_recommender' ? getText('activity_loading') : getText('activity_recommender_apply')) + '</button></div>' +
-                    '<div class="activity-claim-state pending">' + escapeHtml(getText('activity_recommender_measured')) + ': ' + recommenderMeasured + '/5</div>';
+                recommenderAction = '<div class="activity-form"><button class="activity-action secondary" type="button" onclick="submitActivityReward(\'apply_recommender\')"' + ((!active || busy || !eligibility.recommenderEligible) ? ' disabled' : '') + '>' + escapeHtml(ActivityState.submitting === 'apply_recommender' ? getText('activity_loading') : getText('activity_recommender_apply')) + '</button></div><div class="activity-claim-state pending">' + escapeHtml(getText('activity_recommender_measured')) + ': ' + recommenderMeasured + '/5</div>';
             }
-
-            body.innerHTML = '' +
-                '<div class="activity-hero"><div class="activity-hero-kicker">' + escapeHtml(getText('activity_kicker')) + '</div>' +
-                    '<div class="activity-hero-title">' + escapeHtml(getText('activity_modal_title')) + '</div>' +
-                    '<div class="activity-window">' + escapeHtml(windowCopy) + '</div></div>' +
-                '<div class="activity-note">' + escapeHtml(getText('activity_batch_note')) + '</div>' +
-                '<div class="activity-shared-id"><label class="activity-field-label" for="activityNovelFlowId">' + escapeHtml(getText('activity_id_label')) + '</label>' +
-                    '<input class="activity-input" id="activityNovelFlowId" type="text" inputmode="text" maxlength="64" autocomplete="off" value="' + idValue + '" placeholder="' + escapeHtml(getText('activity_id_placeholder')) + '" oninput="updateActivityField(\'novelFlowId\',this.value)"></div>' +
-                '<div class="activity-task-list">' +
-                    '<section class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">👑</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_vip_title')) + '</div>' +
-                        '<div class="activity-task-copy">' + escapeHtml(getText('activity_vip_copy')) + '</div></div></div>' +
-                        (claims.vip2 ? vipState : '<div class="activity-form"><button class="activity-action" type="button" onclick="submitActivityReward(\'claim_vip2\')"' + disabled + '>' + escapeHtml(ActivityState.submitting === 'claim_vip2' ? getText('activity_loading') : getText('activity_vip_claim')) + '</button></div>') + '</section>' +
-                    '<section class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">f</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_fb_title')) + '</div>' +
-                        '<div class="activity-task-copy">' + escapeHtml(getText('activity_fb_copy')) + '</div></div></div>' +
-                        (claims.facebook ? facebookState : '<div class="activity-form activity-input-stack"><label><span class="activity-field-label">' + escapeHtml(getText('activity_fb_url_label')) + '</span>' +
-                            '<input class="activity-input" type="url" maxlength="2048" autocomplete="url" value="' + facebookValue + '" placeholder="' + escapeHtml(getText('activity_fb_url_placeholder')) + '" oninput="updateActivityField(\'facebookUrl\',this.value)"></label>' +
-                            '<button class="activity-action" type="button" onclick="submitActivityReward(\'submit_facebook\')"' + disabled + '>' + escapeHtml(ActivityState.submitting === 'submit_facebook' ? getText('activity_loading') : getText('activity_fb_submit')) + '</button></div>') + '</section>' +
-                    '<section class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">＋</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_invite_title')) + '</div>' +
-                        '<div class="activity-task-copy">' + escapeHtml(getText('activity_invite_copy')) + '</div></div></div>' +
-                        (referralUrl ? '<div class="activity-referral"><div class="activity-field-label">' + escapeHtml(getText('activity_invite_link')) + '</div>' +
-                            '<div class="activity-referral-row"><div><div class="activity-referral-url">' + escapeHtml(referralUrl) + '</div>' +
-                            '<div class="activity-task-copy">' + escapeHtml(getText('activity_invite_link_copy')) + '</div></div>' +
-                            '<button class="activity-copy-btn" type="button" onclick="copyActivityReferral()" aria-label="' + escapeHtml(getText('activity_copy_link')) + '" title="' + escapeHtml(getText('activity_copy_link')) + '">⧉</button></div></div>' : '') +
-                        '<div class="activity-metrics"><div class="activity-metric"><div class="activity-metric-value">' + campaignInvites + '</div><div class="activity-metric-label">' + escapeHtml(getText('activity_verified')) + '</div></div>' +
-                            '<div class="activity-metric"><div class="activity-metric-value">' + earnedDays + '</div><div class="activity-metric-label">' + escapeHtml(getText('activity_earned')) + '</div></div>' +
-                            '<div class="activity-metric"><div class="activity-metric-value">' + claimedDays + '</div><div class="activity-metric-label">' + escapeHtml(getText('activity_claimed')) + '</div></div>' +
-                            '<div class="activity-metric"><div class="activity-metric-value">' + availableDays + '</div><div class="activity-metric-label">' + escapeHtml(getText('activity_available')) + '</div></div></div>' +
-                        '<div class="activity-form"><button class="activity-action" type="button" onclick="submitActivityReward(\'claim_invite_vip\')"' + ((!active || busy || availableDays <= 0) ? ' disabled' : '') + '>' +
-                            escapeHtml(ActivityState.submitting === 'claim_invite_vip' ? getText('activity_loading') : getText('activity_invite_claim')) + '</button></div>' +
-                        (availableDays <= 0 ? '<div class="activity-claim-state pending">' + escapeHtml(getText('activity_invite_none')) + '</div>' : inviteState) + '</section>' +
-                    '<section class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">◆</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_recommender_title')) + '</div>' +
-                        '<div class="activity-task-copy">' + escapeHtml(getText('activity_recommender_copy')) + '</div></div></div>' + recommenderAction + '</section>' +
-                '</div>';
+            const recommenderSection = '<section class="activity-section" role="tabpanel"><div class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">%</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_recommender_title')) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_recommender_copy')) + '</div></div></div>' + recommenderAction + (referralUrl ? '<div class="activity-referral"><div class="activity-field-label">' + escapeHtml(getText('activity_recommender_link')) + '</div><div class="activity-referral-url">' + escapeHtml(referralUrl) + '</div></div>' : '') + '</div></section>';
+            const sectionMarkup = section === 'vip' ? vipSection : (section === 'facebook' ? facebookSection : (section === 'invites' ? inviteSection : recommenderSection));
+            body.innerHTML = '<div class="activity-hero"><div class="activity-hero-kicker">' + escapeHtml(getText('activity_kicker')) + '</div><div class="activity-hero-title">' + escapeHtml(getText('activity_modal_title')) + '</div><div class="activity-window">' + escapeHtml(windowCopy) + '</div></div><div class="activity-note">' + escapeHtml(getText('activity_batch_note')) + '</div><div class="activity-tabs" role="tablist" aria-label="' + escapeHtml(getText('activity_modal_title')) + '">' + tabs + '</div>' + sectionMarkup;
         }
 
         async function loadActivityRewards(force) {
@@ -6216,14 +6379,21 @@
             textarea.remove();
         }
 
-        function openActivityModal() {
+        function openActivityModal(section) {
             if (!AppState.isLoggedIn) {
                 window.__openActivityAfterLogin = true;
+                window.__activitySectionAfterLogin = ACTIVITY_SECTIONS.includes(section) ? section : null;
                 openAuthModal('tasks');
                 return;
             }
             const modal = document.getElementById('activityModal');
             if (!modal) return;
+            if (ACTIVITY_SECTIONS.includes(section)) ActivityState.activeSection = section;
+            const reminder = document.getElementById('activityReminder');
+            if (reminder) {
+                reminder.classList.remove('show');
+                reminder.setAttribute('aria-hidden', 'true');
+            }
             ActivityState.opener = document.activeElement;
             modal.classList.add('show');
             document.body.style.overflow = 'hidden';
@@ -6241,6 +6411,11 @@
         }
 
         document.addEventListener('keydown', event => {
+            const reminder = document.getElementById('activityReminder');
+            if (reminder && reminder.classList.contains('show')) {
+                if (event.key === 'Escape') dismissActivityReminder(false);
+                return;
+            }
             const modal = document.getElementById('activityModal');
             if (!modal || !modal.classList.contains('show')) return;
             if (event.key === 'Escape') {
@@ -8881,7 +9056,9 @@ function renderMyBooks() {
             if (typeof loadEquityCode === 'function') loadEquityCode(true);
             if (window.__openActivityAfterLogin) {
                 window.__openActivityAfterLogin = false;
-                setTimeout(() => openActivityModal(), 120);
+                const activitySection = window.__activitySectionAfterLogin;
+                window.__activitySectionAfterLogin = null;
+                setTimeout(() => openActivityModal(activitySection), 120);
             }
             if (window.__pendingBookId) {
                 const bk = window.__pendingBookId; window.__pendingBookId = null;

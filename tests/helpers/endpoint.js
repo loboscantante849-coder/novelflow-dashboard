@@ -130,6 +130,17 @@ class FakeRedis {
 
   async eval(_script, keys, args) {
     this._checkError();
+    if (String(_script).includes('NF_REFERRAL_ALLOCATE_V1')) {
+      const [userKey, ownerKey] = keys;
+      const [username, candidate] = args;
+      const assigned = FakeRedis.values.get(userKey);
+      if (assigned) return assigned;
+      const owner = FakeRedis.values.get(ownerKey);
+      if (owner && owner !== username) return '';
+      FakeRedis.values.set(ownerKey, username);
+      FakeRedis.values.set(userKey, candidate);
+      return candidate;
+    }
     const key = Array.isArray(keys) ? keys[0] : keys;
     const token = Array.isArray(args) ? args[0] : args;
     if (FakeRedis.values.get(key) !== token) return 0;

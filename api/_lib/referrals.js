@@ -7,6 +7,16 @@ const REFERRAL_CODE_NS = 'nf_referral_code:v1';
 const REFERRAL_RELATION_NS = 'nf_referrer_of:v1';
 const REFERRAL_INDEX_NS = 'nf_referrals:v1';
 const ACTIVITY_REFERRAL_INDEX_NS = 'nf_activity_referrals:v1';
+const ALLOCATE_REFERRAL_CODE_SCRIPT = `
+-- NF_REFERRAL_ALLOCATE_V1
+local assigned = redis.call('get', KEYS[1])
+if assigned then return assigned end
+local owner = redis.call('get', KEYS[2])
+if owner and owner ~= ARGV[1] then return '' end
+redis.call('set', KEYS[2], ARGV[1])
+redis.call('set', KEYS[1], ARGV[2])
+return ARGV[2]
+`;
 
 function normalizeReferralCode(value) {
   const code = String(value || '').trim();
@@ -97,17 +107,18 @@ async function ensureReferralCode(redis, usernameValue) {
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const code = `nfref_${crypto.randomBytes(9).toString('base64url')}`;
     const ownerKey = referralCodeOwnerKey(code);
-    const ownerCreated = await redis.set(ownerKey, username, { nx: true });
-    if (!(ownerCreated === 'OK' || ownerCreated === true)) continue;
-    const codeCreated = await redis.set(userKey, code, { nx: true });
-    if (codeCreated === 'OK' || codeCreated === true) {
-      return { referral_code: code, referral_url: referralUrl(code) };
-    }
-    const winner = normalizeReferralCode(await redis.get(userKey));
-    await redis.del(ownerKey);
-    if (winner && normalizeUsername(await redis.get(referralCodeOwnerKey(winner))) === username) {
+    const winner = normalizeReferralCode(await redis.eval(
+      ALLOCATE_REFERRAL_CODE_SCRIPT,
+      [userKey, ownerKey],
+      [username, code],
+    ));
+    if (!winner) continue;
+    const winnerOwnerKey = referralCodeOwnerKey(winner);
+    if (!await redis.get(winnerOwnerKey)) await redis.set(winnerOwnerKey, username, { nx: true });
+    if (normalizeUsername(await redis.get(winnerOwnerKey)) === username) {
       return { referral_code: winner, referral_url: referralUrl(winner) };
     }
+    throw referralError('Referral code ownership conflict', 'REFERRAL_CODE_CONFLICT');
   }
   throw referralError('Could not allocate a referral code', 'REFERRAL_CODE_UNAVAILABLE');
 }

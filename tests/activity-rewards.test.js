@@ -102,6 +102,98 @@ test('generic referral codes are stable and existing relationships repair both i
   assert.equal(await getCampaignReferralCount(new FakeRedis(), 'campaign-parent'), 1);
 });
 
+test('concurrent referral allocation gives one account exactly one primary code', async () => {
+  const invites = await Promise.all(Array.from({ length: 50 }, () =>
+    ensureReferralCode(new FakeRedis(), 'concurrent-parent')));
+  const codes = new Set(invites.map(invite => invite.referral_code));
+  const reverseMappings = Array.from(FakeRedis.values.entries())
+    .filter(([key, value]) => key.startsWith('nf_referral_code:v1:code:') && value === 'concurrent-parent');
+
+  assert.equal(codes.size, 1);
+  assert.equal(reverseMappings.length, 1);
+  const [code] = codes;
+  assert.equal(await new FakeRedis().get('nf_referral_code:v1:user:concurrent-parent'), code);
+  assert.equal(await new FakeRedis().get(`nf_referral_code:v1:code:${code}`), 'concurrent-parent');
+});
+
+test('referral allocation resolves a forced random-code collision without sharing ownership', async () => {
+  const crypto = require('node:crypto');
+  const originalRandomBytes = crypto.randomBytes;
+  const values = [Buffer.alloc(9, 1), Buffer.alloc(9, 1), Buffer.alloc(9, 2)];
+  crypto.randomBytes = () => values.shift() || Buffer.alloc(9, 3);
+  try {
+    const first = await ensureReferralCode(new FakeRedis(), 'collision-one');
+    const second = await ensureReferralCode(new FakeRedis(), 'collision-two');
+    assert.notEqual(first.referral_code, second.referral_code);
+    assert.equal(await new FakeRedis().get(`nf_referral_code:v1:code:${first.referral_code}`), 'collision-one');
+    assert.equal(await new FakeRedis().get(`nf_referral_code:v1:code:${second.referral_code}`), 'collision-two');
+  } finally {
+    crypto.randomBytes = originalRandomBytes;
+  }
+});
+
+test('a lost allocation response retries to the same code without an orphan alias', async () => {
+  const redis = new FakeRedis();
+  const originalEval = redis.eval.bind(redis);
+  let loseFirstResponse = true;
+  redis.eval = async (...args) => {
+    const result = await originalEval(...args);
+    if (loseFirstResponse) {
+      loseFirstResponse = false;
+      throw new Error('simulated response loss');
+    }
+    return result;
+  };
+
+  await assert.rejects(() => ensureReferralCode(redis, 'retry-parent'), /simulated response loss/);
+  const invite = await ensureReferralCode(redis, 'retry-parent');
+  const reverseMappings = Array.from(FakeRedis.values.entries())
+    .filter(([key, value]) => key.startsWith('nf_referral_code:v1:code:') && value === 'retry-parent');
+  assert.equal(reverseMappings.length, 1);
+  assert.equal(reverseMappings[0][0], `nf_referral_code:v1:code:${invite.referral_code}`);
+});
+
+test('a valid legacy recommender code becomes the stable primary invite code', async () => {
+  FakeRedis.reset({
+    'nf_recommender:v1:application:legacy-primary': JSON.stringify({ referral_code: 'nfref_legacyprimary' }),
+    'nf_recommender:v1:code:nfref_legacyprimary': 'legacy-primary',
+  });
+  const invites = await Promise.all(Array.from({ length: 20 }, () =>
+    ensureReferralCode(new FakeRedis(), 'legacy-primary')));
+
+  assert.deepEqual(new Set(invites.map(invite => invite.referral_code)), new Set(['nfref_legacyprimary']));
+  assert.equal(await new FakeRedis().get('nf_referral_code:v1:user:legacy-primary'), 'nfref_legacyprimary');
+  assert.equal(await new FakeRedis().get('nf_referral_code:v1:code:nfref_legacyprimary'), 'legacy-primary');
+});
+
+test('activity invite codes are scoped to the verified JWT account and ignore username overrides', async () => {
+  const first = await invoke(activityRewards, {
+    method: 'GET',
+    headers: authHeaders('jwt-owner-one'),
+    query: { username: 'jwt-owner-two', ref: 'nfref_untrusted_override' },
+    body: { username: 'jwt-owner-two' },
+  });
+  const second = await invoke(activityRewards, {
+    method: 'GET',
+    headers: authHeaders('jwt-owner-two'),
+    query: { username: 'jwt-owner-one' },
+    body: { username: 'jwt-owner-one' },
+  });
+  assert.equal(first.statusCode, 200);
+  assert.equal(second.statusCode, 200);
+  assert.notEqual(first.body.invite.referral_code, second.body.invite.referral_code);
+  assert.equal(await new FakeRedis().get(`nf_referral_code:v1:code:${first.body.invite.referral_code}`), 'jwt-owner-one');
+  assert.equal(await new FakeRedis().get(`nf_referral_code:v1:code:${second.body.invite.referral_code}`), 'jwt-owner-two');
+
+  const retry = await invoke(activityRewards, {
+    method: 'GET',
+    headers: authHeaders('jwt-owner-one'),
+    query: { username: 'jwt-owner-two' },
+  });
+  assert.equal(retry.statusCode, 200);
+  assert.equal(retry.body.invite.referral_code, first.body.invite.referral_code);
+});
+
 test('campaign referrals drive VIP and can satisfy recommender eligibility without stale history', async () => {
   await new FakeRedis().sadd(`${ACTIVITY_REFERRAL_INDEX_NS}:campaign-parent`, 'child-1', 'child-2');
   const eligibility = await loadEligibility('campaign-parent', { redis: new FakeRedis(), adData: currentAdData });
