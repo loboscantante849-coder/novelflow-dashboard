@@ -18,6 +18,7 @@ const { setCORSHeaders } = require('../_lib/cors');
 const { getRedis, isDisabledUser } = require('../_lib/security');
 const { resolveDiscordIdentity } = require('../_lib/identity');
 const { extractReferralCode, finalizePendingReferral, stageReferral } = require('../_lib/referrals');
+const { ensureMemberIdentity } = require('../_lib/member-identity');
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1504779503237333033';
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
@@ -106,6 +107,15 @@ module.exports = async (req, res) => {
         console.warn('[discord-activity] Referral binding deferred:', error && error.code || error && error.message);
       }
     }
+    let member = null;
+    try {
+      member = await ensureMemberIdentity(redis, identity.username, {
+        source: 'discord',
+        createdAt: !previousMapping && !hadUserData ? new Date().toISOString() : null,
+      });
+    } catch (error) {
+      console.warn('[discord-activity] Member ID allocation deferred:', error && error.code || error && error.message);
+    }
 
     // Build token payload
     const userPayload = buildUserPayload({
@@ -130,6 +140,7 @@ module.exports = async (req, res) => {
       success: true,
       user: {
         id: userData.id,
+        memberId: member && member.id || null,
         username: userData.username,
         global_name: userData.global_name || userData.username,
         avatar: userData.avatar,

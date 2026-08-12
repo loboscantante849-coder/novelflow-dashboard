@@ -130,6 +130,28 @@ class FakeRedis {
 
   async eval(_script, keys, args) {
     this._checkError();
+    if (String(_script).includes('NF_MEMBER_ID_ALLOCATE_V1')) {
+      const [userKey, counterKey] = keys;
+      const [username, startValue, reversePrefix] = args;
+      const existing = FakeRedis.values.get(userKey);
+      if (existing) {
+        const reverseKey = reversePrefix + existing;
+        if (!FakeRedis.values.has(reverseKey)) FakeRedis.values.set(reverseKey, username);
+        return FakeRedis.values.get(reverseKey) === username ? existing : '';
+      }
+      let counter = Number(FakeRedis.values.get(counterKey) || 0);
+      if (counter < Number(startValue) - 1) counter = Number(startValue) - 1;
+      for (let attempt = 0; attempt < 1000; attempt += 1) {
+        counter += 1;
+        FakeRedis.values.set(counterKey, counter);
+        const reverseKey = reversePrefix + counter;
+        if (FakeRedis.values.has(reverseKey)) continue;
+        FakeRedis.values.set(reverseKey, username);
+        FakeRedis.values.set(userKey, String(counter));
+        return String(counter);
+      }
+      return '';
+    }
     if (String(_script).includes('NF_REFERRAL_ALLOCATE_V1')) {
       const [userKey, ownerKey] = keys;
       const [username, candidate] = args;

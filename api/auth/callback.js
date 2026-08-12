@@ -18,6 +18,7 @@ const { setCORSHeaders } = require('../_lib/cors');
 const { getRedis, isDisabledUser } = require('../_lib/security');
 const { resolveDiscordIdentity } = require('../_lib/identity');
 const { finalizePendingReferral, stageReferral } = require('../_lib/referrals');
+const { ensureMemberIdentity } = require('../_lib/member-identity');
 const {
   OAUTH_STATE_COOKIE,
   clearOAuthStateCookie,
@@ -137,6 +138,14 @@ module.exports = async (req, res) => {
         // OAuth authentication must remain available if an optional referral hint is stale.
         console.warn('[auth/callback] Referral binding deferred:', error && error.code || error && error.message);
       }
+    }
+    try {
+      await ensureMemberIdentity(redis, identity.username, {
+        source: 'discord',
+        createdAt: !previousMapping && !hadUserData ? new Date().toISOString() : null,
+      });
+    } catch (error) {
+      console.warn('[auth/callback] Member ID allocation deferred:', error && error.code || error && error.message);
     }
 
     var userPayload = buildUserPayload({

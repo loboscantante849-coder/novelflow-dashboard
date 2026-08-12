@@ -16,6 +16,7 @@ const { createPasswordHash, verifyPassword } = require('../_lib/password');
 const { bindPasswordPrincipal, claimIdentity, resolvePasswordPrincipal } = require('../_lib/identity');
 const { isProtectedPromoterUsername } = require('../_lib/promoter-access');
 const { extractReferralCode, finalizePendingReferral, stageReferral, validateReferral } = require('../_lib/referrals');
+const { ensureMemberIdentity } = require('../_lib/member-identity');
 
 const USERNAME_RE = /^[\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9_.@\- ]{1,50}$/;
 
@@ -156,6 +157,15 @@ module.exports = async (req, res) => {
     } catch (error) {
       console.warn('[auth/login] Referral binding deferred:', error && error.code || error && error.message);
     }
+    let member = null;
+    try {
+      member = await ensureMemberIdentity(redis, usernameKey, {
+        source: 'local',
+        createdAt: isNewUser ? new Date().toISOString() : null,
+      });
+    } catch (error) {
+      console.warn('[auth/login] Member ID allocation deferred:', error && error.code || error && error.message);
+    }
 
     const userPayload = buildUserPayload({ type: 'local', username: usernameKey, principal: passwordPrincipal });
     const accessToken = signAccessToken(userPayload);
@@ -163,7 +173,7 @@ module.exports = async (req, res) => {
     const userInfo = extractUserInfo(userPayload);
     setAuthCookies(res, accessToken, refreshToken, userInfo);
 
-    return res.status(200).json({ success: true, username: usernameKey, user: userInfo, isNewUser });
+    return res.status(200).json({ success: true, username: usernameKey, memberId: member && member.id || null, user: userInfo, isNewUser });
   } catch (error) {
     console.error('[auth/login] Error:', error);
     return res.status(500).json({ error: 'Internal server error' });
