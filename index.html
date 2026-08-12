@@ -1155,9 +1155,19 @@
         .activity-retry { margin-top: 12px; }
 
         /* Activity redesign: compact tabs keep one task in focus at a time. */
-        .activity-panel { width: min(600px, 100%); max-height: min(780px, 92vh); border-radius: 14px; }
-        .activity-hero { padding: 20px 22px 18px; background: #172033; }
-        .activity-note { padding: 10px 22px; }
+        .activity-panel { width: min(760px, 100%); max-height: min(820px, 94vh); border: 1px solid rgba(202,163,82,.38); border-radius: 18px; background: #fff; box-shadow: 0 30px 90px rgba(4,8,18,.42); }
+        .activity-header { border-bottom-color: rgba(202,163,82,.25); background: #090a0d; }
+        .activity-title { color: #f3d59b; letter-spacing: .02em; }
+        .activity-close { background: rgba(255,255,255,.08); color: #efd39d; }
+        .activity-close:hover { background: rgba(202,163,82,.18); color: #fff; }
+        .activity-hero { display: grid; grid-template-columns: 210px minmax(0,1fr); min-height: 250px; padding: 0; background: #090a0d; color: white; overflow: hidden; }
+        .activity-hero-poster { min-height: 250px; overflow: hidden; border-right: 1px solid rgba(202,163,82,.28); background: #030303; }
+        .activity-hero-poster img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 20%; }
+        .activity-hero-copy { display: flex; flex-direction: column; justify-content: center; padding: 30px 30px 28px; background: radial-gradient(circle at 92% 12%, rgba(202,163,82,.16), transparent 36%), #090a0d; }
+        .activity-hero-kicker { color: #d9b66f; letter-spacing: .12em; }
+        .activity-hero-title { max-width: 420px; font: 600 30px/1.08 Georgia, 'Times New Roman', serif; letter-spacing: -.02em; }
+        .activity-window { max-width: 420px; color: rgba(255,255,255,.68); }
+        .activity-note { padding: 8px 22px; border-bottom: 1px solid var(--hairline); background: #fbfaf7; color: #756b5d; font-size: 10px; text-align: center; }
         .activity-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 10px 14px; background: var(--canvas-soft); border-bottom: 1px solid var(--hairline); }
         .activity-tab { min-width: 0; min-height: 38px; padding: 7px 5px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--ink-secondary); font: inherit; font-size: 11px; font-weight: 700; line-height: 1.2; cursor: pointer; }
         .activity-tab:hover { background: white; color: var(--ink); }
@@ -1180,6 +1190,10 @@
         .activity-section .activity-referral { margin-top: 16px; padding-top: 14px; }
         .activity-section .activity-copy-btn { width: auto; min-width: 56px; padding: 0 10px; font-size: 11px; font-weight: 700; }
         .activity-section .activity-claim-state { margin-top: 13px; }
+        .activity-social-platforms { display:flex; flex-wrap:wrap; gap:6px; margin-top:13px; }
+        .activity-social-platform { padding:5px 8px; border:1px solid #e8e1d5; border-radius:999px; background:#fbfaf7; color:#655a4d; font-size:10px; font-weight:700; }
+        .activity-official-link { display:inline-flex; align-items:center; gap:6px; width:max-content; margin-top:12px; color:#3157a4; font-size:11px; font-weight:700; text-decoration:none; }
+        .activity-official-link:hover { text-decoration:underline; }
         .activity-reminder-overlay { position: fixed; inset: 0; z-index: 12490; display: none; align-items: center; justify-content: center; padding: 24px 16px; background: rgba(0,0,0,0.68); }
         .activity-reminder-overlay.show { display: flex; animation: fadeIn .18s ease; }
         .activity-reminder-card { position: relative; width: min(460px, 100%); max-height: calc(100dvh - 28px); overflow-y: auto; border: 1px solid #9E7A3D; border-radius: 16px; background: #090806; box-shadow: 0 24px 70px rgba(0,0,0,0.55); scrollbar-width: thin; scrollbar-color: #9E7A3D #16110A; }
@@ -1201,8 +1215,14 @@
         .activity-reminder-today { border: 0; background: transparent; color: #A99575; font: inherit; font-size: 10px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
         .activity-reminder-today:hover { color: #E6C890; }
         @media (max-width: 480px) {
-            .activity-overlay { align-items: flex-end; padding: 0; }
-            .activity-panel { width: 100%; max-height: 92dvh; border-radius: 14px 14px 0 0; }
+            .activity-overlay { align-items: flex-start; padding: 0; }
+            .activity-panel { width: 100%; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
+            .activity-header { min-height: 52px; }
+            .activity-body { flex:1; }
+            .activity-hero { grid-template-columns: 112px minmax(0,1fr); min-height: 176px; }
+            .activity-hero-poster { min-height: 176px; }
+            .activity-hero-copy { padding: 20px 16px; }
+            .activity-hero-title { font-size: 22px; }
             .activity-input-row { grid-template-columns: 1fr; }
             .activity-action { width: 100%; white-space: normal; }
             .activity-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1216,18 +1236,16 @@
             .activity-reminder-poster { max-height: 62dvh; }
             .activity-reminder-actions { grid-template-columns: 1fr; }
         }
-        .bonus-profile-card {
-            margin: 10px var(--sp-lg) 0;
-            background: linear-gradient(135deg, #FED7AA, #C084FC, #F472B6);
-            border-radius: 14px;
-            padding: 12px 14px;
-            color: white;
-            display: flex; align-items: center; gap: 10px;
-        }
-        .bonus-profile-icon { font-size: 24px; }
-        .bonus-profile-text { flex: 1; }
-        .bonus-profile-label { font-size: 11px; opacity: 0.9; }
-        .bonus-profile-value { font-size: 20px; font-weight: 800; font-feature-settings: "tnum"; }
+        .activity-fab { display:none; position:fixed; right:max(16px, calc((100vw - 430px)/2 + 16px)); bottom:82px; z-index:88; width:188px; padding:0; overflow:hidden; border:1px solid rgba(202,163,82,.58); border-radius:15px; background:#090a0d; color:#f2d49a; box-shadow:0 12px 34px rgba(5,8,17,.32); cursor:pointer; text-align:left; }
+        .activity-fab.show { display:grid; grid-template-columns:54px minmax(0,1fr); animation:fadeIn .2s ease; }
+        .activity-fab img { width:54px; height:66px; object-fit:cover; object-position:center 22%; }
+        .activity-fab-copy { min-width:0; padding:9px 10px 8px; }
+        .activity-fab-kicker { color:#b99a62; font-size:8px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
+        .activity-fab-title { margin-top:3px; color:#f2d49a; font:600 13px/1.15 Georgia,serif; }
+        .activity-fab-sub { margin-top:3px; color:rgba(255,255,255,.62); font-size:9px; }
+        .referral-applied { display:none; margin:-4px 0 13px; padding:9px 11px; border:1px solid rgba(217,182,111,.48); border-radius:10px; background:rgba(217,182,111,.12); color:#f3d59b; font-size:11px; line-height:1.4; text-align:center; overflow-wrap:anywhere; }
+        .referral-applied.show { display:block; }
+        @media (max-width:480px) { .activity-fab { right:12px; bottom:76px; width:168px; } .activity-fab.show { grid-template-columns:48px minmax(0,1fr); } .activity-fab img { width:48px; height:62px; } }
         .bonus-profile-sub { font-size: 10px; opacity: 0.85; margin-top: 2px; }
         .milestone-dot.grand { background: linear-gradient(135deg, #FFD700, #F59E0B); border-color: #FFD700; color: #7c2d12; box-shadow: 0 0 16px rgba(255,215,0,0.6); }
         .milestone-dot.grand.active { background: linear-gradient(135deg, #FFD700, #F59E0B); border-color: #FFD700; color: #7c2d12; }
@@ -1825,7 +1843,7 @@
 
         /* Stats Overview Cards */
         .stats-overview {
-            display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-sm);
+            display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 6px;
             padding: var(--sp-md) var(--sp-lg);
             background: #172033;
             margin: 0 calc(-1 * var(--sp-lg));
@@ -1836,11 +1854,16 @@
         .stats-overview-value { font-size: 18px; font-weight: 700; color: white; font-feature-settings: "tnum"; white-space: nowrap; }
         .stats-overview-label { font-size: 9px; line-height: 1.25; color: rgba(255,255,255,0.72); }
         .stats-overview-card.gold .stats-overview-value { color: #F5C451; }
-        .recommender-badge { display:none; align-items:center; gap:7px; margin-top:9px; padding:6px 10px; border:1px solid #CBD5E1; border-radius:6px; background:#fff; color:#334155; font:inherit; font-size:11px; font-weight:700; cursor:pointer; }
-        .recommender-badge.show { display:inline-flex; }
-        .recommender-badge.premium { border-color:#D6A84B; background:#FFF8E8; color:#8A5B00; }
-        .recommender-badge .badge-mark { width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background:#E2E8F0; color:#334155; font-size:10px; }
-        .recommender-badge.premium .badge-mark { background:#D6A84B; color:#fff; }
+        .recommender-badge { display:none; width:calc(100% - 32px); margin:14px auto 0; padding:14px; grid-template-columns:42px minmax(0,1fr) auto; gap:12px; align-items:center; border:1px solid #cbd8e8; border-radius:14px; background:linear-gradient(135deg,#f7fbff,#eef5ff); color:#243b5a; font:inherit; text-align:left; cursor:pointer; box-shadow:0 5px 16px rgba(30,64,110,.08); }
+        .recommender-badge.show { display:grid; }
+        .recommender-badge.premium { border-color:#c6a45d; background:radial-gradient(circle at 90% 15%,rgba(218,181,105,.22),transparent 34%),linear-gradient(135deg,#111722,#202b3e); color:#f0d291; box-shadow:0 8px 24px rgba(8,13,22,.22); }
+        .recommender-badge .badge-mark { width:42px; height:42px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #b8c9dd; border-radius:13px; background:#fff; color:#31557e; font-size:20px; }
+        .recommender-badge.premium .badge-mark { border-color:#c6a45d; background:rgba(198,164,93,.13); color:#f0d291; }
+        .recommender-badge-copy { min-width:0; }
+        .recommender-badge-title { display:block; font-size:13px; font-weight:800; }
+        .recommender-badge-sub { display:block; margin-top:3px; color:#60758e; font-size:10px; line-height:1.35; }
+        .recommender-badge.premium .recommender-badge-sub { color:rgba(255,255,255,.62); }
+        .recommender-badge-arrow { font-size:18px; }
         .member-detail-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; padding:14px; }
         .member-detail-metric { padding:12px; border:1px solid var(--hairline); border-radius:7px; background:var(--canvas-soft); text-align:center; }
         .member-detail-metric strong { display:block; color:var(--ink); font-size:18px; }
@@ -1858,6 +1881,7 @@
         #referralDetailsModal .activity-body { background:#fff; }
         @media (max-width: 520px) {
             .stats-overview { grid-template-columns:repeat(2,minmax(0,1fr)); margin-left:0; margin-right:0; }
+            .stats-overview-card:last-child { grid-column:1 / -1; }
             .member-detail-summary { grid-template-columns:1fr; }
             .member-detail-row { grid-template-columns:minmax(100px,1fr) repeat(2,minmax(58px,.6fr)); }
             .member-detail-row .member-detail-cell:nth-child(3) { display:none; }
@@ -2886,6 +2910,7 @@
         
         
         <div class="splash-form"><button class="splash-modal-close" onclick="closeAuthModal()" aria-label="Close">×</button><div class="form-logo">N</div><div class="form-title" data-i18n="app_name">NovelFlow</div><div class="form-sub" data-i18n="auth_modal_sub">Login or sign up to start earning</div>
+            <div class="referral-applied" id="splashReferralApplied"></div>
             <input type="text" class="splash-input" id="splashUsername" data-i18n-placeholder="username" placeholder="Your username" oninput="checkSplashPasswordNeeded()">
             <input type="password" class="splash-input" id="splashPassword" data-i18n-placeholder="password_placeholder" placeholder="Password">
             <button class="splash-btn" onclick="handleSplashLogin()" data-i18n="start_earning"><span data-i18n="start_earning_btn">Start Earning</span></button>
@@ -3397,14 +3422,11 @@
                 <div class="profile-avatar" id="profileAvatar">?</div>
                 <div class="profile-name" id="profileName">Not Logged In</div>
                 <div class="profile-uid" id="profileUid">Login to unlock more features</div>
-                <button class="recommender-badge" id="recommenderBadge" type="button" data-nf-action="open-referral-details">
-                    <span class="badge-mark">R</span><span id="recommenderBadgeText">Recommender</span>
-                </button>
-
                 <!-- Login form -->
                 <div class="login-form" id="loginForm">
                     <h3 data-i18n="register_login">Login / Register</h3>
                     <p>Enter username to login or create account</p>
+                    <div class="referral-applied" id="profileReferralApplied"></div>
                     <input type="text" class="login-input" id="regUsername" placeholder="Your username" maxlength="50" oninput="checkRegPasswordNeeded()">
                     <input type="password" class="login-input" id="regPassword" placeholder="Password" style="margin-top:8px;">
                     <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()" data-i18n="confirm_btn">Confirm</button>
@@ -3419,32 +3441,34 @@
                 <div class="stats-overview-card gold">
                     <div class="stats-overview-icon">&#128176;</div>
                     <div class="stats-overview-value" id="totalIncome">$0.00</div>
-                    <div class="stats-overview-label" data-i18n="profile_promotion_earnings">Promotion Earnings</div>
+                    <div class="stats-overview-label" data-i18n="profile_promotion_earnings">Cumulative Earnings</div>
                 </div>
                 <div class="stats-overview-card">
                     <div class="stats-overview-icon">$</div>
                     <div class="stats-overview-value" id="availableIncome">$0.00</div>
-                    <div class="stats-overview-label" data-i18n="profile_available_withdraw">Available to Withdraw</div>
+                    <div class="stats-overview-label" data-i18n="profile_available_withdraw">Ready to Withdraw</div>
                 </div>
                 <div class="stats-overview-card">
-                    <div class="stats-overview-icon">&#9203;</div>
-                    <div class="stats-overview-value" id="pendingIncome">$0.00</div>
-                    <div class="stats-overview-label" data-i18n="profile_pending_review">Pending Review</div>
+                    <div class="stats-overview-icon">&#10003;</div>
+                    <div class="stats-overview-value" id="withdrawnIncome">$0.00</div>
+                    <div class="stats-overview-label" data-i18n="profile_withdrawn">Withdrawn</div>
+                </div>
+                <div class="stats-overview-card">
+                    <div class="stats-overview-icon">&#128214;</div>
+                    <div class="stats-overview-value" id="readerNewUsers">0</div>
+                    <div class="stats-overview-label" data-i18n="profile_reader_new_users">Reader New Users</div>
                 </div>
                 <div class="stats-overview-card">
                     <div class="stats-overview-icon">&#128101;</div>
                     <div class="stats-overview-value" id="siteInviteTotal">0</div>
-                    <div class="stats-overview-label" data-i18n="profile_site_invites">Site Invites</div>
+                    <div class="stats-overview-label" data-i18n="profile_platform_registrations">Platform Registrations</div>
                 </div>
             </div>
-            <div class="bonus-profile-card" id="bonusProfileCard" style="display:none;">
-                <div class="bonus-profile-icon">🎁</div>
-                <div class="bonus-profile-text">
-                    <div class="bonus-profile-label">Bonus Balance (campaign & streak rewards)</div>
-                    <div class="bonus-profile-value" id="profileBonusValue">$0.00</div>
-                    <div class="bonus-profile-sub">Separate from CPS earnings — paid out via bonus channels</div>
-                </div>
-            </div>
+            <button class="recommender-badge" id="recommenderBadge" type="button" data-nf-action="open-referral-details">
+                <span class="badge-mark" aria-hidden="true">&#9826;</span>
+                <span class="recommender-badge-copy"><span class="recommender-badge-title" id="recommenderBadgeText">Recommender</span><span class="recommender-badge-sub" id="recommenderBadgeSub"></span></span>
+                <span class="recommender-badge-arrow" aria-hidden="true">&#8250;</span>
+            </button>
             <div id="statsLoadingArea"></div>
 
             <div class="stats-grid" id="statsGrid">
@@ -3528,6 +3552,11 @@
             <button class="nav-item" data-tab="profile"><span class="nav-icon">&#9787;</span><span class="nav-label" data-i18n="nav_profile">Profile</span></button>
         </nav>
     </div>
+
+    <button class="activity-fab" id="activityFab" type="button" onclick="openActivityModal()" aria-label="Open Limited Subsidy activity">
+        <img src="/novelflow-promo-poster.png" alt="" aria-hidden="true">
+        <span class="activity-fab-copy"><span class="activity-fab-kicker" data-i18n="activity_fab_kicker">Activity 2</span><span class="activity-fab-title" data-i18n="activity_fab_title">Limited Subsidy</span><span class="activity-fab-sub" data-i18n="activity_fab_sub">View rewards</span></span>
+    </button>
 
     <!-- Share App Modal -->
     
@@ -3714,9 +3743,20 @@
             } catch (_) {}
             try { return readReferralStorage(localStorage); } catch (_) { return ''; }
         }
+        function renderReferralApplied() {
+            const code = getStoredReferralCode();
+            const template = AppState.currentLang === 'es' ? 'Código de invitación aplicado: {code}' : 'Invite code applied: {code}';
+            ['splashReferralApplied', 'profileReferralApplied'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.classList.toggle('show', Boolean(code));
+                el.textContent = code ? template.replace('{code}', code) : '';
+            });
+        }
         function clearStoredReferralCode() {
             try { sessionStorage.removeItem(REFERRAL_STORAGE_KEY); } catch (_) {}
             try { localStorage.removeItem(REFERRAL_STORAGE_KEY); } catch (_) {}
+            renderReferralApplied();
         }
         function buildRegistrationPayload(username, password) {
             const payload = { username, password: password || undefined };
@@ -3734,6 +3774,7 @@
                     window.history.replaceState({}, document.title, url.pathname + (url.search ? url.search : '') + url.hash);
                 }
             } catch (_) {}
+            renderReferralApplied();
         }
         captureReferralCode();
 
@@ -3920,7 +3961,7 @@
                 ActivityState.submitting = '';
                 ActivityState.activeSection = 'vip';
                 ActivityState.reminderTimer = null;
-                ActivityState.form = { novelFlowId: '', facebookUrl: '' };
+                ActivityState.form = { novelFlowId: '', socialUrl: '' };
             }
             const activityModal = document.getElementById('activityModal');
             if (activityModal) activityModal.classList.remove('show');
@@ -3933,6 +3974,8 @@
                 activityReminder.classList.remove('show');
                 activityReminder.setAttribute('aria-hidden', 'true');
             }
+            const activityFab = document.getElementById('activityFab');
+            if (activityFab) activityFab.classList.remove('show');
             document.body.style.overflow = '';
 
             if (typeof renderMyBooks === 'function') renderMyBooks();
@@ -4067,6 +4110,8 @@
             document.getElementById('tab-' + tabName)?.classList.add('active');
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             document.querySelector(`.nav-item[data-tab="${tabName}"]`)?.classList.add('active');
+            const activityFab = document.getElementById('activityFab');
+            if (activityFab) activityFab.classList.toggle('show', tabName === 'home' && AppState.isLoggedIn && activityWindow().active);
             // Only show language switch on profile tab
             document.body.classList.toggle('profile-active', tabName === 'profile');
             if (tabName === 'tasks' && typeof loadEquityCode === 'function') {
@@ -4232,12 +4277,14 @@
                 campaign_ended_ribbon: 'ENDED',
                 campaign_limited_cta: 'View rewards',
                 activity_modal_title: 'Limited Subsidy',
-                profile_promotion_earnings: 'Promotion Earnings',
-                profile_available_withdraw: 'Available to Withdraw',
-                profile_pending_review: 'Pending Review',
-                profile_site_invites: 'Site Invites',
+                profile_promotion_earnings: 'Cumulative Earnings',
+                profile_available_withdraw: 'Ready to Withdraw',
+                profile_withdrawn: 'Withdrawn',
+                profile_reader_new_users: 'Reader New Users',
+                profile_platform_registrations: 'Platform Registrations',
                 recommender_standard: 'NovelFlow Recommender',
                 recommender_premium: 'Premium Recommender',
+                recommender_identity_sub: '{count} platform registrations · View network',
                 referral_details_title: 'Referral Network',
                 referral_direct_members: 'Direct Members',
                 referral_total_commission: '5% Commission',
@@ -4252,19 +4299,21 @@
                 activity_ended: 'This activity has ended. Existing submissions remain in the review queue.',
                 activity_upcoming: 'This activity has not started yet.',
                 activity_active_until: 'Active until',
-                activity_batch_note: 'Rewards are reviewed and fulfilled in batches. Submitting a claim does not change your promotion or wallet data automatically.',
+                activity_batch_note: 'Claims are checked before rewards are issued.',
                 activity_vip_title: '2-Day VIP for Everyone',
                 activity_vip_copy: 'Enter your NovelFlow ID to request 2 VIP days. One claim per account and per ID.',
                 activity_id_label: 'NovelFlow ID',
                 activity_id_placeholder: 'Enter your NovelFlow ID',
                 activity_vip_claim: 'Claim 2-Day VIP',
                 activity_vip_submitted: 'Submitted · 2 VIP days are pending batch fulfillment.',
-                activity_fb_title: 'Facebook Book Post',
-                activity_fb_copy: 'Recommend one novel in the official NovelFlow Facebook group, then submit the group post link for manual review.',
-                activity_fb_url_label: 'Facebook group post URL',
-                activity_fb_url_placeholder: 'https://facebook.com/groups/.../posts/...',
+                activity_fb_title: 'Social Media Book Post',
+                activity_fb_copy: 'Recommend one novel on any public social platform, then submit the public post link for manual review.',
+                activity_fb_url_label: 'Public social post URL',
+                activity_fb_url_placeholder: 'https://social-platform.com/your-public-post',
                 activity_fb_submit: 'Submit for $1 Bonus',
                 activity_fb_submitted: 'Submitted · $1 bonus is pending manual review.',
+                activity_official_group: 'Optional: Open the official Facebook group',
+                activity_social_platforms: 'Facebook · Instagram · TikTok · YouTube · X · Threads · Other public platforms',
                 activity_invite_title: 'Invite Rewards',
                 activity_invite_copy: 'Every 2 new registrations unlocks 3 VIP days at 2/4/6/8. Reach 10 registrations to unlock 20 extra VIP days.',
                 activity_invite_link: 'Your personal invite link',
@@ -4290,7 +4339,7 @@
                 activity_retry: 'Retry',
                 activity_close: 'Close',
                 activity_tab_vip: 'VIP',
-                activity_tab_facebook: 'Facebook',
+                activity_tab_facebook: 'Social Post',
                 activity_tab_invites: 'Invites',
                 activity_tab_recommender: 'Recommender',
                 activity_personal_code: 'Personal invite code',
@@ -4305,7 +4354,7 @@
                 activity_reminder_open: 'View activity',
                 activity_reminder_today: "Don't remind me today",
                 activity_success_vip: 'VIP request submitted.',
-                activity_success_facebook: 'Facebook post submitted for review.',
+                activity_success_facebook: 'Social post submitted for review.',
                 activity_success_invite: 'Invite VIP request submitted.',
                 activity_success_recommender: 'Recommender application submitted.',
                 activity_stats_unavailable: 'Promotion stats are temporarily unavailable. Try again later.',
@@ -4313,12 +4362,16 @@
                 activity_storage_unavailable: 'Activity service is temporarily unavailable. Try again later.',
                 activity_rate_limited: 'Too many attempts. Please try again later.',
                 activity_invalid_id: 'Enter a valid NovelFlow ID.',
-                activity_invalid_url: 'Enter an HTTPS Facebook group post URL.',
+                activity_invalid_url: 'Enter a public HTTPS social post URL.',
                 activity_id_immutable: 'Your NovelFlow ID is fixed for this activity.',
                 activity_identifier_used: 'This ID or post has already been used for this activity.',
                 activity_recommender_not_eligible: 'At least 5 measured new users are required before applying.',
                 activity_recommender_full: 'The first 50 recommender positions are full.',
                 activity_busy: 'Another activity request is being processed. Try again shortly.',
+                activity_fab_kicker: 'Activity 2',
+                activity_fab_title: 'Limited Subsidy',
+                activity_fab_sub: 'View rewards',
+                referral_applied: 'Invite code applied: {code}',
                 login_to_see: 'Login to see your stats',
                 no_desc: 'No description available.',
                 no_books_cat: 'No books found for this category',
@@ -4728,12 +4781,14 @@
                 campaign_ended_ribbon: 'FINALIZADA',
                 campaign_limited_cta: 'Ver recompensas',
                 activity_modal_title: 'Subsidio por tiempo limitado',
-                profile_promotion_earnings: 'Ganancias de promoci\u00f3n',
-                profile_available_withdraw: 'Disponible para retirar',
-                profile_pending_review: 'Pendiente de revisi\u00f3n',
-                profile_site_invites: 'Invitados al sitio',
+                profile_promotion_earnings: 'Ganancias acumuladas',
+                profile_available_withdraw: 'Listo para retirar',
+                profile_withdrawn: 'Retirado',
+                profile_reader_new_users: 'Nuevos lectores',
+                profile_platform_registrations: 'Registros en la plataforma',
                 recommender_standard: 'Recomendador NovelFlow',
                 recommender_premium: 'Recomendador premium',
+                recommender_identity_sub: '{count} registros en la plataforma · Ver red',
                 referral_details_title: 'Red de referidos',
                 referral_direct_members: 'Miembros directos',
                 referral_total_commission: 'Comisi\u00f3n del 5%',
@@ -4748,19 +4803,21 @@
                 activity_ended: 'La actividad termin\u00f3. Las solicitudes existentes siguen en la cola de revisi\u00f3n.',
                 activity_upcoming: 'La actividad todav\u00eda no ha comenzado.',
                 activity_active_until: 'Activa hasta',
-                activity_batch_note: 'Las recompensas se revisan y entregan por lotes. Enviar una solicitud no cambia autom\u00e1ticamente tus datos de promoci\u00f3n ni tu saldo.',
+                activity_batch_note: 'Las solicitudes se verifican antes de entregar las recompensas.',
                 activity_vip_title: '2 d\u00edas VIP para todos',
                 activity_vip_copy: 'Introduce tu ID de NovelFlow para solicitar 2 d\u00edas VIP. Un solo reclamo por cuenta y por ID.',
                 activity_id_label: 'ID de NovelFlow',
                 activity_id_placeholder: 'Introduce tu ID de NovelFlow',
                 activity_vip_claim: 'Solicitar 2 d\u00edas VIP',
                 activity_vip_submitted: 'Enviado \u00b7 2 d\u00edas VIP pendientes de entrega por lote.',
-                activity_fb_title: 'Publicaci\u00f3n de libro en Facebook',
-                activity_fb_copy: 'Recomienda una novela en el grupo oficial de NovelFlow y env\u00eda el enlace de la publicaci\u00f3n para revisi\u00f3n manual.',
-                activity_fb_url_label: 'URL de la publicaci\u00f3n del grupo',
-                activity_fb_url_placeholder: 'https://facebook.com/groups/.../posts/...',
+                activity_fb_title: 'Publicaci\u00f3n de libro en redes sociales',
+                activity_fb_copy: 'Recomienda una novela en cualquier red social p\u00fablica y env\u00eda el enlace p\u00fablico para revisi\u00f3n manual.',
+                activity_fb_url_label: 'URL p\u00fablica de la publicaci\u00f3n',
+                activity_fb_url_placeholder: 'https://red-social.com/tu-publicacion-publica',
                 activity_fb_submit: 'Enviar por bonus de $1',
                 activity_fb_submitted: 'Enviado \u00b7 bonus de $1 pendiente de revisi\u00f3n manual.',
+                activity_official_group: 'Opcional: abrir el grupo oficial de Facebook',
+                activity_social_platforms: 'Facebook · Instagram · TikTok · YouTube · X · Threads · Otras plataformas p\u00fablicas',
                 activity_invite_title: 'Recompensas por invitaci\u00f3n',
                 activity_invite_copy: 'Cada 2 nuevos registros desbloquea 3 d\u00edas VIP en 2/4/6/8. Con 10 registros desbloqueas 20 d\u00edas VIP extra.',
                 activity_invite_link: 'Tu enlace personal de invitaci\u00f3n',
@@ -4786,7 +4843,7 @@
                 activity_retry: 'Reintentar',
                 activity_close: 'Cerrar',
                 activity_tab_vip: 'VIP',
-                activity_tab_facebook: 'Facebook',
+                activity_tab_facebook: 'Publicaci\u00f3n social',
                 activity_tab_invites: 'Invitaciones',
                 activity_tab_recommender: 'Recomendador',
                 activity_personal_code: 'Código personal de invitación',
@@ -4809,12 +4866,16 @@
                 activity_storage_unavailable: 'El servicio de actividades no est\u00e1 disponible temporalmente. Int\u00e9ntalo m\u00e1s tarde.',
                 activity_rate_limited: 'Demasiados intentos. Int\u00e9ntalo m\u00e1s tarde.',
                 activity_invalid_id: 'Introduce un ID de NovelFlow v\u00e1lido.',
-                activity_invalid_url: 'Introduce una URL HTTPS de una publicaci\u00f3n de grupo de Facebook.',
+                activity_invalid_url: 'Introduce una URL HTTPS p\u00fablica de una publicaci\u00f3n social.',
                 activity_id_immutable: 'Tu ID de NovelFlow queda fijado para esta actividad.',
                 activity_identifier_used: 'Este ID o esta publicaci\u00f3n ya se us\u00f3 en esta actividad.',
                 activity_recommender_not_eligible: 'Necesitas al menos 5 nuevos usuarios medidos antes de solicitarlo.',
                 activity_recommender_full: 'Las primeras 50 posiciones de recomendador ya est\u00e1n ocupadas.',
                 activity_busy: 'Se est\u00e1 procesando otra solicitud. Int\u00e9ntalo de nuevo en breve.',
+                activity_fab_kicker: 'Actividad 2',
+                activity_fab_title: 'Subsidio por tiempo limitado',
+                activity_fab_sub: 'Ver recompensas',
+                referral_applied: 'C\u00f3digo de invitaci\u00f3n aplicado: {code}',
                 login_to_see: 'Inicia sesión para ver tus estadísticas',
             }
         };
@@ -4901,6 +4962,8 @@
                 }
             });
             if (typeof renderCampaigns === 'function') renderCampaigns();
+            renderReferralApplied();
+            if (typeof renderMemberOverview === 'function') renderMemberOverview();
             const activityModal = document.getElementById('activityModal');
             if (activityModal && activityModal.classList.contains('show') && typeof renderActivityModal === 'function') {
                 renderActivityModal();
@@ -6068,13 +6131,6 @@
             const bal = getBonusBalance();
             const txt = '$' + bal.toFixed(2);
             const t = document.getElementById('tasksBonusValue'); if (t) t.textContent = txt;
-            const p = document.getElementById('profileBonusValue'); if (p) p.textContent = txt;
-            const card = document.getElementById('bonusProfileCard');
-            if (card) {
-                // Only show bonus card when logged in (statsOverview visible)
-                const overview = document.getElementById('statsOverview');
-                card.style.display = (overview && overview.style.display !== 'none' && AppState.isLoggedIn) ? 'flex' : 'none';
-            }
         }
 
         // One-time initialization: $9.00 for campaign #1 winners (server-managed)
@@ -6128,7 +6184,7 @@
             activeSection: 'vip',
             reminderTimer: null,
             reminderOpener: null,
-            form: { novelFlowId: '', facebookUrl: '' }
+            form: { novelFlowId: '', socialUrl: '' }
         };
 
         const ACTIVITY_SECTIONS = ['vip', 'facebook', 'invites', 'recommender'];
@@ -6244,6 +6300,8 @@
                     '</div>' +
                 '</div>';
             list.innerHTML = campaign1 + limited;
+            const activityFab = document.getElementById('activityFab');
+            if (activityFab) activityFab.classList.toggle('show', AppState.currentTab === 'home' && AppState.isLoggedIn && !activityEnded);
         }
 
         function activityWindow() {
@@ -6270,6 +6328,7 @@
                 STATS_STALE: 'activity_stats_stale',
                 RATE_LIMITED: 'activity_rate_limited',
                 INVALID_NOVELFLOW_ID: 'activity_invalid_id',
+                INVALID_SOCIAL_URL: 'activity_invalid_url',
                 INVALID_FACEBOOK_URL: 'activity_invalid_url',
                 IDENTIFIER_ALREADY_USED: 'activity_identifier_used',
                 NOVELFLOW_ID_IMMUTABLE: 'activity_id_immutable',
@@ -6286,19 +6345,19 @@
             return /^[A-Za-z0-9_-]{3,64}$/.test(id) ? id : '';
         }
 
-        function normalizeActivityFacebookUrl(value) {
+        function normalizeActivitySocialUrl(value) {
             try {
                 const url = new URL(String(value || '').trim());
                 const host = url.hostname.toLowerCase();
-                const allowedHost = host === 'facebook.com' || host.endsWith('.facebook.com') || host === 'fb.com' || host.endsWith('.fb.com');
-                const match = url.pathname.match(/^\/groups\/([A-Za-z0-9._-]+)\/(?:posts|permalink)\/([A-Za-z0-9._-]+)\/?$/i);
-                if (url.protocol !== 'https:' || !allowedHost || !match) return '';
-                return 'https://www.facebook.com/groups/' + match[1].toLowerCase() + '/posts/' + match[2];
+                if (url.protocol !== 'https:' || url.username || url.password || !host || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return '';
+                if (/^(0|10|127)\./.test(host) || /^169\.254\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host) || host === '::1' || host === '[::1]') return '';
+                url.hash = '';
+                return url.toString();
             } catch (_) { return ''; }
         }
 
         function updateActivityField(field, value) {
-            if (field === 'novelFlowId' || field === 'facebookUrl') ActivityState.form[field] = String(value || '').slice(0, field === 'facebookUrl' ? 2048 : 64);
+            if (field === 'novelFlowId' || field === 'socialUrl') ActivityState.form[field] = String(value || '').slice(0, field === 'socialUrl' ? 2048 : 64);
         }
 
 
@@ -6353,7 +6412,7 @@
             const referralCode = /^[A-Za-z0-9_-]{8,80}$/.test(referralCodeRaw) ? referralCodeRaw : '';
             const previewNote = invite.preview_only ? '<div class="activity-preview-note">' + escapeHtml(getText('activity_preview_note')) + '</div>' : '';
             const idValue = escapeHtml(ActivityState.form.novelFlowId);
-            const facebookValue = escapeHtml(ActivityState.form.facebookUrl);
+            const socialValue = escapeHtml(ActivityState.form.socialUrl);
             const windowCopy = windowState.ended ? getText('activity_ended') : (windowState.upcoming ? getText('activity_upcoming') : getText('activity_active_until') + ' ' + formatActivityDate(windowState.endsAt));
             const disabled = !active || busy ? ' disabled' : '';
             const vipState = claims.vip2 ? '<div class="activity-claim-state pending">' + escapeHtml(getText('activity_vip_submitted')) + '</div>' : '';
@@ -6366,8 +6425,8 @@
                 '<input class="activity-input" id="activityNovelFlowId" type="text" inputmode="text" maxlength="64" autocomplete="off" value="' + idValue + '" placeholder="' + escapeHtml(getText('activity_id_placeholder')) + '" oninput="updateActivityField(\'novelFlowId\',this.value)"></div>';
             const vipSection = '<section class="activity-section" role="tabpanel"><div class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">VIP</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_vip_title')) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_vip_copy')) + '</div></div></div>' + sharedId +
                 (claims.vip2 ? vipState : '<div class="activity-form"><button class="activity-action" type="button" onclick="submitActivityReward(\'claim_vip2\')"' + disabled + '>' + escapeHtml(ActivityState.submitting === 'claim_vip2' ? getText('activity_loading') : getText('activity_vip_claim')) + '</button></div>') + '</div></section>';
-            const facebookSection = '<section class="activity-section" role="tabpanel"><div class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">f</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_fb_title')) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_fb_copy')) + '</div></div></div>' +
-                (claims.facebook ? facebookState : '<div class="activity-form activity-input-stack"><label><span class="activity-field-label">' + escapeHtml(getText('activity_fb_url_label')) + '</span><input class="activity-input" type="url" maxlength="2048" autocomplete="url" value="' + facebookValue + '" placeholder="' + escapeHtml(getText('activity_fb_url_placeholder')) + '" oninput="updateActivityField(\'facebookUrl\',this.value)"></label><button class="activity-action" type="button" onclick="submitActivityReward(\'submit_facebook\')"' + disabled + '>' + escapeHtml(ActivityState.submitting === 'submit_facebook' ? getText('activity_loading') : getText('activity_fb_submit')) + '</button></div>') + '</div></section>';
+            const facebookSection = '<section class="activity-section" role="tabpanel"><div class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">@</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_fb_title')) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_fb_copy')) + '</div></div></div><div class="activity-social-platforms" aria-label="' + escapeHtml(getText('activity_social_platforms')) + '"><span class="activity-social-platform">Facebook</span><span class="activity-social-platform">Instagram</span><span class="activity-social-platform">TikTok</span><span class="activity-social-platform">YouTube</span><span class="activity-social-platform">X</span><span class="activity-social-platform">Threads</span><span class="activity-social-platform">Other</span></div><a class="activity-official-link" href="https://www.facebook.com/groups/620866104235159/" target="_blank" rel="noopener noreferrer">' + escapeHtml(getText('activity_official_group')) + ' &#8599;</a>' +
+                (claims.facebook ? facebookState : '<div class="activity-form activity-input-stack"><label><span class="activity-field-label">' + escapeHtml(getText('activity_fb_url_label')) + '</span><input class="activity-input" type="url" maxlength="2048" autocomplete="url" value="' + socialValue + '" placeholder="' + escapeHtml(getText('activity_fb_url_placeholder')) + '" oninput="updateActivityField(\'socialUrl\',this.value)"></label><button class="activity-action" type="button" onclick="submitActivityReward(\'submit_social\')"' + disabled + '>' + escapeHtml(ActivityState.submitting === 'submit_social' ? getText('activity_loading') : getText('activity_fb_submit')) + '</button></div>') + '</div></section>';
             const referralMarkup = referralUrl ? '<div class="activity-referral"><div class="activity-field-label">' + escapeHtml(getText('activity_invite_link')) + '</div><div class="activity-referral-row"><div><div class="activity-referral-url">' + escapeHtml(referralUrl) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_invite_link_copy')) + '</div></div><button class="activity-copy-btn" type="button" onclick="copyActivityReferral()" aria-label="' + escapeHtml(getText('activity_copy_link')) + '" title="' + escapeHtml(getText('activity_copy_link')) + '">Copy</button></div></div>' : '';
             const codeMarkup = referralCode ? '<div class="activity-referral-code"><span class="activity-referral-code-label">' + escapeHtml(getText('activity_personal_code')) + '</span><code>' + escapeHtml(referralCode) + '</code></div><div class="activity-unique-note">' + escapeHtml(getText('activity_unique_note')) + '</div>' + previewNote : '';
             const inviteSection = '<section class="activity-section" role="tabpanel"><div class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">+</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_invite_title')) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_invite_copy')) + '</div></div></div>' + referralMarkup + codeMarkup +
@@ -6381,7 +6440,7 @@
             }
             const recommenderSection = '<section class="activity-section" role="tabpanel"><div class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">%</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_recommender_title')) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_recommender_copy')) + '</div></div></div>' + recommenderAction + (referralUrl ? '<div class="activity-referral"><div class="activity-field-label">' + escapeHtml(getText('activity_recommender_link')) + '</div><div class="activity-referral-url">' + escapeHtml(referralUrl) + '</div></div>' : '') + '</div></section>';
             const sectionMarkup = section === 'vip' ? vipSection : (section === 'facebook' ? facebookSection : (section === 'invites' ? inviteSection : recommenderSection));
-            body.innerHTML = '<div class="activity-hero"><div class="activity-hero-kicker">' + escapeHtml(getText('activity_kicker')) + '</div><div class="activity-hero-title">' + escapeHtml(getText('activity_modal_title')) + '</div><div class="activity-window">' + escapeHtml(windowCopy) + '</div></div><div class="activity-note">' + escapeHtml(getText('activity_batch_note')) + '</div><div class="activity-tabs" role="tablist" aria-label="' + escapeHtml(getText('activity_modal_title')) + '">' + tabs + '</div>' + sectionMarkup;
+            body.innerHTML = '<div class="activity-hero"><div class="activity-hero-poster"><img src="/novelflow-promo-poster.png" alt="' + escapeHtml(getText('activity_reminder_poster_alt')) + '"></div><div class="activity-hero-copy"><div class="activity-hero-kicker">' + escapeHtml(getText('activity_kicker')) + '</div><div class="activity-hero-title">' + escapeHtml(getText('activity_modal_title')) + '</div><div class="activity-window">' + escapeHtml(windowCopy) + '</div></div></div><div class="activity-note">' + escapeHtml(getText('activity_batch_note')) + '</div><div class="activity-tabs" role="tablist" aria-label="' + escapeHtml(getText('activity_modal_title')) + '">' + tabs + '</div>' + sectionMarkup;
         }
 
         async function loadActivityRewards(force) {
@@ -6424,7 +6483,7 @@
         }
 
         async function submitActivityReward(action) {
-            const allowedActions = ['claim_vip2', 'submit_facebook', 'claim_invite_vip', 'apply_recommender'];
+            const allowedActions = ['claim_vip2', 'submit_social', 'claim_invite_vip', 'apply_recommender'];
             if (!allowedActions.includes(action) || ActivityState.submitting) return;
             const session = AuthSession.capture();
             if (!session) {
@@ -6443,13 +6502,13 @@
                 }
                 payload.novelflow_id = novelFlowId;
             }
-            if (action === 'submit_facebook') {
-                const facebookUrl = normalizeActivityFacebookUrl(ActivityState.form.facebookUrl);
-                if (!facebookUrl) {
+            if (action === 'submit_social') {
+                const socialUrl = normalizeActivitySocialUrl(ActivityState.form.socialUrl);
+                if (!socialUrl) {
                     showToast(getText('activity_invalid_url'), 'error');
                     return;
                 }
-                payload.facebook_url = facebookUrl;
+                payload.social_url = socialUrl;
             }
             ActivityState.submitting = action;
             renderActivityModal();
@@ -6467,13 +6526,13 @@
                     if (data.invite) ActivityState.data.invite = data.invite;
                     if (data.application) ActivityState.data.recommender = data.application;
                     if (data.claim) {
-                        const claimKey = action === 'claim_vip2' ? 'vip2' : (action === 'submit_facebook' ? 'facebook' : 'invite_vip');
+                        const claimKey = action === 'claim_vip2' ? 'vip2' : (action === 'submit_social' ? 'facebook' : 'invite_vip');
                         ActivityState.data.claims = ActivityState.data.claims || {};
                         ActivityState.data.claims[claimKey] = data.claim;
                     }
                 }
                 const successKey = action === 'claim_vip2' ? 'activity_success_vip'
-                    : (action === 'submit_facebook' ? 'activity_success_facebook'
+                    : (action === 'submit_social' ? 'activity_success_facebook'
                     : (action === 'claim_invite_vip' ? 'activity_success_invite' : 'activity_success_recommender'));
                 showToast(getText(successKey), 'success');
                 await loadActivityRewards(true);
@@ -7494,16 +7553,18 @@
             const stats = UserStats.data;
             const overview = document.getElementById('statsOverview');
             if (overview && AppState.isLoggedIn) overview.style.display = 'grid';
-            const lifetime = wallet && Number.isFinite(Number(wallet.source_total_dn_income))
-                ? Number(wallet.source_total_dn_income)
+            const lifetime = wallet && Number.isFinite(Number(wallet.total_earned))
+                ? Number(wallet.total_earned)
                 : (stats && Number.isFinite(Number(stats.total_income)) ? Number(stats.total_income) : null);
             const incomeEl = document.getElementById('totalIncome');
             const availableEl = document.getElementById('availableIncome');
-            const pendingEl = document.getElementById('pendingIncome');
+            const withdrawnEl = document.getElementById('withdrawnIncome');
+            const readerEl = document.getElementById('readerNewUsers');
             const inviteEl = document.getElementById('siteInviteTotal');
             if (incomeEl) incomeEl.textContent = moneyOrDash(lifetime);
-            if (availableEl) availableEl.textContent = moneyOrDash(wallet && wallet.available_balance);
-            if (pendingEl) pendingEl.textContent = moneyOrDash(wallet && wallet.pending_total);
+            if (availableEl) availableEl.textContent = moneyOrDash(wallet && (wallet.withdrawable_balance ?? wallet.available_balance));
+            if (withdrawnEl) withdrawnEl.textContent = moneyOrDash(wallet && (wallet.withdrawn_total ?? wallet.approved_total));
+            if (readerEl) readerEl.textContent = stats && Number.isFinite(Number(stats.total_new)) ? Number(stats.total_new).toLocaleString() : '--';
             if (inviteEl) inviteEl.textContent = data && data.referrals ? Number(data.referrals.total || 0).toLocaleString() : '--';
 
             const uid = document.getElementById('profileUid');
@@ -7513,12 +7574,17 @@
             }
             const badge = document.getElementById('recommenderBadge');
             const badgeText = document.getElementById('recommenderBadgeText');
+            const badgeSub = document.getElementById('recommenderBadgeSub');
             const tier = data && data.recommender && data.recommender.tier || 'none';
             if (badge) {
                 badge.classList.toggle('show', tier !== 'none');
                 badge.classList.toggle('premium', tier === 'premium');
             }
             if (badgeText && tier !== 'none') badgeText.textContent = getText(tier === 'premium' ? 'recommender_premium' : 'recommender_standard');
+            if (badgeSub && tier !== 'none') {
+                const count = data && data.referrals ? Number(data.referrals.total || 0).toLocaleString() : '0';
+                badgeSub.textContent = getText('recommender_identity_sub').replace('{count}', count);
+            }
         }
 
         async function loadMemberOverview(force) {
@@ -9253,6 +9319,7 @@ function renderMyBooks() {
             const err = document.getElementById('splashError'); if (err) err.textContent = '';
             const tip = document.getElementById('splashTip');
             if (tip) { tip.setAttribute('data-i18n','splash_tip'); tip.textContent = getText('splash_tip'); }
+            renderReferralApplied();
             setTimeout(() => { const u = document.getElementById('splashUsername'); if (u) u.focus(); }, 80);
             if (redirectTab) window.__authRedirectTab = redirectTab;
         }

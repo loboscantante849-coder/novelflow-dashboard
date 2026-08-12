@@ -14,8 +14,8 @@ const {
   activityWindow,
   hashValue,
   loadEligibility,
-  normalizeFacebookUrl,
   normalizeNovelFlowId,
+  normalizePublicSocialUrl,
 } = require('./_lib/activity-eligibility');
 const { getAdIdDetails } = require('./_lib/stats-data');
 const { ensureReferralCode } = require('./_lib/referrals');
@@ -314,7 +314,7 @@ async function adminClaimsExport(req, res, redis) {
     ].sort((a, b) => String(a.submitted_at || a.created_at || '').localeCompare(String(b.submitted_at || b.created_at || '')));
     const fields = [
       'record_type', 'task', 'username', 'claim_id', 'event_id', 'status', 'novelflow_id',
-      'facebook_url', 'reward_days', 'reward_bonus', 'total_awarded_days', 'campaign_invites', 'measured_new_users',
+      'social_url', 'facebook_url', 'reward_days', 'reward_bonus', 'total_awarded_days', 'campaign_invites', 'measured_new_users',
       'slot', 'referral_code', 'submitted_at', 'created_at',
     ];
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -506,12 +506,12 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, claim, eligibility, invite });
       }
 
-      if (action === 'submit_facebook') {
+      if (action === 'submit_social' || action === 'submit_facebook') {
         task = 'facebook';
         const id = normalizeNovelFlowId(body.novelflow_id);
-        const facebookUrl = normalizeFacebookUrl(body.facebook_url);
+        const socialUrl = normalizePublicSocialUrl(body.social_url || body.facebook_url);
         if (!id) return res.status(400).json({ error: 'Enter a valid NovelFlow ID', code: 'INVALID_NOVELFLOW_ID' });
-        if (!facebookUrl) return res.status(400).json({ error: 'Enter a Facebook group post URL', code: 'INVALID_FACEBOOK_URL' });
+        if (!socialUrl) return res.status(400).json({ error: 'Enter a public HTTPS social post URL', code: 'INVALID_SOCIAL_URL' });
         lock = await acquireActivityLock(redis, task, username);
         if (!lock) return res.status(409).json({ error: 'Another activity claim is being processed', code: 'ACTIVITY_BUSY' });
         const existing = await readClaim(redis, task, username);
@@ -519,7 +519,9 @@ module.exports = async (req, res) => {
         const idReservation = await reserveUnique(redis, task, id.key, username);
         let urlReservation;
         try {
-          urlReservation = await reserveUnique(redis, 'facebook_url', facebookUrl, username);
+          // Keep the legacy reservation namespace so an old Facebook claim
+          // cannot be submitted again through the generalized social action.
+          urlReservation = await reserveUnique(redis, 'facebook_url', socialUrl, username);
         } catch (error) {
           await releaseUnique(redis, idReservation);
           throw error;
@@ -530,8 +532,12 @@ module.exports = async (req, res) => {
             status: 'pending_review',
             novelflow_id: id.display,
             novelflow_id_hash: hashValue(id.key),
-            facebook_url: facebookUrl,
-            facebook_url_hash: hashValue(facebookUrl),
+            social_url: socialUrl,
+            social_url_hash: hashValue(socialUrl),
+            // Retained for exports and records created before the social task
+            // was expanded beyond Facebook.
+            facebook_url: socialUrl,
+            facebook_url_hash: hashValue(socialUrl),
             reward_bonus: 1,
             fulfillment: 'manual_review_then_bonus',
           }));

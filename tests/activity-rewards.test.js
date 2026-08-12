@@ -44,6 +44,7 @@ const {
   eligibilityFromAdData,
   loadEligibility,
   normalizeFacebookUrl,
+  normalizePublicSocialUrl,
 } = require('../api/_lib/activity-eligibility');
 
 function sampleAdData() {
@@ -232,6 +233,45 @@ test('Facebook group post URLs canonicalize host, path type, and query parameter
   assert.equal(normalizeFacebookUrl('https://facebook.com/groups/NovelFlowReaders/permalink/123456?ref=share'), canonical);
   assert.equal(normalizeFacebookUrl('https://facebook.com/groups/NovelFlowReaders'), null);
   assert.equal(normalizeFacebookUrl('https://facebook.com/groups/NovelFlowReaders/events/123456'), null);
+});
+
+test('public social URLs accept any HTTPS platform but reject local, private, credentialed, and unsafe URLs', () => {
+  assert.equal(normalizePublicSocialUrl('https://www.instagram.com/p/NovelFlow123/#comments'), 'https://www.instagram.com/p/NovelFlow123/');
+  assert.equal(normalizePublicSocialUrl('https://www.tiktok.com/@reader/video/123?lang=en#share'), 'https://www.tiktok.com/@reader/video/123?lang=en');
+  assert.equal(normalizePublicSocialUrl('https://m.facebook.com/groups/NovelFlowReaders/posts/123456/?mibextid=abc'), 'https://www.facebook.com/groups/novelflowreaders/posts/123456');
+  for (const value of [
+    'http://x.com/reader/status/123',
+    'https://localhost/post/1',
+    'https://127.0.0.1/post/1',
+    'https://10.0.0.8/post/1',
+    'https://192.168.1.8/post/1',
+    'https://172.20.0.8/post/1',
+    'https://user:pass@example.com/post/1',
+    'javascript:alert(1)',
+  ]) assert.equal(normalizePublicSocialUrl(value), null, value);
+});
+
+test('general social submission keeps the legacy Facebook claim key and accepts old action payloads', async () => {
+  const social = await invoke(activityRewards, {
+    method: 'POST',
+    headers: authHeaders('social-promoter'),
+    body: { action: 'submit_social', novelflow_id: '218672', social_url: 'https://www.instagram.com/p/novelflow-post/' },
+  });
+  assert.equal(social.statusCode, 200);
+  assert.equal(social.body.claim.task, 'facebook');
+  assert.equal(social.body.claim.social_url, 'https://www.instagram.com/p/novelflow-post/');
+  assert.equal(social.body.claim.facebook_url, social.body.claim.social_url);
+
+  const read = await invoke(activityRewards, { method: 'GET', headers: authHeaders('social-promoter') });
+  assert.equal(read.body.claims.facebook.social_url, social.body.claim.social_url);
+
+  const legacy = await invoke(activityRewards, {
+    method: 'POST',
+    headers: authHeaders('legacy-facebook-promoter'),
+    body: { action: 'submit_facebook', novelflow_id: '90031', facebook_url: 'https://facebook.com/groups/NovelFlowReaders/posts/654321' },
+  });
+  assert.equal(legacy.statusCode, 200);
+  assert.equal(legacy.body.claim.social_url, 'https://www.facebook.com/groups/novelflowreaders/posts/654321');
 });
 
 test('register and login capture referral codes from server-visible request metadata', async () => {

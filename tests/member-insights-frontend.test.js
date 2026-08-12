@@ -5,14 +5,16 @@ const test = require('node:test');
 
 const source = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 
-test('profile exposes lifetime earnings, withdrawable funds, pending review, and site invites', () => {
-  for (const id of ['totalIncome', 'availableIncome', 'pendingIncome', 'siteInviteTotal']) {
+test('profile exposes cumulative earnings, withdrawable funds, withdrawals, reader users, and platform registrations', () => {
+  for (const id of ['totalIncome', 'availableIncome', 'withdrawnIncome', 'readerNewUsers', 'siteInviteTotal']) {
     assert.match(source, new RegExp(`id=["']${id}["']`));
   }
-  assert.match(source, /source_total_dn_income/);
+  assert.match(source, /wallet\.total_earned/);
   assert.match(source, /available_balance/);
-  assert.match(source, /pending_total/);
+  assert.match(source, /withdrawn_total/);
+  assert.match(source, /stats\.total_new/);
   assert.match(source, /\/api\/member-insights/);
+  assert.doesNotMatch(source, /id="bonusProfileCard"|id="profileBonusValue"/);
 });
 
 test('recommender badges are server-derived and open an account-scoped detail view', () => {
@@ -37,8 +39,8 @@ test('performance errors keep the dashboard surface visible', () => {
 
 test('new member-facing labels include English and Spanish translations', () => {
   for (const key of [
-    'profile_promotion_earnings', 'profile_available_withdraw', 'profile_pending_review',
-    'profile_site_invites', 'recommender_standard', 'recommender_premium', 'referral_details_title',
+    'profile_promotion_earnings', 'profile_available_withdraw', 'profile_withdrawn',
+    'profile_reader_new_users', 'profile_platform_registrations', 'recommender_standard', 'recommender_premium', 'referral_details_title',
   ]) {
     assert.equal((source.match(new RegExp(`${key}:`, 'g')) || []).length, 2, `${key} should exist in EN and ES`);
   }

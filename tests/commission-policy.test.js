@@ -51,6 +51,12 @@ test('unmigrated wallets retain the legacy 100 percent calculation', () => {
   assert.equal(balances.commission_income, 130);
   assert.equal(balances.total_earned, 133);
   assert.equal(balances.available_balance, 103);
+  assert.equal(balances.withdrawable_balance, 103);
+  assert.equal(balances.approved_total, 20);
+  assert.equal(balances.withdrawn_total, 20);
+  assert.equal(balances.pending_withdrawal_total, 10);
+  assert.equal(balances.promotion_income_total, 130);
+  assert.equal(balances.reward_income_total, 5);
 });
 
 test('complete post-cutoff-only income uses 80 percent without a migration marker', () => {
