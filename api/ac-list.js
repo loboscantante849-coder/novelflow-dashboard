@@ -192,6 +192,19 @@ module.exports = async (req, res) => {
       const threadId = item && (item.thread_id || item.threadId || item.id);
       if (!threadId) return;
       await redis.set(`ac_thread_owner:${threadId}`, currentUser, { ex: AC_OWNER_TTL_SECONDS });
+      // AC does not always return a displayable book title. This metadata is
+      // stored only at creation and read only after the ownership filter above.
+      if (!item.book_name && !item.bookName && !item.title) {
+        try {
+          const rawMeta = await redis.get(`ac_thread_book:${threadId}`);
+          const meta = typeof rawMeta === 'string' ? JSON.parse(rawMeta) : rawMeta;
+          if (meta && typeof meta.bookName === 'string' && meta.bookName.trim()) {
+            item.book_name = meta.bookName.trim();
+          }
+        } catch (_error) {
+          // Metadata improves display and search only.
+        }
+      }
     }));
 
     const result = {

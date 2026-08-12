@@ -2514,6 +2514,11 @@
         .reels-btn-copy { background: var(--canvas-soft); color: var(--ink); border: 1px solid var(--hairline); }
         .reels-btn-copy:hover { border-color: var(--ruby); color: var(--ruby); }
         .reels-item-copy { font-size: 11px; color: var(--ink-mute); margin-top: 6px; background: var(--canvas-soft); border-radius: 6px; padding: 6px 8px; line-height: 1.4; white-space: pre-wrap; max-height: 60px; overflow-y: auto; }
+        .my-reels-search { display:flex; gap:8px; align-items:center; margin:0 0 10px; }
+        .my-reels-search input { flex:1; min-width:0; width:auto; margin:0; }
+        .my-reels-search-clear { width:34px; height:34px; padding:0; border:1px solid var(--hairline); border-radius:8px; background:var(--canvas); color:var(--ink-mute); cursor:pointer; font-size:16px; }
+        .my-reels-search-clear:hover { color:var(--ink); border-color:var(--primary); }
+        .my-reels-search-meta { min-height:16px; margin:-2px 0 8px; color:var(--ink-mute); font-size:11px; }
         /* ========== Advanced Mode ========== */
         .reels-adv-toggle { font-size:11px; color:var(--ruby); cursor:pointer; display:flex; align-items:center; gap:3px; background:none; border:none; font-family:inherit; font-weight:600; padding:2px 6px; border-radius:6px; }
         .reels-adv-toggle:hover { background:rgba(255,107,157,0.08); }
@@ -3163,11 +3168,17 @@
                 <!-- XMP Asset Library Mode -->
                 <div id="reelXMPMode" style="display:none;">
                     <div style="padding:0 16px 8px;">
+                        <div class="my-reels-search">
+                            <input type="search" class="reels-token-input" id="myReelsSearch" data-i18n-placeholder="my_reels_search_placeholder" placeholder="Search your reels by book name..." maxlength="120" autocomplete="off" aria-label="Search your reels by book name" oninput="filterMyReelsAssets(this.value)">
+                            <button type="button" class="my-reels-search-clear" onclick="clearMyReelsSearch()" aria-label="Clear reel search" title="Clear search">&#10005;</button>
+                        </div>
+                        <div id="myReelsSearchMeta" class="my-reels-search-meta" aria-live="polite"></div>
                         <div id="myReelsAssetList" style="max-height:400px;overflow-y:auto;"></div>
                         <div id="myReelsEmptyHint" style="text-align:center;padding:20px 12px;color:var(--ink-mute);font-size:13px;">
                             <div style="font-size:24px;margin-bottom:8px;">🎬</div>
                             No reels yet. Create your first reel in AI Generate!
                         </div>
+                        <div id="myReelsSearchEmptyHint" data-i18n="my_reels_search_empty" style="display:none;text-align:center;padding:20px 12px;color:var(--ink-mute);font-size:13px;">No reels match this book name.</div>
                         <div style="margin-top:8px;">
                             <button class="reels-btn reels-btn-list" onclick="loadMyReelsAssets()" style="width:100%;">🔄 Refresh My Reels</button>
                         </div>
@@ -4054,6 +4065,9 @@
                 asset_library: '🎬 My Reels',
                 create_reel: 'Create Reel',
                 my_reels: 'My Reels',
+                my_reels_search_placeholder: 'Search your reels by book name...',
+                my_reels_search_results: '{count} reel(s) found',
+                my_reels_search_empty: 'No reels match this book name.',
                 create_reels_book: '🎬 Create Reels for This Book',
                 reel_search: 'Search books for AI video generation...',
                 tmpl_story: '📖 Story Slideshow (Video + Images)',
@@ -4406,6 +4420,9 @@
                 asset_library: '🎬 Mis Reels',
                 create_reel: 'Crear Reel',
                 my_reels: 'Mis Reels',
+                my_reels_search_placeholder: 'Busca tus reels por nombre del libro...',
+                my_reels_search_results: '{count} reel(s) encontrado(s)',
+                my_reels_search_empty: 'Ningún reel coincide con este libro.',
                 create_reels_book: '🎬 Crear Reels para Este Libro',
                 reel_search: 'Buscar libros para generar video IA...',
                 tmpl_story: '📖 Presentación de Historia (Video + Imágenes)',
@@ -9448,6 +9465,51 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
         }
 
         // ========== My Reels Asset Library ==========
+        let _myReelsAssets = [];
+        let _myReelsSearchQuery = '';
+
+        function normalizeReelSearchValue(value) {
+            return String(value || '').trim().toLocaleLowerCase().replace(/\s+/g, ' ');
+        }
+
+        function getReelBookName(item) {
+            if (!item) return '';
+            const localMeta = getReelLocalMeta(item);
+            return item.book_name || item.bookName || item.relatedBook?.book_name || item.relatedBook?.bookName || item.title || localMeta.title || '';
+        }
+
+        function getReelLocalMeta(item) {
+            try {
+                const reelMeta = JSON.parse(localStorage.getItem(getUserKey('reel_meta')) || '{}');
+                return reelMeta[item.thread_id] || reelMeta[item.threadId] || reelMeta[item.task_id] || reelMeta[item.id] || {};
+            } catch (_error) {
+                return {};
+            }
+        }
+
+        function filterMyReelsAssets(query) {
+            _myReelsSearchQuery = String(query || '').slice(0, 120);
+            const normalized = normalizeReelSearchValue(_myReelsSearchQuery);
+            const matches = normalized
+                ? _myReelsAssets.filter(item => normalizeReelSearchValue(getReelBookName(item)).includes(normalized))
+                : _myReelsAssets;
+            const listEl = document.getElementById('myReelsAssetList');
+            const emptyEl = document.getElementById('myReelsEmptyHint');
+            const searchEmptyEl = document.getElementById('myReelsSearchEmptyHint');
+            const metaEl = document.getElementById('myReelsSearchMeta');
+            if (metaEl) metaEl.textContent = normalized ? getText('my_reels_search_results').replace('{count}', String(matches.length)) : '';
+            if (listEl) listEl.innerHTML = matches.map(renderReelCardHtml).join('');
+            if (emptyEl) emptyEl.style.display = (!normalized && _myReelsAssets.length === 0) ? '' : 'none';
+            if (searchEmptyEl) searchEmptyEl.style.display = (normalized && matches.length === 0) ? '' : 'none';
+        }
+
+        function clearMyReelsSearch() {
+            const input = document.getElementById('myReelsSearch');
+            if (input) input.value = '';
+            filterMyReelsAssets('');
+            if (input) input.focus();
+        }
+
         async function loadMyReelsAssets() {
             const listEl = document.getElementById('myReelsAssetList');
             const emptyEl = document.getElementById('myReelsEmptyHint');
@@ -9494,21 +9556,18 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 for (const p of buildLocalPendingReels(knownIds2)) {
                     if (!serverIds2.has(String(p.id))) { myCards.push(p); serverIds2.add(String(p.id)); }
                 }
-                if (myCards.length > 0) {
-                    if (emptyEl) emptyEl.style.display = 'none';
-                    listEl.innerHTML = myCards.map(renderReelCardHtml).join('');
-                } else {
-                    listEl.innerHTML = '';
-                    if (emptyEl) emptyEl.style.display = '';
-                }
+                _myReelsAssets = myCards;
+                filterMyReelsAssets(_myReelsSearchQuery);
             } catch(e) {
                 if (!AuthSession.isCurrent(session) || isAbortError(e)) return;
                 console.error('loadMyReelsAssets error:', e);
                 const pending = buildLocalPendingReels([]);
                 if (pending.length > 0) {
                     if (emptyEl) emptyEl.style.display = 'none';
-                    listEl.innerHTML = pending.map(renderReelCardHtml).join('');
+                    _myReelsAssets = pending;
+                    filterMyReelsAssets(_myReelsSearchQuery);
                 } else {
+                    _myReelsAssets = [];
                     listEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--ink-mute);font-size:13px;">Failed to load reels. Tap Refresh to retry.</div>';
                 }
             }
@@ -9707,6 +9766,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                     headers,
                     body: JSON.stringify({
                         book_id: bookId,
+                        book_title: reelSelectedBook?.title || currentRecommendBook?.title || '',
                         username: AppState.user?.username || 'guest',
                         template: selectedTemplate,
                         remark: 'nf_' + (AppState.user?.username || 'guest') + '_' + Date.now(),
@@ -9884,6 +9944,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             } catch(e) { return []; }
         }
         function renderReelCardHtml(item) {
+            const displayBookName = getReelBookName(item) || 'Untitled';
             let statusText = '';
             if (item.isDone) statusText = '✅ ' + getText('status_ready');
             else if (item.isFail) statusText = '❌ ' + getText('status_failed');
@@ -9902,21 +9963,20 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             let actionsHtml = '';
             if (item.isDone) {
                 actionsHtml = '<div class="reels-item-actions">';
-                if (item.videoUrl) actionsHtml += '<button class="reels-action-btn reels-btn-save" type="button" data-nf-action="download-reel" data-video-url="' + escapeHtml(item.videoUrl) + '" data-video-title="' + escapeHtml(item.book_name || item.title || 'novelflow-reel') + '">' + getText('save_video') + '</button>';
+                if (item.videoUrl) actionsHtml += '<button class="reels-action-btn reels-btn-save" type="button" data-nf-action="download-reel" data-video-url="' + escapeHtml(item.videoUrl) + '" data-video-title="' + escapeHtml(displayBookName || 'novelflow-reel') + '">' + getText('save_video') + '</button>';
                 if (item.creativeText) actionsHtml += '<button class="reels-action-btn reels-btn-copy" data-nf-action="copy-reel-text">' + getText('copy_text') + '</button>';
                 actionsHtml += '</div>';
             } else if (item.isFail && item.thread_id) {
                 actionsHtml = '<div class="reels-item-actions"><button class="reels-action-btn" style="background:#fee;color:#c33;" data-nf-action="retry-reel" data-thread-id="' + escapeHtml(item.thread_id) + '">Retry</button></div>';
             }
             let copyTextHtml = '';
-            const reelMeta = JSON.parse(localStorage.getItem(getUserKey('reel_meta')) || '{}');
-            const meta = reelMeta[item.id] || {};
+            const meta = getReelLocalMeta(item);
             const fallbackText = meta.description || '';
             const displayText = item.creativeText || fallbackText;
             if (item.isDone && displayText) {
                 copyTextHtml = '<div class="reels-item-copy" data-raw="' + escapeHtml(stripHtml(displayText)) + '">' + escapeHtml(stripHtml(displayText)) + '</div>';
             }
-            return '<div class="reels-item">' + thumbHtml + '<div class="reels-item-body"><div class="reels-item-title">' + escapeHtml(item.book_name || item.title || 'Untitled') + '</div><div class="reels-item-status ' + (item.isDone ? 'done' : (item.isFail ? 'fail' : '')) + '">' + statusText + '</div>' + actionsHtml + copyTextHtml + '</div></div>';
+            return '<div class="reels-item">' + thumbHtml + '<div class="reels-item-body"><div class="reels-item-title">' + escapeHtml(displayBookName) + '</div><div class="reels-item-status ' + (item.isDone ? 'done' : (item.isFail ? 'fail' : '')) + '">' + statusText + '</div>' + actionsHtml + copyTextHtml + '</div></div>';
         }
         async function retryReel(threadId) {
             const session = AuthSession.capture();

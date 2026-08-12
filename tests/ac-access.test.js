@@ -167,6 +167,59 @@ test('AC list hydrates result ownership for every signed user reel', async () =>
   }
 });
 
+test('AC creation stores bounded book metadata for each accepted task response shape', async () => {
+  const originalFetch = global.fetch;
+  const username = 'reel-metadata-user';
+  global.fetch = async () => response({ data: { task_id: 'created-task-1' } });
+  try {
+    FakeRedis.reset({
+      [`nf_user_data:${username}`]: JSON.stringify({}),
+      ac_token: 'test-ac-token',
+    });
+    const created = await invoke(acCreate, {
+      method: 'POST',
+      headers: authHeaders(username),
+      body: { book_id: 'book-1', book_title: 'A Searchable Book' },
+    });
+    assert.equal(created.statusCode, 200);
+    assert.equal(FakeRedis.values.get('ac_thread_owner:created-task-1'), username);
+    assert.deepEqual(JSON.parse(FakeRedis.values.get('ac_thread_book:created-task-1')), {
+      bookId: 'book-1', bookName: 'A Searchable Book',
+    });
+    assert.equal(FakeRedis.expiries.get('ac_thread_book:created-task-1'), 180 * 86400);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('AC list attaches stored book metadata only after filtering to the signed-in owner', async () => {
+  const originalFetch = global.fetch;
+  const username = 'reel-search-owner';
+  const threadId = 'reel-search-thread';
+  global.fetch = async () => response({
+    pageCount: 1,
+    items: [
+      { thread_id: threadId, remark: `nf_${username}_1700000000000` },
+      { thread_id: 'other-thread', remark: 'nf_another-user_1700000000000' },
+    ],
+  });
+  try {
+    FakeRedis.reset({
+      [`nf_user_data:${username}`]: JSON.stringify({}),
+      ac_token: 'test-ac-token',
+      [`ac_thread_book:${threadId}`]: JSON.stringify({ bookId: 'book-1', bookName: 'Searchable Book' }),
+      'ac_thread_book:other-thread': JSON.stringify({ bookId: 'book-2', bookName: 'Private Book' }),
+    });
+    const listed = await invoke(acList, { method: 'GET', headers: authHeaders(username) });
+    assert.equal(listed.statusCode, 200);
+    assert.equal(listed.body.data.items.length, 1);
+    assert.equal(listed.body.data.items[0].book_name, 'Searchable Book');
+    assert.equal(FakeRedis.values.get('ac_thread_owner:other-thread'), undefined);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('AC list reuses a short server cache instead of repeating page fanout', async () => {
   const originalFetch = global.fetch;
   const username = 'cached-list-user';
