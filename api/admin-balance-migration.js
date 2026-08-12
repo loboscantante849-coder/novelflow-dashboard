@@ -159,7 +159,7 @@ function publicDetail(detail) {
   return safe;
 }
 
-function buildSummary({ userKeys, details, corruptRecords, duplicateSources, sourceReady }) {
+function buildSummary({ userKeys, details, corruptRecords, duplicateSources, excludedAliases, sourceReady }) {
   const pending = details.filter(detail => !detail.already_migrated);
   const anomalous = details.filter(detail => detail.anomalies.length > 0);
   const cutoffMismatch = details.filter(detail => detail.anomalies.includes('cutoff_mismatch'));
@@ -175,11 +175,18 @@ function buildSummary({ userKeys, details, corruptRecords, duplicateSources, sou
     current_balance_change: roundMoney(pending.reduce((sum, detail) => sum + detail.current_balance_change, 0)),
     cutoff_balance_change: roundMoney(pending.reduce((sum, detail) => sum + detail.cutoff_balance_change, 0)),
     duplicate_source_mappings: duplicateSources.length,
+    excluded_legacy_aliases: excludedAliases.length,
     anomalous_records: anomalous.length + corruptRecords,
     corrupt_records: corruptRecords,
     cutoff_mismatches: cutoffMismatch.length,
     source_covers_cutoff: sourceReady,
   };
+}
+
+function selectSourceOwner(sourceKey, owners) {
+  if (owners.includes(sourceKey)) return sourceKey;
+  const canonicalOwners = owners.filter(owner => owner === owner.toLowerCase());
+  return canonicalOwners.length === 1 ? canonicalOwners[0] : null;
 }
 
 async function analyzeMigration(redis) {
@@ -227,16 +234,39 @@ async function analyzeMigration(redis) {
     sourceOwners.set(detail.source_key, owners);
   }
 
-  const duplicateSources = Array.from(sourceOwners.entries())
-    .filter(([, owners]) => owners.length > 1)
-    .map(([sourceKey, owners]) => ({ source_key: sourceKey, owners }));
+  const duplicateSources = [];
+  const excludedAliases = [];
+  const selectedOwners = new Map();
+  for (const [sourceKey, owners] of sourceOwners.entries()) {
+    if (owners.length === 1) {
+      selectedOwners.set(sourceKey, owners[0]);
+      continue;
+    }
+    const selected = selectSourceOwner(sourceKey, owners);
+    if (!selected) {
+      duplicateSources.push({ source_key: sourceKey, owners });
+      continue;
+    }
+    selectedOwners.set(sourceKey, selected);
+    excludedAliases.push(...owners
+      .filter(owner => owner !== selected)
+      .map(owner => ({ source_key: sourceKey, username: owner, selected_username: selected })));
+  }
+  const selectedDetails = details.filter(detail => selectedOwners.get(detail.source_key) === detail.username);
   const sourceReady = String(data.date_range && data.date_range.to || '') >= HISTORICAL_THROUGH;
-  const summary = buildSummary({ userKeys, details, corruptRecords, duplicateSources, sourceReady });
+  const summary = buildSummary({
+    userKeys,
+    details: selectedDetails,
+    corruptRecords,
+    duplicateSources,
+    excludedAliases,
+    sourceReady,
+  });
   const canApply = summary.cutoff_mismatches === 0 &&
     summary.duplicate_source_mappings === 0 &&
     summary.anomalous_records === 0 &&
     sourceReady;
-  return { data, adData, userKeys, details, duplicateSources, summary, canApply };
+  return { data, adData, userKeys, details: selectedDetails, duplicateSources, excludedAliases, summary, canApply };
 }
 
 async function mapWithConcurrency(items, concurrency, worker) {

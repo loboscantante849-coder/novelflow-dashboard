@@ -232,12 +232,37 @@ test('corrupt or anomalous records abort all writes', async () => {
   }
 });
 
-test('duplicate income ownership and invalid migration markers abort all writes', async () => {
+test('legacy case aliases are excluded while the canonical login record migrates once', async () => {
   seed({ 'nf_user_data:Promoter': JSON.stringify({ bonus_balance: 2 }) });
   const duplicate = await invoke(migration, applyRequest());
-  assert.equal(duplicate.statusCode, 409);
-  assert.equal(duplicate.body.summary.duplicate_source_mappings, 1);
-  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:promoter')).bonus_balance, 5);
+  assert.equal(duplicate.statusCode, 200);
+  assert.equal(duplicate.body.summary.duplicate_source_mappings, 0);
+  assert.equal(duplicate.body.summary.excluded_legacy_aliases, 1);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:promoter')).bonus_balance, 105);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:Promoter')).bonus_balance, 2);
+});
+
+test('ambiguous lowercase aliases and invalid migration markers abort all writes', async () => {
+  const originalPromoter = adData.by_promoter.promoter;
+  delete adData.by_promoter.promoter;
+  adData.by_promoter.promoter_canon = originalPromoter;
+  incomeData.users.promoter_canon = incomeData.users.promoter;
+  delete incomeData.users.promoter;
+  try {
+    seed({
+      'nf_user_data:promoter canon': JSON.stringify({ bonus_balance: 5 }),
+      'nf_user_data:promoter-canon': JSON.stringify({ bonus_balance: 2 }),
+    });
+    const ambiguous = await invoke(migration, applyRequest());
+    assert.equal(ambiguous.statusCode, 409);
+    assert.equal(ambiguous.body.summary.duplicate_source_mappings, 1);
+    assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:promoter canon')).bonus_balance, 5);
+  } finally {
+    adData.by_promoter.promoter = originalPromoter;
+    delete adData.by_promoter.promoter_canon;
+    incomeData.users.promoter = incomeData.users.promoter_canon;
+    delete incomeData.users.promoter_canon;
+  }
 
   seed({
     'nf_user_data:promoter': JSON.stringify({
