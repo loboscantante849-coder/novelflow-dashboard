@@ -469,9 +469,11 @@ async function loadCovers(redis, bookIds, debugLog) {
     }
     debugLog?.push(`covers: ${Object.keys(covers).length}/${uniq.length} found`);
   } catch (e) {
-    const error = new Error(`Book cover data unavailable: ${e.message}`);
-    error.code = 'USER_DATA_UNAVAILABLE';
-    throw error;
+    // Covers are presentation metadata, not part of the stats contract. A
+    // malformed or unavailable cover key must not turn real earnings data into
+    // a 503 response. Keep the failure visible in non-production diagnostics.
+    debugLog?.push(`covers unavailable; continuing without covers: ${e.message}`);
+    return {};
   }
   return covers;
 }

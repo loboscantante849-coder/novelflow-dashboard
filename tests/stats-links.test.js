@@ -66,6 +66,16 @@ test('stats data keeps bundled snapshots available as a last-known-good source',
   }
 });
 
+test('cover metadata failures do not block stats responses', async () => {
+  const debug = [];
+  const redis = {
+    async hget() { throw new Error('WRONGTYPE Operation against a key holding the wrong kind of value'); },
+  };
+  const covers = await statsData.loadCovers(redis, ['book-1'], debug);
+  assert.deepEqual(covers, {});
+  assert.match(debug[0], /covers unavailable; continuing without covers/);
+});
+
 test('D14 income is not silently replaced with DN income in endpoint source', () => {
   for (const relativePath of STATS_ENDPOINTS) {
     const source = fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
