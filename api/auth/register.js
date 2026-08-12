@@ -27,6 +27,7 @@ const { getAuthPayload, isDisabledUser, isReservedUsername } = require('../_lib/
 const { bindPasswordPrincipal, claimIdentity, resolvePasswordPrincipal } = require('../_lib/identity');
 const { isProtectedPromoterUsername } = require('../_lib/promoter-access');
 const { extractReferralCode, finalizePendingReferral, stageReferral, validateReferral } = require('../_lib/referrals');
+const { ensureMemberIdentity } = require('../_lib/member-identity');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -247,6 +248,18 @@ module.exports = async (req, res) => {
     } catch (error) {
       console.warn('[auth/register] Referral binding deferred:', error && error.code || error && error.message);
     }
+    let member = null;
+    try {
+      member = await ensureMemberIdentity(redis, usernameKey, {
+        source: 'local',
+        createdAt: isNewUser ? new Date().toISOString() : null,
+      });
+    } catch (error) {
+      // Identity numbering is repaired by /auth/me, member insights, and the
+      // admin registration sync. A transient counter outage must not strand a
+      // successfully authenticated account without cookies.
+      console.warn('[auth/register] Member ID allocation deferred:', error && error.code || error && error.message);
+    }
 
     // ---------- Issue tokens ----------
     const userPayload = buildUserPayload({ type: 'local', username: usernameKey, principal: passwordPrincipal });
@@ -288,6 +301,7 @@ module.exports = async (req, res) => {
     return res.status(200).json({
       success: true,
       username: usernameKey,
+      memberId: member && member.id || null,
       isNewUser
     });
 

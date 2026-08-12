@@ -17,9 +17,9 @@ const {
   normalizeFacebookUrl,
   normalizeNovelFlowId,
 } = require('./_lib/activity-eligibility');
-const { getAdIdDetails, resolvePromoterKey } = require('./_lib/stats-data');
-const { isSystemStatsBucket } = require('./_lib/promoter-access');
+const { getAdIdDetails } = require('./_lib/stats-data');
 const { ensureReferralCode } = require('./_lib/referrals');
+const { grossIncomeSince, referralCommissionStatement, roundMoney } = require('./_lib/referral-commission');
 
 const NS = 'nf_activity_claim:v1';
 const UNIQUE_NS = 'nf_activity_unique:v1';
@@ -330,37 +330,6 @@ async function adminClaimsExport(req, res, redis) {
   });
 }
 
-function roundMoney(value) {
-  return Math.round((Number(value) || 0) * 100) / 100;
-}
-
-function grossIncomeSince(adData, promoterKey, effectiveDate) {
-  if (!promoterKey || isSystemStatsBucket(promoterKey)) return { gross: 0, days: 0 };
-  let gross = 0;
-  const days = new Set();
-  const promoterEntry = adData.by_promoter && adData.by_promoter[promoterKey];
-  const allowedAssets = new Set([
-    ...((promoterEntry && promoterEntry.links) || []).map(String),
-    ...((promoterEntry && promoterEntry.codes) || []).map(String),
-  ]);
-  for (const [assetKey, entry] of Object.entries(adData.ad_ids || {})) {
-    const taggedOwner = String(entry && entry.username_canon || '').toLowerCase();
-    const assetId = String(entry && (entry.ad_id || entry.id || assetKey) || '');
-    if (allowedAssets.size && !allowedAssets.has(assetId) && taggedOwner !== promoterKey) continue;
-    if (!allowedAssets.size && taggedOwner !== promoterKey) continue;
-    const dailyRows = Array.isArray(entry.daily)
-      ? entry.daily
-      : Object.entries(entry.daily || {}).map(([dt, values]) => ({ dt, ...(values || {}) }));
-    for (const row of dailyRows) {
-      const date = String(row && row.dt || '');
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < effectiveDate) continue;
-      gross += Number(row.dn_income) || 0;
-      days.add(date);
-    }
-  }
-  return { gross: roundMoney(gross), days: days.size };
-}
-
 async function adminCommissionExport(req, res, redis) {
   const [relationshipRows, applicationRows, adData] = await Promise.all([
     scanJson(redis, 'nf_referrer_of:v1:*'),
@@ -380,28 +349,21 @@ async function adminCommissionExport(req, res, redis) {
     const child = usernameKey(relationship.child);
     const application = applications.get(parent);
     if (!application || !child || child === parent) continue;
-    const effectiveAt = [relationship.bound_at, application.created_at]
-      .filter(Boolean)
-      .sort()
-      .at(-1);
-    if (!effectiveAt) continue;
-    const effectiveDate = String(effectiveAt).slice(0, 10);
-    const promoterKey = resolvePromoterKey(child, adData);
-    const income = grossIncomeSince(adData, promoterKey, effectiveDate);
-    const commission = roundMoney(income.gross * 0.05);
+    const statement = referralCommissionStatement(adData, relationship, application, 0.05);
+    if (!statement) continue;
     rows.push({
-      relationship_id: `nfr_${hashValue(`${ACTIVITY_VERSION}:${parent}:${child}:${effectiveAt}`).slice(0, 24)}`,
+      relationship_id: `nfr_${hashValue(`${ACTIVITY_VERSION}:${parent}:${child}:${statement.effective_at}`).slice(0, 24)}`,
       parent,
       child,
       referral_code: relationship.referral_code,
       relationship_bound_at: relationship.bound_at,
       recommender_activated_at: application.created_at,
-      effective_date: effectiveDate,
-      child_promoter_key: promoterKey && !isSystemStatsBucket(promoterKey) ? promoterKey : '',
-      gross_dn_income: income.gross,
-      commission_rate: 0.05,
-      commission_accrued_cumulative: commission,
-      covered_days: income.days,
+      effective_date: statement.effective_date,
+      child_promoter_key: statement.child_promoter_key,
+      gross_dn_income: statement.gross_dn_income,
+      commission_rate: statement.commission_rate,
+      commission_accrued_cumulative: statement.commission_accrued_cumulative,
+      covered_days: statement.covered_days,
       stats_last_updated: adData.last_updated || '',
       calculation_mode: 'read_only_cumulative_not_a_payout_instruction',
     });

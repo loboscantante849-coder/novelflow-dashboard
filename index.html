@@ -1825,17 +1825,43 @@
 
         /* Stats Overview Cards */
         .stats-overview {
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-sm);
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-sm);
             padding: var(--sp-md) var(--sp-lg);
-            background: linear-gradient(135deg, #FF6B9D 0%, #C084FC 40%, #FFD700 100%);
+            background: #172033;
             margin: 0 calc(-1 * var(--sp-lg));
             border-radius: 0;
         }
-        .stats-overview-card { text-align: center; }
+        .stats-overview-card { min-width: 0; text-align: center; padding: 6px 2px; }
         .stats-overview-icon { font-size: 16px; margin-bottom: 2px; }
-        .stats-overview-value { font-size: 20px; font-weight: 600; color: white; font-feature-settings: "tnum"; }
-        .stats-overview-label { font-size: 10px; color: rgba(255,255,255,0.7); }
-        .stats-overview-card.gold .stats-overview-value { color: #FFD700; }
+        .stats-overview-value { font-size: 18px; font-weight: 700; color: white; font-feature-settings: "tnum"; white-space: nowrap; }
+        .stats-overview-label { font-size: 9px; line-height: 1.25; color: rgba(255,255,255,0.72); }
+        .stats-overview-card.gold .stats-overview-value { color: #F5C451; }
+        .recommender-badge { display:none; align-items:center; gap:7px; margin-top:9px; padding:6px 10px; border:1px solid #CBD5E1; border-radius:6px; background:#fff; color:#334155; font:inherit; font-size:11px; font-weight:700; cursor:pointer; }
+        .recommender-badge.show { display:inline-flex; }
+        .recommender-badge.premium { border-color:#D6A84B; background:#FFF8E8; color:#8A5B00; }
+        .recommender-badge .badge-mark { width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background:#E2E8F0; color:#334155; font-size:10px; }
+        .recommender-badge.premium .badge-mark { background:#D6A84B; color:#fff; }
+        .member-detail-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; padding:14px; }
+        .member-detail-metric { padding:12px; border:1px solid var(--hairline); border-radius:7px; background:var(--canvas-soft); text-align:center; }
+        .member-detail-metric strong { display:block; color:var(--ink); font-size:18px; }
+        .member-detail-metric span { display:block; margin-top:3px; color:var(--ink-mute); font-size:10px; line-height:1.25; }
+        .member-detail-list { padding:0 14px 16px; display:flex; flex-direction:column; gap:8px; }
+        .member-detail-row { display:grid; grid-template-columns:minmax(100px,1.2fr) repeat(3,minmax(64px,.7fr)); gap:8px; align-items:center; padding:11px 12px; border:1px solid var(--hairline); border-radius:7px; background:#fff; }
+        .member-detail-name { min-width:0; }
+        .member-detail-name strong,.member-detail-name span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .member-detail-name strong { font-size:12px; color:var(--ink); }
+        .member-detail-name span,.member-detail-cell span { display:block; color:var(--ink-mute); font-size:9px; }
+        .member-detail-cell { text-align:right; font-size:12px; font-weight:700; color:var(--ink); }
+        .member-detail-empty { padding:28px 16px; color:var(--ink-mute); text-align:center; font-size:12px; }
+        #referralDetailsModal .activity-panel,
+        #referralDetailsModal .activity-header,
+        #referralDetailsModal .activity-body { background:#fff; }
+        @media (max-width: 520px) {
+            .stats-overview { grid-template-columns:repeat(2,minmax(0,1fr)); margin-left:0; margin-right:0; }
+            .member-detail-summary { grid-template-columns:1fr; }
+            .member-detail-row { grid-template-columns:minmax(100px,1fr) repeat(2,minmax(58px,.6fr)); }
+            .member-detail-row .member-detail-cell:nth-child(3) { display:none; }
+        }
 
         /* Book Stats Row */
         .my-book-stats {
@@ -3371,6 +3397,9 @@
                 <div class="profile-avatar" id="profileAvatar">?</div>
                 <div class="profile-name" id="profileName">Not Logged In</div>
                 <div class="profile-uid" id="profileUid">Login to unlock more features</div>
+                <button class="recommender-badge" id="recommenderBadge" type="button" data-nf-action="open-referral-details">
+                    <span class="badge-mark">R</span><span id="recommenderBadgeText">Recommender</span>
+                </button>
 
                 <!-- Login form -->
                 <div class="login-form" id="loginForm">
@@ -3385,22 +3414,27 @@
                 <button class="logout-btn" id="logoutBtn" onclick="handleLogout()">Logout</button>
             </div>
 
-            <!-- Stats Overview (Earnings/Users/Visits) -->
+            <!-- Stats Overview -->
             <div class="stats-overview" id="statsOverview" style="display: none;">
                 <div class="stats-overview-card gold">
                     <div class="stats-overview-icon">&#128176;</div>
                     <div class="stats-overview-value" id="totalIncome">$0.00</div>
-                    <div class="stats-overview-label">Promotion Earnings</div>
+                    <div class="stats-overview-label" data-i18n="profile_promotion_earnings">Promotion Earnings</div>
+                </div>
+                <div class="stats-overview-card">
+                    <div class="stats-overview-icon">$</div>
+                    <div class="stats-overview-value" id="availableIncome">$0.00</div>
+                    <div class="stats-overview-label" data-i18n="profile_available_withdraw">Available to Withdraw</div>
+                </div>
+                <div class="stats-overview-card">
+                    <div class="stats-overview-icon">&#9203;</div>
+                    <div class="stats-overview-value" id="pendingIncome">$0.00</div>
+                    <div class="stats-overview-label" data-i18n="profile_pending_review">Pending Review</div>
                 </div>
                 <div class="stats-overview-card">
                     <div class="stats-overview-icon">&#128101;</div>
-                    <div class="stats-overview-value" id="totalUsers">0</div>
-                    <div class="stats-overview-label">Unique Users</div>
-                </div>
-                <div class="stats-overview-card">
-                    <div class="stats-overview-icon">&#127381;</div>
-                    <div class="stats-overview-value" id="totalNew">0</div>
-                    <div class="stats-overview-label">New Users</div>
+                    <div class="stats-overview-value" id="siteInviteTotal">0</div>
+                    <div class="stats-overview-label" data-i18n="profile_site_invites">Site Invites</div>
                 </div>
             </div>
             <div class="bonus-profile-card" id="bonusProfileCard" style="display:none;">
@@ -3583,6 +3617,17 @@
             <div class="activity-body" id="activityModalBody" aria-live="polite">
                 <div class="activity-loading" data-i18n="activity_loading">Loading activity...</div>
             </div>
+        </div>
+    </div>
+
+    <div class="activity-overlay" id="referralDetailsModal" role="dialog" aria-modal="true" aria-labelledby="referralDetailsTitle" onclick="if(event.target===this)closeReferralDetails()">
+        <div class="activity-panel">
+            <div class="activity-header">
+                <div aria-hidden="true"></div>
+                <div class="activity-title" id="referralDetailsTitle" data-i18n="referral_details_title">Referral Network</div>
+                <button class="activity-close" type="button" onclick="closeReferralDetails()" aria-label="Close" title="Close">&times;</button>
+            </div>
+            <div class="activity-body" id="referralDetailsBody" aria-live="polite"></div>
         </div>
     </div>
 
@@ -3782,6 +3827,12 @@
                 UserStats.loadingUser = null;
                 UserStats.requestId += 1;
             }
+            if (typeof MemberInsights !== 'undefined') {
+                MemberInsights.data = null;
+                MemberInsights.wallet = null;
+                MemberInsights.loadingUser = null;
+                MemberInsights.requestId += 1;
+            }
             if (typeof EquityCodeState !== 'undefined') {
                 clearTimeout(EquityCodeState.searchTimer);
                 EquityCodeState.record = null;
@@ -3873,6 +3924,10 @@
             }
             const activityModal = document.getElementById('activityModal');
             if (activityModal) activityModal.classList.remove('show');
+            const referralDetailsModal = document.getElementById('referralDetailsModal');
+            if (referralDetailsModal) referralDetailsModal.classList.remove('show');
+            const recommenderBadge = document.getElementById('recommenderBadge');
+            if (recommenderBadge) recommenderBadge.classList.remove('show', 'premium');
             const activityReminder = document.getElementById('activityReminder');
             if (activityReminder) {
                 activityReminder.classList.remove('show');
@@ -3935,6 +3990,9 @@
             if (action === 'open-activity') {
                 event.preventDefault();
                 openActivityModal();
+            } else if (action === 'open-referral-details') {
+                event.preventDefault();
+                openReferralDetails();
             } else if (action === 'open-recommend') {
                 event.preventDefault();
                 openRecommendModal(origin.dataset.bookId || '');
@@ -4165,6 +4223,7 @@
                 tasks_rewards_title: '🎯 Tasks & Rewards',
                 campaign_missions_title: '🎯 Campaign Missions',
                 campaign_swipe_hint: 'Swipe →',
+                campaign_activity_phase: 'Activity 2 · Phase 2',
                 campaign_limited_name: 'Limited Subsidy',
                 campaign_limited_reward: '2-day VIP · $1 bonus · invite VIP',
                 campaign_limited_status: 'Limited-time activity',
@@ -4173,6 +4232,20 @@
                 campaign_ended_ribbon: 'ENDED',
                 campaign_limited_cta: 'View rewards',
                 activity_modal_title: 'Limited Subsidy',
+                profile_promotion_earnings: 'Promotion Earnings',
+                profile_available_withdraw: 'Available to Withdraw',
+                profile_pending_review: 'Pending Review',
+                profile_site_invites: 'Site Invites',
+                recommender_standard: 'NovelFlow Recommender',
+                recommender_premium: 'Premium Recommender',
+                referral_details_title: 'Referral Network',
+                referral_direct_members: 'Direct Members',
+                referral_total_commission: '5% Commission',
+                referral_member_income: 'Promotion',
+                referral_member_app_users: 'App Users',
+                referral_member_commission: 'Commission',
+                referral_empty: 'No direct members yet.',
+                referral_stats_unavailable: 'Promotion data is temporarily unavailable.',
                 activity_kicker: 'All-user reward · Limited-time support',
                 activity_loading: 'Loading activity...',
                 activity_login: 'Log in to view and submit activity rewards.',
@@ -4646,6 +4719,7 @@
                 tasks_rewards_title: '\ud83c\udfaf Tareas y recompensas',
                 campaign_missions_title: '\ud83c\udfaf Misiones de campa\u00f1a',
                 campaign_swipe_hint: 'Desliza \u2192',
+                campaign_activity_phase: 'Actividad 2 · Fase 2',
                 campaign_limited_name: 'Subsidio por tiempo limitado',
                 campaign_limited_reward: '2 d\u00edas VIP \u00b7 $1 de bonus \u00b7 VIP por invitaciones',
                 campaign_limited_status: 'Actividad por tiempo limitado',
@@ -4654,6 +4728,20 @@
                 campaign_ended_ribbon: 'FINALIZADA',
                 campaign_limited_cta: 'Ver recompensas',
                 activity_modal_title: 'Subsidio por tiempo limitado',
+                profile_promotion_earnings: 'Ganancias de promoci\u00f3n',
+                profile_available_withdraw: 'Disponible para retirar',
+                profile_pending_review: 'Pendiente de revisi\u00f3n',
+                profile_site_invites: 'Invitados al sitio',
+                recommender_standard: 'Recomendador NovelFlow',
+                recommender_premium: 'Recomendador premium',
+                referral_details_title: 'Red de referidos',
+                referral_direct_members: 'Miembros directos',
+                referral_total_commission: 'Comisi\u00f3n del 5%',
+                referral_member_income: 'Promoci\u00f3n',
+                referral_member_app_users: 'Usuarios app',
+                referral_member_commission: 'Comisi\u00f3n',
+                referral_empty: 'A\u00fan no hay miembros directos.',
+                referral_stats_unavailable: 'Los datos de promoci\u00f3n no est\u00e1n disponibles temporalmente.',
                 activity_kicker: 'Recompensa para todos \u00b7 Apoyo por tiempo limitado',
                 activity_loading: 'Cargando actividad...',
                 activity_login: 'Inicia sesi\u00f3n para consultar y enviar recompensas.',
@@ -4758,6 +4846,8 @@
             applyTranslations();
             if (typeof renderCampaigns === 'function') renderCampaigns();
             if (typeof renderActivityModal === 'function') renderActivityModal();
+            if (typeof renderMemberOverview === 'function') renderMemberOverview();
+            if (document.getElementById('referralDetailsModal')?.classList.contains('show') && typeof renderReferralDetails === 'function') renderReferralDetails();
             if (typeof updateActivityReminderLanguage === 'function') updateActivityReminderLanguage();
             if (_lastPerfData) renderDailyBookPerformance(_lastPerfData);
             // Reload books for an explicit language change. Initial page setup
@@ -6141,11 +6231,12 @@
                     '</div>' +
                 '</div>';
             const limited = '' +
-                '<div class="campaign-card ' + (activityEnded ? 'completed' : 'ongoing') + '">' +
+                '<div class="campaign-card ' + (activityEnded ? 'completed' : 'ongoing') + '" data-nf-action="open-activity" role="button" tabindex="0" aria-label="' + escapeHtml(getText('campaign_activity_phase')) + '">' +
                     '<div class="campaign-banner"><span>🎁</span><div class="campaign-ribbon ' + (activityEnded ? 'finished' : '') + '">' +
                         escapeHtml(getText(activityEnded ? 'campaign_ended_ribbon' : 'campaign_limited_ribbon')) +
                     '</div></div>' +
                     '<div class="campaign-body">' +
+                        '<div style="font-size:9px;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:3px;">' + escapeHtml(getText('campaign_activity_phase')) + '</div>' +
                         '<div class="campaign-name">' + escapeHtml(getText('campaign_limited_name')) + '</div>' +
                         '<div class="campaign-reward">' + escapeHtml(rewardLabel) + ': <span class="amt">' + escapeHtml(getText('campaign_limited_reward')) + '</span></div>' +
                         '<div class="campaign-status">' + escapeHtml(activityEnded ? getText('campaign_limited_ended') : getText('campaign_limited_status')) + '</div>' +
@@ -6767,7 +6858,8 @@
                     const wasLoggedIn = AppState.isLoggedIn;
                     const user = {
                         username: data.username || 'User',
-                        accountType: data.accountType || 'local'
+                        accountType: data.accountType || 'local',
+                        memberId: data.memberId || null
                     };
                     const accountChanged = setAuthenticatedUser(user);
                     localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
@@ -6786,6 +6878,7 @@
                     }
                     // Always load stats when logged in (wasLoggedIn guard removed - caused stats to not load when localStorage had cached login)
                     loadUserStats(AppState.user.username);
+                    loadMemberOverview(accountChanged);
                     updateProfileUI();
                     checkAndPromptSetPassword();
                     if (typeof loadEquityCode === 'function') loadEquityCode(accountChanged);
@@ -6809,6 +6902,7 @@
                         // Reload per-user data after refresh
                         loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI();
                         loadUserStats(AppState.user.username);
+                        loadMemberOverview(true);
                         checkAndPromptSetPassword();
                         if (typeof loadEquityCode === 'function') loadEquityCode(true);
                         return;
@@ -7382,6 +7476,110 @@
             loadingUser: null,
             requestId: 0
         };
+        const MemberInsights = {
+            data: null,
+            wallet: null,
+            loadingUser: null,
+            requestId: 0
+        };
+
+        function moneyOrDash(value) {
+            if (value === null || value === undefined || value === '') return '--';
+            return Number.isFinite(Number(value)) ? '$' + Number(value).toFixed(2) : '--';
+        }
+
+        function renderMemberOverview() {
+            const data = MemberInsights.data;
+            const wallet = MemberInsights.wallet;
+            const stats = UserStats.data;
+            const overview = document.getElementById('statsOverview');
+            if (overview && AppState.isLoggedIn) overview.style.display = 'grid';
+            const lifetime = wallet && Number.isFinite(Number(wallet.source_total_dn_income))
+                ? Number(wallet.source_total_dn_income)
+                : (stats && Number.isFinite(Number(stats.total_income)) ? Number(stats.total_income) : null);
+            const incomeEl = document.getElementById('totalIncome');
+            const availableEl = document.getElementById('availableIncome');
+            const pendingEl = document.getElementById('pendingIncome');
+            const inviteEl = document.getElementById('siteInviteTotal');
+            if (incomeEl) incomeEl.textContent = moneyOrDash(lifetime);
+            if (availableEl) availableEl.textContent = moneyOrDash(wallet && wallet.available_balance);
+            if (pendingEl) pendingEl.textContent = moneyOrDash(wallet && wallet.pending_total);
+            if (inviteEl) inviteEl.textContent = data && data.referrals ? Number(data.referrals.total || 0).toLocaleString() : '--';
+
+            const uid = document.getElementById('profileUid');
+            if (uid && AppState.isLoggedIn && AppState.user) {
+                const memberId = data && data.member && data.member.id || AppState.user.memberId;
+                uid.textContent = (memberId ? 'ID ' + memberId + ' · ' : '') + '@' + AppState.user.username;
+            }
+            const badge = document.getElementById('recommenderBadge');
+            const badgeText = document.getElementById('recommenderBadgeText');
+            const tier = data && data.recommender && data.recommender.tier || 'none';
+            if (badge) {
+                badge.classList.toggle('show', tier !== 'none');
+                badge.classList.toggle('premium', tier === 'premium');
+            }
+            if (badgeText && tier !== 'none') badgeText.textContent = getText(tier === 'premium' ? 'recommender_premium' : 'recommender_standard');
+        }
+
+        async function loadMemberOverview(force) {
+            const session = AuthSession.capture();
+            if (!session) return false;
+            if (!force && MemberInsights.loadingUser === session.username) return false;
+            const requestId = ++MemberInsights.requestId;
+            MemberInsights.loadingUser = session.username;
+            try {
+                const [insightsResult, walletResult] = await Promise.allSettled([
+                    authFetch('/api/member-insights?t=' + Date.now()),
+                    authFetch('/api/withdrawals?t=' + Date.now())
+                ]);
+                if (!AuthSession.isCurrent(session) || requestId !== MemberInsights.requestId) return false;
+                if (insightsResult.status === 'fulfilled' && insightsResult.value.ok) {
+                    MemberInsights.data = await insightsResult.value.json();
+                }
+                if (walletResult.status === 'fulfilled' && walletResult.value.ok) {
+                    MemberInsights.wallet = await walletResult.value.json();
+                }
+                if (!AuthSession.isCurrent(session) || requestId !== MemberInsights.requestId) return false;
+                renderMemberOverview();
+                return true;
+            } catch (error) {
+                if (!isAbortError(error)) console.warn('Member overview unavailable:', error.message);
+                renderMemberOverview();
+                return false;
+            } finally {
+                if (requestId === MemberInsights.requestId) MemberInsights.loadingUser = null;
+            }
+        }
+
+        function renderReferralDetails() {
+            const body = document.getElementById('referralDetailsBody');
+            if (!body) return;
+            const data = MemberInsights.data;
+            if (!data || !data.referrals) {
+                body.innerHTML = '<div class="member-detail-empty">' + escapeHtml(getText('referral_stats_unavailable')) + '</div>';
+                return;
+            }
+            const referrals = data.referrals;
+            const recommender = data.recommender || {};
+            const members = Array.isArray(referrals.members) ? referrals.members : [];
+            const summary = '<div class="member-detail-summary"><div class="member-detail-metric"><strong>' + Number(referrals.total || 0).toLocaleString() + '</strong><span>' + escapeHtml(getText('referral_direct_members')) + '</span></div><div class="member-detail-metric"><strong>' + moneyOrDash(recommender.commission_accrued) + '</strong><span>' + escapeHtml(getText('referral_total_commission')) + '</span></div><div class="member-detail-metric"><strong>' + (recommender.tier === 'premium' ? '5%' : '--') + '</strong><span>' + escapeHtml(getText(recommender.tier === 'premium' ? 'recommender_premium' : 'recommender_standard')) + '</span></div></div>';
+            const rows = members.map(member => '<div class="member-detail-row"><div class="member-detail-name"><strong>' + escapeHtml(member.username || '') + '</strong><span>ID ' + escapeHtml(member.member_id || '--') + '</span></div><div class="member-detail-cell">' + moneyOrDash(member.promotion_income) + '<span>' + escapeHtml(getText('referral_member_income')) + '</span></div><div class="member-detail-cell">' + (Number.isFinite(Number(member.app_new_users)) ? Number(member.app_new_users).toLocaleString() : '--') + '<span>' + escapeHtml(getText('referral_member_app_users')) + '</span></div><div class="member-detail-cell">' + moneyOrDash(member.commission_accrued) + '<span>' + escapeHtml(getText('referral_member_commission')) + '</span></div></div>').join('');
+            body.innerHTML = summary + '<div class="member-detail-list">' + (rows || '<div class="member-detail-empty">' + escapeHtml(getText('referral_empty')) + '</div>') + '</div>';
+        }
+
+        function openReferralDetails() {
+            const modal = document.getElementById('referralDetailsModal');
+            if (!modal) return;
+            renderReferralDetails();
+            modal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+            loadMemberOverview(true).then(renderReferralDetails);
+        }
+
+        function closeReferralDetails() {
+            document.getElementById('referralDetailsModal')?.classList.remove('show');
+            document.body.style.overflow = '';
+        }
 
         function updateProfileMyBooksCount() {
             const countEl = document.getElementById('profileMyBooksCount');
@@ -7917,6 +8115,7 @@
             if (incomeEl) incomeEl.textContent = '$' + (data.total_income || 0).toFixed(2);
             if (usersEl) usersEl.textContent = fmtNum(data.total_unique || data.total_visits || 0);
             if (newEl) newEl.textContent = fmtNum(data.total_new || 0);
+            renderMemberOverview();
             if (typeof updateBonusUI === 'function') updateBonusUI();
         }
 
@@ -7927,6 +8126,7 @@
             if (AppState.isLoggedIn && AppState.user && AppState.user.username) {
                 UserStats.data = null;  // Clear cache
                 loadUserStats(AppState.user.username);
+                loadMemberOverview(true);
             } else {
                 showToast('Please login first', 'error');
             }
@@ -8227,7 +8427,8 @@ function renderMyBooks() {
             if (AppState.isLoggedIn && AppState.user) {
                 avatar.textContent = AppState.user.username ? AppState.user.username.charAt(0).toUpperCase() : '?';
                 name.textContent = AppState.user.username || 'User';
-                uid.textContent = AppState.user.username ? '@' + AppState.user.username : 'Logged In';
+                uid.textContent = (AppState.user.memberId ? 'ID ' + AppState.user.memberId + ' · ' : '') + (AppState.user.username ? '@' + AppState.user.username : 'Logged In');
+                renderMemberOverview();
                 loginForm.style.display = 'none';
                 logoutBtn.classList.add('show');
                 // Auto-fill and hide username field when logged in
@@ -8290,7 +8491,7 @@ function renderMyBooks() {
                 if (response.ok && result.success) {
                     clearStoredReferralCode();
                     const authenticatedUsername = result.username || username;
-                    setAuthenticatedUser({ username: authenticatedUsername, accountType: 'local' });
+                    setAuthenticatedUser({ username: authenticatedUsername, accountType: 'local', memberId: result.memberId || null });
                     localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
                     localStorage.setItem('novelflow_last_user', authenticatedUsername);
                     loadCheckinData();
@@ -8301,6 +8502,8 @@ function renderMyBooks() {
                     updateProfileUI();
                     loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo();
                     loadPerformanceDashboard();
+                    loadUserStats(authenticatedUsername);
+                    loadMemberOverview(true);
                     showToast('✅ Welcome back, ' + authenticatedUsername + '!', 'success');
                     (document.getElementById('regUsername') || {}).value = '';
                     (document.getElementById('regPassword') || {}).value = '';
@@ -9028,10 +9231,11 @@ function renderMyBooks() {
                 if (perfErrorText) perfErrorText.textContent = getText('perf_unavailable');
                 if (perfError) perfError.classList.add('visible');
                 if (!_lastPerfData && perfData) {
-                    perfData.querySelectorAll('.perf-grid, .perf-chart-section, .daily-books-section, .perf-footer').forEach(section => {
-                        section.style.display = 'none';
-                    });
+                    const dailySection = perfData.querySelector('.daily-books-section');
+                    if (dailySection) dailySection.style.display = 'none';
                 }
+                // Keep the dashboard and retry control visible. A temporary API
+                // failure must not make the entire performance surface disappear.
             }
         }
 
