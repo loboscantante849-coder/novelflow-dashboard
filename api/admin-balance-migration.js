@@ -1,6 +1,13 @@
 const { Redis } = require('@upstash/redis');
 const { handlePreflight } = require('./_lib/cors');
-const { checkRateLimit, getAuthPayload, getClientIp, isAdminUser, isDisabledUser } = require('./_lib/security');
+const {
+  checkAdminKey,
+  checkRateLimit,
+  getAuthPayload,
+  getClientIp,
+  isAdminUser,
+  isDisabledUser,
+} = require('./_lib/security');
 const { getAdIdDetails, getLegacyDataJson, resolvePromoterKey } = require('./_lib/stats-data');
 const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
 const {
@@ -321,17 +328,22 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' });
   }
 
-  const payload = getAuthPayload(req);
-  if (!payload) return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+  const hasAdminKey = checkAdminKey(req);
+  const payload = hasAdminKey ? null : getAuthPayload(req);
+  if (!hasAdminKey && !payload) {
+    return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+  }
   const redis = redisClient();
   if (!redis) return res.status(503).json({ error: 'Wallet storage unavailable', code: 'WALLET_UNAVAILABLE' });
 
   try {
-    if (await isDisabledUser(redis, payload, { failClosed: true })) {
-      return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
-    }
-    if (!await isAdminUser(redis, payload.username, { failClosed: true })) {
-      return res.status(403).json({ error: 'Admin only', code: 'ADMIN_ONLY' });
+    if (!hasAdminKey) {
+      if (await isDisabledUser(redis, payload, { failClosed: true })) {
+        return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+      }
+      if (!await isAdminUser(redis, payload.username, { failClosed: true })) {
+        return res.status(403).json({ error: 'Admin only', code: 'ADMIN_ONLY' });
+      }
     }
 
     if (req.method === 'POST') {
@@ -350,7 +362,7 @@ module.exports = async (req, res) => {
     const limit = req.method === 'POST' ? 3 : 12;
     const allowed = await checkRateLimit(
       redis,
-      `nf_rate:balance_migration_${operation}:${String(payload.username).toLowerCase()}:${getClientIp(req)}`,
+      `nf_rate:balance_migration_${operation}:${hasAdminKey ? 'admin_key' : String(payload.username).toLowerCase()}:${getClientIp(req)}`,
       limit,
       3600,
       { failClosed: true },

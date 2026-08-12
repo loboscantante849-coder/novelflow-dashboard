@@ -7,6 +7,7 @@ const FakeRedis = installFakeUpstash();
 process.env.JWT_SECRET = 'migration-test-secret-not-used-in-production';
 process.env.KV_REST_API_URL = 'https://redis.invalid';
 process.env.KV_REST_API_TOKEN = 'test-token';
+process.env.ADMIN_KEY = 'migration-test-admin-key';
 
 const incomeData = {
   last_updated: '2026-08-12T01:00:00.000Z',
@@ -86,6 +87,16 @@ test('migration requires an authenticated active admin', async () => {
   const disabled = await invoke(migration, { method: 'GET', headers: authHeaders() });
   assert.equal(disabled.statusCode, 403);
   assert.equal(disabled.body.code, 'ACCOUNT_DISABLED');
+});
+
+test('the server-managed admin key can run dry-run without a user session', async () => {
+  const response = await invoke(migration, {
+    method: 'GET',
+    headers: { 'x-admin-key': 'migration-test-admin-key', 'x-forwarded-for': '192.0.2.81' },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.dry_run, true);
+  assert.equal(response.body.can_apply_after_review, true);
 });
 
 test('POST requires the exact action and confirmation phrase', async () => {
