@@ -6,6 +6,7 @@
 const REELS_DAILY_LIMIT = 7;
 const REELS_IP_DAILY_LIMIT = 30;
 const REELS_COUNTER_TTL_SECONDS = 172800;
+const AC_REEL_METADATA_TTL_SECONDS = 180 * 86400;
 const ALLOWED_TEMPLATES = new Set([
   'Ad_Plot_Video_V3', 'PPT_Porn', 'Ad_Plot_Video_V2', 'Dialogue',
   'PPT_Multi', 'Comic', 'PPT_Porn_Loop_Video', 'Ad_Plot_Seedance',
@@ -54,6 +55,7 @@ function parseAcRequest(body) {
   const adCopy = body.ad_copy === undefined ? (body.prompt || '') : body.ad_copy;
   const buildRequirement = body.build_requirement || '';
   const references = body.reference_picture_list === undefined ? [] : body.reference_picture_list;
+  const bookTitle = typeof body.book_title === 'string' ? body.book_title.trim() : '';
 
   if (!bookId || bookId.length > 128 || typeof template !== 'string' || !ALLOWED_TEMPLATES.has(template)) return null;
   if (typeof language !== 'string' || !ALLOWED_LANGUAGES.has(language)) return null;
@@ -61,6 +63,7 @@ function parseAcRequest(body) {
   if (num === null || startChapter === null || endChapter === null || endChapter < startChapter || endChapter - startChapter > 100) return null;
   if (typeof adCopy !== 'string' || adCopy.length > 4000) return null;
   if (typeof buildRequirement !== 'string' || buildRequirement.length > 1000) return null;
+  if (bookTitle.length > 200) return null;
   if (!Array.isArray(references) || references.length > 4) return null;
 
   const referenceUrls = [];
@@ -72,7 +75,7 @@ function parseAcRequest(body) {
 
   return {
     bookId, template, language, aspectRatio, num, startChapter, endChapter,
-    adCopy, buildRequirement, referenceUrls,
+    adCopy, buildRequirement, referenceUrls, bookTitle,
   };
 }
 
@@ -173,10 +176,18 @@ module.exports = async (req, res) => {
 
     // Track threadId → owner mapping so result/interrupt/retry can enforce ownership
     if (r.status >= 200 && r.status < 300 && redis && data) {
-      const threadId = data.threadId || (data.data && data.data.threadId) || (data.creative && data.creative.threadId);
+      const createdTask = data.data || data.creative || data;
+      const threadId = data.threadId || data.thread_id || data.task_id || data.id
+        || (createdTask && (createdTask.threadId || createdTask.thread_id || createdTask.task_id || createdTask.id));
       if (threadId) {
         try {
-          await redis.set('ac_thread_owner:' + threadId, username, { ex: 180 * 86400 });
+          await redis.set('ac_thread_owner:' + threadId, username, { ex: AC_REEL_METADATA_TTL_SECONDS });
+          if (parsed.bookTitle) {
+            await redis.set('ac_thread_book:' + threadId, JSON.stringify({
+              bookId: parsed.bookId,
+              bookName: parsed.bookTitle,
+            }), { ex: AC_REEL_METADATA_TTL_SECONDS });
+          }
           await redis.del(`nf_ac_list_cache:${username}`);
         } catch(e) { /* non-fatal */ }
       }
