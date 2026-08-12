@@ -29,6 +29,47 @@ function normalizeFacebookUrl(value) {
   }
 }
 
+function isPrivateIpv4(host) {
+  const parts = host.split('.');
+  if (parts.length !== 4 || parts.some(part => !/^\d{1,3}$/.test(part) || Number(part) > 255)) return false;
+  const [a, b] = parts.map(Number);
+  return a === 0 || a === 10 || a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    a >= 224;
+}
+
+function isPrivateIpv6(host) {
+  const normalized = host.replace(/^\[|\]$/g, '').toLowerCase();
+  return normalized === '::' || normalized === '::1' ||
+    normalized.startsWith('fc') || normalized.startsWith('fd') ||
+    /^fe[89ab]/.test(normalized) ||
+    normalized.startsWith('::ffff:127.') || normalized.startsWith('::ffff:10.') ||
+    normalized.startsWith('::ffff:192.168.') || /^::ffff:172\.(1[6-9]|2\d|3[01])\./.test(normalized);
+}
+
+function normalizePublicSocialUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw || raw.length > 2048) return null;
+  try {
+    const url = new URL(raw);
+    const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+    if (url.protocol !== 'https:' || url.username || url.password || !host) return null;
+    if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return null;
+    if (isPrivateIpv4(host) || (host.includes(':') && isPrivateIpv6(host))) return null;
+
+    // Preserve the canonical form used by existing Facebook claims while also
+    // accepting public posts from every other social platform.
+    const canonicalFacebook = normalizeFacebookUrl(raw);
+    if (canonicalFacebook) return canonicalFacebook;
+    url.hash = '';
+    return url.toString();
+  } catch (_error) {
+    return null;
+  }
+}
+
 function hashValue(value) {
   return crypto.createHash('sha256').update(String(value || '')).digest('hex');
 }
@@ -133,6 +174,7 @@ module.exports = {
   loadEligibility,
   normalizeFacebookUrl,
   normalizeNovelFlowId,
+  normalizePublicSocialUrl,
   rewardEntitlement,
   statsAgeMs,
 };

@@ -23,12 +23,14 @@ test('referral attribution is bounded, persisted briefly, and sent by every loca
   assert.match(source, /url\.searchParams\.delete\('ref'\)/);
   assert.equal((source.match(/JSON\.stringify\(buildRegistrationPayload\(username, password\)\)/g) || []).length, 2);
   assert.equal((source.match(/clearStoredReferralCode\(\);/g) || []).length >= 2, true);
+  assert.match(source, /id="splashReferralApplied"/);
+  assert.match(source, /referral_applied/);
 });
 
 test('activity endpoints are deployed while fulfillment remains server-side', () => {
   assert.equal(vercel.functions['api/activity-rewards.js'].maxDuration, 30);
   assert.equal(vercel.functions['api/admin-balance-migration.js'].maxDuration, 30);
-  assert.match(source, /Rewards are reviewed and fulfilled in batches/);
+  assert.match(source, /Claims are checked before rewards are issued/);
   assert.doesNotMatch(source, /activity[^\n]{0,120}bonus_balance\s*[+]=/i);
 });
 
@@ -113,4 +115,19 @@ test('the compact activity reminder jumps directly to recommender and all UI cop
   assert.match(source, /openActivityFromReminder\('recommender'\)/);
   const reminderLines = source.split(/\r?\n/).filter(line => line.includes('activity_reminder_')).join('\n');
   assert.doesNotMatch(reminderLines, /[\u4e00-\u9fff]/);
+});
+
+test('activity 2 accepts public social posts and keeps the official Facebook group optional', () => {
+  assert.match(source, /submitActivityReward\(\\'submit_social\\'\)/);
+  assert.match(source, /payload\.social_url = socialUrl/);
+  assert.match(source, /facebook\.com\/groups\/620866104235159/);
+  assert.match(source, /target="_blank" rel="noopener noreferrer"/);
+  assert.match(source, /Other public platforms/);
+  assert.doesNotMatch(source, /Recommend one novel in the official NovelFlow Facebook group/);
+});
+
+test('limited subsidy has a poster hero and a home floating entry', () => {
+  assert.match(source, /id="activityFab"/);
+  assert.match(source, /activity-hero-poster/);
+  assert.match(source, /novelflow-promo-poster\.png/);
 });
