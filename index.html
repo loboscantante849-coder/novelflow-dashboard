@@ -6234,7 +6234,15 @@
             } catch(e) { return false; }
         }
         function hasStreakGrandClaimed() {
-            return localStorage.getItem(getUserKey('streak_grand_claimed')) !== null;
+            const claimedAt = Date.parse(localStorage.getItem(getUserKey('streak_grand_claimed')) || '');
+            return Number.isFinite(claimedAt) && claimedAt + (7 * 24 * 60 * 60 * 1000) > Date.now();
+        }
+        function streakGrandCooldownLabel() {
+            const claimedAt = Date.parse(localStorage.getItem(getUserKey('streak_grand_claimed')) || '');
+            const remaining = claimedAt + (7 * 24 * 60 * 60 * 1000) - Date.now();
+            if (!Number.isFinite(remaining) || remaining <= 0) return '';
+            const hours = Math.ceil(remaining / (60 * 60 * 1000));
+            return hours >= 24 ? Math.ceil(hours / 24) + ' day' + (hours > 24 ? 's' : '') : hours + ' hour' + (hours === 1 ? '' : 's');
         }
 
         const ACTIVITY_FALLBACK_END_AT = '2026-08-17T15:59:59.999Z';
@@ -6722,8 +6730,8 @@
             if (!btn || !hint) return;
             if (hasStreakGrandClaimed()) {
                 btn.disabled = true;
-                btn.textContent = '✓ Grand Prize Claimed';
-                hint.textContent = 'Come back next streak cycle!';
+                btn.textContent = '✓ 7-Day Prize Cooldown';
+                hint.textContent = 'Available again in ' + streakGrandCooldownLabel();
                 return;
             }
             const hasLink = AppState.myBooks && AppState.myBooks.length >= 1;

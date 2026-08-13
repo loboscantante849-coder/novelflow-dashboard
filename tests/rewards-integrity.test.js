@@ -323,3 +323,54 @@ test('a failed streak-grand commit leaves the bonus, claim marker, and entitleme
     global.fetch = originalFetch;
   }
 });
+
+test('the 7-day streak grand prize can be claimed again after a seven-day cooldown', async () => {
+  const originalFetch = global.fetch;
+  mockMemberLookup();
+  FakeRedis.reset({
+    'nf_user_data:zoe': JSON.stringify({
+      points: 50,
+      bonus_balance: 4,
+      bind_id: '67e519c3da10a5c772ca196e',
+      checkin: { streak: 7, lastCheckin: new Date().toISOString().slice(0, 10), history: [] },
+      claimed: { share1: 1 },
+      streak_grand_claimed: new Date(Date.now() - (8 * 24 * 60 * 60 * 1000)).toISOString(),
+      streak_grand_sequence: 1,
+    }),
+    'nf_user_subs:zoe': ['verified-code'],
+    nf_subs: { 'verified-code': JSON.stringify({ code: 'verified-code', bookId: 'verified-book', status: 'completed' }) },
+  });
+  try {
+    const response = await invoke(rewards, {
+      headers: authHeaders(),
+      body: { action: 'claim_streak_grand' },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.vip_days_awarded, 2);
+    const saved = JSON.parse(FakeRedis.values.get('nf_user_data:zoe'));
+    assert.equal(saved.streak_grand_sequence, 2);
+    assert.ok(Date.parse(saved.streak_grand_claimed) > Date.now() - 60000);
+    assert.equal(JSON.parse(FakeRedis.values.get(`nf_vip_event:v1:${response.body.vip_event_id}`)).source_id, '2');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('the 7-day streak grand prize rejects a second claim during its cooldown', async () => {
+  FakeRedis.reset({
+    'nf_user_data:zoe': JSON.stringify({
+      checkin: { streak: 7, lastCheckin: new Date().toISOString().slice(0, 10), history: [] },
+      claimed: { share1: 1 },
+      streak_grand_claimed: new Date().toISOString(),
+    }),
+    'nf_user_subs:zoe': ['verified-code'],
+    nf_subs: { 'verified-code': JSON.stringify({ code: 'verified-code', bookId: 'verified-book', status: 'completed' }) },
+  });
+  const response = await invoke(rewards, {
+    headers: authHeaders(),
+    body: { action: 'claim_streak_grand' },
+  });
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.body.code, 'STREAK_GRAND_COOLDOWN');
+  assert.ok(Date.parse(response.body.available_at) > Date.now());
+});

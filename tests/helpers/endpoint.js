@@ -158,6 +158,24 @@ class FakeRedis {
       FakeRedis.values.set(eventKey, eventJson);
       return 1;
     }
+    if (String(_script).includes('NF_ACTIVITY_VIP2_DAILY_CAP_V1')) {
+      const [capKey, uniqueKey, claimKey, eventKey] = keys;
+      const [username, capRaw, ttlRaw, claimJson, eventJson] = args;
+      if (FakeRedis.values.has(claimKey)) return 2;
+      const owner = FakeRedis.values.get(uniqueKey);
+      if (owner && owner !== username) return -1;
+      const count = Number(FakeRedis.values.get(capKey) || 0) + 1;
+      FakeRedis.values.set(capKey, count);
+      if (count === 1) FakeRedis.expiries.set(capKey, Number(ttlRaw));
+      if (count > Number(capRaw)) {
+        FakeRedis.values.set(capKey, count - 1);
+        return 0;
+      }
+      if (!owner) FakeRedis.values.set(uniqueKey, username);
+      FakeRedis.values.set(claimKey, claimJson);
+      if (!FakeRedis.values.has(eventKey)) FakeRedis.values.set(eventKey, eventJson);
+      return 1;
+    }
     if (String(_script).includes('NF_SIGNUP_ACCOUNT_CREATE_V1')) {
       const [passwordKey, eventKey] = keys;
       const [passwordHash, eventJson] = args;

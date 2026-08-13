@@ -459,6 +459,34 @@ test('admin exports fulfillment events and a read-only 5 percent commission stat
   assert.equal(commissions.body.requires_prior_payout_reconciliation, true);
 });
 
+test('Limited Subsidy stops at 100 daily claim reservations without creating a 101st event', async () => {
+  const { LIMITED_SUBSIDY_CAP_NS } = activityRewards._test;
+  const today = new Date().toISOString().slice(0, 10);
+  FakeRedis.reset({ [`${LIMITED_SUBSIDY_CAP_NS}:${today}`]: 99 });
+  const originalFetch = global.fetch;
+  mockMemberLookup();
+  try {
+    const hundredth = await invoke(activityRewards, {
+      method: 'POST', headers: authHeaders('daily-cap-100'),
+      body: { action: 'claim_vip2', novelflow_id: TEST_NF_USER_ID },
+    });
+    assert.equal(hundredth.statusCode, 200);
+    assert.equal(FakeRedis.values.get(`${LIMITED_SUBSIDY_CAP_NS}:${today}`), 100);
+
+    const overflow = await invoke(activityRewards, {
+      method: 'POST', headers: authHeaders('daily-cap-101'),
+      body: { action: 'claim_vip2', novelflow_id: '67e519c3da10a5c772ca196f' },
+    });
+    assert.equal(overflow.statusCode, 409);
+    assert.equal(overflow.body.code, 'DAILY_SUBSIDY_FULL');
+    assert.equal(FakeRedis.values.get(`${LIMITED_SUBSIDY_CAP_NS}:${today}`), 100);
+    assert.equal(FakeRedis.values.has('nf_activity_claim:v1:vip2:daily-cap-101'), false);
+    assert.equal(Array.from(FakeRedis.values.keys()).some(key => key.includes('daily-cap-101') && key.startsWith('nf_vip_event:v1:')), false);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('referral commission includes verified invite-code income', () => {
   const { grossIncomeSince } = require('../api/_lib/referral-commission');
   const data = {
