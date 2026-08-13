@@ -59,6 +59,10 @@ function request(token) {
   };
 }
 
+function bookstoreBookResponse(cover = 'https://cdn.example/book-1.jpg') {
+  return response({ data: { data: [{ bookId: 'book-1', cover }] } });
+}
+
 test('a network retry cannot allocate a second code while the first request is running', async () => {
   FakeRedis.reset();
   hashes.clear();
@@ -76,6 +80,7 @@ test('a network retry cannot allocate a second code while the first request is r
       await new Promise(resolve => { releaseCodeRequest = resolve; });
       return response({ data: true });
     }
+    if (target.includes('/book/booklist?')) return bookstoreBookResponse();
     if (target.includes('SocialMediaChannelConfig')) return response({ data: { data: [] } });
     if (target.endsWith('/SocialMediaLinkConfig') && !options.body) return response({}, 404);
     if (target.endsWith('/SocialMediaLinkConfig')) return response({ code: 200, data: 'link-id-1234567890' });
@@ -131,6 +136,7 @@ test('a retry restores the submission index after a transient persistence failur
       codeCreationCalls += 1;
       return response({ data: true });
     }
+    if (target.includes('/book/booklist?')) return bookstoreBookResponse();
     if (target.includes('SocialMediaChannelConfig')) return response({ data: { data: [] } });
     if (target.endsWith('/SocialMediaLinkConfig') && options.body) return response({ code: 200, data: 'link-id-1234567890' });
     if (target.includes('/SocialMediaLinkConfig/link-id-1234567890')) {
@@ -147,6 +153,7 @@ test('a retry restores the submission index after a transient persistence failur
     const recovery = JSON.parse(FakeRedis.values.get('nf_confirm_dedup:alice:book-1'));
     assert.equal(recovery.code, '1000');
     assert.equal(recovery.submission.code, '1000');
+    assert.equal(hashes.get('nf_book_covers').get('book-1'), 'https://cdn.example/book-1.jpg');
 
     const retried = await invoke(confirm, request(token));
     assert.equal(retried.statusCode, 200);
@@ -161,7 +168,7 @@ test('a retry restores the submission index after a transient persistence failur
   }
 });
 
-test('a successful confirmation repair preserves an existing synced cover', async () => {
+test('a successful confirmation stores the trusted bookstore cover everywhere', async () => {
   FakeRedis.reset({
     'nf_user_data:alice': JSON.stringify({
       myBooks: [{ bookId: 'book-1', title: 'Old title', cover: 'https://cdn.example/cover.jpg' }],
@@ -174,6 +181,7 @@ test('a successful confirmation repair preserves an existing synced cover', asyn
   global.fetch = async (url, options = {}) => {
     const target = String(url);
     if (target.includes('savebookpromotionkeywords')) return response({ data: true });
+    if (target.includes('/book/booklist?')) return bookstoreBookResponse('http://cdn.example/fresh-cover.jpg');
     if (target.includes('SocialMediaChannelConfig')) return response({ data: { data: [] } });
     if (target.endsWith('/SocialMediaLinkConfig') && options.body) return response({ code: 200, data: 'link-id-1234567890' });
     if (target.includes('/SocialMediaLinkConfig/link-id-1234567890')) {
@@ -188,8 +196,46 @@ test('a successful confirmation repair preserves an existing synced cover', asyn
     assert.equal(result.statusCode, 200);
     const saved = JSON.parse(FakeRedis.values.get('nf_user_data:alice'));
     assert.equal(saved.myBooks.length, 1);
-    assert.equal(saved.myBooks[0].cover, 'https://cdn.example/cover.jpg');
+    assert.equal(saved.myBooks[0].cover, 'https://cdn.example/fresh-cover.jpg');
     assert.equal(saved.myBooks[0].code, '1000');
+    const submission = JSON.parse(hashes.get('nf_subs').get('1000'));
+    assert.equal(submission.cover, 'https://cdn.example/fresh-cover.jpg');
+    assert.equal(hashes.get('nf_book_covers').get('book-1'), 'https://cdn.example/fresh-cover.jpg');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('a bookstore cover failure preserves an existing synced cover', async () => {
+  FakeRedis.reset({
+    'nf_user_data:alice': JSON.stringify({
+      myBooks: [{ bookId: 'book-1', title: 'Old title', cover: 'https://cdn.example/existing.jpg' }],
+    }),
+  });
+  hashes.clear();
+  sets.clear();
+
+  const originalFetch = global.fetch;
+  global.fetch = async (url, options = {}) => {
+    const target = String(url);
+    if (target.includes('savebookpromotionkeywords')) return response({ data: true });
+    if (target.includes('/book/booklist?')) return response({ data: { data: [] } });
+    if (target.includes('SocialMediaChannelConfig')) return response({ data: { data: [] } });
+    if (target.endsWith('/SocialMediaLinkConfig') && options.body) return response({ code: 200, data: 'link-id-1234567890' });
+    if (target.includes('/SocialMediaLinkConfig/link-id-1234567890')) {
+      return response({ code: 200, data: { shortUrl: 'social.example/s/test' } });
+    }
+    throw new Error(`Unexpected fetch: ${target}`);
+  };
+
+  try {
+    const token = signAccessToken({ username: 'alice' });
+    const result = await invoke(confirm, request(token));
+    assert.equal(result.statusCode, 200);
+    const saved = JSON.parse(FakeRedis.values.get('nf_user_data:alice'));
+    assert.equal(saved.myBooks[0].cover, 'https://cdn.example/existing.jpg');
+    const submission = JSON.parse(hashes.get('nf_subs').get('1000'));
+    assert.equal(submission.cover, undefined);
   } finally {
     global.fetch = originalFetch;
   }

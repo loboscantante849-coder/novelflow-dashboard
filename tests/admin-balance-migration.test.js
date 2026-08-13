@@ -126,7 +126,7 @@ test('GET remains a read-only dry-run and reports cutoff preservation', async ()
   assert.equal(response.body.summary.migration_candidates, 1);
   assert.equal(response.body.summary.historical_gross_income, 100);
   assert.equal(response.body.summary.cutoff_balance_change, 0);
-  assert.equal(response.body.users[0].current_balance_change, -6);
+  assert.equal(response.body.users[0].current_balance_change, 0);
   assert.equal(FakeRedis.values.get('nf_user_data:promoter'), before);
 });
 
@@ -159,7 +159,7 @@ test('successful migration credits historical income once and records its source
   assert.match(marker.applied_at, /^\d{4}-\d{2}-\d{2}T/);
 
   const afterWallet = computeWalletBalances(afterData, profile);
-  assert.equal(beforeWallet.available_balance, 105);
+  assert.equal(beforeWallet.available_balance, 99);
   assert.equal(afterWallet.available_balance, 99);
   assert.equal(afterWallet.commission_income, 24);
 });

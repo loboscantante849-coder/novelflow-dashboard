@@ -130,6 +130,42 @@ class FakeRedis {
 
   async eval(_script, keys, args) {
     this._checkError();
+    if (String(_script).includes('NF_VIP_MEMBER_BIND_V1')) {
+      const [userKey, memberKey] = keys;
+      const [username, memberId, bindingJson] = args;
+      const existingJson = FakeRedis.values.get(userKey);
+      if (existingJson) {
+        let existing;
+        try { existing = JSON.parse(existingJson); } catch (_error) { return -2; }
+        if (!existing || existing.user_id !== memberId) return -2;
+        const owner = FakeRedis.values.get(memberKey);
+        if (owner && owner !== username) return -1;
+        if (!owner) FakeRedis.values.set(memberKey, username);
+        return 2;
+      }
+      const owner = FakeRedis.values.get(memberKey);
+      if (owner && owner !== username) return -1;
+      FakeRedis.values.set(memberKey, username);
+      FakeRedis.values.set(userKey, bindingJson);
+      return 1;
+    }
+    if (String(_script).includes('NF_VIP_USER_DATA_COMMIT_V1')) {
+      const [userDataKey, eventKey, lockKey] = keys;
+      const [userDataJson, eventJson, lockToken] = args;
+      if (FakeRedis.values.get(lockKey) !== lockToken) return -2;
+      if (FakeRedis.values.has(eventKey)) return -1;
+      FakeRedis.values.set(userDataKey, userDataJson);
+      FakeRedis.values.set(eventKey, eventJson);
+      return 1;
+    }
+    if (String(_script).includes('NF_SIGNUP_ACCOUNT_CREATE_V1')) {
+      const [passwordKey, eventKey] = keys;
+      const [passwordHash, eventJson] = args;
+      if (FakeRedis.values.has(passwordKey)) return 0;
+      FakeRedis.values.set(passwordKey, passwordHash);
+      if (!FakeRedis.values.has(eventKey)) FakeRedis.values.set(eventKey, eventJson);
+      return 1;
+    }
     if (String(_script).includes('NF_MEMBER_ID_ALLOCATE_V1')) {
       const [userKey, counterKey] = keys;
       const [username, startValue, reversePrefix] = args;

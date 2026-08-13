@@ -18,6 +18,13 @@ const { assertAccountIdentity, getAuthPayload, getRedis, checkRateLimit, getClie
 const { Redis } = require('@upstash/redis');
 const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
 const { normalizeRedisKeys } = require('./_lib/redis-values');
+const { splitStoredBonus } = require('./_lib/commission-policy');
+const { resolveNovelFlowMember } = require('./_lib/novelflow-member');
+const {
+  bindNovelFlowMember,
+  buildVipEntitlement,
+  commitUserDataWithVipEntitlement,
+} = require('./_lib/vip-entitlements');
 
 const STREAK_POINTS = [5, 5, 5, 5, 5, 10, 15]; // day 1-7
 const MISSION_POINTS = { share1: 20, share3: 50, bindId: 30 };
@@ -195,6 +202,7 @@ module.exports = async (req, res) => {
     const before = rewardState(data);
     let historyDetails = {};
     let result = { success: true, action };
+    let vipEntitlementEvent = null;
 
     switch (action) {
 
@@ -272,19 +280,24 @@ module.exports = async (req, res) => {
       // ========== BIND NOVELFLOW ID ==========
       case 'bind_id': {
         const { bind_id } = req.body || {};
-        if (!bind_id || typeof bind_id !== 'string' || bind_id.trim().length < 3) {
-          return res.status(400).json({ error: 'Invalid bind ID (min 3 characters)', code: 'INVALID_ID' });
+        let member;
+        try {
+          member = await resolveNovelFlowMember(bind_id);
+          await bindNovelFlowMember(redis, username, member, { source: 'rewards' });
+        } catch (error) {
+          const status = ['NOVELFLOW_USER_NOT_FOUND', 'INVALID_NOVELFLOW_USER_ID'].includes(error && error.code) ? 400
+            : (['NOVELFLOW_ID_ALREADY_BOUND', 'NOVELFLOW_BINDING_IMMUTABLE'].includes(error && error.code) ? 409 : 503);
+          return res.status(status).json({
+            error: error.message || 'NovelFlow ID could not be verified',
+            code: error.code || 'NOVELFLOW_LOOKUP_FAILED',
+          });
         }
-        // Basic sanitization: alphanumerics, underscores, hyphens, colons, spaces allowed
-        const clean = bind_id.trim().slice(0, 100);
-        if (!/^[\w\-\s:]+$/.test(clean)) {
-          return res.status(400).json({ error: 'Bind ID contains invalid characters', code: 'INVALID_ID' });
-        }
-        data.bind_id = clean;
-        historyDetails = { bind_id_changed: true };
+        data.bind_id = member.user_id;
+        data.bind_id_verified_at = new Date().toISOString();
+        historyDetails = { bind_id_verified: true };
         result = {
           ...result,
-          bind_id: clean,
+          bind_id: member.user_id,
           message: 'NovelFlow ID bound successfully!',
         };
         break;
@@ -298,14 +311,28 @@ module.exports = async (req, res) => {
         if (!data.bind_id) {
           return res.status(400).json({ error: 'Bind your NovelFlow ID first', code: 'NO_BIND_ID' });
         }
+        let binding;
+        try {
+          binding = await bindNovelFlowMember(redis, username, await resolveNovelFlowMember(data.bind_id), { source: 'exchange' });
+        } catch (error) {
+          return res.status(503).json({ error: 'NovelFlow account verification is unavailable', code: error.code || 'NOVELFLOW_LOOKUP_FAILED' });
+        }
+        const exchangeSequence = Math.floor(Number(data.vip_exchange_sequence) || 0) + 1;
+        vipEntitlementEvent = buildVipEntitlement({
+          username, binding, source: 'points_exchange', sourceId: exchangeSequence,
+          days: VIP_DAYS_AWARDED, metadata: { points_cost: VIP_COST },
+        });
         data.points -= VIP_COST;
         data.vip_days += VIP_DAYS_AWARDED;
+        data.vip_exchange_sequence = exchangeSequence;
         result = {
           ...result,
           points_spent: VIP_COST,
           vip_days_awarded: VIP_DAYS_AWARDED,
           total_points: data.points,
           total_vip_days: data.vip_days,
+          fulfillment_status: vipEntitlementEvent.status,
+          vip_event_id: vipEntitlementEvent.event_id,
           message: `Exchanged ${VIP_COST} points for ${VIP_DAYS_AWARDED} VIP days!`,
         };
         break;
@@ -316,8 +343,8 @@ module.exports = async (req, res) => {
         if ((data.checkin.streak || 0) < STREAK_GRAND_REQUIRED) {
           return res.status(400).json({ error: `Need ${STREAK_GRAND_REQUIRED}-day streak`, code: 'STREAK_NOT_MET' });
         }
-        const myBooks = Array.isArray(data.myBooks) ? data.myBooks : [];
-        if (myBooks.length < 1) {
+        const verifiedPromotionCount = await loadVerifiedPromotionCount(redis, username);
+        if (verifiedPromotionCount < 1) {
           return res.status(400).json({ error: 'Create at least 1 book link first', code: 'NO_LINK' });
         }
         const claimedKeys = Object.keys(data.claimed || {});
@@ -327,6 +354,17 @@ module.exports = async (req, res) => {
         if (data.streak_grand_claimed) {
           return res.status(400).json({ error: 'Already claimed grand prize', code: 'ALREADY_CLAIMED' });
         }
+        if (!data.bind_id) return res.status(400).json({ error: 'Bind your verified NovelFlow ID first', code: 'NO_BIND_ID' });
+        let streakBinding;
+        try {
+          streakBinding = await bindNovelFlowMember(redis, username, await resolveNovelFlowMember(data.bind_id), { source: 'streak' });
+        } catch (error) {
+          return res.status(503).json({ error: 'NovelFlow account verification is unavailable', code: error.code || 'NOVELFLOW_LOOKUP_FAILED' });
+        }
+        vipEntitlementEvent = buildVipEntitlement({
+          username, binding: streakBinding, source: 'streak_grand', sourceId: 'first',
+          days: STREAK_GRAND_VIP, metadata: { streak: STREAK_GRAND_REQUIRED },
+        });
         data.bonus_balance = Math.round((data.bonus_balance + STREAK_GRAND_BONUS) * 100) / 100;
         data.vip_days += STREAK_GRAND_VIP;
         data.streak_grand_claimed = todayStr();
@@ -336,6 +374,8 @@ module.exports = async (req, res) => {
           vip_days_awarded: STREAK_GRAND_VIP,
           total_bonus: data.bonus_balance,
           total_vip_days: data.vip_days,
+          fulfillment_status: vipEntitlementEvent.status,
+          vip_event_id: vipEntitlementEvent.event_id,
           message: `7-day streak grand prize claimed! +$${STREAK_GRAND_BONUS} +${STREAK_GRAND_VIP} VIP days!`,
         };
         break;
@@ -351,6 +391,7 @@ module.exports = async (req, res) => {
     result.snapshot = {
       points: data.points,
       bonus_balance: data.bonus_balance,
+      reward_income_total: splitStoredBonus(data).reward_income_total,
       vip_days: data.vip_days,
       checkin: data.checkin,
       bind_id: data.bind_id || null,
@@ -359,13 +400,25 @@ module.exports = async (req, res) => {
       streak_grand_claimed: data.streak_grand_claimed || null,
     };
 
-    await saveUserData(redis, username, data);
+    if (vipEntitlementEvent) {
+      await commitUserDataWithVipEntitlement(redis, {
+        userDataKey: `nf_user_data:${username}`,
+        userData: data,
+        event: vipEntitlementEvent,
+        lock,
+      });
+    } else {
+      await saveUserData(redis, username, data);
+    }
     return res.status(200).json(result);
 
   } catch (error) {
     console.error('[rewards] Error:', error);
     if (error?.code === 'USER_DATA_CORRUPT') {
       return res.status(503).json({ error: 'User data is temporarily unavailable', code: error.code });
+    }
+    if (error?.code === 'VIP_ENTITLEMENT_EXISTS') {
+      return res.status(409).json({ error: 'This VIP reward is already queued', code: error.code });
     }
     return res.status(503).json({ error: 'Reward service temporarily unavailable', code: 'REWARD_STORAGE_UNAVAILABLE' });
   } finally {

@@ -49,6 +49,7 @@ function buildIncomeProfile(data, username) {
     sourceKey: key,
     grossTotal,
     daily,
+    dailyTotal,
     found: Boolean(record),
   };
 }
@@ -62,65 +63,90 @@ function getCommissionMigration(userData) {
   return migration;
 }
 
-function isPostCutoffOnlyProfile(profile) {
-  const daily = profile && profile.daily || {};
-  const entries = Object.entries(daily).filter(([, amount]) => Math.abs(Number(amount) || 0) > 0.0001);
-  if (!entries.length || entries.some(([date]) => date < COMMISSION_EFFECTIVE_DATE)) return false;
-  const dailyTotal = roundMoney(entries.reduce((sum, [, amount]) => sum + Number(amount || 0), 0));
-  return dailyTotal === roundMoney(profile && profile.grossTotal);
+function incomeProfileReconciliation(profile) {
+  if (!profile || !profile.found) return { required: false, reasons: [] };
+  const grossTotal = roundMoney(profile.grossTotal);
+  const dailyTotal = roundMoney(profile.dailyTotal !== undefined
+    ? profile.dailyTotal
+    : Object.values(profile.daily || {}).reduce((sum, amount) => sum + Number(amount || 0), 0));
+  const reasons = [];
+  const dailyMissing = grossTotal > 0 && Object.keys(profile.daily || {}).length === 0;
+  if (dailyMissing) reasons.push('income_daily_detail_missing');
+  if (dailyTotal !== grossTotal) reasons.push('income_daily_total_mismatch');
+  return { required: reasons.length > 0, reasons: Array.from(new Set(reasons)) };
+}
+
+function policyDailyTotals(profile, effectiveDate, rate) {
+  const entries = Object.entries(profile && profile.daily || {});
+  const historicalGrossIncome = roundMoney(entries
+    .filter(([date]) => date < effectiveDate)
+    .reduce((sum, [, amount]) => sum + Number(amount || 0), 0));
+  const postCutoffGrossIncome = roundMoney(entries
+    .filter(([date]) => date >= effectiveDate)
+    .reduce((sum, [, amount]) => sum + Number(amount || 0), 0));
+  const postCutoffNetIncome = roundMoney(entries
+    .filter(([date]) => date >= effectiveDate)
+    .reduce((sum, [, amount]) => sum + roundMoney(Number(amount || 0) * rate), 0));
+  return { historicalGrossIncome, postCutoffGrossIncome, postCutoffNetIncome };
 }
 
 function creditedIncome(profile, userData) {
   const migration = getCommissionMigration(userData);
-  if (!migration) {
-    if (isPostCutoffOnlyProfile(profile)) {
-      const postCutoffGrossIncome = roundMoney(profile && profile.grossTotal);
-      return {
-        mode: `${COMMISSION_MIGRATION_ID}_new`,
-        effectiveDate: COMMISSION_EFFECTIVE_DATE,
-        commissionRate: COMMISSION_RATE,
-        creditedIncome: roundMoney(Object.values(profile.daily)
-          .reduce((sum, amount) => sum + roundMoney(Number(amount || 0) * COMMISSION_RATE), 0)),
-        postCutoffGrossIncome,
-      };
-    }
-    return {
-      mode: 'legacy_100',
-      effectiveDate: null,
-      commissionRate: 1,
-      creditedIncome: roundMoney(profile && profile.grossTotal),
-      postCutoffGrossIncome: 0,
-    };
-  }
-
-  const effectiveDate = /^\d{4}-\d{2}-\d{2}$/.test(String(migration.effective_date || ''))
+  const effectiveDate = migration && /^\d{4}-\d{2}-\d{2}$/.test(String(migration.effective_date || ''))
     ? String(migration.effective_date)
     : COMMISSION_EFFECTIVE_DATE;
-  const rate = Number.isFinite(Number(migration.commission_rate))
+  const rate = migration && Number.isFinite(Number(migration.commission_rate))
     ? Number(migration.commission_rate)
     : COMMISSION_RATE;
-  const daily = profile && profile.daily || {};
-  const postDates = Object.keys(daily).filter(date => date >= effectiveDate);
-  let postCutoffGrossIncome;
-  let netIncome;
+  const reconciliation = incomeProfileReconciliation(profile);
+  const dailyTotals = policyDailyTotals(profile, effectiveDate, rate);
+  let postCutoffGrossIncome = dailyTotals.postCutoffGrossIncome;
+  let credited = migration
+    ? dailyTotals.postCutoffNetIncome
+    : roundMoney(dailyTotals.historicalGrossIncome + dailyTotals.postCutoffNetIncome);
 
-  if (postDates.length) {
-    postCutoffGrossIncome = roundMoney(postDates.reduce((sum, date) => sum + daily[date], 0));
-    netIncome = roundMoney(postDates.reduce((sum, date) => sum + roundMoney(daily[date] * rate), 0));
-  } else {
-    const historicalGross = Number(migration.historical_gross_income);
-    postCutoffGrossIncome = Number.isFinite(historicalGross)
-      ? roundMoney(Math.max(0, (profile && profile.grossTotal || 0) - historicalGross))
-      : 0;
-    netIncome = roundMoney(postCutoffGrossIncome * rate);
+  if (reconciliation.required && migration) {
+    if (Object.keys(profile && profile.daily || {}).some(date => date >= effectiveDate)) {
+      // Match the pre-repair wallet value without treating missing income as
+      // settled. The reconciliation flag prevents this amount being withdrawn.
+      credited = dailyTotals.postCutoffNetIncome;
+    } else {
+      const historicalGross = Number(migration.historical_gross_income);
+      if (Number.isFinite(historicalGross)) {
+        postCutoffGrossIncome = roundMoney(Math.max(0, (profile && profile.grossTotal || 0) - historicalGross));
+        credited = roundMoney(postCutoffGrossIncome * rate);
+      }
+    }
+  } else if (reconciliation.required) {
+    // Preserve the previously displayed wallet total while the source is under
+    // review. This amount is explicitly unsettled and cannot be withdrawn.
+    credited = roundMoney(profile && profile.grossTotal);
   }
 
   return {
-    mode: COMMISSION_MIGRATION_ID,
+    mode: reconciliation.required
+      ? `${COMMISSION_MIGRATION_ID}_reconciliation_required`
+      : (migration ? COMMISSION_MIGRATION_ID : `${COMMISSION_MIGRATION_ID}_daily`),
     effectiveDate,
     commissionRate: rate,
-    creditedIncome: netIncome,
+    creditedIncome: credited,
     postCutoffGrossIncome,
+    reconciliationRequired: reconciliation.required,
+    reconciliationReasons: reconciliation.reasons,
+  };
+}
+
+function splitStoredBonus(userData) {
+  const bonusBalance = roundMoney(userData && userData.bonus_balance);
+  const migration = getCommissionMigration(userData);
+  const historical = Number(migration && migration.historical_gross_income);
+  const legacyCarryover = Number.isFinite(historical) ? roundMoney(Math.max(0, historical)) : 0;
+  const classificationRequired = legacyCarryover > bonusBalance;
+  return {
+    bonus_balance: bonusBalance,
+    legacy_earnings_carryover: legacyCarryover,
+    reward_income_total: roundMoney(Math.max(0, bonusBalance - legacyCarryover)),
+    classification_reconciliation_required: classificationRequired,
   };
 }
 
@@ -147,10 +173,16 @@ function withdrawalTotals(userData) {
 }
 
 function computeWalletBalances(userData, incomeProfile, incomeAdjustment = 0) {
-  const bonus = roundMoney(userData && userData.bonus_balance);
+  const stored = splitStoredBonus(userData);
+  const bonus = stored.bonus_balance;
   const adjustment = roundMoney(incomeAdjustment);
   const income = creditedIncome(incomeProfile, userData);
   const totals = withdrawalTotals(userData);
+  const reconciliationReasons = [
+    ...(income.reconciliationReasons || []),
+    ...(stored.classification_reconciliation_required ? ['legacy_carryover_exceeds_stored_bonus'] : []),
+  ];
+  const reconciliationRequired = Boolean(income.reconciliationRequired || stored.classification_reconciliation_required);
   const totalEarned = roundMoney(bonus + income.creditedIncome + adjustment);
   const available = roundMoney(Math.max(0, totalEarned - totals.approved - totals.pending));
   return {
@@ -165,6 +197,9 @@ function computeWalletBalances(userData, incomeProfile, incomeAdjustment = 0) {
     commission_effective_date: income.effectiveDate,
     commission_mode: income.mode,
     post_cutoff_gross_income: income.postCutoffGrossIncome,
+    reconciliation_required: reconciliationRequired,
+    reconciliation_status: reconciliationRequired ? 'required' : 'ok',
+    reconciliation_reasons: reconciliationReasons,
     approved_total: totals.approved,
     withdrawn_total: totals.approved,
     pending_total: totals.pending,
@@ -174,7 +209,8 @@ function computeWalletBalances(userData, incomeProfile, incomeAdjustment = 0) {
     available_balance: available,
     withdrawable_balance: available,
     promotion_income_total: income.creditedIncome,
-    reward_income_total: bonus,
+    legacy_earnings_carryover: stored.legacy_earnings_carryover,
+    reward_income_total: stored.reward_income_total,
     pending_settlement: totals.pending,
     wallet_anomaly_count: totals.unknown.length,
     withdrawals: totals.withdrawals.slice().sort((a, b) => String(b && b.created_at || '').localeCompare(String(a && a.created_at || ''))),
@@ -183,7 +219,6 @@ function computeWalletBalances(userData, incomeProfile, incomeAdjustment = 0) {
 
 function buildEarningsDetail(profile, userData, limit = 30) {
   const migration = getCommissionMigration(userData);
-  const usesNewAccountPolicy = !migration && isPostCutoffOnlyProfile(profile);
   const effectiveDate = migration && /^\d{4}-\d{2}-\d{2}$/.test(String(migration.effective_date || ''))
     ? String(migration.effective_date)
     : COMMISSION_EFFECTIVE_DATE;
@@ -194,8 +229,8 @@ function buildEarningsDetail(profile, userData, limit = 30) {
     .map(([date, gross]) => ({
       date,
       gross_amount: roundMoney(gross),
-      amount: roundMoney(gross * ((migration || usesNewAccountPolicy) && date >= effectiveDate ? rate : 1)),
-      commission_rate: (migration || usesNewAccountPolicy) && date >= effectiveDate ? rate : 1,
+      amount: roundMoney(gross * (date >= effectiveDate ? rate : 1)),
+      commission_rate: date >= effectiveDate ? rate : 1,
     }))
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, limit);
@@ -218,7 +253,8 @@ module.exports = {
   findIncomeRecord,
   getCommissionMigration,
   historicalGrossBefore,
-  isPostCutoffOnlyProfile,
+  incomeProfileReconciliation,
   roundMoney,
+  splitStoredBonus,
   withdrawalTotals,
 };

@@ -348,6 +348,15 @@ module.exports = async (req, res) => {
       const incomeAdjustment = await getIncomeAdjustment(redis, targetUser, { failClosed: true });
       const balances = computeWalletBalances(userData, incomeProfile, incomeAdjustment);
 
+      if (balances.reconciliation_required) {
+        return res.status(409).json({
+          error: 'Income data is being reconciled. Withdrawals are temporarily unavailable.',
+          code: 'INCOME_RECONCILIATION_REQUIRED',
+          reconciliation_status: balances.reconciliation_status,
+          reconciliation_reasons: balances.reconciliation_reasons,
+        });
+      }
+
       if (amt > balances.available_balance + 0.001) {
         return res.status(400).json({
           error: `Insufficient balance. Available: $${balances.available_balance.toFixed(2)}`,
@@ -434,6 +443,23 @@ module.exports = async (req, res) => {
       const wd = userData.withdrawals[wIdx];
       if (wd.status !== 'pending') {
         return res.status(400).json({ error: `Request already ${wd.status}`, current_status: wd.status });
+      }
+
+      if (action === 'approve') {
+        const reviewProfile = promoterIncomeProfile(await loadIncomeSources(), targetUser);
+        const reviewBalances = computeWalletBalances(
+          userData,
+          reviewProfile,
+          await getIncomeAdjustment(redis, targetUser, { failClosed: true }),
+        );
+        if (reviewBalances.reconciliation_required) {
+          return res.status(409).json({
+            error: 'Income data is being reconciled. This withdrawal cannot be approved yet.',
+            code: 'INCOME_RECONCILIATION_REQUIRED',
+            reconciliation_status: reviewBalances.reconciliation_status,
+            reconciliation_reasons: reviewBalances.reconciliation_reasons,
+          });
+        }
       }
 
       wd.status = action === 'approve' ? 'approved' : 'rejected';

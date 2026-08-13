@@ -26,6 +26,24 @@ test('user-data rejects unauthenticated requests', async () => {
   assert.equal(res.statusCode, 401);
 });
 
+test('user-data exposes activity rewards separately without rewriting stored balances', async () => {
+  const stored = {
+    bonus_balance: 105,
+    balance_migrations: {
+      commission_80_v1: { status: 'applied', historical_gross_income: 100 },
+    },
+  };
+  FakeRedis.reset({ 'nf_user_data:alice': JSON.stringify(stored) });
+
+  const response = await invoke(userData, { headers: authHeaders(), method: 'GET' });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.bonus_balance, 105);
+  assert.equal(response.body.data.legacy_earnings_carryover, 100);
+  assert.equal(response.body.data.reward_income_total, 5);
+  assert.deepEqual(JSON.parse(FakeRedis.values.get('nf_user_data:alice')), stored);
+});
+
 test('user-data returns 400 for missing or non-object data', async () => {
   const missingBody = await invoke(userData, {
     headers: authHeaders(),

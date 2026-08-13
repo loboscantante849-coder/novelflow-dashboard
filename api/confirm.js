@@ -18,6 +18,11 @@ const {
 const { normalizeRedisKey } = require('./_lib/redis-values');
 const { Redis } = require('@upstash/redis');
 const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
+const {
+  normalizeHttpsCoverUrl,
+  fetchTrustedBookCover,
+  cacheBookCover,
+} = require('./_lib/book-covers');
 
 const BOOKSTORE_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage';
 const BOOKSTORE_APP_ID = '642fc1ace309494378a774a6';
@@ -151,6 +156,7 @@ async function findExistingForBook(redis, username, bookId) {
                 bookId: b.bookId || b.id,
                 matchedBookName: b.title || b.bookName || 'Unknown',
                 bookName: b.title || b.bookName || 'Unknown',
+                cover: normalizeHttpsCoverUrl(b.cover || b.coverImage || ''),
                 code: b.code ? String(b.code) : null,
                 link: b.link || null,
                 linkId: b.linkId || null,
@@ -248,7 +254,8 @@ async function persistUserBook(redis, username, submission) {
       title: submission.matchedBookName || submission.bookName || 'Unknown',
       bookName: submission.bookName || submission.matchedBookName || 'Unknown',
       // A retry/repair must not erase a cover already synced to the account.
-      cover: existingBook?.cover || '',
+      cover: normalizeHttpsCoverUrl(submission.cover) ||
+        normalizeHttpsCoverUrl(existingBook?.cover || existingBook?.coverImage || ''),
       submittedAt: submission.submittedAt || new Date().toISOString(),
     };
     if (submission.code) book.code = String(submission.code);
@@ -529,6 +536,19 @@ module.exports = async (req, res) => {
     const cpsChannel = await ensureCpsChannel(redis, cleanUsername, deadlineAt);
     const linkResult = await createLink(bookId, cleanBookTitle || cleanBookName, finalCode, languageCode, cpsChannel, deadlineAt);
 
+    // Never trust a client-provided image URL. Resolve the selected book again
+    // from the authenticated bookstore API; cover failures remain cosmetic and
+    // must not roll back a valid promotion code/link.
+    let trustedCover = '';
+    try {
+      const coverBudgetMs = deadlineAt - Date.now();
+      if (coverBudgetMs >= 700) {
+        trustedCover = await fetchTrustedBookCover(bookId, { timeoutMs: Math.min(3000, coverBudgetMs) });
+      }
+    } catch (error) {
+      console.warn('[confirm] trusted cover lookup failed:', error.message);
+    }
+
     const completedSub = {
       id: submissionId,
       bookName: cleanBookName,
@@ -544,6 +564,7 @@ module.exports = async (req, res) => {
       code: String(finalCode),
       completedAt: new Date().toISOString()
     };
+    if (trustedCover) completedSub.cover = trustedCover;
 
     if (linkResult) {
       if (linkResult.shortUrl) {
@@ -567,6 +588,13 @@ module.exports = async (req, res) => {
           submission: completedSub,
         }), { ex: 86400 });
       } catch (e) { console.error('[confirm] dedupKey write failed:', e.message); }
+      if (trustedCover) {
+        try {
+          await cacheBookCover(redis, bookId, trustedCover);
+        } catch (error) {
+          console.warn('[confirm] cover cache write failed:', error.message);
+        }
+      }
       await persistSubmissionIndexes(redis, cleanUsername, completedSub);
       try {
         await persistUserBook(redis, cleanUsername, completedSub);

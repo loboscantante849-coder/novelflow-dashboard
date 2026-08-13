@@ -14,12 +14,13 @@ const {
   activityWindow,
   hashValue,
   loadEligibility,
-  normalizeNovelFlowId,
   normalizePublicSocialUrl,
 } = require('./_lib/activity-eligibility');
 const { getAdIdDetails } = require('./_lib/stats-data');
 const { ensureReferralCode } = require('./_lib/referrals');
 const { grossIncomeSince, referralCommissionStatement, roundMoney } = require('./_lib/referral-commission');
+const { resolveNovelFlowMember } = require('./_lib/novelflow-member');
+const { bindNovelFlowMember, createVipEntitlement } = require('./_lib/vip-entitlements');
 
 const NS = 'nf_activity_claim:v1';
 const UNIQUE_NS = 'nf_activity_unique:v1';
@@ -35,6 +36,18 @@ function redisClient() {
 
 function usernameKey(value) {
   return String(value || '').trim().toLowerCase();
+}
+
+async function verifiedBinding(redis, username, rawId, source) {
+  const member = await resolveNovelFlowMember(rawId);
+  return bindNovelFlowMember(redis, username, member, { source });
+}
+
+function memberLookupError(error) {
+  const code = error && error.code || 'NOVELFLOW_LOOKUP_FAILED';
+  const status = ['INVALID_NOVELFLOW_USER_ID', 'NOVELFLOW_USER_NOT_FOUND'].includes(code) ? 400
+    : (['NOVELFLOW_ID_ALREADY_BOUND', 'NOVELFLOW_BINDING_IMMUTABLE'].includes(code) ? 409 : 503);
+  return { status, code, message: error && error.message || 'NovelFlow ID could not be verified' };
 }
 
 function claimKey(task, username) {
@@ -286,6 +299,30 @@ async function saveInviteEvent(redis, username, claim, binding, eligibility, rew
     : { event: parseJson(await redis.get(key), event), created: false };
 }
 
+async function updateInviteEvent(redis, username, event) {
+  await redis.set(eventKey('invite_vip', username, event.event_id), JSON.stringify(event));
+  return event;
+}
+
+async function ensureInviteVipEntitlement(redis, username, verifiedBinding, activityEvent) {
+  const entitlement = await createVipEntitlement(redis, {
+    username,
+    binding: verifiedBinding,
+    source: 'invite_vip',
+    sourceId: activityEvent.event_id,
+    days: Number(activityEvent.reward_days || 0),
+    metadata: { activity_event_id: activityEvent.event_id },
+  });
+  const event = await updateInviteEvent(redis, username, {
+    ...activityEvent,
+    status: entitlement.event.status,
+    vip_event_id: entitlement.event.event_id,
+    fulfillment: 'vip_outbox',
+    updated_at: new Date().toISOString(),
+  });
+  return { entitlement, event };
+}
+
 function csvEscape(value) {
   let raw = value == null ? '' : String(value);
   if (/^[=+\-@]/.test(raw)) raw = `'${raw}`;
@@ -484,12 +521,27 @@ module.exports = async (req, res) => {
     try {
       if (action === 'claim_vip2') {
         task = 'vip2';
-        const id = normalizeNovelFlowId(body.novelflow_id);
-        if (!id) return res.status(400).json({ error: 'Enter a valid NovelFlow ID', code: 'INVALID_NOVELFLOW_ID' });
+        let binding;
+        try { binding = await verifiedBinding(redis, username, body.novelflow_id, 'limited_subsidy'); }
+        catch (error) { const failure = memberLookupError(error); return res.status(failure.status).json({ error: failure.message, code: failure.code }); }
+        const id = { display: binding.user_id, key: binding.user_id };
         lock = await acquireActivityLock(redis, task, username);
         if (!lock) return res.status(409).json({ error: 'Another activity claim is being processed', code: 'ACTIVITY_BUSY' });
         const existing = await readClaim(redis, task, username);
-        if (existing) return res.status(200).json({ success: true, idempotent: true, claim: existing, eligibility, invite });
+        if (existing) {
+          const entitlement = await createVipEntitlement(redis, {
+            username, binding, source: 'limited_subsidy', sourceId: ACTIVITY_VERSION,
+            days: 2, metadata: { claim_id: existing.claim_id },
+          });
+          const repairedClaim = await updateClaim(redis, task, username, {
+            ...existing,
+            status: entitlement.event.status,
+            vip_event_id: entitlement.event.event_id,
+            fulfillment: 'vip_outbox',
+            updated_at: new Date().toISOString(),
+          });
+          return res.status(200).json({ success: true, idempotent: true, claim: repairedClaim, eligibility, invite });
+        }
         const reservation = await reserveUnique(redis, task, id.key, username);
         let claim;
         try {
@@ -503,12 +555,25 @@ module.exports = async (req, res) => {
           await releaseUnique(redis, reservation);
           throw error;
         }
-        return res.status(200).json({ success: true, claim, eligibility, invite });
+        const entitlement = await createVipEntitlement(redis, {
+          username, binding, source: 'limited_subsidy', sourceId: ACTIVITY_VERSION,
+          days: 2, metadata: { claim_id: claim.claim_id },
+        });
+        claim = await updateClaim(redis, task, username, {
+          ...claim,
+          status: entitlement.event.status,
+          vip_event_id: entitlement.event.event_id,
+          fulfillment: 'vip_outbox',
+        });
+        return res.status(200).json({ success: true, idempotent: !entitlement.created, claim, eligibility, invite });
       }
 
       if (action === 'submit_social' || action === 'submit_facebook') {
         task = 'facebook';
-        const id = normalizeNovelFlowId(body.novelflow_id);
+        let binding;
+        try { binding = await verifiedBinding(redis, username, body.novelflow_id, 'social_claim'); }
+        catch (error) { const failure = memberLookupError(error); return res.status(failure.status).json({ error: failure.message, code: failure.code }); }
+        const id = { display: binding.user_id, key: binding.user_id };
         const socialUrl = normalizePublicSocialUrl(body.social_url || body.facebook_url);
         if (!id) return res.status(400).json({ error: 'Enter a valid NovelFlow ID', code: 'INVALID_NOVELFLOW_ID' });
         if (!socialUrl) return res.status(400).json({ error: 'Enter a public HTTPS social post URL', code: 'INVALID_SOCIAL_URL' });
@@ -551,8 +616,10 @@ module.exports = async (req, res) => {
 
       if (action === 'claim_invite_vip') {
         task = 'invite_vip';
-        const id = normalizeNovelFlowId(body.novelflow_id);
-        if (!id) return res.status(400).json({ error: 'Enter a valid NovelFlow ID', code: 'INVALID_NOVELFLOW_ID' });
+        let verifiedMemberBinding;
+        try { verifiedMemberBinding = await verifiedBinding(redis, username, body.novelflow_id, 'invite_vip'); }
+        catch (error) { const failure = memberLookupError(error); return res.status(failure.status).json({ error: failure.message, code: failure.code }); }
+        const id = { display: verifiedMemberBinding.user_id, key: verifiedMemberBinding.user_id };
         lock = await acquireActivityLock(redis, task, username);
         if (!lock) return res.status(409).json({ error: 'Another activity claim is being processed', code: 'ACTIVITY_BUSY' });
         const existing = await readClaim(redis, task, username);
@@ -562,7 +629,31 @@ module.exports = async (req, res) => {
         if (remainingDays <= 0) {
           const matchingEvent = events.find(event => Number(event.entitlement_total_days) === eligibility.totalDays);
           if (matchingEvent) {
-            return res.status(200).json({ success: true, idempotent: true, claim: existing, fulfillment_event: matchingEvent, eligibility, invite });
+            const repaired = await ensureInviteVipEntitlement(redis, username, verifiedMemberBinding, matchingEvent);
+            const baseClaim = existing || claimBase(username, task, {
+              claim_id: matchingEvent.claim_id,
+              novelflow_id: matchingEvent.novelflow_id,
+              novelflow_id_hash: matchingEvent.novelflow_id_hash,
+            });
+            const repairedClaim = await updateClaim(redis, task, username, {
+              ...baseClaim,
+              status: 'pending_fulfillment',
+              total_claimed_days: claimedDays,
+              last_reward_days: Number(repaired.event.reward_days || 0),
+              campaign_invites: eligibility.campaignInvites,
+              pair_days: eligibility.pairDays,
+              milestone_days: eligibility.milestoneDays,
+              updated_at: new Date().toISOString(),
+              fulfillment: 'batch_vip_events',
+            });
+            return res.status(200).json({
+              success: true,
+              idempotent: true,
+              claim: repairedClaim,
+              fulfillment_event: repaired.event,
+              eligibility,
+              invite,
+            });
           }
           return res.status(400).json({ error: 'No new invite reward is available', code: 'NO_REWARD_AVAILABLE', eligibility, claim: existing, invite });
         }
@@ -580,6 +671,13 @@ module.exports = async (req, res) => {
           remainingDays,
           claimedDays + remainingDays,
         );
+        const ensured = await ensureInviteVipEntitlement(
+          redis,
+          username,
+          verifiedMemberBinding,
+          savedEvent.event,
+        );
+        savedEvent.event = ensured.event;
         const updatedClaim = await updateClaim(redis, task, username, {
           ...claim,
           novelflow_id: binding.novelflow_id,

@@ -113,7 +113,19 @@ function mergeBooks(existingBooks, incomingBooks, deletedBooks) {
       const book = sanitizeIncomingBook(rawBook);
       const key = bookSyncKey(book);
       if (!key || deletedBooks[key]) continue;
-      books.set(key, books.has(key) ? { ...books.get(key), ...book } : book);
+      if (books.has(key)) {
+        const existing = books.get(key);
+        const merged = { ...existing, ...book };
+        if (!String(book.cover || '').trim() && String(existing.cover || '').trim()) {
+          merged.cover = existing.cover;
+        }
+        if (!String(book.coverImage || '').trim() && String(existing.coverImage || '').trim()) {
+          merged.coverImage = existing.coverImage;
+        }
+        books.set(key, merged);
+      } else {
+        books.set(key, book);
+      }
     }
   }
   return Array.from(books.values()).slice(0, MAX_BOOKS);

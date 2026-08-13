@@ -1,15 +1,8 @@
 const crypto = require('crypto');
 const { getAdIdDetails, resolvePromoterKey } = require('./stats-data');
 const { isSystemStatsBucket } = require('./promoter-access');
-const { getCampaignReferralCount } = require('./referrals');
 const { ACTIVITY_END_AT, ACTIVITY_START_AT, ACTIVITY_VERSION } = require('./activity-config');
 const STATS_MAX_AGE_MS = 6 * 60 * 60 * 1000;
-
-function normalizeNovelFlowId(value) {
-  const display = String(value || '').trim();
-  if (!/^[A-Za-z0-9_-]{3,64}$/.test(display)) return null;
-  return { display, key: display.toLowerCase() };
-}
 
 function normalizeFacebookUrl(value) {
   const raw = String(value || '').trim();
@@ -126,9 +119,14 @@ function eligibilityFromAdData(adData, username, campaignInvites = 0) {
   };
 }
 
+async function verifiedAppReferralCount(redis, username) {
+  if (!redis || !username) return 0;
+  return Math.max(0, Number(await redis.scard(`nf_app_referrals:v1:${String(username).trim().toLowerCase()}`)) || 0);
+}
+
 async function loadEligibility(username, { redis = null, requireFresh = false, adData: suppliedAdData } = {}) {
   const [campaignInvites, fetchedAdData] = await Promise.all([
-    getCampaignReferralCount(redis, username),
+    verifiedAppReferralCount(redis, username),
     suppliedAdData === undefined ? getAdIdDetails() : Promise.resolve(suppliedAdData),
   ]);
   const adData = fetchedAdData;
@@ -173,8 +171,8 @@ module.exports = {
   hashValue,
   loadEligibility,
   normalizeFacebookUrl,
-  normalizeNovelFlowId,
   normalizePublicSocialUrl,
   rewardEntitlement,
   statsAgeMs,
+  verifiedAppReferralCount,
 };

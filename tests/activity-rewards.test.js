@@ -7,6 +7,10 @@ const FakeRedis = installFakeUpstash();
 process.env.JWT_SECRET = 'activity-test-secret-not-used-in-production';
 process.env.KV_REST_API_URL = 'https://redis.invalid';
 process.env.KV_REST_API_TOKEN = 'test-token';
+const tokenPayload = Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url');
+process.env.NOVELSPA_TOKEN = `eyJhbGciOiJIUzI1NiJ9.${tokenPayload}.test-signature`;
+delete process.env.OIDC_USERNAME;
+delete process.env.OIDC_PASSWORD;
 delete process.env.FEISHU_SIGNUP_WEBHOOK;
 
 const RealDate = Date;
@@ -47,6 +51,23 @@ const {
   normalizePublicSocialUrl,
 } = require('../api/_lib/activity-eligibility');
 
+const TEST_NF_USER_ID = '67e519c3da10a5c772ca196e';
+
+function mockMemberLookup() {
+  global.fetch = async url => {
+    if (!String(url).includes('/usermanage/userinfo/page')) throw new Error(`Unexpected fetch: ${url}`);
+    const requested = new URL(String(url)).searchParams.get('userId');
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ code: 200, data: { data: [{
+        applicationId: '642fc1ace309494378a774a6', userId: requested,
+        accountRegistTime: '2025-01-01 00:00:00', memberEndTime: null,
+      }] } }),
+    };
+  };
+}
+
 function sampleAdData() {
   return {
     last_updated: '2026-08-11T07:30:00.000Z',
@@ -79,6 +100,7 @@ function authHeaders(username) {
 test.beforeEach(() => {
   FakeRedis.reset();
   currentAdData = sampleAdData();
+  mockMemberLookup();
 });
 
 test.after(() => {
@@ -195,8 +217,8 @@ test('activity invite codes are scoped to the verified JWT account and ignore us
   assert.equal(retry.body.invite.referral_code, first.body.invite.referral_code);
 });
 
-test('campaign referrals drive VIP and can satisfy recommender eligibility without stale history', async () => {
-  await new FakeRedis().sadd(`${ACTIVITY_REFERRAL_INDEX_NS}:campaign-parent`, 'child-1', 'child-2');
+test('verified app referrals drive VIP and can satisfy recommender eligibility without website signups', async () => {
+  await new FakeRedis().sadd('nf_app_referrals:v1:campaign-parent', 'app-child-1', 'app-child-2');
   const eligibility = await loadEligibility('campaign-parent', { redis: new FakeRedis(), adData: currentAdData });
   assert.equal(eligibility.verifiedNewUsers, 2);
   assert.equal(eligibility.campaignInvites, 2);
@@ -210,7 +232,7 @@ test('campaign referrals drive VIP and can satisfy recommender eligibility witho
   assert.equal(pure.historicalNewUsers, 9);
 
   currentAdData.by_promoter.campaign_parent.total_new = 0;
-  await new FakeRedis().sadd(`${ACTIVITY_REFERRAL_INDEX_NS}:campaign-parent`, 'child-3', 'child-4', 'child-5');
+  await new FakeRedis().sadd('nf_app_referrals:v1:campaign-parent', 'app-child-3', 'app-child-4', 'app-child-5');
   const exactFive = await loadEligibility('campaign-parent', { redis: new FakeRedis(), adData: currentAdData });
   assert.equal(exactFive.campaignInvites, 5);
   assert.equal(exactFive.recommenderMeasuredNewUsers, 5);
@@ -255,7 +277,7 @@ test('general social submission keeps the legacy Facebook claim key and accepts 
   const social = await invoke(activityRewards, {
     method: 'POST',
     headers: authHeaders('social-promoter'),
-    body: { action: 'submit_social', novelflow_id: '218672', social_url: 'https://www.instagram.com/p/novelflow-post/' },
+    body: { action: 'submit_social', novelflow_id: TEST_NF_USER_ID, social_url: 'https://www.instagram.com/p/novelflow-post/' },
   });
   assert.equal(social.statusCode, 200);
   assert.equal(social.body.claim.task, 'facebook');
@@ -268,13 +290,13 @@ test('general social submission keeps the legacy Facebook claim key and accepts 
   const legacy = await invoke(activityRewards, {
     method: 'POST',
     headers: authHeaders('legacy-facebook-promoter'),
-    body: { action: 'submit_facebook', novelflow_id: '90031', facebook_url: 'https://facebook.com/groups/NovelFlowReaders/posts/654321' },
+    body: { action: 'submit_facebook', novelflow_id: '67e519c3da10a5c772ca196f', facebook_url: 'https://facebook.com/groups/NovelFlowReaders/posts/654321' },
   });
   assert.equal(legacy.statusCode, 200);
   assert.equal(legacy.body.claim.social_url, 'https://www.facebook.com/groups/novelflowreaders/posts/654321');
 });
 
-test('register and login capture referral codes from server-visible request metadata', async () => {
+test('register captures referral codes while login never creates accounts', async () => {
   const invite = await ensureReferralCode(new FakeRedis(), 'campaign-parent');
   const registerResponse = await invoke(register, {
     headers: {
@@ -291,10 +313,9 @@ test('register and login capture referral codes from server-visible request meta
     headers: { 'x-forwarded-for': '192.0.2.51' },
     body: { username: 'login-child', password: 'Password1' },
   });
-  assert.equal(loginResponse.statusCode, 200);
-  assert.equal(loginResponse.body.isNewUser, true);
-  assert.equal(JSON.parse(FakeRedis.values.get('nf_referrer_of:v1:login-child')).parent, 'campaign-parent');
-  assert.equal(await getCampaignReferralCount(new FakeRedis(), 'campaign-parent'), 2);
+  assert.equal(loginResponse.statusCode, 401);
+  assert.equal(FakeRedis.values.has('nf_referrer_of:v1:login-child'), false);
+  assert.equal(await getCampaignReferralCount(new FakeRedis(), 'campaign-parent'), 1);
 
   const invalid = await invoke(register, {
     headers: { 'x-forwarded-for': '192.0.2.52' },
@@ -308,7 +329,7 @@ test('register and login capture referral codes from server-visible request meta
     headers: { 'x-forwarded-for': '192.0.2.53' },
     body: { username: 'invalid-login-referral', password: 'Password1', referral_code: 'nfref_missingcode' },
   });
-  assert.equal(invalidLogin.statusCode, 400);
+  assert.equal(invalidLogin.statusCode, 401);
   assert.equal(FakeRedis.values.has('nf_user_pass:invalid-login-referral'), false);
   assert.equal(FakeRedis.values.has('nf_identity_owner:invalid-login-referral'), false);
 });
@@ -328,18 +349,18 @@ test('legacy referral ownership conflicts preserve the canonical owner', async (
   assert.equal(relationship.parent, 'conflicting-owner');
 });
 
-test('incremental invite VIP uses immutable IDs and append-only fulfillment events', async () => {
-  await new FakeRedis().sadd(`${ACTIVITY_REFERRAL_INDEX_NS}:campaign-parent`, 'child-1', 'child-2');
+test('incremental invite VIP uses verified app users and append-only fulfillment events', async () => {
+  await new FakeRedis().sadd('nf_app_referrals:v1:campaign-parent', 'app-child-1', 'app-child-2');
   const request = {
     headers: authHeaders('campaign-parent'),
-    body: { action: 'claim_invite_vip', novelflow_id: '218672' },
+    body: { action: 'claim_invite_vip', novelflow_id: TEST_NF_USER_ID },
   };
   const first = await invoke(activityRewards, request);
   assert.equal(first.statusCode, 200);
   assert.equal(first.body.fulfillment_event.reward_days, 3);
   assert.equal(first.body.claim.total_claimed_days, 3);
 
-  await new FakeRedis().sadd(`${ACTIVITY_REFERRAL_INDEX_NS}:campaign-parent`, 'child-3', 'child-4');
+  await new FakeRedis().sadd('nf_app_referrals:v1:campaign-parent', 'app-child-3', 'app-child-4');
   const second = await invoke(activityRewards, request);
   assert.equal(second.statusCode, 200);
   assert.equal(second.body.fulfillment_event.reward_days, 3);
@@ -353,14 +374,58 @@ test('incremental invite VIP uses immutable IDs and append-only fulfillment even
   assert.equal(eventsAfterRejectedChange.length, 2);
   assert.deepEqual(events.map(event => event.reward_days), [3, 3]);
 
-  await new FakeRedis().sadd(`${ACTIVITY_REFERRAL_INDEX_NS}:campaign-parent`, 'child-5', 'child-6');
+  await new FakeRedis().sadd('nf_app_referrals:v1:campaign-parent', 'app-child-5', 'app-child-6');
   const changedId = await invoke(activityRewards, {
     ...request,
-    body: { action: 'claim_invite_vip', novelflow_id: '999999' },
+    body: { action: 'claim_invite_vip', novelflow_id: '67e519c3da10a5c772ca196f' },
   });
   assert.equal(changedId.statusCode, 409);
-  assert.equal(changedId.body.code, 'NOVELFLOW_ID_IMMUTABLE');
+  assert.equal(changedId.body.code, 'NOVELFLOW_BINDING_IMMUTABLE');
   assert.equal(events.length, 2);
+});
+
+test('an invite VIP retry recreates a missing entitlement for the existing activity event', async () => {
+  await new FakeRedis().sadd('nf_app_referrals:v1:campaign-parent', 'app-child-1', 'app-child-2');
+  const request = {
+    headers: authHeaders('campaign-parent'),
+    body: { action: 'claim_invite_vip', novelflow_id: TEST_NF_USER_ID },
+  };
+  const first = await invoke(activityRewards, request);
+  assert.equal(first.statusCode, 200);
+  const vipEventKey = `nf_vip_event:v1:${first.body.fulfillment_event.vip_event_id}`;
+  await new FakeRedis().del(vipEventKey);
+
+  const retry = await invoke(activityRewards, request);
+  assert.equal(retry.statusCode, 200);
+  assert.equal(retry.body.idempotent, true);
+  assert.equal(retry.body.fulfillment_event.event_id, first.body.fulfillment_event.event_id);
+  assert.ok(FakeRedis.values.has(vipEventKey));
+  assert.equal(JSON.parse(FakeRedis.values.get(vipEventKey)).days, 3);
+});
+
+test('a Limited Subsidy retry backfills a missing VIP entitlement', async () => {
+  FakeRedis.reset({
+    'nf_activity_claim:v1:vip2:subsidy-retry': JSON.stringify({
+      version: 1,
+      task: 'vip2',
+      username: 'subsidy-retry',
+      claim_id: 'act_existing_claim',
+      novelflow_id: TEST_NF_USER_ID,
+      reward_days: 2,
+      status: 'pending_fulfillment',
+    }),
+  });
+  const response = await invoke(activityRewards, {
+    method: 'POST',
+    headers: authHeaders('subsidy-retry'),
+    body: { action: 'claim_vip2', novelflow_id: TEST_NF_USER_ID },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.idempotent, true);
+  assert.match(response.body.claim.vip_event_id, /^vip_/);
+  const event = JSON.parse(FakeRedis.values.get(`nf_vip_event:v1:${response.body.claim.vip_event_id}`));
+  assert.equal(event.metadata.claim_id, 'act_existing_claim');
+  assert.equal(event.days, 2);
 });
 
 test('admin exports fulfillment events and a read-only 5 percent commission statement', async () => {

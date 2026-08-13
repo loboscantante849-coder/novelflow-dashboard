@@ -19,6 +19,7 @@ const { getRedis, isDisabledUser } = require('../_lib/security');
 const { resolveDiscordIdentity } = require('../_lib/identity');
 const { extractReferralCode, finalizePendingReferral, stageReferral } = require('../_lib/referrals');
 const { ensureMemberIdentity } = require('../_lib/member-identity');
+const { deliverSignupEvent, stageSignupEvent } = require('../_lib/signup-outbox');
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1504779503237333033';
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
@@ -108,13 +109,28 @@ module.exports = async (req, res) => {
       }
     }
     let member = null;
+    const isNewUser = !previousMapping && !hadUserData;
     try {
       member = await ensureMemberIdentity(redis, identity.username, {
         source: 'discord',
-        createdAt: !previousMapping && !hadUserData ? new Date().toISOString() : null,
+        createdAt: isNewUser ? new Date().toISOString() : null,
       });
     } catch (error) {
       console.warn('[discord-activity] Member ID allocation deferred:', error && error.code || error && error.message);
+    }
+    if (isNewUser) {
+      try {
+        const signupEvent = await stageSignupEvent(redis, {
+          username: identity.username,
+          memberId: member && member.id || null,
+          referralCode: referralCode || '',
+          ip: req.headers && req.headers['x-forwarded-for'] || '',
+          userAgent: req.headers && req.headers['user-agent'] || '',
+        });
+        await deliverSignupEvent(redis, signupEvent);
+      } catch (error) {
+        console.warn('[discord-activity] Signup outbox deferred:', error && error.message);
+      }
     }
 
     // Build token payload

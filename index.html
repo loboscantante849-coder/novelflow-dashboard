@@ -1160,9 +1160,9 @@
         .activity-title { color: #f3d59b; letter-spacing: .02em; }
         .activity-close { background: rgba(255,255,255,.08); color: #efd39d; }
         .activity-close:hover { background: rgba(202,163,82,.18); color: #fff; }
-        .activity-hero { display: grid; grid-template-columns: 210px minmax(0,1fr); min-height: 250px; padding: 0; background: #090a0d; color: white; overflow: hidden; }
-        .activity-hero-poster { min-height: 250px; overflow: hidden; border-right: 1px solid rgba(202,163,82,.28); background: #030303; }
-        .activity-hero-poster img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 20%; }
+        .activity-hero { display: block; padding: 0; background: #030303; color: white; overflow: hidden; }
+        .activity-hero-poster { width: 100%; aspect-ratio: 1 / 1; overflow: hidden; background: #030303; }
+        .activity-hero-poster img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; }
         .activity-hero-copy { display: flex; flex-direction: column; justify-content: center; padding: 30px 30px 28px; background: radial-gradient(circle at 92% 12%, rgba(202,163,82,.16), transparent 36%), #090a0d; }
         .activity-hero-kicker { color: #d9b66f; letter-spacing: .12em; }
         .activity-hero-title { max-width: 420px; font: 600 30px/1.08 Georgia, 'Times New Roman', serif; letter-spacing: -.02em; }
@@ -1219,10 +1219,7 @@
             .activity-panel { width: 100%; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
             .activity-header { min-height: 52px; }
             .activity-body { flex:1; }
-            .activity-hero { grid-template-columns: 112px minmax(0,1fr); min-height: 176px; }
-            .activity-hero-poster { min-height: 176px; }
-            .activity-hero-copy { padding: 20px 16px; }
-            .activity-hero-title { font-size: 22px; }
+            .activity-hero-poster { aspect-ratio: 1 / 1; }
             .activity-input-row { grid-template-columns: 1fr; }
             .activity-action { width: 100%; white-space: normal; }
             .activity-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -3426,7 +3423,7 @@
                 <div id="bindIdRow" style="display:none;margin-top:10px;background:var(--canvas-soft);border-radius:10px;padding:10px;">
                     <div style="font-size:11px;font-weight:600;color:var(--ink);margin-bottom:6px;">🔗 Bind NovelFlow ID <span style="font-weight:400;color:var(--ink-mute);">(required for VIP exchange)</span></div>
                     <div style="display:flex;gap:6px;">
-                        <input type="text" id="novelflowIdInput" placeholder="Paste your NovelFlow ID" style="flex:1;padding:7px 10px;border:1px solid var(--hairline);border-radius:8px;font-size:12px;font-family:inherit;">
+                        <input type="text" id="novelflowIdInput" maxlength="24" pattern="[A-Fa-f0-9]{24}" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="24-character App User ID" style="flex:1;padding:7px 10px;border:1px solid var(--hairline);border-radius:8px;font-size:12px;font-family:inherit;">
                         <button onclick="submitBindId()" style="padding:7px 12px;background:var(--ruby);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Bind</button>
                     </div>
                 </div>
@@ -3488,7 +3485,12 @@
                 <div class="stats-overview-card">
                     <div class="stats-overview-icon">&#128101;</div>
                     <div class="stats-overview-value" id="siteInviteTotal">0</div>
-                    <div class="stats-overview-label" data-i18n="profile_platform_registrations">Platform Registrations</div>
+                    <div class="stats-overview-label" data-i18n="profile_platform_registrations">Website Registrations</div>
+                </div>
+                <div class="stats-overview-card">
+                    <div class="stats-overview-icon">&#8681;</div>
+                    <div class="stats-overview-value" id="appInviteTotal">0</div>
+                    <div class="stats-overview-label" data-i18n="profile_app_registrations">App Registrations</div>
                 </div>
             </div>
             <button class="recommender-badge" id="recommenderBadge" type="button" data-nf-action="open-referral-details">
@@ -4308,7 +4310,8 @@
                 profile_available_withdraw: 'Ready to Withdraw',
                 profile_withdrawn: 'Withdrawn',
                 profile_reader_new_users: 'Reader New Users',
-                profile_platform_registrations: 'Platform Registrations',
+                profile_platform_registrations: 'Website Registrations',
+                profile_app_registrations: 'App Registrations',
                 recommender_standard: 'NovelFlow Recommender',
                 recommender_premium: 'Premium Recommender',
                 recommender_identity_eyebrow: 'Partner status',
@@ -4345,9 +4348,9 @@
                 activity_active_until: 'Active until',
                 activity_batch_note: 'Claims are checked before rewards are issued.',
                 activity_vip_title: '2-Day VIP for Everyone',
-                activity_vip_copy: 'Enter your NovelFlow ID to request 2 VIP days. One claim per account and per ID.',
-                activity_id_label: 'NovelFlow ID',
-                activity_id_placeholder: 'Enter your NovelFlow ID',
+                activity_vip_copy: 'Enter the 24-character User ID shown in your NovelFlow App profile to request 2 VIP days. One claim per account and per App ID.',
+                activity_id_label: 'NovelFlow App User ID',
+                activity_id_placeholder: '24-character App User ID',
                 activity_vip_claim: 'Claim 2-Day VIP',
                 activity_vip_submitted: 'Submitted · 2 VIP days are pending batch fulfillment.',
                 activity_fb_title: 'Social Media Book Post',
@@ -4405,7 +4408,7 @@
                 activity_stats_stale: 'Promotion stats are updating. Try again later.',
                 activity_storage_unavailable: 'Activity service is temporarily unavailable. Try again later.',
                 activity_rate_limited: 'Too many attempts. Please try again later.',
-                activity_invalid_id: 'Enter a valid NovelFlow ID.',
+                activity_invalid_id: 'Enter the 24-character User ID shown in your NovelFlow App profile.',
                 activity_invalid_url: 'Enter a public HTTPS social post URL.',
                 activity_id_immutable: 'Your NovelFlow ID is fixed for this activity.',
                 activity_identifier_used: 'This ID or post has already been used for this activity.',
@@ -4829,7 +4832,8 @@
                 profile_available_withdraw: 'Listo para retirar',
                 profile_withdrawn: 'Retirado',
                 profile_reader_new_users: 'Nuevos lectores',
-                profile_platform_registrations: 'Registros en la plataforma',
+                profile_platform_registrations: 'Registros en el sitio web',
+                profile_app_registrations: 'Registros en la app',
                 recommender_standard: 'Recomendador NovelFlow',
                 recommender_premium: 'Recomendador premium',
                 recommender_identity_eyebrow: 'Estado de socio',
@@ -4866,9 +4870,9 @@
                 activity_active_until: 'Activa hasta',
                 activity_batch_note: 'Las solicitudes se verifican antes de entregar las recompensas.',
                 activity_vip_title: '2 d\u00edas VIP para todos',
-                activity_vip_copy: 'Introduce tu ID de NovelFlow para solicitar 2 d\u00edas VIP. Un solo reclamo por cuenta y por ID.',
-                activity_id_label: 'ID de NovelFlow',
-                activity_id_placeholder: 'Introduce tu ID de NovelFlow',
+                activity_vip_copy: 'Introduce el ID de usuario de 24 caracteres que aparece en tu perfil de la app NovelFlow para solicitar 2 d\u00edas VIP. Un reclamo por cuenta y por ID de la app.',
+                activity_id_label: 'ID de usuario de la app NovelFlow',
+                activity_id_placeholder: 'ID de usuario de 24 caracteres',
                 activity_vip_claim: 'Solicitar 2 d\u00edas VIP',
                 activity_vip_submitted: 'Enviado \u00b7 2 d\u00edas VIP pendientes de entrega por lote.',
                 activity_fb_title: 'Publicaci\u00f3n de libro en redes sociales',
@@ -4926,7 +4930,7 @@
                 activity_stats_stale: 'Las estad\u00edsticas de promoci\u00f3n se est\u00e1n actualizando. Int\u00e9ntalo m\u00e1s tarde.',
                 activity_storage_unavailable: 'El servicio de actividades no est\u00e1 disponible temporalmente. Int\u00e9ntalo m\u00e1s tarde.',
                 activity_rate_limited: 'Demasiados intentos. Int\u00e9ntalo m\u00e1s tarde.',
-                activity_invalid_id: 'Introduce un ID de NovelFlow v\u00e1lido.',
+                activity_invalid_id: 'Introduce el ID de usuario de 24 caracteres que aparece en tu perfil de la app NovelFlow.',
                 activity_invalid_url: 'Introduce una URL HTTPS p\u00fablica de una publicaci\u00f3n social.',
                 activity_id_immutable: 'Tu ID de NovelFlow queda fijado para esta actividad.',
                 activity_identifier_used: 'Este ID o esta publicaci\u00f3n ya se us\u00f3 en esta actividad.',
@@ -5615,7 +5619,7 @@
         async function submitBindId() {
             const input = document.getElementById('novelflowIdInput');
             const id = input ? input.value.trim() : '';
-            if (!id || id.length < 3) {
+            if (!/^[a-f0-9]{24}$/i.test(id)) {
                 showToast(getText('toast_invalid_id'), 'error');
                 return;
             }
@@ -6178,7 +6182,7 @@
         // ========== v2.5.0: Bonus Balance, Campaigns, Streak Prize ===
         // ============================================================
         function getBonusBalance() {
-            return parseFloat(localStorage.getItem(getUserKey('bonus_balance')) || '0');
+            return parseFloat(localStorage.getItem(getUserKey('reward_income_total')) || '0');
         }
         function addBonus(amount, reason) {
             // Deprecated: bonus_balance is server-managed. Local writes are ignored.
@@ -6388,10 +6392,14 @@
                 PROMOTION_STATS_UNAVAILABLE: 'activity_stats_unavailable',
                 STATS_STALE: 'activity_stats_stale',
                 RATE_LIMITED: 'activity_rate_limited',
+                INVALID_NOVELFLOW_USER_ID: 'activity_invalid_id',
+                NOVELFLOW_USER_NOT_FOUND: 'activity_invalid_id',
                 INVALID_NOVELFLOW_ID: 'activity_invalid_id',
                 INVALID_SOCIAL_URL: 'activity_invalid_url',
                 INVALID_FACEBOOK_URL: 'activity_invalid_url',
                 IDENTIFIER_ALREADY_USED: 'activity_identifier_used',
+                NOVELFLOW_ID_ALREADY_BOUND: 'activity_identifier_used',
+                NOVELFLOW_BINDING_IMMUTABLE: 'activity_id_immutable',
                 NOVELFLOW_ID_IMMUTABLE: 'activity_id_immutable',
                 NO_REWARD_AVAILABLE: 'activity_invite_none',
                 RECOMMENDER_NOT_ELIGIBLE: 'activity_recommender_not_eligible',
@@ -6403,7 +6411,7 @@
 
         function normalizeActivityNovelFlowId(value) {
             const id = String(value || '').trim();
-            return /^[A-Za-z0-9_-]{3,64}$/.test(id) ? id : '';
+            return /^[a-f0-9]{24}$/i.test(id) ? id.toLowerCase() : '';
         }
 
         function normalizeActivitySocialUrl(value) {
@@ -6483,7 +6491,7 @@
             const tabKeys = { vip: 'activity_tab_vip', facebook: 'activity_tab_facebook', invites: 'activity_tab_invites', recommender: 'activity_tab_recommender' };
             const tabs = ACTIVITY_SECTIONS.map(tab => '<button class="activity-tab' + (tab === section ? ' active' : '') + '" type="button" role="tab" aria-selected="' + (tab === section ? 'true' : 'false') + '" onclick="setActivitySection(\'' + tab + '\')">' + escapeHtml(getText(tabKeys[tab])) + '</button>').join('');
             const sharedId = '<div class="activity-form"><label class="activity-field-label" for="activityNovelFlowId">' + escapeHtml(getText('activity_id_label')) + '</label>' +
-                '<input class="activity-input" id="activityNovelFlowId" type="text" inputmode="text" maxlength="64" autocomplete="off" value="' + idValue + '" placeholder="' + escapeHtml(getText('activity_id_placeholder')) + '" oninput="updateActivityField(\'novelFlowId\',this.value)"></div>';
+                '<input class="activity-input" id="activityNovelFlowId" type="text" inputmode="text" maxlength="24" pattern="[A-Fa-f0-9]{24}" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + idValue + '" placeholder="' + escapeHtml(getText('activity_id_placeholder')) + '" oninput="updateActivityField(\'novelFlowId\',this.value)"></div>';
             const vipSection = '<section class="activity-section" role="tabpanel"><div class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">VIP</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_vip_title')) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_vip_copy')) + '</div></div></div>' + sharedId +
                 (claims.vip2 ? vipState : '<div class="activity-form"><button class="activity-action" type="button" onclick="submitActivityReward(\'claim_vip2\')"' + disabled + '>' + escapeHtml(ActivityState.submitting === 'claim_vip2' ? getText('activity_loading') : getText('activity_vip_claim')) + '</button></div>') + '</div></section>';
             const facebookSection = '<section class="activity-section" role="tabpanel"><div class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">@</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_fb_title')) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_fb_copy')) + '</div></div></div><div class="activity-social-platforms" aria-label="' + escapeHtml(getText('activity_social_platforms')) + '"><span class="activity-social-platform">Facebook</span><span class="activity-social-platform">Instagram</span><span class="activity-social-platform">TikTok</span><span class="activity-social-platform">YouTube</span><span class="activity-social-platform">X</span><span class="activity-social-platform">Threads</span><span class="activity-social-platform">Other</span></div><a class="activity-official-link" href="https://www.facebook.com/groups/620866104235159/" target="_blank" rel="noopener noreferrer">' + escapeHtml(getText('activity_official_group')) + ' &#8599;</a>' +
@@ -6501,7 +6509,7 @@
             }
             const recommenderSection = '<section class="activity-section" role="tabpanel"><div class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">%</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_recommender_title')) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_recommender_copy')) + '</div></div></div>' + recommenderAction + (referralUrl ? '<div class="activity-referral"><div class="activity-field-label">' + escapeHtml(getText('activity_recommender_link')) + '</div><div class="activity-referral-url">' + escapeHtml(referralUrl) + '</div></div>' : '') + '</div></section>';
             const sectionMarkup = section === 'vip' ? vipSection : (section === 'facebook' ? facebookSection : (section === 'invites' ? inviteSection : recommenderSection));
-            body.innerHTML = '<div class="activity-hero"><div class="activity-hero-poster"><img src="/novelflow-promo-poster.png" alt="' + escapeHtml(getText('activity_reminder_poster_alt')) + '"></div><div class="activity-hero-copy"><div class="activity-hero-kicker">' + escapeHtml(getText('activity_kicker')) + '</div><div class="activity-hero-title">' + escapeHtml(getText('activity_modal_title')) + '</div><div class="activity-window">' + escapeHtml(windowCopy) + '</div></div></div><div class="activity-note">' + escapeHtml(getText('activity_batch_note')) + '</div><div class="activity-tabs" role="tablist" aria-label="' + escapeHtml(getText('activity_modal_title')) + '">' + tabs + '</div>' + sectionMarkup;
+            body.innerHTML = '<div class="activity-hero"><div class="activity-hero-poster"><img src="/activity-limited-subsidy.webp" alt="' + escapeHtml(getText('activity_reminder_poster_alt')) + '"></div></div><div class="activity-note">' + escapeHtml(windowCopy) + ' &middot; ' + escapeHtml(getText('activity_batch_note')) + '</div><div class="activity-tabs" role="tablist" aria-label="' + escapeHtml(getText('activity_modal_title')) + '">' + tabs + '</div>' + sectionMarkup;
         }
 
         async function loadActivityRewards(force) {
@@ -7624,11 +7632,13 @@
             const withdrawnEl = document.getElementById('withdrawnIncome');
             const readerEl = document.getElementById('readerNewUsers');
             const inviteEl = document.getElementById('siteInviteTotal');
+            const appInviteEl = document.getElementById('appInviteTotal');
             if (incomeEl) incomeEl.textContent = moneyOrDash(lifetime);
             if (availableEl) availableEl.textContent = moneyOrDash(wallet && (wallet.withdrawable_balance ?? wallet.available_balance));
             if (withdrawnEl) withdrawnEl.textContent = moneyOrDash(wallet && (wallet.withdrawn_total ?? wallet.approved_total));
             if (readerEl) readerEl.textContent = stats && Number.isFinite(Number(stats.total_new)) ? Number(stats.total_new).toLocaleString() : '--';
-            if (inviteEl) inviteEl.textContent = data && data.referrals ? Number(data.referrals.total || 0).toLocaleString() : '--';
+            if (inviteEl) inviteEl.textContent = data && data.referrals ? Number(data.referrals.website_registrations ?? data.referrals.total ?? 0).toLocaleString() : '--';
+            if (appInviteEl) appInviteEl.textContent = data && data.referrals ? Number(data.referrals.app_registrations || 0).toLocaleString() : '--';
 
             const uid = document.getElementById('profileUid');
             if (uid && AppState.isLoggedIn && AppState.user) {
@@ -7859,6 +7869,14 @@
             localStorage.setItem(getUserKey('claimed'), JSON.stringify(claimed));
             localStorage.setItem(getUserKey('vip_days'), String(Number(cloud.vip_days) || 0));
             localStorage.setItem(getUserKey('bonus_balance'), String(Number(cloud.bonus_balance) || 0));
+            const migration = cloud.balance_migrations && cloud.balance_migrations.commission_80_v1;
+            const legacyCarryover = migration && migration.status === 'applied'
+                ? Math.max(0, Number(migration.historical_gross_income) || 0)
+                : 0;
+            const rewardIncome = Number.isFinite(Number(cloud.reward_income_total))
+                ? Number(cloud.reward_income_total)
+                : Math.max(0, (Number(cloud.bonus_balance) || 0) - legacyCarryover);
+            localStorage.setItem(getUserKey('reward_income_total'), String(rewardIncome));
 
             if (typeof cloud.bind_id === 'string' && cloud.bind_id) {
                 localStorage.setItem(getUserKey('bind_id'), cloud.bind_id);
@@ -8020,6 +8038,12 @@
                                 } else {
                                     const existing = bookMap.get(key);
                                     const merged = { ...existing, ...b };
+                                    if (!String(b.cover || '').trim() && String(existing.cover || '').trim()) {
+                                        merged.cover = existing.cover;
+                                    }
+                                    if (!String(b.coverImage || '').trim() && String(existing.coverImage || '').trim()) {
+                                        merged.coverImage = existing.coverImage;
+                                    }
                                     bookMap.set(key, merged);
                                 }
                             }
@@ -8208,7 +8232,7 @@
                             (b.linkId && b.linkId === apiBook.linkId) ||
                             (b.code && String(b.code) === String(apiBook.code))
                         );
-                        if (local && !local.cover) {
+                        if (local && local.cover !== apiBook.cover) {
                             local.cover = apiBook.cover;
                             coverUpdated = true;
                         }
@@ -8340,7 +8364,7 @@ function renderMyBooks() {
             container.innerHTML = sortedBooks.map(book => {
                 const key = book.link || (book.code && String(book.code)) || book.title;
                 const stats = statsMap[key] || {};
-                const safeCover = escapeHtml(safeClientUrl(book.cover, { allowBlob: true }));
+                const safeCover = escapeHtml(safeClientUrl(book.cover || book.coverImage, { allowBlob: true }) || '/book-cover-placeholder.svg');
                 const bookId = escapeHtml(book.bookId || '');
                 const bookCode = escapeHtml(book.code == null ? '' : String(book.code));
                 const bookLink = escapeHtml(book.link || '');
@@ -8352,7 +8376,7 @@ function renderMyBooks() {
                 
                 return `
                     <div class="my-book-item">
-                        <img class="my-book-cover" src="${safeCover}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzYiIGhlaWdodD0iNDgiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjM2IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjZjZmOWZjIi8+PC9zdmc+'">
+                        <img class="my-book-cover" src="${safeCover}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='/book-cover-placeholder.svg'">
                         <div class="my-book-info">
                             <div class="my-book-title">${escapeHtml(book.title)}</div>
                             <div class="my-book-code">CODE: ${escapeHtml(book.code) || 'N/A'}</div>
@@ -8514,7 +8538,7 @@ function renderMyBooks() {
             container.innerHTML = AppState.myBooks.map(book => {
                 const key = book.link || (book.code && String(book.code)) || book.title;
                 const stats = statsMap[key] || {};
-                const safeCover = escapeHtml(safeClientUrl(book.cover, { allowBlob: true }));
+                const safeCover = escapeHtml(safeClientUrl(book.cover || book.coverImage, { allowBlob: true }) || '/book-cover-placeholder.svg');
                 const bookId = escapeHtml(book.bookId || '');
                 const bookLink = escapeHtml(book.link || '');
                 const visits = stats.visits || 0;
@@ -8527,7 +8551,7 @@ function renderMyBooks() {
                 return `
                     <div class="my-book-expanded-item">
                         <div class="my-book-expanded-header">
-                            <img class="my-book-expanded-cover" src="${safeCover}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNjQiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMjQiIHk9IjM4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
+                            <img class="my-book-expanded-cover" src="${safeCover}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='/book-cover-placeholder.svg'">
                             <div class="my-book-expanded-info">
                                 <div class="my-book-expanded-title">${escapeHtml(book.title)}</div>
                                 ${isPending ? `
@@ -10876,7 +10900,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
     const avail = Number(data.available_balance)||0;
     const total = Number(data.total_earned)||0;
     const pend  = Number(data.pending_settlement)||0;
-    const bonus = Number(data.bonus_balance)||0;
+    const bonus = Number(data.reward_income_total)||0;
     if ($('earnAvailVal')) $('earnAvailVal').textContent = fmt$(avail);
     if ($('earnTotalVal')) $('earnTotalVal').textContent = fmt$(total);
     if ($('earnPendingVal')) $('earnPendingVal').textContent = fmt$(pend);

@@ -28,6 +28,7 @@ const { bindPasswordPrincipal, claimIdentity, resolvePasswordPrincipal } = requi
 const { isProtectedPromoterUsername } = require('../_lib/promoter-access');
 const { extractReferralCode, finalizePendingReferral, stageReferral, validateReferral } = require('../_lib/referrals');
 const { ensureMemberIdentity } = require('../_lib/member-identity');
+const { createAccountWithSignupEvent, deliverSignupEvent, enrichSignupEvent, signupEventId } = require('../_lib/signup-outbox');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -191,7 +192,18 @@ module.exports = async (req, res) => {
         if (!isValidPassword(password)) {
           return res.status(400).json({ error: 'Password must be at least 8 characters with a letter and a number', needPassword: true, mustSetPassword: true });
         }
-        const created = await redis.set(passwordKey, await createPasswordHash(password), { nx: true });
+        const createdEvent = await createAccountWithSignupEvent(
+          redis,
+          passwordKey,
+          await createPasswordHash(password),
+          {
+            username: usernameKey,
+            referralCode: referralToBind || '',
+            ip,
+            userAgent: (req.headers && req.headers['user-agent']) || '',
+          },
+        );
+        const created = Boolean(createdEvent);
         if (!created) {
           return res.status(409).json({ error: 'Password status changed. Please sign in again.', code: 'PASSWORD_ALREADY_SET' });
         }
@@ -242,9 +254,10 @@ module.exports = async (req, res) => {
         !await bindPasswordPrincipal(redis, usernameKey, passwordPrincipal)) {
       return res.status(409).json({ error: 'Account identity recovery is required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
     }
+    let finalizedReferral = null;
     try {
       if (isNewUser && referralToBind) await stageReferral(redis, usernameKey, referralToBind);
-      await finalizePendingReferral(redis, usernameKey);
+      finalizedReferral = await finalizePendingReferral(redis, usernameKey);
     } catch (error) {
       console.warn('[auth/register] Referral binding deferred:', error && error.code || error && error.message);
     }
@@ -295,6 +308,21 @@ module.exports = async (req, res) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         }).catch(() => {});
+      }
+
+      // Persist the independent registration sink before returning. Delivery
+      // is best-effort, but a failed call remains in Redis for a cron retry.
+      try {
+        const signupEvent = await enrichSignupEvent(redis, {
+          event_id: signupEventId(usernameKey),
+        }, {
+          member_id: member && member.id || null,
+          referral_code: finalizedReferral && finalizedReferral.referral_code || referralToBind || '',
+          inviter: finalizedReferral && finalizedReferral.parent || '',
+        });
+        await deliverSignupEvent(redis, signupEvent);
+      } catch (error) {
+        console.warn('[auth/register] Signup outbox staging failed:', error && error.message);
       }
     }
 

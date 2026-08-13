@@ -13,6 +13,7 @@ const { Redis } = require('@upstash/redis');
 const { mergeBookState } = require('./_lib/sync');
 const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
 const { assertAccountIdentity, checkRateLimit, getAuthPayload, getClientIp } = require('./_lib/security');
+const { splitStoredBonus } = require('./_lib/commission-policy');
 
 const MAX_SYNC_BODY_BYTES = 512 * 1024;
 const SYNC_USER_LIMIT_PER_HOUR = 300;
@@ -71,7 +72,10 @@ module.exports = async (req, res) => {
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
         return res.status(503).json({ error: 'User data is temporarily unavailable', code: 'USER_DATA_CORRUPT' });
       }
-      return res.status(200).json({ exists: true, data: parsed });
+      return res.status(200).json({
+        exists: true,
+        data: { ...parsed, ...splitStoredBonus(parsed) },
+      });
     }
 
     if (req.method === 'POST') {

@@ -129,5 +129,15 @@ test('activity 2 accepts public social posts and keeps the official Facebook gro
 test('limited subsidy has a poster hero and a home floating entry', () => {
   assert.match(source, /id="activityFab"/);
   assert.match(source, /activity-hero-poster/);
-  assert.match(source, /novelflow-promo-poster\.png/);
+  assert.match(source, /activity-hero-poster[^}]*aspect-ratio:\s*1\s*\/\s*1/);
+  assert.match(source, /activity-hero-poster img[^}]*object-fit:\s*contain/);
+  assert.match(source, /activity-hero-poster"><img src="\/activity-limited-subsidy\.webp"/);
+  assert.match(source, /activity-reminder-poster" src="\/novelflow-promo-poster\.png"/);
+});
+
+test('all VIP forms require the real 24-character NovelFlow App user ID', () => {
+  assert.match(source, /function normalizeActivityNovelFlowId[\s\S]*\^\[a-f0-9\]\{24\}\$/i);
+  assert.match(source, /id="activityNovelFlowId"[^>]+maxlength="24"[^>]+pattern="\[A-Fa-f0-9\]\{24\}"/);
+  assert.match(source, /id="novelflowIdInput"[^>]+maxlength="24"[^>]+pattern="\[A-Fa-f0-9\]\{24\}"/);
+  assert.match(source, /ID de usuario de 24 caracteres/);
 });

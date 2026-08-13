@@ -29,3 +29,12 @@ test('an explicit restore clears the tombstone and permits re-adding', () => {
   assert.deepEqual(state.deletedBooks, {});
   assert.deepEqual(state.myBooks, [{ code: '1001', title: 'Restored' }]);
 });
+
+test('an empty cloud cover cannot erase a valid local cover', () => {
+  const state = mergeBookState(
+    { myBooks: [{ code: '1001', title: 'Book', cover: 'https://cdn.example/local.jpg' }] },
+    { myBooks: [{ code: '1001', title: 'Book updated', cover: '' }] },
+  );
+  assert.equal(state.myBooks[0].title, 'Book updated');
+  assert.equal(state.myBooks[0].cover, 'https://cdn.example/local.jpg');
+});

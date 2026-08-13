@@ -57,6 +57,7 @@ module.exports = async (req, res) => {
       getAdIdDetails(),
       ensureReferralCode(redis, username),
     ]);
+    const appReferralIds = await redis.smembers(`nf_app_referrals:v1:${username}`);
     const children = Array.from(new Set((childNames || []).map(usernameKey).filter(child => child && child !== username))).sort();
     const selectedChildren = children.slice(0, MAX_REFERRAL_DETAILS);
     const statsAvailable = Boolean(adData && adData.by_promoter);
@@ -105,6 +106,8 @@ module.exports = async (req, res) => {
       },
       referrals: {
         total: children.length,
+        website_registrations: children.length,
+        app_registrations: Array.from(new Set((appReferralIds || []).map(String).filter(Boolean))).length,
         returned: members.length,
         truncated: children.length > members.length,
         stats_available: statsAvailable,

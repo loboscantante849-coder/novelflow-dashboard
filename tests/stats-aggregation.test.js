@@ -7,6 +7,7 @@ const {
   buildLegacyAdIdLookup,
   markVerifiedAssets,
   loadSubmissions,
+  loadCovers,
   mergeSubmissionRecords,
 } = require('../api/_lib/stats-data');
 
@@ -102,7 +103,7 @@ test('submission loading uses lowercase CloudSync keys and exact invite ownershi
     async smembers(key) { reads.push(key); return []; },
     async get(key) {
       reads.push(key);
-      if (key === 'nf_user_data:alice') return JSON.stringify({ myBooks: [{ code: '1001', bookId: 'book-1', title: 'Book One' }] });
+      if (key === 'nf_user_data:alice') return JSON.stringify({ myBooks: [{ code: '1001', bookId: 'book-1', title: 'Book One', cover: 'https://cdn.example/cloud.jpg' }] });
       if (key === 'nf_equity_code:alice') return JSON.stringify({ status: 'active', code: '90031', bookId: 'book-2', bookTitle: 'Invite Book' });
       return null;
     },
@@ -113,7 +114,50 @@ test('submission loading uses lowercase CloudSync keys and exact invite ownershi
   assert.ok(reads.includes('nf_user_data:alice'));
   assert.ok(reads.includes('nf_equity_code:alice'));
   assert.equal(submissions.some(item => item.code === '1001' && item.bookId === 'book-1'), true);
+  assert.equal(submissions.find(item => item.code === '1001').cover, 'https://cdn.example/cloud.jpg');
   assert.equal(submissions.some(item => item.inviteCode === '90031' && item.bookId === 'book-2'), true);
+});
+
+test('server submission cover wins while CloudSync fills a missing cover', () => {
+  const merged = mergeSubmissionRecords([
+    { code: '1001', bookId: 'book-1', cover: 'https://cdn.example/server.jpg' },
+    { code: '1001', bookId: 'book-1', cover: 'https://cdn.example/cloud.jpg' },
+    { code: '1002', bookId: 'book-2', cover: '' },
+    { code: '1002', bookId: 'book-2', cover: 'https://cdn.example/cloud-2.jpg' },
+  ]);
+
+  assert.equal(merged.find(item => item.code === '1001').cover, 'https://cdn.example/server.jpg');
+  assert.equal(merged.find(item => item.code === '1002').cover, 'https://cdn.example/cloud-2.jpg');
+});
+
+test('historical covers are fetched with a hard cap and cached without blocking failures', async () => {
+  const hashes = new Map();
+  const redis = {
+    async hget(hash, field) { return hashes.get(hash)?.[field] || null; },
+    async hset(hash, values) { hashes.set(hash, { ...(hashes.get(hash) || {}), ...values }); },
+    async get() { return null; },
+    async set() { return 'OK'; },
+  };
+  const fetched = [];
+  const debug = [];
+  const covers = await loadCovers(redis, ['one', 'two', 'three'], debug, {
+    backfill: true,
+    maxLookups: 2,
+    concurrency: 1,
+    fetchCover: async bookId => {
+      fetched.push(bookId);
+      if (bookId === 'two') throw new Error('temporary bookstore failure');
+      return 'http://cdn.example/one.jpg';
+    },
+  });
+
+  assert.deepEqual(fetched, ['one', 'two']);
+  assert.equal(covers.one, 'https://cdn.example/one.jpg');
+  assert.equal(covers.two, undefined);
+  assert.equal(covers.three, undefined);
+  assert.equal(hashes.get('nf_book_covers').one, 'https://cdn.example/one.jpg');
+  assert.match(debug.join('\n'), /cover lookup failed for two/);
+  assert.match(debug.join('\n'), /limited to 2\/3/);
 });
 
 test('submission loading fails visibly on Redis read errors', async () => {
