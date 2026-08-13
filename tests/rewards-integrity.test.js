@@ -192,6 +192,27 @@ test('server-indexed promotions satisfy promotion missions', async () => {
   assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).points, 50);
 });
 
+test('failed, foreign, and assetless submissions cannot satisfy promotion missions', async () => {
+  FakeRedis.reset({
+    'nf_user_data:zoe': JSON.stringify({ points: 0 }),
+    'nf_user_subs:zoe': ['failed-code', 'assetless', 'foreign-code'],
+    nf_subs: {
+      'failed-code': JSON.stringify({ code: 'failed-code', bookId: 'book-1', status: 'failed' }),
+      assetless: JSON.stringify({ bookId: 'book-2', status: 'completed' }),
+      'foreign-code': JSON.stringify({ code: 'foreign-code', bookId: 'book-3', status: 'completed', username: 'other-user' }),
+    },
+  });
+
+  const response = await invoke(rewards, {
+    headers: authHeaders(),
+    body: { action: 'claim_mission', missionId: 'share1' },
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.body.code, 'NOT_ELIGIBLE');
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).points, 0);
+});
+
 test('NovelFlow member binding atomically enforces one dashboard account per App ID', async () => {
   const redis = new FakeRedis();
   const member = { user_id: '67e519c3da10a5c772ca196e', application_id: '642fc1ace309494378a774a6' };
@@ -281,7 +302,7 @@ test('a failed streak-grand commit leaves the bonus, claim marker, and entitleme
       claimed: { share1: 1 },
     }),
     'nf_user_subs:zoe': ['verified-code'],
-    nf_subs: { 'verified-code': JSON.stringify({ bookId: 'verified-book', status: 'completed' }) },
+    nf_subs: { 'verified-code': JSON.stringify({ code: 'verified-code', bookId: 'verified-book', status: 'completed' }) },
   });
   FakeRedis.prototype.eval = async function evalWithFailure(script, keys, args) {
     if (String(script).includes('NF_VIP_USER_DATA_COMMIT_V1')) throw new Error('simulated atomic commit failure');

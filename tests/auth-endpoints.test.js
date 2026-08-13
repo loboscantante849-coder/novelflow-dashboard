@@ -477,6 +477,53 @@ test('login never creates a new account', async () => {
   assert.equal(FakeRedis.values.has('nf_identity_owner:brand-new-reader'), false);
 });
 
+test('brand new registration atomically stages a complete signup outbox event', async () => {
+  FakeRedis.reset();
+
+  const response = await invoke(register, {
+    headers: {
+      'x-forwarded-for': '192.0.2.44',
+      'user-agent': 'Mozilla/5.0 (iPhone)',
+    },
+    body: { username: 'fresh-signup-reader', password: 'Password1' },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.isNewUser, true);
+  assert.match(FakeRedis.values.get('nf_user_pass:fresh-signup-reader'), /^scrypt\$/);
+  const eventKey = Array.from(FakeRedis.values.keys())
+    .find(key => key.startsWith('nf_outbox:signup:v1:'));
+  assert.ok(eventKey);
+  const event = JSON.parse(FakeRedis.values.get(eventKey));
+  assert.equal(event.type, 'signup');
+  assert.equal(event.username, 'fresh-signup-reader');
+  assert.equal(event.status, 'pending');
+  assert.equal(event.attempts, 0);
+  assert.equal(event.device, 'iOS');
+  assert.match(event.registered_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.match(event.ip_hash, /^[a-f0-9]{24}$/);
+  assert.equal(JSON.stringify(event).includes('192.0.2.44'), false);
+});
+
+test('registration fails closed when its abuse limit cannot be verified', async () => {
+  const originalIncr = FakeRedis.prototype.incr;
+  FakeRedis.prototype.incr = async function failRegistrationLimit(key) {
+    if (String(key).startsWith('nf_login_ip:')) throw new Error('rate storage unavailable');
+    return originalIncr.call(this, key);
+  };
+  try {
+    const response = await invoke(register, {
+      headers: { 'x-forwarded-for': '192.0.2.45' },
+      body: { username: 'rate-limit-unknown', password: 'Password1' },
+    });
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.code, 'RATE_LIMIT_UNAVAILABLE');
+    assert.equal(FakeRedis.values.has('nf_user_pass:rate-limit-unknown'), false);
+  } finally {
+    FakeRedis.prototype.incr = originalIncr;
+  }
+});
+
 test('withdrawal creation is blocked when income details require reconciliation', async () => {
   const username = 'withdraw_reconciliation_test_user';
   FakeRedis.reset({

@@ -138,10 +138,13 @@ async function loadVerifiedPromotionCount(redis, username) {
     } catch (_error) {
       continue;
     }
-    if (!submission || typeof submission !== 'object' || submission.status === 'pending') continue;
+    if (!submission || typeof submission !== 'object' || submission.status !== 'completed') continue;
+    const owner = String(submission.discordUsername || submission.username || '').trim().toLowerCase();
+    if (owner && owner !== String(username).trim().toLowerCase()) continue;
     const bookId = String(submission.bookId || '').trim();
     const title = String(submission.matchedBookName || submission.bookName || '').trim().toLowerCase();
-    const assetId = String(submission.linkId || submission.code || keys[index] || '').trim();
+    const assetId = String(submission.linkId || submission.inviteCode || submission.code || '').trim();
+    if (!assetId) continue;
     const identity = bookId ? `book:${bookId}` : title ? `title:${title}` : assetId ? `asset:${assetId}` : '';
     if (identity) books.add(identity);
   }

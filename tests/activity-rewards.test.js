@@ -458,3 +458,33 @@ test('admin exports fulfillment events and a read-only 5 percent commission stat
   assert.equal(commissions.body.payout_instruction, false);
   assert.equal(commissions.body.requires_prior_payout_reconciliation, true);
 });
+
+test('referral commission includes verified invite-code income', () => {
+  const { grossIncomeSince } = require('../api/_lib/referral-commission');
+  const data = {
+    by_promoter: {
+      referred_child: { links: [], codes: [], invites: ['90031'] },
+    },
+    ad_ids: {
+      '90031': {
+        ad_id: '90031',
+        channel: 'code',
+        daily: [{ dt: '2026-08-11', dn_income: 999 }],
+      },
+      'invite:90031': {
+        ad_id: '90031',
+        channel: 'invite',
+        daily: [
+          { dt: '2026-08-09', dn_income: 100 },
+          { dt: '2026-08-10', dn_income: 12 },
+          { dt: '2026-08-11', dn_income: 8 },
+        ],
+      },
+    },
+  };
+
+  assert.deepEqual(grossIncomeSince(data, 'referred_child', '2026-08-10'), {
+    gross: 20,
+    days: 2,
+  });
+});

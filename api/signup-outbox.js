@@ -1,6 +1,6 @@
 const { Redis } = require('@upstash/redis');
 const { timingSafeEqual } = require('./_lib/security');
-const { OUTBOX_PREFIX, deliverSignupEvent } = require('./_lib/signup-outbox');
+const { OUTBOX_PREFIX, deliverSignupEvent, staleDeliveringEvent } = require('./_lib/signup-outbox');
 
 const MAX_BATCH = 25;
 
@@ -39,7 +39,9 @@ module.exports = async (req, res) => {
         const values = await redis.mget(...keys);
         for (const value of values) {
           const event = parseJson(value);
-          if (event && ['pending', 'retry_pending'].includes(event.status)) events.push(event);
+          if (event && (
+            ['pending', 'retry_pending'].includes(event.status) || staleDeliveringEvent(event)
+          )) events.push(event);
           if (events.length >= MAX_BATCH) break;
         }
       }

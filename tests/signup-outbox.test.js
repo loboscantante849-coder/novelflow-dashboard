@@ -1,15 +1,19 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { installFakeUpstash } = require('./helpers/endpoint');
+const { installFakeUpstash, invoke } = require('./helpers/endpoint');
 const FakeRedis = installFakeUpstash();
 const {
   buildSignupEvent,
+  DELIVERY_LEASE_MS,
   deliverSignupEvent,
+  enrichSignupEvent,
   outboxKey,
   stageSignupEvent,
+  staleDeliveringEvent,
   _resetForTests,
 } = require('../api/_lib/signup-outbox');
+const signupOutboxWorker = require('../api/signup-outbox');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -39,6 +43,43 @@ test('signup events are deterministic and retain only hashed network metadata', 
   assert.equal(first.device, 'iOS');
   assert.match(first.ip_hash, /^[a-f0-9]{24}$/);
   assert.equal(JSON.stringify(first).includes('203.0.113.7'), false);
+});
+
+test('enrichment refuses to create a malformed event when staging is missing', async () => {
+  const redis = new FakeRedis();
+  await assert.rejects(
+    enrichSignupEvent(redis, { event_id: 'signup_missing' }, { member_id: 100 }),
+    error => error && error.code === 'SIGNUP_EVENT_NOT_FOUND',
+  );
+  assert.equal(await redis.get(outboxKey('signup_missing')), null);
+});
+
+test('worker safely resumes only stale delivering events', async () => {
+  process.env.CRON_SECRET = 'signup-worker-test-secret';
+  process.env.KV_REST_API_URL = 'https://redis.invalid';
+  process.env.KV_REST_API_TOKEN = 'test-token';
+  const redis = new FakeRedis();
+  const stale = {
+    ...buildSignupEvent({ username: 'stale-user' }),
+    status: 'delivering',
+    last_attempt_at: new Date(Date.now() - DELIVERY_LEASE_MS - 1000).toISOString(),
+  };
+  const fresh = {
+    ...buildSignupEvent({ username: 'fresh-user' }),
+    status: 'delivering',
+    last_attempt_at: new Date().toISOString(),
+  };
+  await redis.set(outboxKey(stale.event_id), JSON.stringify(stale));
+  await redis.set(outboxKey(fresh.event_id), JSON.stringify(fresh));
+
+  assert.equal(staleDeliveringEvent(stale), true);
+  assert.equal(staleDeliveringEvent(fresh), false);
+  const response = await invoke(signupOutboxWorker, {
+    method: 'GET',
+    headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.processed, 1);
 });
 
 test('delivery reconciles an existing event before creating another row', async () => {

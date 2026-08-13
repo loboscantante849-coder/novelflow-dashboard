@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const OUTBOX_PREFIX = 'nf_outbox:signup:v1:';
 const TOKEN_URL = 'https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal';
 const REQUEST_TIMEOUT_MS = 6000;
+const DELIVERY_LEASE_MS = 10 * 60 * 1000;
 
 let cachedToken = null;
 let cachedTokenExpiresAt = 0;
@@ -134,12 +135,23 @@ async function createAccountWithSignupEvent(redis, passwordKey, passwordHash, in
 }
 
 async function enrichSignupEvent(redis, event, changes = {}) {
-  if (!event) return null;
+  if (!event || !event.event_id) return null;
   const key = outboxKey(event.event_id);
-  const current = parseJson(await redis.get(key), event);
+  const current = parseJson(await redis.get(key), null);
+  if (!current || current.type !== 'signup' || !current.username || !current.registered_at) {
+    const error = new Error('Signup outbox event is missing');
+    error.code = 'SIGNUP_EVENT_NOT_FOUND';
+    throw error;
+  }
   const updated = { ...current, ...changes };
   await redis.set(key, JSON.stringify(updated));
   return updated;
+}
+
+function staleDeliveringEvent(event, now = Date.now()) {
+  if (!event || event.status !== 'delivering') return false;
+  const attemptedAt = Date.parse(event.last_attempt_at || '');
+  return !Number.isFinite(attemptedAt) || now - attemptedAt >= DELIVERY_LEASE_MS;
 }
 
 async function deliverSignupEvent(redis, event) {
@@ -228,6 +240,7 @@ function _resetForTests() {
 }
 
 module.exports = {
+  DELIVERY_LEASE_MS,
   OUTBOX_PREFIX,
   buildSignupEvent,
   configured,
@@ -237,5 +250,6 @@ module.exports = {
   outboxKey,
   signupEventId,
   stageSignupEvent,
+  staleDeliveringEvent,
   _resetForTests,
 };
