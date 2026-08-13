@@ -79,6 +79,8 @@ test('member insights only expose the authenticated account referral tree', asyn
   assert.equal(response.body.member.id, 100);
   assert.equal(response.body.referrals.total, 1);
   assert.equal(response.body.referrals.members[0].username, 'invited-user');
+  assert.match(response.body.recommender.referral_url, /^https:\/\/novelflow\.top\/\?ref=nfref_/);
+  assert.match(response.body.recommender.referral_code, /^nfref_/);
   assert.equal(response.body.recommender.tier, 'standard');
   assert.doesNotMatch(JSON.stringify(response.body), /private-child/);
   assert.doesNotMatch(JSON.stringify(response.body), /payment_account|password|novelflow_id/i);
@@ -101,6 +103,9 @@ test('active recommenders see only post-activation 5 percent commission', async 
   assert.equal(response.body.referrals.members[0].promotion_income, 30);
   assert.equal(response.body.referrals.members[0].commission_accrued, 0.5);
   assert.equal(response.body.recommender.commission_accrued, 0.5);
+  assert.equal(response.body.referrals.reader_new_users, 4);
+  assert.equal(response.body.referrals.promotion_income, 30);
+  assert.match(response.body.recommender.referral_url, /^https:\/\/novelflow\.top\/\?ref=nfref_/);
 });
 
 test('member insights require a valid access token and fail closed for disabled accounts', async () => {

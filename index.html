@@ -1843,46 +1843,73 @@
 
         /* Stats Overview Cards */
         .stats-overview {
-            display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 6px;
-            padding: var(--sp-md) var(--sp-lg);
+            display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 1px;
+            padding: 8px var(--sp-lg) 10px;
             background: #172033;
             margin: 0 calc(-1 * var(--sp-lg));
             border-radius: 0;
         }
-        .stats-overview-card { min-width: 0; text-align: center; padding: 6px 2px; }
-        .stats-overview-icon { font-size: 16px; margin-bottom: 2px; }
-        .stats-overview-value { font-size: 18px; font-weight: 700; color: white; font-feature-settings: "tnum"; white-space: nowrap; }
-        .stats-overview-label { font-size: 9px; line-height: 1.25; color: rgba(255,255,255,0.72); }
+        .stats-overview-card { min-width: 0; min-height: 82px; padding: 9px 8px 8px; text-align: center; }
+        .stats-overview-card:nth-child(-n+3) { grid-column: span 2; }
+        .stats-overview-card:nth-child(n+4) { grid-column: span 3; border-top: 1px solid rgba(255,255,255,.1); }
+        .stats-overview-icon { min-height: 19px; margin-bottom: 4px; font-size: 16px; line-height: 19px; }
+        .stats-overview-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: clamp(17px, 4.3vw, 21px); font-weight: 750; color: white; font-feature-settings: "tnum"; letter-spacing: -.035em; line-height: 1.1; white-space: nowrap; }
+        .stats-overview-label { margin: 4px auto 0; max-width: 118px; font-size: 9px; font-weight: 600; line-height: 1.25; color: rgba(255,255,255,.7); }
         .stats-overview-card.gold .stats-overview-value { color: #F5C451; }
-        .recommender-badge { display:none; width:calc(100% - 32px); margin:14px auto 0; padding:14px; grid-template-columns:42px minmax(0,1fr) auto; gap:12px; align-items:center; border:1px solid #cbd8e8; border-radius:14px; background:linear-gradient(135deg,#f7fbff,#eef5ff); color:#243b5a; font:inherit; text-align:left; cursor:pointer; box-shadow:0 5px 16px rgba(30,64,110,.08); }
+        .recommender-badge { display:none; width:calc(100% - 32px); min-height:84px; margin:16px auto 0; padding:15px 16px; grid-template-columns:46px minmax(0,1fr) auto; gap:13px; align-items:center; border:1px solid #cbd8e8; border-radius:16px; background:linear-gradient(135deg,#f7fbff,#eef5ff); color:#243b5a; font:inherit; text-align:left; cursor:pointer; box-shadow:0 5px 16px rgba(30,64,110,.08); transition:transform .18s ease,box-shadow .18s ease; }
         .recommender-badge.show { display:grid; }
-        .recommender-badge.premium { border-color:#c6a45d; background:radial-gradient(circle at 90% 15%,rgba(218,181,105,.22),transparent 34%),linear-gradient(135deg,#111722,#202b3e); color:#f0d291; box-shadow:0 8px 24px rgba(8,13,22,.22); }
-        .recommender-badge .badge-mark { width:42px; height:42px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #b8c9dd; border-radius:13px; background:#fff; color:#31557e; font-size:20px; }
-        .recommender-badge.premium .badge-mark { border-color:#c6a45d; background:rgba(198,164,93,.13); color:#f0d291; }
+        .recommender-badge:hover { transform:translateY(-1px); box-shadow:0 9px 22px rgba(30,64,110,.13); }
+        .recommender-badge:focus-visible { outline:3px solid rgba(83,58,253,.3); outline-offset:3px; }
+        .recommender-badge.premium { border-color:rgba(211,174,93,.75); background:radial-gradient(circle at 100% 0,rgba(226,190,111,.2),transparent 34%),linear-gradient(135deg,#101724,#202c3d); color:#f5d995; box-shadow:0 10px 26px rgba(8,13,22,.2); }
+        .recommender-badge .badge-mark { width:46px; height:46px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #b8c9dd; border-radius:15px; background:#fff; color:#31557e; font:800 17px/1 Georgia,serif; letter-spacing:-.06em; }
+        .recommender-badge.premium .badge-mark { border-color:rgba(230,196,119,.7); background:linear-gradient(135deg,rgba(226,190,111,.22),rgba(226,190,111,.04)); color:#f5d995; }
         .recommender-badge-copy { min-width:0; }
-        .recommender-badge-title { display:block; font-size:13px; font-weight:800; }
-        .recommender-badge-sub { display:block; margin-top:3px; color:#60758e; font-size:10px; line-height:1.35; }
+        .recommender-badge-eyebrow { display:block; margin-bottom:3px; color:#7890a9; font-size:9px; font-weight:800; letter-spacing:.11em; text-transform:uppercase; }
+        .recommender-badge.premium .recommender-badge-eyebrow { color:#d4b26e; }
+        .recommender-badge-title { display:block; font-size:15px; font-weight:800; letter-spacing:-.02em; }
+        .recommender-badge-sub { display:block; margin-top:4px; color:#60758e; font-size:10px; line-height:1.35; }
         .recommender-badge.premium .recommender-badge-sub { color:rgba(255,255,255,.62); }
-        .recommender-badge-arrow { font-size:18px; }
+        .recommender-badge-arrow { width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background:rgba(255,255,255,.08); color:inherit; font-size:21px; }
+        .member-detail-hero { padding:20px 18px 18px; background:radial-gradient(circle at 100% 0,rgba(226,190,111,.24),transparent 37%),linear-gradient(135deg,#101724,#202c3d); color:#fff; }
+        .member-detail-hero.standard { background:linear-gradient(135deg,#edf4fb,#ffffff); color:#243b5a; }
+        .member-detail-kicker { color:#d7b66f; font-size:9px; font-weight:800; letter-spacing:.13em; text-transform:uppercase; }
+        .member-detail-hero.standard .member-detail-kicker { color:#58789d; }
+        .member-detail-hero-title { margin-top:5px; font:700 23px/1.05 Georgia,'Times New Roman',serif; letter-spacing:-.025em; }
+        .member-detail-hero-copy { margin-top:7px; max-width:390px; color:rgba(255,255,255,.67); font-size:11px; line-height:1.45; }
+        .member-detail-hero.standard .member-detail-hero-copy { color:#60758e; }
+        .member-detail-link { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center; margin-top:15px; padding:9px 10px; border:1px solid rgba(230,196,119,.34); border-radius:10px; background:rgba(0,0,0,.14); }
+        .member-detail-link-label { margin-top:13px; color:rgba(255,255,255,.68); font-size:9px; font-weight:700; letter-spacing:.04em; }
+        .member-detail-hero.standard .member-detail-link-label { color:#60758e; }
+        .member-detail-hero.standard .member-detail-link { border-color:#d6e2f0; background:rgba(255,255,255,.72); }
+        .member-detail-link code { min-width:0; overflow:hidden; color:#f7dfaa; font:700 11px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; text-overflow:ellipsis; white-space:nowrap; }
+        .member-detail-hero.standard .member-detail-link code { color:#31557e; }
+        .member-detail-copy { min-height:32px; padding:6px 9px; border:1px solid rgba(230,196,119,.6); border-radius:8px; background:rgba(230,196,119,.12); color:#f5d995; font:700 10px/1 inherit; cursor:pointer; }
+        .member-detail-hero.standard .member-detail-copy { border-color:#abc3dc; background:#fff; color:#31557e; }
         .member-detail-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; padding:14px; }
-        .member-detail-metric { padding:12px; border:1px solid var(--hairline); border-radius:7px; background:var(--canvas-soft); text-align:center; }
-        .member-detail-metric strong { display:block; color:var(--ink); font-size:18px; }
-        .member-detail-metric span { display:block; margin-top:3px; color:var(--ink-mute); font-size:10px; line-height:1.25; }
+        .member-detail-metric { min-width:0; padding:12px 7px; border:1px solid var(--hairline); border-radius:10px; background:var(--canvas-soft); text-align:center; }
+        .member-detail-metric strong { display:block; overflow:hidden; color:var(--ink); font-size:17px; text-overflow:ellipsis; white-space:nowrap; }
+        .member-detail-metric span { display:block; margin-top:4px; color:var(--ink-mute); font-size:9px; font-weight:600; line-height:1.25; }
+        .member-detail-list-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding:2px 16px 8px; }
+        .member-detail-list-head strong { color:var(--ink); font-size:13px; }
+        .member-detail-list-head span { color:var(--ink-mute); font-size:10px; }
+        .member-detail-scope-note { margin:0 14px 10px; padding:8px 10px; border-radius:8px; background:#fff7e3; color:#705719; font-size:10px; line-height:1.4; }
         .member-detail-list { padding:0 14px 16px; display:flex; flex-direction:column; gap:8px; }
-        .member-detail-row { display:grid; grid-template-columns:minmax(100px,1.2fr) repeat(3,minmax(64px,.7fr)); gap:8px; align-items:center; padding:11px 12px; border:1px solid var(--hairline); border-radius:7px; background:#fff; }
+        .member-detail-row { display:grid; grid-template-columns:minmax(100px,1.2fr) repeat(3,minmax(64px,.7fr)); gap:8px; align-items:center; padding:11px 12px; border:1px solid var(--hairline); border-radius:10px; background:#fff; }
         .member-detail-name { min-width:0; }
         .member-detail-name strong,.member-detail-name span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .member-detail-name strong { font-size:12px; color:var(--ink); }
         .member-detail-name span,.member-detail-cell span { display:block; color:var(--ink-mute); font-size:9px; }
         .member-detail-cell { text-align:right; font-size:12px; font-weight:700; color:var(--ink); }
         .member-detail-empty { padding:28px 16px; color:var(--ink-mute); text-align:center; font-size:12px; }
-        #referralDetailsModal .activity-panel,
-        #referralDetailsModal .activity-header,
+        #referralDetailsModal .activity-panel { width:min(640px,100%); border:1px solid #d5dee9; background:#fff; }
+        #referralDetailsModal .activity-header { border-bottom-color:#263344; background:#172033; }
+        #referralDetailsModal .activity-title { color:#f2d9a5; }
+        #referralDetailsModal .activity-close { background:rgba(255,255,255,.08); color:#f2d9a5; }
         #referralDetailsModal .activity-body { background:#fff; }
         @media (max-width: 520px) {
-            .stats-overview { grid-template-columns:repeat(2,minmax(0,1fr)); margin-left:0; margin-right:0; }
-            .stats-overview-card:last-child { grid-column:1 / -1; }
-            .member-detail-summary { grid-template-columns:1fr; }
+            .stats-overview { margin-left:0; margin-right:0; }
+            .member-detail-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+            .member-detail-metric:last-child { grid-column:1 / -1; }
             .member-detail-row { grid-template-columns:minmax(100px,1fr) repeat(2,minmax(58px,.6fr)); }
             .member-detail-row .member-detail-cell:nth-child(3) { display:none; }
         }
@@ -3465,8 +3492,8 @@
                 </div>
             </div>
             <button class="recommender-badge" id="recommenderBadge" type="button" data-nf-action="open-referral-details">
-                <span class="badge-mark" aria-hidden="true">&#9826;</span>
-                <span class="recommender-badge-copy"><span class="recommender-badge-title" id="recommenderBadgeText">Recommender</span><span class="recommender-badge-sub" id="recommenderBadgeSub"></span></span>
+                <span class="badge-mark" aria-hidden="true">N</span>
+                <span class="recommender-badge-copy"><span class="recommender-badge-eyebrow" id="recommenderBadgeEyebrow">Partner status</span><span class="recommender-badge-title" id="recommenderBadgeText">Recommender</span><span class="recommender-badge-sub" id="recommenderBadgeSub"></span></span>
                 <span class="recommender-badge-arrow" aria-hidden="true">&#8250;</span>
             </button>
             <div id="statsLoadingArea"></div>
@@ -4284,8 +4311,25 @@
                 profile_platform_registrations: 'Platform Registrations',
                 recommender_standard: 'NovelFlow Recommender',
                 recommender_premium: 'Premium Recommender',
-                recommender_identity_sub: '{count} platform registrations · View network',
+                recommender_identity_eyebrow: 'Partner status',
+                recommender_identity_sub: '{count} direct registrations · View network',
                 referral_details_title: 'Referral Network',
+                referral_details_kicker: 'Your recommender workspace',
+                referral_details_premium_copy: 'Your referral network earns a protected 5% share after activation. Review your direct registrations and measured results below.',
+                referral_details_standard_copy: 'Share your personal invite link to grow your direct registration network.',
+                referral_link_label: 'Your personal invite link',
+                referral_copy_link: 'Copy link',
+                referral_link_copied: 'Invite link copied',
+                referral_network_members: 'Network members',
+                referral_network_reader_users: 'Reader new users',
+                referral_network_promotion: 'Network promotion',
+                referral_network_slot: 'Partner seat',
+                referral_network_rate: 'Commission rate',
+                referral_network_commission: 'Cumulative commission',
+                referral_network_list: 'Direct registrations',
+                referral_network_list_hint: 'Only accounts registered through your personal link are shown.',
+                referral_network_list_progress: 'Showing {returned} of {total} direct registrations.',
+                referral_network_scope_limited: 'The network totals below cover the displayed direct registrations.',
                 referral_direct_members: 'Direct Members',
                 referral_total_commission: '5% Commission',
                 referral_member_income: 'Promotion',
@@ -4788,8 +4832,25 @@
                 profile_platform_registrations: 'Registros en la plataforma',
                 recommender_standard: 'Recomendador NovelFlow',
                 recommender_premium: 'Recomendador premium',
-                recommender_identity_sub: '{count} registros en la plataforma · Ver red',
+                recommender_identity_eyebrow: 'Estado de socio',
+                recommender_identity_sub: '{count} registros directos · Ver red',
                 referral_details_title: 'Red de referidos',
+                referral_details_kicker: 'Tu espacio de recomendador',
+                referral_details_premium_copy: 'Tu red de referidos genera una participación protegida del 5% después de la activación. Revisa tus registros directos y resultados medidos.',
+                referral_details_standard_copy: 'Comparte tu enlace personal para ampliar tu red de registros directos.',
+                referral_link_label: 'Tu enlace personal de invitación',
+                referral_copy_link: 'Copiar enlace',
+                referral_link_copied: 'Enlace de invitación copiado',
+                referral_network_members: 'Miembros de la red',
+                referral_network_reader_users: 'Nuevos lectores',
+                referral_network_promotion: 'Promoción de la red',
+                referral_network_slot: 'Plaza de socio',
+                referral_network_rate: 'Tasa de comisión',
+                referral_network_commission: 'Comisión acumulada',
+                referral_network_list: 'Registros directos',
+                referral_network_list_hint: 'Solo se muestran cuentas registradas mediante tu enlace personal.',
+                referral_network_list_progress: 'Mostrando {returned} de {total} registros directos.',
+                referral_network_scope_limited: 'Los totales de red a continuación cubren los registros directos mostrados.',
                 referral_direct_members: 'Miembros directos',
                 referral_total_commission: 'Comisi\u00f3n del 5%',
                 referral_member_income: 'Promoci\u00f3n',
@@ -7544,7 +7605,9 @@
 
         function moneyOrDash(value) {
             if (value === null || value === undefined || value === '') return '--';
-            return Number.isFinite(Number(value)) ? '$' + Number(value).toFixed(2) : '--';
+            return Number.isFinite(Number(value))
+                ? '$' + Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                : '--';
         }
 
         function renderMemberOverview() {
@@ -7575,11 +7638,13 @@
             const badge = document.getElementById('recommenderBadge');
             const badgeText = document.getElementById('recommenderBadgeText');
             const badgeSub = document.getElementById('recommenderBadgeSub');
+            const badgeEyebrow = document.getElementById('recommenderBadgeEyebrow');
             const tier = data && data.recommender && data.recommender.tier || 'none';
             if (badge) {
                 badge.classList.toggle('show', tier !== 'none');
                 badge.classList.toggle('premium', tier === 'premium');
             }
+            if (badgeEyebrow && tier !== 'none') badgeEyebrow.textContent = getText('recommender_identity_eyebrow');
             if (badgeText && tier !== 'none') badgeText.textContent = getText(tier === 'premium' ? 'recommender_premium' : 'recommender_standard');
             if (badgeSub && tier !== 'none') {
                 const count = data && data.referrals ? Number(data.referrals.total || 0).toLocaleString() : '0';
@@ -7628,9 +7693,37 @@
             const referrals = data.referrals;
             const recommender = data.recommender || {};
             const members = Array.isArray(referrals.members) ? referrals.members : [];
-            const summary = '<div class="member-detail-summary"><div class="member-detail-metric"><strong>' + Number(referrals.total || 0).toLocaleString() + '</strong><span>' + escapeHtml(getText('referral_direct_members')) + '</span></div><div class="member-detail-metric"><strong>' + moneyOrDash(recommender.commission_accrued) + '</strong><span>' + escapeHtml(getText('referral_total_commission')) + '</span></div><div class="member-detail-metric"><strong>' + (recommender.tier === 'premium' ? '5%' : '--') + '</strong><span>' + escapeHtml(getText(recommender.tier === 'premium' ? 'recommender_premium' : 'recommender_standard')) + '</span></div></div>';
-            const rows = members.map(member => '<div class="member-detail-row"><div class="member-detail-name"><strong>' + escapeHtml(member.username || '') + '</strong><span>ID ' + escapeHtml(member.member_id || '--') + '</span></div><div class="member-detail-cell">' + moneyOrDash(member.promotion_income) + '<span>' + escapeHtml(getText('referral_member_income')) + '</span></div><div class="member-detail-cell">' + (Number.isFinite(Number(member.app_new_users)) ? Number(member.app_new_users).toLocaleString() : '--') + '<span>' + escapeHtml(getText('referral_member_app_users')) + '</span></div><div class="member-detail-cell">' + moneyOrDash(member.commission_accrued) + '<span>' + escapeHtml(getText('referral_member_commission')) + '</span></div></div>').join('');
-            body.innerHTML = summary + '<div class="member-detail-list">' + (rows || '<div class="member-detail-empty">' + escapeHtml(getText('referral_empty')) + '</div>') + '</div>';
+            const premium = recommender.tier === 'premium';
+            const referralUrl = String(recommender.referral_url || '');
+            const networkReaderUsers = Number.isFinite(Number(referrals.reader_new_users)) ? Number(referrals.reader_new_users).toLocaleString() : '--';
+            const totalReferrals = Number(referrals.total || 0);
+            const returnedReferrals = Number(referrals.returned || members.length);
+            const listHint = referrals.truncated
+                ? getText('referral_network_list_progress').replace('{returned}', returnedReferrals.toLocaleString()).replace('{total}', totalReferrals.toLocaleString())
+                : getText('referral_network_list_hint');
+            const hero = '<section class="member-detail-hero' + (premium ? '' : ' standard') + '"><div class="member-detail-kicker">' + escapeHtml(getText('referral_details_kicker')) + '</div><div class="member-detail-hero-title">' + escapeHtml(getText(premium ? 'recommender_premium' : 'recommender_standard')) + '</div><div class="member-detail-hero-copy">' + escapeHtml(getText(premium ? 'referral_details_premium_copy' : 'referral_details_standard_copy')) + '</div>' +
+                (referralUrl ? '<div class="member-detail-link-label">' + escapeHtml(getText('referral_link_label')) + '</div><div class="member-detail-link"><code title="' + escapeHtml(referralUrl) + '">' + escapeHtml(referralUrl) + '</code><button class="member-detail-copy" type="button" onclick="copyMemberReferralLink()">' + escapeHtml(getText('referral_copy_link')) + '</button></div>' : '') + '</section>';
+            const summary = '<div class="member-detail-summary"><div class="member-detail-metric"><strong>' + Number(referrals.total || 0).toLocaleString() + '</strong><span>' + escapeHtml(getText('referral_network_members')) + '</span></div><div class="member-detail-metric"><strong>' + moneyOrDash(recommender.commission_accrued) + '</strong><span>' + escapeHtml(getText('referral_network_commission')) + '</span></div><div class="member-detail-metric"><strong>' + (premium ? '5%' : '--') + '</strong><span>' + escapeHtml(getText('referral_network_rate')) + '</span></div><div class="member-detail-metric"><strong>' + networkReaderUsers + '</strong><span>' + escapeHtml(getText('referral_network_reader_users')) + '</span></div><div class="member-detail-metric"><strong>' + moneyOrDash(referrals.promotion_income) + '</strong><span>' + escapeHtml(getText('referral_network_promotion')) + '</span></div><div class="member-detail-metric"><strong>' + (recommender.slot ? '#' + Number(recommender.slot) : '--') + '</strong><span>' + escapeHtml(getText('referral_network_slot')) + '</span></div></div>';
+            const rows = members.map(member => '<div class="member-detail-row"><div class="member-detail-name"><strong>' + escapeHtml(member.username || '') + '</strong><span>ID ' + escapeHtml(member.member_id || '--') + ' · ' + (Number.isFinite(Number(member.app_new_users)) ? Number(member.app_new_users).toLocaleString() : '--') + ' ' + escapeHtml(getText('referral_member_app_users')) + '</span></div><div class="member-detail-cell">' + moneyOrDash(member.promotion_income) + '<span>' + escapeHtml(getText('referral_member_income')) + '</span></div><div class="member-detail-cell">' + (Number.isFinite(Number(member.app_new_users)) ? Number(member.app_new_users).toLocaleString() : '--') + '<span>' + escapeHtml(getText('referral_member_app_users')) + '</span></div><div class="member-detail-cell">' + moneyOrDash(member.commission_accrued) + '<span>' + escapeHtml(getText('referral_member_commission')) + '</span></div></div>').join('');
+            body.innerHTML = hero + (referrals.truncated ? '<div class="member-detail-scope-note">' + escapeHtml(getText('referral_network_scope_limited')) + '</div>' : '') + summary + '<div class="member-detail-list-head"><strong>' + escapeHtml(getText('referral_network_list')) + '</strong><span>' + escapeHtml(listHint) + '</span></div><div class="member-detail-list">' + (rows || '<div class="member-detail-empty">' + escapeHtml(getText('referral_empty')) + '</div>') + '</div>';
+        }
+
+        function copyMemberReferralLink() {
+            const referralUrl = String(MemberInsights.data && MemberInsights.data.recommender && MemberInsights.data.recommender.referral_url || '');
+            if (!referralUrl) return;
+            const copied = () => showToast(getText('referral_link_copied'), 'success');
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(referralUrl).then(copied).catch(() => showToast(getText('invite_code_copy_failed'), 'error'));
+                return;
+            }
+            const textarea = document.createElement('textarea');
+            textarea.value = referralUrl;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try { document.execCommand('copy'); copied(); } catch (_) { showToast(getText('invite_code_copy_failed'), 'error'); }
+            textarea.remove();
         }
 
         function openReferralDetails() {
