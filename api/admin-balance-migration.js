@@ -431,10 +431,14 @@ module.exports = async (req, res) => {
       busy: results.filter(result => result.status === 'busy').length,
       errors: results.filter(result => result.status === 'error').length,
     };
-    return res.status(200).json({
-      success: counts.errors === 0,
+    const complete = counts.errors === 0 && counts.busy === 0;
+    return res.status(complete ? 200 : 409).json({
+      success: complete,
       dry_run: false,
-      applied: true,
+      applied: complete,
+      complete,
+      partially_applied: !complete && counts.applied > 0,
+      retry_required: counts.busy > 0,
       ...baseResponse(analysis),
       result: {
         ...counts,

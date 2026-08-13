@@ -28,6 +28,7 @@ const { bindPasswordPrincipal, claimIdentity, resolvePasswordPrincipal } = requi
 const { isProtectedPromoterUsername } = require('../_lib/promoter-access');
 const { extractReferralCode, finalizePendingReferral, stageReferral, validateReferral } = require('../_lib/referrals');
 const { ensureMemberIdentity } = require('../_lib/member-identity');
+const { createAccountWithSignupEvent, deliverSignupEvent, enrichSignupEvent, signupEventId } = require('../_lib/signup-outbox');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -36,9 +37,10 @@ function getRedis() {
 
 function getClientIp(req) {
   const fwd = req.headers['x-forwarded-for'];
-  if (fwd) return String(fwd).split(',')[0].trim();
-  return (req.connection && req.connection.remoteAddress) ||
-         (req.socket && req.socket.remoteAddress) || 'unknown';
+  const value = fwd ? String(fwd).split(',')[0].trim() :
+    ((req.connection && req.connection.remoteAddress) ||
+     (req.socket && req.socket.remoteAddress) || 'unknown');
+  return String(value).slice(0, 128);
 }
 
 // Sliding-window-ish rate limit: incr + expire on first hit
@@ -52,7 +54,7 @@ async function rlCheck(redis, key, limit, windowSec) {
       return { allowed: false, retryAfter: Math.max(1, ttl) };
     }
     return { allowed: true };
-  } catch { return { allowed: true }; }
+  } catch { return { allowed: false, unavailable: true }; }
 }
 
 const USERNAME_RE = /^[\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9_.@\- ]{1,50}$/;
@@ -106,6 +108,9 @@ module.exports = async (req, res) => {
     if (redis) {
       // IP-based global limit: 10 attempts / 15 min
       const ipRL = await rlCheck(redis, 'nf_login_ip:' + ip, 10, 900);
+      if (ipRL.unavailable) {
+        return res.status(503).json({ error: 'Registration service temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
+      }
       if (!ipRL.allowed) {
         return res.status(429).json({ error: 'Too many login attempts', retryAfter: ipRL.retryAfter });
       }
@@ -122,6 +127,7 @@ module.exports = async (req, res) => {
     let passedAuth = false;
     let authenticatedPayload = null;
     let referralToBind = null;
+    let signupEvent = null;
 
     {
       const passwordKey = 'nf_user_pass:' + usernameKey;
@@ -191,7 +197,18 @@ module.exports = async (req, res) => {
         if (!isValidPassword(password)) {
           return res.status(400).json({ error: 'Password must be at least 8 characters with a letter and a number', needPassword: true, mustSetPassword: true });
         }
-        const created = await redis.set(passwordKey, await createPasswordHash(password), { nx: true });
+        const createdEvent = await createAccountWithSignupEvent(
+          redis,
+          passwordKey,
+          await createPasswordHash(password),
+          {
+            username: usernameKey,
+            referralCode: referralToBind || '',
+            ip,
+            userAgent: (req.headers && req.headers['user-agent']) || '',
+          },
+        );
+        const created = Boolean(createdEvent);
         if (!created) {
           return res.status(409).json({ error: 'Password status changed. Please sign in again.', code: 'PASSWORD_ALREADY_SET' });
         }
@@ -224,8 +241,18 @@ module.exports = async (req, res) => {
         if (!await claimIdentity(redis, usernameKey, `local:${usernameKey}`)) {
           return res.status(409).json({ error: 'This username belongs to another sign-in method', code: 'ACCOUNT_IDENTITY_CONFLICT' });
         }
-        const created = await redis.set(passwordKey, await createPasswordHash(password), { nx: true });
-        if (!created) {
+        signupEvent = await createAccountWithSignupEvent(
+          redis,
+          passwordKey,
+          await createPasswordHash(password),
+          {
+            username: usernameKey,
+            referralCode: referralToBind || '',
+            ip,
+            userAgent: (req.headers && req.headers['user-agent']) || '',
+          },
+        );
+        if (!signupEvent) {
           return res.status(409).json({ error: 'Account already exists. Please sign in.', code: 'ACCOUNT_ALREADY_EXISTS' });
         }
         passedAuth = true;
@@ -242,9 +269,10 @@ module.exports = async (req, res) => {
         !await bindPasswordPrincipal(redis, usernameKey, passwordPrincipal)) {
       return res.status(409).json({ error: 'Account identity recovery is required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
     }
+    let finalizedReferral = null;
     try {
       if (isNewUser && referralToBind) await stageReferral(redis, usernameKey, referralToBind);
-      await finalizePendingReferral(redis, usernameKey);
+      finalizedReferral = await finalizePendingReferral(redis, usernameKey);
     } catch (error) {
       console.warn('[auth/register] Referral binding deferred:', error && error.code || error && error.message);
     }
@@ -295,6 +323,21 @@ module.exports = async (req, res) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         }).catch(() => {});
+      }
+
+      // Persist the independent registration sink before returning. Delivery
+      // is best-effort, but a failed call remains in Redis for a cron retry.
+      try {
+        const enrichedSignupEvent = await enrichSignupEvent(redis, signupEvent || {
+          event_id: signupEventId(usernameKey),
+        }, {
+          member_id: member && member.id || null,
+          referral_code: finalizedReferral && finalizedReferral.referral_code || referralToBind || '',
+          inviter: finalizedReferral && finalizedReferral.parent || '',
+        });
+        await deliverSignupEvent(redis, enrichedSignupEvent);
+      } catch (error) {
+        console.warn('[auth/register] Signup outbox staging failed:', error && error.message);
       }
     }
 

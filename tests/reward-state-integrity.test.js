@@ -42,6 +42,7 @@ test('server reward snapshot overwrites stale browser values, including decrease
     novelflow_claimed_zoe: JSON.stringify({ forged: true }),
     novelflow_vip_days_zoe: '30',
     novelflow_bonus_balance_zoe: '80',
+    novelflow_reward_income_total_zoe: '80',
     novelflow_bind_id_zoe: 'stale-id',
     novelflow_bonus_campaign1_claimed_zoe: '1',
     novelflow_streak_grand_claimed_zoe: '2026-07-01',
@@ -51,6 +52,7 @@ test('server reward snapshot overwrites stale browser values, including decrease
     claimed: {},
     vip_days: 0,
     bonus_balance: 0,
+    reward_income_total: 0,
     bind_id: null,
     bonus_campaign1_claimed: null,
     streak_grand_claimed: null,
@@ -61,6 +63,7 @@ test('server reward snapshot overwrites stale browser values, including decrease
   assert.deepEqual(JSON.parse(values.get('novelflow_claimed_zoe')), {});
   assert.equal(values.get('novelflow_vip_days_zoe'), '0');
   assert.equal(values.get('novelflow_bonus_balance_zoe'), '0');
+  assert.equal(values.get('novelflow_reward_income_total_zoe'), '0');
   assert.equal(values.has('novelflow_bind_id_zoe'), false);
   assert.equal(values.has('novelflow_bonus_campaign1_claimed_zoe'), false);
   assert.equal(values.has('novelflow_streak_grand_claimed_zoe'), false);
@@ -73,6 +76,20 @@ test('browser integrity code cannot clear server-managed reward state', () => {
 
   const collectData = source.slice(source.indexOf('collectData() {'), source.indexOf('// Push local data to cloud'));
   assert.doesNotMatch(collectData, /claimed|points|checkin|vip_days|bonus_balance|bind_id/);
+});
+
+test('Tasks and Earnings display only classified activity rewards as Bonus', () => {
+  const bonusReader = source.slice(
+    source.indexOf('function getBonusBalance()'),
+    source.indexOf('function addBonus'),
+  );
+  const earningsRenderer = source.slice(
+    source.indexOf('function renderEarnings(data)'),
+    source.indexOf('function mondayOf', source.indexOf('function renderEarnings(data)')),
+  );
+  assert.match(bonusReader, /reward_income_total/);
+  assert.doesNotMatch(bonusReader, /getUserKey\('bonus_balance'\)/);
+  assert.match(earningsRenderer, /data\.reward_income_total/);
 });
 
 test('every successful login and session restore path enables authoritative cloud sync', () => {

@@ -80,9 +80,10 @@ module.exports = async (req, res) => {
     // 2. Load submissions from Redis
     const submissions = redis ? await loadSubmissions(redis, username, isAdmin, IS_PROD ? [] : debugLog) : [];
 
-    // 3. Load covers
+    // Covers are loaded after attribution is resolved so legacy pipeline-only
+    // book IDs share the same bounded backfill budget as Redis submissions.
     const bookIds = submissions.map(s => s.bookId).filter(Boolean);
-    const covers = redis ? await loadCovers(redis, bookIds, IS_PROD ? [] : debugLog) : {};
+    let covers = {};
 
     // Helper to strip debug from response body
     const finalize = (obj) => {
@@ -101,6 +102,22 @@ module.exports = async (req, res) => {
       }
       const { byAdId, promoterEntry, promoterEntries } =
         buildAdIdLookup(adData, usernameCanon, isAdmin, submissions);
+
+      // Some legacy pipeline rows predate nf_subs but still carry a trusted
+      // bookId. User profiles resolve every source with one shared external
+      // lookup budget; admin-wide views only read existing metadata/cache.
+      const attributedBookIds = isAdmin ? [] : Object.values(byAdId || {})
+        .map(entry => entry && entry.book_id)
+        .filter(Boolean);
+      if (bookIds.length || attributedBookIds.length) {
+        covers = await loadCovers(redis, [...bookIds, ...attributedBookIds], IS_PROD ? [] : debugLog, {
+          submissions,
+          backfill: !isAdmin,
+          maxLookups: 12,
+          concurrency: 3,
+          timeoutMs: 3000,
+        });
+      }
 
       if (isAdmin) {
         const books = [];
@@ -272,7 +289,7 @@ module.exports = async (req, res) => {
             linkId: isCode || isInvite ? null : adId,
             submittedAt: null,
             kocName: username,
-            cover: '',
+            cover: st.book_id ? (covers[st.book_id] || '') : '',
             visits: st.pull_uv || 0,
             unique_users: st.pull_uv || 0,
             new_users: st.new_uv || 0,
@@ -339,7 +356,12 @@ module.exports = async (req, res) => {
       const books = [];
       const aggDaily = {};
       const covIds = matched.links.map(l => l.bookId).filter(Boolean);
-      const fallbackCovers = redis && covIds.length ? await loadCovers(redis, covIds, IS_PROD ? [] : debugLog) : {};
+      const fallbackCovers = redis && covIds.length ? await loadCovers(redis, covIds, IS_PROD ? [] : debugLog, {
+        backfill: true,
+        maxLookups: 12,
+        concurrency: 3,
+        timeoutMs: 3000,
+      }) : {};
       for (const l of matched.links) {
         const dn = r2(l.dn || l.d14_income || l.subscription_revenue || 0);
         if (l.unique_daily) for (const [dt, v] of Object.entries(l.unique_daily)) {

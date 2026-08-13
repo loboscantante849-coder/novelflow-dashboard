@@ -1160,9 +1160,9 @@
         .activity-title { color: #f3d59b; letter-spacing: .02em; }
         .activity-close { background: rgba(255,255,255,.08); color: #efd39d; }
         .activity-close:hover { background: rgba(202,163,82,.18); color: #fff; }
-        .activity-hero { display: grid; grid-template-columns: 210px minmax(0,1fr); min-height: 250px; padding: 0; background: #090a0d; color: white; overflow: hidden; }
-        .activity-hero-poster { min-height: 250px; overflow: hidden; border-right: 1px solid rgba(202,163,82,.28); background: #030303; }
-        .activity-hero-poster img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 20%; }
+        .activity-hero { display: block; padding: 0; background: #030303; color: white; overflow: hidden; }
+        .activity-hero-poster { width: 100%; aspect-ratio: 1 / 1; overflow: hidden; background: #030303; }
+        .activity-hero-poster img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; }
         .activity-hero-copy { display: flex; flex-direction: column; justify-content: center; padding: 30px 30px 28px; background: radial-gradient(circle at 92% 12%, rgba(202,163,82,.16), transparent 36%), #090a0d; }
         .activity-hero-kicker { color: #d9b66f; letter-spacing: .12em; }
         .activity-hero-title { max-width: 420px; font: 600 30px/1.08 Georgia, 'Times New Roman', serif; letter-spacing: -.02em; }
@@ -1219,10 +1219,7 @@
             .activity-panel { width: 100%; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
             .activity-header { min-height: 52px; }
             .activity-body { flex:1; }
-            .activity-hero { grid-template-columns: 112px minmax(0,1fr); min-height: 176px; }
-            .activity-hero-poster { min-height: 176px; }
-            .activity-hero-copy { padding: 20px 16px; }
-            .activity-hero-title { font-size: 22px; }
+            .activity-hero-poster { aspect-ratio: 1 / 1; }
             .activity-input-row { grid-template-columns: 1fr; }
             .activity-action { width: 100%; white-space: normal; }
             .activity-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1843,46 +1840,73 @@
 
         /* Stats Overview Cards */
         .stats-overview {
-            display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 6px;
-            padding: var(--sp-md) var(--sp-lg);
+            display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 1px;
+            padding: 8px var(--sp-lg) 10px;
             background: #172033;
             margin: 0 calc(-1 * var(--sp-lg));
             border-radius: 0;
         }
-        .stats-overview-card { min-width: 0; text-align: center; padding: 6px 2px; }
-        .stats-overview-icon { font-size: 16px; margin-bottom: 2px; }
-        .stats-overview-value { font-size: 18px; font-weight: 700; color: white; font-feature-settings: "tnum"; white-space: nowrap; }
-        .stats-overview-label { font-size: 9px; line-height: 1.25; color: rgba(255,255,255,0.72); }
+        .stats-overview-card { min-width: 0; min-height: 82px; padding: 9px 8px 8px; text-align: center; }
+        .stats-overview-card:nth-child(-n+3) { grid-column: span 2; }
+        .stats-overview-card:nth-child(n+4) { grid-column: span 3; border-top: 1px solid rgba(255,255,255,.1); }
+        .stats-overview-icon { min-height: 19px; margin-bottom: 4px; font-size: 16px; line-height: 19px; }
+        .stats-overview-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: clamp(17px, 4.3vw, 21px); font-weight: 750; color: white; font-feature-settings: "tnum"; letter-spacing: -.035em; line-height: 1.1; white-space: nowrap; }
+        .stats-overview-label { margin: 4px auto 0; max-width: 118px; font-size: 9px; font-weight: 600; line-height: 1.25; color: rgba(255,255,255,.7); }
         .stats-overview-card.gold .stats-overview-value { color: #F5C451; }
-        .recommender-badge { display:none; width:calc(100% - 32px); margin:14px auto 0; padding:14px; grid-template-columns:42px minmax(0,1fr) auto; gap:12px; align-items:center; border:1px solid #cbd8e8; border-radius:14px; background:linear-gradient(135deg,#f7fbff,#eef5ff); color:#243b5a; font:inherit; text-align:left; cursor:pointer; box-shadow:0 5px 16px rgba(30,64,110,.08); }
+        .recommender-badge { display:none; width:calc(100% - 32px); min-height:84px; margin:16px auto 0; padding:15px 16px; grid-template-columns:46px minmax(0,1fr) auto; gap:13px; align-items:center; border:1px solid #cbd8e8; border-radius:16px; background:linear-gradient(135deg,#f7fbff,#eef5ff); color:#243b5a; font:inherit; text-align:left; cursor:pointer; box-shadow:0 5px 16px rgba(30,64,110,.08); transition:transform .18s ease,box-shadow .18s ease; }
         .recommender-badge.show { display:grid; }
-        .recommender-badge.premium { border-color:#c6a45d; background:radial-gradient(circle at 90% 15%,rgba(218,181,105,.22),transparent 34%),linear-gradient(135deg,#111722,#202b3e); color:#f0d291; box-shadow:0 8px 24px rgba(8,13,22,.22); }
-        .recommender-badge .badge-mark { width:42px; height:42px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #b8c9dd; border-radius:13px; background:#fff; color:#31557e; font-size:20px; }
-        .recommender-badge.premium .badge-mark { border-color:#c6a45d; background:rgba(198,164,93,.13); color:#f0d291; }
+        .recommender-badge:hover { transform:translateY(-1px); box-shadow:0 9px 22px rgba(30,64,110,.13); }
+        .recommender-badge:focus-visible { outline:3px solid rgba(83,58,253,.3); outline-offset:3px; }
+        .recommender-badge.premium { border-color:rgba(211,174,93,.75); background:radial-gradient(circle at 100% 0,rgba(226,190,111,.2),transparent 34%),linear-gradient(135deg,#101724,#202c3d); color:#f5d995; box-shadow:0 10px 26px rgba(8,13,22,.2); }
+        .recommender-badge .badge-mark { width:46px; height:46px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #b8c9dd; border-radius:15px; background:#fff; color:#31557e; font:800 17px/1 Georgia,serif; letter-spacing:-.06em; }
+        .recommender-badge.premium .badge-mark { border-color:rgba(230,196,119,.7); background:linear-gradient(135deg,rgba(226,190,111,.22),rgba(226,190,111,.04)); color:#f5d995; }
         .recommender-badge-copy { min-width:0; }
-        .recommender-badge-title { display:block; font-size:13px; font-weight:800; }
-        .recommender-badge-sub { display:block; margin-top:3px; color:#60758e; font-size:10px; line-height:1.35; }
+        .recommender-badge-eyebrow { display:block; margin-bottom:3px; color:#7890a9; font-size:9px; font-weight:800; letter-spacing:.11em; text-transform:uppercase; }
+        .recommender-badge.premium .recommender-badge-eyebrow { color:#d4b26e; }
+        .recommender-badge-title { display:block; font-size:15px; font-weight:800; letter-spacing:-.02em; }
+        .recommender-badge-sub { display:block; margin-top:4px; color:#60758e; font-size:10px; line-height:1.35; }
         .recommender-badge.premium .recommender-badge-sub { color:rgba(255,255,255,.62); }
-        .recommender-badge-arrow { font-size:18px; }
+        .recommender-badge-arrow { width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background:rgba(255,255,255,.08); color:inherit; font-size:21px; }
+        .member-detail-hero { padding:20px 18px 18px; background:radial-gradient(circle at 100% 0,rgba(226,190,111,.24),transparent 37%),linear-gradient(135deg,#101724,#202c3d); color:#fff; }
+        .member-detail-hero.standard { background:linear-gradient(135deg,#edf4fb,#ffffff); color:#243b5a; }
+        .member-detail-kicker { color:#d7b66f; font-size:9px; font-weight:800; letter-spacing:.13em; text-transform:uppercase; }
+        .member-detail-hero.standard .member-detail-kicker { color:#58789d; }
+        .member-detail-hero-title { margin-top:5px; font:700 23px/1.05 Georgia,'Times New Roman',serif; letter-spacing:-.025em; }
+        .member-detail-hero-copy { margin-top:7px; max-width:390px; color:rgba(255,255,255,.67); font-size:11px; line-height:1.45; }
+        .member-detail-hero.standard .member-detail-hero-copy { color:#60758e; }
+        .member-detail-link { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center; margin-top:15px; padding:9px 10px; border:1px solid rgba(230,196,119,.34); border-radius:10px; background:rgba(0,0,0,.14); }
+        .member-detail-link-label { margin-top:13px; color:rgba(255,255,255,.68); font-size:9px; font-weight:700; letter-spacing:.04em; }
+        .member-detail-hero.standard .member-detail-link-label { color:#60758e; }
+        .member-detail-hero.standard .member-detail-link { border-color:#d6e2f0; background:rgba(255,255,255,.72); }
+        .member-detail-link code { min-width:0; overflow:hidden; color:#f7dfaa; font:700 11px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; text-overflow:ellipsis; white-space:nowrap; }
+        .member-detail-hero.standard .member-detail-link code { color:#31557e; }
+        .member-detail-copy { min-height:32px; padding:6px 9px; border:1px solid rgba(230,196,119,.6); border-radius:8px; background:rgba(230,196,119,.12); color:#f5d995; font:700 10px/1 inherit; cursor:pointer; }
+        .member-detail-hero.standard .member-detail-copy { border-color:#abc3dc; background:#fff; color:#31557e; }
         .member-detail-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; padding:14px; }
-        .member-detail-metric { padding:12px; border:1px solid var(--hairline); border-radius:7px; background:var(--canvas-soft); text-align:center; }
-        .member-detail-metric strong { display:block; color:var(--ink); font-size:18px; }
-        .member-detail-metric span { display:block; margin-top:3px; color:var(--ink-mute); font-size:10px; line-height:1.25; }
+        .member-detail-metric { min-width:0; padding:12px 7px; border:1px solid var(--hairline); border-radius:10px; background:var(--canvas-soft); text-align:center; }
+        .member-detail-metric strong { display:block; overflow:hidden; color:var(--ink); font-size:17px; text-overflow:ellipsis; white-space:nowrap; }
+        .member-detail-metric span { display:block; margin-top:4px; color:var(--ink-mute); font-size:9px; font-weight:600; line-height:1.25; }
+        .member-detail-list-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding:2px 16px 8px; }
+        .member-detail-list-head strong { color:var(--ink); font-size:13px; }
+        .member-detail-list-head span { color:var(--ink-mute); font-size:10px; }
+        .member-detail-scope-note { margin:0 14px 10px; padding:8px 10px; border-radius:8px; background:#fff7e3; color:#705719; font-size:10px; line-height:1.4; }
         .member-detail-list { padding:0 14px 16px; display:flex; flex-direction:column; gap:8px; }
-        .member-detail-row { display:grid; grid-template-columns:minmax(100px,1.2fr) repeat(3,minmax(64px,.7fr)); gap:8px; align-items:center; padding:11px 12px; border:1px solid var(--hairline); border-radius:7px; background:#fff; }
+        .member-detail-row { display:grid; grid-template-columns:minmax(100px,1.2fr) repeat(3,minmax(64px,.7fr)); gap:8px; align-items:center; padding:11px 12px; border:1px solid var(--hairline); border-radius:10px; background:#fff; }
         .member-detail-name { min-width:0; }
         .member-detail-name strong,.member-detail-name span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .member-detail-name strong { font-size:12px; color:var(--ink); }
         .member-detail-name span,.member-detail-cell span { display:block; color:var(--ink-mute); font-size:9px; }
         .member-detail-cell { text-align:right; font-size:12px; font-weight:700; color:var(--ink); }
         .member-detail-empty { padding:28px 16px; color:var(--ink-mute); text-align:center; font-size:12px; }
-        #referralDetailsModal .activity-panel,
-        #referralDetailsModal .activity-header,
+        #referralDetailsModal .activity-panel { width:min(640px,100%); border:1px solid #d5dee9; background:#fff; }
+        #referralDetailsModal .activity-header { border-bottom-color:#263344; background:#172033; }
+        #referralDetailsModal .activity-title { color:#f2d9a5; }
+        #referralDetailsModal .activity-close { background:rgba(255,255,255,.08); color:#f2d9a5; }
         #referralDetailsModal .activity-body { background:#fff; }
         @media (max-width: 520px) {
-            .stats-overview { grid-template-columns:repeat(2,minmax(0,1fr)); margin-left:0; margin-right:0; }
-            .stats-overview-card:last-child { grid-column:1 / -1; }
-            .member-detail-summary { grid-template-columns:1fr; }
+            .stats-overview { margin-left:0; margin-right:0; }
+            .member-detail-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+            .member-detail-metric:last-child { grid-column:1 / -1; }
             .member-detail-row { grid-template-columns:minmax(100px,1fr) repeat(2,minmax(58px,.6fr)); }
             .member-detail-row .member-detail-cell:nth-child(3) { display:none; }
         }
@@ -3399,7 +3423,7 @@
                 <div id="bindIdRow" style="display:none;margin-top:10px;background:var(--canvas-soft);border-radius:10px;padding:10px;">
                     <div style="font-size:11px;font-weight:600;color:var(--ink);margin-bottom:6px;">🔗 Bind NovelFlow ID <span style="font-weight:400;color:var(--ink-mute);">(required for VIP exchange)</span></div>
                     <div style="display:flex;gap:6px;">
-                        <input type="text" id="novelflowIdInput" placeholder="Paste your NovelFlow ID" style="flex:1;padding:7px 10px;border:1px solid var(--hairline);border-radius:8px;font-size:12px;font-family:inherit;">
+                        <input type="text" id="novelflowIdInput" maxlength="24" pattern="[A-Fa-f0-9]{24}" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="24-character App User ID" style="flex:1;padding:7px 10px;border:1px solid var(--hairline);border-radius:8px;font-size:12px;font-family:inherit;">
                         <button onclick="submitBindId()" style="padding:7px 12px;background:var(--ruby);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Bind</button>
                     </div>
                 </div>
@@ -3461,12 +3485,17 @@
                 <div class="stats-overview-card">
                     <div class="stats-overview-icon">&#128101;</div>
                     <div class="stats-overview-value" id="siteInviteTotal">0</div>
-                    <div class="stats-overview-label" data-i18n="profile_platform_registrations">Platform Registrations</div>
+                    <div class="stats-overview-label" data-i18n="profile_platform_registrations">Website Registrations</div>
+                </div>
+                <div class="stats-overview-card">
+                    <div class="stats-overview-icon">&#8681;</div>
+                    <div class="stats-overview-value" id="appInviteTotal">0</div>
+                    <div class="stats-overview-label" data-i18n="profile_app_registrations">App Registrations</div>
                 </div>
             </div>
             <button class="recommender-badge" id="recommenderBadge" type="button" data-nf-action="open-referral-details">
-                <span class="badge-mark" aria-hidden="true">&#9826;</span>
-                <span class="recommender-badge-copy"><span class="recommender-badge-title" id="recommenderBadgeText">Recommender</span><span class="recommender-badge-sub" id="recommenderBadgeSub"></span></span>
+                <span class="badge-mark" aria-hidden="true">N</span>
+                <span class="recommender-badge-copy"><span class="recommender-badge-eyebrow" id="recommenderBadgeEyebrow">Partner status</span><span class="recommender-badge-title" id="recommenderBadgeText">Recommender</span><span class="recommender-badge-sub" id="recommenderBadgeSub"></span></span>
                 <span class="recommender-badge-arrow" aria-hidden="true">&#8250;</span>
             </button>
             <div id="statsLoadingArea"></div>
@@ -4281,11 +4310,29 @@
                 profile_available_withdraw: 'Ready to Withdraw',
                 profile_withdrawn: 'Withdrawn',
                 profile_reader_new_users: 'Reader New Users',
-                profile_platform_registrations: 'Platform Registrations',
+                profile_platform_registrations: 'Website Registrations',
+                profile_app_registrations: 'App Registrations',
                 recommender_standard: 'NovelFlow Recommender',
                 recommender_premium: 'Premium Recommender',
-                recommender_identity_sub: '{count} platform registrations · View network',
+                recommender_identity_eyebrow: 'Partner status',
+                recommender_identity_sub: '{count} direct registrations · View network',
                 referral_details_title: 'Referral Network',
+                referral_details_kicker: 'Your recommender workspace',
+                referral_details_premium_copy: 'Your referral network earns a protected 5% share after activation. Review your direct registrations and measured results below.',
+                referral_details_standard_copy: 'Share your personal invite link to grow your direct registration network.',
+                referral_link_label: 'Your personal invite link',
+                referral_copy_link: 'Copy link',
+                referral_link_copied: 'Invite link copied',
+                referral_network_members: 'Network members',
+                referral_network_reader_users: 'Reader new users',
+                referral_network_promotion: 'Network promotion',
+                referral_network_slot: 'Partner seat',
+                referral_network_rate: 'Commission rate',
+                referral_network_commission: 'Cumulative commission',
+                referral_network_list: 'Direct registrations',
+                referral_network_list_hint: 'Only accounts registered through your personal link are shown.',
+                referral_network_list_progress: 'Showing {returned} of {total} direct registrations.',
+                referral_network_scope_limited: 'The network totals below cover the displayed direct registrations.',
                 referral_direct_members: 'Direct Members',
                 referral_total_commission: '5% Commission',
                 referral_member_income: 'Promotion',
@@ -4301,9 +4348,9 @@
                 activity_active_until: 'Active until',
                 activity_batch_note: 'Claims are checked before rewards are issued.',
                 activity_vip_title: '2-Day VIP for Everyone',
-                activity_vip_copy: 'Enter your NovelFlow ID to request 2 VIP days. One claim per account and per ID.',
-                activity_id_label: 'NovelFlow ID',
-                activity_id_placeholder: 'Enter your NovelFlow ID',
+                activity_vip_copy: 'Enter the 24-character User ID shown in your NovelFlow App profile to request 2 VIP days. One claim per account and per App ID.',
+                activity_id_label: 'NovelFlow App User ID',
+                activity_id_placeholder: '24-character App User ID',
                 activity_vip_claim: 'Claim 2-Day VIP',
                 activity_vip_submitted: 'Submitted · 2 VIP days are pending batch fulfillment.',
                 activity_fb_title: 'Social Media Book Post',
@@ -4361,7 +4408,7 @@
                 activity_stats_stale: 'Promotion stats are updating. Try again later.',
                 activity_storage_unavailable: 'Activity service is temporarily unavailable. Try again later.',
                 activity_rate_limited: 'Too many attempts. Please try again later.',
-                activity_invalid_id: 'Enter a valid NovelFlow ID.',
+                activity_invalid_id: 'Enter the 24-character User ID shown in your NovelFlow App profile.',
                 activity_invalid_url: 'Enter a public HTTPS social post URL.',
                 activity_id_immutable: 'Your NovelFlow ID is fixed for this activity.',
                 activity_identifier_used: 'This ID or post has already been used for this activity.',
@@ -4785,11 +4832,29 @@
                 profile_available_withdraw: 'Listo para retirar',
                 profile_withdrawn: 'Retirado',
                 profile_reader_new_users: 'Nuevos lectores',
-                profile_platform_registrations: 'Registros en la plataforma',
+                profile_platform_registrations: 'Registros en el sitio web',
+                profile_app_registrations: 'Registros en la app',
                 recommender_standard: 'Recomendador NovelFlow',
                 recommender_premium: 'Recomendador premium',
-                recommender_identity_sub: '{count} registros en la plataforma · Ver red',
+                recommender_identity_eyebrow: 'Estado de socio',
+                recommender_identity_sub: '{count} registros directos · Ver red',
                 referral_details_title: 'Red de referidos',
+                referral_details_kicker: 'Tu espacio de recomendador',
+                referral_details_premium_copy: 'Tu red de referidos genera una participación protegida del 5% después de la activación. Revisa tus registros directos y resultados medidos.',
+                referral_details_standard_copy: 'Comparte tu enlace personal para ampliar tu red de registros directos.',
+                referral_link_label: 'Tu enlace personal de invitación',
+                referral_copy_link: 'Copiar enlace',
+                referral_link_copied: 'Enlace de invitación copiado',
+                referral_network_members: 'Miembros de la red',
+                referral_network_reader_users: 'Nuevos lectores',
+                referral_network_promotion: 'Promoción de la red',
+                referral_network_slot: 'Plaza de socio',
+                referral_network_rate: 'Tasa de comisión',
+                referral_network_commission: 'Comisión acumulada',
+                referral_network_list: 'Registros directos',
+                referral_network_list_hint: 'Solo se muestran cuentas registradas mediante tu enlace personal.',
+                referral_network_list_progress: 'Mostrando {returned} de {total} registros directos.',
+                referral_network_scope_limited: 'Los totales de red a continuación cubren los registros directos mostrados.',
                 referral_direct_members: 'Miembros directos',
                 referral_total_commission: 'Comisi\u00f3n del 5%',
                 referral_member_income: 'Promoci\u00f3n',
@@ -4805,9 +4870,9 @@
                 activity_active_until: 'Activa hasta',
                 activity_batch_note: 'Las solicitudes se verifican antes de entregar las recompensas.',
                 activity_vip_title: '2 d\u00edas VIP para todos',
-                activity_vip_copy: 'Introduce tu ID de NovelFlow para solicitar 2 d\u00edas VIP. Un solo reclamo por cuenta y por ID.',
-                activity_id_label: 'ID de NovelFlow',
-                activity_id_placeholder: 'Introduce tu ID de NovelFlow',
+                activity_vip_copy: 'Introduce el ID de usuario de 24 caracteres que aparece en tu perfil de la app NovelFlow para solicitar 2 d\u00edas VIP. Un reclamo por cuenta y por ID de la app.',
+                activity_id_label: 'ID de usuario de la app NovelFlow',
+                activity_id_placeholder: 'ID de usuario de 24 caracteres',
                 activity_vip_claim: 'Solicitar 2 d\u00edas VIP',
                 activity_vip_submitted: 'Enviado \u00b7 2 d\u00edas VIP pendientes de entrega por lote.',
                 activity_fb_title: 'Publicaci\u00f3n de libro en redes sociales',
@@ -4865,7 +4930,7 @@
                 activity_stats_stale: 'Las estad\u00edsticas de promoci\u00f3n se est\u00e1n actualizando. Int\u00e9ntalo m\u00e1s tarde.',
                 activity_storage_unavailable: 'El servicio de actividades no est\u00e1 disponible temporalmente. Int\u00e9ntalo m\u00e1s tarde.',
                 activity_rate_limited: 'Demasiados intentos. Int\u00e9ntalo m\u00e1s tarde.',
-                activity_invalid_id: 'Introduce un ID de NovelFlow v\u00e1lido.',
+                activity_invalid_id: 'Introduce el ID de usuario de 24 caracteres que aparece en tu perfil de la app NovelFlow.',
                 activity_invalid_url: 'Introduce una URL HTTPS p\u00fablica de una publicaci\u00f3n social.',
                 activity_id_immutable: 'Tu ID de NovelFlow queda fijado para esta actividad.',
                 activity_identifier_used: 'Este ID o esta publicaci\u00f3n ya se us\u00f3 en esta actividad.',
@@ -5554,7 +5619,7 @@
         async function submitBindId() {
             const input = document.getElementById('novelflowIdInput');
             const id = input ? input.value.trim() : '';
-            if (!id || id.length < 3) {
+            if (!/^[a-f0-9]{24}$/i.test(id)) {
                 showToast(getText('toast_invalid_id'), 'error');
                 return;
             }
@@ -6117,7 +6182,7 @@
         // ========== v2.5.0: Bonus Balance, Campaigns, Streak Prize ===
         // ============================================================
         function getBonusBalance() {
-            return parseFloat(localStorage.getItem(getUserKey('bonus_balance')) || '0');
+            return parseFloat(localStorage.getItem(getUserKey('reward_income_total')) || '0');
         }
         function addBonus(amount, reason) {
             // Deprecated: bonus_balance is server-managed. Local writes are ignored.
@@ -6327,10 +6392,14 @@
                 PROMOTION_STATS_UNAVAILABLE: 'activity_stats_unavailable',
                 STATS_STALE: 'activity_stats_stale',
                 RATE_LIMITED: 'activity_rate_limited',
+                INVALID_NOVELFLOW_USER_ID: 'activity_invalid_id',
+                NOVELFLOW_USER_NOT_FOUND: 'activity_invalid_id',
                 INVALID_NOVELFLOW_ID: 'activity_invalid_id',
                 INVALID_SOCIAL_URL: 'activity_invalid_url',
                 INVALID_FACEBOOK_URL: 'activity_invalid_url',
                 IDENTIFIER_ALREADY_USED: 'activity_identifier_used',
+                NOVELFLOW_ID_ALREADY_BOUND: 'activity_identifier_used',
+                NOVELFLOW_BINDING_IMMUTABLE: 'activity_id_immutable',
                 NOVELFLOW_ID_IMMUTABLE: 'activity_id_immutable',
                 NO_REWARD_AVAILABLE: 'activity_invite_none',
                 RECOMMENDER_NOT_ELIGIBLE: 'activity_recommender_not_eligible',
@@ -6342,7 +6411,7 @@
 
         function normalizeActivityNovelFlowId(value) {
             const id = String(value || '').trim();
-            return /^[A-Za-z0-9_-]{3,64}$/.test(id) ? id : '';
+            return /^[a-f0-9]{24}$/i.test(id) ? id.toLowerCase() : '';
         }
 
         function normalizeActivitySocialUrl(value) {
@@ -6422,7 +6491,7 @@
             const tabKeys = { vip: 'activity_tab_vip', facebook: 'activity_tab_facebook', invites: 'activity_tab_invites', recommender: 'activity_tab_recommender' };
             const tabs = ACTIVITY_SECTIONS.map(tab => '<button class="activity-tab' + (tab === section ? ' active' : '') + '" type="button" role="tab" aria-selected="' + (tab === section ? 'true' : 'false') + '" onclick="setActivitySection(\'' + tab + '\')">' + escapeHtml(getText(tabKeys[tab])) + '</button>').join('');
             const sharedId = '<div class="activity-form"><label class="activity-field-label" for="activityNovelFlowId">' + escapeHtml(getText('activity_id_label')) + '</label>' +
-                '<input class="activity-input" id="activityNovelFlowId" type="text" inputmode="text" maxlength="64" autocomplete="off" value="' + idValue + '" placeholder="' + escapeHtml(getText('activity_id_placeholder')) + '" oninput="updateActivityField(\'novelFlowId\',this.value)"></div>';
+                '<input class="activity-input" id="activityNovelFlowId" type="text" inputmode="text" maxlength="24" pattern="[A-Fa-f0-9]{24}" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + idValue + '" placeholder="' + escapeHtml(getText('activity_id_placeholder')) + '" oninput="updateActivityField(\'novelFlowId\',this.value)"></div>';
             const vipSection = '<section class="activity-section" role="tabpanel"><div class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">VIP</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_vip_title')) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_vip_copy')) + '</div></div></div>' + sharedId +
                 (claims.vip2 ? vipState : '<div class="activity-form"><button class="activity-action" type="button" onclick="submitActivityReward(\'claim_vip2\')"' + disabled + '>' + escapeHtml(ActivityState.submitting === 'claim_vip2' ? getText('activity_loading') : getText('activity_vip_claim')) + '</button></div>') + '</div></section>';
             const facebookSection = '<section class="activity-section" role="tabpanel"><div class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">@</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_fb_title')) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_fb_copy')) + '</div></div></div><div class="activity-social-platforms" aria-label="' + escapeHtml(getText('activity_social_platforms')) + '"><span class="activity-social-platform">Facebook</span><span class="activity-social-platform">Instagram</span><span class="activity-social-platform">TikTok</span><span class="activity-social-platform">YouTube</span><span class="activity-social-platform">X</span><span class="activity-social-platform">Threads</span><span class="activity-social-platform">Other</span></div><a class="activity-official-link" href="https://www.facebook.com/groups/620866104235159/" target="_blank" rel="noopener noreferrer">' + escapeHtml(getText('activity_official_group')) + ' &#8599;</a>' +
@@ -6440,7 +6509,7 @@
             }
             const recommenderSection = '<section class="activity-section" role="tabpanel"><div class="activity-task"><div class="activity-task-head"><div class="activity-task-icon">%</div><div><div class="activity-task-title">' + escapeHtml(getText('activity_recommender_title')) + '</div><div class="activity-task-copy">' + escapeHtml(getText('activity_recommender_copy')) + '</div></div></div>' + recommenderAction + (referralUrl ? '<div class="activity-referral"><div class="activity-field-label">' + escapeHtml(getText('activity_recommender_link')) + '</div><div class="activity-referral-url">' + escapeHtml(referralUrl) + '</div></div>' : '') + '</div></section>';
             const sectionMarkup = section === 'vip' ? vipSection : (section === 'facebook' ? facebookSection : (section === 'invites' ? inviteSection : recommenderSection));
-            body.innerHTML = '<div class="activity-hero"><div class="activity-hero-poster"><img src="/novelflow-promo-poster.png" alt="' + escapeHtml(getText('activity_reminder_poster_alt')) + '"></div><div class="activity-hero-copy"><div class="activity-hero-kicker">' + escapeHtml(getText('activity_kicker')) + '</div><div class="activity-hero-title">' + escapeHtml(getText('activity_modal_title')) + '</div><div class="activity-window">' + escapeHtml(windowCopy) + '</div></div></div><div class="activity-note">' + escapeHtml(getText('activity_batch_note')) + '</div><div class="activity-tabs" role="tablist" aria-label="' + escapeHtml(getText('activity_modal_title')) + '">' + tabs + '</div>' + sectionMarkup;
+            body.innerHTML = '<div class="activity-hero"><div class="activity-hero-poster"><img src="/activity-limited-subsidy.webp" alt="' + escapeHtml(getText('activity_reminder_poster_alt')) + '"></div></div><div class="activity-note">' + escapeHtml(windowCopy) + ' &middot; ' + escapeHtml(getText('activity_batch_note')) + '</div><div class="activity-tabs" role="tablist" aria-label="' + escapeHtml(getText('activity_modal_title')) + '">' + tabs + '</div>' + sectionMarkup;
         }
 
         async function loadActivityRewards(force) {
@@ -7544,7 +7613,9 @@
 
         function moneyOrDash(value) {
             if (value === null || value === undefined || value === '') return '--';
-            return Number.isFinite(Number(value)) ? '$' + Number(value).toFixed(2) : '--';
+            return Number.isFinite(Number(value))
+                ? '$' + Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                : '--';
         }
 
         function renderMemberOverview() {
@@ -7561,11 +7632,13 @@
             const withdrawnEl = document.getElementById('withdrawnIncome');
             const readerEl = document.getElementById('readerNewUsers');
             const inviteEl = document.getElementById('siteInviteTotal');
+            const appInviteEl = document.getElementById('appInviteTotal');
             if (incomeEl) incomeEl.textContent = moneyOrDash(lifetime);
             if (availableEl) availableEl.textContent = moneyOrDash(wallet && (wallet.withdrawable_balance ?? wallet.available_balance));
             if (withdrawnEl) withdrawnEl.textContent = moneyOrDash(wallet && (wallet.withdrawn_total ?? wallet.approved_total));
             if (readerEl) readerEl.textContent = stats && Number.isFinite(Number(stats.total_new)) ? Number(stats.total_new).toLocaleString() : '--';
-            if (inviteEl) inviteEl.textContent = data && data.referrals ? Number(data.referrals.total || 0).toLocaleString() : '--';
+            if (inviteEl) inviteEl.textContent = data && data.referrals ? Number(data.referrals.website_registrations ?? data.referrals.total ?? 0).toLocaleString() : '--';
+            if (appInviteEl) appInviteEl.textContent = data && data.referrals ? Number(data.referrals.app_registrations || 0).toLocaleString() : '--';
 
             const uid = document.getElementById('profileUid');
             if (uid && AppState.isLoggedIn && AppState.user) {
@@ -7575,11 +7648,13 @@
             const badge = document.getElementById('recommenderBadge');
             const badgeText = document.getElementById('recommenderBadgeText');
             const badgeSub = document.getElementById('recommenderBadgeSub');
+            const badgeEyebrow = document.getElementById('recommenderBadgeEyebrow');
             const tier = data && data.recommender && data.recommender.tier || 'none';
             if (badge) {
                 badge.classList.toggle('show', tier !== 'none');
                 badge.classList.toggle('premium', tier === 'premium');
             }
+            if (badgeEyebrow && tier !== 'none') badgeEyebrow.textContent = getText('recommender_identity_eyebrow');
             if (badgeText && tier !== 'none') badgeText.textContent = getText(tier === 'premium' ? 'recommender_premium' : 'recommender_standard');
             if (badgeSub && tier !== 'none') {
                 const count = data && data.referrals ? Number(data.referrals.total || 0).toLocaleString() : '0';
@@ -7628,9 +7703,37 @@
             const referrals = data.referrals;
             const recommender = data.recommender || {};
             const members = Array.isArray(referrals.members) ? referrals.members : [];
-            const summary = '<div class="member-detail-summary"><div class="member-detail-metric"><strong>' + Number(referrals.total || 0).toLocaleString() + '</strong><span>' + escapeHtml(getText('referral_direct_members')) + '</span></div><div class="member-detail-metric"><strong>' + moneyOrDash(recommender.commission_accrued) + '</strong><span>' + escapeHtml(getText('referral_total_commission')) + '</span></div><div class="member-detail-metric"><strong>' + (recommender.tier === 'premium' ? '5%' : '--') + '</strong><span>' + escapeHtml(getText(recommender.tier === 'premium' ? 'recommender_premium' : 'recommender_standard')) + '</span></div></div>';
-            const rows = members.map(member => '<div class="member-detail-row"><div class="member-detail-name"><strong>' + escapeHtml(member.username || '') + '</strong><span>ID ' + escapeHtml(member.member_id || '--') + '</span></div><div class="member-detail-cell">' + moneyOrDash(member.promotion_income) + '<span>' + escapeHtml(getText('referral_member_income')) + '</span></div><div class="member-detail-cell">' + (Number.isFinite(Number(member.app_new_users)) ? Number(member.app_new_users).toLocaleString() : '--') + '<span>' + escapeHtml(getText('referral_member_app_users')) + '</span></div><div class="member-detail-cell">' + moneyOrDash(member.commission_accrued) + '<span>' + escapeHtml(getText('referral_member_commission')) + '</span></div></div>').join('');
-            body.innerHTML = summary + '<div class="member-detail-list">' + (rows || '<div class="member-detail-empty">' + escapeHtml(getText('referral_empty')) + '</div>') + '</div>';
+            const premium = recommender.tier === 'premium';
+            const referralUrl = String(recommender.referral_url || '');
+            const networkReaderUsers = Number.isFinite(Number(referrals.reader_new_users)) ? Number(referrals.reader_new_users).toLocaleString() : '--';
+            const totalReferrals = Number(referrals.total || 0);
+            const returnedReferrals = Number(referrals.returned || members.length);
+            const listHint = referrals.truncated
+                ? getText('referral_network_list_progress').replace('{returned}', returnedReferrals.toLocaleString()).replace('{total}', totalReferrals.toLocaleString())
+                : getText('referral_network_list_hint');
+            const hero = '<section class="member-detail-hero' + (premium ? '' : ' standard') + '"><div class="member-detail-kicker">' + escapeHtml(getText('referral_details_kicker')) + '</div><div class="member-detail-hero-title">' + escapeHtml(getText(premium ? 'recommender_premium' : 'recommender_standard')) + '</div><div class="member-detail-hero-copy">' + escapeHtml(getText(premium ? 'referral_details_premium_copy' : 'referral_details_standard_copy')) + '</div>' +
+                (referralUrl ? '<div class="member-detail-link-label">' + escapeHtml(getText('referral_link_label')) + '</div><div class="member-detail-link"><code title="' + escapeHtml(referralUrl) + '">' + escapeHtml(referralUrl) + '</code><button class="member-detail-copy" type="button" onclick="copyMemberReferralLink()">' + escapeHtml(getText('referral_copy_link')) + '</button></div>' : '') + '</section>';
+            const summary = '<div class="member-detail-summary"><div class="member-detail-metric"><strong>' + Number(referrals.total || 0).toLocaleString() + '</strong><span>' + escapeHtml(getText('referral_network_members')) + '</span></div><div class="member-detail-metric"><strong>' + moneyOrDash(recommender.commission_accrued) + '</strong><span>' + escapeHtml(getText('referral_network_commission')) + '</span></div><div class="member-detail-metric"><strong>' + (premium ? '5%' : '--') + '</strong><span>' + escapeHtml(getText('referral_network_rate')) + '</span></div><div class="member-detail-metric"><strong>' + networkReaderUsers + '</strong><span>' + escapeHtml(getText('referral_network_reader_users')) + '</span></div><div class="member-detail-metric"><strong>' + moneyOrDash(referrals.promotion_income) + '</strong><span>' + escapeHtml(getText('referral_network_promotion')) + '</span></div><div class="member-detail-metric"><strong>' + (recommender.slot ? '#' + Number(recommender.slot) : '--') + '</strong><span>' + escapeHtml(getText('referral_network_slot')) + '</span></div></div>';
+            const rows = members.map(member => '<div class="member-detail-row"><div class="member-detail-name"><strong>' + escapeHtml(member.username || '') + '</strong><span>ID ' + escapeHtml(member.member_id || '--') + ' · ' + (Number.isFinite(Number(member.app_new_users)) ? Number(member.app_new_users).toLocaleString() : '--') + ' ' + escapeHtml(getText('referral_member_app_users')) + '</span></div><div class="member-detail-cell">' + moneyOrDash(member.promotion_income) + '<span>' + escapeHtml(getText('referral_member_income')) + '</span></div><div class="member-detail-cell">' + (Number.isFinite(Number(member.app_new_users)) ? Number(member.app_new_users).toLocaleString() : '--') + '<span>' + escapeHtml(getText('referral_member_app_users')) + '</span></div><div class="member-detail-cell">' + moneyOrDash(member.commission_accrued) + '<span>' + escapeHtml(getText('referral_member_commission')) + '</span></div></div>').join('');
+            body.innerHTML = hero + (referrals.truncated ? '<div class="member-detail-scope-note">' + escapeHtml(getText('referral_network_scope_limited')) + '</div>' : '') + summary + '<div class="member-detail-list-head"><strong>' + escapeHtml(getText('referral_network_list')) + '</strong><span>' + escapeHtml(listHint) + '</span></div><div class="member-detail-list">' + (rows || '<div class="member-detail-empty">' + escapeHtml(getText('referral_empty')) + '</div>') + '</div>';
+        }
+
+        function copyMemberReferralLink() {
+            const referralUrl = String(MemberInsights.data && MemberInsights.data.recommender && MemberInsights.data.recommender.referral_url || '');
+            if (!referralUrl) return;
+            const copied = () => showToast(getText('referral_link_copied'), 'success');
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(referralUrl).then(copied).catch(() => showToast(getText('invite_code_copy_failed'), 'error'));
+                return;
+            }
+            const textarea = document.createElement('textarea');
+            textarea.value = referralUrl;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try { document.execCommand('copy'); copied(); } catch (_) { showToast(getText('invite_code_copy_failed'), 'error'); }
+            textarea.remove();
         }
 
         function openReferralDetails() {
@@ -7766,6 +7869,14 @@
             localStorage.setItem(getUserKey('claimed'), JSON.stringify(claimed));
             localStorage.setItem(getUserKey('vip_days'), String(Number(cloud.vip_days) || 0));
             localStorage.setItem(getUserKey('bonus_balance'), String(Number(cloud.bonus_balance) || 0));
+            const migration = cloud.balance_migrations && cloud.balance_migrations.commission_80_v1;
+            const legacyCarryover = migration && migration.status === 'applied'
+                ? Math.max(0, Number(migration.historical_gross_income) || 0)
+                : 0;
+            const rewardIncome = Number.isFinite(Number(cloud.reward_income_total))
+                ? Number(cloud.reward_income_total)
+                : Math.max(0, (Number(cloud.bonus_balance) || 0) - legacyCarryover);
+            localStorage.setItem(getUserKey('reward_income_total'), String(rewardIncome));
 
             if (typeof cloud.bind_id === 'string' && cloud.bind_id) {
                 localStorage.setItem(getUserKey('bind_id'), cloud.bind_id);
@@ -7927,6 +8038,12 @@
                                 } else {
                                     const existing = bookMap.get(key);
                                     const merged = { ...existing, ...b };
+                                    if (!String(b.cover || '').trim() && String(existing.cover || '').trim()) {
+                                        merged.cover = existing.cover;
+                                    }
+                                    if (!String(b.coverImage || '').trim() && String(existing.coverImage || '').trim()) {
+                                        merged.coverImage = existing.coverImage;
+                                    }
                                     bookMap.set(key, merged);
                                 }
                             }
@@ -8115,7 +8232,7 @@
                             (b.linkId && b.linkId === apiBook.linkId) ||
                             (b.code && String(b.code) === String(apiBook.code))
                         );
-                        if (local && !local.cover) {
+                        if (local && local.cover !== apiBook.cover) {
                             local.cover = apiBook.cover;
                             coverUpdated = true;
                         }
@@ -8247,7 +8364,7 @@ function renderMyBooks() {
             container.innerHTML = sortedBooks.map(book => {
                 const key = book.link || (book.code && String(book.code)) || book.title;
                 const stats = statsMap[key] || {};
-                const safeCover = escapeHtml(safeClientUrl(book.cover, { allowBlob: true }));
+                const safeCover = escapeHtml(safeClientUrl(book.cover || book.coverImage, { allowBlob: true }) || '/book-cover-placeholder.svg');
                 const bookId = escapeHtml(book.bookId || '');
                 const bookCode = escapeHtml(book.code == null ? '' : String(book.code));
                 const bookLink = escapeHtml(book.link || '');
@@ -8259,7 +8376,7 @@ function renderMyBooks() {
                 
                 return `
                     <div class="my-book-item">
-                        <img class="my-book-cover" src="${safeCover}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzYiIGhlaWdodD0iNDgiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjM2IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjZjZmOWZjIi8+PC9zdmc+'">
+                        <img class="my-book-cover" src="${safeCover}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='/book-cover-placeholder.svg'">
                         <div class="my-book-info">
                             <div class="my-book-title">${escapeHtml(book.title)}</div>
                             <div class="my-book-code">CODE: ${escapeHtml(book.code) || 'N/A'}</div>
@@ -8421,7 +8538,7 @@ function renderMyBooks() {
             container.innerHTML = AppState.myBooks.map(book => {
                 const key = book.link || (book.code && String(book.code)) || book.title;
                 const stats = statsMap[key] || {};
-                const safeCover = escapeHtml(safeClientUrl(book.cover, { allowBlob: true }));
+                const safeCover = escapeHtml(safeClientUrl(book.cover || book.coverImage, { allowBlob: true }) || '/book-cover-placeholder.svg');
                 const bookId = escapeHtml(book.bookId || '');
                 const bookLink = escapeHtml(book.link || '');
                 const visits = stats.visits || 0;
@@ -8434,7 +8551,7 @@ function renderMyBooks() {
                 return `
                     <div class="my-book-expanded-item">
                         <div class="my-book-expanded-header">
-                            <img class="my-book-expanded-cover" src="${safeCover}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNjQiIGZpbGw9IiNmNmY5ZmMiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZjZmOWZjIi8+PHRleHQgeD0iMjQiIHk9IjM4IiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTRhM2I4Ij7wn46l8IOC9jwvdGV4dD48L3N2Zz4='">
+                            <img class="my-book-expanded-cover" src="${safeCover}" alt="${escapeHtml(book.title)}" onerror="this.onerror=null;this.src='/book-cover-placeholder.svg'">
                             <div class="my-book-expanded-info">
                                 <div class="my-book-expanded-title">${escapeHtml(book.title)}</div>
                                 ${isPending ? `
@@ -10783,7 +10900,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
     const avail = Number(data.available_balance)||0;
     const total = Number(data.total_earned)||0;
     const pend  = Number(data.pending_settlement)||0;
-    const bonus = Number(data.bonus_balance)||0;
+    const bonus = Number(data.reward_income_total)||0;
     if ($('earnAvailVal')) $('earnAvailVal').textContent = fmt$(avail);
     if ($('earnTotalVal')) $('earnTotalVal').textContent = fmt$(total);
     if ($('earnPendingVal')) $('earnPendingVal').textContent = fmt$(pend);

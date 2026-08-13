@@ -126,7 +126,7 @@ test('GET remains a read-only dry-run and reports cutoff preservation', async ()
   assert.equal(response.body.summary.migration_candidates, 1);
   assert.equal(response.body.summary.historical_gross_income, 100);
   assert.equal(response.body.summary.cutoff_balance_change, 0);
-  assert.equal(response.body.users[0].current_balance_change, -6);
+  assert.equal(response.body.users[0].current_balance_change, 0);
   assert.equal(FakeRedis.values.get('nf_user_data:promoter'), before);
 });
 
@@ -159,7 +159,7 @@ test('successful migration credits historical income once and records its source
   assert.match(marker.applied_at, /^\d{4}-\d{2}-\d{2}T/);
 
   const afterWallet = computeWalletBalances(afterData, profile);
-  assert.equal(beforeWallet.available_balance, 105);
+  assert.equal(beforeWallet.available_balance, 99);
   assert.equal(afterWallet.available_balance, 99);
   assert.equal(afterWallet.commission_income, 24);
 });
@@ -186,7 +186,11 @@ test('an occupied shared user-data lock leaves the wallet untouched', async () =
   FakeRedis.values.set(userDataLockKey('promoter'), 'another-writer');
 
   const response = await invoke(migration, applyRequest());
-  assert.equal(response.statusCode, 200);
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.success, false);
+  assert.equal(response.body.applied, false);
+  assert.equal(response.body.complete, false);
+  assert.equal(response.body.retry_required, true);
   assert.equal(response.body.result.applied, 0);
   assert.equal(response.body.result.busy, 1);
   assert.equal(FakeRedis.values.get('nf_user_data:promoter'), before);
@@ -203,8 +207,10 @@ test('a record removed after analysis is not recreated by the migration', async 
   };
   try {
     const response = await invoke(migration, applyRequest());
-    assert.equal(response.statusCode, 200);
+    assert.equal(response.statusCode, 409);
     assert.equal(response.body.success, false);
+    assert.equal(response.body.applied, false);
+    assert.equal(response.body.complete, false);
     assert.equal(response.body.result.applied, 0);
     assert.equal(response.body.result.errors, 1);
     assert.deepEqual(response.body.result.error_codes, ['USER_RECORD_MISSING']);

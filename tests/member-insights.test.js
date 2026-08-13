@@ -66,6 +66,7 @@ test('an existing forward member ID repairs its reverse index before new allocat
 test('member insights only expose the authenticated account referral tree', async () => {
   const redis = new FakeRedis();
   await redis.sadd('nf_referrals:v1:owner', 'invited-user');
+  await redis.sadd('nf_app_referrals:v1:owner', '67e519c3da10a5c772ca196e');
   await redis.sadd('nf_referrals:v1:other-owner', 'private-child');
   await redis.set('nf_referrer_of:v1:invited-user', JSON.stringify({
     parent: 'owner', child: 'invited-user', referral_code: 'nfref_owner', bound_at: '2026-08-09T00:00:00.000Z',
@@ -78,7 +79,11 @@ test('member insights only expose the authenticated account referral tree', asyn
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.member.id, 100);
   assert.equal(response.body.referrals.total, 1);
+  assert.equal(response.body.referrals.website_registrations, 1);
+  assert.equal(response.body.referrals.app_registrations, 1);
   assert.equal(response.body.referrals.members[0].username, 'invited-user');
+  assert.match(response.body.recommender.referral_url, /^https:\/\/novelflow\.top\/\?ref=nfref_/);
+  assert.match(response.body.recommender.referral_code, /^nfref_/);
   assert.equal(response.body.recommender.tier, 'standard');
   assert.doesNotMatch(JSON.stringify(response.body), /private-child/);
   assert.doesNotMatch(JSON.stringify(response.body), /payment_account|password|novelflow_id/i);
@@ -101,6 +106,9 @@ test('active recommenders see only post-activation 5 percent commission', async 
   assert.equal(response.body.referrals.members[0].promotion_income, 30);
   assert.equal(response.body.referrals.members[0].commission_accrued, 0.5);
   assert.equal(response.body.recommender.commission_accrued, 0.5);
+  assert.equal(response.body.referrals.reader_new_users, 4);
+  assert.equal(response.body.referrals.promotion_income, 30);
+  assert.match(response.body.recommender.referral_url, /^https:\/\/novelflow\.top\/\?ref=nfref_/);
 });
 
 test('member insights require a valid access token and fail closed for disabled accounts', async () => {

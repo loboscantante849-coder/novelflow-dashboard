@@ -10,14 +10,21 @@ function grossIncomeSince(adData, promoterKey, effectiveDate) {
   let gross = 0;
   const days = new Set();
   const promoterEntry = adData.by_promoter && adData.by_promoter[promoterKey];
+  const inviteAssets = ((promoterEntry && promoterEntry.invites) || [])
+    .map(value => `invite:${String(value).replace(/^invite:/, '')}`);
   const allowedAssets = new Set([
     ...((promoterEntry && promoterEntry.links) || []).map(String),
     ...((promoterEntry && promoterEntry.codes) || []).map(String),
+    ...inviteAssets,
   ]);
   for (const [assetKey, entry] of Object.entries(adData.ad_ids || {})) {
     const taggedOwner = String(entry && entry.username_canon || '').toLowerCase();
     const assetId = String(entry && (entry.ad_id || entry.id || assetKey) || '');
-    if (allowedAssets.size && !allowedAssets.has(assetId) && taggedOwner !== promoterKey) continue;
+    const channel = String(entry && (entry.channel || entry.media_source) || '').toLowerCase();
+    const qualifiedAsset = channel === 'invite' || String(assetKey).startsWith('invite:')
+      ? `invite:${assetId.replace(/^invite:/, '')}`
+      : assetId;
+    if (allowedAssets.size && !allowedAssets.has(qualifiedAsset) && taggedOwner !== promoterKey) continue;
     if (!allowedAssets.size && taggedOwner !== promoterKey) continue;
     const dailyRows = Array.isArray(entry.daily)
       ? entry.daily

@@ -11,6 +11,7 @@
 const { Redis } = require('@upstash/redis');
 const { normalizeRedisKeys } = require('./redis-values');
 const { isSystemStatsBucket } = require('./promoter-access');
+const { normalizeHttpsCoverUrl, backfillBookCovers } = require('./book-covers');
 
 const AD_ID_DETAILS_URL =
   'https://raw.githubusercontent.com/loboscantante849-coder/novelflow-dashboard/main/ad_id_details.json';
@@ -410,6 +411,7 @@ async function loadSubmissions(redis, username, admin, debugLog) {
             bookId: book.bookId || null,
             matchedBookName: book.title || book.bookName || 'Unknown',
             bookName: book.title || book.bookName || 'Unknown',
+            cover: normalizeHttpsCoverUrl(book.cover || book.coverImage || ''),
             link: book.link || null,
             submittedAt: book.submittedAt || (book.createdAt ? new Date(book.createdAt).toISOString() : null)
           }, []));
@@ -454,27 +456,43 @@ async function loadSubmissions(redis, username, admin, debugLog) {
 /**
  * Batch fetch book cover URLs from nf_book_covers hash.
  */
-async function loadCovers(redis, bookIds, debugLog) {
+async function loadCovers(redis, bookIds, debugLog, options = {}) {
   const covers = {};
   if (!redis || !bookIds.length) return covers;
+  const uniqueBookIds = [...new Set(bookIds.map(String).filter(Boolean))];
+
+  // Server-owned submission metadata is authoritative, while CloudSync fills
+  // missing metadata during loadSubmissions. Cached and fetched values only
+  // fill books that still have no usable HTTPS cover.
+  if (Array.isArray(options.submissions)) {
+    for (const submission of options.submissions) {
+      const bookId = String(submission && submission.bookId || '').trim();
+      const cover = normalizeHttpsCoverUrl(submission && (submission.cover || submission.coverImage));
+      if (bookId && cover && !covers[bookId]) covers[bookId] = cover;
+    }
+  }
   try {
-    const uniq = [...new Set(bookIds.map(String).filter(Boolean))];
     const BATCH = 50;
-    for (let offset = 0; offset < uniq.length; offset += BATCH) {
-      const batch = uniq.slice(offset, offset + BATCH);
+    for (let offset = 0; offset < uniqueBookIds.length; offset += BATCH) {
+      const batch = uniqueBookIds.slice(offset, offset + BATCH);
       const values = await batchHashGet(redis, 'nf_book_covers', batch);
       for (let i = 0; i < batch.length; i++) {
-        if (values[i]) covers[batch[i]] = values[i];
+        const cached = normalizeHttpsCoverUrl(values[i]);
+        if (cached && !covers[batch[i]]) covers[batch[i]] = cached;
       }
     }
-    debugLog?.push(`covers: ${Object.keys(covers).length}/${uniq.length} found`);
   } catch (e) {
     // Covers are presentation metadata, not part of the stats contract. A
     // malformed or unavailable cover key must not turn real earnings data into
     // a 503 response. Keep the failure visible in non-production diagnostics.
-    debugLog?.push(`covers unavailable; continuing without covers: ${e.message}`);
-    return {};
+    debugLog?.push(`covers unavailable; continuing without covers cache: ${e.message}`);
   }
+  if (options.backfill) {
+    const missing = uniqueBookIds.filter(bookId => !covers[bookId]);
+    const fetched = await backfillBookCovers(redis, missing, debugLog, options);
+    Object.assign(covers, fetched);
+  }
+  debugLog?.push(`covers: ${Object.keys(covers).length}/${uniqueBookIds.length} found`);
   return covers;
 }
 

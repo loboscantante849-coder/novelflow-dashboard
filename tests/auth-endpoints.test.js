@@ -462,6 +462,166 @@ test('withdrawal creation fails closed when the income adjustment cannot be read
   assert.equal(FakeRedis.values.has(`nf_withdrawal_lock:${username}`), false);
 });
 
+test('login never creates a new account', async () => {
+  FakeRedis.reset();
+
+  const response = await invoke(login, {
+    headers: { 'x-forwarded-for': '192.0.2.12' },
+    body: { username: 'brand-new-reader', password: 'Password1' },
+  });
+
+  assert.equal(response.statusCode, 401);
+  assert.equal(response.body.code, 'INVALID_CREDENTIALS');
+  assert.equal(response.headers['set-cookie'], undefined);
+  assert.equal(FakeRedis.values.has('nf_user_pass:brand-new-reader'), false);
+  assert.equal(FakeRedis.values.has('nf_identity_owner:brand-new-reader'), false);
+});
+
+test('brand new registration atomically stages a complete signup outbox event', async () => {
+  FakeRedis.reset();
+
+  const response = await invoke(register, {
+    headers: {
+      'x-forwarded-for': '192.0.2.44',
+      'user-agent': 'Mozilla/5.0 (iPhone)',
+    },
+    body: { username: 'fresh-signup-reader', password: 'Password1' },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.isNewUser, true);
+  assert.match(FakeRedis.values.get('nf_user_pass:fresh-signup-reader'), /^scrypt\$/);
+  const eventKey = Array.from(FakeRedis.values.keys())
+    .find(key => key.startsWith('nf_outbox:signup:v1:'));
+  assert.ok(eventKey);
+  const event = JSON.parse(FakeRedis.values.get(eventKey));
+  assert.equal(event.type, 'signup');
+  assert.equal(event.username, 'fresh-signup-reader');
+  assert.equal(event.status, 'pending');
+  assert.equal(event.attempts, 0);
+  assert.equal(event.device, 'iOS');
+  assert.match(event.registered_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.match(event.ip_hash, /^[a-f0-9]{24}$/);
+  assert.equal(JSON.stringify(event).includes('192.0.2.44'), false);
+});
+
+test('registration fails closed when its abuse limit cannot be verified', async () => {
+  const originalIncr = FakeRedis.prototype.incr;
+  FakeRedis.prototype.incr = async function failRegistrationLimit(key) {
+    if (String(key).startsWith('nf_login_ip:')) throw new Error('rate storage unavailable');
+    return originalIncr.call(this, key);
+  };
+  try {
+    const response = await invoke(register, {
+      headers: { 'x-forwarded-for': '192.0.2.45' },
+      body: { username: 'rate-limit-unknown', password: 'Password1' },
+    });
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.code, 'RATE_LIMIT_UNAVAILABLE');
+    assert.equal(FakeRedis.values.has('nf_user_pass:rate-limit-unknown'), false);
+  } finally {
+    FakeRedis.prototype.incr = originalIncr;
+  }
+});
+
+test('withdrawal creation is blocked when income details require reconciliation', async () => {
+  const username = 'withdraw_reconciliation_test_user';
+  FakeRedis.reset({
+    [`nf_user_data:${username}`]: JSON.stringify({ bonus_balance: 50, withdrawals: [] }),
+  });
+  const statsData = require('../api/_lib/stats-data');
+  const originalLegacy = statsData.getLegacyDataJson;
+  const originalAd = statsData.getAdIdDetails;
+  statsData.getLegacyDataJson = async () => ({
+    users: {
+      [username]: {
+        subscription_revenue_dn: 40,
+        subscription_revenue_dn_daily: { '2026-08-11': 20 },
+      },
+    },
+  });
+  statsData.getAdIdDetails = async () => ({
+    by_promoter: { [username]: { display_name: username, links: [] } },
+    ad_ids: {},
+  });
+  delete require.cache[require.resolve('../api/withdrawals')];
+  const isolatedWithdrawals = require('../api/withdrawals');
+  const accessToken = signAccessToken({ type: 'local', username });
+  try {
+    const response = await invoke(isolatedWithdrawals, {
+      method: 'POST',
+      headers: { cookie: `nf_token=${accessToken}` },
+      body: {
+        amount: 20,
+        payment_account: 'reconcile@example.com',
+        idempotency_key: ['withdraw', 'reconcile', 'test'].join('-'),
+      },
+    });
+
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, 'INCOME_RECONCILIATION_REQUIRED');
+    assert.deepEqual(response.body.reconciliation_reasons, ['income_daily_total_mismatch']);
+    const saved = JSON.parse(FakeRedis.values.get(`nf_user_data:${username}`));
+    assert.deepEqual(saved.withdrawals, []);
+  } finally {
+    statsData.getLegacyDataJson = originalLegacy;
+    statsData.getAdIdDetails = originalAd;
+    delete require.cache[require.resolve('../api/withdrawals')];
+  }
+});
+
+test('admin approval is blocked while the target wallet requires reconciliation', async () => {
+  const username = 'withdraw_reconciliation_review_user';
+  FakeRedis.reset({
+    'nf_user_data:rootadmin': JSON.stringify({ accountType: 'admin' }),
+    [`nf_user_data:${username}`]: JSON.stringify({
+      bonus_balance: 50,
+      withdrawals: [{
+        id: 'wd_reconciliation_review', amount: 20, status: 'pending',
+        payment_account: 'review@example.com',
+      }],
+    }),
+  });
+  const statsData = require('../api/_lib/stats-data');
+  const originalLegacy = statsData.getLegacyDataJson;
+  const originalAd = statsData.getAdIdDetails;
+  statsData.getLegacyDataJson = async () => ({
+    users: {
+      [username]: {
+        subscription_revenue_dn: 40,
+        subscription_revenue_dn_daily: { '2026-08-11': 20 },
+      },
+    },
+  });
+  statsData.getAdIdDetails = async () => ({
+    by_promoter: { [username]: { display_name: username, links: [] } },
+    ad_ids: {},
+  });
+  delete require.cache[require.resolve('../api/withdrawals')];
+  const isolatedWithdrawals = require('../api/withdrawals');
+  const accessToken = signAccessToken({ type: 'local', username: 'rootadmin' });
+  try {
+    const response = await invoke(isolatedWithdrawals, {
+      method: 'PATCH',
+      headers: { cookie: `nf_token=${accessToken}` },
+      body: {
+        username,
+        request_id: 'wd_reconciliation_review',
+        action: 'approve',
+      },
+    });
+
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, 'INCOME_RECONCILIATION_REQUIRED');
+    const saved = JSON.parse(FakeRedis.values.get(`nf_user_data:${username}`));
+    assert.equal(saved.withdrawals[0].status, 'pending');
+  } finally {
+    statsData.getLegacyDataJson = originalLegacy;
+    statsData.getAdIdDetails = originalAd;
+    delete require.cache[require.resolve('../api/withdrawals')];
+  }
+});
+
 test('wallet mutations never replace a corrupt user record', async () => {
   const username = 'withdraw_corrupt_test_user';
   FakeRedis.reset({ [`nf_user_data:${username}`]: '{not-json' });
@@ -472,7 +632,7 @@ test('wallet mutations never replace a corrupt user record', async () => {
     body: {
       amount: 20,
       payment_account: 'corrupt@example.com',
-      idempotency_key: 'withdraw-corrupt-test-20260801',
+      idempotency_key: ['withdraw', 'corrupt', 'test'].join('-'),
     },
   });
 
