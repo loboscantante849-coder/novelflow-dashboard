@@ -33,6 +33,7 @@ const VIP_DAYS_AWARDED = 3;
 const STREAK_GRAND_BONUS = 0.50;
 const STREAK_GRAND_VIP = 2;
 const STREAK_GRAND_REQUIRED = 7;
+const STREAK_GRAND_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const PER_USER_ACTION_LIMIT = 60; // per hour per user (generous, prevents abuse)
 const RATE_WINDOW = 3600;
 const MAX_REWARD_HISTORY = 100;
@@ -354,8 +355,14 @@ module.exports = async (req, res) => {
         if (claimedKeys.length < 1) {
           return res.status(400).json({ error: 'Complete at least 1 mission first', code: 'NO_MISSION' });
         }
-        if (data.streak_grand_claimed) {
-          return res.status(400).json({ error: 'Already claimed grand prize', code: 'ALREADY_CLAIMED' });
+        const previousClaimedAt = Date.parse(data.streak_grand_claimed || '');
+        const nextAvailableAt = Number.isFinite(previousClaimedAt) ? previousClaimedAt + STREAK_GRAND_COOLDOWN_MS : 0;
+        if (nextAvailableAt > Date.now()) {
+          return res.status(400).json({
+            error: 'The 7-day prize can be claimed once every 7 days',
+            code: 'STREAK_GRAND_COOLDOWN',
+            available_at: new Date(nextAvailableAt).toISOString(),
+          });
         }
         if (!data.bind_id) return res.status(400).json({ error: 'Bind your verified NovelFlow ID first', code: 'NO_BIND_ID' });
         let streakBinding;
@@ -364,13 +371,15 @@ module.exports = async (req, res) => {
         } catch (error) {
           return res.status(503).json({ error: 'NovelFlow account verification is unavailable', code: error.code || 'NOVELFLOW_LOOKUP_FAILED' });
         }
+        const streakGrandSequence = Math.max(0, Number(data.streak_grand_sequence) || 0) + 1;
         vipEntitlementEvent = buildVipEntitlement({
-          username, binding: streakBinding, source: 'streak_grand', sourceId: 'first',
+          username, binding: streakBinding, source: 'streak_grand', sourceId: streakGrandSequence,
           days: STREAK_GRAND_VIP, metadata: { streak: STREAK_GRAND_REQUIRED },
         });
         data.bonus_balance = Math.round((data.bonus_balance + STREAK_GRAND_BONUS) * 100) / 100;
         data.vip_days += STREAK_GRAND_VIP;
-        data.streak_grand_claimed = todayStr();
+        data.streak_grand_sequence = streakGrandSequence;
+        data.streak_grand_claimed = new Date().toISOString();
         result = {
           ...result,
           bonus_awarded: STREAK_GRAND_BONUS,
@@ -401,6 +410,7 @@ module.exports = async (req, res) => {
       claimed: data.claimed,
       bonus_campaign1_claimed: data.bonus_campaign1_claimed || null,
       streak_grand_claimed: data.streak_grand_claimed || null,
+      streak_grand_sequence: Number(data.streak_grand_sequence) || 0,
     };
 
     if (vipEntitlementEvent) {

@@ -20,7 +20,7 @@ const { getAdIdDetails } = require('./_lib/stats-data');
 const { ensureReferralCode } = require('./_lib/referrals');
 const { grossIncomeSince, referralCommissionStatement, roundMoney } = require('./_lib/referral-commission');
 const { resolveNovelFlowMember } = require('./_lib/novelflow-member');
-const { bindNovelFlowMember, createVipEntitlement } = require('./_lib/vip-entitlements');
+const { bindNovelFlowMember, buildVipEntitlement, createVipEntitlement, eventKey: vipEventKey } = require('./_lib/vip-entitlements');
 
 const NS = 'nf_activity_claim:v1';
 const UNIQUE_NS = 'nf_activity_unique:v1';
@@ -28,6 +28,25 @@ const EVENT_NS = 'nf_activity_event:v1';
 const BINDING_NS = 'nf_activity_binding:v1';
 const RECOMMENDER_NS = 'nf_recommender:v1';
 const MAX_CLAIM_BYTES = 32 * 1024;
+const LIMITED_SUBSIDY_DAILY_CAP = 100;
+const LIMITED_SUBSIDY_CAP_NS = 'nf_activity_vip2_daily:v1';
+const VIP2_CLAIM_RESERVE_SCRIPT = `
+-- NF_ACTIVITY_VIP2_DAILY_CAP_V1
+local existing = redis.call('get', KEYS[3])
+if existing then return 2 end
+local owner = redis.call('get', KEYS[2])
+if owner and owner ~= ARGV[1] then return -1 end
+local count = redis.call('incr', KEYS[1])
+if count == 1 then redis.call('expire', KEYS[1], tonumber(ARGV[3])) end
+if count > tonumber(ARGV[2]) then
+  redis.call('decr', KEYS[1])
+  return 0
+end
+if not owner then redis.call('set', KEYS[2], ARGV[1]) end
+redis.call('set', KEYS[3], ARGV[4])
+if redis.call('exists', KEYS[4]) == 0 then redis.call('set', KEYS[4], ARGV[5]) end
+return 1
+`;
 
 function redisClient() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -132,6 +151,48 @@ async function saveClaim(redis, task, username, record) {
   const created = await redis.set(key, serialized, { nx: true });
   if (created === 'OK' || created === true) return record;
   return parseJson(await redis.get(key), record);
+}
+
+function utcDay() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function secondsUntilNextUtcDay() {
+  const now = new Date();
+  const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+  return Math.max(60, Math.ceil((next - now.getTime()) / 1000));
+}
+
+async function reserveLimitedSubsidyClaim(redis, username, id, record, event) {
+  const serialized = JSON.stringify(record);
+  const serializedEvent = JSON.stringify(event);
+  if (serialized.length > MAX_CLAIM_BYTES) throw new Error('Claim is too large');
+  const result = Number(await redis.eval(
+    VIP2_CLAIM_RESERVE_SCRIPT,
+    [
+      `${LIMITED_SUBSIDY_CAP_NS}:${utcDay()}`,
+      uniqueKey('vip2', id.key),
+      claimKey('vip2', username),
+      vipEventKey(event.event_id),
+    ],
+    [usernameKey(username), String(LIMITED_SUBSIDY_DAILY_CAP), String(secondsUntilNextUtcDay()), serialized, serializedEvent],
+  ));
+  if (result === 0) {
+    const error = new Error("Today's activity is full");
+    error.code = 'DAILY_SUBSIDY_FULL';
+    throw error;
+  }
+  if (result === -1) {
+    const error = new Error('This identifier has already been used');
+    error.code = 'IDENTIFIER_ALREADY_USED';
+    throw error;
+  }
+  if (![1, 2].includes(result)) {
+    const error = new Error('Activity claim could not be reserved');
+    error.code = 'ACTIVITY_CLAIM_RESERVE_FAILED';
+    throw error;
+  }
+  return { created: result === 1, claim: parseJson(await redis.get(claimKey('vip2', username)), record) };
 }
 
 async function updateClaim(redis, task, username, record) {
@@ -542,23 +603,19 @@ module.exports = async (req, res) => {
           });
           return res.status(200).json({ success: true, idempotent: true, claim: repairedClaim, eligibility, invite });
         }
-        const reservation = await reserveUnique(redis, task, id.key, username);
-        let claim;
-        try {
-          claim = await saveClaim(redis, task, username, claimBase(username, task, {
-            novelflow_id: id.display,
-            novelflow_id_hash: hashValue(id.key),
-            reward_days: 2,
-            fulfillment: 'batch_vip',
-          }));
-        } catch (error) {
-          await releaseUnique(redis, reservation);
-          throw error;
-        }
-        const entitlement = await createVipEntitlement(redis, {
+        let claim = claimBase(username, task, {
+          novelflow_id: id.display,
+          novelflow_id_hash: hashValue(id.key),
+          reward_days: 2,
+          fulfillment: 'batch_vip',
+        });
+        const entitlementEvent = buildVipEntitlement({
           username, binding, source: 'limited_subsidy', sourceId: ACTIVITY_VERSION,
           days: 2, metadata: { claim_id: claim.claim_id },
         });
+        const reservation = await reserveLimitedSubsidyClaim(redis, username, id, claim, entitlementEvent);
+        claim = reservation.claim;
+        const entitlement = { event: entitlementEvent, created: reservation.created };
         claim = await updateClaim(redis, task, username, {
           ...claim,
           status: entitlement.event.status,
@@ -722,6 +779,7 @@ module.exports = async (req, res) => {
       return res.status(503).json({ error: error.message, code: error.code, stats_last_updated: error.statsLastUpdated || null });
     }
     if (error && error.code === 'IDENTIFIER_ALREADY_USED') return res.status(409).json({ error: error.message, code: error.code });
+    if (error && error.code === 'DAILY_SUBSIDY_FULL') return res.status(409).json({ error: error.message, code: error.code });
     if (error && error.code === 'NOVELFLOW_ID_IMMUTABLE') return res.status(409).json({ error: error.message, code: error.code });
     if (error && error.code === 'RECOMMENDER_SLOTS_FULL') return res.status(409).json({ error: error.message, code: error.code });
     if (error && error.code === 'ACCOUNT_IDENTITY_CONFLICT') return res.status(409).json({ error: 'Account identity recovery required', code: error.code });
@@ -732,5 +790,6 @@ module.exports = async (req, res) => {
 module.exports._test = {
   awardedInviteDays,
   grossIncomeSince,
+  LIMITED_SUBSIDY_CAP_NS,
   scanJson,
 };
