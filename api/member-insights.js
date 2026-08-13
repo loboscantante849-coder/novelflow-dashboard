@@ -9,6 +9,7 @@ const {
 } = require('./_lib/security');
 const { getAdIdDetails, resolvePromoterKey } = require('./_lib/stats-data');
 const { ensureMemberIdentity, memberMetaKey } = require('./_lib/member-identity');
+const { ensureReferralCode } = require('./_lib/referrals');
 const { referralCommissionStatement, roundMoney } = require('./_lib/referral-commission');
 
 const RECOMMENDER_NS = 'nf_recommender:v1';
@@ -49,11 +50,12 @@ module.exports = async (req, res) => {
       await checkRateLimit(redis, `nf_rate:member_insights_ip:${getClientIp(req)}`, 600, 3600, { failClosed: true });
     if (!allowed) return res.status(429).json({ error: 'Too many requests', code: 'RATE_LIMITED' });
 
-    const [member, childNames, application, adData] = await Promise.all([
+    const [member, childNames, application, adData, invite] = await Promise.all([
       ensureMemberIdentity(redis, username),
       redis.smembers(`nf_referrals:v1:${username}`),
       redis.get(`${RECOMMENDER_NS}:application:${username}`).then(parseJson),
       getAdIdDetails(),
+      ensureReferralCode(redis, username),
     ]);
     const children = Array.from(new Set((childNames || []).map(usernameKey).filter(child => child && child !== username))).sort();
     const selectedChildren = children.slice(0, MAX_REFERRAL_DETAILS);
@@ -87,6 +89,12 @@ module.exports = async (req, res) => {
     }));
 
     const tier = activeApplication ? 'premium' : (children.length > 0 ? 'standard' : 'none');
+    const networkReaderUsers = statsAvailable
+      ? Math.max(0, members.reduce((sum, child) => sum + (Number(child.app_new_users) || 0), 0))
+      : null;
+    const networkPromotionIncome = statsAvailable
+      ? roundMoney(members.reduce((sum, child) => sum + (Number(child.promotion_income) || 0), 0))
+      : null;
     return res.status(200).json({
       success: true,
       member: {
@@ -100,6 +108,8 @@ module.exports = async (req, res) => {
         returned: members.length,
         truncated: children.length > members.length,
         stats_available: statsAvailable,
+        reader_new_users: networkReaderUsers,
+        promotion_income: networkPromotionIncome,
         members,
       },
       recommender: {
@@ -110,6 +120,9 @@ module.exports = async (req, res) => {
         commission_accrued: activeApplication && statsAvailable
           ? roundMoney(members.reduce((sum, child) => sum + (Number(child.commission_accrued) || 0), 0))
           : null,
+        activated_at: activeApplication ? activeApplication.created_at || null : null,
+        referral_code: invite.referral_code,
+        referral_url: invite.referral_url,
       },
       stats_last_updated: statsAvailable ? adData.last_updated || null : null,
     });
