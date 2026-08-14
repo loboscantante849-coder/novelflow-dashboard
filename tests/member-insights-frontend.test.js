@@ -53,7 +53,7 @@ test('book list can be filtered without losing the current sort', () => {
 });
 
 test('rewards retry a transient user-data lock instead of failing a check-in immediately', () => {
-  assert.match(source, /const busyRetryDelays = \[250, 500, 1000\]/);
+  assert.match(source, /const busyRetryDelays = \[300, 600, 1200, 2500, 5000, 8000\]/);
   assert.match(source, /data\.code === 'USER_DATA_BUSY' && attempt < busyRetryDelays\.length/);
 });
 

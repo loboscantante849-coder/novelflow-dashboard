@@ -5759,7 +5759,7 @@
                 const session = AuthSession.capture();
                 if (!session) throw new Error('Please login first');
                 try {
-                    const busyRetryDelays = [250, 500, 1000];
+                    const busyRetryDelays = [300, 600, 1200, 2500, 5000, 8000];
                     for (let attempt = 0; attempt <= busyRetryDelays.length; attempt++) {
                         const resp = await authFetch('/api/rewards', {
                             method: 'POST',

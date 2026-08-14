@@ -190,7 +190,12 @@ module.exports = async (req, res) => {
   }
   let lock;
   try {
-    lock = await acquireUserDataLock(redis, username);
+    // A cloud-sync write can overlap a tap on Check In. Wait briefly for that
+    // normal write to finish instead of failing the user-facing action.
+    lock = await acquireUserDataLock(redis, username, {
+      waitMs: action === 'checkin' ? 6000 : 0,
+      retryDelayMs: 100,
+    });
   } catch (_error) {
     return res.status(503).json({ error: 'Reward storage is temporarily unavailable', code: 'REWARD_STORAGE_UNAVAILABLE' });
   }

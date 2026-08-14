@@ -15,6 +15,7 @@ delete process.env.OIDC_PASSWORD;
 const { signAccessToken } = require('../api/_lib/auth');
 const rewards = require('../api/rewards');
 const { bindNovelFlowMember, bindingMemberKey, bindingUserKey } = require('../api/_lib/vip-entitlements');
+const { acquireUserDataLock, releaseUserDataLock } = require('../api/_lib/user-data-lock');
 
 function authHeaders(username = 'zoe') {
   return {
@@ -78,6 +79,42 @@ test('successful reward mutations append an auditable before/after record', asyn
     streak_after: 5,
   });
   assert.ok(!Number.isNaN(Date.parse(saved.reward_history[0].timestamp)));
+});
+
+test('legacy withdrawal locks cannot block a new check-in', async () => {
+  FakeRedis.reset({
+    'nf_user_data:zoe': JSON.stringify({ points: 10 }),
+    'nf_withdrawal_lock:zoe': 'legacy-lock-without-expiry',
+  });
+
+  const response = await invoke(rewards, {
+    headers: authHeaders(),
+    body: { action: 'checkin' },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.snapshot.points, 15);
+  assert.equal(FakeRedis.values.has('nf_withdrawal_lock:zoe'), true);
+});
+
+test('check-in waits for a short concurrent user-data write', async () => {
+  FakeRedis.reset({ 'nf_user_data:zoe': JSON.stringify({ points: 10 }) });
+  const activeLock = await acquireUserDataLock(new FakeRedis(), 'zoe');
+  const releaseTimer = setTimeout(() => {
+    releaseUserDataLock(new FakeRedis(), activeLock).catch(() => {});
+  }, 20);
+
+  try {
+    const response = await invoke(rewards, {
+      headers: authHeaders(),
+      body: { action: 'checkin' },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.snapshot.points, 15);
+  } finally {
+    clearTimeout(releaseTimer);
+    await releaseUserDataLock(new FakeRedis(), activeLock);
+  }
 });
 
 test('reward history retains only the latest 100 entries', async () => {

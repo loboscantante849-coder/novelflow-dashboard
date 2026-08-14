@@ -338,7 +338,7 @@ test('client sync and rewards respect the shared user-data lock', async () => {
   const username = 'user_data_lock_test';
   FakeRedis.reset({
     [`nf_user_data:${username}`]: JSON.stringify({ bonus_balance: 40, points: 5, withdrawals: [{ id: 'wd_1', amount: 20, status: 'pending' }] }),
-    [`nf_withdrawal_lock:${username}`]: 'other-request',
+    [`nf_user_data_lock:v2:${username}`]: 'other-request',
   });
   const accessToken = signAccessToken({ type: 'local', username });
   const headers = { cookie: `nf_token=${accessToken}` };
@@ -350,7 +350,7 @@ test('client sync and rewards respect the shared user-data lock', async () => {
   assert.equal(sync.body.code, 'USER_DATA_BUSY');
 
   const reward = await invoke(rewards, {
-    method: 'POST', headers, body: { action: 'checkin' },
+    method: 'POST', headers, body: { action: 'claim_mission', missionId: 'share1' },
   });
   assert.equal(reward.statusCode, 409);
   assert.equal(reward.body.code, 'USER_DATA_BUSY');
@@ -405,7 +405,7 @@ test('concurrent withdrawal submissions cannot lose an acknowledged request', as
   const saved = JSON.parse(FakeRedis.values.get(`nf_user_data:${username}`));
   assert.equal(saved.withdrawals.length, 1);
   assert.equal(saved.withdrawals[0].amount, 20);
-  assert.equal(FakeRedis.values.has(`nf_withdrawal_lock:${username}`), false);
+  assert.equal(FakeRedis.values.has(`nf_user_data_lock:v2:${username}`), false);
 });
 
 test('a retried withdrawal request is idempotent across email casing', async () => {
@@ -459,7 +459,7 @@ test('withdrawal creation fails closed when the income adjustment cannot be read
   assert.equal(res.body.code, 'INCOME_ADJUSTMENT_UNAVAILABLE');
   const saved = JSON.parse(FakeRedis.values.get(`nf_user_data:${username}`));
   assert.equal(saved.withdrawals.length, 0);
-  assert.equal(FakeRedis.values.has(`nf_withdrawal_lock:${username}`), false);
+  assert.equal(FakeRedis.values.has(`nf_user_data_lock:v2:${username}`), false);
 });
 
 test('login never creates a new account', async () => {
