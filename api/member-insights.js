@@ -50,12 +50,16 @@ module.exports = async (req, res) => {
       await checkRateLimit(redis, `nf_rate:member_insights_ip:${getClientIp(req)}`, 600, 3600, { failClosed: true });
     if (!allowed) return res.status(429).json({ error: 'Too many requests', code: 'RATE_LIMITED' });
 
+    // An invite-link allocation failure must not hide already-recorded referral data.
     const [member, childNames, application, adData, invite] = await Promise.all([
       ensureMemberIdentity(redis, username),
       redis.smembers(`nf_referrals:v1:${username}`),
       redis.get(`${RECOMMENDER_NS}:application:${username}`).then(parseJson),
       getAdIdDetails(),
-      ensureReferralCode(redis, username),
+      ensureReferralCode(redis, username).catch(error => {
+        console.warn('[member-insights] referral link unavailable:', error.code || error.message);
+        return null;
+      }),
     ]);
     const appReferralIds = await redis.smembers(`nf_app_referrals:v1:${username}`);
     const children = Array.from(new Set((childNames || []).map(usernameKey).filter(child => child && child !== username))).sort();
@@ -124,8 +128,8 @@ module.exports = async (req, res) => {
           ? roundMoney(members.reduce((sum, child) => sum + (Number(child.commission_accrued) || 0), 0))
           : null,
         activated_at: activeApplication ? activeApplication.created_at || null : null,
-        referral_code: invite.referral_code,
-        referral_url: invite.referral_url,
+        referral_code: invite && invite.referral_code || null,
+        referral_url: invite && invite.referral_url || null,
       },
       stats_last_updated: statsAvailable ? adData.last_updated || null : null,
     });

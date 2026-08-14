@@ -1043,8 +1043,10 @@
             height: 80px;
             background: linear-gradient(135deg, #FF6B9D, #C084FC);
             display: flex; align-items: center; justify-content: center;
-            font-size: 36px; position: relative;
+            font-size: 36px; position: relative; overflow: hidden;
         }
+        .campaign-poster { width: 100%; height: 100%; display: block; object-fit: cover; object-position: center 28%; }
+        .campaign-poster-banner .campaign-ribbon { z-index: 1; }
         .campaign-card.completed .campaign-banner { background: linear-gradient(135deg, #94a3b8, #64748b); }
         .campaign-card.locked .campaign-banner { background: linear-gradient(135deg, #cbd5e1, #94a3b8); }
         .campaign-ribbon {
@@ -1726,6 +1728,14 @@
         .profile-card.expanded .profile-card-arrow { transform: rotate(180deg); }
 
         .my-books-section { padding: 0 var(--sp-lg) var(--sp-lg); }
+        .my-books-search { margin: 0 0 var(--sp-sm); }
+        .my-books-search-input {
+            width: 100%; min-height: 36px; padding: 8px 11px;
+            border: 1px solid var(--hairline); border-radius: 6px;
+            background: var(--canvas-soft); color: var(--ink);
+            font: inherit; font-size: 12px; outline: none;
+        }
+        .my-books-search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(79, 70, 229, .12); }
         .my-book-item {
             background: var(--canvas); border: 1px solid var(--hairline);
             border-radius: var(--r-md); padding: var(--sp-sm); margin-bottom: var(--sp-xs);
@@ -3558,12 +3568,15 @@
                         <div class="section-title">My Book List</div>
                         <div class="section-subtitle">Books you're currently promoting</div>
                     </div>
-                    <div style="display:flex;gap:6px;align-items:center;">
-                        <button class="stats-refresh-btn" id="bookSortBtn" onclick="toggleBookSort()" style="font-size:12px;padding:5px 10px;">🕐 Newest</button>
-                        <button class="stats-refresh-btn" id="refreshStatsBtn" onclick="refreshUserStats()">&#8635; Refresh</button>
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <button class="stats-refresh-btn" id="bookSortBtn" onclick="toggleBookSort()" style="font-size:12px;padding:5px 10px;">🕐 Newest</button>
+                            <button class="stats-refresh-btn" id="refreshStatsBtn" onclick="refreshUserStats()">&#8635; Refresh</button>
+                        </div>
                     </div>
-                </div>
-                <div id="myBooksList">
+                    <div class="my-books-search" role="search">
+                        <input type="search" class="my-books-search-input" id="myBooksSearch" data-i18n-placeholder="my_books_search_placeholder" placeholder="Search my books" maxlength="120" autocomplete="off" aria-label="Search my book list" oninput="filterMyBooks(this.value)">
+                    </div>
+                    <div id="myBooksList">
                     <div class="empty-state" style="padding: 30px 20px; background: var(--canvas-soft); border-radius: var(--r-lg);">
                         <div class="empty-icon">&#128176;</div><div class="empty-text">Start promoting books to earn money!</div>
                     </div>
@@ -4312,6 +4325,8 @@
                 profile_reader_new_users: 'Reader New Users',
                 profile_platform_registrations: 'Website Registrations',
                 profile_app_registrations: 'App Registrations',
+                my_books_search_placeholder: 'Search your books, codes, or links',
+                my_books_search_empty: 'No promoted books match your search.',
                 recommender_standard: 'NovelFlow Recommender',
                 recommender_premium: 'Premium Recommender',
                 recommender_identity_eyebrow: 'Partner status',
@@ -4834,6 +4849,8 @@
                 profile_reader_new_users: 'Nuevos lectores',
                 profile_platform_registrations: 'Registros en el sitio web',
                 profile_app_registrations: 'Registros en la app',
+                my_books_search_placeholder: 'Busca tus libros, codigos o enlaces',
+                my_books_search_empty: 'No hay libros promocionados que coincidan.',
                 recommender_standard: 'Recomendador NovelFlow',
                 recommender_premium: 'Recomendador premium',
                 recommender_identity_eyebrow: 'Estado de socio',
@@ -5742,36 +5759,42 @@
                 const session = AuthSession.capture();
                 if (!session) throw new Error('Please login first');
                 try {
-                    const resp = await authFetch('/api/rewards', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify({ action, ...extra })
-                    });
-                    const data = await resp.json();
-                    if (!AuthSession.isCurrent(session)) throw makeAbortError();
-                    if (!resp.ok) {
-                        if (data.code === 'ALREADY_CHECKED_IN' || data.code === 'ALREADY_CLAIMED') {
-                            // Idempotent - treat as success, refresh from server
-                            await CloudSync.pull();
-                            return data;
+                    const busyRetryDelays = [250, 500, 1000];
+                    for (let attempt = 0; attempt <= busyRetryDelays.length; attempt++) {
+                        const resp = await authFetch('/api/rewards', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ action, ...extra })
+                        });
+                        const data = await resp.json();
+                        if (!AuthSession.isCurrent(session)) throw makeAbortError();
+                        if (!resp.ok) {
+                            if (data.code === 'ALREADY_CHECKED_IN' || data.code === 'ALREADY_CLAIMED') {
+                                // Idempotent - treat as success, refresh from server.
+                                await CloudSync.pull();
+                                return data;
+                            }
+                            if (data.code === 'USER_DATA_BUSY' && attempt < busyRetryDelays.length) {
+                                await delay(busyRetryDelays[attempt]);
+                                continue;
+                            }
+                            throw new Error(data.error || ('Request failed: ' + resp.status));
                         }
-                        throw new Error(data.error || ('Request failed: ' + resp.status));
+                        // Apply the server snapshot only after one confirmed mutation.
+                        if (data.snapshot) {
+                            const s = data.snapshot;
+                            applyServerRewardState(s);
+                            if (typeof loadCheckinData === 'function') loadCheckinData();
+                            if (typeof updatePointsDisplay === 'function') updatePointsDisplay();
+                            if (typeof updateStats === 'function') updateStats();
+                            if (typeof updateBonusUI === 'function') updateBonusUI();
+                            if (typeof updateStreakGrandBtn === 'function') updateStreakGrandBtn();
+                            if (typeof renderMilestoneTrack === 'function') renderMilestoneTrack();
+                            if (typeof updateMissionsUI === 'function') updateMissionsUI();
+                        }
+                        return data;
                     }
-                    // Apply server snapshot to localStorage
-                    if (data.snapshot) {
-                        const s = data.snapshot;
-                        applyServerRewardState(s);
-                        // Reload checkin data and update UI
-                        if (typeof loadCheckinData === 'function') loadCheckinData();
-                        if (typeof updatePointsDisplay === 'function') updatePointsDisplay();
-                        if (typeof updateStats === 'function') updateStats();
-                        if (typeof updateBonusUI === 'function') updateBonusUI();
-                        if (typeof updateStreakGrandBtn === 'function') updateStreakGrandBtn();
-                        if (typeof renderMilestoneTrack === 'function') renderMilestoneTrack();
-                        if (typeof updateMissionsUI === 'function') updateMissionsUI();
-                    }
-                    return data;
                 } catch (e) {
                     if (!isAbortError(e)) console.error('[RewardsAPI] Error:', e);
                     throw e;
@@ -6361,7 +6384,7 @@
                 '</div>';
             const limited = '' +
                 '<div class="campaign-card ' + (activityEnded ? 'completed' : 'ongoing') + '" data-nf-action="open-activity" role="button" tabindex="0" aria-label="' + escapeHtml(getText('campaign_activity_phase')) + '">' +
-                    '<div class="campaign-banner"><span>🎁</span><div class="campaign-ribbon ' + (activityEnded ? 'finished' : '') + '">' +
+                    '<div class="campaign-banner campaign-poster-banner"><img class="campaign-poster" src="/novelflow-promo-poster.png" alt="" loading="lazy" decoding="async"><div class="campaign-ribbon ' + (activityEnded ? 'finished' : '') + '">' +
                         escapeHtml(getText(activityEnded ? 'campaign_ended_ribbon' : 'campaign_limited_ribbon')) +
                     '</div></div>' +
                     '<div class="campaign-body">' +
@@ -7644,9 +7667,18 @@
             if (incomeEl) incomeEl.textContent = moneyOrDash(lifetime);
             if (availableEl) availableEl.textContent = moneyOrDash(wallet && (wallet.withdrawable_balance ?? wallet.available_balance));
             if (withdrawnEl) withdrawnEl.textContent = moneyOrDash(wallet && (wallet.withdrawn_total ?? wallet.approved_total));
-            if (readerEl) readerEl.textContent = stats && Number.isFinite(Number(stats.total_new)) ? Number(stats.total_new).toLocaleString() : '--';
-            if (inviteEl) inviteEl.textContent = data && data.referrals ? Number(data.referrals.website_registrations ?? data.referrals.total ?? 0).toLocaleString() : '--';
-            if (appInviteEl) appInviteEl.textContent = data && data.referrals ? Number(data.referrals.app_registrations || 0).toLocaleString() : '--';
+            const referrals = data && data.referrals;
+            const websiteRegistrations = data && data.referrals
+                ? (data.referrals.website_registrations ?? data.referrals.total)
+                : null;
+            const appRegistrations = data && data.referrals ? data.referrals.app_registrations : null;
+            const countOrDash = value => Number.isFinite(Number(value)) ? Number(value).toLocaleString() : '--';
+            const readerNewUsers = stats && Number.isFinite(Number(stats.total_new))
+                ? stats.total_new
+                : (referrals && referrals.reader_new_users);
+            if (readerEl) readerEl.textContent = countOrDash(readerNewUsers);
+            if (inviteEl) inviteEl.textContent = countOrDash(websiteRegistrations);
+            if (appInviteEl) appInviteEl.textContent = countOrDash(appRegistrations);
 
             const uid = document.getElementById('profileUid');
             if (uid && AppState.isLoggedIn && AppState.user) {
@@ -8334,10 +8366,16 @@ function escapeHtml(text) {
 }
 
 let _bookSortDesc = true;
+let _bookSearchQuery = '';
 function toggleBookSort() {
     _bookSortDesc = !_bookSortDesc;
     const btn = document.getElementById('bookSortBtn');
     if (btn) btn.textContent = _bookSortDesc ? '🕐 Newest' : '🕐 Oldest';
+    renderMyBooks();
+}
+
+function filterMyBooks(value) {
+    _bookSearchQuery = String(value || '').trim().toLocaleLowerCase();
     renderMyBooks();
 }
 
@@ -8353,8 +8391,18 @@ function renderMyBooks() {
                 return;
             }
 
+            const filteredBooks = AppState.myBooks.filter(book => {
+                if (!_bookSearchQuery) return true;
+                return [book.title, book.bookName, book.code, book.link, book.linkId, book.bookId]
+                    .some(value => String(value || '').toLocaleLowerCase().includes(_bookSearchQuery));
+            });
+            if (filteredBooks.length === 0) {
+                container.innerHTML = '<div class="empty-state" style="padding: 30px 20px; background: var(--canvas-soft); border-radius: var(--r-lg);"><div class="empty-icon">&#128269;</div><div class="empty-text">' + escapeHtml(getText('my_books_search_empty')) + '</div></div>';
+                return;
+            }
+
             // Sort by created time (newest/oldest toggle)
-            const sortedBooks = [...AppState.myBooks].sort((a, b) => {
+            const sortedBooks = filteredBooks.sort((a, b) => {
                 const ta = a.createdAt || a.addedAt || 0;
                 const tb = b.createdAt || b.addedAt || 0;
                 return _bookSortDesc ? tb - ta : ta - tb;

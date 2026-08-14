@@ -41,7 +41,20 @@ test('profile metrics use a readable funds and growth grid instead of five compr
 test('activity 2 is an accessible full-card action', () => {
   assert.match(source, /campaign_activity_phase: 'Activity 2 · Phase 2'/);
   assert.match(source, /campaign-card[^']*'[^\n]+data-nf-action="open-activity" role="button" tabindex="0"/);
+  assert.match(source, /campaign-poster[^>]+src="\/novelflow-promo-poster\.png"/);
   assert.match(source, /event\.key !== 'Enter' && event\.key !== ' '/);
+});
+
+test('book list can be filtered without losing the current sort', () => {
+  assert.match(source, /id="myBooksSearch"/);
+  assert.match(source, /function filterMyBooks\(value\)/);
+  assert.match(source, /book\.title, book\.bookName, book\.code, book\.link, book\.linkId, book\.bookId/);
+  assert.match(source, /my_books_search_empty/);
+});
+
+test('rewards retry a transient user-data lock instead of failing a check-in immediately', () => {
+  assert.match(source, /const busyRetryDelays = \[250, 500, 1000\]/);
+  assert.match(source, /data\.code === 'USER_DATA_BUSY' && attempt < busyRetryDelays\.length/);
 });
 
 test('performance errors keep the dashboard surface visible', () => {
