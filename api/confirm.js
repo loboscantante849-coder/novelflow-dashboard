@@ -84,6 +84,10 @@ async function upstreamErrorSummary(response) {
   }
 }
 
+function isPromotionCodeCollision(summary) {
+  return /keyword.{0,80}(exist|duplicate|already)/i.test(String(summary || ''));
+}
+
 async function ensureCpsChannel(redis, username, deadlineAt) {
   if (!username || username === 'Anonymous') return null;
   const existing = await getCpsChannel(redis, username);
@@ -537,9 +541,10 @@ module.exports = async (req, res) => {
         // The atomic counter lets this request and concurrent users move on.
         continue;
       }
-      // Retrying a server or throttling response with a different keyword does
-      // not help. Release the per-book lock and let the client retry later.
       const detail = await upstreamErrorSummary(codeResp);
+      if (codeResp.status === 400 && isPromotionCodeCollision(detail)) continue;
+      // Other validation, server, and throttling failures will not be fixed by
+      // changing only the keyword. Release the lock and let the client retry.
       console.error(`[confirm] Bookstore code allocation rejected: status=${codeResp.status}${detail ? `, ${detail}` : ''}`);
       break;
     }

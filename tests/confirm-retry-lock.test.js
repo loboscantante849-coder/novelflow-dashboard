@@ -150,6 +150,45 @@ test('occupied codes advance atomically beyond the old eight-attempt limit', asy
   }
 });
 
+test('bookstore 400 keyword collisions advance to the next code', async () => {
+  FakeRedis.reset({ nf_next_code: 5557 });
+  hashes.clear();
+  sets.clear();
+
+  const originalFetch = global.fetch;
+  const attemptedCodes = [];
+  global.fetch = async (url, options = {}) => {
+    const target = String(url);
+    if (target.includes('savebookpromotionkeywords')) {
+      const code = JSON.parse(options.body).keyword;
+      attemptedCodes.push(code);
+      if (code !== '5560') {
+        const body = { code: 400, msg: `Keyword: ${code} have existed!` };
+        return { ...response(body, 400), clone() { return this; } };
+      }
+      return response({ data: true });
+    }
+    if (target.includes('/book/booklist?')) return bookstoreBookResponse();
+    if (target.includes('SocialMediaChannelConfig')) return response({ data: { data: [] } });
+    if (target.endsWith('/SocialMediaLinkConfig') && options.body) return response({ code: 200, data: 'link-id-1234567890' });
+    if (target.includes('/SocialMediaLinkConfig/link-id-1234567890')) {
+      return response({ code: 200, data: { shortUrl: 'social.example/s/test' } });
+    }
+    throw new Error(`Unexpected fetch: ${target}`);
+  };
+
+  try {
+    const token = signAccessToken({ username: 'alice' });
+    const result = await invoke(confirm, request(token));
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.body.status, 'completed');
+    assert.equal(result.body.code, 5560);
+    assert.deepEqual(attemptedCodes, ['5557', '5558', '5559', '5560']);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('allocation failure releases the lock so a retry can create the link', async () => {
   FakeRedis.reset();
   hashes.clear();
