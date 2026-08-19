@@ -114,7 +114,7 @@ test('a network retry cannot allocate a second code while the first request is r
   }
 });
 
-test('occupied codes advance atomically beyond the old eight-attempt limit', async () => {
+test('occupied codes advance atomically across a dense collision range', async () => {
   FakeRedis.reset({ nf_next_code: 5555 });
   hashes.clear();
   sets.clear();
@@ -126,7 +126,7 @@ test('occupied codes advance atomically beyond the old eight-attempt limit', asy
     if (target.includes('savebookpromotionkeywords')) {
       const code = JSON.parse(options.body).keyword;
       attemptedCodes.push(code);
-      return response({ data: code === '5565' });
+      return response({ data: code === '5656' });
     }
     if (target.includes('/book/booklist?')) return bookstoreBookResponse();
     if (target.includes('SocialMediaChannelConfig')) return response({ data: { data: [] } });
@@ -142,9 +142,9 @@ test('occupied codes advance atomically beyond the old eight-attempt limit', asy
     const result = await invoke(confirm, request(token));
     assert.equal(result.statusCode, 200);
     assert.equal(result.body.status, 'completed');
-    assert.equal(result.body.code, 5565);
-    assert.deepEqual(attemptedCodes, Array.from({ length: 11 }, (_, index) => String(5555 + index)));
-    assert.equal(FakeRedis.values.get('nf_next_code'), 5566);
+    assert.equal(result.body.code, 5656);
+    assert.deepEqual(attemptedCodes, ['5555', '5656']);
+    assert.equal(FakeRedis.values.get('nf_next_code'), 5557);
   } finally {
     global.fetch = originalFetch;
   }
@@ -162,7 +162,7 @@ test('bookstore 400 keyword collisions advance to the next code', async () => {
     if (target.includes('savebookpromotionkeywords')) {
       const code = JSON.parse(options.body).keyword;
       attemptedCodes.push(code);
-      if (code !== '5560') {
+      if (code !== '5658') {
         const body = { code: 400, msg: `Keyword: ${code} have existed!` };
         return { ...response(body, 400), clone() { return this; } };
       }
@@ -182,8 +182,8 @@ test('bookstore 400 keyword collisions advance to the next code', async () => {
     const result = await invoke(confirm, request(token));
     assert.equal(result.statusCode, 200);
     assert.equal(result.body.status, 'completed');
-    assert.equal(result.body.code, 5560);
-    assert.deepEqual(attemptedCodes, ['5557', '5558', '5559', '5560']);
+    assert.equal(result.body.code, 5658);
+    assert.deepEqual(attemptedCodes, ['5557', '5658']);
   } finally {
     global.fetch = originalFetch;
   }

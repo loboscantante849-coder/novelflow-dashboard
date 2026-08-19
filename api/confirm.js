@@ -39,7 +39,8 @@ const DAILY_WINDOW = 86400; // 24h for per-user daily cap
 const CONFIRM_LOCK_TTL = 900; // Covers the slowest upstream code-allocation retry window.
 const UPSTREAM_DEADLINE_MS = 24000;
 const UPSTREAM_REQUEST_TIMEOUT_MS = 5000;
-const MAX_CODE_ATTEMPTS = 50;
+const MAX_CODE_ATTEMPTS = 8;
+const CODE_COLLISION_STRIDE = 100;
 
 function redisClient() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -503,7 +504,8 @@ module.exports = async (req, res) => {
     let lastAllocationStatus = null;
     let allocationAttempts = 0;
     for (let attempts = 0; attempts < MAX_CODE_ATTEMPTS; attempts++) {
-      const tryCode = await reserveNextCode(redis, fallbackCode++);
+      const reservedCode = await reserveNextCode(redis, fallbackCode++);
+      const tryCode = reservedCode + (attempts * CODE_COLLISION_STRIDE);
       if (tryCode >= MAX_CODE) break;
       allocationAttempts += 1;
       const { response: codeResp, authUnavailable } = await fetchBookstore(`${BOOKSTORE_API_BASE}/book/savebookpromotionkeywords`, {
