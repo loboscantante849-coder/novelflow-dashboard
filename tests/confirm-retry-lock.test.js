@@ -114,6 +114,135 @@ test('a network retry cannot allocate a second code while the first request is r
   }
 });
 
+test('occupied codes advance atomically beyond the old eight-attempt limit', async () => {
+  FakeRedis.reset({ nf_next_code: 5555 });
+  hashes.clear();
+  sets.clear();
+
+  const originalFetch = global.fetch;
+  const attemptedCodes = [];
+  global.fetch = async (url, options = {}) => {
+    const target = String(url);
+    if (target.includes('savebookpromotionkeywords')) {
+      const code = JSON.parse(options.body).keyword;
+      attemptedCodes.push(code);
+      return response({ data: code === '5565' });
+    }
+    if (target.includes('/book/booklist?')) return bookstoreBookResponse();
+    if (target.includes('SocialMediaChannelConfig')) return response({ data: { data: [] } });
+    if (target.endsWith('/SocialMediaLinkConfig') && options.body) return response({ code: 200, data: 'link-id-1234567890' });
+    if (target.includes('/SocialMediaLinkConfig/link-id-1234567890')) {
+      return response({ code: 200, data: { shortUrl: 'social.example/s/test' } });
+    }
+    throw new Error(`Unexpected fetch: ${target}`);
+  };
+
+  try {
+    const token = signAccessToken({ username: 'alice' });
+    const result = await invoke(confirm, request(token));
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.body.status, 'completed');
+    assert.equal(result.body.code, 5565);
+    assert.deepEqual(attemptedCodes, Array.from({ length: 11 }, (_, index) => String(5555 + index)));
+    assert.equal(FakeRedis.values.get('nf_next_code'), 5566);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('allocation failure releases the lock so a retry can create the link', async () => {
+  FakeRedis.reset();
+  hashes.clear();
+  sets.clear();
+
+  const originalFetch = global.fetch;
+  let allocationShouldSucceed = false;
+  global.fetch = async (url, options = {}) => {
+    const target = String(url);
+    if (target.includes('savebookpromotionkeywords')) return response({ data: allocationShouldSucceed });
+    if (target.includes('/book/booklist?')) return bookstoreBookResponse();
+    if (target.includes('SocialMediaChannelConfig')) return response({ data: { data: [] } });
+    if (target.endsWith('/SocialMediaLinkConfig') && options.body) return response({ code: 200, data: 'link-id-1234567890' });
+    if (target.includes('/SocialMediaLinkConfig/link-id-1234567890')) {
+      return response({ code: 200, data: { shortUrl: 'social.example/s/test' } });
+    }
+    throw new Error(`Unexpected fetch: ${target}`);
+  };
+
+  try {
+    const token = signAccessToken({ username: 'alice' });
+    const failed = await invoke(confirm, request(token));
+    assert.equal(failed.statusCode, 502);
+    assert.equal(failed.body.code, 'CODE_ALLOCATION_FAILED');
+    assert.equal(FakeRedis.values.has('nf_confirm_dedup:alice:book-1'), false);
+
+    allocationShouldSucceed = true;
+    const retried = await invoke(confirm, request(token));
+    assert.equal(retried.statusCode, 200);
+    assert.equal(retried.body.status, 'completed');
+    assert.ok(retried.body.code);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('rejected bookstore authentication is retryable and does not leave a pending lock', async () => {
+  FakeRedis.reset();
+  hashes.clear();
+  sets.clear();
+
+  const originalFetch = global.fetch;
+  global.fetch = async url => {
+    const target = String(url);
+    if (target.includes('savebookpromotionkeywords')) return response({}, 401);
+    throw new Error(`Unexpected fetch: ${target}`);
+  };
+
+  try {
+    const token = signAccessToken({ username: 'alice' });
+    const result = await invoke(confirm, request(token));
+    assert.equal(result.statusCode, 503);
+    assert.equal(result.body.code, 'UPSTREAM_AUTH_UNAVAILABLE');
+    assert.equal(FakeRedis.values.has('nf_confirm_dedup:alice:book-1'), false);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('a legacy 24-hour pending failure is cleared and retried immediately', async () => {
+  const dedupKey = 'nf_confirm_dedup:alice:book-1';
+  FakeRedis.reset({
+    [dedupKey]: JSON.stringify({ pending: true, submissionId: 'legacy-failed-request' }),
+  });
+  FakeRedis.expiries.set(dedupKey, 86400);
+  hashes.clear();
+  sets.clear();
+
+  const originalFetch = global.fetch;
+  global.fetch = async (url, options = {}) => {
+    const target = String(url);
+    if (target.includes('savebookpromotionkeywords')) return response({ data: true });
+    if (target.includes('/book/booklist?')) return bookstoreBookResponse();
+    if (target.includes('SocialMediaChannelConfig')) return response({ data: { data: [] } });
+    if (target.endsWith('/SocialMediaLinkConfig') && options.body) return response({ code: 200, data: 'link-id-1234567890' });
+    if (target.includes('/SocialMediaLinkConfig/link-id-1234567890')) {
+      return response({ code: 200, data: { shortUrl: 'social.example/s/test' } });
+    }
+    throw new Error(`Unexpected fetch: ${target}`);
+  };
+
+  try {
+    const token = signAccessToken({ username: 'alice' });
+    const result = await invoke(confirm, request(token));
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.body.status, 'completed');
+    assert.ok(result.body.code);
+    assert.notEqual(JSON.parse(FakeRedis.values.get(dedupKey)).submissionId, 'legacy-failed-request');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('a retry restores the submission index after a transient persistence failure', async () => {
   FakeRedis.reset();
   hashes.clear();

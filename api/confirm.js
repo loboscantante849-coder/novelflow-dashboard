@@ -39,7 +39,7 @@ const DAILY_WINDOW = 86400; // 24h for per-user daily cap
 const CONFIRM_LOCK_TTL = 900; // Covers the slowest upstream code-allocation retry window.
 const UPSTREAM_DEADLINE_MS = 24000;
 const UPSTREAM_REQUEST_TIMEOUT_MS = 5000;
-const MAX_CODE_ATTEMPTS = 8;
+const MAX_CODE_ATTEMPTS = 50;
 
 function redisClient() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -183,6 +183,36 @@ async function releaseConfirmLock(redis, key, submissionId) {
   } catch (error) {
     console.error('[confirm] lock release failed:', error.message);
   }
+}
+
+async function isActiveConfirmLock(redis, key, record) {
+  if (!redis || !record?.pending) return false;
+  const startedAt = Number(record.startedAt);
+  if (Number.isFinite(startedAt)) {
+    return startedAt > Date.now() - (CONFIRM_LOCK_TTL * 1000);
+  }
+
+  // Older failed requests overwrote the 15-minute in-flight lock with a
+  // 24-hour pending record. A legacy pending value with a longer TTL is a
+  // failed request, not work that is still running.
+  const ttl = await redis.ttl(key);
+  return ttl >= 0 && ttl <= CONFIRM_LOCK_TTL;
+}
+
+async function reserveNextCode(redis, fallbackCode) {
+  if (!redis) return fallbackCode;
+  await redis.set('nf_next_code', STARTING_CODE, { nx: true });
+  let reserved = Number(await redis.incr('nf_next_code')) - 1;
+  if (!Number.isFinite(reserved) || reserved < STARTING_CODE) {
+    await redis.set('nf_next_code', STARTING_CODE, { xx: true });
+    reserved = Number(await redis.incr('nf_next_code')) - 1;
+  }
+  if (!Number.isFinite(reserved) || reserved < STARTING_CODE) {
+    const error = new Error('promotion code counter is invalid');
+    error.code = 'CODE_COUNTER_INVALID';
+    throw error;
+  }
+  return reserved;
 }
 
 async function persistSubmissionIndexes(redis, username, submission) {
@@ -347,16 +377,20 @@ module.exports = async (req, res) => {
         const c = typeof cached === 'string' ? JSON.parse(cached) : cached;
         if (c && (c.code || c.pending)) {
           if (c.pending) {
-            return res.status(200).json({
-              success: true,
-              status: 'pending',
-              submissionId: c.submissionId || null,
-              matchedBookName: cleanBookTitle || cleanBookName,
-              message: 'Link is being created for this book'
-            });
+            if (await isActiveConfirmLock(redis, dedupKey, c)) {
+              return res.status(200).json({
+                success: true,
+                status: 'pending',
+                submissionId: c.submissionId || null,
+                matchedBookName: cleanBookTitle || cleanBookName,
+                message: 'Link is being created for this book'
+              });
+            }
+            await redis.del(dedupKey);
+          } else {
+            existingCode = String(c.code); existingLink = c.link || null; existingLinkId = c.linkId || null;
+            existingSubmission = c.submission && typeof c.submission === 'object' ? c.submission : null;
           }
-          existingCode = String(c.code); existingLink = c.link || null; existingLinkId = c.linkId || null;
-          existingSubmission = c.submission && typeof c.submission === 'object' ? c.submission : null;
         }
       } catch { if (typeof cached === 'string' && /^\d+$/.test(cached)) existingCode = cached; }
     }
@@ -416,7 +450,7 @@ module.exports = async (req, res) => {
     try {
       const lockResult = await redis.set(
         dedupKey,
-        JSON.stringify({ pending: true, submissionId }),
+        JSON.stringify({ pending: true, submissionId, startedAt: Date.now() }),
         { nx: true, ex: CONFIRM_LOCK_TTL }
       );
       if (!lockResult) {
@@ -447,13 +481,13 @@ module.exports = async (req, res) => {
     const deadlineAt = Date.now() + UPSTREAM_DEADLINE_MS;
     let finalCode = null;
     let upstreamAuthUnavailable = false;
-    let startCode = STARTING_CODE;
-    if (redis) {
-      const hint = await redis.get('nf_next_code');
-      if (hint) startCode = Math.max(STARTING_CODE, parseInt(hint) || STARTING_CODE);
-    }
-
-    for (let tryCode = startCode, attempts = 0; tryCode < MAX_CODE && attempts < MAX_CODE_ATTEMPTS; tryCode++, attempts++) {
+    let fallbackCode = STARTING_CODE;
+    let lastAllocationStatus = null;
+    let allocationAttempts = 0;
+    for (let attempts = 0; attempts < MAX_CODE_ATTEMPTS; attempts++) {
+      const tryCode = await reserveNextCode(redis, fallbackCode++);
+      if (tryCode >= MAX_CODE) break;
+      allocationAttempts += 1;
       const { response: codeResp, authUnavailable } = await fetchBookstore(`${BOOKSTORE_API_BASE}/book/savebookpromotionkeywords`, {
           method: 'POST',
           headers: {
@@ -474,14 +508,24 @@ module.exports = async (req, res) => {
         break;
       }
 
+      lastAllocationStatus = codeResp.status;
+      if (codeResp.status === 401 || codeResp.status === 403) {
+        upstreamAuthUnavailable = true;
+        break;
+      }
       if (codeResp.ok) {
         const codeData = await codeResp.json();
         if (codeData.data) {
           finalCode = tryCode;
-          if (redis) await redis.set('nf_next_code', tryCode + 1);
           break;
         }
+        // A 2xx response without data means this keyword is already occupied.
+        // The atomic counter lets this request and concurrent users move on.
+        continue;
       }
+      // Retrying a server or throttling response with a different keyword does
+      // not help. Release the per-book lock and let the client retry later.
+      break;
     }
 
     if (!finalCode) {
@@ -495,31 +539,13 @@ module.exports = async (req, res) => {
           code: 'UPSTREAM_AUTH_UNAVAILABLE',
         });
       }
-      if (redis) {
-        const pendingSub = {
-          id: submissionId,
-          bookName: cleanBookName,
-          discordUsername: cleanUsername,
-          promotionMethod: stripHtml(vPromo.value).substring(0, 200),
-          notes: stripHtml(vNotes.value).substring(0, 500),
-          bookId, matchedBookName: cleanBookTitle || cleanBookName,
-          lang: languageCode,
-          submittedAt: new Date().toISOString(),
-          status: 'pending',
-          error: 'Code creation failed'
-        };
-        await redis.hset('nf_subs', { [`_pending_${submissionId}`]: JSON.stringify(pendingSub) });
-        await redis.sadd(`nf_user_subs:${cleanUsername.toLowerCase()}`, `_pending_${submissionId}`);
-        // Record dedup key even for pending, so user can't spam-create pending entries
-        try {
-          await redis.set(dedupKey, JSON.stringify({ code: null, link: null, linkId: null, pending: true, submissionId }), { ex: 86400 });
-        } catch (e) { console.error('[confirm] dedupKey write failed (pending):', e.message); }
-      }
+      if (confirmLockOwned) await releaseConfirmLock(redis, dedupKey, submissionId);
       confirmLockOwned = false;
-      return res.status(200).json({
-        success: true, submissionId, status: 'pending',
-        matchedBookName: cleanBookTitle || cleanBookName,
-        message: 'Code creation failed'
+      console.error(`[confirm] Code allocation failed after ${allocationAttempts} attempts; upstream status=${lastAllocationStatus || 'none'}`);
+      return res.status(502).json({
+        success: false, submissionId, status: 'failed',
+        error: 'Unable to allocate a promotion code. Please retry.',
+        code: 'CODE_ALLOCATION_FAILED',
       });
     }
 
