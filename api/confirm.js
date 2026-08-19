@@ -70,6 +70,20 @@ async function fetchBookstore(url, options, deadlineAt) {
   return bookstoreFetch(url, options, { timeoutMs: upstreamTimeout(deadlineAt) });
 }
 
+async function upstreamErrorSummary(response) {
+  if (!response || typeof response.clone !== 'function') return '';
+  try {
+    const data = await response.clone().json();
+    const code = String(data?.code ?? data?.status ?? data?.errorCode ?? '').slice(0, 40);
+    const message = stripHtml(String(data?.message ?? data?.msg ?? data?.error ?? ''))
+      .replace(/[\r\n\t]+/g, ' ')
+      .slice(0, 180);
+    return [code && `code=${code}`, message && `message=${message}`].filter(Boolean).join(', ');
+  } catch (_) {
+    return '';
+  }
+}
+
 async function ensureCpsChannel(redis, username, deadlineAt) {
   if (!username || username === 'Anonymous') return null;
   const existing = await getCpsChannel(redis, username);
@@ -509,7 +523,7 @@ module.exports = async (req, res) => {
       }
 
       lastAllocationStatus = codeResp.status;
-      if (codeResp.status === 401 || codeResp.status === 403) {
+      if (authUnavailable || codeResp.status === 401 || codeResp.status === 403) {
         upstreamAuthUnavailable = true;
         break;
       }
@@ -525,6 +539,8 @@ module.exports = async (req, res) => {
       }
       // Retrying a server or throttling response with a different keyword does
       // not help. Release the per-book lock and let the client retry later.
+      const detail = await upstreamErrorSummary(codeResp);
+      console.error(`[confirm] Bookstore code allocation rejected: status=${codeResp.status}${detail ? `, ${detail}` : ''}`);
       break;
     }
 

@@ -22,6 +22,16 @@ const KV_REST_API_TOKEN = process.env.KV_REST_API_TOKEN;
 
 const CACHE_TTL = 24 * 60 * 60; // 24 hours
 
+function uniqueBooksById(books) {
+  const seen = new Set();
+  return (Array.isArray(books) ? books : []).filter(book => {
+    const key = String(book?.bookId || book?.id || '').trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function kvGet(key) {
   if (!KV_REST_API_URL || !KV_REST_API_TOKEN) return null;
   try {
@@ -116,7 +126,7 @@ async function fetchBooksFromAPI(lang, category, limit) {
 
   if (rawBooks.length === 0) return [];
 
-  return rawBooks.map(book => mapCatalogBook(book, lang));
+  return uniqueBooksById(rawBooks).map(book => mapCatalogBook(book, lang));
 }
 
 async function fetchTopPromotionBooks(lang, limit) {
@@ -146,7 +156,7 @@ async function fetchTopPromotionBooks(lang, limit) {
   const catalogueBooks = measuredBooks.length < limit
     ? await fetchBooksFromAPI(language, undefined, limit)
     : [];
-  const books = measuredBooks.concat(catalogueBooks.filter(book => !seen.has(book.bookId))).slice(0, limit);
+  const books = uniqueBooksById(measuredBooks.concat(catalogueBooks)).slice(0, limit);
   return { books, window: ranking.window };
 }
 
@@ -177,6 +187,7 @@ module.exports = async (req, res) => {
     for (const cat of patterns) {
       for (const l of langs) {
         await kvDel(`trending:v4:trending:${cat}:${l}:${effectiveLimit}`);
+        await kvDel(`trending:v5:trending:${cat}:${l}:${effectiveLimit}`);
         await kvDel(`trending:v3:trending:${cat}:${l}:${effectiveLimit}`);
         await kvDel(`trending:v2:trending:${cat}:${l}:${effectiveLimit}`);
       }
@@ -194,13 +205,13 @@ module.exports = async (req, res) => {
       updated: new Date().toISOString()
     };
     if (freshBooks.length > 0) {
-      const cacheKey = `trending:v4:trending:${category || 'all'}:${lang}:${effectiveLimit}`;
+      const cacheKey = `trending:v5:trending:${category || 'all'}:${lang}:${effectiveLimit}`;
       await kvSet(cacheKey, result, CACHE_TTL);
     }
     return res.status(200).json(result);
   }
 
-  const cacheKey = `trending:v4:${mode}:${category || 'all'}:${lang}:${effectiveLimit}`;
+  const cacheKey = `trending:v5:${mode}:${category || 'all'}:${lang}:${effectiveLimit}`;
 
   // Try cache first
   const cached = await kvGet(cacheKey);

@@ -65,6 +65,33 @@ test('a bookstore 401 refreshes the token and retries once', async () => {
   }
 });
 
+test('a bookstore 400 token-expired response refreshes the token and retries once', async () => {
+  const originalFetch = global.fetch;
+  let refreshes = 0;
+  let upstreamCalls = 0;
+  global.fetch = async url => {
+    if (String(url) === 'https://sts.anystories.app/connect/token') {
+      refreshes += 1;
+      return { ok: true, status: 200, json: async () => ({ access_token: `token-${refreshes}`, expires_in: 3600 }) };
+    }
+    upstreamCalls += 1;
+    if (upstreamCalls === 1) {
+      const body = { code: 401, msg: 'Token expired' };
+      return { ok: false, status: 400, json: async () => body, clone() { return this; } };
+    }
+    return { ok: true, status: 200, json: async () => ({ data: true }), clone() { return this; } };
+  };
+  oidc._resetForTests();
+  try {
+    const result = await bookstoreFetch('https://bookstore.test/resource');
+    assert.equal(result.response.status, 200);
+    assert.equal(refreshes, 2);
+    assert.equal(upstreamCalls, 2);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('a forced refresh reloads rotated OIDC credentials', async () => {
   const originalFetch = global.fetch;
   const passwords = [];

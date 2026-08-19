@@ -14,3 +14,10 @@ test('Top Promotions resolve measured campaign rankings against the authorised c
   assert.doesNotMatch(source, /orderBy=uv/);
   assert.doesNotMatch(source, /novelspa-uv/);
 });
+
+test('catalogue and cached Home results are deduplicated by book id', () => {
+  assert.match(source, /function uniqueBooksById\(books\)/);
+  assert.match(source, /return uniqueBooksById\(rawBooks\)\.map/);
+  assert.match(source, /uniqueBooksById\(measuredBooks\.concat\(catalogueBooks\)\)/);
+  assert.match(source, /trending:v5:/);
+});

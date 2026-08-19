@@ -174,6 +174,8 @@ test('book catalogue requests are single-owner, abortable, and language scoped',
   assert.match(loader, /bookLang === AppState\.currentLang/);
   assert.match(loader, /fetchBookSource\([\s\S]*14000/);
   assert.doesNotMatch(loader, /Promise\.race/);
+  assert.match(loader, /function uniqueCatalogBooks\(books\)/);
+  assert.match(loader, /AppState\.books = uniqueCatalogBooks\(result\.data\.map\(mapBook\)\)/);
 });
 
 test('reel cards retain local pending work and emit a valid video preview element', () => {

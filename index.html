@@ -5080,6 +5080,18 @@
             }
         }
 
+        function uniqueCatalogBooks(books) {
+            const seen = new Set();
+            return (Array.isArray(books) ? books : []).filter(book => {
+                const id = String((book && (book.bookId || book.id)) || '').trim().toLowerCase();
+                const title = String((book && book.title) || '').trim().toLowerCase();
+                const key = id ? 'id:' + id : (title ? 'title:' + title : '');
+                if (!key || seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+        }
+
         async function loadBooks() {
             const loadingEl = document.getElementById('homeLoading');
             const bookLang = AppState.currentLang || 'en';
@@ -5121,7 +5133,7 @@
                     const result = await response.json();
                     if (!isCurrentLoad()) return;
                     if (result.success && Array.isArray(result.data) && result.data.length > 0) {
-                        AppState.books = result.data.map(mapBook);
+                        AppState.books = uniqueCatalogBooks(result.data.map(mapBook));
                         console.log('✅ Loaded ' + AppState.books.length + ' books from trending API (lang=' + bookLang + ')');
                         booksLoaded = true;
                     }
@@ -5142,7 +5154,7 @@
                     const result2 = await resp2.json();
                     if (!isCurrentLoad()) return;
                     if (result2.success && Array.isArray(result2.data) && result2.data.length > 0) {
-                        AppState.books = result2.data.map(mapBook);
+                        AppState.books = uniqueCatalogBooks(result2.data.map(mapBook));
                         console.log('✅ Loaded ' + AppState.books.length + ' books (no lang filter)');
                         booksLoaded = true;
                     }
@@ -5163,7 +5175,7 @@
                     const result3 = await resp3.json();
                     if (!isCurrentLoad()) return;
                     if (result3.success && Array.isArray(result3.data) && result3.data.length > 0) {
-                        AppState.books = result3.data.map(mapBook);
+                        AppState.books = uniqueCatalogBooks(result3.data.map(mapBook));
                         console.log('✅ Loaded ' + AppState.books.length + ' books from books/search');
                         booksLoaded = true;
                     }
@@ -5193,7 +5205,7 @@
                         return true;
                     });
                     if (uniqueBooks.length > 0) {
-                        AppState.books = uniqueBooks.map(mapBook);
+                        AppState.books = uniqueCatalogBooks(uniqueBooks.map(mapBook));
                         console.log('✅ Loaded ' + AppState.books.length + ' books from static featured-books.json');
                         booksLoaded = true;
                     }
@@ -5314,10 +5326,16 @@
                 ? AppState.books.filter(book => Number(book.promotionVisits7d) > 0).length
                 : 0;
             const books = hasMeasuredPromotionRank ? AppState.books.slice(rankedCount, rankedCount + 6) : AppState.books.slice(0, 6);
-            // If not enough, fill from start
+            // If not enough, fill from the catalogue without repeating cards.
             if (books.length < 6) {
-                const extra = AppState.books.slice(0, 6 - books.length);
-                books.push(...extra);
+                const seen = new Set(books.map(book => String(book.bookId || '')));
+                for (const candidate of AppState.books) {
+                    const key = String(candidate.bookId || '');
+                    if (books.length >= 6) break;
+                    if (!key || seen.has(key)) continue;
+                    seen.add(key);
+                    books.push(candidate);
+                }
             }
 
             container.innerHTML = books.map(book => {
@@ -5403,7 +5421,7 @@
                         if (resp.ok) {
                             const result = await resp.json();
                             if (result.success && Array.isArray(result.data)) {
-                                AppState.filteredBooks = result.data.map(book => ({
+                                AppState.filteredBooks = uniqueCatalogBooks(result.data.map(book => ({
                                     bookId: book.bookId || book.id || '',
                                     title: book.title || 'Untitled',
                                     cover: book.cover || book.coverImage || '',
@@ -5414,7 +5432,7 @@
                                     languageCode: book.languageCode || 'en',
                                     bookClassName: book.bookClassName || '',
                                     uv: Number(book.uv || book.bookUv || book.readCount || 0) || 0
-                                }));
+                                })));
                             } else { throw new Error('bad data'); }
                         } else { throw new Error('API error'); }
                     } catch (e) {
