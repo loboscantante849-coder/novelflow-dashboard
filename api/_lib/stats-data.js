@@ -141,6 +141,20 @@ function resolvePromoterKey(rawName, adData) {
   return canon; // fallback: return canon even if no by_promoter entry exists
 }
 
+// Normalize only known reporting aliases for wallet storage and locking. Keep
+// ordinary usernames' punctuation intact so legacy Redis identities remain
+// addressable while aliases cannot create a second wallet.
+function resolveUsernameAlias(rawName) {
+  const raw = String(rawName || '').trim().toLowerCase();
+  if (!raw) return '';
+  const walletAliases = {
+    'cons espher': 'cons_espher',
+    '@cons espher': 'cons_espher',
+    '@cons_espher': 'cons_espher',
+  };
+  return walletAliases[raw] || raw;
+}
+
 // isAdmin defined above (always false); static whitelist removed.
 
 async function fetchJsonWithTimeout(url, timeoutMs = FETCH_TIMEOUT_MS) {
@@ -689,6 +703,7 @@ module.exports = {
   getRedis,
   canonize,
   resolvePromoterKey,
+  resolveUsernameAlias,
   isAdmin,
   getAdIdDetails,
   getLegacyDataJson,
