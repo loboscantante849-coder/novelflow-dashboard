@@ -26,7 +26,7 @@ const { handlePreflight } = require('./_lib/cors');
 const { checkRateLimit, getAuthPayload, getClientIp, isAdminUser, isDisabledUser } = require('./_lib/security');
 const { Redis } = require('@upstash/redis');
 const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
-const { getAdIdDetails, getLegacyDataJson, resolvePromoterKey } = require('./_lib/stats-data');
+const { getAdIdDetails, getLegacyDataJson, resolvePromoterKey, resolveUsernameAlias } = require('./_lib/stats-data');
 const {
   buildEarningsDetail,
   buildIncomeProfile,
@@ -66,7 +66,7 @@ function canonizeUser(raw) {
   if (s.length > 50) return null;
   // Allow CJK, Latin letters, digits, underscore, dot, @, hyphen, space
   if (!/^[\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9_.@\- ]{1,50}$/.test(s)) return null;
-  return s.toLowerCase();
+  return resolveUsernameAlias(s);
 }
 
 async function getIncomeAdjustment(redis, username, { failClosed = false } = {}) {
@@ -124,7 +124,10 @@ module.exports = async (req, res) => {
   if (!payload) {
     return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
   }
-  const jwtUsername = String(payload.username).toLowerCase();
+  const jwtUsername = canonizeUser(payload.username);
+  if (!jwtUsername) {
+    return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+  }
 
   const redis = redisClient();
   const isAdmin = await isAdminUser(redis, jwtUsername);
@@ -248,6 +251,9 @@ module.exports = async (req, res) => {
         return res.status(503).json({ error: 'Wallet data is temporarily unavailable', code: 'WALLET_DATA_CORRUPT' });
       }
       if (!userData) userData = {};
+      if (userData.wallet_merged_into) {
+        return res.status(409).json({ error: 'This wallet has been merged into a primary account', code: 'WALLET_MERGED', wallet_merged_into: canonizeUser(userData.wallet_merged_into) || String(userData.wallet_merged_into).slice(0, 50) });
+      }
 
       const incomeProfile = promoterIncomeProfile(await loadIncomeSources(), targetUser);
       const balances = computeWalletBalances(
@@ -323,6 +329,9 @@ module.exports = async (req, res) => {
         return res.status(503).json({ error: 'Wallet data is temporarily unavailable', code: 'WALLET_DATA_CORRUPT' });
       }
       if (!userData) userData = {};
+      if (userData.wallet_merged_into) {
+        return res.status(409).json({ error: 'This wallet has been merged into a primary account', code: 'WALLET_MERGED', wallet_merged_into: canonizeUser(userData.wallet_merged_into) || String(userData.wallet_merged_into).slice(0, 50) });
+      }
       if (userData.disabled) {
         return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
       }
@@ -434,6 +443,9 @@ module.exports = async (req, res) => {
         return res.status(503).json({ error: 'Wallet data is temporarily unavailable', code: 'WALLET_DATA_CORRUPT' });
       }
       if (!userData) userData = {};
+      if (userData.wallet_merged_into) {
+        return res.status(409).json({ error: 'This wallet has been merged into a primary account', code: 'WALLET_MERGED', wallet_merged_into: canonizeUser(userData.wallet_merged_into) || String(userData.wallet_merged_into).slice(0, 50) });
+      }
       if (!Array.isArray(userData.withdrawals)) userData.withdrawals = [];
 
       const wIdx = userData.withdrawals.findIndex(w => w && w.id === request_id);

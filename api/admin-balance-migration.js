@@ -22,7 +22,9 @@ const {
 } = require('./_lib/commission-policy');
 
 const APPLY_CONFIRMATION = 'APPLY_COMMISSION_80_V1';
-const HISTORICAL_THROUGH = '2026-08-09';
+const HISTORICAL_THROUGH = new Date(
+  Date.parse(`${COMMISSION_EFFECTIVE_DATE}T00:00:00.000Z`) - 24 * 60 * 60 * 1000
+).toISOString().slice(0, 10);
 const APPLY_CONCURRENCY = 8;
 
 function redisClient() {

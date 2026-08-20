@@ -10,8 +10,8 @@ process.env.KV_REST_API_TOKEN = 'test-token';
 process.env.ADMIN_KEY = 'migration-test-admin-key';
 
 const incomeData = {
-  last_updated: '2026-08-12T01:00:00.000Z',
-  date_range: { from: '2026-08-08', to: '2026-08-12' },
+  last_updated: '2026-08-20T23:00:00.000Z',
+  date_range: { from: '2026-08-08', to: '2026-08-20' },
   users: {
     promoter: {
       name: 'Promoter',
@@ -123,8 +123,10 @@ test('GET remains a read-only dry-run and reports cutoff preservation', async ()
   assert.equal(response.body.dry_run, true);
   assert.equal(response.body.apply_supported, true);
   assert.equal(response.body.can_apply_after_review, true);
+  assert.equal(response.body.policy.effective_date, '2026-08-21');
+  assert.equal(response.body.policy.historical_through, '2026-08-20');
   assert.equal(response.body.summary.migration_candidates, 1);
-  assert.equal(response.body.summary.historical_gross_income, 100);
+  assert.equal(response.body.summary.historical_gross_income, 130);
   assert.equal(response.body.summary.cutoff_balance_change, 0);
   assert.equal(response.body.users[0].current_balance_change, 0);
   assert.equal(FakeRedis.values.get('nf_user_data:promoter'), before);
@@ -143,25 +145,70 @@ test('successful migration credits historical income once and records its source
     skipped: 0,
     busy: 0,
     errors: 0,
-    historical_gross_income_added: 100,
+    historical_gross_income_added: 130,
     error_codes: [],
   });
 
   const afterData = JSON.parse(FakeRedis.values.get('nf_user_data:promoter'));
   const marker = afterData.balance_migrations.commission_80_v1;
-  assert.equal(afterData.bonus_balance, 105);
+  assert.equal(afterData.bonus_balance, 135);
   assert.equal(marker.status, 'applied');
-  assert.equal(marker.effective_date, '2026-08-10');
+  assert.equal(marker.effective_date, '2026-08-21');
   assert.equal(marker.commission_rate, 0.8);
-  assert.equal(marker.historical_gross_income, 100);
+  assert.equal(marker.historical_gross_income, 130);
   assert.equal(marker.source_key, 'promoter');
   assert.equal(marker.source_last_updated, incomeData.last_updated);
   assert.match(marker.applied_at, /^\d{4}-\d{2}-\d{2}T/);
 
   const afterWallet = computeWalletBalances(afterData, profile);
-  assert.equal(beforeWallet.available_balance, 99);
-  assert.equal(afterWallet.available_balance, 99);
-  assert.equal(afterWallet.commission_income, 24);
+  assert.equal(beforeWallet.available_balance, 105);
+  assert.equal(afterWallet.available_balance, 105);
+  assert.equal(afterWallet.commission_income, 0);
+});
+
+test('an existing Aug 10 migration remains unchanged under the Aug 21 default', async () => {
+  seed({
+    'nf_user_data:promoter': JSON.stringify({
+      bonus_balance: 105,
+      withdrawals: [
+        { amount: 20, status: 'approved' },
+        { amount: 10, status: 'pending' },
+      ],
+      balance_migrations: {
+        commission_80_v1: {
+          status: 'applied',
+          effective_date: '2026-08-10',
+          commission_rate: 0.8,
+          historical_gross_income: 100,
+          source_key: 'promoter',
+        },
+      },
+    }),
+  });
+  const before = FakeRedis.values.get('nf_user_data:promoter');
+
+  const dryRun = await invoke(migration, {
+    method: 'GET',
+    headers: authHeaders(),
+    query: { include_users: '1' },
+  });
+  assert.equal(dryRun.statusCode, 200);
+  assert.equal(dryRun.body.summary.migration_candidates, 0);
+  assert.equal(dryRun.body.summary.already_migrated, 1);
+  assert.equal(dryRun.body.users[0].already_migrated, true);
+  assert.equal(dryRun.body.users[0].current_balance_change, 0);
+
+  const applied = await invoke(migration, applyRequest());
+  assert.equal(applied.statusCode, 200);
+  assert.equal(applied.body.result.applied, 0);
+  assert.equal(applied.body.result.skipped, 1);
+  assert.equal(FakeRedis.values.get('nf_user_data:promoter'), before);
+
+  const profile = buildIncomeProfile(incomeData, 'promoter');
+  const wallet = computeWalletBalances(JSON.parse(before), profile);
+  assert.equal(wallet.commission_effective_date, '2026-08-10');
+  assert.equal(wallet.commission_income, 24);
+  assert.equal(wallet.available_balance, 99);
 });
 
 test('a second POST is idempotent and the next dry-run has no candidates', async () => {
@@ -244,7 +291,7 @@ test('legacy case aliases are excluded while the canonical login record migrates
   assert.equal(duplicate.statusCode, 200);
   assert.equal(duplicate.body.summary.duplicate_source_mappings, 0);
   assert.equal(duplicate.body.summary.excluded_legacy_aliases, 1);
-  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:promoter')).bonus_balance, 105);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:promoter')).bonus_balance, 135);
   assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:Promoter')).bonus_balance, 2);
 });
 
