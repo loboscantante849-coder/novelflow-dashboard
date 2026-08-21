@@ -20,6 +20,7 @@ const { resolveDiscordIdentity } = require('../_lib/identity');
 const { finalizePendingReferral, stageReferral } = require('../_lib/referrals');
 const { ensureMemberIdentity } = require('../_lib/member-identity');
 const { deliverSignupEvent, stageSignupEvent } = require('../_lib/signup-outbox');
+const { getLiveAdIdDetails } = require('../_lib/stats-data');
 const {
   OAUTH_STATE_COOKIE,
   clearOAuthStateCookie,
@@ -113,7 +114,14 @@ module.exports = async (req, res) => {
     var previousMapping = await redis.get(mappingKey);
     var candidateUsername = String(previousMapping || userData.username || '').trim().toLowerCase();
     var hadUserData = candidateUsername ? Boolean(await redis.get(`nf_user_data:${candidateUsername}`)) : false;
-    var identity = await resolveDiscordIdentity(redis, userData.id, userData.username);
+    var runtimePromoterSnapshot = null;
+    if (!previousMapping) {
+      try { runtimePromoterSnapshot = await getLiveAdIdDetails(); } catch (_error) {}
+      if (!runtimePromoterSnapshot || !runtimePromoterSnapshot.by_promoter) {
+        return res.redirect('/app-v2?auth=error');
+      }
+    }
+    var identity = await resolveDiscordIdentity(redis, userData.id, userData.username, { adData: runtimePromoterSnapshot });
     if (!identity) {
       return res.redirect('/app-v2?auth=identity_conflict');
     }

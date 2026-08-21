@@ -18,6 +18,7 @@ const {
 const { handlePreflight } = require('../_lib/cors');
 const { getRedis, isDisabledUser } = require('../_lib/security');
 const { ensureMemberIdentity } = require('../_lib/member-identity');
+const { loadLocalLoginCredentials } = require('../_lib/login-identity');
 
 module.exports = async (req, res) => {
   // me is read by the same-origin frontend via credentials; no cross-origin credentialed reads allowed.
@@ -46,7 +47,8 @@ module.exports = async (req, res) => {
           clearAuthCookies(res);
           return res.status(403).json({ loggedIn: false, code: 'ACCOUNT_DISABLED' });
         }
-        const hasPassword = Boolean(await redis.get('nf_user_pass:' + username));
+        const credentials = await loadLocalLoginCredentials(redis, username);
+        const hasPassword = credentials.records.length > 0;
         let member = null;
         try {
           member = await ensureMemberIdentity(redis, username, { source: payload.type === 'discord' ? 'discord' : 'local' });
@@ -54,6 +56,7 @@ module.exports = async (req, res) => {
           console.warn('[auth/me] Member ID allocation deferred:', error && error.code || error && error.message);
         }
         userInfo.hasPassword = hasPassword;
+        userInfo.passwordRecoveryRequired = credentials.records.length > 1;
         userInfo.memberId = member && member.id || null;
       } catch (_error) {
         if (_error && _error.code === 'ACCOUNT_IDENTITY_CONFLICT') {

@@ -8,6 +8,10 @@ const crypto = require('crypto');
 const { Redis } = require('@upstash/redis');
 const { assertAccountIdentity } = require('./identity');
 const { isSystemStatsBucket } = require('./promoter-access');
+const {
+  resolveWalletStorageIdentity,
+  walletIdentityConflict,
+} = require('./wallet-identity');
 
 // Reserved usernames that cannot be registered
 const RESERVED_USERNAMES = new Set([
@@ -59,6 +63,20 @@ function getAuthPayload(req) {
   return null;
 }
 
+async function getAccountWalletData(redis, username) {
+  const identity = await resolveWalletStorageIdentity(redis, username);
+  if (identity.conflict) throw walletIdentityConflict(identity);
+  const raw = await redis.get(`nf_user_data:${identity.storageUsername}`);
+  if (!raw) return null;
+  const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    const error = new Error('Invalid account record');
+    error.code = 'INVALID_ACCOUNT_RECORD';
+    throw error;
+  }
+  return data;
+}
+
 /**
  * Check whether a username is an admin.
  * Admin status is determined SOLELY by nf_user_data:<u>.accountType === 'admin'
@@ -75,13 +93,11 @@ async function isAdminUser(redis, username, { failClosed = false } = {}) {
     return false;
   }
   try {
-    const raw = await redis.get('nf_user_data:' + u);
-    if (!raw) return false;
-    const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    return data && (data.accountType === 'admin' || data.isAdmin === true);
+    const data = await getAccountWalletData(redis, u);
+    return Boolean(data && !data.wallet_merged_into && (data.accountType === 'admin' || data.isAdmin === true));
   } catch (cause) {
     if (failClosed) {
-      if (cause && cause.code === 'ACCOUNT_IDENTITY_CONFLICT') throw cause;
+      if (cause && ['ACCOUNT_IDENTITY_CONFLICT', 'WALLET_IDENTITY_CONFLICT'].includes(cause.code)) throw cause;
       const error = new Error('Account status unavailable');
       error.code = 'ACCOUNT_STATUS_UNAVAILABLE';
       error.cause = cause;
@@ -109,13 +125,11 @@ async function isDisabledUser(redis, usernameOrPayload, { failClosed = false } =
   }
   try {
     if (payload) await assertAccountIdentity(redis, payload);
-    const raw = await redis.get('nf_user_data:' + u);
-    if (!raw) return false;
-    const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    return Boolean(data && data.disabled);
+    const data = await getAccountWalletData(redis, u);
+    return Boolean(data && (data.disabled || data.wallet_merged_into));
   } catch (cause) {
     if (failClosed) {
-      if (cause && cause.code === 'ACCOUNT_IDENTITY_CONFLICT') throw cause;
+      if (cause && ['ACCOUNT_IDENTITY_CONFLICT', 'WALLET_IDENTITY_CONFLICT'].includes(cause.code)) throw cause;
       const error = new Error('Account status unavailable');
       error.code = 'ACCOUNT_STATUS_UNAVAILABLE';
       error.cause = cause;

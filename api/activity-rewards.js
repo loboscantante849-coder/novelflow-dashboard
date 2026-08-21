@@ -17,6 +17,8 @@ const {
   normalizePublicSocialUrl,
 } = require('./_lib/activity-eligibility');
 const { getAdIdDetails } = require('./_lib/stats-data');
+const { inspectApprovedSourceWalletOwner, loadSourceOwnerIndex } = require('./_lib/income-source-owners');
+const { resolveWalletStorageIdentity } = require('./_lib/wallet-identity');
 const { ensureReferralCode } = require('./_lib/referrals');
 const { grossIncomeSince, referralCommissionStatement, roundMoney } = require('./_lib/referral-commission');
 const { resolveNovelFlowMember } = require('./_lib/novelflow-member');
@@ -441,13 +443,31 @@ async function adminCommissionExport(req, res, redis) {
     .map(row => row.value)
     .filter(application => application.status === 'active')
     .map(application => [usernameKey(application.username), application]));
+  const ownerIndex = await loadSourceOwnerIndex(redis, adData);
   const rows = [];
+  let ownerConflictsExcluded = 0;
   for (const { value: relationship } of relationshipRows) {
     const parent = usernameKey(relationship.parent);
     const child = usernameKey(relationship.child);
     const application = applications.get(parent);
     if (!application || !child || child === parent) continue;
-    const statement = referralCommissionStatement(adData, relationship, application, 0.05);
+    const walletIdentity = await resolveWalletStorageIdentity(redis, child);
+    if (walletIdentity.conflict) {
+      ownerConflictsExcluded += 1;
+      continue;
+    }
+    const ownership = await inspectApprovedSourceWalletOwner(
+      redis,
+      adData,
+      child,
+      walletIdentity.storageUsername,
+      ownerIndex,
+    );
+    if (!ownership.authorized) {
+      ownerConflictsExcluded += 1;
+      continue;
+    }
+    const statement = referralCommissionStatement(adData, relationship, application, 0.05, ownership);
     if (!statement) continue;
     rows.push({
       relationship_id: `nfr_${hashValue(`${ACTIVITY_VERSION}:${parent}:${child}:${statement.effective_at}`).slice(0, 24)}`,
@@ -488,6 +508,7 @@ async function adminCommissionExport(req, res, redis) {
     total_commission_accrued_cumulative: roundMoney(rows.reduce((sum, row) => sum + row.commission_accrued_cumulative, 0)),
     payout_instruction: false,
     requires_prior_payout_reconciliation: true,
+    owner_conflicts_excluded: ownerConflictsExcluded,
     commission_statements: rows,
   });
 }
@@ -775,8 +796,14 @@ module.exports = async (req, res) => {
     }
   } catch (error) {
     console.error('[activity-rewards] error:', error);
-    if (error && ['STATS_STALE', 'PROMOTION_STATS_UNAVAILABLE'].includes(error.code)) {
+    if (error && ['STATS_STALE', 'PROMOTION_STATS_UNAVAILABLE', 'INCOME_SOURCE_OWNER_UNAVAILABLE', 'INCOME_SOURCE_UNAVAILABLE'].includes(error.code)) {
       return res.status(503).json({ error: error.message, code: error.code, stats_last_updated: error.statsLastUpdated || null });
+    }
+    if (error && error.code === 'INCOME_SOURCE_OWNER_UNVERIFIED') {
+      return res.status(403).json({ error: error.message, code: error.code });
+    }
+    if (error && ['INCOME_SOURCE_OWNER_CONFLICT', 'WALLET_IDENTITY_CONFLICT'].includes(error.code)) {
+      return res.status(409).json({ error: error.message, code: error.code });
     }
     if (error && error.code === 'IDENTIFIER_ALREADY_USED') return res.status(409).json({ error: error.message, code: error.code });
     if (error && error.code === 'DAILY_SUBSIDY_FULL') return res.status(409).json({ error: error.message, code: error.code });

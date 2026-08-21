@@ -8,8 +8,16 @@ const COMMISSION_RATE = 0.8;
 const COMMISSION_MIGRATION_ID = 'commission_80_v1';
 const ALLOWED_COMMISSION_EFFECTIVE_DATES = new Set(['2026-08-10', COMMISSION_EFFECTIVE_DATE]);
 
+function isSafeMoneyValue(value) {
+  if (typeof value !== 'number' && typeof value !== 'string') return false;
+  if (typeof value === 'string' && value.trim() === '') return false;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && Number.isSafeInteger(Math.round(numeric * 100));
+}
+
 function roundMoney(value) {
-  return Math.round((Number(value) || 0) * 100) / 100;
+  const numeric = Number(value);
+  return isSafeMoneyValue(numeric) ? Math.round(numeric * 100) / 100 : 0;
 }
 
 function normalizeDaily(value) {
@@ -64,10 +72,10 @@ function buildIncomeProfile(data, username) {
 
 function getCommissionMigration(userData) {
   const migrations = userData && userData.balance_migrations;
-  const migration = migrations && typeof migrations === 'object'
+  const migration = migrations && typeof migrations === 'object' && !Array.isArray(migrations)
     ? migrations[COMMISSION_MIGRATION_ID]
     : null;
-  if (!migration || typeof migration !== 'object' || migration.status !== 'applied') return null;
+  if (!migration || typeof migration !== 'object' || Array.isArray(migration) || migration.status !== 'applied') return null;
   return migration;
 }
 
@@ -172,7 +180,11 @@ function creditedIncome(profile, userData) {
 }
 
 function splitStoredBonus(userData, incomeProfile) {
-  const bonusBalance = roundMoney(userData && userData.bonus_balance);
+  const rawBonusBalance = userData && userData.bonus_balance;
+  const bonusMissing = rawBonusBalance === undefined;
+  const bonusNumber = bonusMissing ? 0 : Number(rawBonusBalance);
+  const invalidBonusBalance = !bonusMissing && (!isSafeMoneyValue(rawBonusBalance) || bonusNumber < 0);
+  const bonusBalance = invalidBonusBalance ? 0 : roundMoney(bonusNumber);
   const migration = getCommissionMigration(userData);
   const historical = Number(migration && migration.historical_gross_income);
   const storedLegacyCarryover = Number.isFinite(historical) ? roundMoney(Math.max(0, historical)) : 0;
@@ -190,12 +202,17 @@ function splitStoredBonus(userData, incomeProfile) {
     historical_earnings_delta: roundMoney(legacyCarryover - storedLegacyCarryover),
     reward_income_total: roundMoney(Math.max(0, bonusBalance - storedLegacyCarryover)),
     classification_reconciliation_required: classificationRequired,
+    invalid_bonus_balance: invalidBonusBalance,
   };
 }
 
 function withdrawalTotals(userData) {
-  const withdrawals = Array.isArray(userData && userData.withdrawals) ? userData.withdrawals : [];
+  const rawWithdrawals = userData && userData.withdrawals;
+  const withdrawals = Array.isArray(rawWithdrawals) ? rawWithdrawals : [];
   const totals = { approved: 0, pending: 0, rejected: 0, external: 0, unknown: [] };
+  if (rawWithdrawals !== undefined && !Array.isArray(rawWithdrawals)) {
+    totals.unknown.push(rawWithdrawals);
+  }
   for (const withdrawal of withdrawals) {
     if (!withdrawal || typeof withdrawal !== 'object') {
       totals.unknown.push(withdrawal);
@@ -203,16 +220,18 @@ function withdrawalTotals(userData) {
     }
     const status = String(withdrawal.status || 'pending').trim().toLowerCase();
     const amount = Number(withdrawal.amount);
-    if (!Number.isFinite(amount) || amount < 0 || !['approved', 'pending', 'rejected'].includes(status)) {
+    if (!isSafeMoneyValue(withdrawal.amount) || amount <= 0 || !['approved', 'pending', 'rejected'].includes(status)) {
       totals.unknown.push(withdrawal);
       continue;
     }
     if (withdrawal.wallet_excluded === true || withdrawal.source === 'external_settlement') {
       if (status !== 'approved') totals.unknown.push(withdrawal);
-      else totals.external += amount;
+      else if (isSafeMoneyValue(totals.external + amount)) totals.external += amount;
+      else totals.unknown.push(withdrawal);
       continue;
     }
-    totals[status] += amount;
+    if (isSafeMoneyValue(totals[status] + amount)) totals[status] += amount;
+    else totals.unknown.push(withdrawal);
   }
   totals.approved = roundMoney(totals.approved);
   totals.pending = roundMoney(totals.pending);
@@ -222,14 +241,32 @@ function withdrawalTotals(userData) {
 }
 
 function computeWalletBalances(userData, incomeProfile, incomeAdjustment = 0) {
+  const migrations = userData && userData.balance_migrations;
+  const markerValue = migrations && typeof migrations === 'object' && !Array.isArray(migrations)
+    ? migrations[COMMISSION_MIGRATION_ID]
+    : undefined;
+  const migration = getCommissionMigration(userData);
+  const rawHistoricalGross = migration && migration.historical_gross_income;
+  const numericHistoricalGross = Number(rawHistoricalGross);
   const stored = splitStoredBonus(userData, incomeProfile);
   const bonus = stored.bonus_balance;
-  const adjustment = roundMoney(incomeAdjustment);
+  const adjustmentNumber = incomeAdjustment === undefined || incomeAdjustment === null || incomeAdjustment === '' ? 0 : Number(incomeAdjustment);
+  const invalidIncomeAdjustment = !isSafeMoneyValue(adjustmentNumber);
+  const adjustment = invalidIncomeAdjustment ? 0 : roundMoney(adjustmentNumber);
   const income = creditedIncome(incomeProfile, userData);
   const totals = withdrawalTotals(userData);
   const reconciliationReasons = [
     ...(income.reconciliationReasons || []),
+    ...(migrations !== undefined && (!migrations || typeof migrations !== 'object' || Array.isArray(migrations))
+      ? ['invalid_balance_migrations_record']
+      : []),
+    ...(markerValue !== undefined && !migration ? ['invalid_commission_migration_record'] : []),
+    ...(migration && (!isSafeMoneyValue(rawHistoricalGross) || numericHistoricalGross < 0)
+      ? ['invalid_migration_historical_gross_income']
+      : []),
     ...(stored.classification_reconciliation_required ? ['legacy_carryover_exceeds_stored_bonus'] : []),
+    ...(stored.invalid_bonus_balance ? ['invalid_bonus_balance'] : []),
+    ...(invalidIncomeAdjustment ? ['invalid_income_adjustment'] : []),
     ...(totals.unknown.length ? ['invalid_withdrawal_record'] : []),
     ...(userData && userData.wallet_merged_into ? ['wallet_merged_into_primary'] : []),
   ];
@@ -320,6 +357,7 @@ module.exports = {
   resolveCommissionPolicy,
   historicalGrossBefore,
   incomeProfileReconciliation,
+  isSafeMoneyValue,
   roundMoney,
   splitStoredBonus,
   withdrawalTotals,

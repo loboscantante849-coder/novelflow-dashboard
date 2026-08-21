@@ -39,8 +39,9 @@ function grossIncomeSince(adData, promoterKey, effectiveDate) {
   return { gross: roundMoney(gross), days: days.size };
 }
 
-function referralCommissionStatement(adData, relationship, application, commissionRate = 0.05) {
+function referralCommissionStatement(adData, relationship, application, commissionRate = 0.05, ownership = null) {
   if (!relationship || !application || application.status !== 'active') return null;
+  if (!ownership || ownership.authorized !== true) return null;
   const parent = String(relationship.parent || '').trim().toLowerCase();
   const child = String(relationship.child || '').trim().toLowerCase();
   if (!parent || !child || parent === child) return null;
@@ -48,6 +49,7 @@ function referralCommissionStatement(adData, relationship, application, commissi
   if (!effectiveAt) return null;
   const effectiveDate = String(effectiveAt).slice(0, 10);
   const promoterKey = resolvePromoterKey(child, adData);
+  if (ownership.sourceKey !== promoterKey) return null;
   const income = grossIncomeSince(adData, promoterKey, effectiveDate);
   return {
     parent,

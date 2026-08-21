@@ -267,11 +267,154 @@ test('a record removed after analysis is not recreated by the migration', async 
   }
 });
 
+test('a second source owner inserted after the wallet lock aborts the migration', async () => {
+  const before = FakeRedis.values.get('nf_user_data:promoter');
+  const originalSet = FakeRedis.prototype.set;
+  let inserted = false;
+  FakeRedis.prototype.set = async function insertAliasAfterLock(key, value, options) {
+    const result = await originalSet.call(this, key, value, options);
+    if (!inserted && key === userDataLockKey('promoter') && result === 'OK') {
+      inserted = true;
+      FakeRedis.values.set('nf_user_data:Promoter', JSON.stringify({ bonus_balance: 2 }));
+    }
+    return result;
+  };
+  try {
+    const response = await invoke(migration, applyRequest());
+    assert.equal(inserted, true);
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.success, false);
+    assert.equal(response.body.applied, false);
+    assert.equal(response.body.result.applied, 0);
+    assert.equal(response.body.result.errors, 1);
+    assert.deepEqual(response.body.result.error_codes, ['WALLET_IDENTITY_CONFLICT']);
+    assert.equal(FakeRedis.values.get('nf_user_data:promoter'), before);
+    assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:Promoter')).bonus_balance, 2);
+  } finally {
+    FakeRedis.prototype.set = originalSet;
+  }
+});
+
+test('bulk promoter resolution indexes ad-id usernames only once', () => {
+  let usernameReads = 0;
+  const indexedAdData = {
+    by_promoter: { promoter: { display_name: 'Promoter', links: [] } },
+    ad_ids: {},
+  };
+  for (let index = 0; index < 200; index += 1) {
+    const entry = { username_canon: 'promoter' };
+    Object.defineProperty(entry, 'username', {
+      enumerable: true,
+      get() {
+        usernameReads += 1;
+        return `legacy promoter ${index}`;
+      },
+    });
+    indexedAdData.ad_ids[`ad-${index}`] = entry;
+  }
+
+  const resolveSourceKey = statsData.createPromoterKeyResolver(indexedAdData);
+  assert.equal(usernameReads, 200);
+  for (let index = 0; index < 2000; index += 1) {
+    assert.equal(resolveSourceKey(`ordinary user ${index}`), `ordinary_user_${index}`);
+  }
+  assert.equal(resolveSourceKey('legacy promoter 199'), 'promoter');
+  assert.equal(usernameReads, 200);
+});
+
+test('apply performs only one analysis scan and one post-lock owner scan', async () => {
+  incomeData.users.second_promoter = {
+    name: 'Second Promoter',
+    subscription_revenue_dn: 40,
+    subscription_revenue_dn_daily: { '2026-08-19': 40 },
+  };
+  adData.by_promoter.second_promoter = { display_name: 'Second Promoter', links: [] };
+  adData.ad_ids['second-promoter-owner'] = {
+    username: 'second.promoter',
+    username_canon: 'second_promoter',
+  };
+  seed({
+    'nf_user_data:second.promoter': JSON.stringify({ bonus_balance: 0, withdrawals: [] }),
+  });
+  const originalScan = FakeRedis.prototype.scan;
+  let scans = 0;
+  FakeRedis.prototype.scan = async function countWalletScans(cursor, options) {
+    if (options && options.match === 'nf_user_data:*') scans += 1;
+    return originalScan.call(this, cursor, options);
+  };
+  try {
+    const response = await invoke(migration, applyRequest());
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.result.applied, 2);
+    assert.equal(scans, 2);
+  } finally {
+    FakeRedis.prototype.scan = originalScan;
+    delete incomeData.users.second_promoter;
+    delete adData.by_promoter.second_promoter;
+    delete adData.ad_ids['second-promoter-owner'];
+  }
+});
+
+test('migration cannot commit after losing its wallet lock token', async () => {
+  const before = FakeRedis.values.get('nf_user_data:promoter');
+  const originalEval = FakeRedis.prototype.eval;
+  let replaced = false;
+  FakeRedis.prototype.eval = async function replaceLockBeforeCommit(script, keys, args) {
+    if (!replaced && String(script).includes('NF_USER_DATA_LOCKED_COMMIT_V1')) {
+      replaced = true;
+      FakeRedis.values.set(keys[1], 'new-writer-token');
+    }
+    return originalEval.call(this, script, keys, args);
+  };
+  try {
+    const response = await invoke(migration, applyRequest());
+    assert.equal(replaced, true);
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.result.applied, 0);
+    assert.deepEqual(response.body.result.error_codes, ['USER_DATA_LOCK_LOST']);
+    assert.equal(FakeRedis.values.get('nf_user_data:promoter'), before);
+  } finally {
+    FakeRedis.prototype.eval = originalEval;
+  }
+});
+
+test('invalid bulk Redis response shapes abort migration without writes', async () => {
+  const before = FakeRedis.values.get('nf_user_data:promoter');
+  const originalMget = FakeRedis.prototype.mget;
+  FakeRedis.prototype.mget = async function invalidBulkShape() {
+    return { invalid: true };
+  };
+  try {
+    const response = await invoke(migration, applyRequest({
+      headers: {
+        'x-admin-key': 'migration-test-admin-key',
+        'x-forwarded-for': '192.0.2.82',
+      },
+    }));
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.code, 'MIGRATION_STORAGE_UNAVAILABLE');
+    assert.equal(FakeRedis.values.get('nf_user_data:promoter'), before);
+  } finally {
+    FakeRedis.prototype.mget = originalMget;
+  }
+});
+
 test('corrupt or anomalous records abort all writes', async () => {
   const cases = [
     { 'nf_user_data:broken': '{not-json' },
     { 'nf_user_data:promoter': JSON.stringify({ withdrawals: [{ amount: -1, status: 'approved' }] }) },
     { 'nf_user_data:promoter': JSON.stringify({ bonus_balance: 'not-money' }) },
+    { 'nf_user_data:promoter': JSON.stringify({ bonus_balance: null }) },
+    { 'nf_user_data:promoter': JSON.stringify({ bonus_balance: '' }) },
+    { 'nf_user_data:promoter': JSON.stringify({
+      bonus_balance: 5,
+      balance_migrations: {
+        commission_80_v1: {
+          status: 'applied', effective_date: '2026-08-21', commission_rate: 0.8,
+          historical_gross_income: null,
+        },
+      },
+    }) },
   ];
 
   for (const extra of cases) {
@@ -285,14 +428,107 @@ test('corrupt or anomalous records abort all writes', async () => {
   }
 });
 
-test('legacy case aliases are excluded while the canonical login record migrates once', async () => {
+test('duplicate wallet aliases fail closed instead of selecting one record to migrate', async () => {
   seed({ 'nf_user_data:Promoter': JSON.stringify({ bonus_balance: 2 }) });
   const duplicate = await invoke(migration, applyRequest());
-  assert.equal(duplicate.statusCode, 200);
-  assert.equal(duplicate.body.summary.duplicate_source_mappings, 0);
-  assert.equal(duplicate.body.summary.excluded_legacy_aliases, 1);
-  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:promoter')).bonus_balance, 135);
+  assert.equal(duplicate.statusCode, 409);
+  assert.equal(duplicate.body.summary.duplicate_source_mappings, 1);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:promoter')).bonus_balance, 5);
   assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:Promoter')).bonus_balance, 2);
+});
+
+test('a sole punctuation wallet cannot receive source income without a trusted pipeline mapping', async () => {
+  const wallet = JSON.stringify({ bonus_balance: 5, withdrawals: [] });
+  FakeRedis.reset({
+    'nf_user_data:rootadmin': JSON.stringify({ accountType: 'admin' }),
+    'nf_user_data:@promoter': wallet,
+  });
+
+  const dryRun = await invoke(migration, {
+    method: 'GET',
+    headers: authHeaders(),
+    query: { include_users: '1' },
+  });
+  assert.equal(dryRun.statusCode, 200);
+  assert.equal(dryRun.body.can_apply_after_review, false);
+  assert.equal(dryRun.body.summary.excluded_legacy_aliases, 1);
+  assert.equal(dryRun.body.summary.anomalous_records, 1);
+  assert.deepEqual(dryRun.body.users[0].anomalies, ['unverified_source_owner']);
+
+  const applied = await invoke(migration, applyRequest());
+  assert.equal(applied.statusCode, 409);
+  assert.equal(applied.body.code, 'MIGRATION_SAFETY_CHECK_FAILED');
+  assert.equal(FakeRedis.values.get('nf_user_data:@promoter'), wallet);
+});
+
+test('a sole punctuation wallet may migrate only when pipeline data names it as the source owner', async () => {
+  const wallet = JSON.stringify({ bonus_balance: 5, withdrawals: [] });
+  adData.ad_ids['trusted-promoter-alias'] = {
+    username: '@Promoter',
+    username_canon: 'promoter',
+  };
+  FakeRedis.reset({
+    'nf_user_data:rootadmin': JSON.stringify({ accountType: 'admin' }),
+    'nf_user_data:@promoter': wallet,
+  });
+  try {
+    const response = await invoke(migration, applyRequest());
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.result.applied, 1);
+    const updated = JSON.parse(FakeRedis.values.get('nf_user_data:@promoter'));
+    assert.equal(updated.bonus_balance, 135);
+    assert.equal(updated.balance_migrations.commission_80_v1.source_key, 'promoter');
+  } finally {
+    delete adData.ad_ids['trusted-promoter-alias'];
+  }
+});
+
+test('a merged wallet tombstone is never selected as a migration target', async () => {
+  const wallet = JSON.stringify({
+    bonus_balance: 5,
+    withdrawals: [],
+    wallet_merged_into: 'primary-wallet',
+  });
+  FakeRedis.reset({
+    'nf_user_data:rootadmin': JSON.stringify({ accountType: 'admin' }),
+    'nf_user_data:promoter': wallet,
+  });
+
+  const dryRun = await invoke(migration, {
+    method: 'GET',
+    headers: authHeaders(),
+    query: { include_users: '1' },
+  });
+  assert.equal(dryRun.statusCode, 200);
+  assert.equal(dryRun.body.can_apply_after_review, false);
+  assert.deepEqual(dryRun.body.users[0].anomalies, ['wallet_merged_into_primary']);
+
+  const applied = await invoke(migration, applyRequest());
+  assert.equal(applied.statusCode, 409);
+  assert.equal(applied.body.code, 'MIGRATION_SAFETY_CHECK_FAILED');
+  assert.equal(FakeRedis.values.get('nf_user_data:promoter'), wallet);
+});
+
+test('a disabled wallet is never selected as a migration target', async () => {
+  const wallet = JSON.stringify({ bonus_balance: 5, withdrawals: [], disabled: true });
+  FakeRedis.reset({
+    'nf_user_data:rootadmin': JSON.stringify({ accountType: 'admin' }),
+    'nf_user_data:promoter': wallet,
+  });
+
+  const dryRun = await invoke(migration, {
+    method: 'GET',
+    headers: authHeaders(),
+    query: { include_users: '1' },
+  });
+  assert.equal(dryRun.statusCode, 200);
+  assert.equal(dryRun.body.can_apply_after_review, false);
+  assert.deepEqual(dryRun.body.users[0].anomalies, ['disabled_account']);
+
+  const applied = await invoke(migration, applyRequest());
+  assert.equal(applied.statusCode, 409);
+  assert.equal(applied.body.code, 'MIGRATION_SAFETY_CHECK_FAILED');
+  assert.equal(FakeRedis.values.get('nf_user_data:promoter'), wallet);
 });
 
 test('ambiguous lowercase aliases and invalid migration markers abort all writes', async () => {

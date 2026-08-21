@@ -130,6 +130,13 @@ class FakeRedis {
 
   async eval(_script, keys, args) {
     this._checkError();
+    if (String(_script).includes('NF_USER_DATA_LOCKED_COMMIT_V1')) {
+      const [userDataKey, ...lockKeys] = keys;
+      const [userDataJson, ...lockTokens] = args;
+      if (lockKeys.some((lockKey, index) => FakeRedis.values.get(lockKey) !== lockTokens[index])) return 0;
+      FakeRedis.values.set(userDataKey, userDataJson);
+      return 1;
+    }
     if (String(_script).includes('NF_VIP_MEMBER_BIND_V1')) {
       const [userKey, memberKey] = keys;
       const [username, memberId, bindingJson] = args;
@@ -150,9 +157,9 @@ class FakeRedis {
       return 1;
     }
     if (String(_script).includes('NF_VIP_USER_DATA_COMMIT_V1')) {
-      const [userDataKey, eventKey, lockKey] = keys;
-      const [userDataJson, eventJson, lockToken] = args;
-      if (FakeRedis.values.get(lockKey) !== lockToken) return -2;
+      const [userDataKey, eventKey, ...lockKeys] = keys;
+      const [userDataJson, eventJson, ...lockTokens] = args;
+      if (lockKeys.some((lockKey, index) => FakeRedis.values.get(lockKey) !== lockTokens[index])) return -2;
       if (FakeRedis.values.has(eventKey)) return -1;
       FakeRedis.values.set(userDataKey, userDataJson);
       FakeRedis.values.set(eventKey, eventJson);

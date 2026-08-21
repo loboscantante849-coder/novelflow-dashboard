@@ -11,9 +11,15 @@
 const { handlePreflight } = require('./_lib/cors');
 const { Redis } = require('@upstash/redis');
 const { mergeBookState } = require('./_lib/sync');
-const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
+const { commitUserDataUnderLock, releaseUserDataLock } = require('./_lib/user-data-lock');
 const { assertAccountIdentity, checkRateLimit, getAuthPayload, getClientIp } = require('./_lib/security');
 const { splitStoredBonus } = require('./_lib/commission-policy');
+const { acquireWalletCreationSourceGuard } = require('./_lib/income-source-owners');
+const {
+  acquireWalletDataLock,
+  resolveUsernameAlias,
+  resolveWalletStorageIdentity,
+} = require('./_lib/wallet-identity');
 
 const MAX_SYNC_BODY_BYTES = 512 * 1024;
 const SYNC_USER_LIMIT_PER_HOUR = 300;
@@ -54,10 +60,18 @@ module.exports = async (req, res) => {
     });
   }
 
-  const redisKey = `nf_user_data:${String(username).toLowerCase()}`;
+  const primaryUsername = resolveUsernameAlias(username);
 
   try {
     if (req.method === 'GET') {
+      const identity = await resolveWalletStorageIdentity(redis, primaryUsername);
+      if (identity.conflict) {
+        return res.status(409).json({
+          error: 'Account identity recovery required',
+          code: 'WALLET_IDENTITY_CONFLICT',
+        });
+      }
+      const redisKey = `nf_user_data:${identity.storageUsername}`;
       const data = await redis.get(redisKey);
       if (!data) {
         return res.status(200).json({ exists: false, data: null });
@@ -97,10 +111,9 @@ module.exports = async (req, res) => {
       }
 
       try {
-        const normalizedUser = String(username).toLowerCase();
         const normalizedIp = String(getClientIp(req)).slice(0, 128);
         const [userAllowed, ipAllowed] = await Promise.all([
-          checkRateLimit(redis, `nf_rate:user_sync:${normalizedUser}`, SYNC_USER_LIMIT_PER_HOUR, 3600, { failClosed: true }),
+          checkRateLimit(redis, `nf_rate:user_sync:${primaryUsername}`, SYNC_USER_LIMIT_PER_HOUR, 3600, { failClosed: true }),
           checkRateLimit(redis, `nf_rate:user_sync_ip:${normalizedIp}`, SYNC_IP_LIMIT_PER_HOUR, 3600, { failClosed: true }),
         ]);
         if (!userAllowed || !ipAllowed) {
@@ -110,17 +123,34 @@ module.exports = async (req, res) => {
         return res.status(503).json({ error: 'Cloud sync temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
       }
 
-      let lock;
+      let walletLock;
       try {
-        lock = await acquireUserDataLock(redis, username);
-      } catch (_error) {
+        walletLock = await acquireWalletDataLock(redis, primaryUsername);
+      } catch (error) {
+        if (error && error.code === 'WALLET_IDENTITY_CONFLICT') {
+          return res.status(409).json({
+            error: 'Account identity recovery required',
+            code: error.code,
+          });
+        }
         return res.status(503).json({ error: 'User data storage is temporarily unavailable', code: 'USER_DATA_UNAVAILABLE' });
       }
+      const { lock, identity } = walletLock;
       if (!lock) {
         return res.status(409).json({ error: 'User data is being updated', code: 'USER_DATA_BUSY' });
       }
 
+      let sourceGuard = null;
       try {
+        try {
+          sourceGuard = await acquireWalletCreationSourceGuard(redis, primaryUsername, identity);
+        } catch (error) {
+          if (error && ['INCOME_SOURCE_OWNER_UNVERIFIED', 'INCOME_SOURCE_OWNER_CONFLICT', 'INCOME_SOURCE_BUSY'].includes(error.code)) {
+            return res.status(409).json({ error: error.message, code: error.code });
+          }
+          return res.status(503).json({ error: 'User data storage is temporarily unavailable', code: error && error.code || 'USER_DATA_UNAVAILABLE' });
+        }
+        const redisKey = `nf_user_data:${identity.storageUsername}`;
         // Fetch existing server data first (merge strategy: client cannot overwrite server-managed fields)
         let existing = await redis.get(redisKey);
         if (existing) {
@@ -136,6 +166,9 @@ module.exports = async (req, res) => {
         if (!existing || typeof existing !== 'object') existing = {};
         if (existing.disabled) {
           return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+        }
+        if (existing.wallet_merged_into) {
+          return res.status(409).json({ error: 'Wallet merged into a primary account', code: 'WALLET_MERGED' });
         }
 
         // Build cleanData by copying ONLY client-writable fields from the request.
@@ -167,7 +200,7 @@ module.exports = async (req, res) => {
           }
         }
 
-        await redis.set(redisKey, JSON.stringify(cleanData));
+        await commitUserDataUnderLock(redis, redisKey, cleanData, [lock, sourceGuard]);
 
         return res.status(200).json({
           success: true,
@@ -175,6 +208,7 @@ module.exports = async (req, res) => {
           deletedBooks: cleanData.deletedBooks,
         });
       } finally {
+        await releaseUserDataLock(redis, sourceGuard);
         await releaseUserDataLock(redis, lock);
       }
     }

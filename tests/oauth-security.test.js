@@ -13,6 +13,10 @@ process.env.DISCORD_CLIENT_ID = 'test-discord-client';
 process.env.DISCORD_CLIENT_SECRET = 'test-discord-secret';
 process.env.DISCORD_REDIRECT_URI = 'https://novelflow.top/api/auth/callback';
 
+const statsData = require('../api/_lib/stats-data');
+statsData.getAdIdDetails = async () => require('../ad_id_details.json');
+statsData.getLiveAdIdDetails = statsData.getAdIdDetails;
+
 const discordStart = require('../api/auth/discord-start');
 const callback = require('../api/auth/callback');
 const discordActivity = require('../api/auth/discord-activity');

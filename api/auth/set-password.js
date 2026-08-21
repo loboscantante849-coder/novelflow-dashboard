@@ -12,6 +12,7 @@ const { Redis } = require('@upstash/redis');
 const { createPasswordHash, verifyPassword } = require('../_lib/password');
 const { checkRateLimit, getClientIp, isDisabledUser } = require('../_lib/security');
 const { bindPasswordPrincipal, principalFromPayload } = require('../_lib/identity');
+const { loadLocalLoginCredentials } = require('../_lib/login-identity');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -82,9 +83,15 @@ module.exports = async (req, res) => {
     }
 
     // Check if user already has a password
-    const storedHash = await redis.get('nf_user_pass:' + username);
+    const credentials = await loadLocalLoginCredentials(redis, username);
+    if (credentials.records.length > 1) {
+      return res.status(409).json({ error: 'Account credential recovery is required', code: 'ACCOUNT_CREDENTIAL_CONFLICT' });
+    }
+    const credentialStorageUsername = credentials.records[0]?.storageUsername || username;
+    const credentialUsername = credentialStorageUsername.toLowerCase();
+    const storedHash = credentials.records[0]?.hash || null;
     const principal = principalFromPayload(payload);
-    const passwordOwner = await redis.get('nf_user_pass_owner:' + username);
+    const passwordOwner = await redis.get('nf_user_pass_owner:' + credentialUsername);
     if (passwordOwner && String(passwordOwner) !== principal) {
       return res.status(409).json({ error: 'Password belongs to another sign-in identity', code: 'ACCOUNT_IDENTITY_CONFLICT' });
     }
@@ -100,10 +107,10 @@ module.exports = async (req, res) => {
     }
 
     // Set new password
-    if (!principal || !await bindPasswordPrincipal(redis, username, principal)) {
+    if (!principal || !await bindPasswordPrincipal(redis, credentialUsername, principal)) {
       return res.status(409).json({ error: 'Account identity recovery required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
     }
-    await redis.set('nf_user_pass:' + username, await createPasswordHash(password));
+    await redis.set('nf_user_pass:' + credentialStorageUsername, await createPasswordHash(password));
 
     return res.status(200).json({ success: true, message: 'Password set successfully' });
   } catch (error) {

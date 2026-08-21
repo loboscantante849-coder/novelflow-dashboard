@@ -1,6 +1,8 @@
 const crypto = require('crypto');
 const { getAdIdDetails, resolvePromoterKey } = require('./stats-data');
 const { isSystemStatsBucket } = require('./promoter-access');
+const { inspectApprovedSourceWalletOwner } = require('./income-source-owners');
+const { resolveWalletStorageIdentity } = require('./wallet-identity');
 const { ACTIVITY_END_AT, ACTIVITY_START_AT, ACTIVITY_VERSION } = require('./activity-config');
 const STATS_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
@@ -119,6 +121,19 @@ function eligibilityFromAdData(adData, username, campaignInvites = 0) {
   };
 }
 
+function withoutHistoricalSourceEligibility(result, status) {
+  const campaignMeasured = Math.max(0, Math.floor(Number(result.campaignInvites) || 0));
+  return {
+    ...result,
+    promoterKey: null,
+    historicalNewUsers: 0,
+    recommenderMeasuredNewUsers: campaignMeasured,
+    recommenderEligible: campaignMeasured >= 5,
+    sourceOwnerVerified: false,
+    sourceOwnerStatus: status,
+  };
+}
+
 async function verifiedAppReferralCount(redis, username) {
   if (!redis || !username) return 0;
   return Math.max(0, Number(await redis.scard(`nf_app_referrals:v1:${String(username).trim().toLowerCase()}`)) || 0);
@@ -138,7 +153,47 @@ async function loadEligibility(username, { redis = null, requireFresh = false, a
     }
     return eligibilityFromAdData(null, username, campaignInvites);
   }
-  const result = eligibilityFromAdData(adData, username, campaignInvites);
+  let result = eligibilityFromAdData(adData, username, campaignInvites);
+  if (result.promoterKey) {
+    try {
+      if (!redis) {
+        const error = new Error('Income source ownership is unavailable');
+        error.code = 'INCOME_SOURCE_OWNER_UNAVAILABLE';
+        throw error;
+      }
+      const walletIdentity = await resolveWalletStorageIdentity(redis, username);
+      if (walletIdentity.conflict) {
+        const error = new Error('Wallet identity requires reconciliation');
+        error.code = 'WALLET_IDENTITY_CONFLICT';
+        throw error;
+      }
+      const ownership = await inspectApprovedSourceWalletOwner(
+        redis,
+        adData,
+        username,
+        walletIdentity.storageUsername,
+      );
+      if (!ownership.approved) {
+        const error = new Error('Income source owner is not verified');
+        error.code = 'INCOME_SOURCE_OWNER_UNVERIFIED';
+        throw error;
+      }
+      if (!ownership.unique) {
+        const error = new Error('Income source ownership requires reconciliation');
+        error.code = 'INCOME_SOURCE_OWNER_CONFLICT';
+        error.owners = ownership.owners;
+        throw error;
+      }
+      result = {
+        ...result,
+        sourceOwnerVerified: true,
+        sourceOwnerStatus: 'verified',
+      };
+    } catch (error) {
+      if (requireFresh) throw error;
+      result = withoutHistoricalSourceEligibility(result, error && error.code || 'INCOME_SOURCE_OWNER_UNAVAILABLE');
+    }
+  }
   if (requireFresh && result.statsStale) {
     const error = new Error('Promotion stats are temporarily stale');
     error.code = 'STATS_STALE';
