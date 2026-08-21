@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { handlePreflight } = require('./_lib/cors');
 const { getAuthPayload, getRedis, checkRateLimit, getClientIp, isDisabledUser } = require('./_lib/security');
 const { bookstoreFetch } = require('./_lib/bookstore-fetch');
+const { canonicalizeLocalSessionPayload, localLoginCredentialCandidates } = require('./_lib/login-identity');
 const {
   APPLICATION_ID,
   EQUITY_API_BASE,
@@ -27,6 +28,15 @@ function recordKey(username) {
   return `nf_equity_code:${username}`;
 }
 
+function recordKeys(username) {
+  const canonical = canonicalUsername(username);
+  const verified = localLoginCredentialCandidates(canonical).usernames || [];
+  const candidates = canonical === 'cons_espher'
+    ? [canonical, ...verified, '@cons espher', 'cons espher', '@cons_espher']
+    : [canonical, ...verified];
+  return Array.from(new Set(candidates.filter(Boolean))).map(recordKey);
+}
+
 function lockKey(username) {
   return `nf_equity_code_lock:${username}`;
 }
@@ -35,8 +45,62 @@ function isRemoteEnabled(row) {
   return !row || ![false, 0, 'false', '0'].includes(row.isEnable);
 }
 
+async function loadRecordState(redis, username) {
+  const canonicalKey = recordKey(canonicalUsername(username));
+  const keys = recordKeys(username);
+  const values = typeof redis.mget === 'function'
+    ? await redis.mget(...keys)
+    : await Promise.all(keys.map(key => redis.get(key)));
+  const matches = [];
+  for (let index = 0; index < keys.length; index += 1) {
+    const raw = values[index];
+    if (raw === null || raw === undefined) continue;
+    const record = safeParse(raw);
+    if (!record || typeof record !== 'object' || Array.isArray(record)) {
+      const error = new Error('Invite code record is invalid');
+      error.code = 'INVITE_RECORD_INVALID';
+      throw error;
+    }
+    matches.push({ key: keys[index], raw: typeof raw === 'string' ? raw : JSON.stringify(raw), record });
+  }
+  if (matches.length > 1) {
+    const distinct = new Set(matches.map(match => JSON.stringify(match.record)));
+    if (distinct.size > 1) {
+      const error = new Error('Multiple invite code records resolve to this account');
+      error.code = 'INVITE_IDENTITY_CONFLICT';
+      throw error;
+    }
+  }
+  const selected = matches.find(match => match.key === canonicalKey) || matches[0] || null;
+  return {
+    canonicalKey,
+    storageKey: selected && selected.key || canonicalKey,
+    raw: selected && selected.raw || null,
+    record: selected && selected.record || null,
+  };
+}
+
 async function loadRecord(redis, username) {
-  return safeParse(await redis.get(recordKey(username)));
+  return (await loadRecordState(redis, username)).record;
+}
+
+async function migrateLegacyRecord(redis, state) {
+  if (!state || !state.record || state.storageKey === state.canonicalKey) return state;
+  const script = [
+    '-- NF_EQUITY_IDENTITY_MIGRATE_V1',
+    "if redis.call('exists', KEYS[1]) ~= 0 then return -1 end",
+    "if redis.call('get', KEYS[2]) ~= ARGV[1] then return -2 end",
+    "redis.call('set', KEYS[1], ARGV[1])",
+    "redis.call('del', KEYS[2])",
+    'return 1',
+  ].join('\n');
+  const result = Number(await redis.eval(script, [state.canonicalKey, state.storageKey], [state.raw]));
+  if (result !== 1) {
+    const error = new Error('Invite code identity changed during recovery');
+    error.code = 'INVITE_IDENTITY_CHANGED';
+    throw error;
+  }
+  return { ...state, storageKey: state.canonicalKey };
 }
 
 async function saveRecord(redis, username, record) {
@@ -197,7 +261,7 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' });
   }
 
-  const auth = getAuthPayload(req);
+  const auth = canonicalizeLocalSessionPayload(getAuthPayload(req));
   const username = canonicalUsername(auth && auth.username);
   if (!username) return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
 
@@ -216,6 +280,9 @@ module.exports = async (req, res) => {
       const stored = await loadRecord(redis, username);
       return res.status(200).json({ success: true, inviteCode: publicRecord(stored) });
     } catch (_error) {
+      if (_error && ['INVITE_IDENTITY_CONFLICT', 'INVITE_RECORD_INVALID'].includes(_error.code)) {
+        return res.status(409).json({ error: 'Invite code identity recovery is required', code: _error.code });
+      }
       return res.status(503).json({ error: 'Storage temporarily unavailable', code: 'STORAGE_UNAVAILABLE' });
     }
   }
@@ -261,7 +328,8 @@ module.exports = async (req, res) => {
 
   try {
     const deadlineAt = Date.now() + OPERATION_DEADLINE_MS;
-    let record = await loadRecord(redis, username);
+    const recordState = await migrateLegacyRecord(redis, await loadRecordState(redis, username));
+    let record = recordState.record;
     if (action === 'unbind') {
       if (record && record.status === 'unbound') {
         return res.status(200).json({ success: true, inviteCode: publicRecord(record), existing: true });

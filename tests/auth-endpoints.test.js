@@ -179,6 +179,26 @@ test('Cons Espher login spellings resolve to the established local account witho
   assert.equal(FakeRedis.values.get('nf_user_pass_owner:@cons espher'), 'local:cons_espher');
 });
 
+test('refresh canonicalizes an established Cons alias session without requiring another login', async () => {
+  FakeRedis.reset({
+    'nf_user_data:cons_espher': JSON.stringify({ bonus_balance: 8.88 }),
+    'nf_identity_owner:cons_espher': 'local:cons_espher',
+    'nf_identity_owner:@cons espher': 'local:cons_espher',
+  });
+  const legacyRefresh = signRefreshToken({
+    type: 'local', username: '@cons espher', principal: 'local:@cons espher',
+  });
+  const response = await invoke(refresh, {
+    headers: { cookie: `nf_refresh=${legacyRefresh}` },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.user.username, 'cons_espher');
+  const accessToken = response.headers['set-cookie'][0].match(/^nf_token=([^;]+)/)[1];
+  assert.equal(verifyJWT(accessToken).username, 'cons_espher');
+  assert.equal(verifyJWT(accessToken).principal, 'local:cons_espher');
+});
+
 test('Cons login fails closed if canonical and verified alias credentials both exist', async () => {
   const wallet = JSON.stringify({ bonus_balance: 8.62, withdrawals: [] });
   FakeRedis.reset({
