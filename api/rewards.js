@@ -16,10 +16,12 @@
 const { handlePreflight } = require('./_lib/cors');
 const { assertAccountIdentity, getAuthPayload, getRedis, checkRateLimit, getClientIp } = require('./_lib/security');
 const { Redis } = require('@upstash/redis');
-const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
+const { commitUserDataUnderLock, releaseUserDataLock } = require('./_lib/user-data-lock');
 const { normalizeRedisKeys } = require('./_lib/redis-values');
-const { splitStoredBonus } = require('./_lib/commission-policy');
+const { isSafeMoneyValue, splitStoredBonus } = require('./_lib/commission-policy');
 const { resolveNovelFlowMember } = require('./_lib/novelflow-member');
+const { acquireWalletCreationSourceGuard } = require('./_lib/income-source-owners');
+const { acquireWalletDataLock, resolveUsernameAlias } = require('./_lib/wallet-identity');
 const {
   bindNovelFlowMember,
   buildVipEntitlement,
@@ -65,15 +67,30 @@ async function getUserData(redis, username) {
   return parsed;
 }
 
-async function saveUserData(redis, username, data) {
-  await redis.set(`nf_user_data:${username}`, JSON.stringify(data));
+async function saveUserData(redis, username, data, locks) {
+  await commitUserDataUnderLock(redis, `nf_user_data:${username}`, data, locks);
 }
 
 function normalizeUserData(data) {
   if (!data || typeof data !== 'object') data = {};
-  data.points = Number(data.points) || 0;
-  data.bonus_balance = Number(data.bonus_balance) || 0;
-  data.vip_days = Number(data.vip_days) || 0;
+  const numericFields = [
+    ['points', data.points],
+    ['bonus_balance', data.bonus_balance],
+    ['vip_days', data.vip_days],
+  ];
+  for (const [field, raw] of numericFields) {
+    // Only a genuinely absent legacy field defaults to zero. Explicit null or
+    // empty values may be evidence of an earlier non-finite serialization and
+    // must never be normalized away by a reward write.
+    const value = raw === undefined ? 0 : Number(raw);
+    if ((raw !== undefined && !isSafeMoneyValue(raw)) || !isSafeMoneyValue(value) || value < 0) {
+      const error = new Error(`Reward account field ${field} requires reconciliation`);
+      error.code = 'REWARD_DATA_RECONCILIATION_REQUIRED';
+      error.field = field;
+      throw error;
+    }
+    data[field] = value;
+  }
   if (!data.checkin || typeof data.checkin !== 'object' || Array.isArray(data.checkin)) {
     data.checkin = { streak: 0, lastCheckin: null, history: [] };
   }
@@ -159,7 +176,7 @@ module.exports = async (req, res) => {
   const payload = getAuthPayload(req);
   if (!payload) return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
 
-  const username = String(payload.username).toLowerCase();
+  const username = resolveUsernameAlias(payload.username);
   const redis = redisClient();
   if (!redis) return res.status(503).json({ error: 'Database unavailable' });
   try {
@@ -188,25 +205,35 @@ module.exports = async (req, res) => {
   if (typeof action !== 'string' || action.length > 40) {
     return res.status(400).json({ error: 'Invalid action', code: 'INVALID_ACTION' });
   }
-  let lock;
+  let walletLock;
   try {
     // A cloud-sync write can overlap a tap on Check In. Wait briefly for that
     // normal write to finish instead of failing the user-facing action.
-    lock = await acquireUserDataLock(redis, username, {
+    walletLock = await acquireWalletDataLock(redis, username, {
       waitMs: action === 'checkin' ? 6000 : 0,
       retryDelayMs: 100,
     });
-  } catch (_error) {
+  } catch (error) {
+    if (error && error.code === 'WALLET_IDENTITY_CONFLICT') {
+      return res.status(409).json({ error: 'Account identity recovery required', code: error.code });
+    }
     return res.status(503).json({ error: 'Reward storage is temporarily unavailable', code: 'REWARD_STORAGE_UNAVAILABLE' });
   }
+  const { lock, identity } = walletLock;
   if (!lock) {
     return res.status(409).json({ error: 'User data is being updated', code: 'USER_DATA_BUSY' });
   }
 
+  let sourceGuard = null;
   try {
-    const data = normalizeUserData(await getUserData(redis, username));
+    sourceGuard = await acquireWalletCreationSourceGuard(redis, username, identity);
+    const walletUsername = identity.storageUsername;
+    const data = normalizeUserData(await getUserData(redis, walletUsername));
     if (data.disabled) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    }
+    if (data.wallet_merged_into) {
+      return res.status(409).json({ error: 'Wallet merged into a primary account', code: 'WALLET_MERGED' });
     }
     const before = rewardState(data);
     let historyDetails = {};
@@ -404,6 +431,11 @@ module.exports = async (req, res) => {
 
     appendRewardHistory(data, action, before, historyDetails);
 
+    // Never serialize an anomalous numeric state. JSON.stringify(Infinity)
+    // becomes null, which would otherwise erase the evidence needed for
+    // wallet reconciliation.
+    normalizeUserData(data);
+
     // Include updated snapshot
     result.snapshot = {
       points: data.points,
@@ -420,13 +452,14 @@ module.exports = async (req, res) => {
 
     if (vipEntitlementEvent) {
       await commitUserDataWithVipEntitlement(redis, {
-        userDataKey: `nf_user_data:${username}`,
+        userDataKey: `nf_user_data:${walletUsername}`,
         userData: data,
         event: vipEntitlementEvent,
         lock,
+        additionalLocks: sourceGuard ? [sourceGuard] : [],
       });
     } else {
-      await saveUserData(redis, username, data);
+      await saveUserData(redis, walletUsername, data, [lock, sourceGuard]);
     }
     return res.status(200).json(result);
 
@@ -435,11 +468,22 @@ module.exports = async (req, res) => {
     if (error?.code === 'USER_DATA_CORRUPT') {
       return res.status(503).json({ error: 'User data is temporarily unavailable', code: error.code });
     }
+    if (error?.code === 'REWARD_DATA_RECONCILIATION_REQUIRED') {
+      return res.status(409).json({
+        error: 'Reward data requires reconciliation before it can be changed',
+        code: error.code,
+        field: error.field || null,
+      });
+    }
     if (error?.code === 'VIP_ENTITLEMENT_EXISTS') {
       return res.status(409).json({ error: 'This VIP reward is already queued', code: error.code });
     }
+    if (['INCOME_SOURCE_OWNER_UNVERIFIED', 'INCOME_SOURCE_OWNER_CONFLICT', 'INCOME_SOURCE_BUSY'].includes(error?.code)) {
+      return res.status(409).json({ error: error.message, code: error.code });
+    }
     return res.status(503).json({ error: 'Reward service temporarily unavailable', code: 'REWARD_STORAGE_UNAVAILABLE' });
   } finally {
+    await releaseUserDataLock(redis, sourceGuard);
     await releaseUserDataLock(redis, lock);
   }
 };

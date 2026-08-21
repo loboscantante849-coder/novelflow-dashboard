@@ -94,7 +94,7 @@ test('all user-data writers use the shared distributed lock', () => {
   for (const file of ['api/user-data.js', 'api/rewards.js', 'api/confirm.js', 'api/withdrawals.js']) {
     const fileSource = fs.readFileSync(path.join(ROOT, file), 'utf8');
     assert.match(fileSource, /_lib\/user-data-lock/);
-    assert.match(fileSource, /acquireUserDataLock/);
+    assert.match(fileSource, /acquireWalletDataLock|acquireUserDataLock/);
   }
 });
 
@@ -113,7 +113,9 @@ test('AC operations require an active account and verified task ownership', () =
   }
   const meSource = fs.readFileSync(path.join(ROOT, 'api/auth/me.js'), 'utf8');
   assert.match(meSource, /isDisabledUser\(redis, payload, \{ failClosed: true \}\)/);
-  assert.match(meSource, /nf_user_pass:/);
+  assert.match(meSource, /loadLocalLoginCredentials\(redis, username\)/);
+  const loginIdentitySource = fs.readFileSync(path.join(ROOT, 'api/_lib/login-identity.js'), 'utf8');
+  assert.match(loginIdentitySource, /nf_user_pass:/);
   const withdrawalSource = fs.readFileSync(path.join(ROOT, 'api/withdrawals.js'), 'utf8');
   assert.match(withdrawalSource, /payment_account \|\| ''\)\.trim\(\)\.toLowerCase\(\)/);
 });

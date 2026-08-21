@@ -17,7 +17,14 @@ const {
 } = require('./_lib/security');
 const { normalizeRedisKey } = require('./_lib/redis-values');
 const { Redis } = require('@upstash/redis');
-const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
+const { commitUserDataUnderLock, releaseUserDataLock } = require('./_lib/user-data-lock');
+const { acquireWalletCreationSourceGuard } = require('./_lib/income-source-owners');
+const {
+  acquireWalletDataLock,
+  resolveUsernameAlias,
+  resolveWalletStorageIdentity,
+  walletIdentityConflict,
+} = require('./_lib/wallet-identity');
 const {
   normalizeHttpsCoverUrl,
   fetchTrustedBookCover,
@@ -160,7 +167,9 @@ async function findExistingForBook(redis, username, bookId) {
       }
     }
     // 2. Check nf_user_data:<u>.myBooks
-    const rawUd = await redis.get(`nf_user_data:${u}`);
+    const identity = await resolveWalletStorageIdentity(redis, u);
+    if (identity.conflict) throw walletIdentityConflict(identity);
+    const rawUd = await redis.get(`nf_user_data:${identity.storageUsername}`);
     if (rawUd) {
       let ud;
       try { ud = typeof rawUd === 'string' ? JSON.parse(rawUd) : rawUd; } catch { ud = null; }
@@ -273,20 +282,33 @@ async function repairSubmissionIndex(redis, username, code, submission = null) {
 }
 
 async function persistUserBook(redis, username, submission) {
-  const userKey = `nf_user_data:${String(username).toLowerCase()}`;
   let lock = null;
+  let sourceGuard = null;
   try {
-    lock = await acquireUserDataLock(redis, username);
+    const walletLock = await acquireWalletDataLock(redis, username);
+    lock = walletLock.lock;
     if (!lock) {
       const error = new Error('user data is busy');
       error.code = 'USER_DATA_BUSY';
       throw error;
     }
+    sourceGuard = await acquireWalletCreationSourceGuard(redis, username, walletLock.identity);
+    const userKey = `nf_user_data:${walletLock.identity.storageUsername}`;
     const raw = await redis.get(userKey);
     let data = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
       const error = new Error('user data is corrupt');
       error.code = 'USER_DATA_CORRUPT';
+      throw error;
+    }
+    if (data.disabled) {
+      const error = new Error('account is disabled');
+      error.code = 'ACCOUNT_DISABLED';
+      throw error;
+    }
+    if (data.wallet_merged_into) {
+      const error = new Error('wallet has been merged');
+      error.code = 'WALLET_MERGED';
       throw error;
     }
     if (!Array.isArray(data.myBooks)) data.myBooks = [];
@@ -313,8 +335,61 @@ async function persistUserBook(redis, username, submission) {
     if (index >= 0) data.myBooks[index] = { ...data.myBooks[index], ...book };
     else data.myBooks.push(book);
     data.lastSyncAt = Date.now();
-    await redis.set(userKey, JSON.stringify(data));
+    await commitUserDataUnderLock(redis, userKey, data, [lock, sourceGuard]);
   } finally {
+    await releaseUserDataLock(redis, sourceGuard);
+    await releaseUserDataLock(redis, lock);
+  }
+}
+
+async function establishWalletSourceOwnership(redis, username) {
+  let lock = null;
+  let sourceGuard = null;
+  try {
+    const walletLock = await acquireWalletDataLock(redis, username);
+    lock = walletLock.lock;
+    if (!lock) {
+      const error = new Error('user data is busy');
+      error.code = 'USER_DATA_BUSY';
+      throw error;
+    }
+    sourceGuard = await acquireWalletCreationSourceGuard(redis, username, walletLock.identity);
+    const userKey = `nf_user_data:${walletLock.identity.storageUsername}`;
+    const raw = await redis.get(userKey);
+    if (raw == null) {
+      // Establish the wallet owner before any upstream code/link side effect.
+      // A competing approved raw alias will see this record under the source
+      // lock and fail closed instead of creating an orphan promotion asset.
+      await commitUserDataUnderLock(redis, userKey, {}, [lock, sourceGuard]);
+      return walletLock.identity;
+    }
+    let data;
+    try {
+      data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (cause) {
+      const error = new Error('user data is corrupt');
+      error.code = 'USER_DATA_CORRUPT';
+      error.cause = cause;
+      throw error;
+    }
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      const error = new Error('user data is corrupt');
+      error.code = 'USER_DATA_CORRUPT';
+      throw error;
+    }
+    if (data.disabled) {
+      const error = new Error('account is disabled');
+      error.code = 'ACCOUNT_DISABLED';
+      throw error;
+    }
+    if (data.wallet_merged_into) {
+      const error = new Error('wallet has been merged');
+      error.code = 'WALLET_MERGED';
+      throw error;
+    }
+    return walletLock.identity;
+  } finally {
+    await releaseUserDataLock(redis, sourceGuard);
     await releaseUserDataLock(redis, lock);
   }
 }
@@ -375,12 +450,26 @@ module.exports = async (req, res) => {
   if (!vPromo.ok) return res.status(vPromo.status).json({ error: vPromo.error });
 
   // Strip HTML from all text fields
-  const cleanUsername = stripHtml(username).substring(0, 50) || 'Anonymous';
+  const cleanUsername = resolveUsernameAlias(stripHtml(username).substring(0, 50)) || 'Anonymous';
   const cleanBookName = stripHtml(vBookName.value).substring(0, 200);
   const cleanBookTitle = stripHtml(vBookTitle.value).substring(0, 200);
   const lang = vLang.value || 'en';
   const languageCode = (lang === 'es' ? 'es' : 'en');
   const bookId = vBookId.value; // already validated as string ≤64
+
+  // Authorize the reporting source before reserving a code or calling the
+  // bookstore. The locked persistence path repeats this check to close races.
+  try {
+    await establishWalletSourceOwnership(redis, cleanUsername);
+  } catch (error) {
+    if (error && error.code === 'WALLET_IDENTITY_CONFLICT') {
+      return res.status(409).json({ error: 'Account identity recovery required', code: error.code });
+    }
+    if (error && ['INCOME_SOURCE_OWNER_UNVERIFIED', 'INCOME_SOURCE_OWNER_CONFLICT', 'INCOME_SOURCE_BUSY'].includes(error.code)) {
+      return res.status(409).json({ error: error.message, code: error.code });
+    }
+    return res.status(503).json({ error: 'Service temporarily unavailable', code: error && error.code || 'USER_DATA_UNAVAILABLE' });
+  }
 
   // -------- DEDUP CHECK (before consuming any rate limit quota) --------
   // Primary: fast direct key (username,bookId) → code
@@ -426,7 +515,10 @@ module.exports = async (req, res) => {
         existingLinkId = existing.linkId;
         existingSubmission = existing.submission || null;
       }
-    } catch (_error) {
+    } catch (error) {
+      if (error && error.code === 'WALLET_IDENTITY_CONFLICT') {
+        return res.status(409).json({ error: 'Account identity recovery required', code: error.code });
+      }
       return res.status(503).json({ error: 'Service temporarily unavailable', code: 'DEDUP_UNAVAILABLE' });
     }
   }
@@ -669,6 +761,42 @@ module.exports = async (req, res) => {
   } catch (error) {
     if (confirmLockOwned) await releaseConfirmLock(redis, dedupKey, submissionId);
     console.error('[confirm] Error:', error);
+    if (error && error.code === 'WALLET_IDENTITY_CONFLICT') {
+      return res.status(409).json({
+        success: false,
+        submissionId,
+        status: 'failed',
+        error: 'Account identity recovery required',
+        code: error.code,
+      });
+    }
+    if (error && error.code === 'ACCOUNT_DISABLED') {
+      return res.status(403).json({
+        success: false,
+        submissionId,
+        status: 'failed',
+        error: 'Account disabled',
+        code: error.code,
+      });
+    }
+    if (error && error.code === 'WALLET_MERGED') {
+      return res.status(409).json({
+        success: false,
+        submissionId,
+        status: 'failed',
+        error: 'Wallet merged into a primary account',
+        code: error.code,
+      });
+    }
+    if (error && ['INCOME_SOURCE_OWNER_UNVERIFIED', 'INCOME_SOURCE_OWNER_CONFLICT', 'INCOME_SOURCE_BUSY'].includes(error.code)) {
+      return res.status(409).json({
+        success: false,
+        submissionId,
+        status: 'failed',
+        error: error.message,
+        code: error.code,
+      });
+    }
     const timedOut = error && error.code === 'UPSTREAM_TIMEOUT';
     return res.status(timedOut ? 504 : 502).json({
       success: false, submissionId, status: 'failed',
@@ -676,6 +804,10 @@ module.exports = async (req, res) => {
       code: timedOut ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR',
     });
   }
+};
+
+module.exports._test = {
+  establishWalletSourceOwnership,
 };
 
 // ============ Create Short Link ============

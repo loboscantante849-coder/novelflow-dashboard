@@ -20,6 +20,7 @@ const { resolveDiscordIdentity } = require('../_lib/identity');
 const { extractReferralCode, finalizePendingReferral, stageReferral } = require('../_lib/referrals');
 const { ensureMemberIdentity } = require('../_lib/member-identity');
 const { deliverSignupEvent, stageSignupEvent } = require('../_lib/signup-outbox');
+const { getLiveAdIdDetails } = require('../_lib/stats-data');
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1504779503237333033';
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
@@ -82,7 +83,14 @@ module.exports = async (req, res) => {
     const previousMapping = await redis.get(mappingKey);
     const candidateUsername = String(previousMapping || userData.username || '').trim().toLowerCase();
     const hadUserData = candidateUsername ? Boolean(await redis.get(`nf_user_data:${candidateUsername}`)) : false;
-    const identity = await resolveDiscordIdentity(redis, userData.id, userData.username);
+    let runtimePromoterSnapshot = null;
+    if (!previousMapping) {
+      try { runtimePromoterSnapshot = await getLiveAdIdDetails(); } catch (_error) {}
+      if (!runtimePromoterSnapshot || !runtimePromoterSnapshot.by_promoter) {
+        return res.status(503).json({ error: 'Auth service unavailable', code: 'PROMOTER_IDENTITY_UNAVAILABLE' });
+      }
+    }
+    const identity = await resolveDiscordIdentity(redis, userData.id, userData.username, { adData: runtimePromoterSnapshot });
     if (!identity) {
       return res.status(409).json({ error: 'Account identity recovery required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
     }

@@ -11,6 +11,8 @@ const { getAdIdDetails, resolvePromoterKey } = require('./_lib/stats-data');
 const { ensureMemberIdentity, memberMetaKey } = require('./_lib/member-identity');
 const { ensureReferralCode } = require('./_lib/referrals');
 const { referralCommissionStatement, roundMoney } = require('./_lib/referral-commission');
+const { inspectApprovedSourceWalletOwner, loadSourceOwnerIndex } = require('./_lib/income-source-owners');
+const { resolveWalletStorageIdentity } = require('./_lib/wallet-identity');
 
 const RECOMMENDER_NS = 'nf_recommender:v1';
 const MAX_REFERRAL_DETAILS = 250;
@@ -66,6 +68,7 @@ module.exports = async (req, res) => {
     const selectedChildren = children.slice(0, MAX_REFERRAL_DETAILS);
     const statsAvailable = Boolean(adData && adData.by_promoter);
     const activeApplication = application && application.status === 'active' ? application : null;
+    const ownerIndex = statsAvailable ? await loadSourceOwnerIndex(redis, adData) : null;
 
     const members = await Promise.all(selectedChildren.map(async child => {
       const [childIdentity, metaValue, relationValue] = await Promise.all([
@@ -76,28 +79,44 @@ module.exports = async (req, res) => {
       const meta = parseJson(metaValue) || childIdentity;
       const relationship = parseJson(relationValue) || { parent: username, child };
       const promoterKey = statsAvailable ? resolvePromoterKey(child, adData) : null;
-      const promoter = promoterKey && adData.by_promoter[promoterKey];
-      const commission = statsAvailable && activeApplication
-        ? referralCommissionStatement(adData, relationship, activeApplication, 0.05)
+      let ownership = null;
+      if (promoterKey && adData.by_promoter[promoterKey]) {
+        const walletIdentity = await resolveWalletStorageIdentity(redis, child);
+        if (!walletIdentity.conflict) {
+          ownership = await inspectApprovedSourceWalletOwner(
+            redis,
+            adData,
+            child,
+            walletIdentity.storageUsername,
+            ownerIndex,
+          );
+        }
+      }
+      const sourceAuthorized = Boolean(ownership && ownership.authorized);
+      const promoter = sourceAuthorized ? adData.by_promoter[promoterKey] : null;
+      const commission = statsAvailable && activeApplication && sourceAuthorized
+        ? referralCommissionStatement(adData, relationship, activeApplication, 0.05, ownership)
         : null;
       return {
         member_id: childIdentity.id,
         username: child,
         registered_at: meta.created_at || relationship.bound_at || null,
-        promotion_income: statsAvailable ? roundMoney(promoter && promoter.total_dn) : null,
-        app_new_users: statsAvailable ? Math.max(0, Number(promoter && promoter.total_new) || 0) : null,
+        promotion_income: statsAvailable && sourceAuthorized ? roundMoney(promoter && promoter.total_dn) : null,
+        app_new_users: statsAvailable && sourceAuthorized ? Math.max(0, Number(promoter && promoter.total_new) || 0) : null,
         commission_accrued: commission
           ? commission.commission_accrued_cumulative
-          : (activeApplication && statsAvailable ? 0 : null),
+          : (activeApplication && statsAvailable && sourceAuthorized ? 0 : null),
         commission_effective_date: commission ? commission.effective_date : null,
+        source_owner_verified: sourceAuthorized,
       };
     }));
 
     const tier = activeApplication ? 'premium' : (children.length > 0 ? 'standard' : 'none');
-    const networkReaderUsers = statsAvailable
+    const financialStatsComplete = statsAvailable && members.every(child => child.source_owner_verified);
+    const networkReaderUsers = financialStatsComplete
       ? Math.max(0, members.reduce((sum, child) => sum + (Number(child.app_new_users) || 0), 0))
       : null;
-    const networkPromotionIncome = statsAvailable
+    const networkPromotionIncome = financialStatsComplete
       ? roundMoney(members.reduce((sum, child) => sum + (Number(child.promotion_income) || 0), 0))
       : null;
     return res.status(200).json({
@@ -114,7 +133,7 @@ module.exports = async (req, res) => {
         app_registrations: Array.from(new Set((appReferralIds || []).map(String).filter(Boolean))).length,
         returned: members.length,
         truncated: children.length > members.length,
-        stats_available: statsAvailable,
+        stats_available: financialStatsComplete,
         reader_new_users: networkReaderUsers,
         promotion_income: networkPromotionIncome,
         members,
@@ -124,7 +143,7 @@ module.exports = async (req, res) => {
         active: Boolean(activeApplication),
         slot: activeApplication ? Number(activeApplication.slot) || null : null,
         commission_rate: activeApplication ? 0.05 : 0,
-        commission_accrued: activeApplication && statsAvailable
+        commission_accrued: activeApplication && financialStatsComplete
           ? roundMoney(members.reduce((sum, child) => sum + (Number(child.commission_accrued) || 0), 0))
           : null,
         activated_at: activeApplication ? activeApplication.created_at || null : null,

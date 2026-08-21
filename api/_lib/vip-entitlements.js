@@ -30,8 +30,10 @@ return 1
 `;
 const USER_DATA_VIP_COMMIT_SCRIPT = `
 -- NF_VIP_USER_DATA_COMMIT_V1
-if redis.call('get', KEYS[3]) ~= ARGV[3] then
-  return -2
+for index = 3, #KEYS do
+  if redis.call('get', KEYS[index]) ~= ARGV[index] then
+    return -2
+  end
 end
 if redis.call('exists', KEYS[2]) == 1 then
   return -1
@@ -141,16 +143,17 @@ async function createVipEntitlement(redis, input) {
     : { event: parseJson(await redis.get(key), event), created: false };
 }
 
-async function commitUserDataWithVipEntitlement(redis, { userDataKey, userData, event, lock }) {
-  if (!redis || !userDataKey || !userData || !event || !lock || !lock.key || !lock.token) {
+async function commitUserDataWithVipEntitlement(redis, { userDataKey, userData, event, lock, additionalLocks = [] }) {
+  const locks = [lock, ...additionalLocks].filter(Boolean);
+  if (!redis || !userDataKey || !userData || !event || !locks.length || locks.some(item => !item.key || !item.token)) {
     const error = new Error('Invalid atomic VIP commit');
     error.code = 'INVALID_VIP_COMMIT';
     throw error;
   }
   const result = Number(await redis.eval(
     USER_DATA_VIP_COMMIT_SCRIPT,
-    [userDataKey, eventKey(event.event_id), lock.key],
-    [JSON.stringify(userData), JSON.stringify(event), lock.token],
+    [userDataKey, eventKey(event.event_id), ...locks.map(item => item.key)],
+    [JSON.stringify(userData), JSON.stringify(event), ...locks.map(item => item.token)],
   ));
   if (result === 1) return { event, created: true };
   const error = new Error(result === -1

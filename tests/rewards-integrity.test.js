@@ -168,6 +168,38 @@ test('reward mutations never replace a corrupt user record', async () => {
   assert.equal(FakeRedis.values.get('nf_user_data:zoe'), '{not-json');
 });
 
+test('reward mutations fail closed on non-finite bonus balances without erasing evidence', async () => {
+  const raw = JSON.stringify({ points: 10, bonus_balance: 'Infinity' });
+  FakeRedis.reset({ 'nf_user_data:zoe': raw });
+
+  const response = await invoke(rewards, {
+    headers: authHeaders(),
+    body: { action: 'checkin' },
+  });
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'REWARD_DATA_RECONCILIATION_REQUIRED');
+  assert.equal(response.body.field, 'bonus_balance');
+  assert.equal(FakeRedis.values.get('nf_user_data:zoe'), raw);
+});
+
+test('reward mutations preserve explicit null and empty bonus reconciliation evidence', async () => {
+  for (const bonusBalance of [null, '']) {
+    const raw = JSON.stringify({ points: 10, bonus_balance: bonusBalance });
+    FakeRedis.reset({ 'nf_user_data:zoe': raw });
+
+    const response = await invoke(rewards, {
+      headers: authHeaders(),
+      body: { action: 'checkin' },
+    });
+
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, 'REWARD_DATA_RECONCILIATION_REQUIRED');
+    assert.equal(response.body.field, 'bonus_balance');
+    assert.equal(FakeRedis.values.get('nf_user_data:zoe'), raw);
+  }
+});
+
 test('reward endpoint repairs malformed legacy check-in and claimed state', async () => {
   FakeRedis.reset({
     'nf_user_data:zoe': JSON.stringify({ points: 690, checkin: 'broken', claimed: [] }),

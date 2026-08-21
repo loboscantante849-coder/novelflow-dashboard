@@ -2,6 +2,16 @@ const crypto = require('crypto');
 
 const USER_DATA_LOCK_SECONDS = 20;
 const USER_DATA_LOCK_PREFIX = 'nf_user_data_lock:v2:';
+const USER_DATA_LOCKED_COMMIT_SCRIPT = `
+-- NF_USER_DATA_LOCKED_COMMIT_V1
+for index = 2, #KEYS do
+  if redis.call('get', KEYS[index]) ~= ARGV[index] then
+    return 0
+  end
+end
+redis.call('set', KEYS[1], ARGV[1])
+return 1
+`;
 
 function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -43,10 +53,29 @@ async function releaseUserDataLock(redis, lock) {
   }
 }
 
+async function commitUserDataUnderLock(redis, userDataKey, userData, lockOrLocks) {
+  const locks = (Array.isArray(lockOrLocks) ? lockOrLocks : [lockOrLocks]).filter(Boolean);
+  if (!redis || !userDataKey || !locks.length || locks.some(lock => !lock.key || !lock.token)) {
+    const error = new Error('Invalid locked user-data commit');
+    error.code = 'INVALID_USER_DATA_COMMIT';
+    throw error;
+  }
+  const result = Number(await redis.eval(
+    USER_DATA_LOCKED_COMMIT_SCRIPT,
+    [userDataKey, ...locks.map(lock => lock.key)],
+    [JSON.stringify(userData), ...locks.map(lock => lock.token)],
+  ));
+  if (result === 1) return;
+  const error = new Error('User-data lock ownership was lost before commit');
+  error.code = 'USER_DATA_LOCK_LOST';
+  throw error;
+}
+
 module.exports = {
   USER_DATA_LOCK_SECONDS,
   USER_DATA_LOCK_PREFIX,
   acquireUserDataLock,
+  commitUserDataUnderLock,
   releaseUserDataLock,
   userDataLockKey,
 };

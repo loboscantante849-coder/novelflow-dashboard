@@ -29,6 +29,11 @@ const { isProtectedPromoterUsername } = require('../_lib/promoter-access');
 const { extractReferralCode, finalizePendingReferral, stageReferral, validateReferral } = require('../_lib/referrals');
 const { ensureMemberIdentity } = require('../_lib/member-identity');
 const { createAccountWithSignupEvent, deliverSignupEvent, enrichSignupEvent, signupEventId } = require('../_lib/signup-outbox');
+const { getLiveAdIdDetails } = require('../_lib/stats-data');
+const {
+  localLoginCredentialCandidates,
+  resolveLocalLoginPrincipal,
+} = require('../_lib/login-identity');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -93,7 +98,8 @@ module.exports = async (req, res) => {
         error: 'Invalid username (use letters, numbers, Chinese chars, underscore, dot, @, space, hyphen; 1-50 chars)'
       });
     }
-    const usernameKey = cleanUsername.toLowerCase();
+    const loginIdentity = localLoginCredentialCandidates(cleanUsername);
+    const usernameKey = loginIdentity.primaryUsername;
 
     // Reject reserved usernames to prevent admin privilege escalation
     if (isReservedUsername(usernameKey)) {
@@ -126,19 +132,17 @@ module.exports = async (req, res) => {
     let isNewUser = false;
     let passedAuth = false;
     let authenticatedPayload = null;
+    let credentialUsername = usernameKey;
     let referralToBind = null;
     let signupEvent = null;
 
     {
       const passwordKey = 'nf_user_pass:' + usernameKey;
-      const legacyPasswordKey = cleanUsername !== usernameKey
-        ? 'nf_user_pass:' + cleanUsername
-        : null;
-      const [canonicalHash, legacyHash, userData] = await Promise.all([
-        redis.get(passwordKey),
-        legacyPasswordKey ? redis.get(legacyPasswordKey) : null,
-        redis.get('nf_user_data:' + usernameKey)
-      ]);
+      const credentialRecords = await Promise.all(loginIdentity.usernames.map(async storageUsername => ({
+        storageUsername,
+        hash: await redis.get(`nf_user_pass:${storageUsername}`),
+      })));
+      const userData = await redis.get('nf_user_data:' + usernameKey);
       try {
         if (await isDisabledUser(redis, usernameKey, { failClosed: true })) {
           return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
@@ -146,9 +150,15 @@ module.exports = async (req, res) => {
       } catch (_error) {
         return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
       }
-      const storedHash = canonicalHash || legacyHash;
+      const storedCredentials = credentialRecords.filter(record => record.hash);
+      if (storedCredentials.length > 1) {
+        return res.status(409).json({
+          error: 'Account credential recovery is required',
+          code: 'ACCOUNT_CREDENTIAL_CONFLICT',
+        });
+      }
 
-      if (storedHash) {
+      if (storedCredentials.length) {
         // Existing user with password → must verify
         if (!password) {
           return res.status(401).json({ error: 'Password required', needPassword: true });
@@ -159,7 +169,8 @@ module.exports = async (req, res) => {
         // NOTE: do NOT enforce strong-password policy on existing-user login;
         // old users may have shorter legacy passwords. Brute force is blocked
         // by the per-account lockout (5 fails / 15 min) above.
-        const verification = await verifyPassword(password, storedHash);
+        const matchedCredential = storedCredentials[0];
+        const verification = await verifyPassword(password, matchedCredential.hash);
         if (!verification.valid) {
           // Record failure → lock after 5
           const fails = await redis.incr('nf_login_fail:' + usernameKey);
@@ -170,8 +181,9 @@ module.exports = async (req, res) => {
           }
           return res.status(401).json({ error: 'Invalid username or password' });
         }
-        if (verification.needsRehash || (!canonicalHash && legacyHash)) {
-          await redis.set(passwordKey, await createPasswordHash(password));
+        credentialUsername = matchedCredential.storageUsername.toLowerCase();
+        if (verification.needsRehash) {
+          await redis.set(`nf_user_pass:${matchedCredential.storageUsername}`, await createPasswordHash(password));
         }
         // Success → clear failure counter
         await redis.del('nf_login_fail:' + usernameKey);
@@ -222,6 +234,24 @@ module.exports = async (req, res) => {
             code: 'PROMOTER_RECOVERY_REQUIRED',
           });
         }
+        let runtimePromoterSnapshot;
+        try {
+          runtimePromoterSnapshot = await getLiveAdIdDetails();
+        } catch (_error) {
+          runtimePromoterSnapshot = null;
+        }
+        if (!runtimePromoterSnapshot || !runtimePromoterSnapshot.by_promoter) {
+          return res.status(503).json({
+            error: 'Registration identity verification is temporarily unavailable',
+            code: 'PROMOTER_IDENTITY_UNAVAILABLE',
+          });
+        }
+        if (isProtectedPromoterUsername(usernameKey, runtimePromoterSnapshot)) {
+          return res.status(409).json({
+            error: 'This promoter account requires identity recovery',
+            code: 'PROMOTER_RECOVERY_REQUIRED',
+          });
+        }
         isNewUser = true;
         if (!password) {
           return res.status(400).json({ error: 'Password required (min 8 characters with a letter and a number)', needPassword: true, mustSetPassword: true });
@@ -263,10 +293,17 @@ module.exports = async (req, res) => {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
-    const passwordPrincipal = await resolvePasswordPrincipal(redis, usernameKey, authenticatedPayload);
+    const passwordPrincipal = await resolveLocalLoginPrincipal(
+      redis,
+      usernameKey,
+      credentialUsername,
+      authenticatedPayload,
+      resolvePasswordPrincipal,
+    );
     if (!passwordPrincipal ||
         !await claimIdentity(redis, usernameKey, passwordPrincipal) ||
-        !await bindPasswordPrincipal(redis, usernameKey, passwordPrincipal)) {
+        !await claimIdentity(redis, credentialUsername, passwordPrincipal) ||
+        !await bindPasswordPrincipal(redis, credentialUsername, passwordPrincipal)) {
       return res.status(409).json({ error: 'Account identity recovery is required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
     }
     let finalizedReferral = null;

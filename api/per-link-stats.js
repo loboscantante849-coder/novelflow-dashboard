@@ -25,6 +25,8 @@ const {
   loadSubmissions, loadCovers,
   buildAdIdLookup, aggregateSubmissionStats, buildLegacyAdIdLookup, zeroStats, r2,
 } = require('./_lib/stats-data');
+const { inspectApprovedSourceWalletOwner } = require('./_lib/income-source-owners');
+const { resolveWalletStorageIdentity } = require('./_lib/wallet-identity');
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
@@ -83,6 +85,28 @@ module.exports = async (req, res) => {
     const adData = await getAdIdDetails(debugLog);
     if (!admin) {
       usernameCanon = resolvePromoterKey(username, adData);
+      const walletIdentity = await resolveWalletStorageIdentity(redis, username);
+      if (walletIdentity.conflict) {
+        return res.status(409).json({ error: 'Account identity recovery required', code: 'WALLET_IDENTITY_CONFLICT' });
+      }
+      if (adData?.by_promoter?.[usernameCanon]) {
+        const ownership = await inspectApprovedSourceWalletOwner(
+          redis,
+          adData,
+          username,
+          walletIdentity.storageUsername,
+        );
+        if (!ownership.approved) {
+          return res.status(403).json({ error: 'Income source owner is not verified', code: 'INCOME_SOURCE_OWNER_UNVERIFIED' });
+        }
+        if (!ownership.unique) {
+          return res.status(409).json({
+            error: 'Income source ownership requires reconciliation',
+            code: 'INCOME_SOURCE_OWNER_CONFLICT',
+            wallet_count: ownership.owners.length,
+          });
+        }
+      }
       debugLog.push(`username "${username}" → canon="${usernameCanon}"`);
     }
     const submissions = redis ? await loadSubmissions(redis, username, admin, debugLog) : [];
@@ -296,6 +320,12 @@ module.exports = async (req, res) => {
 
     // =================== FALLBACK: link-stats.json ===================
     debugLog.push('primary ad_id_details unavailable — using legacy link-stats.json fallback');
+    if (!admin) {
+      return res.status(503).json(finalize({
+        error: 'Income source ownership is temporarily unavailable',
+        code: 'INCOME_SOURCE_OWNER_UNAVAILABLE',
+      }));
+    }
     const linkStats = await getLegacyLinkStats(debugLog);
     if (!linkStats) throw new Error('No statistics data source is available');
     const linkStatsLinks = (linkStats && linkStats.links) || {};

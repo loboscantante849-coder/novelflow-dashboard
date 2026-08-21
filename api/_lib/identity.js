@@ -28,10 +28,30 @@ async function claimIdentity(redis, usernameValue, principal) {
   return String(await redis.get(key) || '') === principal;
 }
 
+function accountIdentityUsernames(usernameValue) {
+  const username = normalizeIdentityUsername(usernameValue);
+  if (!username) return [];
+  // Lazy import keeps the identity core independent during module startup.
+  const { resolveUsernameAlias } = require('./wallet-identity');
+  const primary = normalizeIdentityUsername(resolveUsernameAlias(username));
+  return Array.from(new Set([username, primary].filter(Boolean)));
+}
+
+async function claimAccountIdentity(redis, usernameValue, principal) {
+  const usernames = accountIdentityUsernames(usernameValue);
+  if (!redis || !usernames.length || typeof principal !== 'string') return false;
+  const owners = await Promise.all(usernames.map(username => redis.get(`nf_identity_owner:${username}`)));
+  if (owners.some(owner => owner && String(owner) !== principal)) return false;
+  for (const username of usernames) {
+    if (!await claimIdentity(redis, username, principal)) return false;
+  }
+  return true;
+}
+
 async function assertAccountIdentity(redis, payload) {
   const username = normalizeIdentityUsername(payload && payload.username);
   const principal = principalFromPayload(payload);
-  if (!username || !principal || !await claimIdentity(redis, username, principal)) {
+  if (!username || !principal || !await claimAccountIdentity(redis, username, principal)) {
     const error = new Error('Account identity conflict');
     error.code = 'ACCOUNT_IDENTITY_CONFLICT';
     throw error;
@@ -60,7 +80,7 @@ async function resolvePasswordPrincipal(redis, usernameValue, authenticatedPaylo
   return `local:${username}`;
 }
 
-async function resolveDiscordIdentity(redis, discordIdValue, currentUsernameValue) {
+async function resolveDiscordIdentity(redis, discordIdValue, currentUsernameValue, { adData = null } = {}) {
   const discordId = String(discordIdValue || '').trim();
   const currentUsername = normalizeIdentityUsername(currentUsernameValue);
   if (!redis || !discordId || discordId.length > 128 || !currentUsername) return null;
@@ -77,7 +97,7 @@ async function resolveDiscordIdentity(redis, discordIdValue, currentUsernameValu
     ]);
     if (identityOwner) {
       if (String(identityOwner) !== principal) return null;
-    } else if (passwordOwner || passwordHash || userData || isProtectedPromoterUsername(username)) {
+    } else if (passwordOwner || passwordHash || userData || isProtectedPromoterUsername(username, adData)) {
       return null;
     }
   }
@@ -92,6 +112,7 @@ async function resolveDiscordIdentity(redis, discordIdValue, currentUsernameValu
 
 module.exports = {
   assertAccountIdentity,
+  claimAccountIdentity,
   bindPasswordPrincipal,
   claimIdentity,
   normalizeIdentityUsername,

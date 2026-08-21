@@ -8,8 +8,23 @@ const {
   isAdminUser,
   isDisabledUser,
 } = require('./_lib/security');
-const { getAdIdDetails, getLegacyDataJson, resolvePromoterKey } = require('./_lib/stats-data');
-const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
+const {
+  createPromoterKeyResolver,
+  getAdIdDetails,
+  getLegacyDataJson,
+  resolvePromoterKey,
+} = require('./_lib/stats-data');
+const {
+  acquireUserDataLock,
+  commitUserDataUnderLock,
+  releaseUserDataLock,
+} = require('./_lib/user-data-lock');
+const { acquireWalletDataLock } = require('./_lib/wallet-identity');
+const {
+  buildSourceOwnerIndex,
+  isApprovedSourceOwner,
+  scanWalletKeys,
+} = require('./_lib/income-source-owners');
 const {
   COMMISSION_EFFECTIVE_DATE,
   COMMISSION_MIGRATION_ID,
@@ -17,6 +32,7 @@ const {
   buildIncomeProfile,
   computeWalletBalances,
   historicalGrossBefore,
+  isSafeMoneyValue,
   roundMoney,
   withdrawalTotals,
 } = require('./_lib/commission-policy');
@@ -46,15 +62,30 @@ function parseRequestBody(body) {
   return body;
 }
 
-async function scanKeys(redis, match) {
-  const keys = [];
-  let cursor = '0';
-  do {
-    const result = await redis.scan(cursor, { match, count: 200 });
-    cursor = String(result && result[0] || '0');
-    if (Array.isArray(result && result[1])) keys.push(...result[1].map(String));
-  } while (cursor !== '0');
-  return keys;
+function parseAdjustmentAmount(value) {
+  if (value == null) return 0;
+  const record = parseRecord(value);
+  const rawAmount = record.amount;
+  const validType = typeof rawAmount === 'number' ||
+    (typeof rawAmount === 'string' && rawAmount.trim() !== '');
+  const amount = Number(rawAmount);
+  if (!validType || !isSafeMoneyValue(amount)) {
+    const error = new Error('Invalid adjustment record');
+    error.code = 'INVALID_ADJUSTMENT_RECORD';
+    throw error;
+  }
+  return amount;
+}
+
+async function mgetExact(redis, keys) {
+  if (!keys.length) return [];
+  const values = await redis.mget(...keys);
+  if (!Array.isArray(values) || values.length !== keys.length) {
+    const error = new Error('Migration storage lookup returned an invalid response');
+    error.code = 'MIGRATION_STORAGE_UNAVAILABLE';
+    throw error;
+  }
+  return values;
 }
 
 function migrationMarker(profile, timestamp, appliedAt) {
@@ -77,14 +108,17 @@ function existingMigration(userData) {
   return marker && typeof marker === 'object' && !Array.isArray(marker) ? marker : null;
 }
 
-function prepareDetail({ username, userData, adjustment, data, adData }) {
-  const sourceKey = resolvePromoterKey(username, adData);
+function prepareDetail({ username, userData, adjustment, data, adData, sourceKey: resolvedSourceKey }) {
+  const sourceKey = resolvedSourceKey === undefined
+    ? resolvePromoterKey(username, adData)
+    : resolvedSourceKey;
   if (!sourceKey || !adData.by_promoter[sourceKey]) return null;
   const profile = buildIncomeProfile(data, sourceKey);
   if (!profile.found || profile.grossTotal <= 0) return null;
 
   const anomalies = [];
-  if (userData.bonus_balance !== undefined && !Number.isFinite(Number(userData.bonus_balance))) {
+  if (userData.bonus_balance !== undefined &&
+      (!isSafeMoneyValue(userData.bonus_balance) || Number(userData.bonus_balance) < 0)) {
     anomalies.push('invalid_bonus_balance');
   }
   if (userData.withdrawals !== undefined && !Array.isArray(userData.withdrawals)) {
@@ -96,11 +130,17 @@ function prepareDetail({ username, userData, adjustment, data, adData }) {
   )) {
     anomalies.push('invalid_migration_record');
   }
+  if (userData.wallet_merged_into) anomalies.push('wallet_merged_into_primary');
+  if (userData.disabled) anomalies.push('disabled_account');
 
   const marker = existingMigration(userData);
   const markerValue = userData.balance_migrations && userData.balance_migrations[COMMISSION_MIGRATION_ID];
   const alreadyMigrated = Boolean(marker && marker.status === 'applied');
   if (markerValue !== undefined && !alreadyMigrated) anomalies.push('invalid_migration_marker');
+  if (alreadyMigrated && (
+    !isSafeMoneyValue(marker.historical_gross_income) ||
+    Number(marker.historical_gross_income) < 0
+  )) anomalies.push('invalid_migration_historical_gross_income');
 
   const oldBalances = computeWalletBalances(userData, profile, adjustment);
   const dryRunMarker = migrationMarker(profile, data.last_updated, 'DRY_RUN');
@@ -185,17 +225,11 @@ function buildSummary({ userKeys, details, corruptRecords, duplicateSources, exc
   };
 }
 
-function selectSourceOwner(sourceKey, owners) {
-  if (owners.includes(sourceKey)) return sourceKey;
-  const canonicalOwners = owners.filter(owner => owner === owner.toLowerCase());
-  return canonicalOwners.length === 1 ? canonicalOwners[0] : null;
-}
-
 async function analyzeMigration(redis) {
   const [data, adData, userKeys] = await Promise.all([
     getLegacyDataJson(),
     getAdIdDetails(),
-    scanKeys(redis, 'nf_user_data:*'),
+    scanWalletKeys(redis),
   ]);
   if (!data || !data.users || !adData || !adData.by_promoter) {
     const error = new Error('Income source unavailable');
@@ -203,10 +237,14 @@ async function analyzeMigration(redis) {
     throw error;
   }
 
-  const userValues = userKeys.length ? await redis.mget(...userKeys) : [];
+  const userValues = await mgetExact(redis, userKeys);
   const usernames = userKeys.map(key => key.replace(/^nf_user_data:/, ''));
-  const adjustmentKeys = usernames.map(username => `nf_admin_income_adjustment:${username}`);
-  const adjustmentValues = adjustmentKeys.length ? await redis.mget(...adjustmentKeys) : [];
+  const resolveSourceKey = createPromoterKeyResolver(adData);
+  const sourceKeys = usernames.map(resolveSourceKey);
+  const adjustmentKeys = usernames.map((username, index) => (
+    `nf_admin_income_adjustment:${sourceKeys[index] || username}`
+  ));
+  const adjustmentValues = await mgetExact(redis, adjustmentKeys);
   const details = [];
   let corruptRecords = 0;
   const sourceOwners = new Map();
@@ -217,18 +255,20 @@ async function analyzeMigration(redis) {
     let adjustment = 0;
     try {
       userData = parseRecord(userValues[index]);
-      const rawAdjustment = adjustmentValues[index];
-      const adjustmentRecord = rawAdjustment == null ? null : parseRecord(rawAdjustment);
-      if (adjustmentRecord && !Number.isFinite(Number(adjustmentRecord.amount))) {
-        throw new Error('INVALID_ADJUSTMENT_RECORD');
-      }
-      adjustment = Number(adjustmentRecord && adjustmentRecord.amount) || 0;
+      adjustment = parseAdjustmentAmount(adjustmentValues[index]);
     } catch (_error) {
       corruptRecords += 1;
       continue;
     }
 
-    const detail = prepareDetail({ username, userData, adjustment, data, adData });
+    const detail = prepareDetail({
+      username,
+      userData,
+      adjustment,
+      data,
+      adData,
+      sourceKey: sourceKeys[index],
+    });
     if (!detail) continue;
     details.push(detail);
     const owners = sourceOwners.get(detail.source_key) || [];
@@ -239,20 +279,22 @@ async function analyzeMigration(redis) {
   const duplicateSources = [];
   const excludedAliases = [];
   const selectedOwners = new Map();
+  const detailsByUsername = new Map(details.map(detail => [detail.username, detail]));
   for (const [sourceKey, owners] of sourceOwners.entries()) {
     if (owners.length === 1) {
-      selectedOwners.set(sourceKey, owners[0]);
+      const owner = owners[0];
+      selectedOwners.set(sourceKey, owner);
+      if (!isApprovedSourceOwner(adData, sourceKey, owner)) {
+        const detail = detailsByUsername.get(owner);
+        if (detail) detail.anomalies.push('unverified_source_owner');
+        excludedAliases.push({ source_key: sourceKey, owner });
+      }
       continue;
     }
-    const selected = selectSourceOwner(sourceKey, owners);
-    if (!selected) {
-      duplicateSources.push({ source_key: sourceKey, owners });
-      continue;
-    }
-    selectedOwners.set(sourceKey, selected);
-    excludedAliases.push(...owners
-      .filter(owner => owner !== selected)
-      .map(owner => ({ source_key: sourceKey, username: owner, selected_username: selected })));
+    // A reporting source must map to exactly one wallet before a balance
+    // migration. Selecting a convenient alias could credit a different Redis
+    // wallet than the account used for withdrawals, creating duplicate funds.
+    duplicateSources.push({ source_key: sourceKey, owners });
   }
   const selectedDetails = details.filter(detail => selectedOwners.get(detail.source_key) === detail.username);
   const sourceReady = String(data.date_range && data.date_range.to || '') >= HISTORICAL_THROUGH;
@@ -268,7 +310,17 @@ async function analyzeMigration(redis) {
     summary.duplicate_source_mappings === 0 &&
     summary.anomalous_records === 0 &&
     sourceReady;
-  return { data, adData, userKeys, details: selectedDetails, duplicateSources, excludedAliases, summary, canApply };
+  return {
+    data,
+    adData,
+    userKeys,
+    details: selectedDetails,
+    duplicateSources,
+    excludedAliases,
+    summary,
+    canApply,
+    resolveSourceKey,
+  };
 }
 
 async function mapWithConcurrency(items, concurrency, worker) {
@@ -285,30 +337,76 @@ async function mapWithConcurrency(items, concurrency, worker) {
   return results;
 }
 
-async function applyDetail(redis, detail, analysis) {
-  const lock = await acquireUserDataLock(redis, detail.username);
-  if (!lock) return { status: 'busy', historicalGross: 0 };
+async function acquireDetailWalletLock(redis, detail) {
+  let walletLock = null;
   try {
-    const key = `nf_user_data:${detail.username}`;
+    walletLock = await acquireWalletDataLock(redis, detail.username);
+    if (!walletLock.lock) {
+      return { detail, result: { status: 'busy', historicalGross: 0 } };
+    }
+    const sourceLock = await acquireUserDataLock(redis, `income-source-owner:${detail.source_key}`);
+    if (!sourceLock) {
+      await releaseUserDataLock(redis, walletLock.lock);
+      return { detail, result: { status: 'busy', historicalGross: 0 } };
+    }
+    return { detail, walletLock, sourceLock };
+  } catch (error) {
+    if (walletLock && walletLock.lock) await releaseUserDataLock(redis, walletLock.lock);
+    return {
+      detail,
+      result: {
+        status: 'error',
+        historicalGross: 0,
+        code: error && error.code || 'WALLET_LOCK_FAILED',
+      },
+    };
+  }
+}
+
+async function applyDetail(redis, entry, analysis, ownersBySource) {
+  if (entry.result) return entry.result;
+  const { detail, walletLock } = entry;
+  const { lock, identity } = walletLock;
+  try {
+    if (identity.storageUsername !== detail.username) {
+      return { status: 'error', historicalGross: 0, code: 'WALLET_IDENTITY_CONFLICT' };
+    }
+    if (!isApprovedSourceOwner(analysis.adData, detail.source_key, detail.username)) {
+      return { status: 'error', historicalGross: 0, code: 'INCOME_SOURCE_OWNER_UNVERIFIED' };
+    }
+    const currentOwners = ownersBySource.get(detail.source_key) || [];
+    // A missing original record retains the more specific USER_RECORD_MISSING
+    // result below. Any replacement or additional owner is an identity conflict.
+    if (currentOwners.length > 1 || (currentOwners.length === 1 && currentOwners[0] !== detail.username)) {
+      return { status: 'error', historicalGross: 0, code: 'WALLET_IDENTITY_CONFLICT' };
+    }
+    const key = `nf_user_data:${identity.storageUsername}`;
     const currentRaw = await redis.get(key);
     if (currentRaw == null) {
       return { status: 'error', historicalGross: 0, code: 'USER_RECORD_MISSING' };
     }
+    if (currentOwners.length !== 1) {
+      return { status: 'error', historicalGross: 0, code: 'SOURCE_OWNER_CHANGED' };
+    }
     const current = parseRecord(currentRaw);
+    if (current.wallet_merged_into) {
+      return { status: 'error', historicalGross: 0, code: 'WALLET_MERGED' };
+    }
+    if (current.disabled) {
+      return { status: 'error', historicalGross: 0, code: 'ACCOUNT_DISABLED' };
+    }
     if (existingMigration(current)?.status === 'applied') {
       return { status: 'skipped', historicalGross: 0 };
     }
-    const adjustmentRaw = await redis.get(`nf_admin_income_adjustment:${detail.username}`);
-    const adjustmentRecord = adjustmentRaw == null ? null : parseRecord(adjustmentRaw);
-    if (adjustmentRecord && !Number.isFinite(Number(adjustmentRecord.amount))) {
-      return { status: 'error', historicalGross: 0, code: 'INVALID_ADJUSTMENT_RECORD' };
-    }
+    const adjustmentRaw = await redis.get(`nf_admin_income_adjustment:${detail.source_key}`);
+    const adjustment = parseAdjustmentAmount(adjustmentRaw);
     const currentDetail = prepareDetail({
       username: detail.username,
       userData: current,
-      adjustment: Number(adjustmentRecord && adjustmentRecord.amount) || 0,
+      adjustment,
       data: analysis.data,
       adData: analysis.adData,
+      sourceKey: analysis.resolveSourceKey(detail.username),
     });
     if (!currentDetail || currentDetail.already_migrated) {
       return { status: currentDetail ? 'skipped' : 'error', historicalGross: 0, code: 'SOURCE_MAPPING_CHANGED' };
@@ -327,11 +425,12 @@ async function applyDetail(redis, detail, analysis) {
         [COMMISSION_MIGRATION_ID]: marker,
       },
     };
-    await redis.set(key, JSON.stringify(updated));
+    await commitUserDataUnderLock(redis, key, updated, [lock, entry.sourceLock]);
     return { status: 'applied', historicalGross: marker.historical_gross_income };
   } catch (error) {
-    return { status: 'error', historicalGross: 0, code: error && error.message || 'WRITE_FAILED' };
+    return { status: 'error', historicalGross: 0, code: error && (error.code || error.message) || 'WRITE_FAILED' };
   } finally {
+    await releaseUserDataLock(redis, entry.sourceLock);
     await releaseUserDataLock(redis, lock);
   }
 }
@@ -426,7 +525,31 @@ module.exports = async (req, res) => {
     }
 
     const pending = analysis.details.filter(detail => !detail.already_migrated);
-    const results = await mapWithConcurrency(pending, APPLY_CONCURRENCY, detail => applyDetail(redis, detail, analysis));
+    // Acquire every candidate wallet lock before the owner recheck. This makes
+    // the post-lock source-owner validation one O(U) scan instead of one SCAN
+    // per candidate (O(U^2)), while each commit still verifies its lock token.
+    const lockEntries = await mapWithConcurrency(
+      pending,
+      APPLY_CONCURRENCY,
+      detail => acquireDetailWalletLock(redis, detail),
+    );
+    const acquiredEntries = lockEntries.filter(entry => entry.walletLock && entry.walletLock.lock);
+    let ownersBySource;
+    try {
+      const currentWalletKeys = acquiredEntries.length ? await scanWalletKeys(redis) : [];
+      ownersBySource = buildSourceOwnerIndex(currentWalletKeys, analysis.resolveSourceKey);
+    } catch (error) {
+      await Promise.all(acquiredEntries.flatMap(entry => [
+        releaseUserDataLock(redis, entry.sourceLock),
+        releaseUserDataLock(redis, entry.walletLock.lock),
+      ]));
+      throw error;
+    }
+    const results = await mapWithConcurrency(
+      lockEntries,
+      APPLY_CONCURRENCY,
+      entry => applyDetail(redis, entry, analysis, ownersBySource),
+    );
     const counts = {
       applied: results.filter(result => result.status === 'applied').length,
       skipped: analysis.summary.already_migrated + results.filter(result => result.status === 'skipped').length,
@@ -450,9 +573,11 @@ module.exports = async (req, res) => {
     });
   } catch (error) {
     console.error(`[admin-balance-migration] ${req.method === 'POST' ? 'apply' : 'dry-run'} failed:`, error);
+    const storageUnavailable = error && error.code === 'ACCOUNT_STATUS_UNAVAILABLE' &&
+      error.cause && error.cause.code === 'WALLET_IDENTITY_UNAVAILABLE';
     return res.status(503).json({
       error: 'Balance migration unavailable',
-      code: error && error.code || 'MIGRATION_UNAVAILABLE',
+      code: storageUnavailable ? 'MIGRATION_STORAGE_UNAVAILABLE' : (error && error.code || 'MIGRATION_UNAVAILABLE'),
     });
   }
 };

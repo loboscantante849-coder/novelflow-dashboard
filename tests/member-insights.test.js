@@ -25,7 +25,7 @@ function authHeaders(username) {
 }
 
 test.beforeEach(() => {
-  FakeRedis.reset();
+  FakeRedis.reset({ 'nf_user_data:invited-user': JSON.stringify({}) });
   currentAdData = {
     last_updated: '2026-08-12T10:00:00.000Z',
     by_promoter: {
@@ -34,6 +34,7 @@ test.beforeEach(() => {
     ad_ids: {
       'child-link': {
         ad_id: 'child-link',
+        username: 'invited-user',
         username_canon: 'invited_user',
         daily: [
           { dt: '2026-08-09', dn_income: 20 },
@@ -109,6 +110,31 @@ test('active recommenders see only post-activation 5 percent commission', async 
   assert.equal(response.body.referrals.reader_new_users, 4);
   assert.equal(response.body.referrals.promotion_income, 30);
   assert.match(response.body.recommender.referral_url, /^https:\/\/novelflow\.top\/\?ref=nfref_/);
+});
+
+test('member insights do not expose or commission a child source with duplicate owners', async () => {
+  const redis = new FakeRedis();
+  currentAdData.ad_ids['child-alias'] = {
+    username: '@invited-user',
+    username_canon: 'invited_user',
+    daily: [{ dt: '2026-08-10', dn_income: 50 }],
+  };
+  FakeRedis.values.set('nf_user_data:@invited-user', JSON.stringify({}));
+  await redis.sadd('nf_referrals:v1:owner', 'invited-user');
+  await redis.set('nf_referrer_of:v1:invited-user', JSON.stringify({
+    parent: 'owner', child: 'invited-user', referral_code: 'nfref_owner', bound_at: '2026-08-08T00:00:00.000Z',
+  }));
+  await redis.set('nf_recommender:v1:application:owner', JSON.stringify({
+    username: 'owner', status: 'active', created_at: '2026-08-10T00:00:00.000Z',
+  }));
+
+  const response = await invoke(memberInsights, { method: 'GET', headers: authHeaders('owner') });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.referrals.stats_available, false);
+  assert.equal(response.body.referrals.members[0].source_owner_verified, false);
+  assert.equal(response.body.referrals.members[0].promotion_income, null);
+  assert.equal(response.body.referrals.members[0].commission_accrued, null);
+  assert.equal(response.body.recommender.commission_accrued, null);
 });
 
 test('member insights require a valid access token and fail closed for disabled accounts', async () => {

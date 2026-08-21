@@ -12,6 +12,12 @@ const { Redis } = require('@upstash/redis');
 const { normalizeRedisKeys } = require('./redis-values');
 const { isSystemStatsBucket } = require('./promoter-access');
 const { normalizeHttpsCoverUrl, backfillBookCovers } = require('./book-covers');
+const {
+  resolveUsernameAlias,
+  resolveWalletStorageIdentity,
+  walletIdentityConflict,
+  walletStorageCandidates,
+} = require('./wallet-identity');
 
 const AD_ID_DETAILS_URL =
   'https://raw.githubusercontent.com/loboscantante849-coder/novelflow-dashboard/main/ad_id_details.json';
@@ -61,7 +67,7 @@ const ALIAS_VARIANTS = {
 };
 
 // Module-level caches
-let AD_CACHE = { data: null, expires: 0, fetchedAt: 0 };
+let AD_CACHE = { data: null, expires: 0, fetchedAt: 0, source: null };
 let DATA_JSON_CACHE = { data: null, expires: 0, fetchedAt: 0 };
 let LINK_STATS_CACHE = { data: null, expires: 0, fetchedAt: 0 };
 
@@ -141,18 +147,34 @@ function resolvePromoterKey(rawName, adData) {
   return canon; // fallback: return canon even if no by_promoter entry exists
 }
 
-// Normalize only known reporting aliases for wallet storage and locking. Keep
-// ordinary usernames' punctuation intact so legacy Redis identities remain
-// addressable while aliases cannot create a second wallet.
-function resolveUsernameAlias(rawName) {
-  const raw = String(rawName || '').trim().toLowerCase();
-  if (!raw) return '';
-  const walletAliases = {
-    'cons espher': 'cons_espher',
-    '@cons espher': 'cons_espher',
-    '@cons_espher': 'cons_espher',
+// Build the expensive ad-id fallback once for bulk callers. `resolvePromoterKey`
+// intentionally keeps its standalone behavior for request paths that only resolve
+// one username, while migrations can resolve every Redis wallet in O(A + U)
+// instead of scanning all A ad ids for each of U users.
+function createPromoterKeyResolver(adData) {
+  const byPromoter = adData?.by_promoter && typeof adData.by_promoter === 'object'
+    ? adData.by_promoter
+    : {};
+  const adIdFallbacks = new Map();
+  if (adData?.ad_ids && typeof adData.ad_ids === 'object') {
+    for (const entry of Object.values(adData.ad_ids)) {
+      const sourceKey = String(entry && entry.username_canon || '').trim();
+      const usernameCanon = canonize(entry && entry.username);
+      if (!usernameCanon || !sourceKey || !byPromoter[sourceKey] || adIdFallbacks.has(usernameCanon)) continue;
+      // Preserve resolvePromoterKey's first-match behavior for ambiguous legacy rows.
+      adIdFallbacks.set(usernameCanon, sourceKey);
+    }
+  }
+
+  return rawName => {
+    if (isSystemStatsBucket(rawName)) return null;
+    const canon = canonize(rawName);
+    if (!canon) return null;
+    if (byPromoter[canon]) return canon;
+    const aliasTarget = ALIAS_VARIANTS[canon];
+    if (aliasTarget && byPromoter[aliasTarget]) return aliasTarget;
+    return adIdFallbacks.get(canon) || canon;
   };
-  return walletAliases[raw] || raw;
 }
 
 // isAdmin defined above (always false); static whitelist removed.
@@ -188,7 +210,7 @@ async function getAdIdDetails(debugLog) {
       if (!data || !data.ad_ids || !data.by_promoter) {
         throw new Error('ad_id_details response missing required keys');
       }
-      AD_CACHE = { data, expires: Date.now() + CACHE_TTL_MS, fetchedAt: Date.now() };
+      AD_CACHE = { data, expires: Date.now() + CACHE_TTL_MS, fetchedAt: Date.now(), source: 'remote' };
       debugLog?.push(`ad_id_details: fetched ok (${Object.keys(data.ad_ids).length} ad_ids, ${Object.keys(data.by_promoter).length} promoters, last_updated=${data.last_updated})`);
       return data;
     } catch (e) {
@@ -204,11 +226,35 @@ async function getAdIdDetails(debugLog) {
   if (AD_CACHE.data) debugLog?.push('ad_id_details: stale cache exceeded maximum age');
   if (BUNDLED_AD_DATA) {
     debugLog?.push(`ad_id_details: using bundled snapshot (remote failed: ${lastErr?.message || 'unknown'})`);
-    AD_CACHE = { data: BUNDLED_AD_DATA, expires: Date.now() + CACHE_TTL_MS, fetchedAt: Date.now() };
+    AD_CACHE = { data: BUNDLED_AD_DATA, expires: Date.now() + CACHE_TTL_MS, fetchedAt: Date.now(), source: 'bundled' };
     return BUNDLED_AD_DATA;
   }
   debugLog?.push(`ad_id_details: all fetches failed: ${lastErr?.message}`);
   return null;
+}
+
+// Authentication namespace creation must never rely on the bundled fallback:
+// a newly added promoter could otherwise be claimed during the deployment lag
+// between the live reporting snapshot and this checkout. Only a recent remote
+// fetch (or its short, explicitly remote-tagged cache entry) is accepted.
+async function getLiveAdIdDetails(debugLog) {
+  const now = Date.now();
+  if (AD_CACHE.source === 'remote' && AD_CACHE.data && AD_CACHE.expires > now) {
+    debugLog?.push('ad_id_details: live remote cache hit');
+    return AD_CACHE.data;
+  }
+  try {
+    const data = await fetchJsonWithTimeout(AD_ID_DETAILS_URL);
+    if (!data || !data.ad_ids || !data.by_promoter) {
+      throw new Error('ad_id_details response missing required keys');
+    }
+    AD_CACHE = { data, expires: Date.now() + CACHE_TTL_MS, fetchedAt: Date.now(), source: 'remote' };
+    debugLog?.push('ad_id_details: live remote fetch ok');
+    return data;
+  } catch (error) {
+    debugLog?.push(`ad_id_details: live remote fetch failed: ${error.message}`);
+    return null;
+  }
 }
 
 async function getLegacyDataJson(debugLog) {
@@ -370,6 +416,15 @@ function mergeSubmissionRecords(records) {
 async function loadSubmissions(redis, username, admin, debugLog) {
   const subs = [];
   if (!redis) return subs;
+  const rawUsername = String(username || '').trim().toLowerCase();
+  const walletUsername = resolveUsernameAlias(username) || rawUsername;
+  const reportingUsername = canonize(username);
+  const submissionUsernames = new Set([
+    rawUsername,
+    walletUsername,
+    reportingUsername,
+    ALIAS_VARIANTS[reportingUsername],
+  ].filter(Boolean));
 
   try {
     let subKeys = [];
@@ -380,8 +435,10 @@ async function loadSubmissions(redis, username, admin, debugLog) {
       }
       debugLog?.push(`admin: ${subKeys.length} keys from nf_subs`);
     } else {
-      subKeys = normalizeRedisKeys(await redis.smembers(`nf_user_subs:${username.toLowerCase()}`));
-      debugLog?.push(`user ${username}: ${subKeys.length} keys from nf_user_subs set`);
+      const indexedKeys = await Promise.all(Array.from(submissionUsernames)
+        .map(candidate => redis.smembers(`nf_user_subs:${candidate}`)));
+      subKeys = Array.from(new Set(indexedKeys.flatMap(value => normalizeRedisKeys(value))));
+      debugLog?.push(`user ${username}: ${subKeys.length} keys from ${submissionUsernames.size} nf_user_subs sets`);
     }
 
     // Batch hget
@@ -394,8 +451,13 @@ async function loadSubmissions(redis, username, admin, debugLog) {
         try {
           const sub = typeof v === 'string' ? JSON.parse(v) : v;
           const recordedOwner = submissionIdentifier(sub && (sub.discordUsername || sub.username));
-          const ownerMatches = admin || !recordedOwner ||
-            recordedOwner.toLowerCase() === String(username).toLowerCase();
+          const recordedCanon = canonize(recordedOwner);
+          const ownerMatches = admin || !recordedOwner || [
+            String(recordedOwner).trim().toLowerCase(),
+            resolveUsernameAlias(recordedOwner),
+            recordedCanon,
+            ALIAS_VARIANTS[recordedCanon],
+          ].filter(Boolean).some(candidate => submissionUsernames.has(candidate));
           if (ownerMatches && (sub.linkId || sub.code)) subs.push(markVerifiedAssets(sub));
         } catch (_e) { /* corrupt */ }
       }
@@ -410,8 +472,17 @@ async function loadSubmissions(redis, username, admin, debugLog) {
   // link-only and code-only records, so de-duplicate after loading both sources.
   if (!admin) {
     try {
-      const kvData = await redis.get(`nf_user_data:${String(username).toLowerCase()}`);
-      const myBooks = kvData && typeof kvData === 'string' ? JSON.parse(kvData)?.myBooks : kvData?.myBooks;
+      const identity = await resolveWalletStorageIdentity(redis, walletUsername);
+      if (identity.conflict) throw walletIdentityConflict(identity);
+      const walletKey = `nf_user_data:${identity.storageUsername}`;
+      const kvData = await redis.get(walletKey);
+      const walletRecord = kvData && typeof kvData === 'string' ? JSON.parse(kvData) : kvData;
+      if (walletRecord && walletRecord.wallet_merged_into) {
+        const error = new Error('Wallet merged into a primary account');
+        error.code = 'WALLET_MERGED';
+        throw error;
+      }
+      const myBooks = walletRecord?.myBooks;
       if (Array.isArray(myBooks)) {
         for (const book of myBooks) {
           const bookCode = submissionIdentifier(book.code);
@@ -430,7 +501,7 @@ async function loadSubmissions(redis, username, admin, debugLog) {
             submittedAt: book.submittedAt || (book.createdAt ? new Date(book.createdAt).toISOString() : null)
           }, []));
         }
-        if (myBooks.length) debugLog?.push(`loaded ${myBooks.length} books from nf_user_data:${String(username).toLowerCase()}`);
+        if (myBooks.length) debugLog?.push(`loaded ${myBooks.length} books from ${walletKey}`);
       }
     } catch (e) {
       const error = new Error(`User cloud data unavailable: ${e.message}`);
@@ -703,9 +774,12 @@ module.exports = {
   getRedis,
   canonize,
   resolvePromoterKey,
+  createPromoterKeyResolver,
   resolveUsernameAlias,
+  walletStorageCandidates,
   isAdmin,
   getAdIdDetails,
+  getLiveAdIdDetails,
   getLegacyDataJson,
   getLegacyLinkStats,
   mergeSubmissionRecords,

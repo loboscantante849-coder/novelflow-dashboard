@@ -29,6 +29,7 @@ global.Date = FixedDate;
 let currentAdData;
 const statsData = require('../api/_lib/stats-data');
 statsData.getAdIdDetails = async () => currentAdData;
+statsData.getLiveAdIdDetails = statsData.getAdIdDetails;
 
 delete require.cache[require.resolve('../api/_lib/activity-eligibility')];
 delete require.cache[require.resolve('../api/activity-rewards')];
@@ -77,7 +78,13 @@ function sampleAdData() {
       referred_child: { display_name: 'Referred Child', total_new: 1, total_dn: 130 },
     },
     ad_ids: {
+      campaign_owner: {
+        username: 'campaign-parent',
+        username_canon: 'campaign_parent',
+        daily: [],
+      },
       child_link: {
+        username: 'referred-child',
         username_canon: 'referred_child',
         daily: [
           { dt: '2026-08-09', dn_income: 100 },
@@ -218,6 +225,7 @@ test('activity invite codes are scoped to the verified JWT account and ignore us
 });
 
 test('verified app referrals drive VIP and can satisfy recommender eligibility without website signups', async () => {
+  FakeRedis.values.set('nf_user_data:campaign-parent', JSON.stringify({}));
   await new FakeRedis().sadd('nf_app_referrals:v1:campaign-parent', 'app-child-1', 'app-child-2');
   const eligibility = await loadEligibility('campaign-parent', { redis: new FakeRedis(), adData: currentAdData });
   assert.equal(eligibility.verifiedNewUsers, 2);
@@ -237,6 +245,37 @@ test('verified app referrals drive VIP and can satisfy recommender eligibility w
   assert.equal(exactFive.campaignInvites, 5);
   assert.equal(exactFive.recommenderMeasuredNewUsers, 5);
   assert.equal(exactFive.recommenderEligible, true);
+});
+
+test('duplicate approved source wallets cannot borrow measured users for recommender approval', async () => {
+  currentAdData.ad_ids.owner_one = {
+    username: 'Campaign.Parent',
+    username_canon: 'campaign_parent',
+  };
+  currentAdData.ad_ids.owner_two = {
+    username: '@Campaign.Parent',
+    username_canon: 'campaign_parent',
+  };
+  FakeRedis.values.set('nf_user_data:campaign.parent', JSON.stringify({}));
+  FakeRedis.values.set('nf_user_data:@campaign.parent', JSON.stringify({}));
+
+  await assert.rejects(
+    () => loadEligibility('campaign.parent', {
+      redis: new FakeRedis(),
+      adData: currentAdData,
+      requireFresh: true,
+    }),
+    error => error && error.code === 'INCOME_SOURCE_OWNER_CONFLICT',
+  );
+
+  const response = await invoke(activityRewards, {
+    method: 'POST',
+    headers: authHeaders('campaign.parent'),
+    body: { action: 'apply_recommender' },
+  });
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'INCOME_SOURCE_OWNER_CONFLICT');
+  assert.equal(FakeRedis.values.has('nf_recommender:v1:application:campaign.parent'), false);
 });
 
 test('activity reads are rate limited per authenticated account', async () => {
@@ -430,6 +469,7 @@ test('a Limited Subsidy retry backfills a missing VIP entitlement', async () => 
 
 test('admin exports fulfillment events and a read-only 5 percent commission statement', async () => {
   FakeRedis.values.set('nf_user_data:ops-admin', JSON.stringify({ accountType: 'admin' }));
+  FakeRedis.values.set('nf_user_data:referred-child', JSON.stringify({}));
   FakeRedis.values.set('nf_recommender:v1:application:campaign-parent', JSON.stringify({
     username: 'campaign-parent',
     status: 'active',
@@ -457,6 +497,42 @@ test('admin exports fulfillment events and a read-only 5 percent commission stat
   assert.equal(commissions.body.commission_statements[0].commission_accrued_cumulative, 1.5);
   assert.equal(commissions.body.payout_instruction, false);
   assert.equal(commissions.body.requires_prior_payout_reconciliation, true);
+  assert.equal(commissions.body.owner_conflicts_excluded, 0);
+});
+
+test('commission export excludes a child source with multiple approved wallets', async () => {
+  currentAdData.ad_ids.child_alias = {
+    username: '@referred-child',
+    username_canon: 'referred_child',
+    daily: [{ dt: '2026-08-11', dn_income: 20 }],
+  };
+  FakeRedis.reset({
+    'nf_user_data:ops-admin': JSON.stringify({ accountType: 'admin' }),
+    'nf_user_data:referred-child': JSON.stringify({}),
+    'nf_user_data:@referred-child': JSON.stringify({}),
+    'nf_recommender:v1:application:campaign-parent': JSON.stringify({
+      username: 'campaign-parent',
+      status: 'active',
+      referral_code: 'nfref_parentcode',
+      created_at: '2026-08-10T00:00:00.000Z',
+    }),
+    'nf_referrer_of:v1:referred-child': JSON.stringify({
+      child: 'referred-child',
+      parent: 'campaign-parent',
+      referral_code: 'nfref_parentcode',
+      bound_at: '2026-08-09T00:00:00.000Z',
+    }),
+  });
+
+  const response = await invoke(activityRewards, {
+    method: 'GET',
+    query: { admin_export: 'commission' },
+    headers: authHeaders('ops-admin'),
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.commission_statements.length, 0);
+  assert.equal(response.body.owner_conflicts_excluded, 1);
+  assert.equal(response.body.total_commission_accrued_cumulative, 0);
 });
 
 test('Limited Subsidy stops at 100 daily claim reservations without creating a 101st event', async () => {

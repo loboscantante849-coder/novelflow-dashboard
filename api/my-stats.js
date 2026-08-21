@@ -18,6 +18,8 @@ const {
   buildAdIdLookup, aggregateSubmissionStats, zeroStats, r2,
 } = require('./_lib/stats-data');
 const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
+const { inspectApprovedSourceWalletOwner } = require('./_lib/income-source-owners');
+const { resolveWalletStorageIdentity } = require('./_lib/wallet-identity');
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
@@ -77,6 +79,32 @@ module.exports = async (req, res) => {
     const adData = await getAdIdDetails(IS_PROD ? [] : debugLog);
     let usernameCanon = null;
 
+    if (!isAdmin && adData) {
+      usernameCanon = resolvePromoterKey(username, adData);
+      const walletIdentity = await resolveWalletStorageIdentity(redis, username);
+      if (walletIdentity.conflict) {
+        return res.status(409).json({ error: 'Account identity recovery required', code: 'WALLET_IDENTITY_CONFLICT' });
+      }
+      if (adData.by_promoter?.[usernameCanon]) {
+        const ownership = await inspectApprovedSourceWalletOwner(
+          redis,
+          adData,
+          username,
+          walletIdentity.storageUsername,
+        );
+        if (!ownership.approved) {
+          return res.status(403).json({ error: 'Income source owner is not verified', code: 'INCOME_SOURCE_OWNER_UNVERIFIED' });
+        }
+        if (!ownership.unique) {
+          return res.status(409).json({
+            error: 'Income source ownership requires reconciliation',
+            code: 'INCOME_SOURCE_OWNER_CONFLICT',
+            wallet_count: ownership.owners.length,
+          });
+        }
+      }
+    }
+
     // 2. Load submissions from Redis
     const submissions = redis ? await loadSubmissions(redis, username, isAdmin, IS_PROD ? [] : debugLog) : [];
 
@@ -96,7 +124,7 @@ module.exports = async (req, res) => {
 
     if (adData) {
       if (!isAdmin) {
-        const k = resolvePromoterKey(username, adData);
+        const k = usernameCanon;
         if (!IS_PROD) debugLog.push(`username "${username}" → canon="${k}"`);
         usernameCanon = k;
       }
@@ -336,6 +364,15 @@ module.exports = async (req, res) => {
 
     // FALLBACK: legacy data.json
     if (!IS_PROD) debugLog.push('primary ad_id_details unavailable — using legacy data.json fallback');
+    // Legacy aggregates do not carry the trusted raw-owner registry. Only an
+    // admin may use them for operational recovery; ordinary accounts fail
+    // closed instead of being mapped to an unverified promoter source.
+    if (!isAdmin) {
+      return res.status(503).json({
+        error: 'Income source ownership is temporarily unavailable',
+        code: 'INCOME_SOURCE_OWNER_UNAVAILABLE',
+      });
+    }
     const dataJson = await getLegacyDataJson(IS_PROD ? [] : debugLog);
     if (!dataJson) throw new Error('No statistics data source is available');
     if (!isAdmin && !usernameCanon) usernameCanon = resolvePromoterKey(username, null);

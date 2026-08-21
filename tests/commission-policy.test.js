@@ -266,3 +266,49 @@ test('daily earnings show historical 100 percent and new 80 percent amounts', ()
     { date: '2026-08-08', gross_amount: 100, amount: 100, commission_rate: 1 },
   ]);
 });
+
+test('non-finite wallet values fail closed instead of creating infinite balance', () => {
+  const profile = buildIncomeProfile(source, 'promoter');
+  const balances = computeWalletBalances({ bonus_balance: 'Infinity' }, profile, 'Infinity');
+  assert.equal(Number.isFinite(balances.available_balance), true);
+  assert.equal(balances.available_balance, 130);
+  assert.equal(balances.reconciliation_required, true);
+  assert.deepEqual(balances.reconciliation_reasons.sort(), ['invalid_bonus_balance', 'invalid_income_adjustment']);
+});
+
+test('explicit null and empty financial fields remain reconciliation evidence', () => {
+  const profile = buildIncomeProfile(source, 'promoter');
+  for (const invalidBonus of [null, '', true, []]) {
+    const balances = computeWalletBalances({ bonus_balance: invalidBonus }, profile);
+    assert.equal(balances.reconciliation_required, true);
+    assert.ok(balances.reconciliation_reasons.includes('invalid_bonus_balance'));
+  }
+
+  for (const invalidHistorical of [null, '', true, []]) {
+    const balances = computeWalletBalances({
+      bonus_balance: 100,
+      balance_migrations: {
+        [COMMISSION_MIGRATION_ID]: {
+          status: 'applied',
+          effective_date: '2026-08-10',
+          commission_rate: 0.8,
+          historical_gross_income: invalidHistorical,
+        },
+      },
+    }, profile);
+    assert.equal(balances.reconciliation_required, true);
+    assert.ok(balances.reconciliation_reasons.includes('invalid_migration_historical_gross_income'));
+  }
+});
+
+test('zero, null, and empty stored withdrawal amounts fail closed', () => {
+  const profile = buildIncomeProfile(source, 'promoter');
+  for (const amount of [0, null, '']) {
+    const balances = computeWalletBalances({
+      bonus_balance: 130,
+      withdrawals: [{ id: 'legacy-withdrawal', amount, status: 'approved' }],
+    }, profile);
+    assert.equal(balances.reconciliation_required, true);
+    assert.ok(balances.reconciliation_reasons.includes('invalid_withdrawal_record'));
+  }
+});
