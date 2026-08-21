@@ -25,10 +25,10 @@ function response(body, status = 200) {
   };
 }
 
-function authenticated(body = {}) {
+function authenticated(body = {}, accessToken = token) {
   return {
     method: 'POST',
-    headers: { authorization: `Bearer ${token}`, 'x-forwarded-for': '192.0.2.50' },
+    headers: { authorization: `Bearer ${accessToken}`, 'x-forwarded-for': '192.0.2.50' },
     body,
   };
 }
@@ -225,6 +225,36 @@ test('GET preserves an expired code instead of removing it', async () => {
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.inviteCode.status, 'expired');
   assert.equal(res.body.inviteCode.code, '90032');
+});
+
+test('Cons legacy login sessions can read and atomically recover the established invite-code record', async () => {
+  const legacyRecord = JSON.stringify({
+    status: 'unbound', username: '@cons espher', code: '90037',
+    bookId: '69be18217347e8b6f69c41b3', bookTitle: 'Liberada por amor',
+    cooldownUntil: Date.now() - 1000,
+  });
+  FakeRedis.reset({
+    'nf_user_data:cons_espher': JSON.stringify({}),
+    'nf_identity_owner:cons_espher': 'local:cons_espher',
+    'nf_identity_owner:@cons espher': 'local:cons_espher',
+    'nf_equity_code:@cons espher': legacyRecord,
+  });
+  const legacyToken = signAccessToken({
+    type: 'local', username: '@cons espher', principal: 'local:@cons espher',
+  });
+
+  const read = await invoke(equityCode, { ...authenticated({}, legacyToken), method: 'GET' });
+  assert.equal(read.statusCode, 200);
+  assert.equal(read.body.inviteCode.code, '90037');
+  assert.equal(FakeRedis.values.has('nf_equity_code:cons_espher'), false);
+
+  const calls = [];
+  global.fetch = successFetch(calls);
+  const created = await invoke(equityCode, authenticated({ bookId: BOOK_ID }, legacyToken));
+  assert.equal(created.statusCode, 201);
+  assert.equal(created.body.inviteCode.username, 'cons_espher');
+  assert.equal(FakeRedis.values.has('nf_equity_code:@cons espher'), false);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_equity_code:cons_espher')).status, 'active');
 });
 
 test('GET returns a controlled storage error when Redis is unavailable', async () => {

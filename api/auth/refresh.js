@@ -22,6 +22,7 @@ const {
 
 const { handlePreflight } = require('../_lib/cors');
 const { getRedis, isDisabledUser } = require('../_lib/security');
+const { canonicalizeLocalSessionPayload } = require('../_lib/login-identity');
 
 module.exports = async (req, res) => {
   if (handlePreflight(req, res, { credentials: true })) return;
@@ -50,13 +51,14 @@ module.exports = async (req, res) => {
       clearAuthCookies(res);
       return res.status(401).json({ error: 'Session expired', code: 'SESSION_EXPIRED' });
     }
-    const username = String(payload.username || '').trim().toLowerCase();
+    const canonicalPayload = canonicalizeLocalSessionPayload(payload);
+    const username = String(canonicalPayload.username || '').trim().toLowerCase();
     const redis = getRedis();
     if (!username || !redis) {
       return res.status(503).json({ error: 'Auth service unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
     }
     try {
-      if (await isDisabledUser(redis, payload, { failClosed: true })) {
+      if (await isDisabledUser(redis, canonicalPayload, { failClosed: true })) {
         clearAuthCookies(res);
         return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
       }
@@ -70,10 +72,10 @@ module.exports = async (req, res) => {
 
     // Keep a fixed maximum session lifetime; active refreshes must not extend
     // a compromised token indefinitely.
-    const userPayload = { ...buildUserPayload(payload), session_started_at: sessionStartedAt };
+    const userPayload = { ...buildUserPayload(canonicalPayload), session_started_at: sessionStartedAt };
     const newAccessToken = signAccessToken(userPayload);
     const newRefreshToken = signRefreshToken(userPayload);
-    const userInfo = extractUserInfo(payload);
+    const userInfo = extractUserInfo(canonicalPayload);
 
     setAuthCookies(res, newAccessToken, newRefreshToken, userInfo);
 

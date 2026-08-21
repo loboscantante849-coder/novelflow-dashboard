@@ -22,6 +22,19 @@ function resolveLocalLoginUsername(value) {
   return LOCAL_LOGIN_PRIMARY_BY_EXPLICIT_ALIAS.get(raw) || resolveUsernameAlias(raw);
 }
 
+function canonicalizeLocalSessionPayload(payload) {
+  if (!payload || typeof payload !== 'object' || payload.type !== 'local') return payload;
+  const username = resolveLocalLoginUsername(payload.username);
+  if (!username) return payload;
+  const principal = String(payload.principal || '');
+  let canonicalPrincipal = principal;
+  if (!principal) canonicalPrincipal = `local:${username}`;
+  else if (principal.startsWith('local:') && resolveLocalLoginUsername(principal.slice(6)) === username) {
+    canonicalPrincipal = `local:${username}`;
+  }
+  return { ...payload, username, principal: canonicalPrincipal };
+}
+
 function localLoginCredentialCandidates(value) {
   const exact = String(value || '').trim();
   const raw = exact.toLowerCase();
@@ -88,6 +101,7 @@ async function loadLocalLoginCredentials(redis, value) {
 }
 
 module.exports = {
+  canonicalizeLocalSessionPayload,
   localLoginCredentialCandidates,
   loadLocalLoginCredentials,
   resolveLocalLoginPrincipal,

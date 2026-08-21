@@ -130,6 +130,15 @@ class FakeRedis {
 
   async eval(_script, keys, args) {
     this._checkError();
+    if (String(_script).includes('NF_EQUITY_IDENTITY_MIGRATE_V1')) {
+      const [canonicalKey, legacyKey] = keys;
+      const [expectedRaw] = args;
+      if (FakeRedis.values.has(canonicalKey)) return -1;
+      if (FakeRedis.values.get(legacyKey) !== expectedRaw) return -2;
+      FakeRedis.values.set(canonicalKey, expectedRaw);
+      FakeRedis.values.delete(legacyKey);
+      return 1;
+    }
     if (String(_script).includes('NF_USER_DATA_LOCKED_COMMIT_V1')) {
       const [userDataKey, ...lockKeys] = keys;
       const [userDataJson, ...lockTokens] = args;
