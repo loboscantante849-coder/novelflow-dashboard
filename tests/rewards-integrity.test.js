@@ -413,6 +413,48 @@ test('7-day grand prize credits cash first and defers VIP to explicit confirmati
   }
 });
 
+test('an established lowercase wallet can check in despite a legacy case-only duplicate source key', async () => {
+  const canonical = JSON.stringify({ points: 10 });
+  const legacy = JSON.stringify({ points: 99, keep: 'legacy-review' });
+  FakeRedis.reset({
+    'nf_user_data:xenomorphette': canonical,
+    'nf_user_data:Xenomorphette': legacy,
+  });
+
+  const response = await invoke(rewards, {
+    headers: authHeaders('Xenomorphette'),
+    body: { action: 'checkin' },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:xenomorphette')).points, 15);
+  assert.equal(FakeRedis.values.get('nf_user_data:Xenomorphette'), legacy);
+});
+
+test('case-only duplicate source keys still block the financial 7-day cash reward', async () => {
+  const wallet = {
+    points: 50,
+    bonus_balance: 4,
+    checkin: { streak: 7, lastCheckin: new Date().toISOString().slice(0, 10), history: [] },
+    claimed: { share1: 1 },
+  };
+  FakeRedis.reset({
+    'nf_user_data:xenomorphette': JSON.stringify(wallet),
+    'nf_user_data:Xenomorphette': JSON.stringify({ points: 99 }),
+    'nf_user_subs:xenomorphette': ['verified-code'],
+    nf_subs: { 'verified-code': JSON.stringify({ code: 'verified-code', bookId: 'verified-book', status: 'completed' }) },
+  });
+
+  const response = await invoke(rewards, {
+    headers: authHeaders('Xenomorphette'),
+    body: { action: 'claim_streak_grand' },
+  });
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'INCOME_SOURCE_OWNER_CONFLICT');
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:xenomorphette')).bonus_balance, 4);
+});
+
 test('7-day grand prize credits cash without a NovelFlow ID and leaves VIP pending', async () => {
   FakeRedis.reset({
     'nf_user_data:zoe': JSON.stringify({

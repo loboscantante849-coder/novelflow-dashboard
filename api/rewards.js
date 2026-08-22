@@ -234,7 +234,14 @@ module.exports = async (req, res) => {
 
   let sourceGuard = null;
   try {
-    sourceGuard = await acquireWalletCreationSourceGuard(redis, username, identity);
+    // Daily check-in changes only the already-established canonical wallet's
+    // points/streak. A legacy case-only duplicate reporting key must not block
+    // that non-financial action, but it must also never cause a new wallet to
+    // be created. Financial rewards keep the strict source-owner guard.
+    const establishedCheckinWallet = action === 'checkin' && identity.matches.length === 1;
+    if (!establishedCheckinWallet) {
+      sourceGuard = await acquireWalletCreationSourceGuard(redis, username, identity);
+    }
     const walletUsername = identity.storageUsername;
     const data = normalizeUserData(await getUserData(redis, walletUsername));
     if (data.disabled) {
@@ -512,7 +519,13 @@ module.exports = async (req, res) => {
     return res.status(200).json(result);
 
   } catch (error) {
-    console.error('[rewards] Error:', error);
+    console.error('[rewards] Error:', {
+      action,
+      username,
+      code: error && error.code || 'UNKNOWN',
+      message: error && error.message || 'Unknown reward error',
+      owners: Array.isArray(error && error.owners) ? error.owners : undefined,
+    });
     if (error?.code === 'USER_DATA_CORRUPT') {
       return res.status(503).json({ error: 'User data is temporarily unavailable', code: error.code });
     }
