@@ -56,6 +56,13 @@ async function rlCheck(redis, key, limit, windowSec) {
     if (count === 1) await redis.expire(key, windowSec);
     if (count > limit) {
       const ttl = await redis.ttl(key);
+      // Historical counters were occasionally written without an expiry.
+      // They are not valid rate-limit windows and would otherwise block this
+      // IP forever, so restart only that stale counter with the normal TTL.
+      if (ttl < 0) {
+        await redis.set(key, '1', { ex: windowSec });
+        return { allowed: true };
+      }
       return { allowed: false, retryAfter: Math.max(1, ttl) };
     }
     return { allowed: true };
@@ -124,7 +131,12 @@ module.exports = async (req, res) => {
       const acctLock = await redis.get('nf_login_lock:' + usernameKey);
       if (acctLock) {
         const ttl = await redis.ttl('nf_login_lock:' + usernameKey);
-        return res.status(429).json({ error: 'Account temporarily locked', retryAfter: Math.max(1, ttl) });
+        if (ttl > 0) {
+          return res.status(429).json({ error: 'Account temporarily locked', retryAfter: ttl });
+        }
+        // This lock type is always created with a 15-minute TTL. A surviving
+        // no-expiry key is stale legacy state, not an intentional account ban.
+        await redis.del('nf_login_lock:' + usernameKey);
       }
     }
 

@@ -179,6 +179,47 @@ test('Cons Espher login spellings resolve to the established local account witho
   assert.equal(FakeRedis.values.get('nf_user_pass_owner:@cons espher'), 'local:cons_espher');
 });
 
+test('Cons login repairs stale no-expiry account and IP lock state without bypassing password checks', async () => {
+  FakeRedis.reset({
+    'nf_user_pass:@cons espher': legacyPasswordHash('Password1'),
+    'nf_user_data:cons_espher': JSON.stringify({ bonus_balance: 8.88 }),
+    'nf_login_lock:cons_espher': '1',
+    'nf_login_ip:192.0.2.155': 10,
+  });
+
+  const response = await invoke(register, {
+    headers: { 'x-forwarded-for': '192.0.2.155' },
+    body: { username: 'Cons Espher', password: 'Password1' },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.username, 'cons_espher');
+  assert.equal(FakeRedis.values.has('nf_login_lock:cons_espher'), false);
+  assert.equal(Number(FakeRedis.values.get('nf_login_ip:192.0.2.155')), 1);
+  assert.equal(FakeRedis.expiries.get('nf_login_ip:192.0.2.155'), 900);
+
+  const wrongPassword = await invoke(login, {
+    headers: { 'x-forwarded-for': '192.0.2.156' },
+    body: { username: 'Cons Espher', password: 'WrongPassword1' },
+  });
+  assert.equal(wrongPassword.statusCode, 401);
+});
+
+test('the dedicated login endpoint repairs a stale no-expiry IP lock', async () => {
+  FakeRedis.reset({
+    'nf_user_pass:alice': legacyPasswordHash('Password1'),
+    'nf_user_data:alice': JSON.stringify({}),
+    'nf_login_lock:192.0.2.157': '1',
+  });
+
+  const response = await invoke(login, {
+    headers: { 'x-forwarded-for': '192.0.2.157' },
+    body: { username: 'alice', password: 'Password1' },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(FakeRedis.values.has('nf_login_lock:192.0.2.157'), false);
+});
+
 test('refresh canonicalizes an established Cons alias session without requiring another login', async () => {
   FakeRedis.reset({
     'nf_user_data:cons_espher': JSON.stringify({ bonus_balance: 8.88 }),

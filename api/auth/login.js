@@ -44,7 +44,10 @@ module.exports = async (req, res) => {
     const locked = await redis.get(lockKey);
     if (locked) {
       const ttl = await redis.ttl(lockKey);
-      return res.status(429).json({ error: 'Too many failed attempts. Try again in ' + Math.max(1, ttl) + 's.', retryAfter: ttl });
+      if (ttl > 0) {
+        return res.status(429).json({ error: 'Too many failed attempts. Try again in ' + ttl + 's.', retryAfter: ttl });
+      }
+      await redis.del(lockKey);
     }
 
     const credentialRecords = await Promise.all(loginIdentity.usernames.map(async storageUsername => ({
