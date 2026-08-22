@@ -26,6 +26,7 @@ const {
   bindNovelFlowMember,
   buildVipEntitlement,
   commitUserDataWithVipEntitlement,
+  loadVerifiedNovelFlowBinding,
 } = require('./_lib/vip-entitlements');
 
 const STREAK_POINTS = [5, 5, 5, 5, 5, 10, 15]; // day 1-7
@@ -167,6 +168,12 @@ async function loadVerifiedPromotionCount(redis, username) {
     if (identity) books.add(identity);
   }
   return books.size;
+}
+
+async function resolveRewardVipBinding(redis, username, memberId, source) {
+  const savedBinding = await loadVerifiedNovelFlowBinding(redis, username, memberId);
+  if (savedBinding) return savedBinding;
+  return bindNovelFlowMember(redis, username, await resolveNovelFlowMember(memberId), { source });
 }
 
 module.exports = async (req, res) => {
@@ -349,9 +356,10 @@ module.exports = async (req, res) => {
         }
         let binding;
         try {
-          binding = await bindNovelFlowMember(redis, username, await resolveNovelFlowMember(data.bind_id), { source: 'exchange' });
+          binding = await resolveRewardVipBinding(redis, username, data.bind_id, 'exchange');
         } catch (error) {
-          return res.status(503).json({ error: 'NovelFlow account verification is unavailable', code: error.code || 'NOVELFLOW_LOOKUP_FAILED' });
+          const status = error && error.code === 'NOVELFLOW_BINDING_CONFLICT' ? 409 : 503;
+          return res.status(status).json({ error: 'NovelFlow account verification is unavailable', code: error.code || 'NOVELFLOW_LOOKUP_FAILED' });
         }
         const exchangeSequence = Math.floor(Number(data.vip_exchange_sequence) || 0) + 1;
         vipEntitlementEvent = buildVipEntitlement({
@@ -399,9 +407,10 @@ module.exports = async (req, res) => {
         if (!data.bind_id) return res.status(400).json({ error: 'Bind your verified NovelFlow ID first', code: 'NO_BIND_ID' });
         let streakBinding;
         try {
-          streakBinding = await bindNovelFlowMember(redis, username, await resolveNovelFlowMember(data.bind_id), { source: 'streak' });
+          streakBinding = await resolveRewardVipBinding(redis, username, data.bind_id, 'streak');
         } catch (error) {
-          return res.status(503).json({ error: 'NovelFlow account verification is unavailable', code: error.code || 'NOVELFLOW_LOOKUP_FAILED' });
+          const status = error && error.code === 'NOVELFLOW_BINDING_CONFLICT' ? 409 : 503;
+          return res.status(status).json({ error: 'NovelFlow account verification is unavailable', code: error.code || 'NOVELFLOW_LOOKUP_FAILED' });
         }
         const streakGrandSequence = Math.max(0, Number(data.streak_grand_sequence) || 0) + 1;
         vipEntitlementEvent = buildVipEntitlement({

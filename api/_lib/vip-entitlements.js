@@ -57,6 +57,31 @@ function bindingMemberKey(userId) {
   return `${BIND_MEMBER_PREFIX}${String(userId || '').trim().toLowerCase()}`;
 }
 
+async function loadVerifiedNovelFlowBinding(redis, username, expectedMemberId) {
+  const user = String(username || '').trim().toLowerCase();
+  const memberId = String(expectedMemberId || '').trim().toLowerCase();
+  if (!redis || !user || !/^[a-f0-9]{24}$/.test(memberId)) return null;
+
+  const userKey = bindingUserKey(user);
+  const memberKey = bindingMemberKey(memberId);
+  const values = typeof redis.mget === 'function'
+    ? await redis.mget(userKey, memberKey)
+    : await Promise.all([redis.get(userKey), redis.get(memberKey)]);
+  const binding = parseJson(values && values[0], null);
+  const owner = String(values && values[1] || '').trim().toLowerCase();
+
+  if (!binding && !owner) return null;
+  if (!binding || binding.version !== 1 ||
+      String(binding.username || '').trim().toLowerCase() !== user ||
+      String(binding.user_id || '').trim().toLowerCase() !== memberId ||
+      owner !== user) {
+    const error = new Error('NovelFlow account binding requires reconciliation');
+    error.code = 'NOVELFLOW_BINDING_CONFLICT';
+    throw error;
+  }
+  return binding;
+}
+
 async function bindNovelFlowMember(redis, username, member, { source = 'user' } = {}) {
   const user = String(username || '').trim().toLowerCase();
   if (!redis || !user || !member || !member.user_id) throw new Error('Invalid NovelFlow member binding');
@@ -179,6 +204,7 @@ module.exports = {
   commitUserDataWithVipEntitlement,
   createVipEntitlement,
   eventKey,
+  loadVerifiedNovelFlowBinding,
   parseJson,
   updateVipEvent,
 };
