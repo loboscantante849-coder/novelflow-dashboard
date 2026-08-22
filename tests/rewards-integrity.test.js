@@ -363,7 +363,7 @@ test('VIP exchange uses the immutable server binding when NovelFlow lookup is un
   }
 });
 
-test('7-day grand prize uses the immutable server binding when NovelFlow lookup is unavailable', async () => {
+test('7-day grand prize credits cash first and defers VIP to explicit confirmation', async () => {
   const originalFetch = global.fetch;
   const memberId = '67e519c3da10a5c772ca196e';
   const binding = {
@@ -395,11 +395,45 @@ test('7-day grand prize uses the immutable server binding when NovelFlow lookup 
     });
     assert.equal(response.statusCode, 200);
     assert.equal(response.body.bonus_awarded, 0.5);
-    assert.equal(response.body.vip_days_awarded, 2);
+    assert.equal(response.body.vip_days_awarded, 0);
+    assert.equal(response.body.vip_confirmation_required, true);
     assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).bonus_balance, 4.5);
+    assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).vip_days, 0);
+
+    const confirm = await invoke(rewards, {
+      headers: authHeaders(),
+      body: { action: 'confirm_streak_vip' },
+    });
+    assert.equal(confirm.statusCode, 200);
+    assert.equal(confirm.body.vip_days_awarded, 2);
+    assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).vip_days, 2);
+    assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).streak_grand_vip_pending, undefined);
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+test('7-day grand prize credits cash without a NovelFlow ID and leaves VIP pending', async () => {
+  FakeRedis.reset({
+    'nf_user_data:zoe': JSON.stringify({
+      points: 50,
+      bonus_balance: 4,
+      checkin: { streak: 7, lastCheckin: new Date().toISOString().slice(0, 10), history: [] },
+      claimed: { share1: 1 },
+    }),
+    'nf_user_subs:zoe': ['verified-code'],
+    nf_subs: { 'verified-code': JSON.stringify({ code: 'verified-code', bookId: 'verified-book', status: 'completed' }) },
+  });
+  const response = await invoke(rewards, {
+    headers: authHeaders(),
+    body: { action: 'claim_streak_grand' },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.bonus_awarded, 0.5);
+  assert.equal(response.body.vip_confirmation_required, true);
+  const saved = JSON.parse(FakeRedis.values.get('nf_user_data:zoe'));
+  assert.equal(saved.bonus_balance, 4.5);
+  assert.equal(saved.streak_grand_vip_pending.sequence, 1);
 });
 
 test('reward VIP claims fail closed when the stored binding owner conflicts', async () => {
@@ -449,7 +483,7 @@ test('a failed atomic VIP commit leaves both points and the entitlement unchange
   }
 });
 
-test('a failed streak-grand commit leaves the bonus, claim marker, and entitlement unchanged', async () => {
+test('a failed streak VIP confirmation preserves the credited cash and pending VIP', async () => {
   const originalFetch = global.fetch;
   const originalEval = FakeRedis.prototype.eval;
   mockMemberLookup();
@@ -464,19 +498,26 @@ test('a failed streak-grand commit leaves the bonus, claim marker, and entitleme
     'nf_user_subs:zoe': ['verified-code'],
     nf_subs: { 'verified-code': JSON.stringify({ code: 'verified-code', bookId: 'verified-book', status: 'completed' }) },
   });
-  FakeRedis.prototype.eval = async function evalWithFailure(script, keys, args) {
-    if (String(script).includes('NF_VIP_USER_DATA_COMMIT_V1')) throw new Error('simulated atomic commit failure');
-    return originalEval.call(this, script, keys, args);
-  };
   try {
-    const response = await invoke(rewards, {
+    const cash = await invoke(rewards, {
       headers: authHeaders(),
       body: { action: 'claim_streak_grand' },
     });
+    assert.equal(cash.statusCode, 200);
+    FakeRedis.prototype.eval = async function evalWithFailure(script, keys, args) {
+      if (String(script).includes('NF_VIP_USER_DATA_COMMIT_V1')) throw new Error('simulated atomic commit failure');
+      return originalEval.call(this, script, keys, args);
+    };
+    const response = await invoke(rewards, {
+      headers: authHeaders(),
+      body: { action: 'confirm_streak_vip' },
+    });
     assert.equal(response.statusCode, 503);
     const saved = JSON.parse(FakeRedis.values.get('nf_user_data:zoe'));
-    assert.equal(saved.bonus_balance, 4);
-    assert.equal(saved.streak_grand_claimed, undefined);
+    assert.equal(saved.bonus_balance, 4.5);
+    assert.ok(saved.streak_grand_claimed);
+    assert.equal(saved.streak_grand_vip_pending.sequence, 1);
+    assert.equal(saved.vip_days, 0);
     assert.equal(Array.from(FakeRedis.values.keys()).some(key => key.startsWith('nf_vip_event:v1:')), false);
   } finally {
     FakeRedis.prototype.eval = originalEval;
@@ -506,11 +547,12 @@ test('the 7-day streak grand prize can be claimed again after a seven-day cooldo
       body: { action: 'claim_streak_grand' },
     });
     assert.equal(response.statusCode, 200);
-    assert.equal(response.body.vip_days_awarded, 2);
+    assert.equal(response.body.bonus_awarded, 0.5);
+    assert.equal(response.body.vip_days_awarded, 0);
     const saved = JSON.parse(FakeRedis.values.get('nf_user_data:zoe'));
     assert.equal(saved.streak_grand_sequence, 2);
     assert.ok(Date.parse(saved.streak_grand_claimed) > Date.now() - 60000);
-    assert.equal(JSON.parse(FakeRedis.values.get(`nf_vip_event:v1:${response.body.vip_event_id}`)).source_id, '2');
+    assert.equal(saved.streak_grand_vip_pending.sequence, 2);
   } finally {
     global.fetch = originalFetch;
   }

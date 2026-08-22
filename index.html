@@ -6274,6 +6274,9 @@
                 return Object.keys(c).length > 0;
             } catch(e) { return false; }
         }
+        function hasStreakGrandPending() {
+            return localStorage.getItem(getUserKey('streak_grand_vip_pending')) === '1';
+        }
         function hasStreakGrandClaimed() {
             const claimedAt = Date.parse(localStorage.getItem(getUserKey('streak_grand_claimed')) || '');
             return Number.isFinite(claimedAt) && claimedAt + (7 * 24 * 60 * 60 * 1000) > Date.now();
@@ -6746,7 +6749,24 @@
             }
         });
 
+        async function confirmStreakVip() {
+            const bindId = localStorage.getItem(getUserKey('bind_id'));
+            if (!bindId) {
+                showToast('Bind your NovelFlow ID first to receive the 2 VIP days.', 'error');
+                const row = document.getElementById('bindIdRow');
+                if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            try {
+                await RewardsAPI.call('confirm_streak_vip');
+                showToast('VIP delivery confirmed. It will be credited within 24 hours.', 'success');
+            } catch (e) {
+                showToast(e.message || 'VIP confirmation failed', 'error');
+            }
+        }
+
         async function claimStreakGrandPrize() {
+            if (hasStreakGrandPending()) return confirmStreakVip();
             try {
                 const result = await RewardsAPI.call('claim_streak_grand');
                 const overlay = document.createElement('div');
@@ -6755,8 +6775,8 @@
                 overlay.innerHTML = '<div class="milestone-popup">' +
                     '<div class="milestone-popup-icon">👑</div>' +
                     '<div class="milestone-popup-title">7-Day Streak Unlocked!</div>' +
-                    '<div class="milestone-popup-points" style="color:#FFD700;">+2 VIP days &nbsp; +$0.50</div>' +
-                    '<div class="milestone-popup-sub">VIP credited to your account within 24h · Bonus in Balance</div>' +
+                    '<div class="milestone-popup-points" style="color:#FFD700;">+$0.50 bonus credited</div>' +
+                    '<div class="milestone-popup-sub">Bind your NovelFlow ID, then press the same button to confirm 2 VIP days.</div>' +
                     '<button class="milestone-popup-btn" onclick="this.closest(\'.milestone-overlay\').remove()">Awesome</button>' +
                     '</div>';
                 document.body.appendChild(overlay);
@@ -6769,6 +6789,13 @@
             const btn = document.getElementById('streakGrandClaimBtn');
             const hint = document.getElementById('streakGrandHint');
             if (!btn || !hint) return;
+            const bindId = localStorage.getItem(getUserKey('bind_id'));
+            if (hasStreakGrandPending()) {
+                btn.disabled = false;
+                btn.textContent = bindId ? 'Confirm 2 VIP Days' : 'Bind ID for 2 VIP Days';
+                hint.textContent = bindId ? 'Bonus credited. Confirm VIP delivery.' : 'Your $0.50 bonus is credited. Bind your NovelFlow ID to continue.';
+                return;
+            }
             if (hasStreakGrandClaimed()) {
                 btn.disabled = true;
                 btn.textContent = '✓ 7-Day Prize Cooldown';
@@ -6779,18 +6806,18 @@
             const hasTask = hasAnyTaskClaim();
             if (CheckinData.streak >= 7 && hasLink && hasTask) {
                 btn.disabled = false;
-                btn.textContent = '🎁 Claim 7-Day Prize (2 VIP + $0.5)';
+                btn.textContent = 'Claim 7-Day Bonus ($0.5)';
                 hint.textContent = 'Ready to claim!';
             } else {
                 btn.disabled = true;
                 if (CheckinData.streak < 7) {
-                    btn.textContent = '🎁 Claim 7-Day Prize (2 VIP + $0.5)';
+                    btn.textContent = 'Claim 7-Day Bonus ($0.5)';
                     hint.textContent = (7 - CheckinData.streak) + ' more check-in' + ((7-CheckinData.streak)===1?'':'s') + ' to unlock';
                 } else {
                     const missing = [];
                     if (!hasLink) missing.push('1 link');
                     if (!hasTask) missing.push('1 task');
-                    btn.textContent = '🎁 Claim 7-Day Prize (2 VIP + $0.5)';
+                    btn.textContent = 'Claim 7-Day Bonus ($0.5)';
                     hint.textContent = 'Complete ' + missing.join(' + ') + ' first';
                 }
             }
@@ -7950,6 +7977,11 @@
                 localStorage.setItem(getUserKey('streak_grand_claimed'), String(cloud.streak_grand_claimed));
             } else {
                 localStorage.removeItem(getUserKey('streak_grand_claimed'));
+            }
+            if (cloud.streak_grand_vip_pending) {
+                localStorage.setItem(getUserKey('streak_grand_vip_pending'), '1');
+            } else {
+                localStorage.removeItem(getUserKey('streak_grand_vip_pending'));
             }
         }
 

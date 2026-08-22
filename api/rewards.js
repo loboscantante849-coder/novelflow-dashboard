@@ -9,7 +9,8 @@
  *   - claim_mission   : Claim a completed mission (share1=20pts, share3=50pts, bindId=30pts)
  *   - bind_id         : Save NovelFlow ID (bind_id) — validated client-side, server stores it
  *   - exchange_vip    : Spend 1000 points for 3 VIP days
- *   - claim_streak_grand : Claim 7-day streak grand prize (+$0.5 bonus + 2 VIP days)
+ *   - claim_streak_grand : Claim the 7-day streak cash bonus (+$0.5)
+ *   - confirm_streak_vip : Confirm delivery of the separate 2-day VIP reward
  *
  * Auth: JWT required. All mutations apply ONLY to the authenticated user.
  */
@@ -395,6 +396,19 @@ module.exports = async (req, res) => {
         if (claimedKeys.length < 1) {
           return res.status(400).json({ error: 'Complete at least 1 mission first', code: 'NO_MISSION' });
         }
+        const pendingVip = data.streak_grand_vip_pending && typeof data.streak_grand_vip_pending === 'object'
+          && !Array.isArray(data.streak_grand_vip_pending)
+          ? data.streak_grand_vip_pending : null;
+        if (pendingVip) {
+          result = {
+            ...result,
+            bonus_awarded: 0,
+            vip_days_awarded: 0,
+            vip_confirmation_required: true,
+            message: 'The $0.50 bonus was already credited. Confirm VIP delivery separately.',
+          };
+          break;
+        }
         const previousClaimedAt = Date.parse(data.streak_grand_claimed || '');
         const nextAvailableAt = Number.isFinite(previousClaimedAt) ? previousClaimedAt + STREAK_GRAND_COOLDOWN_MS : 0;
         if (nextAvailableAt > Date.now()) {
@@ -404,6 +418,31 @@ module.exports = async (req, res) => {
             available_at: new Date(nextAvailableAt).toISOString(),
           });
         }
+        const streakGrandSequence = Math.max(0, Number(data.streak_grand_sequence) || 0) + 1;
+        data.bonus_balance = Math.round((data.bonus_balance + STREAK_GRAND_BONUS) * 100) / 100;
+        data.streak_grand_sequence = streakGrandSequence;
+        data.streak_grand_claimed = new Date().toISOString();
+        data.streak_grand_vip_pending = { sequence: streakGrandSequence, created_at: data.streak_grand_claimed };
+        result = {
+          ...result,
+          bonus_awarded: STREAK_GRAND_BONUS,
+          vip_days_awarded: 0,
+          vip_confirmation_required: true,
+          total_bonus: data.bonus_balance,
+          total_vip_days: data.vip_days,
+          message: `7-day streak cash bonus claimed! +$${STREAK_GRAND_BONUS}. Confirm VIP delivery separately.`,
+        };
+        break;
+      }
+
+      // ========== CONFIRM 7-DAY VIP DELIVERY ==========
+      case 'confirm_streak_vip': {
+        const pendingVip = data.streak_grand_vip_pending && typeof data.streak_grand_vip_pending === 'object'
+          && !Array.isArray(data.streak_grand_vip_pending)
+          ? data.streak_grand_vip_pending : null;
+        if (!pendingVip || !Number.isSafeInteger(Number(pendingVip.sequence)) || Number(pendingVip.sequence) <= 0) {
+          return res.status(400).json({ error: 'No pending 7-day VIP reward', code: 'NO_PENDING_STREAK_VIP' });
+        }
         if (!data.bind_id) return res.status(400).json({ error: 'Bind your verified NovelFlow ID first', code: 'NO_BIND_ID' });
         let streakBinding;
         try {
@@ -412,24 +451,23 @@ module.exports = async (req, res) => {
           const status = error && error.code === 'NOVELFLOW_BINDING_CONFLICT' ? 409 : 503;
           return res.status(status).json({ error: 'NovelFlow account verification is unavailable', code: error.code || 'NOVELFLOW_LOOKUP_FAILED' });
         }
-        const streakGrandSequence = Math.max(0, Number(data.streak_grand_sequence) || 0) + 1;
+        const streakGrandSequence = Number(pendingVip.sequence);
         vipEntitlementEvent = buildVipEntitlement({
           username, binding: streakBinding, source: 'streak_grand', sourceId: streakGrandSequence,
           days: STREAK_GRAND_VIP, metadata: { streak: STREAK_GRAND_REQUIRED },
         });
-        data.bonus_balance = Math.round((data.bonus_balance + STREAK_GRAND_BONUS) * 100) / 100;
         data.vip_days += STREAK_GRAND_VIP;
-        data.streak_grand_sequence = streakGrandSequence;
-        data.streak_grand_claimed = new Date().toISOString();
+        delete data.streak_grand_vip_pending;
+        historyDetails = { streak_grand_vip_confirmed: true, vip_days_awarded: STREAK_GRAND_VIP };
         result = {
           ...result,
-          bonus_awarded: STREAK_GRAND_BONUS,
+          bonus_awarded: 0,
           vip_days_awarded: STREAK_GRAND_VIP,
           total_bonus: data.bonus_balance,
           total_vip_days: data.vip_days,
           fulfillment_status: vipEntitlementEvent.status,
           vip_event_id: vipEntitlementEvent.event_id,
-          message: `7-day streak grand prize claimed! +$${STREAK_GRAND_BONUS} +${STREAK_GRAND_VIP} VIP days!`,
+          message: `7-day VIP reward confirmed! +${STREAK_GRAND_VIP} VIP days.`,
         };
         break;
       }
@@ -456,6 +494,7 @@ module.exports = async (req, res) => {
       claimed: data.claimed,
       bonus_campaign1_claimed: data.bonus_campaign1_claimed || null,
       streak_grand_claimed: data.streak_grand_claimed || null,
+      streak_grand_vip_pending: data.streak_grand_vip_pending || null,
       streak_grand_sequence: Number(data.streak_grand_sequence) || 0,
     };
 

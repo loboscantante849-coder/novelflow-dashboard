@@ -192,7 +192,7 @@ module.exports = async (req, res) => {
 
         // Ensure server-managed fields are preserved and cannot be tampered with
         const SERVER_MANAGED = ['points', 'bonus_balance', 'vip_days', 'bind_id', 'checkin', 'claimed', 'reward_history',
-          'bonus_campaign1_claimed', 'streak_grand_claimed', 'streak_grand_sequence', 'disabled', 'accountType',
+          'bonus_campaign1_claimed', 'streak_grand_claimed', 'streak_grand_sequence', 'streak_grand_vip_pending', 'disabled', 'accountType',
           'total_income_override', 'withdrawals', 'balance_migrations'];
         for (const sf of SERVER_MANAGED) {
           if (existing[sf] !== undefined) {
