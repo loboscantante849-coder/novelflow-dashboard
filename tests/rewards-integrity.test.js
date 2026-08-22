@@ -333,6 +333,97 @@ test('VIP exchange commits the point deduction and entitlement in one Redis muta
   }
 });
 
+test('VIP exchange uses the immutable server binding when NovelFlow lookup is unavailable', async () => {
+  const originalFetch = global.fetch;
+  const memberId = '67e519c3da10a5c772ca196e';
+  const binding = {
+    version: 1,
+    username: 'zoe',
+    user_id: memberId,
+    application_id: '642fc1ace309494378a774a6',
+    verified_at: '2026-08-20T00:00:00.000Z',
+    verification_source: 'rewards',
+  };
+  FakeRedis.reset({
+    'nf_user_data:zoe': JSON.stringify({ points: 1000, bind_id: memberId }),
+    [bindingUserKey('zoe')]: JSON.stringify(binding),
+    [bindingMemberKey(memberId)]: 'zoe',
+  });
+  global.fetch = async () => { throw new Error('NovelFlow lookup is offline'); };
+  try {
+    const response = await invoke(rewards, {
+      headers: authHeaders(),
+      body: { action: 'exchange_vip' },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.vip_days_awarded, 3);
+    assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).points, 0);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('7-day grand prize uses the immutable server binding when NovelFlow lookup is unavailable', async () => {
+  const originalFetch = global.fetch;
+  const memberId = '67e519c3da10a5c772ca196e';
+  const binding = {
+    version: 1,
+    username: 'zoe',
+    user_id: memberId,
+    application_id: '642fc1ace309494378a774a6',
+    verified_at: '2026-08-20T00:00:00.000Z',
+    verification_source: 'rewards',
+  };
+  FakeRedis.reset({
+    'nf_user_data:zoe': JSON.stringify({
+      points: 50,
+      bonus_balance: 4,
+      bind_id: memberId,
+      checkin: { streak: 7, lastCheckin: new Date().toISOString().slice(0, 10), history: [] },
+      claimed: { share1: 1 },
+    }),
+    'nf_user_subs:zoe': ['verified-code'],
+    nf_subs: { 'verified-code': JSON.stringify({ code: 'verified-code', bookId: 'verified-book', status: 'completed' }) },
+    [bindingUserKey('zoe')]: JSON.stringify(binding),
+    [bindingMemberKey(memberId)]: 'zoe',
+  });
+  global.fetch = async () => { throw new Error('NovelFlow lookup is offline'); };
+  try {
+    const response = await invoke(rewards, {
+      headers: authHeaders(),
+      body: { action: 'claim_streak_grand' },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.bonus_awarded, 0.5);
+    assert.equal(response.body.vip_days_awarded, 2);
+    assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).bonus_balance, 4.5);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('reward VIP claims fail closed when the stored binding owner conflicts', async () => {
+  const originalFetch = global.fetch;
+  const memberId = '67e519c3da10a5c772ca196e';
+  FakeRedis.reset({
+    'nf_user_data:zoe': JSON.stringify({ points: 1000, bind_id: memberId }),
+    [bindingUserKey('zoe')]: JSON.stringify({ version: 1, username: 'zoe', user_id: memberId }),
+    [bindingMemberKey(memberId)]: 'other-user',
+  });
+  global.fetch = async () => { throw new Error('upstream lookup must not run'); };
+  try {
+    const response = await invoke(rewards, {
+      headers: authHeaders(),
+      body: { action: 'exchange_vip' },
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, 'NOVELFLOW_BINDING_CONFLICT');
+    assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).points, 1000);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('a failed atomic VIP commit leaves both points and the entitlement unchanged', async () => {
   const originalFetch = global.fetch;
   const originalEval = FakeRedis.prototype.eval;
