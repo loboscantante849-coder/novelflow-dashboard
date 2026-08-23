@@ -125,14 +125,14 @@ module.exports = async (req, res) => {
         return res.status(503).json({ error: 'Registration service temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
       }
       if (!ipRL.allowed) {
-        return res.status(429).json({ error: 'Too many login attempts', retryAfter: ipRL.retryAfter });
+        return res.status(429).json({ error: 'Too many login attempts', code: 'RATE_LIMITED', retryAfter: ipRL.retryAfter });
       }
       // Username-based lockout: 5 failures / 15 min
       const acctLock = await redis.get('nf_login_lock:' + usernameKey);
       if (acctLock) {
         const ttl = await redis.ttl('nf_login_lock:' + usernameKey);
         if (ttl > 0) {
-          return res.status(429).json({ error: 'Account temporarily locked', retryAfter: ttl });
+          return res.status(429).json({ error: 'Account temporarily locked', code: 'RATE_LIMITED', retryAfter: ttl });
         }
         // This lock type is always created with a 15-minute TTL. A surviving
         // no-expiry key is stale legacy state, not an intentional account ban.
@@ -176,7 +176,7 @@ module.exports = async (req, res) => {
           return res.status(401).json({ error: 'Password required', needPassword: true });
         }
         if (typeof password !== 'string' || password.length < 1) {
-          return res.status(401).json({ error: 'Invalid username or password' });
+          return res.status(401).json({ error: 'Invalid username or password', code: 'INVALID_CREDENTIALS' });
         }
         // NOTE: do NOT enforce strong-password policy on existing-user login;
         // old users may have shorter legacy passwords. Brute force is blocked
@@ -191,7 +191,7 @@ module.exports = async (req, res) => {
             await redis.set('nf_login_lock:' + usernameKey, '1', { ex: 900 });
             await redis.del('nf_login_fail:' + usernameKey);
           }
-          return res.status(401).json({ error: 'Invalid username or password' });
+          return res.status(401).json({ error: 'Invalid username or password', code: 'INVALID_CREDENTIALS' });
         }
         credentialUsername = matchedCredential.storageUsername.toLowerCase();
         if (verification.needsRehash) {

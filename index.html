@@ -3378,8 +3378,8 @@
                     <div style="flex: 1.6; min-width: 0;">
                         <div class="checkin-milestone-card" style="margin-bottom:0;">
                             <div class="milestone-title-row">
-                                <div class="milestone-title">🔥 Daily Check-in</div>
-                                <div class="milestone-total">7 days = 50 pts + 2 VIP + $0.5</div>
+                                <div class="milestone-title" data-i18n="daily_checkin_title">🔥 Daily Check-in</div>
+                                <div class="milestone-total" data-i18n="daily_checkin_total">7 days = 50 pts + $0.50 + 2 VIP</div>
                             </div>
                             <div class="milestone-track" id="milestoneTrack">
                                 <!-- rendered by JS -->
@@ -3389,9 +3389,9 @@
                                 <span class="checkin-v2-btn-done" style="display:none;" data-i18n="claimed">✓ Claimed</span>
                             </button>
                             <button class="streak-claim-btn" id="streakGrandClaimBtn" onclick="claimStreakGrandPrize()" disabled>
-                                🎁 Claim 7-Day Prize (2 VIP + $0.5)
+                                <span data-i18n="streak_claim_cash">Claim 7-Day Bonus ($0.5)</span>
                             </button>
-                            <div class="streak-claim-hint" id="streakGrandHint">Sign in 7 days in a row to unlock</div>
+                            <div class="streak-claim-hint" id="streakGrandHint" data-i18n="streak_unlock_hint">Sign in 7 days in a row to unlock</div>
                         </div>
                     </div>
                     <div class="bonus-mini-card" onclick="switchTab('profile')" style="cursor:pointer;">
@@ -3431,10 +3431,10 @@
 
                 <!-- Bind ID (collapsed - kept functional but visually slim) -->
                 <div id="bindIdRow" style="display:none;margin-top:10px;background:var(--canvas-soft);border-radius:10px;padding:10px;">
-                    <div style="font-size:11px;font-weight:600;color:var(--ink);margin-bottom:6px;">🔗 Bind NovelFlow ID <span style="font-weight:400;color:var(--ink-mute);">(required for VIP exchange)</span></div>
+                    <div style="font-size:11px;font-weight:600;color:var(--ink);margin-bottom:6px;" data-i18n="bind_id_required">🔗 Bind NovelFlow ID (required for VIP rewards)</div>
                     <div style="display:flex;gap:6px;">
-                        <input type="text" id="novelflowIdInput" maxlength="24" pattern="[A-Fa-f0-9]{24}" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="24-character App User ID" style="flex:1;padding:7px 10px;border:1px solid var(--hairline);border-radius:8px;font-size:12px;font-family:inherit;">
-                        <button onclick="submitBindId()" style="padding:7px 12px;background:var(--ruby);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Bind</button>
+                        <input type="text" id="novelflowIdInput" maxlength="24" pattern="[A-Fa-f0-9]{24}" autocomplete="off" autocapitalize="none" spellcheck="false" data-i18n-placeholder="app_user_id_placeholder" placeholder="24-character App User ID" style="flex:1;padding:7px 10px;border:1px solid var(--hairline);border-radius:8px;font-size:12px;font-family:inherit;">
+                        <button onclick="submitBindId()" data-i18n="bind_btn" style="padding:7px 12px;background:var(--ruby);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Bind</button>
                     </div>
                 </div>
 
@@ -4521,6 +4521,44 @@
                 toast_already_checkin: 'Already checked in today!',
                 toast_invalid_id: 'Please enter a valid NovelFlow ID',
                 toast_id_bound: 'NovelFlow ID bound successfully!',
+                auth_username_required: 'Please enter a username',
+                auth_password_required: 'Please enter your password',
+                auth_password_account_required: 'This account requires a password',
+                auth_failed: 'Login failed. Check your username and password.',
+                auth_timeout: 'Login is taking longer than expected. Please try again.',
+                auth_unreachable: 'Unable to reach the login service. Please try again.',
+                auth_password_continue: 'Enter your password to continue.',
+                auth_welcome: 'Welcome, {username}!',
+                auth_logged_out: 'Logged out',
+                auth_invalid_credentials: 'Incorrect username or password.',
+                auth_account_disabled: 'This account is disabled. Contact support.',
+                auth_account_recovery: 'This account needs an identity review. Contact support instead of creating another account.',
+                auth_rate_limited: 'Too many login attempts. Please wait and try again.',
+                reward_checkin_failed: 'Check-in failed. Please try again.',
+                reward_already_checked_in: 'Already checked in today!',
+                reward_busy: 'Your account is syncing. Please try again in a moment.',
+                reward_account_recovery: 'Your account needs a quick identity review. Please contact support.',
+                reward_source_conflict: 'A legacy account record needs review. Daily check-in remains available; contact support for financial rewards.',
+                reward_bind_first_vip: 'Bind your NovelFlow ID first to receive the 2 VIP days.',
+                reward_vip_confirmed: 'VIP delivery confirmed. It will be credited within 24 hours.',
+                reward_vip_confirm_failed: 'VIP confirmation failed. Please try again.',
+                reward_no_pending_vip: 'There is no pending 7-day VIP reward.',
+                reward_verification_unavailable: 'NovelFlow verification is temporarily unavailable. Your cash bonus is safe; try VIP confirmation later.',
+                reward_service_unavailable: 'The reward service is temporarily unavailable. Please try again.',
+                streak_cash_title: '7-Day Streak Unlocked!',
+                streak_cash_credited: '+$0.50 bonus credited',
+                streak_cash_next: 'Bind your NovelFlow ID, then press the same button to confirm 2 VIP days.',
+                streak_confirm_vip: 'Confirm 2 VIP Days',
+                streak_bind_for_vip: 'Bind ID for 2 VIP Days',
+                streak_confirm_hint: 'Bonus credited. Confirm VIP delivery.',
+                streak_bind_hint: 'Your $0.50 bonus is credited. Bind your NovelFlow ID to continue.',
+                streak_claim_cash: 'Claim 7-Day Bonus ($0.5)',
+                streak_ready: 'Ready to claim!',
+                daily_checkin_title: '🔥 Daily Check-in',
+                daily_checkin_total: '7 days = 50 pts + $0.50 + 2 VIP',
+                streak_unlock_hint: 'Sign in 7 days in a row to unlock',
+                bind_id_required: '🔗 Bind NovelFlow ID (required for VIP rewards)',
+                app_user_id_placeholder: '24-character App User ID',
                 toast_not_enough: 'Not enough points (need 1000)',
                 toast_vip_activated: '🎉 VIP activated for 3 days!',
                 nav_home: 'Home',
@@ -4795,6 +4833,44 @@
                 toast_already_checkin: '¡Ya hiciste check-in hoy!',
                 toast_invalid_id: 'Ingresa un ID de NovelFlow válido',
                 toast_id_bound: '¡ID de NovelFlow vinculado exitosamente!',
+                auth_username_required: 'Ingresa un nombre de usuario',
+                auth_password_required: 'Ingresa tu contraseña',
+                auth_password_account_required: 'Esta cuenta requiere una contraseña',
+                auth_failed: 'No se pudo iniciar sesión. Revisa tu usuario y contraseña.',
+                auth_timeout: 'El inicio de sesión está tardando más de lo esperado. Inténtalo de nuevo.',
+                auth_unreachable: 'No se pudo conectar con el servicio de inicio de sesión. Inténtalo de nuevo.',
+                auth_password_continue: 'Ingresa tu contraseña para continuar.',
+                auth_welcome: '¡Bienvenido/a, {username}!',
+                auth_logged_out: 'Sesión cerrada',
+                auth_invalid_credentials: 'Usuario o contraseña incorrectos.',
+                auth_account_disabled: 'Esta cuenta está deshabilitada. Contacta con soporte.',
+                auth_account_recovery: 'Esta cuenta necesita una revisión de identidad. Contacta con soporte en lugar de crear otra cuenta.',
+                auth_rate_limited: 'Demasiados intentos de inicio de sesión. Espera e inténtalo de nuevo.',
+                reward_checkin_failed: 'No se pudo hacer check-in. Inténtalo de nuevo.',
+                reward_already_checked_in: '¡Ya hiciste check-in hoy!',
+                reward_busy: 'Tu cuenta se está sincronizando. Inténtalo de nuevo en un momento.',
+                reward_account_recovery: 'Tu cuenta necesita una revisión rápida de identidad. Contacta con soporte.',
+                reward_source_conflict: 'Un registro antiguo de la cuenta necesita revisión. El check-in diario sigue disponible; contacta con soporte para recompensas económicas.',
+                reward_bind_first_vip: 'Vincula primero tu ID de NovelFlow para recibir los 2 días VIP.',
+                reward_vip_confirmed: 'Entrega VIP confirmada. Se acreditará en un plazo de 24 horas.',
+                reward_vip_confirm_failed: 'No se pudo confirmar el VIP. Inténtalo de nuevo.',
+                reward_no_pending_vip: 'No tienes una recompensa VIP de 7 días pendiente.',
+                reward_verification_unavailable: 'La verificación de NovelFlow no está disponible temporalmente. Tu bono en efectivo está seguro; confirma el VIP más tarde.',
+                reward_service_unavailable: 'El servicio de recompensas no está disponible temporalmente. Inténtalo de nuevo.',
+                streak_cash_title: '¡Racha de 7 días completada!',
+                streak_cash_credited: '+$0.50 acreditado en tu saldo',
+                streak_cash_next: 'Vincula tu ID de NovelFlow y luego pulsa el mismo botón para confirmar 2 días VIP.',
+                streak_confirm_vip: 'Confirmar 2 días VIP',
+                streak_bind_for_vip: 'Vincular ID para 2 días VIP',
+                streak_confirm_hint: 'Bono acreditado. Confirma la entrega del VIP.',
+                streak_bind_hint: 'Tu bono de $0.50 ya está acreditado. Vincula tu ID de NovelFlow para continuar.',
+                streak_claim_cash: 'Reclamar bono de 7 días ($0.5)',
+                streak_ready: '¡Listo para reclamar!',
+                daily_checkin_title: '🔥 Check-in diario',
+                daily_checkin_total: '7 días = 50 pts + $0.50 + 2 VIP',
+                streak_unlock_hint: 'Haz check-in 7 días seguidos para desbloquearlo',
+                bind_id_required: '🔗 Vincula tu ID de NovelFlow (necesario para recompensas VIP)',
+                app_user_id_placeholder: 'ID de usuario de la app de 24 caracteres',
                 toast_not_enough: 'Puntos insuficientes (necesitas 1000)',
                 toast_vip_activated: '🎉 ¡VIP activado por 3 días!',
                 nav_home: 'Inicio',
@@ -4966,6 +5042,45 @@
         function getText(key) {
             return (I18N[AppState.currentLang] && I18N[AppState.currentLang][key]) || (I18N['en'][key]) || key;
         }
+
+        function formatText(key, values = {}) {
+            return Object.entries(values).reduce(
+                (text, [name, value]) => text.replaceAll('{' + name + '}', String(value)),
+                getText(key)
+            );
+        }
+
+        function localizedRewardError(error, fallbackKey = 'reward_service_unavailable') {
+            const byCode = {
+                ALREADY_CHECKED_IN: 'reward_already_checked_in',
+                USER_DATA_BUSY: 'reward_busy',
+                WALLET_IDENTITY_CONFLICT: 'reward_account_recovery',
+                ACCOUNT_IDENTITY_CONFLICT: 'reward_account_recovery',
+                INCOME_SOURCE_OWNER_CONFLICT: 'reward_source_conflict',
+                INCOME_SOURCE_OWNER_UNVERIFIED: 'reward_source_conflict',
+                NO_BIND_ID: 'reward_bind_first_vip',
+                NO_PENDING_STREAK_VIP: 'reward_no_pending_vip',
+                NOVELFLOW_LOOKUP_FAILED: 'reward_verification_unavailable',
+                NOVELFLOW_BINDING_CONFLICT: 'reward_account_recovery',
+                REWARD_STORAGE_UNAVAILABLE: 'reward_service_unavailable',
+                RATE_LIMIT_UNAVAILABLE: 'reward_service_unavailable'
+            };
+            return getText(byCode[error && error.code] || fallbackKey);
+        }
+
+        function localizedAuthError(code) {
+            const byCode = {
+                INVALID_CREDENTIALS: 'auth_invalid_credentials',
+                ACCOUNT_DISABLED: 'auth_account_disabled',
+                ACCOUNT_CREDENTIAL_CONFLICT: 'auth_account_recovery',
+                ACCOUNT_RECOVERY_REQUIRED: 'auth_account_recovery',
+                PROMOTER_RECOVERY_REQUIRED: 'auth_account_recovery',
+                ACCOUNT_IDENTITY_CONFLICT: 'auth_account_recovery',
+                RATE_LIMIT_UNAVAILABLE: 'auth_unreachable',
+                RATE_LIMITED: 'auth_rate_limited'
+            };
+            return getText(byCode[code] || 'auth_failed');
+        }
         
         function switchLang(lang, reloadBooks = true) {
             lang = lang === 'es' ? 'es' : 'en';
@@ -4992,6 +5107,7 @@
             if (typeof renderMemberOverview === 'function') renderMemberOverview();
             if (document.getElementById('referralDetailsModal')?.classList.contains('show') && typeof renderReferralDetails === 'function') renderReferralDetails();
             if (typeof updateActivityReminderLanguage === 'function') updateActivityReminderLanguage();
+            if (typeof updateStreakGrandBtn === 'function') updateStreakGrandBtn();
             if (_lastPerfData) renderDailyBookPerformance(_lastPerfData);
             // Reload books for an explicit language change. Initial page setup
             // applies translations first and lets the main bootstrap load once.
@@ -5605,7 +5721,7 @@
                 if (btnDone) btnDone.style.display = 'inline';
                 showMilestoneCelebration(result.streak || 1, result.points_awarded || 5);
             } catch (e) {
-                showToast(e.message || 'Check-in failed', 'error');
+                showToast(localizedRewardError(e, 'reward_checkin_failed'), 'error');
                 btn.disabled = false;
             }
         }
@@ -5617,7 +5733,7 @@
             let icon = '🎉';
             let title = getText('checkin_complete');
             let sub = '';
-            if (day === 7) { icon = '👑'; title = '7-Day Streak Complete!'; sub = 'Claim 2 VIP days + $0.50 bonus below'; }
+            if (day === 7) { icon = '👑'; title = getText('streak_cash_title'); sub = getText('streak_cash_next'); }
             else if (day >= 4) { icon = '🔥'; title = getText('milestone_streak'); sub = day + ' ' + getText('days_streak'); }
             overlay.innerHTML = '<div class="milestone-popup">' +
                 '<div class="milestone-popup-icon">' + icon + '</div>' +
@@ -5797,7 +5913,10 @@
                                 await delay(busyRetryDelays[attempt]);
                                 continue;
                             }
-                            throw new Error(data.error || ('Request failed: ' + resp.status));
+                            const requestError = new Error(data.error || ('Request failed: ' + resp.status));
+                            requestError.code = data.code || null;
+                            requestError.status = resp.status;
+                            throw requestError;
                         }
                         // Apply the server snapshot only after one confirmed mutation.
                         if (data.snapshot) {
@@ -6752,16 +6871,16 @@
         async function confirmStreakVip() {
             const bindId = localStorage.getItem(getUserKey('bind_id'));
             if (!bindId) {
-                showToast('Bind your NovelFlow ID first to receive the 2 VIP days.', 'error');
+                showToast(getText('reward_bind_first_vip'), 'error');
                 const row = document.getElementById('bindIdRow');
                 if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 return;
             }
             try {
                 await RewardsAPI.call('confirm_streak_vip');
-                showToast('VIP delivery confirmed. It will be credited within 24 hours.', 'success');
+                showToast(getText('reward_vip_confirmed'), 'success');
             } catch (e) {
-                showToast(e.message || 'VIP confirmation failed', 'error');
+                showToast(localizedRewardError(e, 'reward_vip_confirm_failed'), 'error');
             }
         }
 
@@ -6774,14 +6893,14 @@
                 overlay.onclick = () => overlay.remove();
                 overlay.innerHTML = '<div class="milestone-popup">' +
                     '<div class="milestone-popup-icon">👑</div>' +
-                    '<div class="milestone-popup-title">7-Day Streak Unlocked!</div>' +
-                    '<div class="milestone-popup-points" style="color:#FFD700;">+$0.50 bonus credited</div>' +
-                    '<div class="milestone-popup-sub">Bind your NovelFlow ID, then press the same button to confirm 2 VIP days.</div>' +
+                    '<div class="milestone-popup-title">' + escapeHtml(getText('streak_cash_title')) + '</div>' +
+                    '<div class="milestone-popup-points" style="color:#FFD700;">' + escapeHtml(getText('streak_cash_credited')) + '</div>' +
+                    '<div class="milestone-popup-sub">' + escapeHtml(getText('streak_cash_next')) + '</div>' +
                     '<button class="milestone-popup-btn" onclick="this.closest(\'.milestone-overlay\').remove()">Awesome</button>' +
                     '</div>';
                 document.body.appendChild(overlay);
             } catch (e) {
-                showToast(e.message || 'Failed to claim grand prize', 'error');
+                showToast(localizedRewardError(e, 'reward_service_unavailable'), 'error');
             }
         }
 
@@ -6792,8 +6911,8 @@
             const bindId = localStorage.getItem(getUserKey('bind_id'));
             if (hasStreakGrandPending()) {
                 btn.disabled = false;
-                btn.textContent = bindId ? 'Confirm 2 VIP Days' : 'Bind ID for 2 VIP Days';
-                hint.textContent = bindId ? 'Bonus credited. Confirm VIP delivery.' : 'Your $0.50 bonus is credited. Bind your NovelFlow ID to continue.';
+                btn.textContent = getText(bindId ? 'streak_confirm_vip' : 'streak_bind_for_vip');
+                hint.textContent = getText(bindId ? 'streak_confirm_hint' : 'streak_bind_hint');
                 return;
             }
             if (hasStreakGrandClaimed()) {
@@ -6806,18 +6925,18 @@
             const hasTask = hasAnyTaskClaim();
             if (CheckinData.streak >= 7 && hasLink && hasTask) {
                 btn.disabled = false;
-                btn.textContent = 'Claim 7-Day Bonus ($0.5)';
-                hint.textContent = 'Ready to claim!';
+                btn.textContent = getText('streak_claim_cash');
+                hint.textContent = getText('streak_ready');
             } else {
                 btn.disabled = true;
                 if (CheckinData.streak < 7) {
-                    btn.textContent = 'Claim 7-Day Bonus ($0.5)';
+                    btn.textContent = getText('streak_claim_cash');
                     hint.textContent = (7 - CheckinData.streak) + ' more check-in' + ((7-CheckinData.streak)===1?'':'s') + ' to unlock';
                 } else {
                     const missing = [];
                     if (!hasLink) missing.push('1 link');
                     if (!hasTask) missing.push('1 task');
-                    btn.textContent = 'Claim 7-Day Bonus ($0.5)';
+                    btn.textContent = getText('streak_claim_cash');
                     hint.textContent = 'Complete ' + missing.join(' + ') + ' first';
                 }
             }
@@ -8842,7 +8961,7 @@ function renderMyBooks() {
             updateProfileUI();
             renderMyBooks();
             updateStats(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI();
-            showToast('Logged out');
+            showToast(getText('auth_logged_out'));
         }
 
         
@@ -8852,11 +8971,11 @@ function renderMyBooks() {
             const password = document.getElementById('splashPassword')?.value || '';
             
             if (!username) {
-                const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Please enter a username';
+                const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = getText('auth_username_required');
                 return;
             }
             if (!password) {
-                const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'Please enter your password';
+                const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = getText('auth_password_required');
                 return;
             }
             // Submit directly; backend validates password for both existing users and new registrations
@@ -8880,11 +8999,11 @@ function renderMyBooks() {
                 if (!resp.ok && result.needPassword) {
                     const passField = document.getElementById('splashPassword');
                     if (passField) { passField.style.display = ''; passField.placeholder = 'Password (required)'; }
-                    const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = 'This account requires a password';
+                    const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = getText('auth_password_account_required');
                     return;
                 }
                 if (!resp.ok) {
-                    const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = result.error || 'Login failed';
+                    const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = localizedAuthError(result.code);
                     return;
                 }
                 
@@ -8906,7 +9025,7 @@ function renderMyBooks() {
                 updateTopbarUI();
                 loadCheckinData(); updateCheckinUI(); updatePointsDisplay(); updateMissionsUI(); updateReelsDailyInfo(); updateReelsStatusBar();
                 loadPerformanceDashboard();
-                showToast('Welcome, ' + authenticatedUsername + '!', 'success');
+                showToast(formatText('auth_welcome', { username: authenticatedUsername }), 'success');
                 checkAndPromptSetPassword();
                 
                 // Force show set password modal if backend says user needs one
@@ -8920,8 +9039,8 @@ function renderMyBooks() {
                 const seEl = document.getElementById('splashError');
                 if (seEl) {
                     seEl.textContent = e && e.name === 'AbortError'
-                        ? 'Login is taking longer than expected. Please try again.'
-                        : 'Unable to reach the login service. Please try again.';
+                        ? getText('auth_timeout')
+                        : getText('auth_unreachable');
                 }
             }
         }
@@ -10600,8 +10719,8 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             const passField = document.getElementById('splashPassword');
             const tipEl = document.getElementById('splashTip');
             if (_splashPasswordCheckTimer) clearTimeout(_splashPasswordCheckTimer);
-            if (passField) { passField.style.display = ''; passField.placeholder = 'Password'; }
-            if (tipEl) tipEl.textContent = 'Enter your password to continue.';
+            if (passField) { passField.style.display = ''; passField.placeholder = getText('password_placeholder'); }
+            if (tipEl) tipEl.textContent = getText('auth_password_continue');
         }
 
         function checkRegPasswordNeeded() {
