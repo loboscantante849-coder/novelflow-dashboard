@@ -201,4 +201,7 @@ test('promotion result offers a server-owned QR card download', () => {
   assert.match(source, /async function downloadQrPromotionCard\(\)/);
   assert.match(source, /authFetch\('\/api\/qr-promotion'/);
   assert.match(source, /SCAN TO READ FREE/);
+  assert.match(source, /FREE READING • SCAN TO OPEN/);
+  assert.match(source, /if \(preview\) \{/);
+  assert.match(source, /return null;/);
 });

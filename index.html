@@ -7160,7 +7160,7 @@
             if (chapter.length >= 80) return { label: 'FREE CHAPTER PREVIEW', text: chapter };
             const description = String(book?.description || '').replace(/\s+/g, ' ').trim();
             if (description.length >= 80) return { label: 'STORY PREVIEW', text: description };
-            return { label: 'START READING FREE', text: 'One choice can change everything. Step into the story and discover what happens next.' };
+            return null;
         }
 
         function drawStoryFrame(ctx, book, cover) {
@@ -7182,11 +7182,18 @@
                 ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.font = '700 26px Inter, sans-serif'; ctx.fillText('A NOVELFLOW STORY', 98, 172);
                 ctx.fillStyle = '#FFFFFF'; ctx.font = '700 72px Georgia, serif'; drawWrappedText(ctx, book?.title || 'Featured story', 98, 305, 700, 84, 3);
             }
-            ctx.fillStyle = 'rgba(255,255,255,.14)'; drawRoundedRect(ctx, 88, 440, 710, 250, 18);
             const preview = getPromoExcerpt(book);
-            ctx.fillStyle = '#FDE68A'; ctx.font = '700 23px Inter, sans-serif'; ctx.fillText(preview.label, 118, 488);
-            ctx.fillStyle = '#FFFFFF'; ctx.font = 'italic 31px Georgia, serif';
-            drawWrappedText(ctx, '“' + preview.text + '”', 118, 542, 650, 42, 3);
+            if (preview) {
+                ctx.fillStyle = 'rgba(255,255,255,.14)'; drawRoundedRect(ctx, 88, 440, 710, 250, 18);
+                ctx.fillStyle = '#FDE68A'; ctx.font = '700 23px Inter, sans-serif'; ctx.fillText(preview.label, 118, 488);
+                ctx.fillStyle = '#FFFFFF'; ctx.font = 'italic 31px Georgia, serif';
+                drawWrappedText(ctx, '“' + preview.text + '”', 118, 542, 650, 42, 3);
+            } else {
+                // Reliable fallback: the cover remains the entire hero, while
+                // the right-bottom QR card carries the promotion destination.
+                ctx.fillStyle = 'rgba(17,24,39,.56)'; drawRoundedRect(ctx, 88, 620, 530, 64, 16);
+                ctx.fillStyle = '#FFFFFF'; ctx.font = '700 22px Inter, sans-serif'; ctx.fillText('FREE READING • SCAN TO OPEN', 118, 660);
+            }
         }
 
         async function downloadQrPromotionCard() {
