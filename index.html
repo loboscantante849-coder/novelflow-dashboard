@@ -3653,6 +3653,11 @@
                 <div class="modal-recommend-label" data-i18n="share_this_text">📋 Share This Text</div>
                 <div class="modal-recommend-text" id="modalRecommendText"></div>
                 <button class="modal-copy-btn" style="width:100%; padding:10px; margin-top:4px;" onclick="copyModalResult('text')" data-i18n="copy_all_text">Copy All Text</button>
+                <div style="margin-top:12px;padding:12px;border:1px solid var(--hairline);border-radius:var(--r-md);background:linear-gradient(135deg,#FDF2F8,#F5F3FF);">
+                    <strong>📱 QR promotion card</strong>
+                    <p style="margin:5px 0 10px;color:var(--ink-mute);font-size:12px;line-height:1.45;">Download a story preview card with your code and a trackable QR code.</p>
+                    <button type="button" class="modal-copy-btn" style="width:100%;padding:10px;" onclick="downloadQrPromotionCard()" id="downloadQrCardBtn">Create QR Card</button>
+                </div>
                 <button class="modal-reel-btn" id="modalCreateReelBtn" onclick="createReelFromModal()" style="width:100%;padding:12px;margin-top:8px;border:none;border-radius:10px;background:linear-gradient(135deg,#FF6B9D,#C084FC);color:white;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;" data-i18n="create_reels_book">🎬 Create Reels for This Book</button>
                 <button class="modal-done-btn" onclick="closeModal()" data-i18n="done_btn">Done</button>
             </div>
@@ -3974,6 +3979,7 @@
             }
             if (typeof _xmpCache !== 'undefined') _xmpCache = {};
             if (typeof _xmpCacheTime !== 'undefined') _xmpCacheTime = 0;
+            if (typeof ReelResultCache !== 'undefined') ReelResultCache.clear();
             if (typeof _refImgUrls !== 'undefined') _refImgUrls = [];
             if (typeof reelSelectedBook !== 'undefined') reelSelectedBook = null;
             if (typeof xmpSelectedBook !== 'undefined') xmpSelectedBook = null;
@@ -7120,6 +7126,113 @@
             navigator.clipboard.writeText(text).then(() => showToast('Copied!', 'success')).catch(() => showToast('Copy failed', 'error'));
         }
 
+        function loadPromoImage(url) {
+            return new Promise((resolve, reject) => {
+                const image = new Image();
+                image.crossOrigin = 'anonymous';
+                image.onload = () => resolve(image);
+                image.onerror = reject;
+                image.src = url;
+            });
+        }
+
+        function drawRoundedRect(ctx, x, y, width, height, radius) {
+            const r = Math.min(radius, width / 2, height / 2);
+            ctx.beginPath(); ctx.roundRect(x, y, width, height, r); ctx.closePath(); ctx.fill();
+        }
+
+        function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+            const words = String(text || '').replace(/\s+/g, ' ').trim().split(' ');
+            let line = ''; let lineCount = 0;
+            for (const word of words) {
+                const next = line ? line + ' ' + word : word;
+                if (ctx.measureText(next).width > maxWidth && line) {
+                    ctx.fillText(line, x, y + lineCount * lineHeight); line = word; lineCount += 1;
+                    if (lineCount >= maxLines) return lineCount;
+                } else line = next;
+            }
+            if (line && lineCount < maxLines) { ctx.fillText(line, x, y + lineCount * lineHeight); lineCount += 1; }
+            return lineCount;
+        }
+
+        function getPromoExcerpt(book) {
+            const chapter = String(book?.promoExcerpt || book?.excerpt || '').replace(/\s+/g, ' ').trim();
+            if (chapter.length >= 80) return { label: 'FREE CHAPTER PREVIEW', text: chapter };
+            const description = String(book?.description || '').replace(/\s+/g, ' ').trim();
+            if (description.length >= 80) return { label: 'STORY PREVIEW', text: description };
+            return { label: 'START READING FREE', text: 'One choice can change everything. Step into the story and discover what happens next.' };
+        }
+
+        function drawStoryFrame(ctx, book, cover) {
+            const x = 48, y = 116, width = 984, height = 660;
+            const gradient = ctx.createLinearGradient(x, y, x + width, y + height);
+            gradient.addColorStop(0, '#14102F'); gradient.addColorStop(.48, '#4C1D95'); gradient.addColorStop(1, '#BE185D');
+            ctx.fillStyle = gradient; drawRoundedRect(ctx, x, y, width, height, 24);
+            if (cover) {
+                ctx.save(); ctx.beginPath(); ctx.roundRect(x, y, width, height, 24); ctx.clip();
+                const scale = Math.max(width / cover.width, height / cover.height);
+                const drawWidth = cover.width * scale, drawHeight = cover.height * scale;
+                ctx.drawImage(cover, x + (width - drawWidth) / 2, y + (height - drawHeight) / 2, drawWidth, drawHeight);
+                const shade = ctx.createLinearGradient(0, y, 0, y + height);
+                shade.addColorStop(0, 'rgba(13,8,30,.1)'); shade.addColorStop(.5, 'rgba(13,8,30,.38)'); shade.addColorStop(1, 'rgba(13,8,30,.92)');
+                ctx.fillStyle = shade; ctx.fillRect(x, y, width, height); ctx.restore();
+            } else {
+                ctx.fillStyle = 'rgba(253,230,138,.17)'; ctx.beginPath(); ctx.arc(840, 280, 180, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = 'rgba(244,114,182,.23)'; ctx.beginPath(); ctx.arc(160, 690, 210, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.font = '700 26px Inter, sans-serif'; ctx.fillText('A NOVELFLOW STORY', 98, 172);
+                ctx.fillStyle = '#FFFFFF'; ctx.font = '700 72px Georgia, serif'; drawWrappedText(ctx, book?.title || 'Featured story', 98, 305, 700, 84, 3);
+            }
+            ctx.fillStyle = 'rgba(255,255,255,.14)'; drawRoundedRect(ctx, 88, 440, 710, 250, 18);
+            const preview = getPromoExcerpt(book);
+            ctx.fillStyle = '#FDE68A'; ctx.font = '700 23px Inter, sans-serif'; ctx.fillText(preview.label, 118, 488);
+            ctx.fillStyle = '#FFFFFF'; ctx.font = 'italic 31px Georgia, serif';
+            drawWrappedText(ctx, '“' + preview.text + '”', 118, 542, 650, 42, 3);
+        }
+
+        async function downloadQrPromotionCard() {
+            const book = currentRecommendBook;
+            if (!book?.code) { showToast('Create your promotion link first.', 'error'); return; }
+            const button = document.getElementById('downloadQrCardBtn');
+            if (button) { button.disabled = true; button.textContent = 'Creating QR card…'; }
+            try {
+                const response = await authFetch('/api/qr-promotion', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: String(book.code) }), timeout: 15000,
+                });
+                const asset = await response.json().catch(() => ({}));
+                if (!response.ok || !asset.success || !asset.qrDataUrl) throw new Error(asset.error || 'QR card is temporarily unavailable');
+
+                const canvas = document.createElement('canvas'); canvas.width = 1080; canvas.height = 1350;
+                const ctx = canvas.getContext('2d');
+                const background = ctx.createLinearGradient(0, 0, 1080, 1350);
+                background.addColorStop(0, '#FDF6FF'); background.addColorStop(.55, '#FFF1F6'); background.addColorStop(1, '#EEF2FF');
+                ctx.fillStyle = background; ctx.fillRect(0, 0, 1080, 1350);
+                ctx.fillStyle = '#312E81'; ctx.font = '700 34px Inter, sans-serif'; ctx.fillText('NOVELFLOW · YOUR NEXT OBSESSION', 48, 72);
+                let cover = null;
+                try {
+                    const coverUrl = safeClientUrl(book.cover, { allowBlob: false });
+                    if (coverUrl) cover = await loadPromoImage(coverUrl);
+                } catch (_error) { /* the designed story frame is the visual fallback */ }
+                drawStoryFrame(ctx, book, cover);
+                ctx.fillStyle = '#111827'; ctx.font = '700 54px Inter, sans-serif';
+                drawWrappedText(ctx, String(book.title || 'Featured story'), 56, 872, 580, 62, 2);
+                ctx.fillStyle = '#6B7280'; ctx.font = '700 20px Inter, sans-serif'; ctx.fillText('YOUR PROMOTION CODE', 56, 1065);
+                ctx.fillStyle = '#DB2777'; ctx.font = '700 76px Inter, sans-serif'; ctx.fillText(String(book.code), 56, 1143);
+                ctx.fillStyle = '#4B5563'; ctx.font = '400 25px Inter, sans-serif'; ctx.fillText('Open the story and enter this code to support me.', 56, 1192);
+                ctx.fillStyle = '#312E81'; ctx.font = '700 30px Inter, sans-serif'; ctx.fillText('SCAN TO READ FREE', 720, 848);
+                ctx.fillStyle = '#4B5563'; ctx.font = '400 21px Inter, sans-serif'; ctx.fillText('Your next chapter starts here', 737, 880);
+                const qr = await loadPromoImage(asset.qrDataUrl); ctx.fillStyle = '#FFFFFF'; drawRoundedRect(ctx, 690, 905, 326, 326, 12); ctx.drawImage(qr, 708, 923, 290, 290);
+                ctx.fillStyle = '#6B7280'; ctx.font = '400 20px Inter, sans-serif'; ctx.fillText('Scan count: ' + Number(asset.scans || 0), 766, 1262);
+                ctx.fillText('NovelFlow · Free reading', 56, 1306);
+                const download = document.createElement('a'); download.download = 'novelflow-' + String(book.code).replace(/[^A-Za-z0-9_-]/g, '') + '-qr-card.png'; download.href = canvas.toDataURL('image/png'); download.click();
+                showToast(asset.existing ? 'QR card downloaded. Scan count: ' + Number(asset.scans || 0) : 'QR card created and downloaded!', 'success');
+            } catch (error) {
+                showToast(error.message || 'Unable to create QR card', 'error');
+            } finally {
+                if (button) { button.disabled = false; button.textContent = 'Create QR Card'; }
+            }
+        }
+
         // ========== Auto-Refresh + Check Login Status ==========
 
         // Refresh the access token using refresh token (called automatically)
@@ -9810,6 +9923,48 @@ function renderMyBooks() {
             }
         }
 
+        // Reels may contain dozens of completed tasks. Keep result lookups
+        // deliberately small and coalesce duplicate loads from the quick panel,
+        // creator page, and My Reels page so one render cannot overload AC.
+        const REEL_RESULT_CONCURRENCY = 4;
+        const REEL_RESULT_CACHE_MS = 60 * 1000;
+        const ReelResultCache = new Map();
+
+        async function mapWithConcurrency(items, limit, mapper) {
+            const results = new Array(items.length);
+            let nextIndex = 0;
+            const workerCount = Math.min(Math.max(1, limit || 1), items.length);
+            await Promise.all(Array.from({ length: workerCount }, async () => {
+                while (nextIndex < items.length) {
+                    const index = nextIndex++;
+                    results[index] = await mapper(items[index], index);
+                }
+            }));
+            return results;
+        }
+
+        async function loadReelResultMedia(threadId) {
+            const normalizedThreadId = String(threadId || '').trim();
+            if (!normalizedThreadId) return { videoUrl: '', coverUrl: '', creativeText: '' };
+            const cacheKey = normalizeSessionUsername(AppState.user?.username) + ':' + normalizedThreadId;
+            const now = Date.now();
+            const existing = ReelResultCache.get(cacheKey);
+            if (existing && existing.expiresAt > now) return existing.promise;
+
+            const promise = (async () => {
+                try {
+                    const response = await authFetch('/api/ac-result?threadId=' + encodeURIComponent(normalizedThreadId));
+                    if (!response.ok || response.status === 204) return { videoUrl: '', coverUrl: '', creativeText: '' };
+                    const payload = await response.json().catch(() => ({ data: {} }));
+                    return resolveReelMedia(payload.data || {});
+                } catch (_error) {
+                    return { videoUrl: '', coverUrl: '', creativeText: '' };
+                }
+            })();
+            ReelResultCache.set(cacheKey, { expiresAt: now + REEL_RESULT_CACHE_MS, promise });
+            return promise;
+        }
+
         async function loadQuickReels() {
             const el = document.getElementById('quickReels');
             if (!el) return;
@@ -9835,24 +9990,19 @@ function renderMyBooks() {
                     return;
                 }
                 // Fetch results for completed items
-                const enriched = await Promise.all(filteredItems.map(async (item) => {
+                const enriched = await mapWithConcurrency(filteredItems, REEL_RESULT_CONCURRENCY, async (item) => {
                     const status = item.status || '';
                     const isDone = true; // already filtered to completed
                     const isFail = false;
                     let videoUrl = '', coverUrl = '';
-                    if (isDone && item.thread_id) {
-                        try {
-                            const rResp = await authFetch('/api/ac-result?threadId=' + encodeURIComponent(item.thread_id));
-                            if (rResp.ok && rResp.status !== 204) {
-                                const rResult = await rResp.json().catch(() => ({data:{}}));
-                                const media = resolveReelMedia(rResult.data || {});
-                                videoUrl = media.videoUrl;
-                                coverUrl = media.coverUrl;
-                            }
-                        } catch(e) {}
+                    const threadId = item.thread_id || item.threadId;
+                    if (isDone && threadId) {
+                        const media = await loadReelResultMedia(threadId);
+                        videoUrl = media.videoUrl;
+                        coverUrl = media.coverUrl;
                     }
                     return { ...item, isDone, isFail, videoUrl, coverUrl };
-                }));
+                });
                 if (!AuthSession.isCurrent(session)) return;
 el.innerHTML = enriched.map(renderReelCardHtml).join('');
             } catch(e) {
@@ -10141,25 +10291,20 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 let enrichedItems = [];
                 if (filteredItems.length > 0) {
                     if (emptyEl) emptyEl.style.display = 'none';
-                    enrichedItems = await Promise.all(filteredItems.map(async (item) => {
+                    enrichedItems = await mapWithConcurrency(filteredItems, REEL_RESULT_CONCURRENCY, async (item) => {
                         const status = item.status || '';
                         const isDone = (status === 'completed' || status === 2 || status === 'done');
                         const isFail = (status === 'failed' || status === -1 || status === 'fail');
                         let videoUrl = '', coverUrl = '', creativeText = '';
-                        if (isDone && item.thread_id) {
-                            try {
-                                const rResp = await authFetch('/api/ac-result?threadId=' + encodeURIComponent(item.thread_id));
-                                if (rResp.ok && rResp.status !== 204) {
-                                    const rResult = await rResp.json().catch(() => ({data:{}}));
-                                    const media = resolveReelMedia(rResult.data || {});
-                                    videoUrl = media.videoUrl;
-                                    coverUrl = media.coverUrl;
-                                    creativeText = media.creativeText;
-                                }
-                            } catch(e) { console.warn('Failed to fetch result for', item.thread_id, e); }
+                        const threadId = item.thread_id || item.threadId;
+                        if (isDone && threadId) {
+                            const media = await loadReelResultMedia(threadId);
+                            videoUrl = media.videoUrl;
+                            coverUrl = media.coverUrl;
+                            creativeText = media.creativeText;
                         }
                         return { ...item, isDone, isFail, videoUrl, coverUrl, creativeText };
-                    }));
+                    });
                 }
                 if (!AuthSession.isCurrent(session)) return;
                 // Fallback: local pending
@@ -10623,25 +10768,20 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 let enrichedItems = [];
                 if (result.success && filteredItems.length > 0) {
                     // For completed items, fetch their results to get video URLs
-                    enrichedItems = await Promise.all(filteredItems.map(async (item) => {
+                    enrichedItems = await mapWithConcurrency(filteredItems, REEL_RESULT_CONCURRENCY, async (item) => {
                         const status = item.status || '';
                         const isDone = (status === 'completed' || status === 2 || status === 'done');
                         const isFail = (status === 'failed' || status === -1 || status === 'fail');
                         let videoUrl = '', coverUrl = '', creativeText = '';
-                        if (isDone && item.thread_id) {
-                            try {
-                                const rResp = await authFetch('/api/ac-result?threadId=' + encodeURIComponent(item.thread_id));
-                                if (rResp.ok && rResp.status !== 204) {
-                                    const rResult = await rResp.json().catch(() => ({data:{}}));
-                                const media = resolveReelMedia(rResult.data || {});
-                                videoUrl = media.videoUrl;
-                                coverUrl = media.coverUrl;
-                                creativeText = media.creativeText;
-                                }
-                            } catch(e) { console.warn('Failed to fetch result for', item.thread_id, e); }
+                        const threadId = item.thread_id || item.threadId;
+                        if (isDone && threadId) {
+                            const media = await loadReelResultMedia(threadId);
+                            videoUrl = media.videoUrl;
+                            coverUrl = media.coverUrl;
+                            creativeText = media.creativeText;
                         }
                         return { ...item, isDone, isFail, videoUrl, coverUrl, creativeText };
-                    }));
+                    });
                 }
                 if (!AuthSession.isCurrent(session)) return;
                 // Fallback: show local pending reels from localStorage if server list is empty/failed

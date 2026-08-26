@@ -186,3 +186,19 @@ test('reel cards retain local pending work and emit a valid video preview elemen
   assert.match(reels, /const pendingLocal = buildLocalPendingReels\(knownIds\)/);
   assert.match(reels, /const allCards = enrichedItems\.slice\(\)/);
 });
+
+test('reel result loading is bounded, cached, and cleared on account changes', () => {
+  assert.match(source, /const REEL_RESULT_CONCURRENCY = 4/);
+  assert.match(source, /async function mapWithConcurrency\(/);
+  assert.match(source, /async function loadReelResultMedia\(/);
+  assert.match(source, /ReelResultCache\.set\(/);
+  assert.match(source, /ReelResultCache\.clear\(\)/);
+  assert.doesNotMatch(source, /Promise\.all\(filteredItems\.map\(async \(item\) => \{[\s\S]{0,400}\/api\/ac-result/);
+});
+
+test('promotion result offers a server-owned QR card download', () => {
+  assert.match(source, /id="downloadQrCardBtn"/);
+  assert.match(source, /async function downloadQrPromotionCard\(\)/);
+  assert.match(source, /authFetch\('\/api\/qr-promotion'/);
+  assert.match(source, /SCAN TO READ FREE/);
+});
