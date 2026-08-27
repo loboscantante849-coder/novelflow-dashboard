@@ -1,9 +1,9 @@
 const { acquireUserDataLock, releaseUserDataLock } = require('./user-data-lock');
 
 // Reporting usernames and wallet/login usernames are different namespaces.
-// Keep this map deliberately small and exact: only verified Eliza spellings
-// belong here. Ordinary usernames keep their punctuation so unrelated login
-// identities cannot be silently merged into the same Redis wallet.
+// Keep this map deliberately small and exact: only verified historical
+// spellings belong here. Ordinary usernames keep their punctuation so
+// unrelated login identities cannot be silently merged into the same wallet.
 const WALLET_PRIMARY_BY_EXPLICIT_ALIAS = new Map([
   ['eliza_star', 'eliza_star'],
   ['eliza_stellar', 'eliza_star'],
@@ -11,6 +11,9 @@ const WALLET_PRIMARY_BY_EXPLICIT_ALIAS = new Map([
   ['eliza.stellar', 'eliza_star'],
   ['eliza stellar', 'eliza_star'],
   ['@eliza.stellar', 'eliza_star'],
+  // The active promoter is Ndidi2000; their mobile login screenshot and
+  // historical support messages contain this one extra-i spelling.
+  ['ndidii2000', 'ndidi2000'],
 ]);
 
 function resolveUsernameAlias(rawName) {

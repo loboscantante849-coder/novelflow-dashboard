@@ -121,6 +121,70 @@ test('username case variants resolve to one password and data identity', async (
   assert.equal(FakeRedis.values.get('nf_user_data:alice'), originalData);
 });
 
+test('matching case-variant credentials are consolidated only after the supplied password verifies every record', async () => {
+  const originalData = JSON.stringify({ myBooks: [{ code: '5563' }], points: 30 });
+  const legacyHash = legacyPasswordHash('Password1');
+  FakeRedis.reset({
+    'nf_user_pass:alice': legacyHash,
+    'nf_user_pass:Alice': legacyHash,
+    'nf_user_data:alice': originalData,
+  });
+
+  const response = await invoke(login, {
+    body: { username: 'Alice', password: 'Password1' },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.username, 'alice');
+  assert.match(FakeRedis.values.get('nf_user_pass:alice'), /^scrypt\$/);
+  assert.equal(FakeRedis.values.has('nf_user_pass:Alice'), false);
+  assert.equal(FakeRedis.values.get('nf_user_data:alice'), originalData);
+});
+
+test('different duplicate credentials remain blocked and are not consolidated', async () => {
+  const firstHash = legacyPasswordHash('Password1');
+  const secondHash = legacyPasswordHash('Password2');
+  FakeRedis.reset({
+    'nf_user_pass:alice': firstHash,
+    'nf_user_pass:Alice': secondHash,
+  });
+
+  const response = await invoke(login, {
+    body: { username: 'Alice', password: 'Password1' },
+  });
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'ACCOUNT_CREDENTIAL_CONFLICT');
+  assert.equal(FakeRedis.values.get('nf_user_pass:alice'), firstHash);
+  assert.equal(FakeRedis.values.get('nf_user_pass:Alice'), secondHash);
+});
+
+test('a protected historical promoter can create a password only with matching code and link proof', async () => {
+  const denied = await invoke(register, {
+    body: { username: 'Ndidii2000', password: 'Password1' },
+  });
+  assert.equal(denied.statusCode, 409);
+  assert.equal(denied.body.code, 'PROMOTER_RECOVERY_REQUIRED');
+  assert.equal(FakeRedis.values.has('nf_user_pass:ndidi2000'), false);
+
+  const recovered = await invoke(register, {
+    body: {
+      username: 'Ndidii2000',
+      password: 'Password1',
+      legacy_recovery: {
+        promotion_code: '5563',
+        promotion_link: 'https://novelflow.top/6a33c2b04d4d16951c166334',
+      },
+    },
+  });
+  assert.equal(recovered.statusCode, 200);
+  assert.equal(recovered.body.success, true);
+  assert.equal(recovered.body.isNewUser, false);
+  assert.match(FakeRedis.values.get('nf_user_pass:ndidi2000'), /^scrypt\$/);
+  assert.equal(FakeRedis.values.get('nf_identity_owner:ndidi2000'), 'local:ndidi2000');
+  assert.equal(FakeRedis.values.has('nf_user_data:ndidi2000'), false);
+});
+
 test('Cons Espher login spellings resolve to the established local account without wallet mutation', async () => {
   const originalData = JSON.stringify({ bonus_balance: 8.62, withdrawals: [] });
   FakeRedis.reset({

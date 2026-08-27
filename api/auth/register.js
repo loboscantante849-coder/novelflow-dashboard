@@ -31,9 +31,12 @@ const { ensureMemberIdentity } = require('../_lib/member-identity');
 const { createAccountWithSignupEvent, deliverSignupEvent, enrichSignupEvent, signupEventId } = require('../_lib/signup-outbox');
 const { getLiveAdIdDetails } = require('../_lib/stats-data');
 const {
+  consolidateEquivalentCredentials,
   localLoginCredentialCandidates,
   resolveLocalLoginPrincipal,
 } = require('../_lib/login-identity');
+const { verifiesLegacyPromoterProof } = require('../_lib/legacy-promoter-recovery');
+const crypto = require('crypto');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -87,7 +90,7 @@ module.exports = async (req, res) => {
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
       return res.status(400).json({ error: 'Invalid request body' });
     }
-    const { username, password, referral_code: bodyReferralCode } = body;
+    const { username, password, referral_code: bodyReferralCode, legacy_recovery: legacyRecovery } = body;
     if (typeof username !== 'string') {
       return res.status(400).json({ error: 'Username must be a string' });
     }
@@ -96,6 +99,9 @@ module.exports = async (req, res) => {
     }
     if (bodyReferralCode !== undefined && bodyReferralCode !== null && typeof bodyReferralCode !== 'string') {
       return res.status(400).json({ error: 'Referral code must be a string', code: 'INVALID_REFERRAL_CODE' });
+    }
+    if (legacyRecovery !== undefined && legacyRecovery !== null && (typeof legacyRecovery !== 'object' || Array.isArray(legacyRecovery))) {
+      return res.status(400).json({ error: 'Invalid legacy recovery proof', code: 'INVALID_RECOVERY_PROOF' });
     }
     const referralCode = extractReferralCode(req);
 
@@ -163,13 +169,6 @@ module.exports = async (req, res) => {
         return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
       }
       const storedCredentials = credentialRecords.filter(record => record.hash);
-      if (storedCredentials.length > 1) {
-        return res.status(409).json({
-          error: 'Account credential recovery is required',
-          code: 'ACCOUNT_CREDENTIAL_CONFLICT',
-        });
-      }
-
       if (storedCredentials.length) {
         // Existing user with password → must verify
         if (!password) {
@@ -181,9 +180,12 @@ module.exports = async (req, res) => {
         // NOTE: do NOT enforce strong-password policy on existing-user login;
         // old users may have shorter legacy passwords. Brute force is blocked
         // by the per-account lockout (5 fails / 15 min) above.
-        const matchedCredential = storedCredentials[0];
-        const verification = await verifyPassword(password, matchedCredential.hash);
-        if (!verification.valid) {
+        const verifiedCredentials = [];
+        for (const record of storedCredentials) {
+          const verification = await verifyPassword(password, record.hash);
+          if (verification.valid) verifiedCredentials.push({ ...record, verification });
+        }
+        if (!verifiedCredentials.length) {
           // Record failure → lock after 5
           const fails = await redis.incr('nf_login_fail:' + usernameKey);
           if (fails === 1) await redis.expire('nf_login_fail:' + usernameKey, 900);
@@ -193,9 +195,38 @@ module.exports = async (req, res) => {
           }
           return res.status(401).json({ error: 'Invalid username or password', code: 'INVALID_CREDENTIALS' });
         }
-        credentialUsername = matchedCredential.storageUsername.toLowerCase();
-        if (verification.needsRehash) {
-          await redis.set(`nf_user_pass:${matchedCredential.storageUsername}`, await createPasswordHash(password));
+        if (verifiedCredentials.length !== storedCredentials.length) {
+          return res.status(409).json({ error: 'Account credential recovery is required', code: 'ACCOUNT_CREDENTIAL_CONFLICT' });
+        }
+        const principalForCredentials = await resolveLocalLoginPrincipal(
+          redis,
+          usernameKey,
+          usernameKey,
+          authenticatedPayload,
+          resolvePasswordPrincipal,
+        );
+        if (!principalForCredentials) {
+          return res.status(409).json({ error: 'Account identity recovery is required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
+        }
+        if (storedCredentials.length > 1) {
+          const consolidated = await consolidateEquivalentCredentials(
+            redis,
+            usernameKey,
+            storedCredentials,
+            password,
+            createPasswordHash,
+            principalForCredentials,
+          );
+          if (!consolidated) {
+            return res.status(409).json({ error: 'Account credential recovery is required', code: 'ACCOUNT_CREDENTIAL_CONFLICT' });
+          }
+          credentialUsername = usernameKey;
+        } else {
+          const matchedCredential = verifiedCredentials[0];
+          credentialUsername = matchedCredential.storageUsername.toLowerCase();
+          if (matchedCredential.verification.needsRehash) {
+            await redis.set(`nf_user_pass:${matchedCredential.storageUsername}`, await createPasswordHash(password));
+          }
         }
         // Success → clear failure counter
         await redis.del('nf_login_fail:' + usernameKey);
@@ -239,13 +270,6 @@ module.exports = async (req, res) => {
         authenticatedPayload = session;
         passedAuth = true;
       } else {
-        // Brand new user → require a password to register
-        if (isProtectedPromoterUsername(usernameKey)) {
-          return res.status(409).json({
-            error: 'This promoter account requires identity recovery',
-            code: 'PROMOTER_RECOVERY_REQUIRED',
-          });
-        }
         let runtimePromoterSnapshot;
         try {
           runtimePromoterSnapshot = await getLiveAdIdDetails();
@@ -258,46 +282,76 @@ module.exports = async (req, res) => {
             code: 'PROMOTER_IDENTITY_UNAVAILABLE',
           });
         }
-        if (isProtectedPromoterUsername(usernameKey, runtimePromoterSnapshot)) {
-          return res.status(409).json({
-            error: 'This promoter account requires identity recovery',
-            code: 'PROMOTER_RECOVERY_REQUIRED',
-          });
+        const protectedPromoter = isProtectedPromoterUsername(usernameKey, runtimePromoterSnapshot);
+        if (protectedPromoter) {
+          // A protected historical promoter may only fill an otherwise-empty
+          // login slot after proving control of two independent past assets.
+          if (!password || !isValidPassword(password)) {
+            return res.status(400).json({ error: 'Password must be at least 8 characters with a letter and a number', needPassword: true, mustSetPassword: true });
+          }
+          if (!verifiesLegacyPromoterProof(runtimePromoterSnapshot, usernameKey, legacyRecovery)) {
+            return res.status(409).json({ error: 'This promoter account requires recovery proof', code: 'PROMOTER_RECOVERY_REQUIRED' });
+          }
+          const recoveryKey = `nf_legacy_recovery_lock:v1:${usernameKey}`;
+          const recoveryToken = crypto.randomUUID();
+          if (!await redis.set(recoveryKey, recoveryToken, { nx: true, ex: 60 })) {
+            return res.status(429).json({ error: 'Recovery is already in progress. Please retry shortly.', code: 'RECOVERY_BUSY' });
+          }
+          try {
+            const [freshCredential, freshData, identityOwner, passwordOwner] = await Promise.all([
+              redis.get(passwordKey),
+              redis.get(`nf_user_data:${usernameKey}`),
+              redis.get(`nf_identity_owner:${usernameKey}`),
+              redis.get(`nf_user_pass_owner:${usernameKey}`),
+            ]);
+            if (freshCredential || freshData || identityOwner || passwordOwner) {
+              return res.status(409).json({ error: 'Account recovery is required', code: 'ACCOUNT_RECOVERY_REQUIRED' });
+            }
+            if (!await redis.set(passwordKey, await createPasswordHash(password), { nx: true })) {
+              return res.status(409).json({ error: 'Account already exists. Please sign in.', code: 'ACCOUNT_ALREADY_EXISTS' });
+            }
+            passedAuth = true;
+            credentialUsername = usernameKey;
+          } finally {
+            if (String(await redis.get(recoveryKey) || '') === recoveryToken) await redis.del(recoveryKey);
+          }
+        } else {
+          // Brand new user → require a password to register.
+          isNewUser = true;
+          if (!password) {
+            return res.status(400).json({ error: 'Password required (min 8 characters with a letter and a number)', needPassword: true, mustSetPassword: true });
+          }
+          if (!isValidPassword(password)) {
+            return res.status(400).json({ error: 'Password must be at least 8 characters with a letter and a number', needPassword: true, mustSetPassword: true });
+          }
+          try {
+            const validatedReferral = await validateReferral(redis, usernameKey, referralCode);
+            referralToBind = validatedReferral && validatedReferral.referral_code;
+          } catch (error) {
+            return res.status(error && error.code === 'SELF_REFERRAL' ? 409 : 400).json({
+              error: error.message || 'Invalid referral code',
+              code: error.code || 'INVALID_REFERRAL_CODE',
+            });
+          }
+          if (!await claimIdentity(redis, usernameKey, `local:${usernameKey}`)) {
+            return res.status(409).json({ error: 'This username belongs to another sign-in method', code: 'ACCOUNT_IDENTITY_CONFLICT' });
+          }
+          signupEvent = await createAccountWithSignupEvent(
+            redis,
+            passwordKey,
+            await createPasswordHash(password),
+            {
+              username: usernameKey,
+              referralCode: referralToBind || '',
+              ip,
+              userAgent: (req.headers && req.headers['user-agent']) || '',
+            },
+          );
+          if (!signupEvent) {
+            return res.status(409).json({ error: 'Account already exists. Please sign in.', code: 'ACCOUNT_ALREADY_EXISTS' });
+          }
+          passedAuth = true;
         }
-        isNewUser = true;
-        if (!password) {
-          return res.status(400).json({ error: 'Password required (min 8 characters with a letter and a number)', needPassword: true, mustSetPassword: true });
-        }
-        if (!isValidPassword(password)) {
-          return res.status(400).json({ error: 'Password must be at least 8 characters with a letter and a number', needPassword: true, mustSetPassword: true });
-        }
-        try {
-          const validatedReferral = await validateReferral(redis, usernameKey, referralCode);
-          referralToBind = validatedReferral && validatedReferral.referral_code;
-        } catch (error) {
-          return res.status(error && error.code === 'SELF_REFERRAL' ? 409 : 400).json({
-            error: error.message || 'Invalid referral code',
-            code: error.code || 'INVALID_REFERRAL_CODE',
-          });
-        }
-        if (!await claimIdentity(redis, usernameKey, `local:${usernameKey}`)) {
-          return res.status(409).json({ error: 'This username belongs to another sign-in method', code: 'ACCOUNT_IDENTITY_CONFLICT' });
-        }
-        signupEvent = await createAccountWithSignupEvent(
-          redis,
-          passwordKey,
-          await createPasswordHash(password),
-          {
-            username: usernameKey,
-            referralCode: referralToBind || '',
-            ip,
-            userAgent: (req.headers && req.headers['user-agent']) || '',
-          },
-        );
-        if (!signupEvent) {
-          return res.status(409).json({ error: 'Account already exists. Please sign in.', code: 'ACCOUNT_ALREADY_EXISTS' });
-        }
-        passedAuth = true;
       }
     }
 

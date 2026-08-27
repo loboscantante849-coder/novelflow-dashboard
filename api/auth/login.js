@@ -16,6 +16,7 @@ const { createPasswordHash, verifyPassword } = require('../_lib/password');
 const { bindPasswordPrincipal, claimIdentity, resolvePasswordPrincipal } = require('../_lib/identity');
 const { finalizePendingReferral } = require('../_lib/referrals');
 const {
+  consolidateEquivalentCredentials,
   localLoginCredentialCandidates,
   resolveLocalLoginPrincipal,
 } = require('../_lib/login-identity');
@@ -65,12 +66,6 @@ module.exports = async (req, res) => {
     let authenticatedPayload = null;
     let credentialUsername = usernameKey;
     const storedCredentials = credentialRecords.filter(record => record.hash);
-    if (storedCredentials.length > 1) {
-      return res.status(409).json({
-        error: 'Account credential recovery is required',
-        code: 'ACCOUNT_CREDENTIAL_CONFLICT',
-      });
-    }
     if (storedCredentials.length) {
       const vP = validateString(rawPass, { name: 'password', maxLen: 200, required: true });
       if (!vP.ok) return res.status(401).json({ error: 'Password required', needPassword: true });
@@ -88,16 +83,44 @@ module.exports = async (req, res) => {
         }
         return res.status(401).json({ error: 'Wrong password', needPassword: true });
       }
-      if (verifiedCredentials.length > 1) {
+      if (verifiedCredentials.length !== storedCredentials.length) {
         return res.status(409).json({
           error: 'Account credential recovery is required',
           code: 'ACCOUNT_CREDENTIAL_CONFLICT',
         });
       }
-      const matchedCredential = verifiedCredentials[0];
-      credentialUsername = matchedCredential.storageUsername.toLowerCase();
-      if (matchedCredential.verification.needsRehash) {
-        await redis.set(`nf_user_pass:${matchedCredential.storageUsername}`, await createPasswordHash(vP.value));
+      const principalForCredentials = await resolveLocalLoginPrincipal(
+        redis,
+        usernameKey,
+        usernameKey,
+        authenticatedPayload,
+        resolvePasswordPrincipal,
+      );
+      if (!principalForCredentials) {
+        return res.status(409).json({ error: 'Account identity recovery is required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
+      }
+      if (storedCredentials.length > 1) {
+        const consolidated = await consolidateEquivalentCredentials(
+          redis,
+          usernameKey,
+          storedCredentials,
+          vP.value,
+          createPasswordHash,
+          principalForCredentials,
+        );
+        if (!consolidated) {
+          return res.status(409).json({
+            error: 'Account credential recovery is required',
+            code: 'ACCOUNT_CREDENTIAL_CONFLICT',
+          });
+        }
+        credentialUsername = usernameKey;
+      } else {
+        const matchedCredential = verifiedCredentials[0];
+        credentialUsername = matchedCredential.storageUsername.toLowerCase();
+        if (matchedCredential.verification.needsRehash) {
+          await redis.set(`nf_user_pass:${matchedCredential.storageUsername}`, await createPasswordHash(vP.value));
+        }
       }
     } else if (userData) {
       // Passwordless legacy records can only be upgraded through the explicit

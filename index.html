@@ -2947,6 +2947,11 @@
             <div class="referral-applied" id="splashReferralApplied"></div>
             <input type="text" class="splash-input" id="splashUsername" data-i18n-placeholder="username" placeholder="Your username" oninput="checkSplashPasswordNeeded()">
             <input type="password" class="splash-input" id="splashPassword" data-i18n-placeholder="password_placeholder" placeholder="Password">
+            <div id="legacyRecoveryFields" style="display:none;margin:0 0 10px;text-align:left;">
+                <div style="font-size:12px;color:var(--ink-mute);margin:2px 0 7px;line-height:1.4;">Restore a historical promoter account with one of your previous promotion codes and its promotion link.</div>
+                <input type="text" class="splash-input" id="legacyPromotionCode" placeholder="Previous promotion code" maxlength="128" autocomplete="off">
+                <input type="text" class="splash-input" id="legacyPromotionLink" placeholder="Previous promotion link or link ID" maxlength="300" autocomplete="off" style="margin-top:8px;">
+            </div>
             <button class="splash-btn" onclick="handleSplashLogin()" data-i18n="start_earning"><span data-i18n="start_earning_btn">Start Earning</span></button>
             <div class="splash-tip" id="splashTip" data-i18n="splash_tip">Enter your username and password to login or create account.</div>
 
@@ -3805,10 +3810,30 @@
             try { localStorage.removeItem(REFERRAL_STORAGE_KEY); } catch (_) {}
             renderReferralApplied();
         }
+        function getLegacyRecoveryPayload() {
+            const fields = document.getElementById('legacyRecoveryFields');
+            if (!fields || fields.style.display === 'none') return null;
+            const promotionCode = document.getElementById('legacyPromotionCode')?.value.trim() || '';
+            const promotionLink = document.getElementById('legacyPromotionLink')?.value.trim() || '';
+            return promotionCode && promotionLink ? { promotion_code: promotionCode, promotion_link: promotionLink } : null;
+        }
+
+        function showLegacyRecoveryFields(username) {
+            const fields = document.getElementById('legacyRecoveryFields');
+            if (fields) fields.style.display = 'block';
+            const usernameInput = document.getElementById('splashUsername');
+            if (usernameInput && username) usernameInput.value = username;
+            const error = document.getElementById('splashError');
+            if (error) error.textContent = 'To restore this historical promoter account, enter one previous promotion code and its matching promotion link.';
+            setTimeout(() => document.getElementById('legacyPromotionCode')?.focus(), 0);
+        }
+
         function buildRegistrationPayload(username, password) {
             const payload = { username, password: password || undefined };
             const referralCode = getStoredReferralCode();
             if (referralCode) payload.referral_code = referralCode;
+            const legacyRecovery = getLegacyRecoveryPayload();
+            if (legacyRecovery) payload.legacy_recovery = legacyRecovery;
             return payload;
         }
         function captureReferralCode() {
@@ -9016,6 +9041,13 @@ function renderMyBooks() {
                     return;
                 }
 
+                if (!response.ok && result.code === 'PROMOTER_RECOVERY_REQUIRED') {
+                    openAuthModal('profile');
+                    showLegacyRecoveryFields(username);
+                    showToast('Enter a previous promotion code and its matching link to restore this account.', 'info');
+                    return;
+                }
+
                 if (response.ok && result.success) {
                     clearStoredReferralCode();
                     const authenticatedUsername = result.username || username;
@@ -9120,6 +9152,10 @@ function renderMyBooks() {
                     const passField = document.getElementById('splashPassword');
                     if (passField) { passField.style.display = ''; passField.placeholder = 'Password (required)'; }
                     const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = getText('auth_password_account_required');
+                    return;
+                }
+                if (!resp.ok && result.code === 'PROMOTER_RECOVERY_REQUIRED') {
+                    showLegacyRecoveryFields(username);
                     return;
                 }
                 if (!resp.ok) {

@@ -100,8 +100,43 @@ async function loadLocalLoginCredentials(redis, value) {
   };
 }
 
+// A few early clients used the display-case username as a Redis key while
+// later clients used lowercase. They are one account namespace, not two
+// accounts. Consolidation is deliberately available only after the supplied
+// password validates every duplicate and every stored owner agrees.
+async function canConsolidateCredentials(redis, primaryUsername, records, principal) {
+  if (!redis || !primaryUsername || !Array.isArray(records) || records.length < 2 || !principal) return false;
+  const aliases = Array.from(new Set(records.map(record => String(record.storageUsername || '').trim()).filter(Boolean)));
+  const ownerKeys = aliases.flatMap(alias => [
+    `nf_identity_owner:${alias.toLowerCase()}`,
+    `nf_user_pass_owner:${alias.toLowerCase()}`,
+  ]);
+  const owners = (typeof redis.mget === 'function'
+    ? await redis.mget(...ownerKeys)
+    : await Promise.all(ownerKeys.map(key => redis.get(key))))
+    .filter(Boolean)
+    .map(String);
+  return owners.every(owner => owner === principal);
+}
+
+async function consolidateEquivalentCredentials(redis, primaryUsername, records, password, createPasswordHash, principal) {
+  if (!await canConsolidateCredentials(redis, primaryUsername, records, principal)) return false;
+  const canonical = String(primaryUsername).toLowerCase();
+  await redis.set(`nf_user_pass:${canonical}`, await createPasswordHash(password));
+  for (const record of records) {
+    const alias = String(record.storageUsername || '').trim();
+    if (alias && alias !== canonical) {
+      await redis.del(`nf_user_pass:${alias}`);
+      await redis.del(`nf_user_pass_owner:${alias.toLowerCase()}`);
+    }
+  }
+  return true;
+}
+
 module.exports = {
+  canConsolidateCredentials,
   canonicalizeLocalSessionPayload,
+  consolidateEquivalentCredentials,
   localLoginCredentialCandidates,
   loadLocalLoginCredentials,
   resolveLocalLoginPrincipal,
