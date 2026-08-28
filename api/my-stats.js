@@ -23,6 +23,18 @@ const { resolveWalletStorageIdentity } = require('./_lib/wallet-identity');
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
+// A Discord session keeps the stable account handle in `username` while the
+// UI-facing `globalName` may contain spaces, punctuation, or a different
+// case.  The query parameter is therefore only an optional display-name
+// hint; the JWT handle remains the authoritative target for non-admin reads.
+function matchesAuthenticatedLabel(value, payload) {
+  const requested = String(value || '').trim().toLowerCase();
+  if (!requested) return true;
+  return [payload && payload.username, payload && payload.globalName, payload && payload.global_name]
+    .filter(Boolean)
+    .some(candidate => String(candidate).trim().toLowerCase() === requested);
+}
+
 module.exports = async (req, res) => {
   if (handlePreflight(req, res)) return;
 
@@ -46,16 +58,16 @@ module.exports = async (req, res) => {
 
   const isAdmin = await isAdminUser(redis, jwtUsername);
 
-  // Determine target username: ?username= wins if admin, otherwise forced to JWT user
-  let requested = req.query.username || (req.body && req.body.username);
-  if (requested && String(requested).trim()) {
-    requested = String(requested).trim();
-    if (!isAdmin && requested.toLowerCase() !== String(jwtUsername).toLowerCase()) {
-      return res.status(403).json({ error: 'Forbidden: can only view your own stats', code: 'FORBIDDEN' });
-    }
-  } else {
-    requested = jwtUsername;
+  // Determine target username: admins may select a target; regular users are
+  // always scoped to the JWT account.  Accept an exact Discord display label
+  // for backwards-compatible clients, but never use it as the data key.
+  const requestedHint = req.query.username || (req.body && req.body.username);
+  if (!isAdmin && requestedHint && !matchesAuthenticatedLabel(requestedHint, payload)) {
+    return res.status(403).json({ error: 'Forbidden: can only view your own stats', code: 'FORBIDDEN' });
   }
+  const requested = isAdmin
+    ? (requestedHint && String(requestedHint).trim() ? String(requestedHint).trim() : jwtUsername)
+    : jwtUsername;
   const username = requested;
 
   const debugLog = [];

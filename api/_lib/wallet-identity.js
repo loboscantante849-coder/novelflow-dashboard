@@ -14,6 +14,13 @@ const WALLET_PRIMARY_BY_EXPLICIT_ALIAS = new Map([
   // The active promoter is Ndidi2000; their mobile login screenshot and
   // historical support messages contain this one extra-i spelling.
   ['ndidii2000', 'ndidi2000'],
+  // Cons Espher has an established account with historical Redis keys using
+  // both the Discord display spelling and the canonical reporting spelling.
+  // Keep `constance.espher` out of this map: it is a separate credential.
+  ['cons_espher', 'cons_espher'],
+  ['@cons_espher', 'cons_espher'],
+  ['cons espher', 'cons_espher'],
+  ['@cons espher', 'cons_espher'],
 ]);
 
 function resolveUsernameAlias(rawName) {
@@ -28,6 +35,12 @@ function walletStorageCandidates(rawName) {
   // `eliza_stellar` is the only verified legacy reporting-key wallet. Reads
   // may preserve it when it is the sole record, but every writer locks star.
   if (primaryUsername === 'eliza_star') return ['eliza_star', 'eliza_stellar'];
+  // Reads may preserve one sole historical Cons key. If more than one of
+  // these records exists, resolveWalletStorageIdentity deliberately reports
+  // a conflict so balances cannot be merged implicitly.
+  if (primaryUsername === 'cons_espher') {
+    return ['cons_espher', '@cons espher', 'cons espher', '@cons_espher'];
+  }
   return [primaryUsername];
 }
 

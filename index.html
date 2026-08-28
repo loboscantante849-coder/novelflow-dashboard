@@ -7326,6 +7326,10 @@
                     const wasLoggedIn = AppState.isLoggedIn;
                     const user = {
                         username: data.username || 'User',
+                        displayName: data.displayName || data.globalName || data.username || 'User',
+                        globalName: data.globalName || data.displayName || '',
+                        discordId: data.discordId || null,
+                        avatar: data.avatar || null,
                         accountType: data.accountType || 'local',
                         memberId: data.memberId || null
                     };
@@ -8521,7 +8525,6 @@
         async function loadUserStats(username) {
             const session = AuthSession.capture(username);
             if (!session) return false;
-            const requestedUsername = String(AppState.user.username);
             if (UserStats.loading && UserStats.loadingUser === session.username) return false;
             const requestId = ++UserStats.requestId;
             UserStats.loading = true;
@@ -8539,7 +8542,9 @@
             }
 
             try {
-                const response = await authFetch(`/api/my-stats?t=${Date.now()}&username=${encodeURIComponent(requestedUsername)}`);
+                // The API scopes regular users from the HttpOnly session.  Do
+                // not send the Discord display name as an account key.
+                const response = await authFetch(`/api/my-stats?t=${Date.now()}`);
                 if (!AuthSession.isCurrent(session) || requestId !== UserStats.requestId) return false;
                 if (!response.ok) throw new Error('Failed to fetch stats');
 
@@ -8978,8 +8983,9 @@ function renderMyBooks() {
             const logoutBtn = document.getElementById('logoutBtn');
 
             if (AppState.isLoggedIn && AppState.user) {
-                avatar.textContent = AppState.user.username ? AppState.user.username.charAt(0).toUpperCase() : '?';
-                name.textContent = AppState.user.username || 'User';
+                const displayName = AppState.user.displayName || AppState.user.username || 'User';
+                avatar.textContent = displayName ? displayName.charAt(0).toUpperCase() : '?';
+                name.textContent = displayName;
                 uid.textContent = (AppState.user.memberId ? 'ID ' + AppState.user.memberId + ' · ' : '') + (AppState.user.username ? '@' + AppState.user.username : 'Logged In');
                 renderMemberOverview();
                 loginForm.style.display = 'none';
@@ -9710,7 +9716,6 @@ function renderMyBooks() {
             if (!session) return;
             const requestId = ++_perfRequestId;
             const currentPerfUsername = session.username;
-            const requestedUsername = String(AppState.user.username);
             if (_lastPerfUsername !== currentPerfUsername) {
                 _lastPerfData = null;
                 _lastPerfUsername = currentPerfUsername;
@@ -9726,7 +9731,10 @@ function renderMyBooks() {
             }
             
             try {
-                const query = '?t=' + Date.now() + '&username=' + encodeURIComponent(requestedUsername);
+                // Both endpoints derive the regular-user target from the
+                // authenticated session; the visible Discord display name is
+                // not a stable storage identity.
+                const query = '?t=' + Date.now();
                 let resp = await authFetch('/api/per-link-stats' + query);
                 if (!AuthSession.isCurrent(session) || requestId !== _perfRequestId) return;
                 let data = await resp.json().catch(() => null);
@@ -9846,8 +9854,9 @@ function renderMyBooks() {
             if (AppState.isLoggedIn && AppState.user) {
                 btn.style.display = 'none';
                 chip.classList.add('show');
-                if (avatar) avatar.textContent = (AppState.user.username||'?').charAt(0).toUpperCase();
-                if (uname) uname.textContent = AppState.user.username || 'User';
+                const displayName = AppState.user.displayName || AppState.user.username || 'User';
+                if (avatar) avatar.textContent = displayName.charAt(0).toUpperCase();
+                if (uname) uname.textContent = displayName;
             } else {
                 btn.style.display = '';
                 chip.classList.remove('show');
