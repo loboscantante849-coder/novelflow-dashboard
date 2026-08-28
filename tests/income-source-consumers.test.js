@@ -48,9 +48,7 @@ function sourceData() {
       'trusted-link': {
         username: 'Foo.Bar',
         username_canon: 'foo_bar',
-        pull_uv: 4,
-        new_uv: 2,
-        dn_income: 8,
+        stats: { pull_uv: 4, new_uv: 2, dn_income: 8 },
         daily: [],
       },
     },
@@ -74,6 +72,91 @@ test('stats consumers accept one verified wallet owner', async () => {
   ]);
   assert.equal(summary.statusCode, 200);
   assert.equal(links.statusCode, 200);
+});
+
+test('stats consumers accept an authenticated Discord display-name hint without changing the account target', async () => {
+  const token = signAccessToken({
+    type: 'discord',
+    username: 'foo.bar',
+    globalName: 'Foo Bar',
+    principal: 'discord:foo-display-1',
+    discordId: 'foo-display-1',
+  });
+  const headers = { authorization: `Bearer ${token}` };
+  const [summary, links] = await Promise.all([
+    invoke(myStats, { method: 'GET', headers, query: { username: 'Foo Bar' } }),
+    invoke(perLinkStats, { method: 'GET', headers, query: { username: 'Foo Bar' } }),
+  ]);
+  assert.equal(summary.statusCode, 200);
+  assert.equal(summary.body.username, 'foo.bar');
+  assert.equal(summary.body.total_visits, 4);
+  assert.equal(links.statusCode, 200);
+  assert.equal(links.body.username, 'foo.bar');
+  assert.equal(links.body.total_visits, 4);
+});
+
+test('stats consumers read a sole historical Cons wallet key through the canonical session', async () => {
+  currentAdData = {
+    last_updated: '2026-08-20T00:00:00.000Z',
+    by_promoter: {
+      cons_espher: { display_name: 'Cons Espher', links: ['cons-link'], codes: [], invites: [] },
+    },
+    ad_ids: {
+      'cons-link': {
+        username: '@Cons Espher',
+        username_canon: 'cons_espher',
+        stats: { pull_uv: 7, new_uv: 3, dn_income: 6 },
+        daily: [],
+      },
+    },
+  };
+  FakeRedis.reset({ 'nf_user_data:@cons espher': JSON.stringify({}) });
+  const token = signAccessToken({
+    type: 'discord',
+    username: 'cons_espher',
+    globalName: 'Cons Espher',
+    principal: 'discord:cons-1',
+    discordId: 'cons-1',
+  });
+  const headers = { authorization: `Bearer ${token}` };
+  const [summary, links] = await Promise.all([
+    invoke(myStats, { method: 'GET', headers, query: {} }),
+    invoke(perLinkStats, { method: 'GET', headers, query: {} }),
+  ]);
+  assert.equal(summary.statusCode, 200);
+  assert.equal(summary.body.username, 'cons_espher');
+  assert.equal(summary.body.total_visits, 7);
+  assert.equal(links.statusCode, 200);
+  assert.equal(links.body.username, 'cons_espher');
+  assert.equal(links.body.total_visits, 7);
+});
+
+test('stats consumers still reject a display-name hint belonging to another account', async () => {
+  const token = signAccessToken({
+    type: 'discord',
+    username: 'foo.bar',
+    globalName: 'Foo Bar',
+    principal: 'discord:foo-display-2',
+    discordId: 'foo-display-2',
+  });
+  const response = await invoke(myStats, {
+    method: 'GET',
+    headers: { authorization: `Bearer ${token}` },
+    query: { username: 'other.account' },
+  });
+  assert.equal(response.statusCode, 403);
+  assert.equal(response.body.code, 'FORBIDDEN');
+
+  // Per-link stats deliberately ignore a non-admin target hint and remain
+  // scoped to the JWT account; the hint must never select another account.
+  const perLinkResponse = await invoke(perLinkStats, {
+    method: 'GET',
+    headers: { authorization: `Bearer ${token}` },
+    query: { username: 'other.account' },
+  });
+  assert.equal(perLinkResponse.statusCode, 200);
+  assert.equal(perLinkResponse.body.username, 'foo.bar');
+  assert.equal(perLinkResponse.body.total_visits, 4);
 });
 
 test('stats consumers reject multiple approved wallets for one source', async () => {

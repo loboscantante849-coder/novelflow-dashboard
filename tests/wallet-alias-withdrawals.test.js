@@ -70,11 +70,13 @@ function withPunctuationIncomeSource({ approvedRaw = null } = {}) {
   };
 }
 
-test('only explicit Eliza aliases merge while ordinary punctuation remains intact', () => {
+test('explicit historical aliases merge while ordinary punctuation remains intact', () => {
   assert.equal(resolveUsernameAlias('Eliza Stellar'), 'eliza_star');
   assert.equal(resolveUsernameAlias('@eliza.stellar'), 'eliza_star');
   assert.equal(resolveUsernameAlias('eliza--stellar'), 'eliza--stellar');
-  assert.equal(resolveUsernameAlias('Cons Espher'), 'cons espher');
+  assert.equal(resolveUsernameAlias('Cons Espher'), 'cons_espher');
+  assert.equal(resolveUsernameAlias('@cons_espher'), 'cons_espher');
+  assert.equal(resolveUsernameAlias('constance.espher'), 'constance.espher');
   assert.equal(resolveUsernameAlias('ordinary.name-tag'), 'ordinary.name-tag');
 });
 

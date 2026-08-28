@@ -30,6 +30,18 @@ test('accepts a valid signed access token', () => {
   assert.equal(legacyEntryPoint.verifyAccessToken(token).username, 'test-user');
 });
 
+test('Discord user info keeps the canonical account handle separate from its display name', () => {
+  const info = auth.extractUserInfo({
+    type: 'discord',
+    username: 'cons_espher',
+    globalName: 'Cons Espher',
+    discordId: 'discord-1',
+  });
+  assert.equal(info.username, 'cons_espher');
+  assert.equal(info.displayName, 'Cons Espher');
+  assert.equal(info.globalName, 'Cons Espher');
+});
+
 test('access-token verification rejects a valid refresh token', () => {
   const token = auth.signRefreshToken({ username: 'test-user' });
   assert.equal(auth.verifyJWT(token)._refresh, true);

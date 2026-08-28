@@ -577,6 +577,29 @@ test('Discord disabled checks use the canonical JWT handle', async () => {
   assert.equal(session.body.code, 'ACCOUNT_DISABLED');
 });
 
+test('auth/me returns the canonical Discord handle and a separate display name', async () => {
+  FakeRedis.reset({
+    'nf_user_data:discord-handle': JSON.stringify({}),
+    'nf_identity_owner:discord-handle': 'discord:discord-42',
+  });
+  const accessToken = signAccessToken({
+    type: 'discord',
+    username: 'discord-handle',
+    globalName: 'Display Name',
+    discordId: 'discord-42',
+    principal: 'discord:discord-42',
+  });
+  const session = await invoke(me, {
+    method: 'GET',
+    headers: { cookie: `nf_token=${accessToken}` },
+  });
+  assert.equal(session.statusCode, 200);
+  assert.equal(session.body.loggedIn, true);
+  assert.equal(session.body.username, 'discord-handle');
+  assert.equal(session.body.displayName, 'Display Name');
+  assert.equal(session.body.globalName, 'Display Name');
+});
+
 test('client sync and rewards respect the shared user-data lock', async () => {
   const username = 'user_data_lock_test';
   FakeRedis.reset({
