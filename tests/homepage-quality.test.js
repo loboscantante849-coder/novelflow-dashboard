@@ -112,7 +112,7 @@ test('AC operations require an active account and verified task ownership', () =
     assert.match(fileSource, /AC_TOKEN_UNAVAILABLE/);
   }
   const meSource = fs.readFileSync(path.join(ROOT, 'api/auth/me.js'), 'utf8');
-  assert.match(meSource, /isDisabledUser\(redis, payload, \{ failClosed: true \}\)/);
+  assert.match(meSource, /isDisabledUser\(redis, payload, \{ failClosed: true(?:, allowSafeReadOnlyWalletConflict: true)? \}\)/);
   assert.match(meSource, /loadLocalLoginCredentials\(redis, username\)/);
   const loginIdentitySource = fs.readFileSync(path.join(ROOT, 'api/_lib/login-identity.js'), 'utf8');
   assert.match(loginIdentitySource, /nf_user_pass:/);

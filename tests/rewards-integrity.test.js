@@ -413,7 +413,7 @@ test('7-day grand prize credits cash first and defers VIP to explicit confirmati
   }
 });
 
-test('an established lowercase wallet can check in despite a legacy case-only duplicate source key', async () => {
+test('wallet writes fail closed when a case-only duplicate source key exists', async () => {
   const canonical = JSON.stringify({ points: 10 });
   const legacy = JSON.stringify({ points: 99, keep: 'legacy-review' });
   FakeRedis.reset({
@@ -426,8 +426,9 @@ test('an established lowercase wallet can check in despite a legacy case-only du
     body: { action: 'checkin' },
   });
 
-  assert.equal(response.statusCode, 200);
-  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:xenomorphette')).points, 15);
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'WALLET_IDENTITY_CONFLICT');
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:xenomorphette')).points, 10);
   assert.equal(FakeRedis.values.get('nf_user_data:Xenomorphette'), legacy);
 });
 
@@ -451,7 +452,7 @@ test('case-only duplicate source keys still block the financial 7-day cash rewar
   });
 
   assert.equal(response.statusCode, 409);
-  assert.equal(response.body.code, 'INCOME_SOURCE_OWNER_CONFLICT');
+  assert.equal(response.body.code, 'WALLET_IDENTITY_CONFLICT');
   assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:xenomorphette')).bonus_balance, 4);
 });
 

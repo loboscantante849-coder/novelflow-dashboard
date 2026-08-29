@@ -6,9 +6,11 @@
 const { verifyAccessToken } = require('./auth');
 const crypto = require('crypto');
 const { Redis } = require('@upstash/redis');
-const { assertAccountIdentity } = require('./identity');
+const { assertAccountIdentity, principalFromPayload } = require('./identity');
+const { canonicalizeLocalSessionPayload } = require('./login-identity');
 const { isSystemStatsBucket } = require('./promoter-access');
 const {
+  resolveReadOnlyWalletStorageIdentity,
   resolveWalletStorageIdentity,
   walletIdentityConflict,
 } = require('./wallet-identity');
@@ -53,18 +55,23 @@ function getAuthPayload(req) {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const p = verifyAccessToken(authHeader.slice(7).trim());
-    if (p) return p;
+    if (p) return canonicalizeLocalSessionPayload(p);
   }
   const cookies = parseCookies(req);
   if (cookies['nf_token']) {
     const p = verifyAccessToken(cookies['nf_token']);
-    if (p) return p;
+    if (p) return canonicalizeLocalSessionPayload(p);
   }
   return null;
 }
 
-async function getAccountWalletData(redis, username) {
-  const identity = await resolveWalletStorageIdentity(redis, username);
+async function getAccountWalletData(redis, username, {
+  allowSafeReadOnlyWalletConflict = false,
+  expectedPrincipal = null,
+} = {}) {
+  const identity = allowSafeReadOnlyWalletConflict
+    ? await resolveReadOnlyWalletStorageIdentity(redis, username, { expectedPrincipal })
+    : await resolveWalletStorageIdentity(redis, username);
   if (identity.conflict) throw walletIdentityConflict(identity);
   const raw = await redis.get(`nf_user_data:${identity.storageUsername}`);
   if (!raw) return null;
@@ -75,6 +82,60 @@ async function getAccountWalletData(redis, username) {
     throw error;
   }
   return data;
+}
+
+function parseAccountStatusRecord(raw) {
+  if (raw === null || raw === undefined) return null;
+  const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    const error = new Error('Invalid account status record');
+    error.code = 'ACCOUNT_STATUS_UNAVAILABLE';
+    throw error;
+  }
+  return data;
+}
+
+/**
+ * Read server-managed account flags without making a healthy, reviewed
+ * historical wallet duplicate block authentication. Any disabled/merged
+ * record still wins; malformed records and unresolved conflicts fail closed.
+ */
+async function getAccountStatusRecords(redis, username, {
+  allowSafeReadOnlyWalletConflict = false,
+  expectedPrincipal = null,
+} = {}) {
+  const identity = await resolveWalletStorageIdentity(redis, username);
+  if (!identity.conflict) {
+    const raw = await redis.get(`nf_user_data:${identity.storageUsername}`);
+    const record = parseAccountStatusRecord(raw);
+    return record ? [record] : [];
+  }
+  if (!allowSafeReadOnlyWalletConflict) throw walletIdentityConflict(identity);
+
+  const matched = Array.from(new Set(identity.matches || []));
+  const keys = matched.map(storageUsername => `nf_user_data:${storageUsername}`);
+  const values = typeof redis.mget === 'function'
+    ? await redis.mget(...keys)
+    : await Promise.all(keys.map(key => redis.get(key)));
+  if (!Array.isArray(values) || values.length !== keys.length) {
+    const error = new Error('Account status lookup returned an invalid response');
+    error.code = 'ACCOUNT_STATUS_UNAVAILABLE';
+    throw error;
+  }
+  const records = values.map(parseAccountStatusRecord);
+  if (records.length !== matched.length || records.some(record => !record)) {
+    const error = new Error('Account status record disappeared during lookup');
+    error.code = 'ACCOUNT_STATUS_UNAVAILABLE';
+    throw error;
+  }
+  // A disabled/merged tombstone must never be hidden by a healthy duplicate.
+  if (records.some(record => record.disabled || record.wallet_merged_into)) return records;
+
+  // Only the narrowly reviewed read-only alias exception may proceed when
+  // every duplicate is healthy and bound to one local principal.
+  const safeIdentity = await resolveReadOnlyWalletStorageIdentity(redis, username, { expectedPrincipal });
+  if (safeIdentity.conflict) throw walletIdentityConflict(safeIdentity);
+  return records;
 }
 
 /**
@@ -112,7 +173,10 @@ async function isAdminUser(redis, username, { failClosed = false } = {}) {
  * fail open during a Redis outage; mutating handlers can request fail-closed
  * behavior so an unknown account state never reaches an external API.
  */
-async function isDisabledUser(redis, usernameOrPayload, { failClosed = false } = {}) {
+async function isDisabledUser(redis, usernameOrPayload, {
+  failClosed = false,
+  allowSafeReadOnlyWalletConflict = false,
+} = {}) {
   const payload = usernameOrPayload && typeof usernameOrPayload === 'object' ? usernameOrPayload : null;
   const u = String(payload ? payload.username : usernameOrPayload || '').toLowerCase();
   if (!u || !redis) {
@@ -125,6 +189,13 @@ async function isDisabledUser(redis, usernameOrPayload, { failClosed = false } =
   }
   try {
     if (payload) await assertAccountIdentity(redis, payload);
+    if (allowSafeReadOnlyWalletConflict) {
+      const records = await getAccountStatusRecords(redis, u, {
+        allowSafeReadOnlyWalletConflict: true,
+        expectedPrincipal: payload ? principalFromPayload(payload) : null,
+      });
+      return records.some(record => record.disabled || record.wallet_merged_into);
+    }
     const data = await getAccountWalletData(redis, u);
     return Boolean(data && (data.disabled || data.wallet_merged_into));
   } catch (cause) {
@@ -241,6 +312,7 @@ module.exports = {
   parseCookies,
   getClientIp,
   getAuthPayload,
+  getAccountStatusRecords,
   isAdminUser,
   isDisabledUser,
   assertAccountIdentity,

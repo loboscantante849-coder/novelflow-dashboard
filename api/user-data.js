@@ -13,12 +13,13 @@ const { Redis } = require('@upstash/redis');
 const { mergeBookState } = require('./_lib/sync');
 const { commitUserDataUnderLock, releaseUserDataLock } = require('./_lib/user-data-lock');
 const { assertAccountIdentity, checkRateLimit, getAuthPayload, getClientIp } = require('./_lib/security');
+const { principalFromPayload } = require('./_lib/identity');
 const { splitStoredBonus } = require('./_lib/commission-policy');
 const { acquireWalletCreationSourceGuard } = require('./_lib/income-source-owners');
 const {
   acquireWalletDataLock,
   resolveUsernameAlias,
-  resolveWalletStorageIdentity,
+  resolveReadOnlyWalletStorageIdentity,
 } = require('./_lib/wallet-identity');
 
 const MAX_SYNC_BODY_BYTES = 512 * 1024;
@@ -64,7 +65,9 @@ module.exports = async (req, res) => {
 
   try {
     if (req.method === 'GET') {
-      const identity = await resolveWalletStorageIdentity(redis, primaryUsername);
+      const identity = await resolveReadOnlyWalletStorageIdentity(redis, primaryUsername, {
+        expectedPrincipal: principalFromPayload(payload),
+      });
       if (identity.conflict) {
         return res.status(409).json({
           error: 'Account identity recovery required',

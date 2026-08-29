@@ -1,5 +1,9 @@
 const { canonizePromoter } = require('./promoter-access');
 
+// This module is retained only for parsing/auditing historical reporting
+// rows. Promotion codes and links are public and are never authentication
+// credentials; password recovery is handled manually by support.
+
 // Historical reporting rows predate account passwords. A username alone is
 // public information, so it must never be sufficient to claim one of these
 // accounts. The account owner has both assets they created: a promotion code
@@ -31,6 +35,16 @@ function loadBundledSubmissions() {
 }
 
 const TRUSTED_SUBMISSIONS = loadBundledSubmissions();
+
+/**
+ * Compatibility shim for older internal callers. Public promotion codes and
+ * links are intentionally not authentication credentials, so this function
+ * can never change a password or touch Redis. Endpoints should return the
+ * same support-required response before calling it.
+ */
+async function recoverLegacyPromoterPassword() {
+  return { ok: false, status: 409, code: 'SUPPORT_RECOVERY_REQUIRED' };
+}
 
 function normalizeCode(value) {
   const code = String(value || '').trim();
@@ -152,6 +166,7 @@ module.exports = {
   normalizeLink,
   normalizeShortLinkToken,
   parseLinkProof,
+  recoverLegacyPromoterPassword,
   recoveryProofFromRequest,
   trustedSubmissionLinks,
   verifiesLegacyPromoterProof,

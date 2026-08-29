@@ -1,6 +1,7 @@
 const { createPromoterKeyResolver, getAdIdDetails } = require('./stats-data');
 const { acquireUserDataLock, releaseUserDataLock } = require('./user-data-lock');
 const { VERIFIED_SOURCE_OWNER_ALIASES } = require('./income-source-aliases');
+const { resolveUsernameAlias } = require('./wallet-identity');
 
 function normalizeOwner(value) {
   return String(value || '').trim().toLowerCase();
@@ -113,6 +114,7 @@ async function inspectApprovedSourceWalletOwner(
   requestedUsername,
   walletUsername,
   ownerIndex = null,
+  { allowEquivalentAliases = false } = {},
 ) {
   if (!redis || !adData || !adData.by_promoter || typeof adData.by_promoter !== 'object') {
     throw sourceOwnerError('INCOME_SOURCE_UNAVAILABLE', 'Income source identity is unavailable');
@@ -131,10 +133,31 @@ async function inspectApprovedSourceWalletOwner(
       index,
     };
   }
-  const owners = index.ownersBySource.get(sourceKey) || [];
+  const owners = Array.from(new Set(index.ownersBySource.get(sourceKey) || []));
   const normalizedWallet = normalizeOwner(walletUsername);
   const approved = isApprovedSourceOwner(adData, sourceKey, normalizedWallet);
-  const unique = owners.length === 1 && normalizeOwner(owners[0]) === normalizedWallet;
+  let unique = owners.length === 1 && normalizeOwner(owners[0]) === normalizedWallet;
+
+  // Read-only statistics may safely tolerate duplicate historical wallet keys
+  // when they are explicit aliases of one canonical identity and every alias
+  // is bound to the same non-empty server-side principal. This deliberately
+  // does not alter `owners` and is never enabled by wallet/withdrawal writers.
+  if (!unique && allowEquivalentAliases && owners.length > 1) {
+    const canonicalRequested = normalizeOwner(resolveUsernameAlias(requestedUsername));
+    const canonicalWallet = normalizeOwner(resolveUsernameAlias(walletUsername));
+    const equivalent = owners.every(owner => normalizeOwner(resolveUsernameAlias(owner)) === canonicalRequested) &&
+      canonicalRequested && canonicalRequested === canonicalWallet;
+    if (equivalent) {
+      const ownerKeys = Array.from(new Set(
+        owners.map(owner => `nf_identity_owner:${normalizeOwner(owner)}`),
+      ));
+      const ownerValues = typeof redis.mget === 'function'
+        ? await redis.mget(...ownerKeys)
+        : await Promise.all(ownerKeys.map(key => redis.get(key)));
+      const principals = ownerValues.filter(Boolean).map(String);
+      unique = principals.length === ownerKeys.length && new Set(principals).size === 1;
+    }
+  }
   return {
     sourceKey,
     found: true,

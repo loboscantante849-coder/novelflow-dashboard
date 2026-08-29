@@ -1,5 +1,8 @@
 const { resolveUsernameAlias } = require('./wallet-identity');
 const { verifiedSourceOwnerAliasValues } = require('./income-source-aliases');
+const { isProtectedPromoterUsername } = require('./promoter-access');
+
+const CASE_VARIANT_SCAN_PAGE_LIMIT = 16;
 
 // Login aliases are an authentication namespace, not wallet storage keys.
 // Cons has historically been entered in several UI spellings while the local
@@ -69,6 +72,41 @@ function localLoginCredentialCandidates(value) {
   };
 }
 
+function caseVariantCredentialPattern(username) {
+  return `nf_user_pass:${String(username).replace(/[a-z]/gi, '?')}`;
+}
+
+async function findCaseVariantCredentialUsernames(redis, candidates) {
+  if (!redis || typeof redis.scan !== 'function') return [];
+  const expected = new Set(candidates.map(username => String(username).trim().toLowerCase()));
+  const matches = new Set();
+  let pages = 0;
+  for (const pattern of new Set(candidates.map(caseVariantCredentialPattern))) {
+    let cursor = '0';
+    do {
+      if (++pages > CASE_VARIANT_SCAN_PAGE_LIMIT) {
+        const error = new Error('Login identity lookup exceeded its bounded scan');
+        error.code = 'ACCOUNT_IDENTITY_UNAVAILABLE';
+        throw error;
+      }
+      const result = await redis.scan(cursor, { match: pattern, count: 200 });
+      if (!Array.isArray(result) || result.length !== 2 || !Array.isArray(result[1])) {
+        const error = new Error('Login identity lookup returned an invalid response');
+        error.code = 'ACCOUNT_IDENTITY_UNAVAILABLE';
+        throw error;
+      }
+      cursor = String(result[0] || '0');
+      for (const key of result[1]) {
+        const value = String(key);
+        if (!value.startsWith('nf_user_pass:')) continue;
+        const storageUsername = value.slice('nf_user_pass:'.length);
+        if (expected.has(storageUsername.toLowerCase())) matches.add(storageUsername);
+      }
+    } while (cursor !== '0');
+  }
+  return Array.from(matches);
+}
+
 async function resolveLocalLoginPrincipal(redis, primaryUsername, credentialUsername, authenticatedPayload, resolvePasswordPrincipal) {
   const ownerKeys = Array.from(new Set([
     `nf_identity_owner:${primaryUsername}`,
@@ -90,12 +128,29 @@ async function resolveLocalLoginPrincipal(redis, primaryUsername, credentialUser
 
 async function loadLocalLoginCredentials(redis, value) {
   const identity = localLoginCredentialCandidates(value);
-  const records = await Promise.all(identity.usernames.map(async storageUsername => ({
+  const directRecords = await Promise.all(identity.usernames.map(async storageUsername => ({
+    storageUsername,
+    hash: await redis.get(`nf_user_pass:${storageUsername}`),
+  })));
+  // Case-only legacy keys are scanned only after a direct credential confirms
+  // the account or when the requested name is a protected promoter identity.
+  // Unknown public sign-in attempts remain O(1).
+  const discovered = (directRecords.some(record => record.hash) ||
+      isProtectedPromoterUsername(identity.primaryUsername))
+    ? await findCaseVariantCredentialUsernames(redis, identity.usernames)
+    : [];
+  const usernames = Array.from(new Set([
+    ...identity.usernames,
+    ...discovered,
+  ]));
+  const directByUsername = new Map(directRecords.map(record => [record.storageUsername, record]));
+  const records = await Promise.all(usernames.map(async storageUsername => directByUsername.get(storageUsername) || ({
     storageUsername,
     hash: await redis.get(`nf_user_pass:${storageUsername}`),
   })));
   return {
     ...identity,
+    usernames,
     records: records.filter(record => record.hash),
   };
 }
@@ -135,8 +190,10 @@ async function consolidateEquivalentCredentials(redis, primaryUsername, records,
 
 module.exports = {
   canConsolidateCredentials,
+  caseVariantCredentialPattern,
   canonicalizeLocalSessionPayload,
   consolidateEquivalentCredentials,
+  findCaseVariantCredentialUsernames,
   localLoginCredentialCandidates,
   loadLocalLoginCredentials,
   resolveLocalLoginPrincipal,

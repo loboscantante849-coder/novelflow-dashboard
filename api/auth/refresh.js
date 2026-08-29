@@ -58,12 +58,12 @@ module.exports = async (req, res) => {
       return res.status(503).json({ error: 'Auth service unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
     }
     try {
-      if (await isDisabledUser(redis, canonicalPayload, { failClosed: true })) {
+      if (await isDisabledUser(redis, canonicalPayload, { failClosed: true, allowSafeReadOnlyWalletConflict: true })) {
         clearAuthCookies(res);
         return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
       }
     } catch (_error) {
-      if (_error && _error.code === 'ACCOUNT_IDENTITY_CONFLICT') {
+      if (_error && ['ACCOUNT_IDENTITY_CONFLICT', 'WALLET_IDENTITY_CONFLICT'].includes(_error.code)) {
         clearAuthCookies(res);
         return res.status(409).json({ error: 'Account identity recovery required', code: _error.code });
       }

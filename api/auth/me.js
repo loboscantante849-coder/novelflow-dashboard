@@ -18,7 +18,10 @@ const {
 const { handlePreflight } = require('../_lib/cors');
 const { getRedis, isDisabledUser } = require('../_lib/security');
 const { ensureMemberIdentity } = require('../_lib/member-identity');
-const { loadLocalLoginCredentials } = require('../_lib/login-identity');
+const {
+  canonicalizeLocalSessionPayload,
+  loadLocalLoginCredentials,
+} = require('../_lib/login-identity');
 
 module.exports = async (req, res) => {
   // me is read by the same-origin frontend via credentials; no cross-origin credentialed reads allowed.
@@ -29,7 +32,7 @@ module.exports = async (req, res) => {
 
   try {
     // Try access token first
-    const payload = getUserFromCookies(req);
+    const payload = canonicalizeLocalSessionPayload(getUserFromCookies(req));
 
     if (payload && !payload._refresh) {
       const userInfo = extractUserInfo(payload);
@@ -43,7 +46,7 @@ module.exports = async (req, res) => {
         return res.status(503).json({ loggedIn: false, code: 'ACCOUNT_STATUS_UNAVAILABLE' });
       }
       try {
-        if (await isDisabledUser(redis, payload, { failClosed: true })) {
+        if (await isDisabledUser(redis, payload, { failClosed: true, allowSafeReadOnlyWalletConflict: true })) {
           clearAuthCookies(res);
           return res.status(403).json({ loggedIn: false, code: 'ACCOUNT_DISABLED' });
         }
@@ -59,7 +62,7 @@ module.exports = async (req, res) => {
         userInfo.passwordRecoveryRequired = credentials.records.length > 1;
         userInfo.memberId = member && member.id || null;
       } catch (_error) {
-        if (_error && _error.code === 'ACCOUNT_IDENTITY_CONFLICT') {
+        if (_error && ['ACCOUNT_IDENTITY_CONFLICT', 'WALLET_IDENTITY_CONFLICT'].includes(_error.code)) {
           clearAuthCookies(res);
           return res.status(409).json({ loggedIn: false, code: _error.code });
         }

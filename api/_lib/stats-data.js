@@ -14,7 +14,7 @@ const { isSystemStatsBucket } = require('./promoter-access');
 const { normalizeHttpsCoverUrl, backfillBookCovers } = require('./book-covers');
 const {
   resolveUsernameAlias,
-  resolveWalletStorageIdentity,
+  resolveReadOnlyWalletStorageIdentity,
   walletIdentityConflict,
   walletStorageCandidates,
 } = require('./wallet-identity');
@@ -413,7 +413,7 @@ function mergeSubmissionRecords(records) {
  *
  * Returns an array of submission objects, de-duplicated by linkId + code.
  */
-async function loadSubmissions(redis, username, admin, debugLog) {
+async function loadSubmissions(redis, username, admin, debugLog, options = {}) {
   const subs = [];
   if (!redis) return subs;
   const rawUsername = String(username || '').trim().toLowerCase();
@@ -472,7 +472,7 @@ async function loadSubmissions(redis, username, admin, debugLog) {
   // link-only and code-only records, so de-duplicate after loading both sources.
   if (!admin) {
     try {
-      const identity = await resolveWalletStorageIdentity(redis, walletUsername);
+      const identity = await resolveReadOnlyWalletStorageIdentity(redis, walletUsername, options);
       if (identity.conflict) throw walletIdentityConflict(identity);
       const walletKey = `nf_user_data:${identity.storageUsername}`;
       const kvData = await redis.get(walletKey);

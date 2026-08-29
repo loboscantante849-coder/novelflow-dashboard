@@ -2947,11 +2947,7 @@
             <div class="referral-applied" id="splashReferralApplied"></div>
             <input type="text" class="splash-input" id="splashUsername" data-i18n-placeholder="username" placeholder="Your username" oninput="checkSplashPasswordNeeded()">
             <input type="password" class="splash-input" id="splashPassword" data-i18n-placeholder="password_placeholder" placeholder="Password">
-            <div id="legacyRecoveryFields" style="display:none;margin:0 0 10px;text-align:left;">
-                <div style="font-size:12px;color:var(--ink-mute);margin:2px 0 7px;line-height:1.4;">Restore a historical promoter account with one of your previous promotion codes and its promotion link.</div>
-                <input type="text" class="splash-input" id="legacyPromotionCode" placeholder="Previous promotion code" maxlength="128" autocomplete="off">
-                <input type="text" class="splash-input" id="legacyPromotionLink" placeholder="Previous promotion link or link ID" maxlength="300" autocomplete="off" style="margin-top:8px;">
-            </div>
+            <div class="splash-tip" data-i18n="auth_support_note">Forgot your password? Contact support at LobosCantante849@gmail.com so we can verify your account safely.</div>
             <button class="splash-btn" onclick="handleSplashLogin()" data-i18n="start_earning"><span data-i18n="start_earning_btn">Start Earning</span></button>
             <div class="splash-tip" id="splashTip" data-i18n="splash_tip">Enter your username and password to login or create account.</div>
 
@@ -3469,7 +3465,7 @@
                     <input type="text" class="login-input" id="regUsername" placeholder="Your username" maxlength="50" oninput="checkRegPasswordNeeded()">
                     <input type="password" class="login-input" id="regPassword" placeholder="Password" style="margin-top:8px;">
                     <button class="login-btn" id="localLoginBtn" onclick="handleLocalRegister()" data-i18n="confirm_btn">Confirm</button>
-                    <div class="login-tip">Set a password to protect your account</div>
+                    <div class="login-tip" data-i18n="auth_support_note">Forgot your password? Contact support at LobosCantante849@gmail.com so we can verify your account safely.</div>
                 </div>
 
                 <button class="logout-btn" id="logoutBtn" onclick="handleLogout()">Logout</button>
@@ -3810,30 +3806,10 @@
             try { localStorage.removeItem(REFERRAL_STORAGE_KEY); } catch (_) {}
             renderReferralApplied();
         }
-        function getLegacyRecoveryPayload() {
-            const fields = document.getElementById('legacyRecoveryFields');
-            if (!fields || fields.style.display === 'none') return null;
-            const promotionCode = document.getElementById('legacyPromotionCode')?.value.trim() || '';
-            const promotionLink = document.getElementById('legacyPromotionLink')?.value.trim() || '';
-            return promotionCode && promotionLink ? { promotion_code: promotionCode, promotion_link: promotionLink } : null;
-        }
-
-        function showLegacyRecoveryFields(username) {
-            const fields = document.getElementById('legacyRecoveryFields');
-            if (fields) fields.style.display = 'block';
-            const usernameInput = document.getElementById('splashUsername');
-            if (usernameInput && username) usernameInput.value = username;
-            const error = document.getElementById('splashError');
-            if (error) error.textContent = 'To restore this historical promoter account, enter one previous promotion code and its matching promotion link.';
-            setTimeout(() => document.getElementById('legacyPromotionCode')?.focus(), 0);
-        }
-
         function buildRegistrationPayload(username, password) {
             const payload = { username, password: password || undefined };
             const referralCode = getStoredReferralCode();
             if (referralCode) payload.referral_code = referralCode;
-            const legacyRecovery = getLegacyRecoveryPayload();
-            if (legacyRecovery) payload.legacy_recovery = legacyRecovery;
             return payload;
         }
         function captureReferralCode() {
@@ -4213,6 +4189,8 @@
                 auth_modal_sub: 'Login or sign up to start earning',
                 login_register: 'Login / Register',
                 splash_tip: 'Enter your username and password to login or create account.',
+                auth_support_note: 'Forgot your password? Contact support at LobosCantante849@gmail.com so we can verify your account safely.',
+                auth_support_recovery: 'Please contact support at LobosCantante849@gmail.com to recover this account safely.',
                 
                 // Earn tab
                 earn_money: 'Earn Money',
@@ -4649,6 +4627,8 @@
                 auth_modal_sub: 'Inicia sesión o regístrate para empezar a ganar',
                 login_register: 'Iniciar sesión / Registrarse',
                 splash_tip: 'Ingresa tu usuario y contraseña para iniciar sesión o crear cuenta.',
+                auth_support_note: '¿Olvidaste tu contraseña? Contacta con soporte en LobosCantante849@gmail.com para verificar tu cuenta de forma segura.',
+                auth_support_recovery: 'Contacta con soporte en LobosCantante849@gmail.com para recuperar esta cuenta de forma segura.',
                 
                 // Earn tab
                 earn_money: 'Gana Dinero',
@@ -5106,6 +5086,7 @@
                 ACCOUNT_CREDENTIAL_CONFLICT: 'auth_account_recovery',
                 ACCOUNT_RECOVERY_REQUIRED: 'auth_account_recovery',
                 PROMOTER_RECOVERY_REQUIRED: 'auth_account_recovery',
+                SUPPORT_RECOVERY_REQUIRED: 'auth_support_recovery',
                 ACCOUNT_IDENTITY_CONFLICT: 'auth_account_recovery',
                 RATE_LIMIT_UNAVAILABLE: 'auth_unreachable',
                 RATE_LIMITED: 'auth_rate_limited'
@@ -9023,7 +9004,6 @@ function renderMyBooks() {
                 showToast('Please enter your password', 'error');
                 return;
             }
-
             try {
                 const response = await fetch('/api/auth/register', {
                     method: 'POST',
@@ -9047,10 +9027,8 @@ function renderMyBooks() {
                     return;
                 }
 
-                if (!response.ok && result.code === 'PROMOTER_RECOVERY_REQUIRED') {
-                    openAuthModal('profile');
-                    showLegacyRecoveryFields(username);
-                    showToast('Enter a previous promotion code and its matching link to restore this account.', 'info');
+                if (!response.ok && (result.code === 'PROMOTER_RECOVERY_REQUIRED' || result.code === 'SUPPORT_RECOVERY_REQUIRED')) {
+                    showToast(getText('auth_support_recovery'), 'info');
                     return;
                 }
 
@@ -9095,7 +9073,7 @@ function renderMyBooks() {
             AuthSession.transition('');
             try {
                 await fetch('/api/auth/logout', {
-                    method: 'GET',
+                    method: 'POST',
                     credentials: 'include'
                 });
             } catch (e) {
@@ -9160,8 +9138,9 @@ function renderMyBooks() {
                     const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = getText('auth_password_account_required');
                     return;
                 }
-                if (!resp.ok && result.code === 'PROMOTER_RECOVERY_REQUIRED') {
-                    showLegacyRecoveryFields(username);
+                if (!resp.ok && (result.code === 'PROMOTER_RECOVERY_REQUIRED' || result.code === 'SUPPORT_RECOVERY_REQUIRED')) {
+                    const seEl = document.getElementById('splashError');
+                    if (seEl) seEl.textContent = getText('auth_support_recovery');
                     return;
                 }
                 if (!resp.ok) {

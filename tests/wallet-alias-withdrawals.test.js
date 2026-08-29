@@ -10,7 +10,7 @@ process.env.KV_REST_API_TOKEN = 'test-token';
 
 const { signAccessToken } = require('../api/_lib/auth');
 const statsData = require('../api/_lib/stats-data');
-const { resolveUsernameAlias } = require('../api/_lib/wallet-identity');
+const { resolveUsernameAlias, resolveWalletStorageIdentity } = require('../api/_lib/wallet-identity');
 const { userDataLockKey } = require('../api/_lib/user-data-lock');
 const { isAdminUser, isDisabledUser } = require('../api/_lib/security');
 
@@ -87,6 +87,30 @@ test('account status reads use the same explicit wallet alias identity', async (
   const redis = new FakeRedis();
   assert.equal(await isAdminUser(redis, 'eliza_stellar', { failClosed: true }), true);
   assert.equal(await isDisabledUser(redis, '@eliza.stellar', { failClosed: true }), true);
+});
+
+test('a sole protected case-variant legacy wallet remains usable under its canonical identity', async () => {
+  const original = JSON.stringify({ bonus_balance: 0.5, points: 160, withdrawals: [] });
+  FakeRedis.reset({ 'nf_user_data:Xenomorphette': original });
+
+  const identity = await resolveWalletStorageIdentity(new FakeRedis(), 'xenomorphette');
+  assert.equal(identity.primaryUsername, 'xenomorphette');
+  assert.equal(identity.storageUsername, 'Xenomorphette');
+  assert.equal(identity.conflict, false);
+  assert.deepEqual(identity.matches, ['Xenomorphette']);
+  assert.equal(FakeRedis.values.get('nf_user_data:Xenomorphette'), original);
+  assert.equal(FakeRedis.values.has('nf_user_data:xenomorphette'), false);
+});
+
+test('case-variant duplicate protected wallets remain fail-closed', async () => {
+  FakeRedis.reset({
+    'nf_user_data:xenomorphette': JSON.stringify({ bonus_balance: 0.5 }),
+    'nf_user_data:Xenomorphette': JSON.stringify({ bonus_balance: 1 }),
+  });
+
+  const identity = await resolveWalletStorageIdentity(new FakeRedis(), 'xenomorphette');
+  assert.equal(identity.conflict, true);
+  assert.deepEqual(new Set(identity.matches), new Set(['xenomorphette', 'Xenomorphette']));
 });
 
 test('a legacy Eliza alias principal cannot cross into a differently owned primary wallet', async () => {

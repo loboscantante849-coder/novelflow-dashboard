@@ -19,7 +19,8 @@ const {
 } = require('./_lib/stats-data');
 const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
 const { inspectApprovedSourceWalletOwner } = require('./_lib/income-source-owners');
-const { resolveWalletStorageIdentity } = require('./_lib/wallet-identity');
+const { principalFromPayload } = require('./_lib/identity');
+const { resolveReadOnlyWalletStorageIdentity } = require('./_lib/wallet-identity');
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
@@ -49,7 +50,7 @@ module.exports = async (req, res) => {
   const redis = getRedis();
   if (!redis) return res.status(503).json({ error: 'Statistics temporarily unavailable', code: 'STORAGE_UNAVAILABLE' });
   try {
-    if (await isDisabledUser(redis, payload, { failClosed: true })) {
+    if (await isDisabledUser(redis, payload, { failClosed: true, allowSafeReadOnlyWalletConflict: true })) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
   } catch (_e) {
@@ -93,7 +94,9 @@ module.exports = async (req, res) => {
 
     if (!isAdmin && adData) {
       usernameCanon = resolvePromoterKey(username, adData);
-      const walletIdentity = await resolveWalletStorageIdentity(redis, username);
+      const walletIdentity = await resolveReadOnlyWalletStorageIdentity(redis, username, {
+        expectedPrincipal: isAdmin ? null : principalFromPayload(payload),
+      });
       if (walletIdentity.conflict) {
         return res.status(409).json({ error: 'Account identity recovery required', code: 'WALLET_IDENTITY_CONFLICT' });
       }
@@ -103,6 +106,8 @@ module.exports = async (req, res) => {
           adData,
           username,
           walletIdentity.storageUsername,
+          null,
+          { allowEquivalentAliases: Boolean(walletIdentity.readOnlyLegacyConflict) },
         );
         if (!ownership.approved) {
           return res.status(403).json({ error: 'Income source owner is not verified', code: 'INCOME_SOURCE_OWNER_UNVERIFIED' });
@@ -118,7 +123,13 @@ module.exports = async (req, res) => {
     }
 
     // 2. Load submissions from Redis
-    const submissions = redis ? await loadSubmissions(redis, username, isAdmin, IS_PROD ? [] : debugLog) : [];
+    const submissions = redis ? await loadSubmissions(
+      redis,
+      username,
+      isAdmin,
+      IS_PROD ? [] : debugLog,
+      { expectedPrincipal: isAdmin ? null : principalFromPayload(payload) },
+    ) : [];
 
     // Covers are loaded after attribution is resolved so legacy pipeline-only
     // book IDs share the same bounded backfill budget as Redis submissions.

@@ -1,4 +1,9 @@
 const { acquireUserDataLock, releaseUserDataLock } = require('./user-data-lock');
+const { isProtectedPromoterUsername } = require('./promoter-access');
+
+const CASE_VARIANT_SCAN_PAGE_LIMIT = 16;
+const CONS_READ_ONLY_CANONICAL = 'cons_espher';
+const CONS_READ_ONLY_LEGACY = '@cons espher';
 
 // Reporting usernames and wallet/login usernames are different namespaces.
 // Keep this map deliberately small and exact: only verified historical
@@ -44,6 +49,44 @@ function walletStorageCandidates(rawName) {
   return [primaryUsername];
 }
 
+function caseVariantWalletPattern(username) {
+  // Redis glob matching is case-sensitive. Usernames have already passed the
+  // authentication character policy, so replacing ASCII letters is safe; all
+  // returned keys are still compared by exact case-folded username below.
+  return `nf_user_data:${String(username).replace(/[a-z]/gi, '?')}`;
+}
+
+async function findCaseVariantWallets(redis, candidates) {
+  if (!redis || typeof redis.scan !== 'function') return [];
+  const expected = new Set(candidates.map(username => String(username).trim().toLowerCase()));
+  const matches = new Set();
+  let pages = 0;
+  for (const pattern of new Set(candidates.map(caseVariantWalletPattern))) {
+    let cursor = '0';
+    do {
+      if (++pages > CASE_VARIANT_SCAN_PAGE_LIMIT) {
+        const error = new Error('Wallet identity lookup exceeded its bounded scan');
+        error.code = 'WALLET_IDENTITY_UNAVAILABLE';
+        throw error;
+      }
+      const result = await redis.scan(cursor, { match: pattern, count: 200 });
+      if (!Array.isArray(result) || result.length !== 2 || !Array.isArray(result[1])) {
+        const error = new Error('Wallet identity lookup returned an invalid response');
+        error.code = 'WALLET_IDENTITY_UNAVAILABLE';
+        throw error;
+      }
+      cursor = String(result[0] || '0');
+      for (const key of result[1]) {
+        const value = String(key);
+        if (!value.startsWith('nf_user_data:')) continue;
+        const storageUsername = value.slice('nf_user_data:'.length);
+        if (expected.has(storageUsername.toLowerCase())) matches.add(storageUsername);
+      }
+    } while (cursor !== '0');
+  }
+  return Array.from(matches);
+}
+
 async function resolveWalletStorageIdentity(redis, requestedUsername) {
   const primaryUsername = resolveUsernameAlias(requestedUsername);
   if (!primaryUsername) {
@@ -64,12 +107,102 @@ async function resolveWalletStorageIdentity(redis, requestedUsername) {
     error.code = 'WALLET_IDENTITY_UNAVAILABLE';
     throw error;
   }
-  const matches = candidates.filter((_, index) => values[index] !== null && values[index] !== undefined);
+  const directMatches = candidates.filter((_, index) => values[index] !== null && values[index] !== undefined);
+  // Case scans are allowed only for a known existing wallet or a protected
+  // promoter identity. Unknown public usernames remain constant-time and can
+  // never enumerate Redis keys through an authentication request.
+  const caseVariantMatches = directMatches.length || isProtectedPromoterUsername(primaryUsername)
+    ? await findCaseVariantWallets(redis, candidates)
+    : [];
+  const matches = Array.from(new Set([
+    ...directMatches,
+    ...caseVariantMatches,
+  ]));
   return {
     primaryUsername,
     storageUsername: matches.length === 1 ? matches[0] : primaryUsername,
     conflict: matches.length > 1,
     matches,
+  };
+}
+
+function parseReadOnlyWalletRecord(raw) {
+  if (!raw) return null;
+  let value = raw;
+  if (typeof value === 'string') {
+    try { value = JSON.parse(value); } catch (_error) { return null; }
+  }
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+}
+
+function healthyReadOnlyWalletRecord(record) {
+  return Boolean(record && !record.disabled && !record.wallet_merged_into);
+}
+
+/**
+ * The Cons account has one reviewed production-only exception: two historical
+ * wallet records may coexist under the canonical and old credential spelling.
+ * Read-only session/stat flows can select the canonical record only when both
+ * records are valid and healthy and every relevant owner is the same canonical
+ * local principal. This never merges data and is intentionally not used by
+ * wallet locks or any mutation path.
+ */
+async function resolveReadOnlyWalletStorageIdentity(redis, requestedUsername, { expectedPrincipal = null } = {}) {
+  const identity = await resolveWalletStorageIdentity(redis, requestedUsername);
+  if (!identity.conflict) return identity;
+
+  const matches = new Set(identity.matches || []);
+  if (identity.primaryUsername !== CONS_READ_ONLY_CANONICAL ||
+      matches.size !== 2 ||
+      !matches.has(CONS_READ_ONLY_CANONICAL) ||
+      !matches.has(CONS_READ_ONLY_LEGACY)) {
+    return identity;
+  }
+
+  const keys = [
+    `nf_user_data:${CONS_READ_ONLY_CANONICAL}`,
+    `nf_user_data:${CONS_READ_ONLY_LEGACY}`,
+    `nf_identity_owner:${CONS_READ_ONLY_CANONICAL}`,
+    `nf_identity_owner:${CONS_READ_ONLY_LEGACY}`,
+    `nf_user_pass_owner:${CONS_READ_ONLY_CANONICAL}`,
+    `nf_user_pass_owner:${CONS_READ_ONLY_LEGACY}`,
+  ];
+  const values = typeof redis.mget === 'function'
+    ? await redis.mget(...keys)
+    : await Promise.all(keys.map(key => redis.get(key)));
+  if (!Array.isArray(values) || values.length !== keys.length) {
+    const error = new Error('Read-only wallet identity lookup returned an invalid response');
+    error.code = 'WALLET_IDENTITY_UNAVAILABLE';
+    throw error;
+  }
+
+  const [canonicalRaw, legacyRaw, canonicalOwner, legacyOwner, canonicalPasswordOwner, legacyPasswordOwner] = values;
+  const canonicalRecord = parseReadOnlyWalletRecord(canonicalRaw);
+  const legacyRecord = parseReadOnlyWalletRecord(legacyRaw);
+  if (!healthyReadOnlyWalletRecord(canonicalRecord) || !healthyReadOnlyWalletRecord(legacyRecord)) {
+    return identity;
+  }
+  const identityOwners = [canonicalOwner, legacyOwner].map(value => String(value || ''));
+  if (identityOwners.some(owner => !/^local:[^\s]{1,128}$/.test(owner)) ||
+      new Set(identityOwners).size !== 1) {
+    return identity;
+  }
+  const owner = identityOwners[0];
+  if (expectedPrincipal && owner !== String(expectedPrincipal)) {
+    return identity;
+  }
+  const passwordOwners = [canonicalPasswordOwner, legacyPasswordOwner]
+    .filter(Boolean)
+    .map(String);
+  if (passwordOwners.some(passwordOwner => passwordOwner !== owner)) {
+    return identity;
+  }
+
+  return {
+    ...identity,
+    storageUsername: CONS_READ_ONLY_CANONICAL,
+    conflict: false,
+    readOnlyLegacyConflict: true,
   };
 }
 
@@ -109,7 +242,10 @@ async function acquireWalletDataLock(redis, requestedUsername, options = {}) {
 
 module.exports = {
   acquireWalletDataLock,
+  caseVariantWalletPattern,
+  findCaseVariantWallets,
   resolveUsernameAlias,
+  resolveReadOnlyWalletStorageIdentity,
   resolveWalletStorageIdentity,
   walletIdentityConflict,
   walletStorageCandidates,

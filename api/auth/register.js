@@ -32,11 +32,11 @@ const { createAccountWithSignupEvent, deliverSignupEvent, enrichSignupEvent, sig
 const { getLiveAdIdDetails } = require('../_lib/stats-data');
 const {
   consolidateEquivalentCredentials,
+  loadLocalLoginCredentials,
   localLoginCredentialCandidates,
   resolveLocalLoginPrincipal,
 } = require('../_lib/login-identity');
-const { verifiesLegacyPromoterProof } = require('../_lib/legacy-promoter-recovery');
-const crypto = require('crypto');
+const { resolveReadOnlyWalletStorageIdentity } = require('../_lib/wallet-identity');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -103,12 +103,22 @@ module.exports = async (req, res) => {
     if (legacyRecovery !== undefined && legacyRecovery !== null && (typeof legacyRecovery !== 'object' || Array.isArray(legacyRecovery))) {
       return res.status(400).json({ error: 'Invalid legacy recovery proof', code: 'INVALID_RECOVERY_PROOF' });
     }
+    const recoveryRequested = legacyRecovery !== undefined && legacyRecovery !== null;
     const referralCode = extractReferralCode(req);
 
     const cleanUsername = username.trim();
     if (!USERNAME_RE.test(cleanUsername)) {
       return res.status(400).json({
         error: 'Invalid username (use letters, numbers, Chinese chars, underscore, dot, @, space, hyphen; 1-50 chars)'
+      });
+    }
+    // Historical promotion codes and links are public data, not proof of
+    // account ownership. Keep the legacy field parseable for old clients,
+    // but route every such request to human support before any Redis access.
+    if (recoveryRequested) {
+      return res.status(409).json({
+        error: 'Please contact support to recover this account',
+        code: 'SUPPORT_RECOVERY_REQUIRED',
       });
     }
     const loginIdentity = localLoginCredentialCandidates(cleanUsername);
@@ -133,16 +143,21 @@ module.exports = async (req, res) => {
       if (!ipRL.allowed) {
         return res.status(429).json({ error: 'Too many login attempts', code: 'RATE_LIMITED', retryAfter: ipRL.retryAfter });
       }
-      // Username-based lockout: 5 failures / 15 min
-      const acctLock = await redis.get('nf_login_lock:' + usernameKey);
-      if (acctLock) {
-        const ttl = await redis.ttl('nf_login_lock:' + usernameKey);
-        if (ttl > 0) {
-          return res.status(429).json({ error: 'Account temporarily locked', code: 'RATE_LIMITED', retryAfter: ttl });
+      // Username-based lockout: 5 failures / 15 min. Lock state is
+      // authoritative; a Redis outage must become a generic 503.
+      try {
+        const acctLock = await redis.get('nf_login_lock:' + usernameKey);
+        if (acctLock) {
+          const ttl = await redis.ttl('nf_login_lock:' + usernameKey);
+          if (ttl > 0) {
+            return res.status(429).json({ error: 'Account temporarily locked', code: 'RATE_LIMITED', retryAfter: ttl });
+          }
+          // This lock type is always created with a 15-minute TTL. A surviving
+          // no-expiry key is stale legacy state, not an intentional account ban.
+          await redis.del('nf_login_lock:' + usernameKey);
         }
-        // This lock type is always created with a 15-minute TTL. A surviving
-        // no-expiry key is stale legacy state, not an intentional account ban.
-        await redis.del('nf_login_lock:' + usernameKey);
+      } catch (_error) {
+        return res.status(503).json({ error: 'Registration service temporarily unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
       }
     }
 
@@ -156,15 +171,32 @@ module.exports = async (req, res) => {
 
     {
       const passwordKey = 'nf_user_pass:' + usernameKey;
-      const credentialRecords = await Promise.all(loginIdentity.usernames.map(async storageUsername => ({
-        storageUsername,
-        hash: await redis.get(`nf_user_pass:${storageUsername}`),
-      })));
-      const userData = await redis.get('nf_user_data:' + usernameKey);
+      let credentialIdentity;
       try {
-        if (await isDisabledUser(redis, usernameKey, { failClosed: true })) {
+        credentialIdentity = await loadLocalLoginCredentials(redis, cleanUsername);
+      } catch (_error) {
+        return res.status(503).json({ error: 'Account identity lookup is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
+      }
+      const credentialRecords = credentialIdentity.records;
+      try {
+        if (await isDisabledUser(redis, usernameKey, { failClosed: true, allowSafeReadOnlyWalletConflict: true })) {
           return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
         }
+      } catch (_error) {
+        return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
+      }
+      let walletIdentity;
+      try {
+        walletIdentity = await resolveReadOnlyWalletStorageIdentity(redis, usernameKey);
+      } catch (_error) {
+        return res.status(503).json({ error: 'Account identity lookup is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
+      }
+      if (walletIdentity.conflict) {
+        return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
+      }
+      let userData;
+      try {
+        userData = await redis.get(`nf_user_data:${walletIdentity.storageUsername}`);
       } catch (_error) {
         return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
       }
@@ -187,36 +219,50 @@ module.exports = async (req, res) => {
         }
         if (!verifiedCredentials.length) {
           // Record failure → lock after 5
-          const fails = await redis.incr('nf_login_fail:' + usernameKey);
-          if (fails === 1) await redis.expire('nf_login_fail:' + usernameKey, 900);
-          if (fails >= 5) {
-            await redis.set('nf_login_lock:' + usernameKey, '1', { ex: 900 });
-            await redis.del('nf_login_fail:' + usernameKey);
+          try {
+            const fails = await redis.incr('nf_login_fail:' + usernameKey);
+            if (fails === 1) await redis.expire('nf_login_fail:' + usernameKey, 900);
+            if (fails >= 5) {
+              await redis.set('nf_login_lock:' + usernameKey, '1', { ex: 900 });
+              await redis.del('nf_login_fail:' + usernameKey);
+            }
+          } catch (_error) {
+            return res.status(503).json({ error: 'Registration service temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
           }
           return res.status(401).json({ error: 'Invalid username or password', code: 'INVALID_CREDENTIALS' });
         }
         if (verifiedCredentials.length !== storedCredentials.length) {
           return res.status(409).json({ error: 'Account credential recovery is required', code: 'ACCOUNT_CREDENTIAL_CONFLICT' });
         }
-        const principalForCredentials = await resolveLocalLoginPrincipal(
-          redis,
-          usernameKey,
-          usernameKey,
-          authenticatedPayload,
-          resolvePasswordPrincipal,
-        );
+        let principalForCredentials;
+        try {
+          principalForCredentials = await resolveLocalLoginPrincipal(
+            redis,
+            usernameKey,
+            usernameKey,
+            authenticatedPayload,
+            resolvePasswordPrincipal,
+          );
+        } catch (_error) {
+          return res.status(503).json({ error: 'Account identity lookup is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
+        }
         if (!principalForCredentials) {
           return res.status(409).json({ error: 'Account identity recovery is required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
         }
         if (storedCredentials.length > 1) {
-          const consolidated = await consolidateEquivalentCredentials(
-            redis,
-            usernameKey,
-            storedCredentials,
-            password,
-            createPasswordHash,
-            principalForCredentials,
-          );
+          let consolidated;
+          try {
+            consolidated = await consolidateEquivalentCredentials(
+              redis,
+              usernameKey,
+              storedCredentials,
+              password,
+              createPasswordHash,
+              principalForCredentials,
+            );
+          } catch (_error) {
+            return res.status(503).json({ error: 'Account identity update is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
+          }
           if (!consolidated) {
             return res.status(409).json({ error: 'Account credential recovery is required', code: 'ACCOUNT_CREDENTIAL_CONFLICT' });
           }
@@ -225,7 +271,11 @@ module.exports = async (req, res) => {
           const matchedCredential = verifiedCredentials[0];
           credentialUsername = matchedCredential.storageUsername.toLowerCase();
           if (matchedCredential.verification.needsRehash) {
-            await redis.set(`nf_user_pass:${matchedCredential.storageUsername}`, await createPasswordHash(password));
+            try {
+              await redis.set(`nf_user_pass:${matchedCredential.storageUsername}`, await createPasswordHash(password));
+            } catch (_error) {
+              return res.status(503).json({ error: 'Account identity update is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
+            }
           }
         }
         // Success → clear failure counter
@@ -237,6 +287,12 @@ module.exports = async (req, res) => {
         const session = getAuthPayload(req);
         const sessionUsername = String(session && session.username || '').trim().toLowerCase();
         if (sessionUsername !== usernameKey) {
+          if (isProtectedPromoterUsername(usernameKey)) {
+            return res.status(409).json({
+              error: 'Please contact support to recover this account',
+              code: 'SUPPORT_RECOVERY_REQUIRED',
+            });
+          }
           return res.status(409).json({
             error: 'Account recovery is required before setting a password',
             code: 'ACCOUNT_RECOVERY_REQUIRED',
@@ -284,37 +340,13 @@ module.exports = async (req, res) => {
         }
         const protectedPromoter = isProtectedPromoterUsername(usernameKey, runtimePromoterSnapshot);
         if (protectedPromoter) {
-          // A protected historical promoter may only fill an otherwise-empty
-          // login slot after proving control of two independent past assets.
-          if (!password || !isValidPassword(password)) {
-            return res.status(400).json({ error: 'Password must be at least 8 characters with a letter and a number', needPassword: true, mustSetPassword: true });
-          }
-          if (!verifiesLegacyPromoterProof(runtimePromoterSnapshot, usernameKey, legacyRecovery)) {
-            return res.status(409).json({ error: 'This promoter account requires recovery proof', code: 'PROMOTER_RECOVERY_REQUIRED' });
-          }
-          const recoveryKey = `nf_legacy_recovery_lock:v1:${usernameKey}`;
-          const recoveryToken = crypto.randomUUID();
-          if (!await redis.set(recoveryKey, recoveryToken, { nx: true, ex: 60 })) {
-            return res.status(429).json({ error: 'Recovery is already in progress. Please retry shortly.', code: 'RECOVERY_BUSY' });
-          }
-          try {
-            const [freshCredential, freshData, identityOwner, passwordOwner] = await Promise.all([
-              redis.get(passwordKey),
-              redis.get(`nf_user_data:${usernameKey}`),
-              redis.get(`nf_identity_owner:${usernameKey}`),
-              redis.get(`nf_user_pass_owner:${usernameKey}`),
-            ]);
-            if (freshCredential || freshData || identityOwner || passwordOwner) {
-              return res.status(409).json({ error: 'Account recovery is required', code: 'ACCOUNT_RECOVERY_REQUIRED' });
-            }
-            if (!await redis.set(passwordKey, await createPasswordHash(password), { nx: true })) {
-              return res.status(409).json({ error: 'Account already exists. Please sign in.', code: 'ACCOUNT_ALREADY_EXISTS' });
-            }
-            passedAuth = true;
-            credentialUsername = usernameKey;
-          } finally {
-            if (String(await redis.get(recoveryKey) || '') === recoveryToken) await redis.del(recoveryKey);
-          }
+          // Do not disclose or create a protected historical account through
+          // normal registration. Public promotion assets are not proof of
+          // ownership; human support must perform recovery.
+          return res.status(409).json({
+            error: 'Please contact support to recover this account',
+            code: 'SUPPORT_RECOVERY_REQUIRED',
+          });
         } else {
           // Brand new user → require a password to register.
           isNewUser = true;
@@ -328,25 +360,38 @@ module.exports = async (req, res) => {
             const validatedReferral = await validateReferral(redis, usernameKey, referralCode);
             referralToBind = validatedReferral && validatedReferral.referral_code;
           } catch (error) {
-            return res.status(error && error.code === 'SELF_REFERRAL' ? 409 : 400).json({
-              error: error.message || 'Invalid referral code',
-              code: error.code || 'INVALID_REFERRAL_CODE',
-            });
+            if (error && error.code === 'SELF_REFERRAL') {
+              return res.status(409).json({ error: 'You cannot refer yourself', code: 'SELF_REFERRAL' });
+            }
+            if (error && error.code === 'INVALID_REFERRAL_CODE') {
+              return res.status(400).json({ error: 'Invalid referral code', code: 'INVALID_REFERRAL_CODE' });
+            }
+            return res.status(503).json({ error: 'Registration service temporarily unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
           }
-          if (!await claimIdentity(redis, usernameKey, `local:${usernameKey}`)) {
+          let claimed;
+          try {
+            claimed = await claimIdentity(redis, usernameKey, `local:${usernameKey}`);
+          } catch (_error) {
+            return res.status(503).json({ error: 'Account identity update is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
+          }
+          if (!claimed) {
             return res.status(409).json({ error: 'This username belongs to another sign-in method', code: 'ACCOUNT_IDENTITY_CONFLICT' });
           }
-          signupEvent = await createAccountWithSignupEvent(
-            redis,
-            passwordKey,
-            await createPasswordHash(password),
-            {
-              username: usernameKey,
-              referralCode: referralToBind || '',
-              ip,
-              userAgent: (req.headers && req.headers['user-agent']) || '',
-            },
-          );
+          try {
+            signupEvent = await createAccountWithSignupEvent(
+              redis,
+              passwordKey,
+              await createPasswordHash(password),
+              {
+                username: usernameKey,
+                referralCode: referralToBind || '',
+                ip,
+                userAgent: (req.headers && req.headers['user-agent']) || '',
+              },
+            );
+          } catch (_error) {
+            return res.status(503).json({ error: 'Registration service temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
+          }
           if (!signupEvent) {
             return res.status(409).json({ error: 'Account already exists. Please sign in.', code: 'ACCOUNT_ALREADY_EXISTS' });
           }
@@ -359,17 +404,24 @@ module.exports = async (req, res) => {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
-    const passwordPrincipal = await resolveLocalLoginPrincipal(
-      redis,
-      usernameKey,
-      credentialUsername,
-      authenticatedPayload,
-      resolvePasswordPrincipal,
-    );
-    if (!passwordPrincipal ||
-        !await claimIdentity(redis, usernameKey, passwordPrincipal) ||
-        !await claimIdentity(redis, credentialUsername, passwordPrincipal) ||
-        !await bindPasswordPrincipal(redis, credentialUsername, passwordPrincipal)) {
+    let passwordPrincipal;
+    let identityBound = false;
+    try {
+      passwordPrincipal = await resolveLocalLoginPrincipal(
+        redis,
+        usernameKey,
+        credentialUsername,
+        authenticatedPayload,
+        resolvePasswordPrincipal,
+      );
+      identityBound = Boolean(passwordPrincipal &&
+        await claimIdentity(redis, usernameKey, passwordPrincipal) &&
+        await claimIdentity(redis, credentialUsername, passwordPrincipal) &&
+        await bindPasswordPrincipal(redis, credentialUsername, passwordPrincipal));
+    } catch (_error) {
+      return res.status(503).json({ error: 'Account identity update is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
+    }
+    if (!identityBound) {
       return res.status(409).json({ error: 'Account identity recovery is required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
     }
     let finalizedReferral = null;

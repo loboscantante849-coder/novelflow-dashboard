@@ -48,7 +48,7 @@ test('brand-new local accounts cannot pre-claim live-only source or raw identiti
       body: { username, password: 'Password1' },
     });
     assert.equal(response.statusCode, 409, username);
-    assert.equal(response.body.code, 'PROMOTER_RECOVERY_REQUIRED', username);
+    assert.equal(response.body.code, 'SUPPORT_RECOVERY_REQUIRED', username);
     assert.equal(Array.from(FakeRedis.values.keys()).some(key => key.startsWith('nf_user_pass:')), false);
     assert.equal(Array.from(FakeRedis.values.keys()).some(key => key.startsWith('nf_identity_owner:')), false);
   }
