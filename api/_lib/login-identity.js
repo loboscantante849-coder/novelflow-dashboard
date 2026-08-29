@@ -77,6 +77,42 @@ function caseVariantCredentialPattern(username) {
   return `nf_user_pass:${String(username).replace(/[a-z]/gi, '?')}`;
 }
 
+// Older credential migrations sometimes preserved the original casing in
+// owner-index keys even though the password/data key namespace is now
+// case-insensitive.  Always inspect both spellings.  Reading only the
+// lowercase key can hide an owner bound to `nf_identity_owner:Alice` and make
+// a duplicate-credential consolidation look safe when it is not.
+function credentialOwnerKeyVariants(prefix, alias) {
+  const exact = String(alias || '').trim();
+  if (!exact) return [];
+  const lower = exact.toLowerCase();
+  return Array.from(new Set([
+    `${prefix}:${exact}`,
+    `${prefix}:${lower}`,
+  ]));
+}
+
+function credentialOwnerKeys(aliases) {
+  return Array.from(new Set(
+    (Array.isArray(aliases) ? aliases : [aliases])
+      .flatMap(alias => [
+        ...credentialOwnerKeyVariants('nf_identity_owner', alias),
+        ...credentialOwnerKeyVariants('nf_user_pass_owner', alias),
+      ]),
+  ));
+}
+
+function normalizeCredentialOwner(value, username) {
+  const owner = canonicalizeLocalPrincipal(String(value || ''), username);
+  if (!/^(?:local|discord):[^\s]{1,128}$/.test(owner)) return null;
+  // A local password alias can only resolve to the canonical local account
+  // handle.  A different local:* owner means the legacy key belongs to a
+  // separate account and must fail closed; Discord principals may legitimately
+  // own a local password after an explicit link flow.
+  if (owner.startsWith('local:') && owner !== `local:${resolveLocalLoginUsername(username)}`) return null;
+  return owner;
+}
+
 async function findCaseVariantCredentialUsernames(redis, candidates) {
   if (!redis || typeof redis.scan !== 'function') return [];
   const expected = new Set(candidates.map(username => String(username).trim().toLowerCase()));
@@ -109,16 +145,13 @@ async function findCaseVariantCredentialUsernames(redis, candidates) {
 }
 
 async function resolveLocalLoginPrincipal(redis, primaryUsername, credentialUsername, authenticatedPayload, resolvePasswordPrincipal) {
-  const ownerKeys = Array.from(new Set([
-    `nf_identity_owner:${primaryUsername}`,
-    `nf_identity_owner:${credentialUsername}`,
-    `nf_user_pass_owner:${credentialUsername}`,
-  ]));
-  const owners = (typeof redis.mget === 'function'
+  const ownerKeys = credentialOwnerKeys([primaryUsername, credentialUsername]);
+  const rawOwners = (typeof redis.mget === 'function'
     ? await redis.mget(...ownerKeys)
     : await Promise.all(ownerKeys.map(key => redis.get(key))))
-    .filter(Boolean)
-    .map(value => canonicalizeLocalPrincipal(String(value), primaryUsername));
+    .filter(Boolean);
+  const owners = rawOwners.map(value => normalizeCredentialOwner(value, primaryUsername));
+  if (owners.some(owner => !owner)) return null;
   if (new Set(owners).size > 1) return null;
   // The password may live under a historical spelling that contains spaces,
   // but session principals must stay in the canonical login namespace. The
@@ -127,7 +160,7 @@ async function resolveLocalLoginPrincipal(redis, primaryUsername, credentialUser
   return owners[0] || resolvePasswordPrincipal(redis, primaryUsername, authenticatedPayload);
 }
 
-async function loadLocalLoginCredentials(redis, value) {
+async function loadLocalLoginCredentials(redis, value, { scanCaseVariants = false } = {}) {
   const identity = localLoginCredentialCandidates(value);
   const directRecords = await Promise.all(identity.usernames.map(async storageUsername => ({
     storageUsername,
@@ -136,7 +169,7 @@ async function loadLocalLoginCredentials(redis, value) {
   // Case-only legacy keys are scanned only after a direct credential confirms
   // the account or when the requested name is a protected promoter identity.
   // Unknown public sign-in attempts remain O(1).
-  const discovered = (directRecords.some(record => record.hash) ||
+  const discovered = (scanCaseVariants || directRecords.some(record => record.hash) ||
       isProtectedPromoterUsername(identity.primaryUsername))
     ? await findCaseVariantCredentialUsernames(redis, identity.usernames)
     : [];
@@ -162,17 +195,16 @@ async function loadLocalLoginCredentials(redis, value) {
 // password validates every duplicate and every stored owner agrees.
 async function canConsolidateCredentials(redis, primaryUsername, records, principal) {
   if (!redis || !primaryUsername || !Array.isArray(records) || records.length < 2 || !principal) return false;
-  const expectedPrincipal = canonicalizeLocalPrincipal(String(principal), primaryUsername);
+  const expectedPrincipal = normalizeCredentialOwner(principal, primaryUsername);
+  if (!expectedPrincipal) return false;
   const aliases = Array.from(new Set(records.map(record => String(record.storageUsername || '').trim()).filter(Boolean)));
-  const ownerKeys = aliases.flatMap(alias => [
-    `nf_identity_owner:${alias.toLowerCase()}`,
-    `nf_user_pass_owner:${alias.toLowerCase()}`,
-  ]);
-  const owners = (typeof redis.mget === 'function'
+  const ownerKeys = credentialOwnerKeys(aliases);
+  const rawOwners = (typeof redis.mget === 'function'
     ? await redis.mget(...ownerKeys)
     : await Promise.all(ownerKeys.map(key => redis.get(key))))
-    .filter(Boolean)
-    .map(value => canonicalizeLocalPrincipal(String(value), primaryUsername));
+    .filter(Boolean);
+  const owners = rawOwners.map(value => normalizeCredentialOwner(value, primaryUsername));
+  if (owners.some(owner => !owner)) return false;
   return owners.every(owner => owner === expectedPrincipal);
 }
 
@@ -184,7 +216,12 @@ async function consolidateEquivalentCredentials(redis, primaryUsername, records,
     const alias = String(record.storageUsername || '').trim();
     if (alias && alias !== canonical) {
       await redis.del(`nf_user_pass:${alias}`);
-      await redis.del(`nf_user_pass_owner:${alias.toLowerCase()}`);
+      // Keep the canonical owner index when the only difference is casing;
+      // remove the exact historical alias (and any genuinely distinct
+      // lowercase alias) so it cannot become a stale conflict later.
+      for (const ownerKey of credentialOwnerKeyVariants('nf_user_pass_owner', alias)) {
+        if (ownerKey !== `nf_user_pass_owner:${canonical}`) await redis.del(ownerKey);
+      }
     }
   }
   return true;
@@ -194,10 +231,13 @@ module.exports = {
   canConsolidateCredentials,
   caseVariantCredentialPattern,
   canonicalizeLocalSessionPayload,
+  credentialOwnerKeyVariants,
+  credentialOwnerKeys,
   consolidateEquivalentCredentials,
   findCaseVariantCredentialUsernames,
   localLoginCredentialCandidates,
   loadLocalLoginCredentials,
   resolveLocalLoginPrincipal,
   resolveLocalLoginUsername,
+  normalizeCredentialOwner,
 };

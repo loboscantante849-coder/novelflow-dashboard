@@ -311,6 +311,81 @@ test('different duplicate credentials remain blocked and are not consolidated', 
   assert.equal(FakeRedis.values.get('nf_user_pass:Alice'), secondHash);
 });
 
+test('case-variant owner indexes cannot be hidden during credential consolidation', async () => {
+  const hash = legacyPasswordHash('Password1');
+  FakeRedis.reset({
+    'nf_user_pass:alice': hash,
+    'nf_user_pass:Alice': hash,
+    // This exact-case legacy owner belongs to a different local account.
+    'nf_identity_owner:Alice': 'local:another-account',
+  });
+
+  const response = await invoke(login, {
+    body: { username: 'Alice', password: 'Password1' },
+  });
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'ACCOUNT_CREDENTIAL_CONFLICT');
+  assert.equal(FakeRedis.values.get('nf_user_pass:alice'), hash);
+  assert.equal(FakeRedis.values.get('nf_user_pass:Alice'), hash);
+});
+
+test('a single case-variant credential cannot authenticate through a conflicting exact owner', async () => {
+  const hash = legacyPasswordHash('Password1');
+  FakeRedis.reset({
+    'nf_user_pass:Alice': hash,
+    'nf_identity_owner:Alice': 'local:another-account',
+  });
+
+  const response = await invoke(login, {
+    body: { username: 'Alice', password: 'Password1' },
+  });
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'ACCOUNT_IDENTITY_CONFLICT');
+  assert.equal(FakeRedis.values.get('nf_user_pass:Alice'), hash);
+  assert.equal(response.headers['set-cookie'], undefined);
+});
+
+test('set-password checks exact and lowercase owner indexes for a legacy credential', async () => {
+  const hash = legacyPasswordHash('Password1');
+  FakeRedis.reset({
+    'nf_user_pass:Alice': hash,
+    'nf_user_data:alice': JSON.stringify({ points: 1 }),
+    'nf_identity_owner:Alice': 'local:another-account',
+  });
+  const token = signAccessToken({ type: 'local', username: 'alice', principal: 'local:alice' });
+
+  const response = await invoke(setPassword, {
+    headers: { cookie: `nf_token=${token}` },
+    body: { oldPassword: 'Password1', password: 'Password2' },
+  });
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'ACCOUNT_IDENTITY_CONFLICT');
+  assert.equal(FakeRedis.values.get('nf_user_pass:Alice'), hash);
+});
+
+test('set-password discovers an unprotected case-variant credential before owner validation', async () => {
+  const hash = legacyPasswordHash('Password1');
+  FakeRedis.reset({
+    'nf_user_pass:CaseProbe': hash,
+    'nf_user_data:caseprobe': JSON.stringify({ points: 1 }),
+    'nf_user_pass_owner:CaseProbe': 'local:another-account',
+  });
+  const token = signAccessToken({ type: 'local', username: 'caseprobe', principal: 'local:caseprobe' });
+
+  const response = await invoke(setPassword, {
+    headers: { cookie: `nf_token=${token}` },
+    body: { oldPassword: 'Password1', password: 'Password2' },
+  });
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'ACCOUNT_IDENTITY_CONFLICT');
+  assert.equal(FakeRedis.values.get('nf_user_pass:CaseProbe'), hash);
+  assert.equal(FakeRedis.values.has('nf_user_pass:caseprobe'), false);
+});
+
 test('protected historical promoters require support even without a recovery proof', async () => {
   const response = await invoke(register, {
     body: { username: 'Ndidii2000', password: 'Password1' },
@@ -444,6 +519,32 @@ test('Cons Espher login spellings resolve to the established local account witho
   assert.equal(FakeRedis.values.get('nf_identity_owner:cons_espher'), 'local:cons_espher');
   assert.equal(FakeRedis.values.get('nf_identity_owner:@cons espher'), 'local:cons_espher');
   assert.equal(FakeRedis.values.get('nf_user_pass_owner:@cons espher'), 'local:cons_espher');
+});
+
+test('Cons read-only duplicate wallets accept legacy alias owner principals', async () => {
+  const canonicalWallet = JSON.stringify({ bonus_balance: 8.62, withdrawals: [] });
+  const legacyWallet = JSON.stringify({ bonus_balance: 3.14, withdrawals: [] });
+  FakeRedis.reset({
+    'nf_user_pass:@cons espher': legacyPasswordHash('Password1'),
+    'nf_user_data:cons_espher': canonicalWallet,
+    'nf_user_data:@cons espher': legacyWallet,
+    // Older identity writes retained the display spelling in the principal.
+    // It is equivalent to local:cons_espher, but contains a space.
+    'nf_identity_owner:cons_espher': 'local:@cons espher',
+    'nf_identity_owner:@cons espher': 'local:@cons espher',
+    'nf_user_pass_owner:@cons espher': 'local:@cons espher',
+  });
+
+  const response = await invoke(login, {
+    headers: { 'x-forwarded-for': '192.0.2.163' },
+    body: { username: 'Cons Espher', password: 'Password1' },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.username, 'cons_espher');
+  const accessToken = response.headers['set-cookie'][0].match(/^nf_token=([^;]+)/)[1];
+  assert.equal(verifyJWT(accessToken).principal, 'local:cons_espher');
+  assert.equal(FakeRedis.values.get('nf_user_data:cons_espher'), canonicalWallet);
+  assert.equal(FakeRedis.values.get('nf_user_data:@cons espher'), legacyWallet);
 });
 
 test('Cons legacy proof recovery requires support and leaves all aliases unchanged', async () => {

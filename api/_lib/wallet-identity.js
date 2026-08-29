@@ -139,6 +139,27 @@ function healthyReadOnlyWalletRecord(record) {
   return Boolean(record && !record.disabled && !record.wallet_merged_into);
 }
 
+// Identity-owner records were written by older clients before the explicit
+// login alias registry existed.  In particular, Cons may still be stored as
+// `local:@cons espher`.  Normalize that value before applying the strict
+// read-only duplicate check.  This import must stay lazy: identity.js itself
+// lazily imports this module while canonicalizing local principals.
+function canonicalReadOnlyOwner(value) {
+  const raw = String(value || '').trim();
+  if (!/^local:[^\r\n]{1,128}$/.test(raw)) return '';
+  let normalized = raw;
+  try {
+    const { canonicalizeLocalPrincipal } = require('./identity');
+    if (typeof canonicalizeLocalPrincipal === 'function') {
+      normalized = canonicalizeLocalPrincipal(raw, CONS_READ_ONLY_CANONICAL);
+    }
+  } catch (_error) {
+    // Keep the raw value; the validation below still fails closed if it is
+    // not a single-token local principal.
+  }
+  return /^local:[^\s]{1,128}$/.test(normalized) ? normalized : '';
+}
+
 /**
  * The Cons account has one reviewed production-only exception: two historical
  * wallet records may coexist under the canonical and old credential spelling.
@@ -182,18 +203,19 @@ async function resolveReadOnlyWalletStorageIdentity(redis, requestedUsername, { 
   if (!healthyReadOnlyWalletRecord(canonicalRecord) || !healthyReadOnlyWalletRecord(legacyRecord)) {
     return identity;
   }
-  const identityOwners = [canonicalOwner, legacyOwner].map(value => String(value || ''));
-  if (identityOwners.some(owner => !/^local:[^\s]{1,128}$/.test(owner)) ||
+  const identityOwners = [canonicalOwner, legacyOwner].map(canonicalReadOnlyOwner);
+  const expectedOwner = `local:${CONS_READ_ONLY_CANONICAL}`;
+  if (identityOwners.some(owner => owner !== expectedOwner) ||
       new Set(identityOwners).size !== 1) {
     return identity;
   }
   const owner = identityOwners[0];
-  if (expectedPrincipal && owner !== String(expectedPrincipal)) {
+  if (expectedPrincipal && canonicalReadOnlyOwner(expectedPrincipal) !== owner) {
     return identity;
   }
   const passwordOwners = [canonicalPasswordOwner, legacyPasswordOwner]
     .filter(Boolean)
-    .map(String);
+    .map(canonicalReadOnlyOwner);
   if (passwordOwners.some(passwordOwner => passwordOwner !== owner)) {
     return identity;
   }

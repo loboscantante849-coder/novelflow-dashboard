@@ -166,6 +166,7 @@ module.exports = async (req, res) => {
     let passedAuth = false;
     let authenticatedPayload = null;
     let credentialUsername = usernameKey;
+    let needsRehashCredential = null;
     let referralToBind = null;
     let signupEvent = null;
 
@@ -269,14 +270,10 @@ module.exports = async (req, res) => {
           credentialUsername = usernameKey;
         } else {
           const matchedCredential = verifiedCredentials[0];
-          credentialUsername = matchedCredential.storageUsername.toLowerCase();
-          if (matchedCredential.verification.needsRehash) {
-            try {
-              await redis.set(`nf_user_pass:${matchedCredential.storageUsername}`, await createPasswordHash(password));
-            } catch (_error) {
-              return res.status(503).json({ error: 'Account identity update is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
-            }
-          }
+          // Keep the exact legacy key for owner checks; the identity helpers
+          // normalize the username when they write canonical indexes.
+          credentialUsername = matchedCredential.storageUsername;
+          if (matchedCredential.verification.needsRehash) needsRehashCredential = matchedCredential.storageUsername;
         }
         // Success → clear failure counter
         await redis.del('nf_login_fail:' + usernameKey);
@@ -423,6 +420,15 @@ module.exports = async (req, res) => {
     }
     if (!identityBound) {
       return res.status(409).json({ error: 'Account identity recovery is required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
+    }
+    // Delay legacy-hash migration until the credential owner has been
+    // validated and bound, so a conflicting alias cannot mutate its hash.
+    if (needsRehashCredential) {
+      try {
+        await redis.set(`nf_user_pass:${needsRehashCredential}`, await createPasswordHash(password));
+      } catch (_error) {
+        return res.status(503).json({ error: 'Account identity update is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
+      }
     }
     let finalizedReferral = null;
     try {

@@ -106,6 +106,7 @@ module.exports = async (req, res) => {
     }
     let authenticatedPayload = null;
     let credentialUsername = usernameKey;
+    let needsRehashCredential = null;
     const storedCredentials = credentialRecords.filter(record => record.hash);
     if (storedCredentials.length) {
       const vP = validateString(rawPass, { name: 'password', maxLen: 200, required: true });
@@ -172,14 +173,11 @@ module.exports = async (req, res) => {
         credentialUsername = usernameKey;
       } else {
         const matchedCredential = verifiedCredentials[0];
-        credentialUsername = matchedCredential.storageUsername.toLowerCase();
-        if (matchedCredential.verification.needsRehash) {
-          try {
-            await redis.set(`nf_user_pass:${matchedCredential.storageUsername}`, await createPasswordHash(vP.value));
-          } catch (_error) {
-            return res.status(503).json({ error: 'Account identity update is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
-          }
-        }
+        // Preserve the exact historical credential key while resolving its
+        // owner.  Lowercasing here can hide an owner index written under a
+        // case-sensitive legacy alias (for example `Alice`).
+        credentialUsername = matchedCredential.storageUsername;
+        if (matchedCredential.verification.needsRehash) needsRehashCredential = matchedCredential.storageUsername;
       }
     } else if (userData) {
       // Passwordless legacy records can only be upgraded through the explicit
@@ -219,6 +217,16 @@ module.exports = async (req, res) => {
     }
     if (!identityBound) {
       return res.status(409).json({ error: 'Account identity recovery is required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
+    }
+    // Rehash only after all owner indexes have been checked and bound.  A
+    // conflicting case-sensitive legacy owner must not be able to mutate its
+    // credential merely by presenting the correct password.
+    if (needsRehashCredential) {
+      try {
+        await redis.set(`nf_user_pass:${needsRehashCredential}`, await createPasswordHash(rawPass));
+      } catch (_error) {
+        return res.status(503).json({ error: 'Account identity update is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
+      }
     }
     try {
       await finalizePendingReferral(redis, usernameKey);

@@ -12,7 +12,7 @@ const { Redis } = require('@upstash/redis');
 const { createPasswordHash, verifyPassword } = require('../_lib/password');
 const { checkRateLimit, getClientIp, isDisabledUser } = require('../_lib/security');
 const { bindPasswordPrincipal, principalFromPayload } = require('../_lib/identity');
-const { loadLocalLoginCredentials } = require('../_lib/login-identity');
+const { credentialOwnerKeys, loadLocalLoginCredentials, normalizeCredentialOwner } = require('../_lib/login-identity');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -83,16 +83,27 @@ module.exports = async (req, res) => {
     }
 
     // Check if user already has a password
-    const credentials = await loadLocalLoginCredentials(redis, username);
+    // This endpoint already has an authenticated session, so include bounded
+    // case-variant discovery to locate a credential written under a historical
+    // display-case key before checking its exact owner indexes.
+    const credentials = await loadLocalLoginCredentials(redis, username, { scanCaseVariants: true });
     if (credentials.records.length > 1) {
       return res.status(409).json({ error: 'Account credential recovery is required', code: 'ACCOUNT_CREDENTIAL_CONFLICT' });
     }
     const credentialStorageUsername = credentials.records[0]?.storageUsername || username;
-    const credentialUsername = credentialStorageUsername.toLowerCase();
+    // Keep the exact historical credential spelling for owner checks.  The
+    // helpers normalize writes, but lowercasing before reading can miss a
+    // case-sensitive legacy owner index such as `nf_identity_owner:Alice`.
+    const credentialUsername = credentialStorageUsername;
     const storedHash = credentials.records[0]?.hash || null;
     const principal = principalFromPayload(payload);
-    const passwordOwner = await redis.get('nf_user_pass_owner:' + credentialUsername);
-    if (passwordOwner && String(passwordOwner) !== principal) {
+    const ownerKeys = credentialOwnerKeys([username, credentialUsername]);
+    const ownerValues = typeof redis.mget === 'function'
+      ? await redis.mget(...ownerKeys)
+      : await Promise.all(ownerKeys.map(key => redis.get(key)));
+    const owners = ownerValues.filter(Boolean)
+      .map(value => normalizeCredentialOwner(value, username));
+    if (owners.some(owner => owner !== principal)) {
       return res.status(409).json({ error: 'Password belongs to another sign-in identity', code: 'ACCOUNT_IDENTITY_CONFLICT' });
     }
     if (storedHash && oldPassword) {
