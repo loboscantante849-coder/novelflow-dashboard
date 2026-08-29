@@ -1,4 +1,5 @@
 const { resolveUsernameAlias } = require('./wallet-identity');
+const { canonicalizeLocalPrincipal } = require('./identity');
 const { verifiedSourceOwnerAliasValues } = require('./income-source-aliases');
 const { isProtectedPromoterUsername } = require('./promoter-access');
 
@@ -117,7 +118,7 @@ async function resolveLocalLoginPrincipal(redis, primaryUsername, credentialUser
     ? await redis.mget(...ownerKeys)
     : await Promise.all(ownerKeys.map(key => redis.get(key))))
     .filter(Boolean)
-    .map(String);
+    .map(value => canonicalizeLocalPrincipal(String(value), primaryUsername));
   if (new Set(owners).size > 1) return null;
   // The password may live under a historical spelling that contains spaces,
   // but session principals must stay in the canonical login namespace. The
@@ -161,6 +162,7 @@ async function loadLocalLoginCredentials(redis, value) {
 // password validates every duplicate and every stored owner agrees.
 async function canConsolidateCredentials(redis, primaryUsername, records, principal) {
   if (!redis || !primaryUsername || !Array.isArray(records) || records.length < 2 || !principal) return false;
+  const expectedPrincipal = canonicalizeLocalPrincipal(String(principal), primaryUsername);
   const aliases = Array.from(new Set(records.map(record => String(record.storageUsername || '').trim()).filter(Boolean)));
   const ownerKeys = aliases.flatMap(alias => [
     `nf_identity_owner:${alias.toLowerCase()}`,
@@ -170,8 +172,8 @@ async function canConsolidateCredentials(redis, primaryUsername, records, princi
     ? await redis.mget(...ownerKeys)
     : await Promise.all(ownerKeys.map(key => redis.get(key))))
     .filter(Boolean)
-    .map(String);
-  return owners.every(owner => owner === principal);
+    .map(value => canonicalizeLocalPrincipal(String(value), primaryUsername));
+  return owners.every(owner => owner === expectedPrincipal);
 }
 
 async function consolidateEquivalentCredentials(redis, primaryUsername, records, password, createPasswordHash, principal) {
