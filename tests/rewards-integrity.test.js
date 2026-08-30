@@ -330,6 +330,30 @@ test('server-indexed promotions satisfy promotion missions', async () => {
   assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).points, 50);
 });
 
+test('historical login aliases count toward promotion missions', async () => {
+  FakeRedis.reset({
+    'nf_user_data:cons_espher': JSON.stringify({ points: 0 }),
+    'nf_user_subs:@cons espher': ['legacy-cons-link'],
+    nf_subs: {
+      'legacy-cons-link': JSON.stringify({
+        code: 'legacy-cons-link',
+        bookId: 'book-cons-1',
+        status: 'completed',
+        discordUsername: '@cons espher',
+      }),
+    },
+  });
+
+  const response = await invoke(rewards, {
+    headers: authHeaders('cons_espher'),
+    body: { action: 'claim_mission', missionId: 'share1' },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.points_awarded, 20);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:cons_espher')).points, 20);
+});
+
 test('failed, foreign, and assetless submissions cannot satisfy promotion missions', async () => {
   FakeRedis.reset({
     'nf_user_data:zoe': JSON.stringify({ points: 0 }),

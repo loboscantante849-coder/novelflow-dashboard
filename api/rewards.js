@@ -23,6 +23,7 @@ const { normalizeRedisKeys } = require('./_lib/redis-values');
 const { isSafeMoneyValue, splitStoredBonus } = require('./_lib/commission-policy');
 const { resolveNovelFlowMember } = require('./_lib/novelflow-member');
 const { acquireWalletCreationSourceGuard } = require('./_lib/income-source-owners');
+const { localLoginCredentialCandidates } = require('./_lib/login-identity');
 const {
   acquireCheckinWalletDataLock,
   acquireWalletDataLock,
@@ -139,9 +140,19 @@ function appendRewardHistory(data, action, before, details = {}) {
 }
 
 async function loadVerifiedPromotionCount(redis, username) {
-  const keys = normalizeRedisKeys(
-    await redis.smembers(`nf_user_subs:${String(username).toLowerCase()}`),
-  ).slice(0, 1000);
+  // Promotion indexes predate the canonical local-login namespace. Read the
+  // narrow, reviewed aliases for the authenticated account so a historical
+  // submission under `@cons espher` is not invisible to the canonical
+  // `cons_espher` account. Do not scan arbitrary keys or trust a client alias.
+  const identity = localLoginCredentialCandidates(username);
+  const candidates = Array.from(new Set((identity.usernames || [])
+    .map(value => String(value || '').trim().toLowerCase())
+    .filter(Boolean)));
+  if (!candidates.length) return 0;
+  const indexed = await Promise.all(candidates.map(candidate =>
+    redis.smembers(`nf_user_subs:${candidate}`),
+  ));
+  const keys = normalizeRedisKeys(indexed.flat()).slice(0, 1000);
   if (!keys.length) return 0;
 
   let rows;
@@ -165,7 +176,11 @@ async function loadVerifiedPromotionCount(redis, username) {
     }
     if (!submission || typeof submission !== 'object' || submission.status !== 'completed') continue;
     const owner = String(submission.discordUsername || submission.username || '').trim().toLowerCase();
-    if (owner && owner !== String(username).trim().toLowerCase()) continue;
+    if (owner) {
+      const ownerIdentity = localLoginCredentialCandidates(owner);
+      const ownerPrimary = String(ownerIdentity.primaryUsername || '').trim().toLowerCase();
+      if (!candidates.includes(owner) && !candidates.includes(ownerPrimary)) continue;
+    }
     const bookId = String(submission.bookId || '').trim();
     const title = String(submission.matchedBookName || submission.bookName || '').trim().toLowerCase();
     const assetId = String(submission.linkId || submission.inviteCode || submission.code || '').trim();

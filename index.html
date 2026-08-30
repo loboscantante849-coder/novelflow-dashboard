@@ -5641,16 +5641,24 @@
         function renderCheckinCalendar() {
             const calendar = document.getElementById('checkinCalendar');
             if (!calendar) return; // Guard: element only exists on Tasks tab
-            const today = new Date();
+            // The reward API uses UTC business dates (`toISOString`). Build
+            // the calendar from the same UTC date so users near a timezone
+            // boundary do not see a checked button with an unchecked tile (or
+            // vice versa). Do not migrate stored history; it is already UTC.
+            const now = new Date();
+            const today = new Date(Date.UTC(
+                now.getUTCFullYear(),
+                now.getUTCMonth(),
+                now.getUTCDate(),
+            ));
             const todayStr = getToday();
             
             // Get last 7 days
             const days = [];
             for (let i = 6; i >= 0; i--) {
-                const date = new Date(today);
-                date.setDate(date.getDate() - i);
-                const dayStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                const dayName = ['S', 'M', 'T', 'W', 'T', 'F', 'S'][date.getDay()];
+                const date = new Date(today.getTime() - (i * 86400000));
+                const dayStr = date.toISOString().slice(0, 10);
+                const dayName = ['S', 'M', 'T', 'W', 'T', 'F', 'S'][date.getUTCDay()];
                 days.push({
                     date: dayStr,
                     dayName: dayName,

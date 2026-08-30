@@ -24,3 +24,11 @@ test('streak claim relies on server eligibility instead of stale local link stat
   assert.match(source, /NO_LINK: 'reward_no_link'/);
   assert.match(source, /NO_MISSION: 'reward_no_mission'/);
 });
+
+test('check-in calendar uses the same UTC date basis as the reward API', () => {
+  assert.match(source, /calendar from the same UTC date/);
+  assert.match(source, /now\.getUTCFullYear\(\)/);
+  assert.match(source, /date\.toISOString\(\)\.slice\(0, 10\)/);
+  assert.match(source, /date\.getUTCDay\(\)/);
+  assert.doesNotMatch(source, /date\.getFullYear\(\).*date\.getMonth\(\).*date\.getDate\(\)/s);
+});
