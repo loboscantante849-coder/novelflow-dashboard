@@ -62,7 +62,14 @@ async function claimAccountIdentity(redis, usernameValue, principal) {
   const usernames = accountIdentityUsernames(usernameValue);
   if (!redis || !usernames.length || typeof principal !== 'string') return false;
   const owners = await Promise.all(usernames.map(username => redis.get(`nf_identity_owner:${username}`)));
-  if (owners.some(owner => owner && String(owner) !== principal)) return false;
+  // Older local sessions may still have stored an explicit historical alias
+  // such as `local:@cons espher`. Compare principals through the same narrow
+  // alias registry used by claimIdentity, so verified aliases remain valid
+  // while every unrelated owner still fails closed.
+  if (owners.some((owner, index) => owner &&
+    canonicalizeLocalPrincipal(owner, usernames[index]) !== canonicalizeLocalPrincipal(principal, usernames[index]))) {
+    return false;
+  }
   for (const username of usernames) {
     if (!await claimIdentity(redis, username, principal)) return false;
   }

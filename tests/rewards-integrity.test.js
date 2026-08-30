@@ -97,6 +97,75 @@ test('legacy withdrawal locks cannot block a new check-in', async () => {
   assert.equal(FakeRedis.values.has('nf_withdrawal_lock:zoe'), true);
 });
 
+test('reviewed Cons duplicate wallets can check in only through the canonical record', async () => {
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const legacyWallet = JSON.stringify({ points: 91, checkin: { streak: 6, lastCheckin: yesterday, history: [yesterday] } });
+  FakeRedis.reset({
+    'nf_user_data:cons_espher': JSON.stringify({ points: 10, checkin: { streak: 4, lastCheckin: yesterday, history: [yesterday] } }),
+    'nf_user_data:@cons espher': legacyWallet,
+    // The old display spelling is a verified alias of the canonical local principal.
+    'nf_identity_owner:cons_espher': 'local:@cons espher',
+    'nf_identity_owner:@cons espher': 'local:@cons espher',
+    'nf_user_pass_owner:@cons espher': 'local:@cons espher',
+  });
+
+  const response = await invoke(rewards, {
+    headers: authHeaders('cons_espher'),
+    body: { action: 'checkin' },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.snapshot.points, 15);
+  assert.equal(response.body.snapshot.checkin.streak, 5);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:cons_espher')).points, 15);
+  assert.equal(FakeRedis.values.get('nf_user_data:@cons espher'), legacyWallet);
+});
+
+test('reviewed Cons duplicate wallets still block cash reward mutations', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const canonicalWallet = JSON.stringify({
+    points: 50,
+    bonus_balance: 2,
+    checkin: { streak: 7, lastCheckin: today, history: [today] },
+    claimed: { share1: Date.now() },
+  });
+  FakeRedis.reset({
+    'nf_user_data:cons_espher': canonicalWallet,
+    'nf_user_data:@cons espher': JSON.stringify({ points: 9 }),
+    'nf_identity_owner:cons_espher': 'local:@cons espher',
+    'nf_identity_owner:@cons espher': 'local:@cons espher',
+    'nf_user_pass_owner:@cons espher': 'local:@cons espher',
+  });
+
+  const response = await invoke(rewards, {
+    headers: authHeaders('cons_espher'),
+    body: { action: 'claim_streak_grand' },
+  });
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'WALLET_IDENTITY_CONFLICT');
+  assert.equal(FakeRedis.values.get('nf_user_data:cons_espher'), canonicalWallet);
+});
+
+test('a disabled reviewed Cons duplicate still blocks check-in', async () => {
+  const canonicalWallet = JSON.stringify({ points: 10 });
+  FakeRedis.reset({
+    'nf_user_data:cons_espher': canonicalWallet,
+    'nf_user_data:@cons espher': JSON.stringify({ points: 9, disabled: true }),
+    'nf_identity_owner:cons_espher': 'local:cons_espher',
+    'nf_identity_owner:@cons espher': 'local:cons_espher',
+  });
+
+  const response = await invoke(rewards, {
+    headers: authHeaders('cons_espher'),
+    body: { action: 'checkin' },
+  });
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'WALLET_IDENTITY_CONFLICT');
+  assert.equal(FakeRedis.values.get('nf_user_data:cons_espher'), canonicalWallet);
+});
+
 test('check-in waits for a short concurrent user-data write', async () => {
   FakeRedis.reset({ 'nf_user_data:zoe': JSON.stringify({ points: 10 }) });
   const activeLock = await acquireUserDataLock(new FakeRedis(), 'zoe');

@@ -165,8 +165,9 @@ function canonicalReadOnlyOwner(value) {
  * wallet records may coexist under the canonical and old credential spelling.
  * Read-only session/stat flows can select the canonical record only when both
  * records are valid and healthy and every relevant owner is the same canonical
- * local principal. This never merges data and is intentionally not used by
- * wallet locks or any mutation path.
+ * local principal. This never merges data. The dedicated check-in lock below
+ * may reuse this proof solely to append points/streak to the canonical record;
+ * cash, VIP, withdrawals, and all other mutations remain fail-closed.
  */
 async function resolveReadOnlyWalletStorageIdentity(redis, requestedUsername, { expectedPrincipal = null } = {}) {
   const identity = await resolveWalletStorageIdentity(redis, requestedUsername);
@@ -262,7 +263,53 @@ async function acquireWalletDataLock(redis, requestedUsername, options = {}) {
   }
 }
 
+/**
+ * Daily check-in has one narrow reviewed legacy exception. It may update the
+ * canonical Cons points/streak record when the read-only resolver has proved
+ * that the two known historical records are healthy and owned by the active
+ * local principal. No other mutator may use this path.
+ */
+async function acquireCheckinWalletDataLock(redis, requestedUsername, options = {}) {
+  const { expectedPrincipal = null, ...lockOptions } = options;
+  if (!expectedPrincipal) {
+    const error = new Error('Check-in wallet identity requires an authenticated principal');
+    error.code = 'INVALID_WALLET_IDENTITY';
+    throw error;
+  }
+
+  const initial = await resolveReadOnlyWalletStorageIdentity(redis, requestedUsername, { expectedPrincipal });
+  if (!initial.primaryUsername) {
+    const error = new Error('Invalid wallet identity');
+    error.code = 'INVALID_WALLET_IDENTITY';
+    throw error;
+  }
+  if (initial.conflict) throw walletIdentityConflict(initial);
+
+  const lock = await acquireUserDataLock(redis, initial.primaryUsername, lockOptions);
+  if (!lock) return { lock: null, identity: initial };
+
+  try {
+    const locked = await resolveReadOnlyWalletStorageIdentity(redis, requestedUsername, { expectedPrincipal });
+    if (locked.conflict ||
+        locked.storageUsername !== initial.storageUsername ||
+        Boolean(locked.readOnlyLegacyConflict) !== Boolean(initial.readOnlyLegacyConflict)) {
+      throw walletIdentityConflict(locked, 'Wallet identity changed while the check-in operation was starting');
+    }
+    return {
+      lock,
+      identity: {
+        ...locked,
+        reviewedLegacyCheckinWallet: Boolean(locked.readOnlyLegacyConflict),
+      },
+    };
+  } catch (error) {
+    await releaseUserDataLock(redis, lock);
+    throw error;
+  }
+}
+
 module.exports = {
+  acquireCheckinWalletDataLock,
   acquireWalletDataLock,
   caseVariantWalletPattern,
   findCaseVariantWallets,

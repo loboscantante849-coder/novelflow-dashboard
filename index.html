@@ -3380,7 +3380,7 @@
                         <div class="checkin-milestone-card" style="margin-bottom:0;">
                             <div class="milestone-title-row">
                                 <div class="milestone-title" data-i18n="daily_checkin_title">🔥 Daily Check-in</div>
-                                <div class="milestone-total" data-i18n="daily_checkin_total">7 days = 50 pts + $0.50 + 2 VIP</div>
+                                <div class="milestone-total" data-i18n="daily_checkin_total">7 days: 50 pts automatically. Claim $0.50 + 2 VIP after 1 link + 1 task.</div>
                             </div>
                             <div class="milestone-track" id="milestoneTrack">
                                 <!-- rendered by JS -->
@@ -4552,6 +4552,10 @@
                 reward_vip_confirmed: 'VIP delivery confirmed. It will be credited within 24 hours.',
                 reward_vip_confirm_failed: 'VIP confirmation failed. Please try again.',
                 reward_no_pending_vip: 'There is no pending 7-day VIP reward.',
+                reward_streak_not_met: 'Complete 7 consecutive check-ins first.',
+                reward_no_link: 'Create at least 1 verified book link first.',
+                reward_no_mission: 'Complete and claim at least 1 task first.',
+                reward_streak_cooldown: 'The 7-day bonus is available once every 7 days.',
                 reward_verification_unavailable: 'NovelFlow verification is temporarily unavailable. Your cash bonus is safe; try VIP confirmation later.',
                 reward_service_unavailable: 'The reward service is temporarily unavailable. Please try again.',
                 streak_cash_title: '7-Day Streak Unlocked!',
@@ -4563,9 +4567,10 @@
                 streak_bind_hint: 'Your $0.50 bonus is credited. Bind your NovelFlow ID to continue.',
                 streak_claim_cash: 'Claim 7-Day Bonus ($0.5)',
                 streak_ready: 'Ready to claim!',
+                streak_verify_hint: 'Click to verify your server-side link and task eligibility.',
                 daily_checkin_title: '🔥 Daily Check-in',
-                daily_checkin_total: '7 days = 50 pts + $0.50 + 2 VIP',
-                streak_unlock_hint: 'Sign in 7 days in a row to unlock',
+                daily_checkin_total: '7 days: 50 pts automatically. Claim $0.50 + 2 VIP after 1 link + 1 task.',
+                streak_unlock_hint: 'Complete 7 check-ins + 1 link + 1 task to unlock',
                 bind_id_required: '🔗 Bind NovelFlow ID (required for VIP rewards)',
                 app_user_id_placeholder: '24-character App User ID',
                 toast_not_enough: 'Not enough points (need 1000)',
@@ -4866,6 +4871,10 @@
                 reward_vip_confirmed: 'Entrega VIP confirmada. Se acreditará en un plazo de 24 horas.',
                 reward_vip_confirm_failed: 'No se pudo confirmar el VIP. Inténtalo de nuevo.',
                 reward_no_pending_vip: 'No tienes una recompensa VIP de 7 días pendiente.',
+                reward_streak_not_met: 'Completa primero 7 check-ins consecutivos.',
+                reward_no_link: 'Crea primero al menos 1 enlace de libro verificado.',
+                reward_no_mission: 'Completa y reclama primero al menos 1 tarea.',
+                reward_streak_cooldown: 'El bono de 7 días está disponible una vez cada 7 días.',
                 reward_verification_unavailable: 'La verificación de NovelFlow no está disponible temporalmente. Tu bono en efectivo está seguro; confirma el VIP más tarde.',
                 reward_service_unavailable: 'El servicio de recompensas no está disponible temporalmente. Inténtalo de nuevo.',
                 streak_cash_title: '¡Racha de 7 días completada!',
@@ -4877,9 +4886,10 @@
                 streak_bind_hint: 'Tu bono de $0.50 ya está acreditado. Vincula tu ID de NovelFlow para continuar.',
                 streak_claim_cash: 'Reclamar bono de 7 días ($0.5)',
                 streak_ready: '¡Listo para reclamar!',
+                streak_verify_hint: 'Pulsa para verificar en el servidor tus enlaces y tareas elegibles.',
                 daily_checkin_title: '🔥 Check-in diario',
-                daily_checkin_total: '7 días = 50 pts + $0.50 + 2 VIP',
-                streak_unlock_hint: 'Haz check-in 7 días seguidos para desbloquearlo',
+                daily_checkin_total: '7 días: 50 pts automáticos. Reclama $0.50 + 2 VIP tras 1 enlace + 1 tarea.',
+                streak_unlock_hint: 'Completa 7 check-ins + 1 enlace + 1 tarea para desbloquearlo',
                 bind_id_required: '🔗 Vincula tu ID de NovelFlow (necesario para recompensas VIP)',
                 app_user_id_placeholder: 'ID de usuario de la app de 24 caracteres',
                 toast_not_enough: 'Puntos insuficientes (necesitas 1000)',
@@ -5071,6 +5081,10 @@
                 INCOME_SOURCE_OWNER_UNVERIFIED: 'reward_source_conflict',
                 NO_BIND_ID: 'reward_bind_first_vip',
                 NO_PENDING_STREAK_VIP: 'reward_no_pending_vip',
+                STREAK_NOT_MET: 'reward_streak_not_met',
+                NO_LINK: 'reward_no_link',
+                NO_MISSION: 'reward_no_mission',
+                STREAK_GRAND_COOLDOWN: 'reward_streak_cooldown',
                 NOVELFLOW_LOOKUP_FAILED: 'reward_verification_unavailable',
                 NOVELFLOW_BINDING_CONFLICT: 'reward_account_recovery',
                 REWARD_STORAGE_UNAVAILABLE: 'reward_service_unavailable',
@@ -5592,13 +5606,19 @@
         };
 
         function loadCheckinData() {
+            // Reset before every read so a missing/corrupt key from a newly
+            // selected account cannot display the previous account's streak.
+            CheckinData.streak = 0;
+            CheckinData.lastCheckin = null;
+            CheckinData.history = [];
             const saved = localStorage.getItem(getUserKey('checkin'));
             if (saved) {
                 try {
                     const data = JSON.parse(saved);
-                    CheckinData.streak = data.streak || 0;
-                    CheckinData.lastCheckin = data.lastCheckin || null;
-                    CheckinData.history = data.history || [];
+                    if (!data || typeof data !== 'object' || Array.isArray(data)) return;
+                    CheckinData.streak = Math.max(0, Math.floor(Number(data.streak) || 0));
+                    CheckinData.lastCheckin = typeof data.lastCheckin === 'string' ? data.lastCheckin : null;
+                    CheckinData.history = Array.isArray(data.history) ? data.history : [];
                 } catch (e) {}
             }
         }
@@ -6935,21 +6955,17 @@
             }
             const hasLink = AppState.myBooks && AppState.myBooks.length >= 1;
             const hasTask = hasAnyTaskClaim();
-            if (CheckinData.streak >= 7 && hasLink && hasTask) {
+            if (CheckinData.streak >= 7) {
                 btn.disabled = false;
                 btn.textContent = getText('streak_claim_cash');
-                hint.textContent = getText('streak_ready');
+                hint.textContent = hasLink && hasTask
+                    ? getText('streak_ready')
+                    : getText('streak_verify_hint');
             } else {
                 btn.disabled = true;
                 if (CheckinData.streak < 7) {
                     btn.textContent = getText('streak_claim_cash');
                     hint.textContent = (7 - CheckinData.streak) + ' more check-in' + ((7-CheckinData.streak)===1?'':'s') + ' to unlock';
-                } else {
-                    const missing = [];
-                    if (!hasLink) missing.push('1 link');
-                    if (!hasTask) missing.push('1 task');
-                    btn.textContent = getText('streak_claim_cash');
-                    hint.textContent = 'Complete ' + missing.join(' + ') + ' first';
                 }
             }
         }

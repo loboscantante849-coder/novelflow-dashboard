@@ -16,13 +16,18 @@
  */
 const { handlePreflight } = require('./_lib/cors');
 const { assertAccountIdentity, getAuthPayload, getRedis, checkRateLimit, getClientIp } = require('./_lib/security');
+const { principalFromPayload } = require('./_lib/identity');
 const { Redis } = require('@upstash/redis');
 const { commitUserDataUnderLock, releaseUserDataLock } = require('./_lib/user-data-lock');
 const { normalizeRedisKeys } = require('./_lib/redis-values');
 const { isSafeMoneyValue, splitStoredBonus } = require('./_lib/commission-policy');
 const { resolveNovelFlowMember } = require('./_lib/novelflow-member');
 const { acquireWalletCreationSourceGuard } = require('./_lib/income-source-owners');
-const { acquireWalletDataLock, resolveUsernameAlias } = require('./_lib/wallet-identity');
+const {
+  acquireCheckinWalletDataLock,
+  acquireWalletDataLock,
+  resolveUsernameAlias,
+} = require('./_lib/wallet-identity');
 const {
   bindNovelFlowMember,
   buildVipEntitlement,
@@ -217,10 +222,16 @@ module.exports = async (req, res) => {
   try {
     // A cloud-sync write can overlap a tap on Check In. Wait briefly for that
     // normal write to finish instead of failing the user-facing action.
-    walletLock = await acquireWalletDataLock(redis, username, {
+    const lockOptions = {
       waitMs: action === 'checkin' ? 6000 : 0,
       retryDelayMs: 100,
-    });
+    };
+    walletLock = action === 'checkin'
+      ? await acquireCheckinWalletDataLock(redis, username, {
+        ...lockOptions,
+        expectedPrincipal: principalFromPayload(payload),
+      })
+      : await acquireWalletDataLock(redis, username, lockOptions);
   } catch (error) {
     if (error && error.code === 'WALLET_IDENTITY_CONFLICT') {
       return res.status(409).json({ error: 'Account identity recovery required', code: error.code });
@@ -238,7 +249,8 @@ module.exports = async (req, res) => {
     // points/streak. A legacy case-only duplicate reporting key must not block
     // that non-financial action, but it must also never cause a new wallet to
     // be created. Financial rewards keep the strict source-owner guard.
-    const establishedCheckinWallet = action === 'checkin' && identity.matches.length === 1;
+    const establishedCheckinWallet = action === 'checkin' &&
+      (identity.matches.length === 1 || identity.reviewedLegacyCheckinWallet === true);
     if (!establishedCheckinWallet) {
       sourceGuard = await acquireWalletCreationSourceGuard(redis, username, identity);
     }
