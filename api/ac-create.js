@@ -161,9 +161,7 @@ module.exports = async (req, res) => {
     user_gender: parsed.userGender,
     units_per_second: parsed.unitsPerSecond,
     aspect_ratio: parsed.aspectRatio,
-    // Tianji names this flag "only generate images".  Video templates use
-    // false; sending true can produce an image-only task with no video URL.
-    is_generate_img: 'false',
+    is_generate_img: 'true',
     copy_type: '原创',
     build_requirement: parsed.buildRequirement,
     ad_copy: parsed.adCopy,

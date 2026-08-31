@@ -143,7 +143,7 @@ Earn → doCreateReel()
   user_age_range: '35-40岁',
   user_gender: '女',
   units_per_second: '5',
-  is_generate_img: 'false',       // 天机字段含义是“是否只生成图片”
+  is_generate_img: 'true',
   copy_type: '原创'
 }
 ```

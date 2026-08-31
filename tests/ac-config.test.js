@@ -114,6 +114,11 @@ test('browser-serialized Tianji tokens are normalized before use', () => {
   assert.equal(config.normalizeAcToken('Bearer Bearer token'), 'Bearer token');
 });
 
+test('video payload keeps image generation enabled for slideshow/video templates', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'api', 'ac-create.js'), 'utf8');
+  assert.match(source, /is_generate_img:\s*'true'/);
+});
+
 test('a rejected Redis token falls back once to AC_TOKEN and repairs Redis', async () => {
   const previousToken = process.env.AC_TOKEN;
   const previousBase = process.env.AC_API_BASE_URL;

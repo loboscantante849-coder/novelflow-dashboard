@@ -185,7 +185,7 @@ test('AC creation reserves atomic user and IP quotas and sends bounded values', 
     assert.equal(body.user_age_range, '35-40岁');
     assert.equal(body.user_gender, '女');
     assert.equal(body.units_per_second, '5');
-    assert.equal(body.is_generate_img, 'false');
+    assert.equal(body.is_generate_img, 'true');
     assert.deepEqual(body.reference_picture_list, ['https://novelflow-test.public.blob.vercel-storage.com/ref.jpg']);
     return upstreamResponse({ threadId: 'thread-1' });
   };
