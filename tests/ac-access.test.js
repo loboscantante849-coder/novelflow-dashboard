@@ -111,6 +111,52 @@ test('AC task ownership is required before calling the upstream service', async 
   }
 });
 
+test('upstream Tianji authentication failures do not masquerade as site session expiry', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => response({ error: 'invalid_token' }, 401);
+  try {
+    const cases = [
+      { name: 'list', handler: acList, method: 'GET', query: {}, store: {} },
+      {
+        name: 'admin list', handler: acList, method: 'GET', query: {},
+        store: { [`nf_user_data:ac-upstream-admin`]: JSON.stringify({ accountType: 'admin' }) },
+        username: 'ac-upstream-admin',
+      },
+      {
+        name: 'result', handler: acResult, method: 'GET', query: { threadId: 'upstream-result' },
+        store: { 'ac_thread_owner:upstream-result': 'ac-upstream-result' },
+      },
+      {
+        name: 'retry', handler: acRetry, method: 'POST', body: { threadId: 'upstream-retry' },
+        store: { 'ac_thread_owner:upstream-retry': 'ac-upstream-retry' },
+      },
+      {
+        name: 'interrupt', handler: acInterrupt, method: 'POST', body: { threadId: 'upstream-interrupt' },
+        store: { 'ac_thread_owner:upstream-interrupt': 'ac-upstream-interrupt' },
+      },
+    ];
+
+    for (const item of cases) {
+      const username = item.username || `ac-upstream-${item.name}`;
+      FakeRedis.reset({
+        [`nf_user_data:${username}`]: JSON.stringify({}),
+        ac_token: 'test-ac-token',
+        ...(item.store || {}),
+      });
+      const result = await invoke(item.handler, {
+        method: item.method,
+        headers: authHeaders(username),
+        query: item.query,
+        body: item.body,
+      });
+      assert.equal(result.statusCode, 502, item.name);
+      assert.equal(result.body.success, false, item.name);
+    }
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('a legacy reel in the current user AC list restores its expired result ownership', async () => {
   const originalFetch = global.fetch;
   const username = 'legacy-reel-user';

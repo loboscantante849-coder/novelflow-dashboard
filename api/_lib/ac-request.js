@@ -64,6 +64,13 @@ function headersToObject(headers) {
   return typeof headers === 'object' ? { ...headers } : {};
 }
 
+// Keep an upstream AC authentication failure separate from the site's own
+// session authentication.  The frontend treats HTTP 401 as a NovelFlow
+// session expiry, so proxy calls must surface Tianji auth failures as 502.
+function getAcProxyStatus(status) {
+  return Number(status) === 401 ? 502 : status;
+}
+
 /**
  * Send one upstream request with the stored token, then recover once from a
  * conclusively rejected legacy Redis token using AC_TOKEN. A 401 is safe to
@@ -106,6 +113,7 @@ module.exports = {
   DEFAULT_TIMEOUT_MS,
   fetchAcWithTokenFallback,
   fetchWithTimeout,
+  getAcProxyStatus,
   getAcBaseUrl,
   getAcHeaders,
   getAcPagedListUrl,

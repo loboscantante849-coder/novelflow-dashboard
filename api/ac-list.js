@@ -16,6 +16,7 @@ const AC_LIST_CACHE_SECONDS = 45;
 
 const {
   fetchAcWithTokenFallback,
+  getAcProxyStatus,
   getAcHeaders,
   getAcPagedListUrl,
   getResponseAccessToken,
@@ -25,7 +26,7 @@ const {
 
 function pageError(status = 502) {
   const error = new Error('AC API error');
-  error.acStatus = status;
+  error.acStatus = getAcProxyStatus(status);
   return error;
 }
 
@@ -130,7 +131,8 @@ module.exports = async (req, res) => {
         newToken = getResponseAccessToken(r);
       }
       const data = await r.json().catch(() => null);
-      return res.status(r.status).json({ success: r.status >= 200 && r.status < 300, data });
+      const proxyStatus = getAcProxyStatus(r.status);
+      return res.status(proxyStatus).json({ success: r.status >= 200 && r.status < 300, data });
     }
 
     const cacheKey = `nf_ac_list_cache:${String(currentUser).toLowerCase()}`;

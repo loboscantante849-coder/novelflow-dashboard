@@ -6,6 +6,7 @@ const { setCORSHeaders } = require('./_lib/cors');
 const { checkRateLimit, getAuthPayload, getClientIp, getRedis, isAdminUser, isDisabledUser } = require('./_lib/security');
 const {
   fetchAcWithTokenFallback,
+  getAcProxyStatus,
   getAcBaseUrl,
   getAcHeaders,
   parseThreadId,
@@ -76,7 +77,8 @@ module.exports = async (req, res) => {
     if (r.status >= 200 && r.status < 300) {
       await redis.del(`nf_ac_list_cache:${String(username).toLowerCase()}`).catch(() => {});
     }
-    return res.status(r.status).json({ success: r.status >= 200 && r.status < 300, data });
+    const proxyStatus = getAcProxyStatus(r.status);
+    return res.status(proxyStatus).json({ success: r.status >= 200 && r.status < 300, data });
   } catch (e) {
     return res.status(e && e.name === 'AbortError' ? 504 : 502).json({
       error: e && e.name === 'AbortError' ? 'Video service timed out' : 'Video service unavailable',

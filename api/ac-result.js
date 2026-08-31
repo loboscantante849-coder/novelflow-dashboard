@@ -12,6 +12,7 @@ const AC_RESULT_TIMEOUT_MS = 8000;
 
 const {
   fetchAcWithTokenFallback,
+  getAcProxyStatus,
   getAcHeaders,
   getAcPagedListUrl,
   getAcBaseUrl,
@@ -142,7 +143,8 @@ module.exports = async (req, res) => {
     });
     const data = await r.json().catch(() => null);
 
-    return res.status(r.status).json({ success: r.status >= 200 && r.status < 300, data });
+    const proxyStatus = getAcProxyStatus(r.status);
+    return res.status(proxyStatus).json({ success: r.status >= 200 && r.status < 300, data });
   } catch (e) {
     return res.status(e && e.name === 'AbortError' ? 504 : 502).json({
       error: e && e.name === 'AbortError' ? 'Video service timed out' : 'Video service unavailable',
