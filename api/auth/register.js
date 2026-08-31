@@ -1,15 +1,17 @@
 /**
- * Register / Login Endpoint (local accounts) — v2.6.3
- * 
+ * Registration Endpoint (local accounts) - v2.7.0
+ *
  * POST /api/auth/register
- * 
- * Security fixes (v2.6.3):
- *  - Username regex: allow letters/CJK/digits/_.@ -/space, 1-50 chars; blocks HTML/SQL injection chars
- *  - Password min 8 chars, must contain letter + digit
- *  - IP rate limit: 10 attempts / 15 min (prevents brute force)
- *  - Account lockout: 5 failed attempts / 15 min per username
- *  - Strict type checks (rejects Object/Array/non-string payloads → 400, not 500)
- *  - Fuzzy error message on wrong password (no user enumeration via "user not found")
+ *
+ * Registration and authentication are intentionally separate contracts:
+ * - Existing password accounts must use /api/auth/login.
+ * - Passwordless historical accounts must use the authenticated
+ *   /api/auth/set-password recovery flow.
+ * - Only a confirmed new-account attempt consumes nf_register_ip quota.
+ *
+ * Wallet, earnings, and promotion records are read only here. New-account
+ * side effects are limited to the existing identity, referral, member, and
+ * signup-outbox flows.
  */
 
 const {
@@ -17,13 +19,13 @@ const {
   signRefreshToken,
   buildUserPayload,
   extractUserInfo,
-  setAuthCookies
+  setAuthCookies,
 } = require('../_lib/auth');
 
 const { handlePreflight } = require('../_lib/cors');
 const { Redis } = require('@upstash/redis');
-const { createPasswordHash, verifyPassword } = require('../_lib/password');
-const { getAuthPayload, isDisabledUser, isReservedUsername } = require('../_lib/security');
+const { createPasswordHash } = require('../_lib/password');
+const { isDisabledUser, isReservedUsername } = require('../_lib/security');
 const { bindPasswordPrincipal, claimIdentity, resolvePasswordPrincipal } = require('../_lib/identity');
 const { isProtectedPromoterUsername } = require('../_lib/promoter-access');
 const { extractReferralCode, finalizePendingReferral, stageReferral, validateReferral } = require('../_lib/referrals');
@@ -31,16 +33,63 @@ const { ensureMemberIdentity } = require('../_lib/member-identity');
 const { createAccountWithSignupEvent, deliverSignupEvent, enrichSignupEvent, signupEventId } = require('../_lib/signup-outbox');
 const { getLiveAdIdDetails } = require('../_lib/stats-data');
 const {
-  consolidateEquivalentCredentials,
+  credentialOwnerKeys,
   loadLocalLoginCredentials,
   localLoginCredentialCandidates,
   resolveLocalLoginPrincipal,
 } = require('../_lib/login-identity');
-const { resolveReadOnlyWalletStorageIdentity } = require('../_lib/wallet-identity');
+const {
+  findCaseVariantWallets,
+  resolveReadOnlyWalletStorageIdentity,
+  walletStorageCandidates,
+} = require('../_lib/wallet-identity');
+
+const CASE_VARIANT_SCAN_PAGE_LIMIT = 16;
+
+async function findCaseVariantOwnerAliases(redis, prefixes, candidates) {
+  if (!redis || typeof redis.scan !== 'function') return [];
+  const expected = new Set((candidates || [])
+    .map(value => String(value || '').trim().toLowerCase())
+    .filter(Boolean));
+  const matches = new Set();
+  let pages = 0;
+  for (const prefix of prefixes) {
+    for (const candidate of expected) {
+      let cursor = '0';
+      const pattern = `${prefix}:${candidate.replace(/[a-z]/gi, '?')}`;
+      do {
+        if (++pages > CASE_VARIANT_SCAN_PAGE_LIMIT) {
+          const error = new Error('Registration identity lookup exceeded its bounded scan');
+          error.code = 'ACCOUNT_IDENTITY_UNAVAILABLE';
+          throw error;
+        }
+        const result = await redis.scan(cursor, { match: pattern, count: 200 });
+        if (!Array.isArray(result) || result.length !== 2 || !Array.isArray(result[1])) {
+          const error = new Error('Registration identity lookup returned an invalid response');
+          error.code = 'ACCOUNT_IDENTITY_UNAVAILABLE';
+          throw error;
+        }
+        cursor = String(result[0] || '0');
+        for (const key of result[1]) {
+          const value = String(key);
+          if (value.startsWith(`${prefix}:`)) {
+            const alias = value.slice(prefix.length + 1);
+            if (expected.has(alias.toLowerCase())) matches.add(alias);
+          }
+        }
+      } while (cursor !== '0');
+    }
+  }
+  return Array.from(matches);
+}
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
-  return new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+  try {
+    return new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+  } catch (_error) {
+    return null;
+  }
 }
 
 function getClientIp(req) {
@@ -51,17 +100,17 @@ function getClientIp(req) {
   return String(value).slice(0, 128);
 }
 
-// Sliding-window-ish rate limit: incr + expire on first hit
+// Fixed-window limiter. A missing expiry on an old counter is treated as
+// stale state and restarted instead of blocking registration forever.
 async function rlCheck(redis, key, limit, windowSec) {
-  if (!redis) return { allowed: true };
   try {
-    const count = await redis.incr(key);
+    const rawCount = await redis.incr(key);
+    const count = Number(rawCount);
+    if (!Number.isFinite(count) || count < 1) throw new Error('Invalid registration rate-limit counter');
     if (count === 1) await redis.expire(key, windowSec);
     if (count > limit) {
-      const ttl = await redis.ttl(key);
-      // Historical counters were occasionally written without an expiry.
-      // They are not valid rate-limit windows and would otherwise block this
-      // IP forever, so restart only that stale counter with the normal TTL.
+      const ttl = Number(await redis.ttl(key));
+      if (!Number.isFinite(ttl)) throw new Error('Invalid registration rate-limit TTL');
       if (ttl < 0) {
         await redis.set(key, '1', { ex: windowSec });
         return { allowed: true };
@@ -69,28 +118,42 @@ async function rlCheck(redis, key, limit, windowSec) {
       return { allowed: false, retryAfter: Math.max(1, ttl) };
     }
     return { allowed: true };
-  } catch { return { allowed: false, unavailable: true }; }
+  } catch (_error) {
+    return { allowed: false, unavailable: true };
+  }
 }
 
 const USERNAME_RE = /^[\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9_.@\- ]{1,50}$/;
 const PASSWORD_MIN = 8;
-function isValidPassword(p) {
-  if (typeof p !== 'string' || p.length < PASSWORD_MIN) return false;
-  return /[A-Za-z]/.test(p) && /[0-9]/.test(p);
+
+function isValidPassword(password) {
+  if (typeof password !== 'string' || password.length < PASSWORD_MIN) return false;
+  return /[A-Za-z]/.test(password) && /[0-9]/.test(password);
+}
+
+function responseForExistingAccount(res) {
+  return res.status(409).json({
+    error: 'Account already exists. Please sign in through the login form.',
+    code: 'ACCOUNT_EXISTS_USE_LOGIN',
+  });
 }
 
 module.exports = async (req, res) => {
   if (handlePreflight(req, res, { credentials: true })) return;
-
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // ---------- Strict type validation (no 500s from Object/Array payloads) ----------
+    // ---------- Strict request validation ----------
     const body = req.body;
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
       return res.status(400).json({ error: 'Invalid request body' });
     }
-    const { username, password, referral_code: bodyReferralCode, legacy_recovery: legacyRecovery } = body;
+    const {
+      username,
+      password,
+      referral_code: bodyReferralCode,
+      legacy_recovery: legacyRecovery,
+    } = body;
     if (typeof username !== 'string') {
       return res.status(400).json({ error: 'Username must be a string' });
     }
@@ -100,31 +163,31 @@ module.exports = async (req, res) => {
     if (bodyReferralCode !== undefined && bodyReferralCode !== null && typeof bodyReferralCode !== 'string') {
       return res.status(400).json({ error: 'Referral code must be a string', code: 'INVALID_REFERRAL_CODE' });
     }
-    if (legacyRecovery !== undefined && legacyRecovery !== null && (typeof legacyRecovery !== 'object' || Array.isArray(legacyRecovery))) {
+    if (legacyRecovery !== undefined && legacyRecovery !== null &&
+        (typeof legacyRecovery !== 'object' || Array.isArray(legacyRecovery))) {
       return res.status(400).json({ error: 'Invalid legacy recovery proof', code: 'INVALID_RECOVERY_PROOF' });
     }
-    const recoveryRequested = legacyRecovery !== undefined && legacyRecovery !== null;
-    const referralCode = extractReferralCode(req);
 
-    const cleanUsername = username.trim();
-    if (!USERNAME_RE.test(cleanUsername)) {
-      return res.status(400).json({
-        error: 'Invalid username (use letters, numbers, Chinese chars, underscore, dot, @, space, hyphen; 1-50 chars)'
-      });
-    }
-    // Historical promotion codes and links are public data, not proof of
-    // account ownership. Keep the legacy field parseable for old clients,
-    // but route every such request to human support before any Redis access.
-    if (recoveryRequested) {
+    // Historical promotion codes and links are public data, not ownership
+    // proof. Keep the field parseable for old clients, but route recovery to
+    // support before any Redis read or mutation.
+    if (legacyRecovery !== undefined && legacyRecovery !== null) {
       return res.status(409).json({
         error: 'Please contact support to recover this account',
         code: 'SUPPORT_RECOVERY_REQUIRED',
       });
     }
+
+    const referralCode = extractReferralCode(req);
+    const cleanUsername = username.trim();
+    if (!USERNAME_RE.test(cleanUsername)) {
+      return res.status(400).json({
+        error: 'Invalid username (use letters, numbers, Chinese chars, underscore, dot, @, space, hyphen; 1-50 chars)',
+      });
+    }
+
     const loginIdentity = localLoginCredentialCandidates(cleanUsername);
     const usernameKey = loginIdentity.primaryUsername;
-
-    // Reject reserved usernames to prevent admin privilege escalation
     if (isReservedUsername(usernameKey)) {
       return res.status(400).json({ error: 'This username is not available' });
     }
@@ -133,382 +196,406 @@ module.exports = async (req, res) => {
     if (!redis) return res.status(503).json({ error: 'Authentication service unavailable' });
     const ip = getClientIp(req);
 
-    // ---------- Rate limiting ----------
-    if (redis) {
-      // IP-based global limit: 10 attempts / 15 min
-      const ipRL = await rlCheck(redis, 'nf_login_ip:' + ip, 10, 900);
-      if (ipRL.unavailable) {
-        return res.status(503).json({ error: 'Registration service temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
-      }
-      if (!ipRL.allowed) {
-        return res.status(429).json({ error: 'Too many login attempts', code: 'RATE_LIMITED', retryAfter: ipRL.retryAfter });
-      }
-      // Username-based lockout: 5 failures / 15 min. Lock state is
-      // authoritative; a Redis outage must become a generic 503.
-      try {
-        const acctLock = await redis.get('nf_login_lock:' + usernameKey);
-        if (acctLock) {
-          const ttl = await redis.ttl('nf_login_lock:' + usernameKey);
-          if (ttl > 0) {
-            return res.status(429).json({ error: 'Account temporarily locked', code: 'RATE_LIMITED', retryAfter: ttl });
-          }
-          // This lock type is always created with a 15-minute TTL. A surviving
-          // no-expiry key is stale legacy state, not an intentional account ban.
-          await redis.del('nf_login_lock:' + usernameKey);
-        }
-      } catch (_error) {
-        return res.status(503).json({ error: 'Registration service temporarily unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
-      }
+    // ---------- Existing-account guard (read only) ----------
+    // Scan bounded case variants so a historical display-case password cannot
+    // be shadowed by a newly registered lowercase account.
+    let credentialIdentity;
+    try {
+      credentialIdentity = await loadLocalLoginCredentials(redis, cleanUsername, {
+        scanCaseVariants: true,
+      });
+    } catch (_error) {
+      return res.status(503).json({
+        error: 'Account identity lookup is temporarily unavailable',
+        code: 'ACCOUNT_IDENTITY_UNAVAILABLE',
+      });
     }
 
-    // ---------- Business logic ----------
-    let isNewUser = false;
-    let passedAuth = false;
-    let authenticatedPayload = null;
-    let credentialUsername = usernameKey;
-    let needsRehashCredential = null;
-    let referralToBind = null;
-    let signupEvent = null;
-
-    {
-      const passwordKey = 'nf_user_pass:' + usernameKey;
-      let credentialIdentity;
-      try {
-        credentialIdentity = await loadLocalLoginCredentials(redis, cleanUsername);
-      } catch (_error) {
-        return res.status(503).json({ error: 'Account identity lookup is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
+    try {
+      if (await isDisabledUser(redis, usernameKey, {
+        failClosed: true,
+        allowSafeReadOnlyWalletConflict: true,
+      })) {
+        return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
       }
-      const credentialRecords = credentialIdentity.records;
-      try {
-        if (await isDisabledUser(redis, usernameKey, { failClosed: true, allowSafeReadOnlyWalletConflict: true })) {
+    } catch (_error) {
+      return res.status(503).json({
+        error: 'Account status unavailable',
+        code: 'ACCOUNT_STATUS_UNAVAILABLE',
+      });
+    }
+
+    let walletIdentity;
+    try {
+      walletIdentity = await resolveReadOnlyWalletStorageIdentity(redis, usernameKey);
+    } catch (_error) {
+      return res.status(503).json({
+        error: 'Account identity lookup is temporarily unavailable',
+        code: 'ACCOUNT_IDENTITY_UNAVAILABLE',
+      });
+    }
+    if (walletIdentity.conflict) {
+      return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
+    }
+
+    let userData = null;
+    try {
+      userData = await redis.get(`nf_user_data:${walletIdentity.storageUsername}`);
+    } catch (_error) {
+      return res.status(503).json({
+        error: 'Account status unavailable',
+        code: 'ACCOUNT_STATUS_UNAVAILABLE',
+      });
+    }
+
+    // Treat any existing Redis value as an account claim, including a
+    // malformed/empty legacy hash. Otherwise a corrupt key could consume the
+    // registration quota and race the atomic create script before returning a
+    // misleading "new account" response.
+    let credentialKeyPresent = false;
+    try {
+      const credentialValues = await Promise.all((credentialIdentity.usernames || []).map(username =>
+        redis.get(`nf_user_pass:${username}`)));
+      credentialKeyPresent = credentialValues.some(value => value !== null && value !== undefined);
+    } catch (_error) {
+      return res.status(503).json({
+        error: 'Account identity lookup is temporarily unavailable',
+        code: 'ACCOUNT_IDENTITY_UNAVAILABLE',
+      });
+    }
+    if (credentialKeyPresent || credentialIdentity.records.some(record => record.hash)) {
+      return responseForExistingAccount(res);
+    }
+
+    const userDataPresent = userData !== null && userData !== undefined;
+    if (userDataPresent) {
+      if (isProtectedPromoterUsername(usernameKey)) {
+        return res.status(409).json({
+          error: 'Please contact support to recover this account',
+          code: 'SUPPORT_RECOVERY_REQUIRED',
+        });
+      }
+      return res.status(409).json({
+        error: 'Account recovery is required before setting a password',
+        code: 'ACCOUNT_RECOVERY_REQUIRED',
+      });
+    }
+
+    // The wallet resolver intentionally avoids scanning unknown public names
+    // to keep ordinary login requests O(1). Registration must additionally
+    // prevent a historical display-case wallet (for example `Alice`) from
+    // being shadowed by a new lowercase account, so perform the same bounded
+    // read-only case-variant scan used by recovery flows.
+    try {
+      const walletCandidates = Array.from(new Set([
+        usernameKey,
+        ...(loginIdentity.usernames || []),
+        ...walletStorageCandidates(usernameKey),
+      ].filter(Boolean)));
+      const caseVariantWallets = await findCaseVariantWallets(redis, walletCandidates);
+      if (caseVariantWallets.length) {
+        const walletValues = typeof redis.mget === 'function'
+          ? await redis.mget(...caseVariantWallets.map(alias => `nf_user_data:${alias}`))
+          : await Promise.all(caseVariantWallets.map(alias => redis.get(`nf_user_data:${alias}`)));
+        let invalidWallet = false;
+        const disabledWallet = walletValues.some(raw => {
+          if (typeof raw !== 'string') return Boolean(raw && (raw.disabled || raw.wallet_merged_into));
+          try {
+            const record = JSON.parse(raw);
+            if (!record || typeof record !== 'object' || Array.isArray(record)) {
+              invalidWallet = true;
+              return false;
+            }
+            return Boolean(record.disabled || record.wallet_merged_into);
+          } catch (_error) {
+            invalidWallet = true;
+            return false;
+          }
+        });
+        if (invalidWallet) {
+          return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
+        }
+        if (disabledWallet) {
           return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
         }
-      } catch (_error) {
-        return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
-      }
-      let walletIdentity;
-      try {
-        walletIdentity = await resolveReadOnlyWalletStorageIdentity(redis, usernameKey);
-      } catch (_error) {
-        return res.status(503).json({ error: 'Account identity lookup is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
-      }
-      if (walletIdentity.conflict) {
-        return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
-      }
-      let userData;
-      try {
-        userData = await redis.get(`nf_user_data:${walletIdentity.storageUsername}`);
-      } catch (_error) {
-        return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
-      }
-      const storedCredentials = credentialRecords.filter(record => record.hash);
-      if (storedCredentials.length) {
-        // Existing user with password → must verify
-        if (!password) {
-          return res.status(401).json({ error: 'Password required', needPassword: true });
-        }
-        if (typeof password !== 'string' || password.length < 1) {
-          return res.status(401).json({ error: 'Invalid username or password', code: 'INVALID_CREDENTIALS' });
-        }
-        // NOTE: do NOT enforce strong-password policy on existing-user login;
-        // old users may have shorter legacy passwords. Brute force is blocked
-        // by the per-account lockout (5 fails / 15 min) above.
-        const verifiedCredentials = [];
-        for (const record of storedCredentials) {
-          const verification = await verifyPassword(password, record.hash);
-          if (verification.valid) verifiedCredentials.push({ ...record, verification });
-        }
-        if (!verifiedCredentials.length) {
-          // Record failure → lock after 5
-          try {
-            const fails = await redis.incr('nf_login_fail:' + usernameKey);
-            if (fails === 1) await redis.expire('nf_login_fail:' + usernameKey, 900);
-            if (fails >= 5) {
-              await redis.set('nf_login_lock:' + usernameKey, '1', { ex: 900 });
-              await redis.del('nf_login_fail:' + usernameKey);
-            }
-          } catch (_error) {
-            return res.status(503).json({ error: 'Registration service temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
-          }
-          return res.status(401).json({ error: 'Invalid username or password', code: 'INVALID_CREDENTIALS' });
-        }
-        if (verifiedCredentials.length !== storedCredentials.length) {
-          return res.status(409).json({ error: 'Account credential recovery is required', code: 'ACCOUNT_CREDENTIAL_CONFLICT' });
-        }
-        let principalForCredentials;
-        try {
-          principalForCredentials = await resolveLocalLoginPrincipal(
-            redis,
-            usernameKey,
-            usernameKey,
-            authenticatedPayload,
-            resolvePasswordPrincipal,
-          );
-        } catch (_error) {
-          return res.status(503).json({ error: 'Account identity lookup is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
-        }
-        if (!principalForCredentials) {
-          return res.status(409).json({ error: 'Account identity recovery is required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
-        }
-        if (storedCredentials.length > 1) {
-          let consolidated;
-          try {
-            consolidated = await consolidateEquivalentCredentials(
-              redis,
-              usernameKey,
-              storedCredentials,
-              password,
-              createPasswordHash,
-              principalForCredentials,
-            );
-          } catch (_error) {
-            return res.status(503).json({ error: 'Account identity update is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
-          }
-          if (!consolidated) {
-            return res.status(409).json({ error: 'Account credential recovery is required', code: 'ACCOUNT_CREDENTIAL_CONFLICT' });
-          }
-          credentialUsername = usernameKey;
-        } else {
-          const matchedCredential = verifiedCredentials[0];
-          // Keep the exact legacy key for owner checks; the identity helpers
-          // normalize the username when they write canonical indexes.
-          credentialUsername = matchedCredential.storageUsername;
-          if (matchedCredential.verification.needsRehash) needsRehashCredential = matchedCredential.storageUsername;
-        }
-        // Success → clear failure counter
-        await redis.del('nf_login_fail:' + usernameKey);
-        passedAuth = true;
-      } else if (userData) {
-        // Existing passwordless data must only be claimed by its current
-        // authenticated session. A username alone is not proof of ownership.
-        const session = getAuthPayload(req);
-        const sessionUsername = String(session && session.username || '').trim().toLowerCase();
-        if (sessionUsername !== usernameKey) {
-          if (isProtectedPromoterUsername(usernameKey)) {
-            return res.status(409).json({
-              error: 'Please contact support to recover this account',
-              code: 'SUPPORT_RECOVERY_REQUIRED',
-            });
-          }
-          return res.status(409).json({
-            error: 'Account recovery is required before setting a password',
-            code: 'ACCOUNT_RECOVERY_REQUIRED',
-          });
-        }
-        if (!password) {
-          return res.status(400).json({
-            error: 'Password setup required',
-            needPassword: true,
-            mustSetPassword: true,
-          });
-        }
-        if (!isValidPassword(password)) {
-          return res.status(400).json({ error: 'Password must be at least 8 characters with a letter and a number', needPassword: true, mustSetPassword: true });
-        }
-        const createdEvent = await createAccountWithSignupEvent(
-          redis,
-          passwordKey,
-          await createPasswordHash(password),
-          {
-            username: usernameKey,
-            referralCode: referralToBind || '',
-            ip,
-            userAgent: (req.headers && req.headers['user-agent']) || '',
-          },
-        );
-        const created = Boolean(createdEvent);
-        if (!created) {
-          return res.status(409).json({ error: 'Password status changed. Please sign in again.', code: 'PASSWORD_ALREADY_SET' });
-        }
-        authenticatedPayload = session;
-        passedAuth = true;
-      } else {
-        let runtimePromoterSnapshot;
-        try {
-          runtimePromoterSnapshot = await getLiveAdIdDetails();
-        } catch (_error) {
-          runtimePromoterSnapshot = null;
-        }
-        if (!runtimePromoterSnapshot || !runtimePromoterSnapshot.by_promoter) {
-          return res.status(503).json({
-            error: 'Registration identity verification is temporarily unavailable',
-            code: 'PROMOTER_IDENTITY_UNAVAILABLE',
-          });
-        }
-        const protectedPromoter = isProtectedPromoterUsername(usernameKey, runtimePromoterSnapshot);
-        if (protectedPromoter) {
-          // Do not disclose or create a protected historical account through
-          // normal registration. Public promotion assets are not proof of
-          // ownership; human support must perform recovery.
+        if (isProtectedPromoterUsername(usernameKey)) {
           return res.status(409).json({
             error: 'Please contact support to recover this account',
             code: 'SUPPORT_RECOVERY_REQUIRED',
           });
-        } else {
-          // Brand new user → require a password to register.
-          isNewUser = true;
-          if (!password) {
-            return res.status(400).json({ error: 'Password required (min 8 characters with a letter and a number)', needPassword: true, mustSetPassword: true });
-          }
-          if (!isValidPassword(password)) {
-            return res.status(400).json({ error: 'Password must be at least 8 characters with a letter and a number', needPassword: true, mustSetPassword: true });
-          }
-          try {
-            const validatedReferral = await validateReferral(redis, usernameKey, referralCode);
-            referralToBind = validatedReferral && validatedReferral.referral_code;
-          } catch (error) {
-            if (error && error.code === 'SELF_REFERRAL') {
-              return res.status(409).json({ error: 'You cannot refer yourself', code: 'SELF_REFERRAL' });
-            }
-            if (error && error.code === 'INVALID_REFERRAL_CODE') {
-              return res.status(400).json({ error: 'Invalid referral code', code: 'INVALID_REFERRAL_CODE' });
-            }
-            return res.status(503).json({ error: 'Registration service temporarily unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
-          }
-          let claimed;
-          try {
-            claimed = await claimIdentity(redis, usernameKey, `local:${usernameKey}`);
-          } catch (_error) {
-            return res.status(503).json({ error: 'Account identity update is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
-          }
-          if (!claimed) {
-            return res.status(409).json({ error: 'This username belongs to another sign-in method', code: 'ACCOUNT_IDENTITY_CONFLICT' });
-          }
-          try {
-            signupEvent = await createAccountWithSignupEvent(
-              redis,
-              passwordKey,
-              await createPasswordHash(password),
-              {
-                username: usernameKey,
-                referralCode: referralToBind || '',
-                ip,
-                userAgent: (req.headers && req.headers['user-agent']) || '',
-              },
-            );
-          } catch (_error) {
-            return res.status(503).json({ error: 'Registration service temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
-          }
-          if (!signupEvent) {
-            return res.status(409).json({ error: 'Account already exists. Please sign in.', code: 'ACCOUNT_ALREADY_EXISTS' });
-          }
-          passedAuth = true;
         }
+        return res.status(409).json({
+          error: 'Account recovery is required before setting a password',
+          code: 'ACCOUNT_RECOVERY_REQUIRED',
+        });
       }
+    } catch (_error) {
+      return res.status(503).json({
+        error: 'Account identity lookup is temporarily unavailable',
+        code: 'ACCOUNT_IDENTITY_UNAVAILABLE',
+      });
     }
 
-    if (!passedAuth) {
-      return res.status(401).json({ error: 'Invalid username or password' });
+    // A stale identity owner is still a claim. Never overwrite a Discord or
+    // local identity merely because its wallet/password record is absent.
+    try {
+      const aliases = Array.from(new Set([
+        usernameKey,
+        ...(loginIdentity.usernames || []),
+        ...(credentialIdentity.usernames || []),
+      ]));
+      const ownerKeys = credentialOwnerKeys(aliases);
+      const ownerValues = typeof redis.mget === 'function'
+        ? await redis.mget(...ownerKeys)
+        : await Promise.all(ownerKeys.map(key => redis.get(key)));
+      if (ownerValues.some(value => value !== null && value !== undefined)) {
+        return res.status(409).json({
+          error: 'This username belongs to another sign-in method',
+          code: 'ACCOUNT_IDENTITY_CONFLICT',
+        });
+      }
+      const ownerAliases = await findCaseVariantOwnerAliases(
+        redis,
+        ['nf_identity_owner', 'nf_user_pass_owner'],
+        aliases,
+      );
+      if (ownerAliases.length) {
+        return res.status(409).json({
+          error: 'This username belongs to another sign-in method',
+          code: 'ACCOUNT_IDENTITY_CONFLICT',
+        });
+      }
+    } catch (_error) {
+      return res.status(503).json({
+        error: 'Account identity lookup is temporarily unavailable',
+        code: 'ACCOUNT_IDENTITY_UNAVAILABLE',
+      });
     }
 
+    // Runtime promotion identities are protected even when no wallet/password
+    // row exists yet. This check must happen before consuming registration
+    // quota, because the request cannot create an account.
+    let runtimePromoterSnapshot;
+    try {
+      runtimePromoterSnapshot = await getLiveAdIdDetails();
+    } catch (_error) {
+      runtimePromoterSnapshot = null;
+    }
+    if (!runtimePromoterSnapshot || !runtimePromoterSnapshot.by_promoter) {
+      return res.status(503).json({
+        error: 'Registration identity verification is temporarily unavailable',
+        code: 'PROMOTER_IDENTITY_UNAVAILABLE',
+      });
+    }
+    if (isProtectedPromoterUsername(usernameKey, runtimePromoterSnapshot)) {
+      return res.status(409).json({
+        error: 'Please contact support to recover this account',
+        code: 'SUPPORT_RECOVERY_REQUIRED',
+      });
+    }
+
+    // ---------- Independent registration rate limit ----------
+    // Normal logins never read or increment the registration quota. Legacy
+    // login counters are intentionally ignored and are not migrated here.
+    const registrationRL = await rlCheck(redis, `nf_register_ip:${ip}`, 10, 900);
+    if (registrationRL.unavailable) {
+      return res.status(503).json({
+        error: 'Registration service temporarily unavailable',
+        code: 'RATE_LIMIT_UNAVAILABLE',
+      });
+    }
+    if (!registrationRL.allowed) {
+      return res.status(429).json({
+        error: 'Too many registration attempts',
+        code: 'RATE_LIMITED',
+        retryAfter: registrationRL.retryAfter,
+      });
+    }
+
+    // ---------- New-account validation ----------
+    if (!password) {
+      return res.status(400).json({
+        error: 'Password required (min 8 characters with a letter and a number)',
+        needPassword: true,
+        mustSetPassword: true,
+      });
+    }
+    if (!isValidPassword(password)) {
+      return res.status(400).json({
+        error: 'Password must be at least 8 characters with a letter and a number',
+        needPassword: true,
+        mustSetPassword: true,
+      });
+    }
+
+    let referralToBind = null;
+    try {
+      const validatedReferral = await validateReferral(redis, usernameKey, referralCode);
+      referralToBind = validatedReferral && validatedReferral.referral_code;
+    } catch (error) {
+      if (error && error.code === 'SELF_REFERRAL') {
+        return res.status(409).json({ error: 'You cannot refer yourself', code: 'SELF_REFERRAL' });
+      }
+      if (error && error.code === 'INVALID_REFERRAL_CODE') {
+        return res.status(400).json({ error: 'Invalid referral code', code: 'INVALID_REFERRAL_CODE' });
+      }
+      return res.status(503).json({
+        error: 'Registration service temporarily unavailable',
+        code: 'ACCOUNT_STATUS_UNAVAILABLE',
+      });
+    }
+
+    // Claim the identity before the atomic password+outbox write. This keeps
+    // the established owner contract and prevents a concurrent registration
+    // from taking over a just-created account.
+    try {
+      if (!await claimIdentity(redis, usernameKey, `local:${usernameKey}`)) {
+        return res.status(409).json({
+          error: 'This username belongs to another sign-in method',
+          code: 'ACCOUNT_IDENTITY_CONFLICT',
+        });
+      }
+    } catch (_error) {
+      return res.status(503).json({
+        error: 'Account identity update is temporarily unavailable',
+        code: 'ACCOUNT_IDENTITY_UNAVAILABLE',
+      });
+    }
+
+    const passwordKey = `nf_user_pass:${usernameKey}`;
+    let signupEvent;
+    try {
+      signupEvent = await createAccountWithSignupEvent(
+        redis,
+        passwordKey,
+        await createPasswordHash(password),
+        {
+          username: usernameKey,
+          referralCode: referralToBind || '',
+          ip,
+          userAgent: (req.headers && req.headers['user-agent']) || '',
+        },
+      );
+    } catch (_error) {
+      return res.status(503).json({
+        error: 'Registration service temporarily unavailable',
+        code: 'ACCOUNT_IDENTITY_UNAVAILABLE',
+      });
+    }
+    if (!signupEvent) return responseForExistingAccount(res);
+
+    // ---------- Bind the new local principal ----------
     let passwordPrincipal;
-    let identityBound = false;
     try {
       passwordPrincipal = await resolveLocalLoginPrincipal(
         redis,
         usernameKey,
-        credentialUsername,
-        authenticatedPayload,
+        usernameKey,
+        null,
         resolvePasswordPrincipal,
       );
-      identityBound = Boolean(passwordPrincipal &&
+      const identityBound = Boolean(passwordPrincipal &&
         await claimIdentity(redis, usernameKey, passwordPrincipal) &&
-        await claimIdentity(redis, credentialUsername, passwordPrincipal) &&
-        await bindPasswordPrincipal(redis, credentialUsername, passwordPrincipal));
-    } catch (_error) {
-      return res.status(503).json({ error: 'Account identity update is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
-    }
-    if (!identityBound) {
-      return res.status(409).json({ error: 'Account identity recovery is required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
-    }
-    // Delay legacy-hash migration until the credential owner has been
-    // validated and bound, so a conflicting alias cannot mutate its hash.
-    if (needsRehashCredential) {
-      try {
-        await redis.set(`nf_user_pass:${needsRehashCredential}`, await createPasswordHash(password));
-      } catch (_error) {
-        return res.status(503).json({ error: 'Account identity update is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
+        await bindPasswordPrincipal(redis, usernameKey, passwordPrincipal));
+      if (!identityBound) {
+        return res.status(409).json({
+          error: 'Account identity recovery is required',
+          code: 'ACCOUNT_IDENTITY_CONFLICT',
+        });
       }
+    } catch (_error) {
+      return res.status(503).json({
+        error: 'Account identity update is temporarily unavailable',
+        code: 'ACCOUNT_IDENTITY_UNAVAILABLE',
+      });
     }
+
     let finalizedReferral = null;
     try {
-      if (isNewUser && referralToBind) await stageReferral(redis, usernameKey, referralToBind);
+      if (referralToBind) await stageReferral(redis, usernameKey, referralToBind);
       finalizedReferral = await finalizePendingReferral(redis, usernameKey);
     } catch (error) {
       console.warn('[auth/register] Referral binding deferred:', error && error.code || error && error.message);
     }
+
     let member = null;
     try {
       member = await ensureMemberIdentity(redis, usernameKey, {
         source: 'local',
-        createdAt: isNewUser ? new Date().toISOString() : null,
+        createdAt: new Date().toISOString(),
       });
     } catch (error) {
-      // Identity numbering is repaired by /auth/me, member insights, and the
-      // admin registration sync. A transient counter outage must not strand a
-      // successfully authenticated account without cookies.
+      // Member numbering is repaired by /auth/me and admin sync; it must not
+      // strand a successfully created account without an auth session.
       console.warn('[auth/register] Member ID allocation deferred:', error && error.code || error && error.message);
     }
 
-    // ---------- Issue tokens ----------
-    const userPayload = buildUserPayload({ type: 'local', username: usernameKey, principal: passwordPrincipal });
+    const userPayload = buildUserPayload({
+      type: 'local',
+      username: usernameKey,
+      principal: passwordPrincipal,
+    });
     const accessToken = signAccessToken(userPayload);
     const refreshToken = signRefreshToken(userPayload);
     const userInfo = extractUserInfo(userPayload);
-
     setAuthCookies(res, accessToken, refreshToken, userInfo);
 
-    // ---------- New user notification (Feishu webhook) ----------
-    if (isNewUser) {
-      const feishuWebhook = process.env.FEISHU_SIGNUP_WEBHOOK;
-      if (feishuWebhook) {
-        // Best-effort fire-and-forget, don't block response
-        const ref = referralCode ||
-                    (req.query && (req.query.ref || req.query.linkId)) ||
-                    (req.headers && req.headers['x-referral']) ||
-                    (req.headers && req.headers.referer && (() => {
-                      try { const u = new URL(req.headers.referer); return u.searchParams.get('code') || u.searchParams.get('linkId') || ''; } catch { return ''; } })()) ||
-                    '';
-        const ua = (req.headers && req.headers['user-agent']) || '';
-        const payload = {
-          msg_type: 'interactive',
-          card: {
-            header: { title: { tag: 'plain_text', content: '🎉 新用户注册' }, template: 'green' },
-            elements: [
-              { tag: 'div', text: { tag: 'lark_md', content: `**用户名：** ${cleanUsername}\n**来源IP：** ${ip}\n**归因code/link：** ${ref || '自然流量'}\n**UA：** ${ua.slice(0,200)}` } }
-            ]
+    // ---------- New-user notification ----------
+    const feishuWebhook = process.env.FEISHU_SIGNUP_WEBHOOK;
+    if (feishuWebhook) {
+      const ref = referralCode ||
+        (req.query && (req.query.ref || req.query.linkId)) ||
+        (req.headers && req.headers['x-referral']) ||
+        (req.headers && req.headers.referer && (() => {
+          try {
+            const url = new URL(req.headers.referer);
+            return url.searchParams.get('code') || url.searchParams.get('linkId') || '';
+          } catch (_error) {
+            return '';
           }
-        };
-        fetch(feishuWebhook, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        }).catch(() => {});
-      }
+        })()) || '';
+      const ua = (req.headers && req.headers['user-agent']) || '';
+      const payload = {
+        msg_type: 'interactive',
+        card: {
+          header: { title: { tag: 'plain_text', content: '🎉 新用户注册' }, template: 'green' },
+          elements: [{
+            tag: 'div',
+            text: {
+              tag: 'lark_md',
+              content: `**用户名：** ${cleanUsername}\n**来源IP：** ${ip}\n**归因code/link：** ${ref || '自然流量'}\n**UA：** ${ua.slice(0, 200)}`,
+            },
+          }],
+        },
+      };
+      fetch(feishuWebhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch(() => {});
+    }
 
-      // Persist the independent registration sink before returning. Delivery
-      // is best-effort, but a failed call remains in Redis for a cron retry.
-      try {
-        const enrichedSignupEvent = await enrichSignupEvent(redis, signupEvent || {
-          event_id: signupEventId(usernameKey),
-        }, {
-          member_id: member && member.id || null,
-          referral_code: finalizedReferral && finalizedReferral.referral_code || referralToBind || '',
-          inviter: finalizedReferral && finalizedReferral.parent || '',
-        });
-        await deliverSignupEvent(redis, enrichedSignupEvent);
-      } catch (error) {
-        console.warn('[auth/register] Signup outbox staging failed:', error && error.message);
-      }
+    // Persist the independent registration sink before returning. Delivery is
+    // best-effort; failed events remain queued for the cron retry path.
+    try {
+      const enrichedSignupEvent = await enrichSignupEvent(redis, signupEvent || {
+        event_id: signupEventId(usernameKey),
+      }, {
+        member_id: member && member.id || null,
+        referral_code: finalizedReferral && finalizedReferral.referral_code || referralToBind || '',
+        inviter: finalizedReferral && finalizedReferral.parent || '',
+      });
+      await deliverSignupEvent(redis, enrichedSignupEvent);
+    } catch (error) {
+      console.warn('[auth/register] Signup outbox staging failed:', error && error.message);
     }
 
     return res.status(200).json({
       success: true,
       username: usernameKey,
       memberId: member && member.id || null,
-      isNewUser
+      isNewUser: true,
     });
-
   } catch (error) {
     console.error('[auth/register] Error:', error);
     return res.status(500).json({ error: 'Internal server error' });

@@ -1,6 +1,8 @@
 /**
- * Login Endpoint (local accounts) — v2.5.1
- * - IP-based rate limit: 5 failures per 15 min; lockout 15 min.
+ * Login Endpoint (local accounts) - v2.5.2
+ * - Only failed password verification increments the IP failure counter.
+ * - Successful authentication clears both the failure counter and lock.
+ * - The legacy registration IP counter is intentionally ignored.
  * - Password hashing + input validation.
  */
 const {
@@ -25,7 +27,7 @@ const { resolveReadOnlyWalletStorageIdentity } = require('../_lib/wallet-identit
 
 module.exports = async (req, res) => {
   if (handlePreflight(req, res, { credentials: true })) return;
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
     const rawUser = req.body && req.body.username;
@@ -65,9 +67,14 @@ module.exports = async (req, res) => {
     try {
       const locked = await redis.get(lockKey);
       if (locked) {
-        const ttl = await redis.ttl(lockKey);
+        const ttl = Number(await redis.ttl(lockKey));
+        if (!Number.isFinite(ttl)) throw new Error('Invalid login lock TTL');
         if (ttl > 0) {
-          return res.status(429).json({ error: 'Too many failed attempts. Try again in ' + ttl + 's.', retryAfter: ttl });
+          return res.status(429).json({
+            error: 'Too many failed attempts. Try again in ' + ttl + 's.',
+            code: 'RATE_LIMITED',
+            retryAfter: ttl,
+          });
         }
         await redis.del(lockKey);
       }
@@ -118,7 +125,8 @@ module.exports = async (req, res) => {
       }
       if (verifiedCredentials.length === 0) {
         try {
-          const fails = await redis.incr(failKey);
+          const fails = Number(await redis.incr(failKey));
+          if (!Number.isFinite(fails) || fails < 1) throw new Error('Invalid login failure counter');
           if (fails === 1) await redis.expire(failKey, 15 * 60);
           if (fails >= 5) {
             await redis.set(lockKey, '1', { ex: 15 * 60 });
@@ -195,9 +203,6 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Clear failure counter on success
-    await redis.del(failKey).catch(() => {});
-
     let passwordPrincipal;
     let identityBound = false;
     try {
@@ -218,6 +223,16 @@ module.exports = async (req, res) => {
     if (!identityBound) {
       return res.status(409).json({ error: 'Account identity recovery is required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
     }
+
+    // The password and identity checks have now both succeeded. Clear all
+    // login failure state before any optional migration/referral work so a
+    // valid login is never left blocked by a stale counter if a later
+    // best-effort step encounters a transient outage.
+    await Promise.all([
+      redis.del(failKey).catch(() => {}),
+      redis.del(lockKey).catch(() => {}),
+    ]);
+
     // Rehash only after all owner indexes have been checked and bound.  A
     // conflicting case-sensitive legacy owner must not be able to mutate its
     // credential merely by presenting the correct password.

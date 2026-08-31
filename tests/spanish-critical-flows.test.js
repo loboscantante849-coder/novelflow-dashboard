@@ -4,10 +4,12 @@ const path = require('node:path');
 const test = require('node:test');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const login = fs.readFileSync(path.join(__dirname, '..', 'api', 'auth', 'login.js'), 'utf8');
 const register = fs.readFileSync(path.join(__dirname, '..', 'api', 'auth', 'register.js'), 'utf8');
 
 test('English and Spanish login and rewards use the same account endpoints', () => {
-  assert.match(html, /fetch\('\/api\/auth\/register'/);
+  assert.match(html, /fetch\(isRegister \? '\/api\/auth\/register' : '\/api\/auth\/login'/);
+  assert.match(html, /buildLoginPayload\(username, password\)/);
   assert.match(html, /authFetch\('\/api\/rewards'/);
   assert.match(html, /RewardsAPI\.call\('checkin'\)/);
   assert.match(html, /RewardsAPI\.call\('confirm_streak_vip'\)/);
@@ -35,7 +37,8 @@ test('Spanish catalogue, invite-code search, and link creation retain the select
 });
 
 test('login responses expose stable codes needed by both language UIs', () => {
-  assert.match(register, /code: 'INVALID_CREDENTIALS'/);
+  assert.match(login, /code: 'INVALID_CREDENTIALS'/);
   assert.match(register, /code: 'RATE_LIMITED'/);
   assert.match(register, /code: 'ACCOUNT_RECOVERY_REQUIRED'/);
+  assert.match(register, /code: 'ACCOUNT_EXISTS_USE_LOGIN'/);
 });

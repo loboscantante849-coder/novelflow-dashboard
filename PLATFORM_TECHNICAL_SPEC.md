@@ -199,8 +199,8 @@ Earn → doCreateReel()
 
 **核心函数**:
 - `checkLoginStatus()` — 检查JWT登录态，调用 `/api/auth/me`
-- `handleLocalRegister()` — 注册，调用 `/api/auth/register`
-- `handleSplashLogin()` — 登录（支持纯用户名/用户名+密码），有fallback离线登录
+- `handleLocalRegister()` — 本地认证表单提交：默认调用 `/api/auth/login`；只有用户明确选择“创建账号”才调用 `/api/auth/register`
+- `handleSplashLogin()` — 弹窗认证提交：默认调用 `/api/auth/login`；注册与登录使用独立入口，不会在登录失败后自动建号
 - `handleLogout()` — 登出，调用 `/api/auth/logout`
 - `loadUserStats(username)` — 加载用户推广数据，调用 `/api/my-stats`
 - `loadMyBooks()` / `saveMyBooks()` — 我的书籍管理
@@ -220,8 +220,8 @@ Earn → doCreateReel()
 
 | 端点 | 方法 | 说明 | 认证方式 |
 |------|------|------|---------|
-| `/api/auth/register` | POST | 注册（支持可选password） | 无 |
-| `/api/auth/login` | POST | 用户名+密码登录 | 无 |
+| `/api/auth/register` | POST | 仅创建全新本地账号（用户名+强密码；独立注册限额） | 无 |
+| `/api/auth/login` | POST | 用户名+密码登录（只记录密码验证失败） | 无 |
 | `/api/auth/logout` | POST | 登出，清除Cookie | 无 |
 | `/api/auth/me` | GET | 检查当前登录态 | JWT Cookie |
 | `/api/auth/check-password` | REMOVED | Password status is exposed only to the authenticated user via `/api/auth/me` | N/A |
@@ -231,10 +231,10 @@ Earn → doCreateReel()
 
 **认证流程**:
 ```
-1. 新用户: POST /register {username} → JWT写入Cookie + localStorage
-2. 有密码用户: POST /login {username, password} → 校验Redis哈希 → JWT
+1. 新用户: 明确选择“创建账号”后 POST /register {username, password} → JWT写入Cookie
+2. 有密码用户: POST /login {username, password} → 校验Redis密码哈希 → JWT；成功即清除失败计数
 3. 已登录: Cookie中nf_token自动验证，/api/me确认身份
-4. 设密码: POST /set-password {password} → SHA256+盐哈希 → 存Redis nf_user_pass:{username}
+4. 历史无密码账号或改密: 在已认证会话中 POST /set-password {password} → scrypt哈希 → 存Redis nf_user_pass:{username}
 ```
 
 **JWT结构**:

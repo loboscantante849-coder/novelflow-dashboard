@@ -21,7 +21,10 @@ test('referral attribution is bounded, persisted briefly, and sent by every loca
   assert.match(source, /REFERRAL_TTL_MS = 7 \* 24 \* 60 \* 60 \* 1000/);
   assert.match(source, /\^\[A-Za-z0-9_-\]\{8,80\}\$/);
   assert.match(source, /url\.searchParams\.delete\('ref'\)/);
-  assert.equal((source.match(/JSON\.stringify\(buildRegistrationPayload\(username, password\)\)/g) || []).length, 2);
+  // One occurrence is the helper declaration; each form contributes one use.
+  assert.equal((source.match(/buildRegistrationPayload\(username, password\)/g) || []).length, 3);
+  assert.equal((source.match(/buildLoginPayload\(username, password\)/g) || []).length, 3);
+  assert.equal((source.match(/fetch\(isRegister \? '\/api\/auth\/register' : '\/api\/auth\/login'/g) || []).length, 2);
   assert.equal((source.match(/clearStoredReferralCode\(\);/g) || []).length >= 2, true);
   assert.match(source, /id="splashReferralApplied"/);
   assert.match(source, /referral_applied/);

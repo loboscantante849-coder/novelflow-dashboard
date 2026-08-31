@@ -71,7 +71,7 @@ test('logout only accepts POST and clears the auth cookies', async () => {
   assert.equal(response.headers['set-cookie'].length, 3);
 });
 
-test('login and register return generic 503 responses when lock or status reads fail', async () => {
+test('login and registration return generic 503 responses when account status reads fail', async () => {
   const cases = [
     {
       name: 'login lock',
@@ -86,14 +86,6 @@ test('login and register return generic 503 responses when lock or status reads 
       handler: login,
       key: 'nf_user_data:alice',
       seed: { 'nf_user_pass:alice': legacyPasswordHash('Password1') },
-      expectedCode: 'ACCOUNT_STATUS_UNAVAILABLE',
-      body: { username: 'alice', password: 'Password1' },
-    },
-    {
-      name: 'register lock',
-      handler: register,
-      key: 'nf_login_lock:alice',
-      seed: {},
       expectedCode: 'ACCOUNT_STATUS_UNAVAILABLE',
       body: { username: 'alice', password: 'Password1' },
     },
@@ -119,6 +111,41 @@ test('login and register return generic 503 responses when lock or status reads 
   }
 });
 
+test('registration does not inspect legacy login lock state for a new account', async () => {
+  FakeRedis.reset();
+  // Login lock keys belong exclusively to password authentication. A stale
+  // key must not turn a valid new-account request into a login-status error.
+  FakeRedis.values.set('nf_login_lock:alice', '1');
+  FakeRedis.expiries.set('nf_login_lock:alice', 900);
+
+  const methods = ['get', 'set', 'incr', 'expire', 'del', 'ttl'];
+  const originals = Object.fromEntries(methods.map(name => [name, FakeRedis.prototype[name]]));
+  const assertNotLegacyAuthState = key => {
+    if (/^nf_login_(?:ip|fail|lock):/.test(String(key))) {
+      throw new Error('registration inspected legacy login state');
+    }
+  };
+  for (const name of methods) {
+    FakeRedis.prototype[name] = async function guardedLegacyState(...args) {
+      assertNotLegacyAuthState(args[0]);
+      return originals[name].apply(this, args);
+    };
+  }
+
+  try {
+    const response = await invoke(register, {
+      headers: { 'x-forwarded-for': '192.0.2.241' },
+      body: { username: 'new-register-lock-probe', password: 'Password1' },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.isNewUser, true);
+    assert.equal(FakeRedis.values.get('nf_login_lock:alice'), '1');
+  } finally {
+    for (const name of methods) FakeRedis.prototype[name] = originals[name];
+  }
+});
+
 test('login accepts and upgrades a legacy password hash', async () => {
   const legacyHash = legacyPasswordHash('Password1');
   FakeRedis.reset({ 'nf_user_pass:alice': legacyHash });
@@ -134,6 +161,149 @@ test('login accepts and upgrades a legacy password hash', async () => {
   assert.match(FakeRedis.values.get('nf_user_pass:alice'), /^scrypt\$/);
 });
 
+test('successful login clears only authentication failure state and ignores legacy IP quota', async () => {
+  FakeRedis.reset({
+    'nf_user_pass:alice': legacyPasswordHash('Password1'),
+    'nf_user_data:alice': JSON.stringify({ bonus_balance: 12.5, earnings: 8 }),
+    'nf_login_fail:192.0.2.11': 4,
+    'nf_login_lock:192.0.2.11': '1',
+    'nf_login_ip:192.0.2.11': 99,
+  });
+  FakeRedis.expiries.set('nf_login_fail:192.0.2.11', 900);
+  // Missing TTL is stale legacy state; the login endpoint removes it before
+  // validating the supplied password, then also clears it on success.
+  FakeRedis.expiries.set('nf_login_ip:192.0.2.11', 900);
+
+  const response = await invoke(login, {
+    headers: { 'x-forwarded-for': '192.0.2.11' },
+    body: { username: 'alice', password: 'Password1' },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(FakeRedis.values.has('nf_login_fail:192.0.2.11'), false);
+  assert.equal(FakeRedis.values.has('nf_login_lock:192.0.2.11'), false);
+  assert.equal(Number(FakeRedis.values.get('nf_login_ip:192.0.2.11')), 99);
+  assert.equal(FakeRedis.values.get('nf_user_data:alice'), JSON.stringify({ bonus_balance: 12.5, earnings: 8 }));
+});
+
+test('wrong password increments only the failure counter and locks after five attempts', async () => {
+  FakeRedis.reset({ 'nf_user_pass:alice': legacyPasswordHash('Password1') });
+  const headers = { 'x-forwarded-for': '192.0.2.13' };
+
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    const response = await invoke(login, {
+      headers,
+      body: { username: 'alice', password: 'WrongPassword1' },
+    });
+    assert.equal(response.statusCode, 401);
+    assert.equal(Number(FakeRedis.values.get('nf_login_fail:192.0.2.13')), attempt);
+    assert.equal(FakeRedis.values.has('nf_login_ip:192.0.2.13'), false);
+  }
+  const fifth = await invoke(login, {
+    headers,
+    body: { username: 'alice', password: 'WrongPassword1' },
+  });
+  assert.equal(fifth.statusCode, 401);
+  assert.equal(FakeRedis.values.has('nf_login_fail:192.0.2.13'), false);
+  assert.equal(FakeRedis.values.get('nf_login_lock:192.0.2.13'), '1');
+  assert.equal(FakeRedis.expiries.get('nf_login_lock:192.0.2.13'), 900);
+
+  const locked = await invoke(login, {
+    headers,
+    body: { username: 'alice', password: 'Password1' },
+  });
+  assert.equal(locked.statusCode, 429);
+  assert.equal(locked.body.code, 'RATE_LIMITED');
+});
+
+test('normal login never reads or writes the legacy registration IP counter', async () => {
+  FakeRedis.reset({
+    'nf_user_pass:ip-isolated': legacyPasswordHash('Password1'),
+    'nf_user_data:ip-isolated': JSON.stringify({ bonus_balance: 4 }),
+    'nf_login_ip:192.0.2.14': 10,
+  });
+  const originalGet = FakeRedis.prototype.get;
+  const originalSet = FakeRedis.prototype.set;
+  const originalIncr = FakeRedis.prototype.incr;
+  const originalExpire = FakeRedis.prototype.expire;
+  const originalDel = FakeRedis.prototype.del;
+  const originalTtl = FakeRedis.prototype.ttl;
+  const assertNotLegacyQuota = key => {
+    if (String(key).startsWith('nf_login_ip:')) throw new Error('legacy login IP counter touched');
+  };
+  FakeRedis.prototype.get = async function guardedGet(key) {
+    assertNotLegacyQuota(key); return originalGet.call(this, key);
+  };
+  FakeRedis.prototype.set = async function guardedSet(key, value, options) {
+    assertNotLegacyQuota(key); return originalSet.call(this, key, value, options);
+  };
+  FakeRedis.prototype.incr = async function guardedIncr(key) {
+    assertNotLegacyQuota(key); return originalIncr.call(this, key);
+  };
+  FakeRedis.prototype.expire = async function guardedExpire(key, seconds) {
+    assertNotLegacyQuota(key); return originalExpire.call(this, key, seconds);
+  };
+  FakeRedis.prototype.del = async function guardedDel(key) {
+    assertNotLegacyQuota(key); return originalDel.call(this, key);
+  };
+  FakeRedis.prototype.ttl = async function guardedTtl(key) {
+    assertNotLegacyQuota(key); return originalTtl.call(this, key);
+  };
+  try {
+    const response = await invoke(login, {
+      headers: { 'x-forwarded-for': '192.0.2.14' },
+      body: { username: 'ip-isolated', password: 'Password1' },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(FakeRedis.values.get('nf_login_ip:192.0.2.14'), 10);
+  } finally {
+    FakeRedis.prototype.get = originalGet;
+    FakeRedis.prototype.set = originalSet;
+    FakeRedis.prototype.incr = originalIncr;
+    FakeRedis.prototype.expire = originalExpire;
+    FakeRedis.prototype.del = originalDel;
+    FakeRedis.prototype.ttl = originalTtl;
+  }
+});
+
+test('registration rejects existing password accounts without cookie or registration quota use', async () => {
+  FakeRedis.reset({
+    'nf_user_pass:already-registered': legacyPasswordHash('Password1'),
+    'nf_register_ip:192.0.2.15': 10,
+  });
+  FakeRedis.expiries.set('nf_register_ip:192.0.2.15', 900);
+  const originalIncr = FakeRedis.prototype.incr;
+  FakeRedis.prototype.incr = async function guardNewAccountQuota(key) {
+    if (String(key).startsWith('nf_register_ip:')) throw new Error('existing account consumed registration quota');
+    return originalIncr.call(this, key);
+  };
+  try {
+    const response = await invoke(register, {
+      headers: { 'x-forwarded-for': '192.0.2.15' },
+      body: { username: 'already-registered', password: 'Password1' },
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, 'ACCOUNT_EXISTS_USE_LOGIN');
+    assert.equal(response.headers['set-cookie'], undefined);
+    assert.equal(FakeRedis.values.get('nf_register_ip:192.0.2.15'), 10);
+  } finally {
+    FakeRedis.prototype.incr = originalIncr;
+  }
+});
+
+test('registration uses an independent IP quota for genuinely new accounts', async () => {
+  FakeRedis.reset({ 'nf_register_ip:192.0.2.16': 10 });
+  FakeRedis.expiries.set('nf_register_ip:192.0.2.16', 900);
+  const response = await invoke(register, {
+    headers: { 'x-forwarded-for': '192.0.2.16' },
+    body: { username: 'registration-quota-user', password: 'Password1' },
+  });
+  assert.equal(response.statusCode, 429);
+  assert.equal(response.body.code, 'RATE_LIMITED');
+  assert.equal(response.body.error, 'Too many registration attempts');
+  assert.equal(FakeRedis.values.has('nf_user_pass:registration-quota-user'), false);
+});
+
 test('legacy user data cannot be claimed without its existing session', async () => {
   const originalData = JSON.stringify({ myBooks: [{ code: '1001' }], points: 25 });
   FakeRedis.reset({ 'nf_user_data:legacy-user': originalData });
@@ -147,7 +317,7 @@ test('legacy user data cannot be claimed without its existing session', async ()
   assert.equal(FakeRedis.values.has('nf_user_pass:legacy-user'), false);
 
   const accessToken = signAccessToken({ type: 'local', username: 'legacy-user' });
-  const configured = await invoke(register, {
+  const configured = await invoke(setPassword, {
     headers: { cookie: `nf_token=${accessToken}` },
     body: { username: 'legacy-user', password: 'Password1' },
   });
@@ -167,16 +337,15 @@ test('login also blocks passwordless account takeover without an owner session',
   assert.equal(FakeRedis.values.has('nf_user_pass:legacy-user'), false);
 });
 
-test('username case variants resolve to one password and data identity', async () => {
+test('authenticated legacy recovery plus case variants resolve to one password and data identity', async () => {
   const originalData = JSON.stringify({ myBooks: [{ code: '1002' }], points: 30 });
   FakeRedis.reset({ 'nf_user_data:alice': originalData });
 
-  const configured = await invoke(register, {
+  const configured = await invoke(setPassword, {
     headers: { cookie: `nf_token=${signAccessToken({ type: 'local', username: 'alice' })}` },
-    body: { username: 'Alice', password: 'Password1' },
+    body: { password: 'Password1' },
   });
   assert.equal(configured.statusCode, 200);
-  assert.equal(configured.body.username, 'alice');
   assert.match(FakeRedis.values.get('nf_user_pass:alice'), /^scrypt\$/);
   assert.equal(FakeRedis.values.has('nf_user_pass:Alice'), false);
 
@@ -474,7 +643,7 @@ test('Cons Espher login spellings resolve to the established local account witho
   const attempts = [
     { handler: login, username: 'Cons Espher', ip: '192.0.2.151' },
     { handler: login, username: '@cons_espher', ip: '192.0.2.152' },
-    { handler: register, username: 'cons_espher', ip: '192.0.2.153' },
+    { handler: login, username: 'cons_espher', ip: '192.0.2.153' },
   ];
   let accessToken = null;
   for (const attempt of attempts) {
@@ -620,20 +789,21 @@ test('Cons login repairs stale no-expiry account and IP lock state without bypas
   FakeRedis.reset({
     'nf_user_pass:@cons espher': legacyPasswordHash('Password1'),
     'nf_user_data:cons_espher': JSON.stringify({ bonus_balance: 8.88 }),
-    'nf_login_lock:cons_espher': '1',
+    'nf_login_lock:192.0.2.155': '1',
     'nf_login_ip:192.0.2.155': 10,
   });
+  // A lock without a TTL is stale and must be removed by the login endpoint.
+  // The legacy registration counter remains untouched.
 
-  const response = await invoke(register, {
+  const response = await invoke(login, {
     headers: { 'x-forwarded-for': '192.0.2.155' },
     body: { username: 'Cons Espher', password: 'Password1' },
   });
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.username, 'cons_espher');
-  assert.equal(FakeRedis.values.has('nf_login_lock:cons_espher'), false);
-  assert.equal(Number(FakeRedis.values.get('nf_login_ip:192.0.2.155')), 1);
-  assert.equal(FakeRedis.expiries.get('nf_login_ip:192.0.2.155'), 900);
+  assert.equal(FakeRedis.values.has('nf_login_lock:192.0.2.155'), false);
+  assert.equal(Number(FakeRedis.values.get('nf_login_ip:192.0.2.155')), 10);
 
   const wrongPassword = await invoke(login, {
     headers: { 'x-forwarded-for': '192.0.2.156' },
@@ -1162,10 +1332,10 @@ test('brand new registration atomically stages a complete signup outbox event', 
   assert.equal(JSON.stringify(event).includes('192.0.2.44'), false);
 });
 
-test('registration fails closed when its abuse limit cannot be verified', async () => {
+test('registration fails closed when its independent abuse limit cannot be verified', async () => {
   const originalIncr = FakeRedis.prototype.incr;
   FakeRedis.prototype.incr = async function failRegistrationLimit(key) {
-    if (String(key).startsWith('nf_login_ip:')) throw new Error('rate storage unavailable');
+    if (String(key).startsWith('nf_register_ip:')) throw new Error('rate storage unavailable');
     return originalIncr.call(this, key);
   };
   try {
