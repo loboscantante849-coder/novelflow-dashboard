@@ -6,6 +6,7 @@ const { setCORSHeaders } = require('./_lib/cors');
 const { getAuthPayload, isAdminUser, isDisabledUser, checkAdminKey } = require('./_lib/security');
 const {
   fetchAcWithTokenFallback,
+  getAcProxyStatus,
   getAcHeaders,
   getAcPagedListUrl,
   readAcToken,
@@ -61,10 +62,11 @@ module.exports = async (req, res) => {
     await rotateAcToken(redis, r).catch(e => {
       console.warn('Redis save failed:', e.message);
     });
-    const data = await r.json().catch(() => null);
+    await r.json().catch(() => null);
 
-    if (r.status !== 200) {
-      return res.status(r.status).json({ success: false, error: 'Token invalid' });
+    const proxyStatus = getAcProxyStatus(r.status);
+    if (r.status < 200 || r.status >= 300) {
+      return res.status(proxyStatus).json({ success: false, error: 'Token invalid' });
     }
 
     return res.status(200).json({ success: true, message: 'Token valid' });

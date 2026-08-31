@@ -584,3 +584,20 @@ test('disabled admin cannot refresh the AC token through a JWT', async () => {
     global.fetch = originalFetch;
   }
 });
+
+test('AC refresh maps Tianji authentication failures away from the site-session 401', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => response({ error: 'invalid_token' }, 401);
+  try {
+    const username = 'refresh-upstream-admin';
+    FakeRedis.reset({
+      [`nf_user_data:${username}`]: JSON.stringify({ accountType: 'admin' }),
+      ac_token: 'test-ac-token',
+    });
+    const result = await invoke(acRefresh, { method: 'POST', headers: authHeaders(username) });
+    assert.equal(result.statusCode, 502);
+    assert.equal(result.body.success, false);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});

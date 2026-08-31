@@ -68,6 +68,21 @@ test('reels normalize Tianji nested result media URLs', () => {
     resolveReelMedia({ final_video_result: 'https://cdn.example/string-result.mp4' }).videoUrl,
     'https://cdn.example/string-result.mp4',
   );
+  assert.equal(
+    resolveReelMedia({ result_json: { video_result: { videos: [{ video_url: 'https://cdn.example/result-json.mp4' }] } } }).videoUrl,
+    'https://cdn.example/result-json.mp4',
+  );
+  assert.equal(
+    resolveReelMedia({ resultJson: JSON.stringify({ video_result: { videos: [{ video_url: 'https://cdn.example/result-json-string.mp4' }] } }) }).videoUrl,
+    'https://cdn.example/result-json-string.mp4',
+  );
+});
+
+test('reel task identifiers normalize all observed Tianji names and wrappers', () => {
+  const getReelTaskId = new Function(`return (${extractFunction('getReelTaskId')});`)();
+  assert.equal(getReelTaskId({ thread_id: 'thread-a' }), 'thread-a');
+  assert.equal(getReelTaskId({ taskId: 'task-b' }), 'task-b');
+  assert.equal(getReelTaskId({ data: { creative: { threadId: 'thread-c' } } }), 'thread-c');
 });
 
 test('My Reels searches the signed-in user material list by normalized book name', () => {
