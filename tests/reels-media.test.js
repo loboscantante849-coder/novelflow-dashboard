@@ -5,11 +5,69 @@ const test = require('node:test');
 
 const source = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
 
+function extractFunction(name) {
+  const marker = `function ${name}(`;
+  const start = source.indexOf(marker);
+  assert.notEqual(start, -1, `${name} should be present`);
+  const open = source.indexOf('{', start);
+  let depth = 0;
+  let quote = null;
+  let escaped = false;
+  for (let i = open; i < source.length; i += 1) {
+    const ch = source[i];
+    if (quote) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') { quote = ch; continue; }
+    if (ch === '{') depth += 1;
+    else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, i + 1);
+    }
+  }
+  throw new Error(`Could not extract ${name}`);
+}
+
 test('completed reels resolve media URLs and show a first-frame video fallback', () => {
   assert.match(source, /function resolveReelMedia\(resultData\)/);
-  assert.match(source, /video_url \|\| item\.videoUrl \|\| item\.file_url \|\| item\.url/);
+  assert.match(source, /final_video_url/);
+  assert.match(source, /processed_video_url/);
+  assert.match(source, /video_result/);
   assert.match(source, /<video[^>]+preload="metadata"[^>]+class="reels-item-thumb"/);
   assert.match(source, /function downloadReelVideo\(videoUrl, title\)/);
+});
+
+test('reel status matching accepts Tianji numeric and string states', () => {
+  assert.match(source, /function isReelCompletedStatus\(value\)/);
+  assert.match(source, /function isReelFailedStatus\(value\)/);
+  assert.match(source, /status === 'completed' \|\| status === 'done' \|\| status === '2'/);
+});
+
+test('reels normalize Tianji nested result media URLs', () => {
+  const resolveReelMedia = new Function('safeClientUrl', `return (${extractFunction('resolveReelMedia')});`)(
+    (value) => String(value || ''),
+  );
+  assert.deepEqual(
+    resolveReelMedia({
+      final_video_result: { video_url: 'https://cdn.example/final.mp4', cover_image_url: 'https://cdn.example/cover.jpg' },
+    }),
+    { videoUrl: 'https://cdn.example/final.mp4', coverUrl: 'https://cdn.example/cover.jpg', creativeText: '' },
+  );
+  assert.equal(
+    resolveReelMedia({ video_result: { videos: [{ video_url: 'https://cdn.example/nested.mp4' }] } }).videoUrl,
+    'https://cdn.example/nested.mp4',
+  );
+  assert.equal(
+    resolveReelMedia({ processed_video_url: 'https://cdn.example/processed.mp4' }).videoUrl,
+    'https://cdn.example/processed.mp4',
+  );
+  assert.equal(
+    resolveReelMedia({ final_video_result: 'https://cdn.example/string-result.mp4' }).videoUrl,
+    'https://cdn.example/string-result.mp4',
+  );
 });
 
 test('My Reels searches the signed-in user material list by normalized book name', () => {

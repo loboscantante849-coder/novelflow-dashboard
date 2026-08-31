@@ -117,29 +117,46 @@ KOC登录 → 搜索书籍 → 生成专属链接+邀请码 → 社媒推广
 - `updateReelsDailyInfo()` / `updateReelsStatusBar()` — 额度状态条
 - `listMyReels()` — 列出所有reels
 
+**当前站内调用链**:
+
+```
+Earn → doCreateReel()
+  → POST /api/ac-create（站内 JWT，不接收客户端 AC Token）
+  → 服务端读取 Redis ac_token（回退 AC_TOKEN）
+  → POST https://ac.anynovel.app/api/v1/creative/by-user
+  → 返回 thread_id
+  → My Reels 调 /api/ac-list（type=video）
+  → 已完成任务再调 /api/ac-result
+```
+
 **视频创建请求体**:
 ```javascript
 {
   template: 'Ad_Plot_Video_V3',  // 📖默认 | 🔥PPT_Porn | 🎥Ad_Plot_Video_V2
-  relatedBook: { book_id },
-  num: 3,
+  relatedBook: { book_id },       // 服务端由 book_id 组装
+  num: 1,
   language: 'English',
   start_chapter / end_chapter,   // 可选：章节范围
   build_requirement,             // 可选：自然语言描述需求
   aspect_ratio: '9:16',
   tts_audio_voice: 'Female_cur1',
-  is_generate_img: 'true',
+  user_age_range: '35-40岁',
+  user_gender: '女',
+  units_per_second: '5',
+  is_generate_img: 'false',       // 天机字段含义是“是否只生成图片”
   copy_type: '原创'
 }
 ```
 
-**额度控制**: 7条/人/天。前端`getReelsDailyCount()`读localStorage，后端`checkReelsDailyLimit()`按username/IP限流。
+**额度控制**: 7条/人/天。前端 `getReelsDailyCount()` 仅用于提示；后端以 Redis 原子计数按 username/IP 强制限流。
 
 **状态条设计**: `🎬 X reels · Y left today + View all →`
 
 #### 子模块3: My Reels资产
 
-替代原Asset Library（XMP逻辑已删除），展示用户自己生成的reels。调用 `/api/ac-list` + `/api/ac-result` 获取状态和结果。
+替代原Asset Library（XMP逻辑已删除），展示用户自己生成的reels。调用 `/api/ac-list` + `/api/ac-result` 获取状态和结果；前端兼容天机返回的 `final_video_result.video_url`、`video_result.videos[].video_url`、`processed_video_url`、`final_video_url` 等形态。
+
+> 文案生成和落地页生成属于天机平台的另外两个入口（见 5.2），NovelFlow 当前只开放视频创作与 My Reels，不会把这两类任务混入视频列表。
 
 ---
 
@@ -285,28 +302,29 @@ payload = {
 
 | 端点 | 方法 | 说明 | 认证 |
 |------|------|------|------|
-| `/api/ac-create` | POST | 创建视频任务 | AC Token (KV→env→header) |
-| `/api/ac-list` | GET | 列出用户视频任务 | AC Token |
-| `/api/ac-result` | GET | 获取任务结果 | AC Token |
+| `/api/ac-create` | POST | 创建视频任务 | 站内 JWT；AC Token 仅服务端读取（KV→env） |
+| `/api/ac-list` | GET | 列出用户视频任务 | 站内 JWT |
+| `/api/ac-result` | GET | 获取任务结果 | 站内 JWT |
 | `/api/ac-health` | GET | AC服务健康检查 | 无 |
-| `/api/ac-refresh` | POST | 刷新AC Token | AC Token |
-| `/api/ac-interrupt` | POST | 中断任务 | AC Token |
-| `/api/ac-retry` | POST | 重试任务 | AC Token |
+| `/api/ac-refresh` | POST | 校验并轮换 AC Token | 管理员 JWT 或 admin key |
+| `/api/ac-interrupt` | POST | 中断任务 | 站内 JWT + 任务所有权 |
+| `/api/ac-retry` | POST | 重试任务 | 站内 JWT + 任务所有权 |
 | `/api/ac-kv` | POST | 设置KV存储的Token | admin key |
 
 **AC API代理架构**:
 ```
-前端 → /api/ac-create → 后端代理 → ac.beidou.win/api/v1/creative/by-user
+前端 → /api/ac-create → 后端代理 → 天机 /api/v1/creative/by-user
                                ↑
                         Token来源优先级:
                         1. Upstash Redis (ac_token key)
                         2. AC_TOKEN 环境变量
-                        3. 请求头 x-ac-token (⚠️待移除)
 ```
 
-**Token轮换**: AC API曾通过response header返回新 `accesstoken`，后端自动存Redis。目前轮换已失效，Token主要靠环境变量。
+所有上游请求都带 `Authorization: Bearer …`、`x-client: beidou-web`、`X-Project-Id: 1006`。天机响应若返回 `accesstoken`，六个代理会在服务端轮换写回 Redis；客户端永远看不到该 Token。
 
-**视频额度后端限流**: 内存Map，7条/username/天（⚠️Serverless环境下Map每次重置，需迁移Redis）。
+迁移兼容：若 Redis 中残留的旧 Token 被天机明确返回 `401`，代理只对同一请求使用 `AC_TOKEN` 重试一次，并在成功接受后修复 `ac_token`；超时、断线等不确定结果不会自动重试。
+
+**视频额度后端限流**: Redis 原子计数，7条/username/天、30条/IP/天；`/api/ac-list`、`/api/ac-result`、重试和中断另有读/动作限流。
 
 ---
 
@@ -331,11 +349,28 @@ Scope: openid profile roles email offline_access
 - `GET /novelmanage/book/booklist` — 书籍搜索（参数: `bookName`, `applicationId=642fc1ace309494378a774a6`, `languageCode`, `orderBy=uv`）
 - `POST /novelmanage/book/savebookpromotionkeywords` — 创建搜索码+短链
 
-### 5.2 Auto Creative (ac.beidou.win)
+### 5.2 Auto Creative / 天机平台 (ac.anynovel.app)
 
-**基础URL**: `https://ac.beidou.win/api/v1`
+**网页入口**: `https://ac.anynovel.app/generate/video`
 
-**核心接口**: `POST /creative/by-user`
+**API基础URL**: `https://ac.anynovel.app/api/v1`（网页路径 `/generate/video` 不是 API 前缀）。可用 `AC_API_BASE_URL` 覆盖，但生产应保留天机地址。
+
+**三大生成模块**:
+
+| 模块 | 网页入口 | 常用模板/接口 |
+|------|----------|---------------|
+| 文案生成 | `/generate/copywriting` | `Ad_Copy` / `Ad_Copy_V2`，`POST /creative/by-user` |
+| 视频生成 | `/generate/video` | `Ad_Plot_Video_V3`、`Ad_Plot_Video_V2`、`Ad_Plot_Seedance` 等，`POST /creative/by-user` |
+| 落地页生成 | `/generate/landingPage` | `Landing_Page`，`POST /creative/by-user` |
+
+字段与选项由 `GET /form-schema` 驱动；三类任务共享线程、列表和结果接口。天机文案与落地页列表分别使用 `type=text`、`type=landing_page`；NovelFlow 的视频代理固定传 `type=video`，从而不会混入其它模块。
+
+**核心接口**:
+
+- `POST /creative/by-user` — 创建任务
+- `GET /creative/paged-list?PageSize=…&PageIndex=…&type=video` — 分页列表
+- `GET /creative/{thread_id}/result` — 结果
+- `POST /creative/{thread_id}/interrupt|retry|continue|re-do-video|re-push` — 任务操作
 
 **请求头**:
 ```
@@ -353,7 +388,7 @@ Content-Type: application/json
 | `PPT_Porn` | 🔥爆款模板 | 强情绪冲击 |
 | `Ad_Plot_Video_V2` | 🎥剧情V2 | 备用模板 |
 
-**注意**: beidou.win的Token ≠ ac.beidou.win的Token，两套独立。
+**注意**: `/api/ac-*` 只在服务端代理天机 API；不要恢复旧的浏览器 `localStorage` / `x-ac-token` 注入方案。
 
 ### 5.3 北斗数据分析 (beidou.win)
 
@@ -399,7 +434,10 @@ Content-Type: application/json
 | `OIDC_PASSWORD` | ✅ | NovelSpa后台OIDC密码 |
 | `KV_REST_API_URL` | ✅ | Upstash Redis URL |
 | `KV_REST_API_TOKEN` | ✅ | Upstash Redis Token |
-| `AC_TOKEN` | ⚠️ | Auto Creative API Token（也可通过ac-kv设置） |
+| `AC_TOKEN` | ⚠️ | 天机 API Token 回退值（也可通过 `/api/ac-kv` 写入 Redis `ac_token`） |
+| `AC_API_BASE_URL` | 可选 | 天机 API 根地址，默认 `https://ac.anynovel.app/api/v1` |
+| `AC_PROJECT_ID` | 可选 | 天机项目 ID，默认 `1006` |
+| `AC_BASE_URL` | 迁移时检查 | 历史兼容别名；若已存在旧北斗值，须删除或改为天机 `/api/v1`，否则会覆盖默认地址 |
 | `DISCORD_CLIENT_ID` | 可选 | Discord OAuth Client ID |
 | `DISCORD_CLIENT_SECRET` | 可选 | Discord OAuth Client Secret |
 | `ADMIN_KEY` | 可选 | 管理员接口密钥 |

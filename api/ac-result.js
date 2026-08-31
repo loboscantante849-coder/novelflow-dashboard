@@ -2,8 +2,6 @@
  * GET /api/ac-result?threadId=xxx
  * 查询AC视频任务结果（已鉴权 + threadId ownership校验）
  */
-const AC_BASE = 'https://ac.beidou.win/api/v1';
-
 const { setCORSHeaders } = require('./_lib/cors');
 const { getAuthPayload, isAdminUser, isDisabledUser, checkRateLimit, getClientIp } = require('./_lib/security');
 const { isLegacyAcRemarkOwnedBy } = require('./_lib/ac-ownership');
@@ -12,13 +10,25 @@ const AC_OWNER_TTL_SECONDS = 180 * 86400;
 const LEGACY_LOOKUP_MAX_PAGES = 30;
 const AC_RESULT_TIMEOUT_MS = 8000;
 
-const { fetchWithTimeout, parseThreadId } = require('./_lib/ac-request');
+const {
+  fetchAcWithTokenFallback,
+  getAcHeaders,
+  getAcPagedListUrl,
+  getAcBaseUrl,
+  parseThreadId,
+  readAcToken,
+  rotateAcToken,
+} = require('./_lib/ac-request');
 
 async function restoreLegacyTaskOwnership({ redis, token, threadId, username, deadlineAt }) {
   for (let pageIndex = 1; pageIndex <= LEGACY_LOOKUP_MAX_PAGES; pageIndex += 1) {
-    const response = await fetchWithTimeout(`${AC_BASE}/creative/paged-list?PageSize=100&PageIndex=${pageIndex}`, {
-      headers: { 'Authorization': `Bearer ${token}`, 'x-client': 'beidou-web', 'X-Project-Id': '1006' },
+    const response = await fetchAcWithTokenFallback(redis, token, getAcPagedListUrl(100, pageIndex, 'video'), {
+      headers: getAcHeaders(token),
     }, deadlineAt - Date.now());
+    // A paged-list lookup can rotate the Tianji token just like the final
+    // result request. Persist it without making ownership restoration fail if
+    // Redis is briefly unavailable.
+    await rotateAcToken(redis, response).catch(() => {});
     if (!response.ok) throw new Error('AC legacy ownership lookup failed');
     const data = await response.json().catch(() => null);
     const items = Array.isArray(data?.items) ? data.items : [];
@@ -90,11 +100,10 @@ module.exports = async (req, res) => {
 
   let token = null;
   try {
-    token = await redis.get('ac_token');
+    token = await readAcToken(redis);
   } catch (_error) {
     return res.status(503).json({ error: 'AC credentials are temporarily unavailable', code: 'AC_TOKEN_UNAVAILABLE' });
   }
-  if (!token) token = process.env.AC_TOKEN;
   if (!token) return res.status(503).json({ error: 'AC Token not configured on server' });
 
   const deadlineAt = Date.now() + AC_RESULT_TIMEOUT_MS;
@@ -125,15 +134,13 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const r = await fetchWithTimeout(AC_BASE + `/creative/${tid}/result`, {
-      headers: { 'Authorization': 'Bearer ' + token, 'x-client': 'beidou-web', 'X-Project-Id': '1006' }
+    const r = await fetchAcWithTokenFallback(redis, token, getAcBaseUrl() + `/creative/${tid}/result`, {
+      headers: getAcHeaders(token),
     }, deadlineAt - Date.now());
-    const newToken = r.headers.get('accesstoken') || null;
+    await rotateAcToken(redis, r).catch(e => {
+      console.warn('Redis token save failed:', e.message);
+    });
     const data = await r.json().catch(() => null);
-
-    if (newToken && redis) {
-      redis.set('ac_token', newToken).catch(e => console.warn('Redis save failed:', e.message));
-    }
 
     return res.status(r.status).json({ success: r.status >= 200 && r.status < 300, data });
   } catch (e) {

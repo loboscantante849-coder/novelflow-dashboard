@@ -9,8 +9,8 @@ const REELS_COUNTER_TTL_SECONDS = 172800;
 const AC_REEL_METADATA_TTL_SECONDS = 180 * 86400;
 const ALLOWED_TEMPLATES = new Set([
   'Ad_Plot_Video_V3', 'PPT_Porn', 'Ad_Plot_Video_V2', 'Dialogue',
-  'PPT_Multi', 'Comic', 'PPT_Porn_Loop_Video', 'Ad_Plot_Seedance',
-  'Digital', 'Extract',
+  'PPT_Multi', 'PPT', 'PPT_Thai', 'Comic', 'PPT_Porn_Loop_Video',
+  'Ad_Plot_Seedance', 'Book_Reference_Video_Remix', 'Digital', 'Extract',
 ]);
 const ALLOWED_LANGUAGES = new Set(['English', 'Spanish']);
 const ALLOWED_ASPECT_RATIOS = new Set(['9:16']);
@@ -30,11 +30,16 @@ async function reserveDailySlots(redis, key, amount) {
   return count;
 }
 
-const AC_BASE = 'https://ac.beidou.win/api/v1';
-
 const { setCORSHeaders } = require('./_lib/cors');
 const { getAuthPayload, getClientIp, getRedis, isDisabledUser } = require('./_lib/security');
-const { fetchWithTimeout, normalizeReferenceUrl } = require('./_lib/ac-request');
+const {
+  fetchAcWithTokenFallback,
+  getAcBaseUrl,
+  getAcHeaders,
+  normalizeReferenceUrl,
+  readAcToken,
+  rotateAcToken,
+} = require('./_lib/ac-request');
 
 function parseInteger(value, fallback, min, max) {
   const raw = value === undefined || value === null || value === '' ? fallback : value;
@@ -56,6 +61,12 @@ function parseAcRequest(body) {
   const buildRequirement = body.build_requirement || '';
   const references = body.reference_picture_list === undefined ? [] : body.reference_picture_list;
   const bookTitle = typeof body.book_title === 'string' ? body.book_title.trim() : '';
+  // Tianji's video form marks audience age and gender as required. Keep the
+  // established dashboard defaults while allowing bounded overrides for
+  // trusted callers that need a different audience profile.
+  const userAgeRange = body.user_age_range === undefined ? '35-40岁' : body.user_age_range;
+  const userGender = body.user_gender === undefined ? '女' : body.user_gender;
+  const unitsPerSecond = body.units_per_second === undefined ? '5' : body.units_per_second;
 
   if (!bookId || bookId.length > 128 || typeof template !== 'string' || !ALLOWED_TEMPLATES.has(template)) return null;
   if (typeof language !== 'string' || !ALLOWED_LANGUAGES.has(language)) return null;
@@ -64,6 +75,9 @@ function parseAcRequest(body) {
   if (typeof adCopy !== 'string' || adCopy.length > 4000) return null;
   if (typeof buildRequirement !== 'string' || buildRequirement.length > 1000) return null;
   if (bookTitle.length > 200) return null;
+  if (typeof userAgeRange !== 'string' || userAgeRange.trim().length === 0 || userAgeRange.length > 100) return null;
+  if (typeof userGender !== 'string' || userGender.trim().length === 0 || userGender.length > 100) return null;
+  if ((typeof unitsPerSecond !== 'string' && typeof unitsPerSecond !== 'number') || String(unitsPerSecond).length > 20 || !/^\d+(?:\.\d+)?$/.test(String(unitsPerSecond))) return null;
   if (!Array.isArray(references) || references.length > 4) return null;
 
   const referenceUrls = [];
@@ -76,6 +90,7 @@ function parseAcRequest(body) {
   return {
     bookId, template, language, aspectRatio, num, startChapter, endChapter,
     adCopy, buildRequirement, referenceUrls, bookTitle,
+    userAgeRange: userAgeRange.trim(), userGender: userGender.trim(), unitsPerSecond: String(unitsPerSecond),
   };
 }
 
@@ -104,11 +119,10 @@ module.exports = async (req, res) => {
   // Use server-stored AC token: KV first → env var; never accept token from client
   let token = null;
   try {
-    token = await redis.get('ac_token');
+    token = await readAcToken(redis);
   } catch (_error) {
     return res.status(503).json({ error: 'AC credentials are temporarily unavailable', code: 'AC_TOKEN_UNAVAILABLE' });
   }
-  if (!token) token = process.env.AC_TOKEN;
   if (!token) return res.status(503).json({ error: 'AC Token not configured on server' });
 
   const parsed = parseAcRequest(req.body || {});
@@ -143,8 +157,13 @@ module.exports = async (req, res) => {
     start_chapter: String(parsed.startChapter),
     end_chapter: String(parsed.endChapter),
     tts_audio_voice: 'Female_cur1',
+    user_age_range: parsed.userAgeRange,
+    user_gender: parsed.userGender,
+    units_per_second: parsed.unitsPerSecond,
     aspect_ratio: parsed.aspectRatio,
-    is_generate_img: 'true',
+    // Tianji names this flag "only generate images".  Video templates use
+    // false; sending true can produce an image-only task with no video URL.
+    is_generate_img: 'false',
     copy_type: '原创',
     build_requirement: parsed.buildRequirement,
     ad_copy: parsed.adCopy,
@@ -154,25 +173,17 @@ module.exports = async (req, res) => {
   };
 
   try {
-    const r = await fetchWithTimeout(AC_BASE + '/creative/by-user', {
+    const r = await fetchAcWithTokenFallback(redis, token, getAcBaseUrl() + '/creative/by-user', {
       method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'x-client': 'beidou-web',
-        'X-Project-Id': '1006',
-        'Content-Type': 'application/json',
-      },
+      headers: getAcHeaders(token, { 'Content-Type': 'application/json' }),
       body: JSON.stringify(acPayload),
     });
-    const newToken = r.headers.get('accesstoken') || null;
-    const data = await r.json().catch(() => null);
-
-    // Auto-rotate token server-side only; never leak to client
-    if (newToken && redis) {
-      try {
-        await redis.set('ac_token', newToken);
-      } catch(e) { console.warn('Redis token save failed:', e.message); }
+    try {
+      await rotateAcToken(redis, r);
+    } catch (e) {
+      console.warn('Redis token save failed:', e.message);
     }
+    const data = await r.json().catch(() => null);
 
     // Track threadId → owner mapping so result/interrupt/retry can enforce ownership
     if (r.status >= 200 && r.status < 300 && redis && data) {

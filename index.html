@@ -10020,6 +10020,20 @@ function renderMyBooks() {
             return promise;
         }
 
+        function normalizeReelStatus(value) {
+            return String(value ?? '').trim().toLowerCase();
+        }
+
+        function isReelCompletedStatus(value) {
+            const status = normalizeReelStatus(value);
+            return status === 'completed' || status === 'done' || status === '2' || status === 'success';
+        }
+
+        function isReelFailedStatus(value) {
+            const status = normalizeReelStatus(value);
+            return status === 'failed' || status === 'fail' || status === '-1' || status === 'interrupted';
+        }
+
         async function loadQuickReels() {
             const el = document.getElementById('quickReels');
             if (!el) return;
@@ -10032,10 +10046,7 @@ function renderMyBooks() {
                 if (!AuthSession.isCurrent(session)) return;
                 const items = (result.data && result.data.items) || (result.data && result.data.data) || result.data || [];
                 // Filter for "My" page: only show SUCCESSFULLY COMPLETED reels (pending/failed stay on creator page)
-                const completedItems = items.filter(it => {
-                    const st = (it.status || '').toString().toLowerCase();
-                    return st === 'completed' || st === 'done' || st === '2' || st === 'success';
-                });
+                const completedItems = items.filter(it => isReelCompletedStatus(it.status));
                 const filteredItems = completedItems;
                 const knownIdsQ = filteredItems.map(it => String(it.id || it.task_id || ''));
                 let quickCards = [];
@@ -10046,8 +10057,7 @@ function renderMyBooks() {
                 }
                 // Fetch results for completed items
                 const enriched = await mapWithConcurrency(filteredItems, REEL_RESULT_CONCURRENCY, async (item) => {
-                    const status = item.status || '';
-                    const isDone = true; // already filtered to completed
+                        const isDone = true; // already filtered to completed
                     const isFail = false;
                     let videoUrl = '', coverUrl = '';
                     const threadId = item.thread_id || item.threadId;
@@ -10347,9 +10357,8 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 if (filteredItems.length > 0) {
                     if (emptyEl) emptyEl.style.display = 'none';
                     enrichedItems = await mapWithConcurrency(filteredItems, REEL_RESULT_CONCURRENCY, async (item) => {
-                        const status = item.status || '';
-                        const isDone = (status === 'completed' || status === 2 || status === 'done');
-                        const isFail = (status === 'failed' || status === -1 || status === 'fail');
+                        const isDone = isReelCompletedStatus(item.status);
+                        const isFail = isReelFailedStatus(item.status);
                         let videoUrl = '', coverUrl = '', creativeText = '';
                         const threadId = item.thread_id || item.threadId;
                         if (isDone && threadId) {
@@ -10670,20 +10679,39 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 visited.add(value);
                 if (Array.isArray(value)) { value.forEach(collect); return; }
                 candidates.push(value);
-                ['final_result', 'materials', 'items', 'results', 'data', 'media', 'assets', 'output'].forEach(key => collect(value[key]));
+                // Tianji keeps the same task endpoint but returns completed
+                // media under several result wrappers.  Traverse only known
+                // result containers, rather than every arbitrary API field.
+                ['final_result', 'finalResult', 'final_video_result', 'finalVideoResult',
+                    'video_result', 'videoResult', 'processed_video_result', 'processedVideoResult',
+                    'media_records', 'mediaRecords', 'videos', 'materials', 'items', 'results', 'result',
+                    'data', 'media', 'assets', 'output'
+                ].forEach(key => collect(value[key]));
             };
             collect(resultData);
-            const getVideoUrl = (item) => String(
-                item.video_url || item.videoUrl || item.file_url || item.url ||
-                item.media_url || item.mediaUrl || item.download_url || item.downloadUrl ||
-                item.fileUrl || item.video?.url || item.video?.file_url || ''
-            );
+            const getVideoUrl = (item) => {
+                const video = item && item.video;
+                const value = item && (
+                    item.final_video_url || item.finalVideoUrl ||
+                    item.processed_video_url || item.processedVideoUrl ||
+                    (typeof item.final_video_result === 'string' ? item.final_video_result : '') ||
+                    (typeof item.finalVideoResult === 'string' ? item.finalVideoResult : '') ||
+                    (typeof item.video_result === 'string' ? item.video_result : '') ||
+                    (typeof item.videoResult === 'string' ? item.videoResult : '') ||
+                    item.video_url || item.videoUrl || item.file_url ||
+                    item.media_url || item.mediaUrl || item.download_url || item.downloadUrl ||
+                    item.fileUrl || (typeof video === 'string' ? video : '') ||
+                    video?.video_url || video?.videoUrl || video?.url || video?.file_url ||
+                    item.url || ''
+                );
+                return typeof value === 'string' ? value : '';
+            };
             const mediaItem = candidates.find(item => getVideoUrl(item));
             const textItem = candidates.find(item => item.creative_text || item.dialogue_content || item.landing_page_copy) || {};
             if (!mediaItem) return { videoUrl: '', coverUrl: '', creativeText: textItem.creative_text || textItem.dialogue_content || textItem.landing_page_copy || '' };
             return {
                 videoUrl: safeClientUrl(getVideoUrl(mediaItem), { allowBlob: true }),
-                coverUrl: safeClientUrl(mediaItem.cover_image_url || mediaItem.coverImageUrl || mediaItem.thumbnail_url || mediaItem.thumbnailUrl || mediaItem.poster_url || mediaItem.posterUrl || mediaItem.preview_image_url || '', { allowBlob: true }),
+                coverUrl: safeClientUrl(mediaItem.cover_image_url || mediaItem.coverImageUrl || mediaItem.cover_url || mediaItem.coverUrl || mediaItem.thumbnail_url || mediaItem.thumbnailUrl || mediaItem.poster_url || mediaItem.posterUrl || mediaItem.preview_image_url || mediaItem.previewImageUrl || mediaItem.first_frame_url || mediaItem.firstFrameUrl || mediaItem.video?.cover_image_url || mediaItem.video?.thumbnail_url || '', { allowBlob: true }),
                 creativeText: mediaItem.creative_text || mediaItem.dialogue_content || mediaItem.landing_page_copy || textItem.creative_text || textItem.dialogue_content || textItem.landing_page_copy || ''
             };
         }
@@ -10824,9 +10852,8 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 if (result.success && filteredItems.length > 0) {
                     // For completed items, fetch their results to get video URLs
                     enrichedItems = await mapWithConcurrency(filteredItems, REEL_RESULT_CONCURRENCY, async (item) => {
-                        const status = item.status || '';
-                        const isDone = (status === 'completed' || status === 2 || status === 'done');
-                        const isFail = (status === 'failed' || status === -1 || status === 'fail');
+                        const isDone = isReelCompletedStatus(item.status);
+                        const isFail = isReelFailedStatus(item.status);
                         let videoUrl = '', coverUrl = '', creativeText = '';
                         const threadId = item.thread_id || item.threadId;
                         if (isDone && threadId) {

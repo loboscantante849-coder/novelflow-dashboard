@@ -3,8 +3,6 @@
  * 查询AC视频任务列表（已鉴权）
  * Auto-paginates AC's paged-list to collect all reels belonging to the current user.
  */
-const AC_BASE = 'https://ac.beidou.win/api/v1';
-
 const { setCORSHeaders } = require('./_lib/cors');
 const { getAuthPayload, isAdminUser, isDisabledUser, checkRateLimit, getClientIp } = require('./_lib/security');
 const { isLegacyAcRemarkOwnedBy } = require('./_lib/ac-ownership');
@@ -16,7 +14,14 @@ const AC_LIST_IP_LIMIT = 30;
 const AC_LIST_TIMEOUT_MS = 8000;
 const AC_LIST_CACHE_SECONDS = 45;
 
-const { fetchWithTimeout } = require('./_lib/ac-request');
+const {
+  fetchAcWithTokenFallback,
+  getAcHeaders,
+  getAcPagedListUrl,
+  getResponseAccessToken,
+  readAcToken,
+  rotateAcToken,
+} = require('./_lib/ac-request');
 
 function pageError(status = 502) {
   const error = new Error('AC API error');
@@ -24,9 +29,9 @@ function pageError(status = 502) {
   return error;
 }
 
-async function fetchAcPage(token, pageIndex, pageSize, deadlineAt) {
-  const response = await fetchWithTimeout(AC_BASE + `/creative/paged-list?PageSize=${pageSize}&PageIndex=${pageIndex}`, {
-    headers: { 'Authorization': 'Bearer ' + token, 'x-client': 'beidou-web', 'X-Project-Id': '1006' }
+async function fetchAcPage(redis, token, pageIndex, pageSize, deadlineAt) {
+  const response = await fetchAcWithTokenFallback(redis, token, getAcPagedListUrl(pageSize, pageIndex, 'video'), {
+    headers: getAcHeaders(token),
   }, deadlineAt - Date.now());
   const data = await response.json().catch(() => null);
   if (response.status < 200 || response.status >= 300) throw pageError(response.status);
@@ -34,7 +39,7 @@ async function fetchAcPage(token, pageIndex, pageSize, deadlineAt) {
   return {
     pageIndex,
     data,
-    accessToken: response.headers.get('accesstoken') || null,
+    accessToken: getResponseAccessToken(response),
   };
 }
 
@@ -88,11 +93,10 @@ module.exports = async (req, res) => {
   }
   let token = null;
   try {
-    token = await redis.get('ac_token');
+    token = await readAcToken(redis);
   } catch (_error) {
     return res.status(503).json({ error: 'AC credentials are temporarily unavailable', code: 'AC_TOKEN_UNAVAILABLE' });
   }
-  if (!token) token = process.env.AC_TOKEN;
   if (!token) return res.status(503).json({ error: 'AC Token not configured on server' });
 
   // ---- Check admin ----
@@ -116,14 +120,16 @@ module.exports = async (req, res) => {
 
     if (isAdm) {
       const ps = clientPs, pi = clientPi;
-      const r = await fetchWithTimeout(AC_BASE + `/creative/paged-list?PageSize=${ps}&PageIndex=${pi}`, {
-        headers: { 'Authorization': 'Bearer ' + token, 'x-client': 'beidou-web', 'X-Project-Id': '1006' }
+      const r = await fetchAcWithTokenFallback(redis, token, getAcPagedListUrl(ps, pi, 'video'), {
+        headers: getAcHeaders(token),
       }, deadlineAt - Date.now());
-      newToken = r.headers.get('accesstoken') || null;
-      const data = await r.json().catch(() => null);
-      if (newToken && redis) {
-        redis.set('ac_token', newToken).catch(()=>{});
+      try {
+        newToken = await rotateAcToken(redis, r);
+      } catch (e) {
+        console.warn('Redis token save failed:', e.message);
+        newToken = getResponseAccessToken(r);
       }
+      const data = await r.json().catch(() => null);
       return res.status(r.status).json({ success: r.status >= 200 && r.status < 300, data });
     }
 
@@ -147,7 +153,7 @@ module.exports = async (req, res) => {
       // A missing or corrupt cache must not hide the live list.
     }
 
-    const firstPage = await fetchAcPage(token, 1, 100, deadlineAt);
+    const firstPage = await fetchAcPage(redis, token, 1, 100, deadlineAt);
     newToken = firstPage.accessToken;
     acTotal = firstPage.data.total || 0;
     let pageCount = Math.max(1, Math.min(Number(firstPage.data.pageCount) || 1, MAX_PAGES));
@@ -170,7 +176,7 @@ module.exports = async (req, res) => {
       for (let pageIndex = start; pageIndex < start + PAGE_FETCH_CONCURRENCY && pageIndex <= pageCount; pageIndex += 1) {
         pageIndexes.push(pageIndex);
       }
-      const results = await Promise.allSettled(pageIndexes.map(pageIndex => fetchAcPage(token, pageIndex, 100, deadlineAt)));
+      const results = await Promise.allSettled(pageIndexes.map(pageIndex => fetchAcPage(redis, token, pageIndex, 100, deadlineAt)));
       // Process in page order, so a failure after the first page that satisfies
       // the target is not treated as a required page from this speculative batch.
       for (let index = 0; index < results.length; index += 1) {
@@ -182,7 +188,7 @@ module.exports = async (req, res) => {
     }
 
     if (newToken && redis) {
-      redis.set('ac_token', newToken).catch(e => console.warn('Redis token save failed:', e.message));
+      await rotateAcToken(redis, newToken).catch(e => console.warn('Redis token save failed:', e.message));
     }
 
     // The AC list itself is already filtered by the user's signed nf_<user>_

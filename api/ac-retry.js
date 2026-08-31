@@ -2,11 +2,16 @@
  * POST /api/ac-retry
  * 重试AC视频任务（已鉴权 + threadId ownership校验）
  */
-const AC_BASE = 'https://ac.beidou.win/api/v1';
-
 const { setCORSHeaders } = require('./_lib/cors');
 const { checkRateLimit, getAuthPayload, getClientIp, getRedis, isAdminUser, isDisabledUser } = require('./_lib/security');
-const { fetchWithTimeout, parseThreadId } = require('./_lib/ac-request');
+const {
+  fetchAcWithTokenFallback,
+  getAcBaseUrl,
+  getAcHeaders,
+  parseThreadId,
+  readAcToken,
+  rotateAcToken,
+} = require('./_lib/ac-request');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -55,24 +60,19 @@ module.exports = async (req, res) => {
 
   let token = null;
   try {
-    token = await redis.get('ac_token');
+    token = await readAcToken(redis);
   } catch (_error) {
     return res.status(503).json({ error: 'AC credentials are temporarily unavailable', code: 'AC_TOKEN_UNAVAILABLE' });
   }
-  if (!token) token = process.env.AC_TOKEN;
   if (!token) return res.status(503).json({ error: 'AC Token not configured on server' });
 
   try {
-    const r = await fetchWithTimeout(AC_BASE + `/creative/${tid}/retry`, {
+    const r = await fetchAcWithTokenFallback(redis, token, getAcBaseUrl() + `/creative/${tid}/retry`, {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token, 'x-client': 'beidou-web', 'X-Project-Id': '1006', 'Content-Type': 'application/json' }
+      headers: getAcHeaders(token, { 'Content-Type': 'application/json' }),
     });
-    const newToken = r.headers.get('accesstoken') || null;
+    await rotateAcToken(redis, r).catch(e => console.warn('Redis token save failed:', e.message));
     const data = await r.json().catch(() => null);
-
-    if (newToken && redis) {
-      redis.set('ac_token', newToken).catch(e => console.warn('Redis token save failed:', e.message));
-    }
     if (r.status >= 200 && r.status < 300) {
       await redis.del(`nf_ac_list_cache:${String(username).toLowerCase()}`).catch(() => {});
     }

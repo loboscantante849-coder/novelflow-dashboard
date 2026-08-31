@@ -2,10 +2,15 @@
  * POST /api/ac-refresh
  * 服务端自检 AC token 有效性并刷新（管理员通过 header 触发，不接受客户端传 token）
  */
-const AC_BASE = 'https://ac.beidou.win/api/v1';
-
 const { setCORSHeaders } = require('./_lib/cors');
 const { getAuthPayload, isAdminUser, isDisabledUser, checkAdminKey } = require('./_lib/security');
+const {
+  fetchAcWithTokenFallback,
+  getAcHeaders,
+  getAcPagedListUrl,
+  readAcToken,
+  rotateAcToken,
+} = require('./_lib/ac-request');
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
@@ -43,27 +48,25 @@ module.exports = async (req, res) => {
 
   let token = null;
   try {
-    if (redis) token = await redis.get('ac_token');
+    token = await readAcToken(redis);
   } catch (_error) {
     return res.status(503).json({ error: 'AC credentials are temporarily unavailable', code: 'AC_TOKEN_UNAVAILABLE' });
   }
-  if (!token) token = process.env.AC_TOKEN;
   if (!token) return res.status(503).json({ error: 'AC Token not configured on server' });
 
   try {
-    const r = await fetch(AC_BASE + '/creative/paged-list?PageSize=5&PageIndex=1', {
-      headers: { 'Authorization': 'Bearer ' + token, 'x-client': 'beidou-web', 'X-Project-Id': '1006' }
+    const r = await fetchAcWithTokenFallback(redis, token, getAcPagedListUrl(5, 1, 'video'), {
+      headers: getAcHeaders(token),
     });
-    const newToken = r.headers.get('accesstoken') || null;
+    await rotateAcToken(redis, r).catch(e => {
+      console.warn('Redis save failed:', e.message);
+    });
     const data = await r.json().catch(() => null);
 
     if (r.status !== 200) {
       return res.status(r.status).json({ success: false, error: 'Token invalid' });
     }
 
-    if (newToken && redis) {
-      await redis.set('ac_token', newToken).catch(e => console.warn('Redis save failed:', e.message));
-    }
     return res.status(200).json({ success: true, message: 'Token valid' });
   } catch (e) {
     return res.status(502).json({ error: 'Video service unavailable' });
