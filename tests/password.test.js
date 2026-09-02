@@ -26,6 +26,16 @@ test('accepts legacy hashes and marks them for transparent migration', async () 
   assert.equal((await verifyPassword('wrong-pass-8', stored)).valid, false);
 });
 
+test('accepts the pre-centralized plain SHA-256 legacy format', async () => {
+  const crypto = require('node:crypto');
+  const stored = crypto.createHash('sha256').update('legacy-pass-9').digest('hex');
+  assert.deepEqual(await verifyPassword('legacy-pass-9', stored), {
+    valid: true,
+    needsRehash: true,
+  });
+  assert.equal((await verifyPassword('wrong-pass-9', stored)).valid, false);
+});
+
 test('rejects malformed hashes', async () => {
   assert.deepEqual(await verifyPassword('anything-1', 'not-a-hash'), {
     valid: false,

@@ -19,6 +19,16 @@ function legacyPasswordHash(password) {
   return crypto.createHash('sha256').update(`nf_${password}_salt2026`).digest('hex');
 }
 
+function legacyPasswordHashVariants(password) {
+  return [
+    legacyPasswordHash(password),
+    // Accounts created before the salted helper was centralized used the
+    // plain SHA-256 digest. Keep this narrow compatibility path and rehash it
+    // to scrypt immediately after a successful login.
+    crypto.createHash('sha256').update(password).digest('hex'),
+  ];
+}
+
 async function derive(password, salt, options = {}) {
   const N = options.N || SCRYPT_N;
   const r = options.r || SCRYPT_R;
@@ -51,7 +61,7 @@ async function verifyPassword(password, storedHash) {
 
   if (LEGACY_PATTERN.test(storedHash)) {
     return {
-      valid: safeEqual(legacyPasswordHash(password), storedHash.toLowerCase()),
+      valid: legacyPasswordHashVariants(password).some(candidate => safeEqual(candidate, storedHash.toLowerCase())),
       needsRehash: true,
     };
   }
