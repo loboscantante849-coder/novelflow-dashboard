@@ -140,8 +140,7 @@ async function inspectApprovedSourceWalletOwner(
 
   // Cons keeps one canonical production account. The isolated legacy wallet
   // must not block read-only statistics or link/code operations.
-  const canonicalOnlyWallet = allowEquivalentAliases &&
-    process.env.VERCEL_ENV === 'production' &&
+  const canonicalOnlyWallet = process.env.VERCEL_ENV === 'production' &&
     resolveUsernameAlias(sourceKey) === normalizedWallet &&
     owners.some(owner => resolveUsernameAlias(owner) === normalizedWallet);
   if (!unique && canonicalOnlyWallet) unique = true;

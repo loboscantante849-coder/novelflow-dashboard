@@ -82,6 +82,29 @@ test('unmigrated wallets apply 100 percent before Aug 21 and 80 percent from Aug
   ]);
 });
 
+test('approved external settlements appear in withdrawn totals and reduce available balance', () => {
+  const profile = buildIncomeProfile({
+    users: {
+      promoter: {
+        name: 'Promoter',
+        subscription_revenue_dn: 62.99,
+        subscription_revenue_dn_daily: { '2026-08-22': 62.99 },
+      },
+    },
+  }, 'promoter');
+  const balances = computeWalletBalances({
+    withdrawals: [
+      { amount: 20, status: 'approved', wallet_excluded: true, source: 'external_settlement' },
+      { amount: 53.25, status: 'approved' },
+    ],
+  }, profile);
+
+  assert.equal(balances.withdrawn_total, 73.25);
+  assert.equal(balances.approved_total, 53.25);
+  assert.equal(balances.external_settlement_total, 20);
+  assert.equal(balances.withdrawable_balance, 0);
+});
+
 test('complete post-cutoff-only income uses 80 percent without a migration marker', () => {
   const profile = buildIncomeProfile({
     users: {
