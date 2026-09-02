@@ -268,7 +268,15 @@ module.exports = async (req, res) => {
   const redis = getRedis();
   if (!redis) return res.status(503).json({ error: 'Storage unavailable', code: 'STORAGE_UNAVAILABLE' });
   try {
-    if (await isDisabledUser(redis, auth, { failClosed: true })) {
+    // Historical Cons/DRAS aliases may retain two healthy wallet records.
+    // The reviewed read-only resolver can verify that both belong to the
+    // authenticated local principal without merging balances. Link/code
+    // operations do not mutate wallet funds, so allow that narrow status read
+    // while keeping disabled/tombstoned records blocked.
+    if (await isDisabledUser(redis, auth, {
+      failClosed: true,
+      allowSafeReadOnlyWalletConflict: true,
+    })) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
   } catch (_error) {

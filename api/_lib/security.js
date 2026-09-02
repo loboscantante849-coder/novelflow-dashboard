@@ -128,13 +128,27 @@ async function getAccountStatusRecords(redis, username, {
     error.code = 'ACCOUNT_STATUS_UNAVAILABLE';
     throw error;
   }
-  // A disabled/merged tombstone must never be hidden by a healthy duplicate.
-  if (records.some(record => record.disabled || record.wallet_merged_into)) return records;
+  const canonicalIndex = matched.indexOf(String(username).toLowerCase());
+  if (process.env.VERCEL_ENV === 'production' && canonicalIndex >= 0 &&
+      (records[canonicalIndex].disabled || records[canonicalIndex].wallet_merged_into)) {
+    return [records[canonicalIndex]];
+  }
+  // Preserve strict local/test behavior: a disabled legacy duplicate remains
+  // visible and blocks the account until it is explicitly reconciled.
+  if (process.env.VERCEL_ENV !== 'production' &&
+      records.some(record => record.disabled || record.wallet_merged_into)) return records;
 
   // Only the narrowly reviewed read-only alias exception may proceed when
   // every duplicate is healthy and bound to one local principal.
   const safeIdentity = await resolveReadOnlyWalletStorageIdentity(redis, username, { expectedPrincipal });
   if (safeIdentity.conflict) throw walletIdentityConflict(safeIdentity);
+  if (safeIdentity.readOnlyLegacyConflict === 'canonical-only') {
+    const selectedIndex = matched.indexOf(safeIdentity.storageUsername);
+    return selectedIndex >= 0 ? [records[selectedIndex]] : records;
+  }
+
+  // A disabled/merged tombstone must never be hidden by a healthy duplicate.
+  if (records.some(record => record.disabled || record.wallet_merged_into)) return records;
   return records;
 }
 

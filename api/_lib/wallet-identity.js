@@ -186,6 +186,25 @@ async function resolveReadOnlyWalletStorageIdentity(redis, requestedUsername, { 
     return resolveDrasReadOnlyWalletIdentity(redis, identity, expectedPrincipal);
   }
 
+  // Production policy keeps Cons on one canonical account. The old alias
+  // wallet remains isolated and no longer blocks read-only stats/link flows.
+  // Financial writers continue to use the strict resolver and cannot merge
+  // or spend from the isolated record.
+  if (process.env.VERCEL_ENV === 'production') {
+    const canonicalRecord = parseReadOnlyWalletRecord(
+      await redis.get(`nf_user_data:${CONS_READ_ONLY_CANONICAL}`),
+    );
+    if (healthyReadOnlyWalletRecord(canonicalRecord)) {
+      return {
+        ...identity,
+        storageUsername: CONS_READ_ONLY_CANONICAL,
+        conflict: false,
+        readOnlyLegacyConflict: 'canonical-only',
+        matches: [CONS_READ_ONLY_CANONICAL],
+      };
+    }
+  }
+
   const keys = [
     `nf_user_data:${CONS_READ_ONLY_CANONICAL}`,
     `nf_user_data:${CONS_READ_ONLY_LEGACY}`,

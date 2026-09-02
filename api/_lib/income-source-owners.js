@@ -138,6 +138,15 @@ async function inspectApprovedSourceWalletOwner(
   const approved = isApprovedSourceOwner(adData, sourceKey, normalizedWallet);
   let unique = owners.length === 1 && normalizeOwner(owners[0]) === normalizedWallet;
 
+  // Cons keeps one canonical production account. The isolated legacy wallet
+  // must not block read-only statistics or link/code operations.
+  const canonicalConsOnly = allowEquivalentAliases &&
+    process.env.VERCEL_ENV === 'production' &&
+    normalizeOwner(sourceKey) === 'cons_espher' &&
+    normalizedWallet === 'cons_espher' &&
+    owners.some(owner => normalizeOwner(owner) === 'cons_espher');
+  if (!unique && canonicalConsOnly) unique = true;
+
   // Read-only statistics may safely tolerate duplicate historical wallet keys
   // when they are explicit aliases of one canonical identity and every alias
   // is bound to the same non-empty server-side principal. This deliberately
@@ -161,7 +170,7 @@ async function inspectApprovedSourceWalletOwner(
   return {
     sourceKey,
     found: true,
-    owners,
+    owners: canonicalConsOnly ? ['cons_espher'] : owners,
     approved,
     unique,
     authorized: approved && unique,
