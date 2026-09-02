@@ -24,6 +24,7 @@ const userData = require('../api/user-data');
 const rewards = require('../api/rewards');
 const claimLinks = require('../api/claim-links');
 const setPassword = require('../api/auth/set-password');
+const adminPasswordReset = require('../api/admin-password-reset');
 const { signAccessToken, signRefreshToken, verifyJWT } = require('../api/_lib/auth');
 const { legacyPasswordHash } = require('../api/_lib/password');
 
@@ -1290,6 +1291,63 @@ test('production keeps a legacy signed local session alive after deployment', as
   } finally {
     if (previousEnv === undefined) delete process.env.VERCEL_ENV;
     else process.env.VERCEL_ENV = previousEnv;
+  }
+});
+
+test('admin password reset updates an existing account and clears stale login locks', async () => {
+  const previousAdminKey = process.env.ADMIN_KEY;
+  const previousVercelEnv = process.env.VERCEL_ENV;
+  process.env.ADMIN_KEY = 'endpoint-reset-admin-key';
+  process.env.VERCEL_ENV = 'production';
+  try {
+    FakeRedis.reset({
+      'nf_user_pass:英语': legacyPasswordHash('OldPassword1'),
+      'nf_user_data:英语': JSON.stringify({ disabled: true }),
+      'nf_login_fail:英语': 4,
+      'nf_login_lock:英语': '1',
+    });
+    const response = await invoke(adminPasswordReset, {
+      headers: { 'x-admin-key': 'endpoint-reset-admin-key' },
+      body: { username: '英语', password: 'zhizhang233' },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.success, true);
+    assert.equal(response.body.username, '英语');
+    assert.match(FakeRedis.values.get('nf_user_pass:英语'), /^scrypt\$/);
+    assert.equal(FakeRedis.values.has('nf_login_fail:英语'), false);
+    assert.equal(FakeRedis.values.has('nf_login_lock:英语'), false);
+
+    const loginResponse = await invoke(login, {
+      body: { username: '英语', password: 'zhizhang233' },
+    });
+    assert.equal(loginResponse.statusCode, 200);
+  } finally {
+    if (previousAdminKey === undefined) delete process.env.ADMIN_KEY;
+    else process.env.ADMIN_KEY = previousAdminKey;
+    if (previousVercelEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = previousVercelEnv;
+  }
+});
+
+test('admin password reset rejects missing admin authorization and unknown accounts', async () => {
+  const previousAdminKey = process.env.ADMIN_KEY;
+  process.env.ADMIN_KEY = 'endpoint-reset-admin-key';
+  try {
+    FakeRedis.reset();
+    const unauthorized = await invoke(adminPasswordReset, {
+      body: { username: '英语', password: 'zhizhang233' },
+    });
+    assert.equal(unauthorized.statusCode, 403);
+
+    const unknown = await invoke(adminPasswordReset, {
+      headers: { 'x-admin-key': 'endpoint-reset-admin-key' },
+      body: { username: 'not-an-account', password: 'novelflow8' },
+    });
+    assert.equal(unknown.statusCode, 404);
+    assert.equal(unknown.body.code, 'ACCOUNT_NOT_FOUND');
+  } finally {
+    if (previousAdminKey === undefined) delete process.env.ADMIN_KEY;
+    else process.env.ADMIN_KEY = previousAdminKey;
   }
 });
 
