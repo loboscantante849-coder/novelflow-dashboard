@@ -88,7 +88,7 @@ test('approved external settlements appear in withdrawn totals and reduce availa
       promoter: {
         name: 'Promoter',
         subscription_revenue_dn: 62.99,
-        subscription_revenue_dn_daily: { '2026-08-22': 62.99 },
+        subscription_revenue_dn_daily: { '2026-08-20': 62.99 },
       },
     },
   }, 'promoter');
@@ -99,10 +99,11 @@ test('approved external settlements appear in withdrawn totals and reduce availa
     ],
   }, profile);
 
+  assert.equal(balances.total_earned, 82.99);
   assert.equal(balances.withdrawn_total, 73.25);
   assert.equal(balances.approved_total, 53.25);
   assert.equal(balances.external_settlement_total, 20);
-  assert.equal(balances.withdrawable_balance, 0);
+  assert.equal(balances.withdrawable_balance, 9.74);
 });
 
 test('complete post-cutoff-only income uses 80 percent without a migration marker', () => {

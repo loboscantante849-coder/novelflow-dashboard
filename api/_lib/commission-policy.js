@@ -272,13 +272,18 @@ function computeWalletBalances(userData, incomeProfile, incomeAdjustment = 0) {
   ];
   const userPromotionIncomeBeforeAdjustment = roundMoney(stored.legacy_earnings_carryover + income.creditedIncome);
   const userPromotionIncomeTotal = roundMoney(userPromotionIncomeBeforeAdjustment + adjustment);
-  const totalEarned = roundMoney(stored.reward_income_total + userPromotionIncomeTotal);
-  if (roundMoney(totals.approved + totals.pending) > totalEarned) {
+  // External settlements were paid outside this wallet and are intentionally
+  // excluded from the spendable wallet balance. They still belong in the
+  // user's lifetime earned/settled total so the ledger cannot show withdrawn
+  // funds greater than earnings.
+  const walletTotalEarned = roundMoney(stored.reward_income_total + userPromotionIncomeTotal);
+  const settledWithdrawals = roundMoney(totals.approved + totals.external);
+  const totalEarned = roundMoney(walletTotalEarned + totals.external);
+  if (roundMoney(totals.approved + totals.pending) > walletTotalEarned) {
     reconciliationReasons.push('withdrawal_commitments_exceed_total_earned');
   }
   const reconciliationRequired = reconciliationReasons.length > 0;
-  const settledWithdrawals = roundMoney(totals.approved + totals.external);
-  const available = roundMoney(Math.max(0, totalEarned - settledWithdrawals - totals.pending));
+  const available = roundMoney(Math.max(0, walletTotalEarned - totals.approved - totals.pending));
   return {
     bonus_balance: bonus,
     total_earned: totalEarned,
