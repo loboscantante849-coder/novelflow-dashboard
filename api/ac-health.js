@@ -3,6 +3,7 @@
  * AC代理健康检查 - 纯GET，无需token，验证路由是否通
  */
 const { setCORSHeaders } = require('./_lib/cors');
+const { getAcBaseUrl, getAcProjectId } = require('./_lib/ac-config');
 
 module.exports = (req, res) => {
   setCORSHeaders(req, res);
@@ -11,6 +12,8 @@ module.exports = (req, res) => {
   res.status(200).json({
     status: 'ok',
     service: 'ac-video-proxy',
+    upstream: getAcBaseUrl(),
+    projectId: getAcProjectId(),
     endpoints: [
       'POST /api/ac-refresh',
       'POST /api/ac-create',
