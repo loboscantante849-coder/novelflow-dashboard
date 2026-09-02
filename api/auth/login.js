@@ -136,6 +136,18 @@ module.exports = async (req, res) => {
       return res.status(503).json({ error: 'Account identity lookup is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
     }
     const credentialRecords = credentialIdentity.records;
+    if (process.env.LOGIN_DIAGNOSTIC === 'true' && usernameKey === '英语') {
+      console.warn('[auth/login diagnostic]', JSON.stringify({
+        usernames: credentialIdentity.usernames,
+        records: credentialRecords.map(record => ({
+          storageUsername: record.storageUsername,
+          hashType: typeof record.hash === 'string' && record.hash.startsWith('scrypt$')
+            ? 'scrypt'
+            : (typeof record.hash === 'string' && /^[a-f0-9]{64}$/i.test(record.hash) ? 'sha256' : typeof record.hash),
+          hashLength: typeof record.hash === 'string' ? record.hash.length : null,
+        })),
+      }));
+    }
     if (!relaxedProductionLogin) {
       try {
         if (await isDisabledUser(redis, usernameKey, { failClosed: true, allowSafeReadOnlyWalletConflict: true })) {
