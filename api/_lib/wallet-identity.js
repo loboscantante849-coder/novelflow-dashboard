@@ -9,6 +9,7 @@ const CONS_READ_ONLY_LEGACY = '@cons espher';
 // bounded; ordinary case-variant wallets must continue to fail closed.
 const DRAS_READ_ONLY_CANONICAL = 'dras';
 const DRAS_READ_ONLY_LEGACY = 'DRAS';
+const PRODUCTION_CANONICAL_ONLY = new Set(['cons_espher', 'eliza_star']);
 
 // Reporting usernames and wallet/login usernames are different namespaces.
 // Keep this map deliberately small and exact: only verified historical
@@ -179,6 +180,21 @@ async function resolveReadOnlyWalletStorageIdentity(redis, requestedUsername, { 
   if (!identity.conflict) return identity;
 
   const matches = new Set(identity.matches || []);
+  if (process.env.VERCEL_ENV === 'production' && PRODUCTION_CANONICAL_ONLY.has(identity.primaryUsername) &&
+      matches.has(identity.primaryUsername)) {
+    const canonicalRecord = parseReadOnlyWalletRecord(
+      await redis.get(`nf_user_data:${identity.primaryUsername}`),
+    );
+    if (healthyReadOnlyWalletRecord(canonicalRecord)) {
+      return {
+        ...identity,
+        storageUsername: identity.primaryUsername,
+        conflict: false,
+        readOnlyLegacyConflict: 'canonical-only',
+        matches: [identity.primaryUsername],
+      };
+    }
+  }
   if (identity.primaryUsername !== CONS_READ_ONLY_CANONICAL ||
       matches.size !== 2 ||
       !matches.has(CONS_READ_ONLY_CANONICAL) ||

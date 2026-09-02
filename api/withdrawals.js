@@ -36,6 +36,7 @@ const { isApprovedSourceOwner, loadSourceOwnerIndex } = require('./_lib/income-s
 const {
   acquireWalletDataLock,
   resolveUsernameAlias,
+  resolveReadOnlyWalletStorageIdentity,
   resolveWalletStorageIdentity,
 } = require('./_lib/wallet-identity');
 const {
@@ -82,12 +83,19 @@ function incomeSourceContext(sources, username) {
   };
 }
 
-async function inspectIncomeSourceOwner(redis, sources, targetUser, walletUsername) {
+async function inspectIncomeSourceOwner(redis, sources, targetUser, walletUsername, { allowEquivalentAliases = false } = {}) {
   const context = incomeSourceContext(sources, targetUser);
   if (!context.profile.found) return { ...context, conflict: false, owners: [] };
   const index = await loadSourceOwnerIndex(redis, sources.adData);
   const indexedSource = index.resolveSourceKey(targetUser) || context.sourceKey;
-  const owners = index.ownersBySource.get(indexedSource) || [];
+  let owners = index.ownersBySource.get(indexedSource) || [];
+  if (allowEquivalentAliases && process.env.VERCEL_ENV === 'production') {
+    const canonicalWallet = resolveUsernameAlias(walletUsername);
+    const equivalentOwners = owners.filter(owner => resolveUsernameAlias(owner) === canonicalWallet);
+    if (equivalentOwners.length && resolveUsernameAlias(indexedSource) === canonicalWallet) {
+      owners = [canonicalWallet];
+    }
+  }
   const verifiedFirstOwner = isApprovedSourceOwner(sources.adData, indexedSource, walletUsername);
   return {
     ...context,
@@ -217,7 +225,10 @@ module.exports = async (req, res) => {
   const redis = redisClient();
   const isAdmin = await isAdminUser(redis, jwtUsername);
   try {
-    if (await isDisabledUser(redis, payload, { failClosed: true })) {
+    if (await isDisabledUser(redis, payload, {
+      failClosed: true,
+      allowSafeReadOnlyWalletConflict: req.method === 'GET',
+    })) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
   } catch (e) {
@@ -352,7 +363,11 @@ module.exports = async (req, res) => {
         return res.status(403).json({ error: 'Forbidden: can only view your own data', code: 'FORBIDDEN' });
       }
 
-      const identity = await resolveWalletStorageIdentity(redis, targetUser);
+      const identity = req.method === 'GET'
+        ? await resolveReadOnlyWalletStorageIdentity(redis, targetUser, {
+          expectedPrincipal: payload && `local:${jwtUsername}`,
+        })
+        : await resolveWalletStorageIdentity(redis, targetUser);
       if (identity.conflict) return walletIdentityConflict(res, identity);
       const walletUsername = identity.storageUsername;
       const redisKey = `nf_user_data:${walletUsername}`;
@@ -379,6 +394,7 @@ module.exports = async (req, res) => {
         incomeSources,
         targetUser,
         walletUsername,
+        { allowEquivalentAliases: req.method === 'GET' && identity.readOnlyLegacyConflict === 'canonical-only' },
       );
       if (ownerState.conflict) return incomeSourceOwnerConflict(res, ownerState.owners);
       if (ownerState.unverified) return incomeSourceOwnerUnverified(res);

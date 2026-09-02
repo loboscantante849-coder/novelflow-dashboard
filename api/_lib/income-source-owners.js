@@ -140,12 +140,11 @@ async function inspectApprovedSourceWalletOwner(
 
   // Cons keeps one canonical production account. The isolated legacy wallet
   // must not block read-only statistics or link/code operations.
-  const canonicalConsOnly = allowEquivalentAliases &&
+  const canonicalOnlyWallet = allowEquivalentAliases &&
     process.env.VERCEL_ENV === 'production' &&
-    normalizeOwner(sourceKey) === 'cons_espher' &&
-    normalizedWallet === 'cons_espher' &&
-    owners.some(owner => normalizeOwner(owner) === 'cons_espher');
-  if (!unique && canonicalConsOnly) unique = true;
+    resolveUsernameAlias(sourceKey) === normalizedWallet &&
+    owners.some(owner => resolveUsernameAlias(owner) === normalizedWallet);
+  if (!unique && canonicalOnlyWallet) unique = true;
 
   // Read-only statistics may safely tolerate duplicate historical wallet keys
   // when they are explicit aliases of one canonical identity and every alias
@@ -170,7 +169,7 @@ async function inspectApprovedSourceWalletOwner(
   return {
     sourceKey,
     found: true,
-    owners: canonicalConsOnly ? ['cons_espher'] : owners,
+    owners: canonicalOnlyWallet ? [normalizedWallet] : owners,
     approved,
     unique,
     authorized: approved && unique,
