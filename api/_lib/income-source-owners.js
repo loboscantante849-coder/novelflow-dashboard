@@ -227,9 +227,24 @@ async function acquireWalletCreationSourceGuard(redis, requestedUsername, identi
   }
 }
 
+async function assertApprovedSourceAccess(redis, requestedUsername, identity, adData = null) {
+  if (!identity || !identity.storageUsername) throw sourceOwnerError('WALLET_IDENTITY_CONFLICT', 'Wallet identity is unavailable');
+  const sources = adData || await getAdIdDetails();
+  if (!sources || !sources.by_promoter || typeof sources.by_promoter !== 'object') {
+    throw sourceOwnerError('INCOME_SOURCE_UNAVAILABLE', 'Income source identity is unavailable');
+  }
+  const sourceKey = createPromoterKeyResolver(sources)(requestedUsername);
+  if (!sourceKey || !sources.by_promoter[sourceKey]) return { sourceKey: null };
+  if (!isApprovedSourceOwner(sources, sourceKey, identity.storageUsername)) {
+    throw sourceOwnerError('INCOME_SOURCE_OWNER_UNVERIFIED', 'Wallet identity is not the verified owner of this income source');
+  }
+  return { sourceKey };
+}
+
 module.exports = {
   VERIFIED_SOURCE_OWNER_ALIASES,
   acquireWalletCreationSourceGuard,
+  assertApprovedSourceAccess,
   approvedWalletOwnersForSource,
   buildApprovedSourceOwnerRegistry,
   buildSourceOwnerIndex,

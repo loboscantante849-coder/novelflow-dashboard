@@ -18,7 +18,7 @@ const {
 const { normalizeRedisKey } = require('./_lib/redis-values');
 const { Redis } = require('@upstash/redis');
 const { commitUserDataUnderLock, releaseUserDataLock } = require('./_lib/user-data-lock');
-const { acquireWalletCreationSourceGuard } = require('./_lib/income-source-owners');
+const { acquireWalletCreationSourceGuard, assertApprovedSourceAccess } = require('./_lib/income-source-owners');
 const {
   acquireWalletDataLock,
   resolveUsernameAlias,
@@ -283,7 +283,6 @@ async function repairSubmissionIndex(redis, username, code, submission = null) {
 
 async function persistUserBook(redis, username, submission) {
   let lock = null;
-  let sourceGuard = null;
   try {
     const walletLock = await acquireWalletDataLock(redis, username, { allowReviewedLegacyConflict: true });
     lock = walletLock.lock;
@@ -292,7 +291,6 @@ async function persistUserBook(redis, username, submission) {
       error.code = 'USER_DATA_BUSY';
       throw error;
     }
-    sourceGuard = await acquireWalletCreationSourceGuard(redis, username, walletLock.identity);
     const userKey = `nf_user_data:${walletLock.identity.storageUsername}`;
     const raw = await redis.get(userKey);
     let data = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
@@ -342,9 +340,8 @@ async function persistUserBook(redis, username, submission) {
     if (index >= 0) data.myBooks[index] = { ...data.myBooks[index], ...book };
     else data.myBooks.push(book);
     data.lastSyncAt = Date.now();
-    await commitUserDataUnderLock(redis, userKey, data, [lock, sourceGuard]);
+    await commitUserDataUnderLock(redis, userKey, data, [lock]);
   } finally {
-    await releaseUserDataLock(redis, sourceGuard);
     await releaseUserDataLock(redis, lock);
   }
 }
@@ -474,7 +471,9 @@ module.exports = async (req, res) => {
   // account still must be an approved owner of its reporting source. Reviewed
   // historical aliases (Cons/DRAS) are accepted as one canonical owner.
   try {
-    await establishWalletSourceOwnership(redis, cleanUsername);
+    const identity = await resolveReadOnlyWalletStorageIdentity(redis, cleanUsername);
+    if (identity.conflict) throw walletIdentityConflict(identity);
+    await assertApprovedSourceAccess(redis, cleanUsername, identity);
   } catch (error) {
     if (error && error.code === 'WALLET_IDENTITY_CONFLICT') {
       return res.status(409).json({ error: 'Account identity recovery required', code: error.code });
@@ -758,10 +757,14 @@ module.exports = async (req, res) => {
       try {
         await persistUserBook(redis, cleanUsername, completedSub);
       } catch (e) {
+        if (e?.code === 'WALLET_IDENTITY_CONFLICT') {
+          console.warn('[confirm] wallet cache skipped:', e.code);
+        } else {
         console.error('[confirm] myBooks merge failed:', e.message);
         const persistenceError = new Error(`User promotion data could not be merged: ${e.message}`);
         persistenceError.code = e.code || 'USER_DATA_UNAVAILABLE';
         throw persistenceError;
+        }
       }
     }
 
