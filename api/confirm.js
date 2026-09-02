@@ -22,7 +22,7 @@ const { acquireWalletCreationSourceGuard } = require('./_lib/income-source-owner
 const {
   acquireWalletDataLock,
   resolveUsernameAlias,
-  resolveWalletStorageIdentity,
+  resolveReadOnlyWalletStorageIdentity,
   walletIdentityConflict,
 } = require('./_lib/wallet-identity');
 const {
@@ -167,7 +167,7 @@ async function findExistingForBook(redis, username, bookId) {
       }
     }
     // 2. Check nf_user_data:<u>.myBooks
-    const identity = await resolveWalletStorageIdentity(redis, u);
+    const identity = await resolveReadOnlyWalletStorageIdentity(redis, u);
     if (identity.conflict) throw walletIdentityConflict(identity);
     const rawUd = await redis.get(`nf_user_data:${identity.storageUsername}`);
     if (rawUd) {
@@ -285,7 +285,7 @@ async function persistUserBook(redis, username, submission) {
   let lock = null;
   let sourceGuard = null;
   try {
-    const walletLock = await acquireWalletDataLock(redis, username);
+    const walletLock = await acquireWalletDataLock(redis, username, { allowReviewedLegacyConflict: true });
     lock = walletLock.lock;
     if (!lock) {
       const error = new Error('user data is busy');
@@ -346,7 +346,7 @@ async function establishWalletSourceOwnership(redis, username) {
   let lock = null;
   let sourceGuard = null;
   try {
-    const walletLock = await acquireWalletDataLock(redis, username);
+    const walletLock = await acquireWalletDataLock(redis, username, { allowReviewedLegacyConflict: true });
     lock = walletLock.lock;
     if (!lock) {
       const error = new Error('user data is busy');
@@ -426,7 +426,7 @@ module.exports = async (req, res) => {
 
   // Disabled account check
   try {
-    if (await isDisabledUser(redis, payload, { failClosed: true })) {
+    if (await isDisabledUser(redis, payload, { failClosed: true, allowSafeReadOnlyWalletConflict: true })) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
   } catch (_error) {

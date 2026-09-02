@@ -33,7 +33,7 @@ module.exports = async (req, res) => {
     if (!payload) return res.status(403).json({ error: 'Admin only' });
     if (!redis) return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
     try {
-      if (await isDisabledUser(redis, payload, { failClosed: true })) {
+      if (await isDisabledUser(redis, payload, { failClosed: true, allowSafeReadOnlyWalletConflict: true })) {
         return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
       }
     } catch (e) {

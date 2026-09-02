@@ -197,9 +197,14 @@ async function acquireWalletCreationSourceGuard(redis, requestedUsername, identi
   try {
     const index = await loadSourceOwnerIndex(redis, sources);
     const owners = index.ownersBySource.get(sourceKey) || [];
-    const validOwners = identity.matches.length === 0
-      ? owners.length === 0
-      : owners.length === 1 && owners[0] === identity.storageUsername;
+    const reviewedLegacyAlias = Boolean(identity.readOnlyLegacyConflict) &&
+      String(identity.primaryUsername || '').toLowerCase() === 'dras' &&
+      String(sourceKey || '').toLowerCase() === 'dras';
+    const validOwners = reviewedLegacyAlias
+      ? owners.every(owner => String(owner || '').trim().toLowerCase() === 'dras')
+      : identity.matches.length === 0
+        ? owners.length === 0
+        : owners.length === 1 && owners[0] === identity.storageUsername;
     if (!validOwners) {
       throw sourceOwnerError(
         'INCOME_SOURCE_OWNER_CONFLICT',

@@ -10,7 +10,7 @@ process.env.KV_REST_API_TOKEN = 'test-token';
 
 const { signAccessToken } = require('../api/_lib/auth');
 const statsData = require('../api/_lib/stats-data');
-const { resolveUsernameAlias, resolveWalletStorageIdentity } = require('../api/_lib/wallet-identity');
+const { resolveUsernameAlias, resolveWalletStorageIdentity, resolveReadOnlyWalletStorageIdentity } = require('../api/_lib/wallet-identity');
 const { userDataLockKey } = require('../api/_lib/user-data-lock');
 const { isAdminUser, isDisabledUser } = require('../api/_lib/security');
 
@@ -111,6 +111,22 @@ test('case-variant duplicate protected wallets remain fail-closed', async () => 
   const identity = await resolveWalletStorageIdentity(new FakeRedis(), 'xenomorphette');
   assert.equal(identity.conflict, true);
   assert.deepEqual(new Set(identity.matches), new Set(['xenomorphette', 'Xenomorphette']));
+});
+
+test('reviewed DRAS case-variant wallets resolve to the canonical account', async () => {
+  FakeRedis.reset({
+    'nf_user_data:dras': JSON.stringify({ bonus_balance: 0.5 }),
+    'nf_user_data:DRAS': JSON.stringify({ bonus_balance: 0.5 }),
+    'nf_identity_owner:dras': 'local:dras',
+    'nf_identity_owner:DRAS': 'local:dras',
+    'nf_user_pass_owner:dras': 'local:dras',
+    'nf_user_pass_owner:DRAS': 'local:dras',
+  });
+
+  const identity = await resolveReadOnlyWalletStorageIdentity(new FakeRedis(), 'DRAS');
+  assert.equal(identity.conflict, false);
+  assert.equal(identity.storageUsername, 'dras');
+  assert.equal(identity.readOnlyLegacyConflict, true);
 });
 
 test('a legacy Eliza alias principal cannot cross into a differently owned primary wallet', async () => {

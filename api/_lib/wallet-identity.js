@@ -4,6 +4,11 @@ const { isProtectedPromoterUsername } = require('./promoter-access');
 const CASE_VARIANT_SCAN_PAGE_LIMIT = 16;
 const CONS_READ_ONLY_CANONICAL = 'cons_espher';
 const CONS_READ_ONLY_LEGACY = '@cons espher';
+// DRAS has one reviewed historical case-variant pair (the reporting snapshot
+// contains a single protected `dras` owner). Keep the exception explicit and
+// bounded; ordinary case-variant wallets must continue to fail closed.
+const DRAS_READ_ONLY_CANONICAL = 'dras';
+const DRAS_READ_ONLY_LEGACY = 'DRAS';
 
 // Reporting usernames and wallet/login usernames are different namespaces.
 // Keep this map deliberately small and exact: only verified historical
@@ -178,7 +183,7 @@ async function resolveReadOnlyWalletStorageIdentity(redis, requestedUsername, { 
       matches.size !== 2 ||
       !matches.has(CONS_READ_ONLY_CANONICAL) ||
       !matches.has(CONS_READ_ONLY_LEGACY)) {
-    return identity;
+    return resolveDrasReadOnlyWalletIdentity(redis, identity, expectedPrincipal);
   }
 
   const keys = [
@@ -229,6 +234,55 @@ async function resolveReadOnlyWalletStorageIdentity(redis, requestedUsername, { 
   };
 }
 
+/**
+ * DRAS uses the same narrowly-scoped legacy exception as Cons, but only for
+ * the exact lowercase/uppercase pair. Both records must be healthy. Owner
+ * indexes, when present, must agree with the canonical local principal; old
+ * records without indexes are still covered by the protected reporting
+ * snapshot and remain isolated under the canonical storage key.
+ */
+async function resolveDrasReadOnlyWalletIdentity(redis, identity, expectedPrincipal = null) {
+  const matches = new Set(identity.matches || []);
+  if (identity.primaryUsername !== DRAS_READ_ONLY_CANONICAL ||
+      matches.size !== 2 ||
+      !matches.has(DRAS_READ_ONLY_CANONICAL) ||
+      !matches.has(DRAS_READ_ONLY_LEGACY)) return identity;
+
+  const keys = [
+    `nf_user_data:${DRAS_READ_ONLY_CANONICAL}`,
+    `nf_user_data:${DRAS_READ_ONLY_LEGACY}`,
+    `nf_identity_owner:${DRAS_READ_ONLY_CANONICAL}`,
+    `nf_identity_owner:${DRAS_READ_ONLY_LEGACY}`,
+    `nf_user_pass_owner:${DRAS_READ_ONLY_CANONICAL}`,
+    `nf_user_pass_owner:${DRAS_READ_ONLY_LEGACY}`,
+  ];
+  const values = typeof redis.mget === 'function'
+    ? await redis.mget(...keys)
+    : await Promise.all(keys.map(key => redis.get(key)));
+  if (!Array.isArray(values) || values.length !== keys.length) {
+    const error = new Error('Read-only wallet identity lookup returned an invalid response');
+    error.code = 'WALLET_IDENTITY_UNAVAILABLE';
+    throw error;
+  }
+  const [canonicalRaw, legacyRaw, canonicalOwner, legacyOwner, canonicalPasswordOwner, legacyPasswordOwner] = values;
+  if (!healthyReadOnlyWalletRecord(parseReadOnlyWalletRecord(canonicalRaw)) ||
+      !healthyReadOnlyWalletRecord(parseReadOnlyWalletRecord(legacyRaw))) return identity;
+
+  const owners = [canonicalOwner, legacyOwner, canonicalPasswordOwner, legacyPasswordOwner]
+    .filter(Boolean)
+    .map(canonicalReadOnlyOwner);
+  const expectedOwner = `local:${DRAS_READ_ONLY_CANONICAL}`;
+  if (owners.some(owner => owner !== expectedOwner) ||
+      (expectedPrincipal && canonicalReadOnlyOwner(expectedPrincipal) !== expectedOwner)) return identity;
+
+  return {
+    ...identity,
+    storageUsername: DRAS_READ_ONLY_CANONICAL,
+    conflict: false,
+    readOnlyLegacyConflict: true,
+  };
+}
+
 function walletIdentityConflict(identity, message = 'Multiple wallet records resolve to the same user') {
   const error = new Error(message);
   error.code = 'WALLET_IDENTITY_CONFLICT';
@@ -237,7 +291,11 @@ function walletIdentityConflict(identity, message = 'Multiple wallet records res
 }
 
 async function acquireWalletDataLock(redis, requestedUsername, options = {}) {
-  const initial = await resolveWalletStorageIdentity(redis, requestedUsername);
+  const { allowReviewedLegacyConflict = false, ...lockOptions } = options || {};
+  let initial = await resolveWalletStorageIdentity(redis, requestedUsername);
+  if (initial.conflict && allowReviewedLegacyConflict) {
+    initial = await resolveReadOnlyWalletStorageIdentity(redis, requestedUsername);
+  }
   if (!initial.primaryUsername) {
     const error = new Error('Invalid wallet identity');
     error.code = 'INVALID_WALLET_IDENTITY';
@@ -248,11 +306,14 @@ async function acquireWalletDataLock(redis, requestedUsername, options = {}) {
   // Stable contract shared with admin services:
   //   key = nf_user_data_lock:v2:<preferred primary alias>
   // The actual storage key may remain a sole legacy alias during recovery.
-  const lock = await acquireUserDataLock(redis, initial.primaryUsername, options);
+  const lock = await acquireUserDataLock(redis, initial.primaryUsername, lockOptions);
   if (!lock) return { lock: null, identity: initial };
 
   try {
-    const locked = await resolveWalletStorageIdentity(redis, requestedUsername);
+    let locked = await resolveWalletStorageIdentity(redis, requestedUsername);
+    if (locked.conflict && allowReviewedLegacyConflict) {
+      locked = await resolveReadOnlyWalletStorageIdentity(redis, requestedUsername);
+    }
     if (locked.conflict || locked.storageUsername !== initial.storageUsername) {
       throw walletIdentityConflict(locked, 'Wallet identity changed while the operation was starting');
     }
