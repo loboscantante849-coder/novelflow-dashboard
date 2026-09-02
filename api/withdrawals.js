@@ -394,7 +394,12 @@ module.exports = async (req, res) => {
         incomeSources,
         targetUser,
         walletUsername,
-        { allowEquivalentAliases: req.method === 'GET' && identity.readOnlyLegacyConflict === 'canonical-only' },
+        {
+          allowEquivalentAliases: req.method === 'GET' && (
+            identity.readOnlyLegacyConflict === 'canonical-only' ||
+            ['cons_espher', 'eliza_star'].includes(resolveUsernameAlias(targetUser))
+          ),
+        },
       );
       if (ownerState.conflict) return incomeSourceOwnerConflict(res, ownerState.owners);
       if (ownerState.unverified) return incomeSourceOwnerUnverified(res);
