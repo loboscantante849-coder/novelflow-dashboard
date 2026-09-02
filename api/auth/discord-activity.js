@@ -24,9 +24,20 @@ const { getLiveAdIdDetails } = require('../_lib/stats-data');
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1504779503237333033';
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
+// Discord Activity authentication is retired for the public product.  Keep
+// the handler only as an explicitly enabled migration hook.
+function isDiscordAuthEnabled() {
+  return process.env.ENABLE_DISCORD_AUTH === 'true';
+}
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
+  if (!isDiscordAuthEnabled()) {
+    return res.status(404).json({
+      error: 'Discord login is not enabled',
+      message: 'Use your NovelFlow username and password to log in.',
+    });
+  }
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }

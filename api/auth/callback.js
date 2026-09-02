@@ -30,6 +30,11 @@ const {
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1504779503237333033';
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
+// Discord OAuth is a legacy migration path, not a NovelFlow login channel.
+// It is fail-closed unless an operator explicitly enables it.
+function isDiscordAuthEnabled() {
+  return process.env.ENABLE_DISCORD_AUTH === 'true';
+}
 const REFERRAL_COOKIE = 'nf_referral_code';
 
 function getRedirectUri() {
@@ -46,6 +51,13 @@ function clearReferralCookie(res) {
 
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
+
+  if (!isDiscordAuthEnabled()) {
+    return res.status(404).json({
+      error: 'Discord login is not enabled',
+      message: 'Use your NovelFlow username and password to log in.',
+    });
+  }
 
   var code = req.query.code;
   var oauthError = req.query.error;

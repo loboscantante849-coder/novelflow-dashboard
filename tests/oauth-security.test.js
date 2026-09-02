@@ -12,6 +12,8 @@ process.env.KV_REST_API_TOKEN = 'test-token';
 process.env.DISCORD_CLIENT_ID = 'test-discord-client';
 process.env.DISCORD_CLIENT_SECRET = 'test-discord-secret';
 process.env.DISCORD_REDIRECT_URI = 'https://novelflow.top/api/auth/callback';
+// OAuth tests exercise the explicitly enabled legacy migration path.
+process.env.ENABLE_DISCORD_AUTH = 'true';
 
 const statsData = require('../api/_lib/stats-data');
 statsData.getAdIdDetails = async () => require('../ad_id_details.json');
@@ -80,6 +82,19 @@ test.beforeEach(() => {
 
 test.after(() => {
   global.fetch = originalFetch;
+});
+
+test('legacy Discord login is fail-closed when the migration flag is absent', async () => {
+  const previous = process.env.ENABLE_DISCORD_AUTH;
+  try {
+    delete process.env.ENABLE_DISCORD_AUTH;
+    const result = await invokeRedirect(discordStart);
+    assert.equal(result.statusCode, 404);
+    assert.equal(result.body.error, 'Discord login is not enabled');
+    assert.equal(result.headers.location, undefined);
+  } finally {
+    process.env.ENABLE_DISCORD_AUTH = previous;
+  }
 });
 
 test('Discord OAuth starts with a browser-bound HttpOnly state cookie', async () => {
