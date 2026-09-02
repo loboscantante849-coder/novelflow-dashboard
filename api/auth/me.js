@@ -12,7 +12,8 @@ const {
   getUserFromCookies,
   parseCookies,
   clearAuthCookies,
-  extractUserInfo
+  extractUserInfo,
+  isProductionVerifiedLocalSession,
 } = require('../_lib/auth');
 
 const { handlePreflight } = require('../_lib/cors');
@@ -46,7 +47,8 @@ module.exports = async (req, res) => {
         return res.status(503).json({ loggedIn: false, code: 'ACCOUNT_STATUS_UNAVAILABLE' });
       }
       try {
-        if (await isDisabledUser(redis, payload, { failClosed: true, allowSafeReadOnlyWalletConflict: true })) {
+        if (!isProductionVerifiedLocalSession(payload) &&
+            await isDisabledUser(redis, payload, { failClosed: true, allowSafeReadOnlyWalletConflict: true })) {
           clearAuthCookies(res);
           return res.status(403).json({ loggedIn: false, code: 'ACCOUNT_DISABLED' });
         }

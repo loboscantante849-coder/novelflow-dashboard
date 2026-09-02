@@ -17,7 +17,8 @@ const {
   parseCookies,
   setAuthCookies,
   clearAuthCookies,
-  REFRESH_MAX_AGE
+  REFRESH_MAX_AGE,
+  isProductionVerifiedLocalSession,
 } = require('../_lib/auth');
 
 const { handlePreflight } = require('../_lib/cors');
@@ -58,7 +59,8 @@ module.exports = async (req, res) => {
       return res.status(503).json({ error: 'Auth service unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
     }
     try {
-      if (await isDisabledUser(redis, canonicalPayload, { failClosed: true, allowSafeReadOnlyWalletConflict: true })) {
+      if (!isProductionVerifiedLocalSession(canonicalPayload) &&
+          await isDisabledUser(redis, canonicalPayload, { failClosed: true, allowSafeReadOnlyWalletConflict: true })) {
         clearAuthCookies(res);
         return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
       }

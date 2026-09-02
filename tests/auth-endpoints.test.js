@@ -38,6 +38,9 @@ function signRaw(payload, secret) {
 
 test.beforeEach(() => {
   FakeRedis.reset();
+  // Production-only login compatibility is enabled explicitly by the tests
+  // that exercise deployed behavior; keep the rest of this suite strict.
+  delete process.env.VERCEL_ENV;
   process.env.KV_REST_API_URL = 'https://redis.invalid';
   process.env.KV_REST_API_TOKEN = 'test-token';
 });
@@ -1119,6 +1122,121 @@ test('disabled local accounts cannot receive a fresh login session', async () =>
   });
   assert.equal(registration.statusCode, 403);
   assert.equal(registration.body.code, 'ACCOUNT_DISABLED');
+});
+
+test('production login accepts a disabled account when the password is correct', async () => {
+  const previousEnv = process.env.VERCEL_ENV;
+  process.env.VERCEL_ENV = 'production';
+  try {
+    FakeRedis.reset({
+      'nf_user_data:alice': JSON.stringify({ disabled: true, wallet_merged_into: 'alice-legacy' }),
+      'nf_user_pass:alice': legacyPasswordHash('Password1'),
+    });
+
+    const response = await invoke(login, {
+      headers: { 'x-forwarded-for': '192.0.2.180' },
+      body: { username: 'alice', password: 'Password1' },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.success, true);
+    assert.equal(response.body.username, 'alice');
+    assert.equal(response.body.user.accountType, 'local');
+  } finally {
+    if (previousEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = previousEnv;
+  }
+});
+
+test('production login ignores stale wallet and owner conflicts after password verification', async () => {
+  const previousEnv = process.env.VERCEL_ENV;
+  process.env.VERCEL_ENV = 'production';
+  try {
+    FakeRedis.reset({
+      'nf_user_data:alice': JSON.stringify({ disabled: true, wallet_merged_into: 'alice-legacy' }),
+      'nf_user_pass:alice': legacyPasswordHash('Password1'),
+      'nf_user_data:Alice': JSON.stringify({ disabled: true }),
+      'nf_identity_owner:alice': 'local:another-account',
+      'nf_user_pass_owner:alice': 'local:another-account',
+      'nf_identity_owner:Alice': 'local:case-variant',
+      'nf_user_pass_owner:Alice': 'local:case-variant',
+    });
+
+    const response = await invoke(login, {
+      headers: { 'x-forwarded-for': '192.0.2.181' },
+      body: { username: 'Alice', password: 'Password1' },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.success, true);
+    assert.equal(response.body.username, 'alice');
+    assert.equal(FakeRedis.values.get('nf_identity_owner:alice'), 'local:alice');
+    assert.equal(FakeRedis.values.get('nf_user_pass_owner:alice'), 'local:alice');
+  } finally {
+    if (previousEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = previousEnv;
+  }
+});
+
+test('production login still rejects a wrong password and records the failure', async () => {
+  const previousEnv = process.env.VERCEL_ENV;
+  process.env.VERCEL_ENV = 'production';
+  try {
+    FakeRedis.reset({
+      'nf_user_data:alice': JSON.stringify({ disabled: true }),
+      'nf_user_pass:alice': legacyPasswordHash('Password1'),
+    });
+
+    const response = await invoke(login, {
+      headers: { 'x-forwarded-for': '192.0.2.182' },
+      body: { username: 'alice', password: 'WrongPassword1' },
+    });
+
+    assert.equal(response.statusCode, 401);
+    assert.equal(response.body.error, 'Wrong password');
+    assert.equal(Number(FakeRedis.values.get('nf_login_fail:192.0.2.182')), 1);
+    assert.equal(response.headers['set-cookie'], undefined);
+  } finally {
+    if (previousEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = previousEnv;
+  }
+});
+
+test('production password-verified sessions survive disabled status checks', async () => {
+  const previousEnv = process.env.VERCEL_ENV;
+  process.env.VERCEL_ENV = 'production';
+  try {
+    FakeRedis.reset({
+      'nf_user_data:alice': JSON.stringify({ disabled: true }),
+      'nf_user_pass:alice': legacyPasswordHash('Password1'),
+    });
+
+    const loginResponse = await invoke(login, {
+      headers: { 'x-forwarded-for': '192.0.2.183' },
+      body: { username: 'alice', password: 'Password1' },
+    });
+    assert.equal(loginResponse.statusCode, 200);
+    const accessToken = loginResponse.headers['set-cookie'][0].match(/^nf_token=([^;]+)/)[1];
+    const refreshToken = loginResponse.headers['set-cookie'][1].match(/^nf_refresh=([^;]+)/)[1];
+
+    const session = await invoke(me, {
+      method: 'GET',
+      headers: { cookie: `nf_token=${accessToken}` },
+    });
+    assert.equal(session.statusCode, 200);
+    assert.equal(session.body.loggedIn, true);
+    assert.equal(session.body.username, 'alice');
+
+    const renewed = await invoke(refresh, {
+      method: 'POST',
+      headers: { cookie: `nf_refresh=${refreshToken}` },
+    });
+    assert.equal(renewed.statusCode, 200);
+    assert.equal(renewed.body.success, true);
+  } finally {
+    if (previousEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = previousEnv;
+  }
 });
 
 test('Discord disabled checks use the canonical JWT handle', async () => {

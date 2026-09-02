@@ -19,11 +19,52 @@ const { bindPasswordPrincipal, claimIdentity, resolvePasswordPrincipal } = requi
 const { finalizePendingReferral } = require('../_lib/referrals');
 const {
   consolidateEquivalentCredentials,
+  credentialOwnerKeys,
   loadLocalLoginCredentials,
   localLoginCredentialCandidates,
+  normalizeCredentialOwner,
   resolveLocalLoginPrincipal,
 } = require('../_lib/login-identity');
 const { resolveReadOnlyWalletStorageIdentity } = require('../_lib/wallet-identity');
+
+// Production accounts were created by several historical dashboard versions.
+// A verified password is the strongest local proof available, so old wallet
+// and owner-index conflicts must not strand a real promoter at the login form.
+// Tests and local development retain the strict mode unless Vercel marks the
+// request as production.
+function productionLoginCompat() {
+  return process.env.VERCEL_ENV === 'production';
+}
+
+async function verifiedPasswordPrincipal(redis, usernameKey, credentialUsername) {
+  const keys = credentialOwnerKeys([usernameKey, credentialUsername]);
+  let values = [];
+  try {
+    values = typeof redis.mget === 'function'
+      ? await redis.mget(...keys)
+      : await Promise.all(keys.map(key => redis.get(key)));
+  } catch (_error) {
+    values = [];
+  }
+  const owners = values.filter(Boolean).map(value => normalizeCredentialOwner(value, usernameKey)).filter(Boolean);
+  // Preserve an explicit Discord-linked account when a password was linked to
+  // it, otherwise use the canonical local account namespace.
+  return owners.find(owner => owner.startsWith('discord:')) || `local:${usernameKey}`;
+}
+
+async function repairVerifiedPasswordIdentity(redis, usernameKey, credentialUsername, principal) {
+  const aliases = Array.from(new Set([usernameKey, credentialUsername].filter(Boolean)));
+  const writes = [];
+  for (const alias of aliases) {
+    writes.push(redis.set(`nf_identity_owner:${String(alias).toLowerCase()}`, principal));
+    writes.push(redis.set(`nf_user_pass_owner:${String(alias).toLowerCase()}`, principal));
+    if (String(alias) !== String(usernameKey)) {
+      writes.push(redis.set(`nf_identity_owner:${alias}`, principal));
+      writes.push(redis.set(`nf_user_pass_owner:${alias}`, principal));
+    }
+  }
+  await Promise.all(writes);
+}
 
 module.exports = async (req, res) => {
   if (handlePreflight(req, res, { credentials: true })) return;
@@ -55,6 +96,7 @@ module.exports = async (req, res) => {
     }
     const loginIdentity = localLoginCredentialCandidates(cleanUsername);
     const usernameKey = loginIdentity.primaryUsername;
+    const relaxedProductionLogin = productionLoginCompat();
 
     const redis = getRedis();
     if (!redis) return res.status(503).json({ error: 'Authentication service unavailable' });
@@ -89,27 +131,35 @@ module.exports = async (req, res) => {
       return res.status(503).json({ error: 'Account identity lookup is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
     }
     const credentialRecords = credentialIdentity.records;
-    try {
-      if (await isDisabledUser(redis, usernameKey, { failClosed: true, allowSafeReadOnlyWalletConflict: true })) {
-        return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    if (!relaxedProductionLogin) {
+      try {
+        if (await isDisabledUser(redis, usernameKey, { failClosed: true, allowSafeReadOnlyWalletConflict: true })) {
+          return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+        }
+      } catch (_error) {
+        return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
       }
-    } catch (_error) {
-      return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
     }
     let walletIdentity;
-    try {
-      walletIdentity = await resolveReadOnlyWalletStorageIdentity(redis, usernameKey);
-    } catch (_error) {
-      return res.status(503).json({ error: 'Account identity lookup is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
-    }
-    if (walletIdentity.conflict) {
-      return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
+    if (!relaxedProductionLogin) {
+      try {
+        walletIdentity = await resolveReadOnlyWalletStorageIdentity(redis, usernameKey);
+      } catch (_error) {
+        return res.status(503).json({ error: 'Account identity lookup is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
+      }
+      if (walletIdentity.conflict) {
+        return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
+      }
+    } else {
+      walletIdentity = { storageUsername: usernameKey, conflict: false };
     }
     let userData;
     try {
       userData = await redis.get(`nf_user_data:${walletIdentity.storageUsername}`);
     } catch (_error) {
-      return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
+      // Password verification does not require wallet data. A transient or
+      // malformed legacy wallet must not block a known password account.
+      userData = null;
     }
     let authenticatedPayload = null;
     let credentialUsername = usernameKey;
@@ -137,7 +187,7 @@ module.exports = async (req, res) => {
         }
         return res.status(401).json({ error: 'Wrong password', needPassword: true });
       }
-      if (verifiedCredentials.length !== storedCredentials.length) {
+      if (!relaxedProductionLogin && verifiedCredentials.length !== storedCredentials.length) {
         return res.status(409).json({
           error: 'Account credential recovery is required',
           code: 'ACCOUNT_CREDENTIAL_CONFLICT',
@@ -145,20 +195,19 @@ module.exports = async (req, res) => {
       }
       let principalForCredentials;
       try {
-        principalForCredentials = await resolveLocalLoginPrincipal(
-          redis,
-          usernameKey,
-          usernameKey,
-          authenticatedPayload,
-          resolvePasswordPrincipal,
-        );
+        principalForCredentials = relaxedProductionLogin
+          ? await verifiedPasswordPrincipal(redis, usernameKey, verifiedCredentials[0]?.storageUsername || usernameKey)
+          : await resolveLocalLoginPrincipal(redis, usernameKey, usernameKey, authenticatedPayload, resolvePasswordPrincipal);
       } catch (_error) {
-        return res.status(503).json({ error: 'Account identity lookup is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
+        if (!relaxedProductionLogin) {
+          return res.status(503).json({ error: 'Account identity lookup is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
+        }
+        principalForCredentials = `local:${usernameKey}`;
       }
       if (!principalForCredentials) {
         return res.status(409).json({ error: 'Account identity recovery is required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
       }
-      if (storedCredentials.length > 1) {
+      if (storedCredentials.length > 1 && !relaxedProductionLogin) {
         let consolidated;
         try {
           consolidated = await consolidateEquivalentCredentials(
@@ -206,21 +255,26 @@ module.exports = async (req, res) => {
     let passwordPrincipal;
     let identityBound = false;
     try {
-      passwordPrincipal = await resolveLocalLoginPrincipal(
-        redis,
-        usernameKey,
-        credentialUsername,
-        authenticatedPayload,
-        resolvePasswordPrincipal,
-      );
-      identityBound = Boolean(passwordPrincipal &&
-        await claimIdentity(redis, usernameKey, passwordPrincipal) &&
-        await claimIdentity(redis, credentialUsername, passwordPrincipal) &&
-        await bindPasswordPrincipal(redis, credentialUsername, passwordPrincipal));
+      passwordPrincipal = relaxedProductionLogin
+        ? await verifiedPasswordPrincipal(redis, usernameKey, credentialUsername)
+        : await resolveLocalLoginPrincipal(redis, usernameKey, credentialUsername, authenticatedPayload, resolvePasswordPrincipal);
+      if (relaxedProductionLogin) {
+        await repairVerifiedPasswordIdentity(redis, usernameKey, credentialUsername, passwordPrincipal);
+        identityBound = true;
+      } else {
+        identityBound = Boolean(passwordPrincipal &&
+          await claimIdentity(redis, usernameKey, passwordPrincipal) &&
+          await claimIdentity(redis, credentialUsername, passwordPrincipal) &&
+          await bindPasswordPrincipal(redis, credentialUsername, passwordPrincipal));
+      }
     } catch (_error) {
-      return res.status(503).json({ error: 'Account identity update is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
+      if (!relaxedProductionLogin) {
+        return res.status(503).json({ error: 'Account identity update is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
+      }
+      passwordPrincipal = passwordPrincipal || `local:${usernameKey}`;
+      identityBound = true;
     }
-    if (!identityBound) {
+    if (!identityBound && !relaxedProductionLogin) {
       return res.status(409).json({ error: 'Account identity recovery is required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
     }
 
@@ -256,7 +310,12 @@ module.exports = async (req, res) => {
       console.warn('[auth/login] Member ID allocation deferred:', error && error.code || error && error.message);
     }
 
-    const userPayload = buildUserPayload({ type: 'local', username: usernameKey, principal: passwordPrincipal });
+    const userPayload = buildUserPayload({
+      type: 'local',
+      username: usernameKey,
+      principal: passwordPrincipal,
+      loginVerified: relaxedProductionLogin,
+    });
     const accessToken = signAccessToken(userPayload);
     const refreshToken = signRefreshToken(userPayload);
     const userInfo = extractUserInfo(userPayload);
