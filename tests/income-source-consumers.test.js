@@ -131,6 +131,22 @@ test('stats consumers read a sole historical Cons wallet key through the canonic
   assert.equal(links.body.total_visits, 7);
 });
 
+test('reviewed Cons wallet aliases can create another asset without source conflict', async () => {
+  currentAdData = {
+    last_updated: '2026-08-20T00:00:00.000Z',
+    by_promoter: { cons_espher: { display_name: 'Cons Espher', links: [], codes: [], invites: [] } },
+    ad_ids: {},
+  };
+  FakeRedis.reset({
+    'nf_user_data:cons_espher': JSON.stringify({}),
+    'nf_user_data:@cons espher': JSON.stringify({}),
+    'nf_identity_owner:cons_espher': 'local:cons_espher',
+    'nf_identity_owner:@cons espher': 'local:@cons espher',
+  });
+  const identity = await confirm._test.establishWalletSourceOwnership(new FakeRedis(), 'cons_espher');
+  assert.equal(identity.storageUsername, 'cons_espher');
+});
+
 test('stats consumers still reject a display-name hint belonging to another account', async () => {
   const token = signAccessToken({
     type: 'discord',

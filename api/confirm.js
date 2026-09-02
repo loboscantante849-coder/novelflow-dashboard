@@ -4,7 +4,7 @@
  * v2.5.1 - Security P0 fixes 2026-07-06 (C-02, H-04, M-05)
  *  - JWT required (401 if not logged in); discordUsername is taken from JWT, body value ignored.
  *  - Strict schema validation: bookName/bookId/bookTitle/lang must be strings with length caps.
- *  - Per (username, bookId) dedup against nf_subs + nf_user_data:<u>.myBooks.
+ *  - Per explicit request id dedup; a book may have multiple independent links/codes.
  *  - Per-user daily creation cap (50) + IP rate limit (anon 5/h, logged-in 50/h).
  *  - All text inputs stripped of HTML tags before storage.
  *  - Disabled accounts (nf_user_data:<u>.disabled) rejected.
@@ -313,20 +313,27 @@ async function persistUserBook(redis, username, submission) {
     }
     if (!Array.isArray(data.myBooks)) data.myBooks = [];
     const key = String(submission.code || submission.linkId || submission.bookId || '');
-    const index = data.myBooks.findIndex(book => (
-      book && (String(book.code || book.linkId || book.bookId || '') === key ||
-        (submission.bookId && String(book.bookId || '') === String(submission.bookId)))
-    ));
+    // A book is not the identity of a promotion asset. Keep every code/link
+    // for the same book; only an exact asset identifier may be merged on retry.
+    const index = data.myBooks.findIndex(book => {
+      if (!book) return false;
+      const sameCode = submission.code && book.code && String(book.code) === String(submission.code);
+      const sameLinkId = submission.linkId && book.linkId && String(book.linkId) === String(submission.linkId);
+      return Boolean(sameCode || sameLinkId || (key && !submission.bookId && String(book.code || book.linkId || '') === key));
+    });
     const existingBook = index >= 0 && data.myBooks[index] && typeof data.myBooks[index] === 'object'
       ? data.myBooks[index]
       : null;
+    const existingSameBook = data.myBooks.find(book => book && submission.bookId &&
+      String(book.bookId || '') === String(submission.bookId));
     const book = {
       bookId: submission.bookId,
       title: submission.matchedBookName || submission.bookName || 'Unknown',
       bookName: submission.bookName || submission.matchedBookName || 'Unknown',
       // A retry/repair must not erase a cover already synced to the account.
       cover: normalizeHttpsCoverUrl(submission.cover) ||
-        normalizeHttpsCoverUrl(existingBook?.cover || existingBook?.coverImage || ''),
+        normalizeHttpsCoverUrl(existingBook?.cover || existingBook?.coverImage ||
+          existingSameBook?.cover || existingSameBook?.coverImage || ''),
       submittedAt: submission.submittedAt || new Date().toISOString(),
     };
     if (submission.code) book.code = String(submission.code);
@@ -448,6 +455,8 @@ module.exports = async (req, res) => {
   if (!vNotes.ok) return res.status(vNotes.status).json({ error: vNotes.error });
   const vPromo = validateString(body.promotionMethod, { name: 'promotionMethod', maxLen: 200 });
   if (!vPromo.ok) return res.status(vPromo.status).json({ error: vPromo.error });
+  const vRequestId = validateString(body.requestId, { name: 'requestId', maxLen: 80 });
+  if (!vRequestId.ok) return res.status(vRequestId.status).json({ error: vRequestId.error });
 
   // Strip HTML from all text fields
   const cleanUsername = resolveUsernameAlias(stripHtml(username).substring(0, 50)) || 'Anonymous';
@@ -456,9 +465,14 @@ module.exports = async (req, res) => {
   const lang = vLang.value || 'en';
   const languageCode = (lang === 'es' ? 'es' : 'en');
   const bookId = vBookId.value; // already validated as string ≤64
+  const requestId = vRequestId.value ? String(vRequestId.value).trim() : '';
+  if (requestId && !/^[A-Za-z0-9_-]{8,80}$/.test(requestId)) {
+    return res.status(400).json({ error: 'Invalid request id', code: 'INVALID_REQUEST_ID' });
+  }
 
-  // Authorize the reporting source before reserving a code or calling the
-  // bookstore. The locked persistence path repeats this check to close races.
+  // Promotion assets are independent per request, but the authenticated
+  // account still must be an approved owner of its reporting source. Reviewed
+  // historical aliases (Cons/DRAS) are accepted as one canonical owner.
   try {
     await establishWalletSourceOwnership(redis, cleanUsername);
   } catch (error) {
@@ -472,8 +486,12 @@ module.exports = async (req, res) => {
   }
 
   // -------- DEDUP CHECK (before consuming any rate limit quota) --------
-  // Primary: fast direct key (username,bookId) → code
-  const dedupKey = `nf_confirm_dedup:${cleanUsername.toLowerCase()}:${bookId}`;
+  // Explicit request ids make each deliberate create independent, so one book
+  // can have multiple promotion assets. Legacy callers without a request id
+  // retain the old per-book idempotency behavior.
+  const dedupKey = requestId
+    ? `nf_confirm_dedup:${cleanUsername.toLowerCase()}:${bookId}:${requestId}`
+    : `nf_confirm_dedup:${cleanUsername.toLowerCase()}:${bookId}`;
   let existingCode = null;
   let existingLink = null;
   let existingLinkId = null;
@@ -506,7 +524,7 @@ module.exports = async (req, res) => {
     return res.status(503).json({ error: 'Service temporarily unavailable', code: 'DEDUP_UNAVAILABLE' });
   }
   // Fallback: scan-based lookup (for entries created before dedupKey was added)
-  if (!existingCode) {
+  if (!existingCode && !requestId) {
     try {
       const existing = await findExistingForBook(redis, cleanUsername, bookId);
       if (existing) {

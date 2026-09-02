@@ -205,10 +205,11 @@ async function acquireWalletCreationSourceGuard(redis, requestedUsername, identi
     const index = await loadSourceOwnerIndex(redis, sources);
     const owners = index.ownersBySource.get(sourceKey) || [];
     const reviewedLegacyAlias = Boolean(identity.readOnlyLegacyConflict) &&
-      String(identity.primaryUsername || '').toLowerCase() === 'dras' &&
-      String(sourceKey || '').toLowerCase() === 'dras';
+      ['dras', 'cons_espher'].includes(String(identity.primaryUsername || '').toLowerCase()) &&
+      String(resolveUsernameAlias(sourceKey) || '').toLowerCase() === String(identity.storageUsername || '').toLowerCase();
     const validOwners = reviewedLegacyAlias
-      ? owners.every(owner => String(owner || '').trim().toLowerCase() === 'dras')
+      ? owners.length > 0 && owners.every(owner =>
+        String(resolveUsernameAlias(owner) || '').toLowerCase() === String(identity.storageUsername || '').toLowerCase())
       : identity.matches.length === 0
         ? owners.length === 0
         : owners.length === 1 && owners[0] === identity.storageUsername;

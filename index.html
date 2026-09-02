@@ -7676,6 +7676,7 @@
 
         async function confirmRecommend() {
             if (!currentRecommendBook) return;
+            const requestId = newPromotionRequestId();
 
             const btn = document.getElementById('modalConfirmBtn');
             const modalActions = document.querySelector('.modal-actions');
@@ -7713,6 +7714,7 @@
                         bookTitle: currentRecommendBook.title,
                         bookAuthor: currentRecommendBook.author || '',
                         lang: currentRecommendBook.languageCode || 'en',
+                        requestId,
                         discordUsername: AppState.user?.username || 'Anonymous'
                     })
                 }, function() {
@@ -8009,6 +8011,7 @@
         // ========== Create Link via Backend API ==========
         async function createLink(book, discordUsername) {
             document.getElementById('searchResults').innerHTML = '';
+            const requestId = newPromotionRequestId();
 
             const processingStatus = document.getElementById('processingStatus');
             processingStatus.classList.add('show');
@@ -8027,6 +8030,7 @@
                         bookTitle: book.title,
                         bookAuthor: book.author || '',
                         lang: AppState.searchLang,
+                        requestId,
                         discordUsername: AppState.user?.username || 'Anonymous'
                     })
                 }, function() {
@@ -8125,6 +8129,13 @@
         }
 
         function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+        function newPromotionRequestId() {
+            try {
+                if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+            } catch (_) {}
+            return 'req_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 14);
+        }
 
         // ========== My Books & User Stats ==========
 
@@ -9012,6 +9023,7 @@ function renderMyBooks() {
             }
             
             showToast('Re-creating link...', 'loading');
+            const requestId = newPromotionRequestId();
             
             try {
                 const response = await authFetch('/api/confirm', {
@@ -9024,6 +9036,7 @@ function renderMyBooks() {
                         bookTitle: book.title,
                         bookAuthor: book.author || '',
                         lang: book.languageCode || 'en',
+                        requestId,
                         discordUsername: AppState.user?.username || 'Anonymous'
                     })
                 });

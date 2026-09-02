@@ -59,6 +59,12 @@ function request(token) {
   };
 }
 
+function requestWithId(token, requestId) {
+  const req = request(token);
+  req.body.requestId = requestId;
+  return req;
+}
+
 function bookstoreBookResponse(cover = 'https://cdn.example/book-1.jpg') {
   return response({ data: { data: [{ bookId: 'book-1', cover }] } });
 }
@@ -145,6 +151,37 @@ test('occupied codes advance atomically across a dense collision range', async (
     assert.equal(result.body.code, 5656);
     assert.deepEqual(attemptedCodes, ['5555', '5656']);
     assert.equal(FakeRedis.values.get('nf_next_code'), 5557);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('one book can have multiple independent promotion links and codes', async () => {
+  FakeRedis.reset();
+  hashes.clear();
+  sets.clear();
+  const originalFetch = global.fetch;
+  global.fetch = async (url, options = {}) => {
+    const target = String(url);
+    if (target.includes('savebookpromotionkeywords')) return response({ data: true });
+    if (target.includes('/book/booklist?')) return bookstoreBookResponse();
+    if (target.includes('SocialMediaChannelConfig')) return response({ data: { data: [] } });
+    if (target.endsWith('/SocialMediaLinkConfig') && options.body) {
+      const code = JSON.parse(options.body).linkName.slice(0, 4);
+      return response({ code: 200, data: `link-id-${code}-123456` });
+    }
+    if (target.includes('/SocialMediaLinkConfig/link-id-')) return response({ code: 200, data: { shortUrl: `social.example/s/${Date.now()}` } });
+    throw new Error(`Unexpected fetch: ${target}`);
+  };
+  try {
+    const token = signAccessToken({ username: 'alice' });
+    const first = await invoke(confirm, requestWithId(token, 'request-one-123'));
+    const second = await invoke(confirm, requestWithId(token, 'request-two-456'));
+    assert.equal(first.statusCode, 200);
+    assert.equal(second.statusCode, 200);
+    assert.notEqual(String(first.body.code), String(second.body.code));
+    const saved = JSON.parse(FakeRedis.values.get('nf_user_data:alice'));
+    assert.equal(saved.myBooks.filter(book => book.bookId === 'book-1').length, 2);
   } finally {
     global.fetch = originalFetch;
   }
@@ -363,9 +400,10 @@ test('a successful confirmation stores the trusted bookstore cover everywhere', 
     const result = await invoke(confirm, request(token));
     assert.equal(result.statusCode, 200);
     const saved = JSON.parse(FakeRedis.values.get('nf_user_data:alice'));
-    assert.equal(saved.myBooks.length, 1);
-    assert.equal(saved.myBooks[0].cover, 'https://cdn.example/fresh-cover.jpg');
-    assert.equal(saved.myBooks[0].code, '1000');
+    assert.equal(saved.myBooks.length, 2);
+    const createdBook = saved.myBooks.find(book => book.code === '1000');
+    assert.equal(createdBook.cover, 'https://cdn.example/fresh-cover.jpg');
+    assert.equal(createdBook.code, '1000');
     const submission = JSON.parse(hashes.get('nf_subs').get('1000'));
     assert.equal(submission.cover, 'https://cdn.example/fresh-cover.jpg');
     assert.equal(hashes.get('nf_book_covers').get('book-1'), 'https://cdn.example/fresh-cover.jpg');
@@ -401,7 +439,7 @@ test('a bookstore cover failure preserves an existing synced cover', async () =>
     const result = await invoke(confirm, request(token));
     assert.equal(result.statusCode, 200);
     const saved = JSON.parse(FakeRedis.values.get('nf_user_data:alice'));
-    assert.equal(saved.myBooks[0].cover, 'https://cdn.example/existing.jpg');
+    assert.equal(saved.myBooks.find(book => book.code === '1000').cover, 'https://cdn.example/existing.jpg');
     const submission = JSON.parse(hashes.get('nf_subs').get('1000'));
     assert.equal(submission.cover, undefined);
   } finally {
