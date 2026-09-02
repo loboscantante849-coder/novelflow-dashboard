@@ -70,7 +70,7 @@ test('a stale stats response cannot mutate the next account state', async () => 
       isCurrent: () => current,
     },
     UserStats: { data: null, loading: false, loadingUser: null, requestId: 0 },
-    authFetch: () => responsePromise,
+    authFetchWithTransientRetry: () => responsePromise,
     document: { getElementById: () => null },
     isAbortError: () => false,
     console: { error() {} },
@@ -87,6 +87,16 @@ test('a stale stats response cannot mutate the next account state', async () => 
   assert.equal(await load, false);
   assert.equal(context.UserStats.data, null);
   assert.deepEqual(context.AppState.myBooks, []);
+});
+
+test('invite-code loading retries transient failures without a global error toast', () => {
+  const renderer = section('function renderEquityCode()', 'async function loadEquityCode(force)');
+  const loader = section('async function loadEquityCode(force)', 'function queueEquityBookSearch(value)');
+  assert.match(renderer, /EquityCodeState\.loadError/);
+  assert.match(renderer, /onclick="loadEquityCode\(true\)"/);
+  assert.match(loader, /authFetchWithTransientRetry\('\/api\/equity-code'/);
+  assert.match(loader, /EquityCodeState\.loadError = getText\('invite_code_load_failed'\)/);
+  assert.doesNotMatch(loader, /showToast\(/);
 });
 
 test('browser authentication is cookie-only and removes legacy local tokens', () => {

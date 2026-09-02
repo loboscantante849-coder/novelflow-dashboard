@@ -4044,6 +4044,7 @@
                 EquityCodeState.loading = false;
                 EquityCodeState.loadingMessage = '';
                 EquityCodeState.loadedUser = null;
+                EquityCodeState.loadError = '';
                 EquityCodeState.searchRequest += 1;
                 EquityCodeState.loadRequest += 1;
                 EquityCodeState.actionRequest += 1;
@@ -6138,6 +6139,7 @@
             loading: false,
             loadingMessage: '',
             loadedUser: null,
+            loadError: '',
             searchTimer: null,
             searchRequest: 0,
             loadRequest: 0,
@@ -6240,6 +6242,11 @@
                 body.innerHTML = '<div class="equity-loading">' + escapeHtml(EquityCodeState.loadingMessage || getText('invite_code_loading')) + '</div>';
                 return;
             }
+            if (EquityCodeState.loadError) {
+                body.innerHTML = '<div class="equity-status failed">' + escapeHtml(EquityCodeState.loadError) + '</div>' +
+                    '<button class="equity-action-btn" type="button" onclick="loadEquityCode(true)">' + escapeHtml(getText('invite_code_retry')) + '</button>';
+                return;
+            }
 
             const record = EquityCodeState.record;
             if (record && (record.status === 'active' || record.status === 'expired')) {
@@ -6305,6 +6312,7 @@
                 EquityCodeState.record = null;
                 EquityCodeState.loadedUser = null;
                 EquityCodeState.loading = false;
+                EquityCodeState.loadError = '';
                 renderEquityCode();
                 return;
             }
@@ -6317,20 +6325,24 @@
             }
             EquityCodeState.loading = true;
             EquityCodeState.loadingMessage = getText('invite_code_loading');
+            EquityCodeState.loadError = '';
             EquityCodeState.loadedUser = username;
             const requestId = ++EquityCodeState.loadRequest;
             renderEquityCode();
             try {
-                const response = await authFetch('/api/equity-code', { method: 'GET' });
+                const response = await authFetchWithTransientRetry('/api/equity-code', { method: 'GET' });
                 if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.loadRequest) return;
                 const data = await response.json();
                 if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.loadRequest) return;
                 if (!response.ok) throw new Error(equityApiMessage(data, 'invite_code_load_failed'));
                 EquityCodeState.record = data.inviteCode || null;
+                EquityCodeState.loadError = '';
             } catch (error) {
                 if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.loadRequest || isAbortError(error)) return;
-                EquityCodeState.loadedUser = null;
-                showToast(error.message || getText('invite_code_load_failed'), 'error');
+                // Keep the failure local to this card. Repeated initialization
+                // calls must not spam a global red toast or hammer the endpoint.
+                EquityCodeState.loadedUser = username;
+                EquityCodeState.loadError = getText('invite_code_load_failed');
             } finally {
                 if (AuthSession.isCurrent(session) && requestId === EquityCodeState.loadRequest) {
                     EquityCodeState.loading = false;
@@ -7591,6 +7603,25 @@
             return response;
         }
 
+        async function authFetchWithTransientRetry(url, options = {}, attempts = 3) {
+            const transientStatuses = new Set([429, 502, 503, 504]);
+            const requestEpoch = AuthSession.epoch;
+            let lastError = null;
+            for (let attempt = 0; attempt < attempts; attempt++) {
+                try {
+                    const response = await authFetch(url, options);
+                    if (!transientStatuses.has(response.status) || attempt === attempts - 1) return response;
+                } catch (error) {
+                    lastError = error;
+                    const callerAborted = options.signal && options.signal.aborted;
+                    if (callerAborted || !AuthSession.isEpochCurrent(requestEpoch) || attempt === attempts - 1) throw error;
+                }
+                await delay(700 * (attempt + 1));
+                if (!AuthSession.isEpochCurrent(requestEpoch)) throw makeAbortError();
+            }
+            throw lastError || new Error('Request unavailable');
+        }
+
         async function requestConfirm(options, onRetry) {
             const transientStatuses = [502, 503, 504];
             let lastError = null;
@@ -8179,8 +8210,8 @@
             MemberInsights.loadingUser = session.username;
             try {
                 const [insightsResult, walletResult] = await Promise.allSettled([
-                    authFetch('/api/member-insights?t=' + Date.now()),
-                    authFetch('/api/withdrawals?t=' + Date.now())
+                    authFetchWithTransientRetry('/api/member-insights?t=' + Date.now()),
+                    authFetchWithTransientRetry('/api/withdrawals?t=' + Date.now())
                 ]);
                 if (!AuthSession.isCurrent(session) || requestId !== MemberInsights.requestId) return false;
                 if (insightsResult.status === 'fulfilled' && insightsResult.value.ok) {
@@ -8700,7 +8731,7 @@
             try {
                 // The API scopes regular users from the HttpOnly session.  Do
                 // not send the Discord display name as an account key.
-                const response = await authFetch(`/api/my-stats?t=${Date.now()}`);
+                const response = await authFetchWithTransientRetry(`/api/my-stats?t=${Date.now()}`);
                 if (!AuthSession.isCurrent(session) || requestId !== UserStats.requestId) return false;
                 if (!response.ok) throw new Error('Failed to fetch stats');
 
@@ -9906,12 +9937,12 @@ function renderMyBooks() {
                 // authenticated session; the visible Discord display name is
                 // not a stable storage identity.
                 const query = '?t=' + Date.now();
-                let resp = await authFetch('/api/per-link-stats' + query);
+                let resp = await authFetchWithTransientRetry('/api/per-link-stats' + query);
                 if (!AuthSession.isCurrent(session) || requestId !== _perfRequestId) return;
                 let data = await resp.json().catch(() => null);
                 if (!AuthSession.isCurrent(session) || requestId !== _perfRequestId) return;
                 if (!resp.ok || !data || data.error) {
-                    resp = await authFetch('/api/my-stats' + query);
+                    resp = await authFetchWithTransientRetry('/api/my-stats' + query);
                     if (!AuthSession.isCurrent(session) || requestId !== _perfRequestId) return;
                     data = await resp.json().catch(() => null);
                     if (!AuthSession.isCurrent(session) || requestId !== _perfRequestId) return;

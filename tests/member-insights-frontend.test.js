@@ -14,9 +14,17 @@ test('profile exposes cumulative earnings, withdrawable funds, withdrawals, read
   assert.match(source, /withdrawn_total/);
   assert.match(source, /stats\.total_new/);
   assert.match(source, /\/api\/member-insights/);
+  assert.match(source, /authFetchWithTransientRetry\('\/api\/withdrawals/);
   assert.match(source, /data\.referrals\.website_registrations/);
   assert.match(source, /data\.referrals\.app_registrations/);
   assert.doesNotMatch(source, /id="bonusProfileCard"|id="profileBonusValue"/);
+});
+
+test('money and performance requests retry transient API failures before showing unavailable state', () => {
+  assert.match(source, /async function authFetchWithTransientRetry/);
+  assert.match(source, /new Set\(\[429, 502, 503, 504\]\)/);
+  assert.match(source, /authFetchWithTransientRetry\(`\/api\/my-stats/);
+  assert.match(source, /authFetchWithTransientRetry\('\/api\/per-link-stats'/);
 });
 
 test('recommender badges are server-derived and open an account-scoped detail view', () => {
