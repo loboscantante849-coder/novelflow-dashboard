@@ -451,7 +451,7 @@ Content-Type: application/json
 
 ```javascript
 const ALLOWED_ORIGINS = [
-  'https://novelflow-dashboard.vercel.app',
+  'https://novelflow.top',
   'https://loboscantante849-coder.github.io',
   'http://localhost:3000',   // ⚠️ 待移除
   'http://localhost:8080'    // ⚠️ 待移除
@@ -509,7 +509,7 @@ function getText(key) { return I18N[AppState.currentLang]?.[key] || key; }
 
 **域名**:
 - `novelflow.top` — 正式站点
-- `novelflow-dashboard.vercel.app` — Vercel 项目域名
+- `novelflow-dashboard.vercel.app` — 兼容入口（自动 301 到正式站点，不用于对外投放）
 
 ---
 
