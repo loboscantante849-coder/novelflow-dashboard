@@ -124,13 +124,13 @@ function buildUserPayload(user) {
   return p;
 }
 
-// Production local logins are password-verified even when historical account
-// metadata still carries a disabled/merged marker. Keep that proof on the
-// signed session so read-only session restoration does not immediately log the
-// user back out; mutating handlers retain their normal account-status checks.
+// Production local sessions were issued only after the local login endpoint
+// verified a password. Keep both new and legacy signed sessions alive even
+// when historical account metadata still carries a disabled/merged marker;
+// mutating handlers retain their normal account-status checks.
 function isProductionVerifiedLocalSession(payload) {
   return process.env.VERCEL_ENV === 'production' &&
-    Boolean(payload && payload.type === 'local' && payload.loginVerified === true);
+    Boolean(payload && payload.type === 'local' && payload.username);
 }
 
 function extractUserInfo(payload) {

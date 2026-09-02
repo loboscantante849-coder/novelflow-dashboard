@@ -1271,6 +1271,28 @@ test('production password-verified sessions survive disabled status checks', asy
   }
 });
 
+test('production keeps a legacy signed local session alive after deployment', async () => {
+  const previousEnv = process.env.VERCEL_ENV;
+  process.env.VERCEL_ENV = 'production';
+  try {
+    FakeRedis.reset({
+      'nf_user_data:alice': JSON.stringify({ disabled: true }),
+      'nf_user_pass:alice': legacyPasswordHash('Password1'),
+    });
+    const legacyAccess = signAccessToken({ type: 'local', username: 'alice', principal: 'local:alice' });
+    const session = await invoke(me, {
+      method: 'GET',
+      headers: { cookie: `nf_token=${legacyAccess}` },
+    });
+    assert.equal(session.statusCode, 200);
+    assert.equal(session.body.loggedIn, true);
+    assert.equal(session.body.username, 'alice');
+  } finally {
+    if (previousEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = previousEnv;
+  }
+});
+
 test('Discord disabled checks use the canonical JWT handle', async () => {
   FakeRedis.reset({
     'nf_user_data:discord-handle': JSON.stringify({ disabled: true }),
