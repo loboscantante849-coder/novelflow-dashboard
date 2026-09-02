@@ -1,6 +1,7 @@
 /**
  * Login Endpoint (local accounts) - v2.5.2
- * - Only failed password verification increments the IP failure counter.
+ * - Strict/local mode counts failed password verification for abuse control;
+ *   production login is gated only by password and ignores legacy counters.
  * - Successful authentication clears both the failure counter and lock.
  * - The legacy registration IP counter is intentionally ignored.
  * - Password hashing + input validation.
@@ -104,24 +105,28 @@ module.exports = async (req, res) => {
     const failKey = 'nf_login_fail:' + ip;
     const lockKey = 'nf_login_lock:' + ip;
 
-    // Check lockout. A storage outage must not be reported as a credential
-    // failure (or an internal 500) because the lock state is authoritative.
-    try {
-      const locked = await redis.get(lockKey);
-      if (locked) {
-        const ttl = Number(await redis.ttl(lockKey));
-        if (!Number.isFinite(ttl)) throw new Error('Invalid login lock TTL');
-        if (ttl > 0) {
-          return res.status(429).json({
-            error: 'Too many failed attempts. Try again in ' + ttl + 's.',
-            code: 'RATE_LIMITED',
-            retryAfter: ttl,
-          });
+    // Production login is gated only by the supplied password. Historical
+    // lock counters are ignored there so an account cannot remain stranded by
+    // a previous client or stale abuse-control state. The strict lockout path
+    // remains available outside production for local/test compatibility.
+    if (!relaxedProductionLogin) {
+      try {
+        const locked = await redis.get(lockKey);
+        if (locked) {
+          const ttl = Number(await redis.ttl(lockKey));
+          if (!Number.isFinite(ttl)) throw new Error('Invalid login lock TTL');
+          if (ttl > 0) {
+            return res.status(429).json({
+              error: 'Too many failed attempts. Try again in ' + ttl + 's.',
+              code: 'RATE_LIMITED',
+              retryAfter: ttl,
+            });
+          }
+          await redis.del(lockKey);
         }
-        await redis.del(lockKey);
+      } catch (_error) {
+        return res.status(503).json({ error: 'Authentication service temporarily unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
       }
-    } catch (_error) {
-      return res.status(503).json({ error: 'Authentication service temporarily unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
     }
 
     let credentialIdentity;
@@ -174,16 +179,18 @@ module.exports = async (req, res) => {
         if (verification.valid) verifiedCredentials.push({ ...record, verification });
       }
       if (verifiedCredentials.length === 0) {
-        try {
-          const fails = Number(await redis.incr(failKey));
-          if (!Number.isFinite(fails) || fails < 1) throw new Error('Invalid login failure counter');
-          if (fails === 1) await redis.expire(failKey, 15 * 60);
-          if (fails >= 5) {
-            await redis.set(lockKey, '1', { ex: 15 * 60 });
-            await redis.del(failKey);
+        if (!relaxedProductionLogin) {
+          try {
+            const fails = Number(await redis.incr(failKey));
+            if (!Number.isFinite(fails) || fails < 1) throw new Error('Invalid login failure counter');
+            if (fails === 1) await redis.expire(failKey, 15 * 60);
+            if (fails >= 5) {
+              await redis.set(lockKey, '1', { ex: 15 * 60 });
+              await redis.del(failKey);
+            }
+          } catch (_error) {
+            return res.status(503).json({ error: 'Authentication service temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
           }
-        } catch (_error) {
-          return res.status(503).json({ error: 'Authentication service temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
         }
         return res.status(401).json({ error: 'Wrong password', needPassword: true });
       }

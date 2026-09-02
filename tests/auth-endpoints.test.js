@@ -1178,14 +1178,18 @@ test('production login ignores stale wallet and owner conflicts after password v
   }
 });
 
-test('production login still rejects a wrong password and records the failure', async () => {
+test('production login still rejects a wrong password without failure counters', async () => {
   const previousEnv = process.env.VERCEL_ENV;
   process.env.VERCEL_ENV = 'production';
   try {
     FakeRedis.reset({
       'nf_user_data:alice': JSON.stringify({ disabled: true }),
       'nf_user_pass:alice': legacyPasswordHash('Password1'),
+      'nf_login_fail:192.0.2.182': 4,
+      'nf_login_lock:192.0.2.182': '1',
     });
+    FakeRedis.expiries.set('nf_login_fail:192.0.2.182', 900);
+    FakeRedis.expiries.set('nf_login_lock:192.0.2.182', 900);
 
     const response = await invoke(login, {
       headers: { 'x-forwarded-for': '192.0.2.182' },
@@ -1194,8 +1198,36 @@ test('production login still rejects a wrong password and records the failure', 
 
     assert.equal(response.statusCode, 401);
     assert.equal(response.body.error, 'Wrong password');
-    assert.equal(Number(FakeRedis.values.get('nf_login_fail:192.0.2.182')), 1);
+    assert.equal(Number(FakeRedis.values.get('nf_login_fail:192.0.2.182')), 4);
+    assert.equal(FakeRedis.values.get('nf_login_lock:192.0.2.182'), '1');
     assert.equal(response.headers['set-cookie'], undefined);
+  } finally {
+    if (previousEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = previousEnv;
+  }
+});
+
+test('production correct password ignores a stale login lock and clears it after success', async () => {
+  const previousEnv = process.env.VERCEL_ENV;
+  process.env.VERCEL_ENV = 'production';
+  try {
+    FakeRedis.reset({
+      'nf_user_data:alice': JSON.stringify({ disabled: true }),
+      'nf_user_pass:alice': legacyPasswordHash('Password1'),
+      'nf_login_fail:192.0.2.184': 4,
+      'nf_login_lock:192.0.2.184': '1',
+    });
+    FakeRedis.expiries.set('nf_login_fail:192.0.2.184', 900);
+    FakeRedis.expiries.set('nf_login_lock:192.0.2.184', 900);
+
+    const response = await invoke(login, {
+      headers: { 'x-forwarded-for': '192.0.2.184' },
+      body: { username: 'alice', password: 'Password1' },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(FakeRedis.values.has('nf_login_fail:192.0.2.184'), false);
+    assert.equal(FakeRedis.values.has('nf_login_lock:192.0.2.184'), false);
   } finally {
     if (previousEnv === undefined) delete process.env.VERCEL_ENV;
     else process.env.VERCEL_ENV = previousEnv;
