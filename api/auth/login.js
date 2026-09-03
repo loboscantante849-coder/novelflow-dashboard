@@ -23,6 +23,11 @@ const {
 } = require('../_lib/login-identity');
 const { resolveReadOnlyWalletStorageIdentity } = require('../_lib/wallet-identity');
 
+// DRAS is a reviewed legacy promoter whose historical case-variant wallet
+// records may coexist. Authentication can bind to the canonical login key;
+// financial/statistics mutation paths continue to fail closed on conflicts.
+const LEGACY_CONFLICT_LOGIN_ALLOWLIST = new Set(['dras']);
+
 module.exports = async (req, res) => {
   if (handlePreflight(req, res, { credentials: true })) return;
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -95,9 +100,10 @@ module.exports = async (req, res) => {
     } catch (_error) {
       return res.status(503).json({ error: 'Account identity lookup is temporarily unavailable', code: 'ACCOUNT_IDENTITY_UNAVAILABLE' });
     }
-    if (walletIdentity.conflict) {
+    if (walletIdentity.conflict && !LEGACY_CONFLICT_LOGIN_ALLOWLIST.has(usernameKey)) {
       return res.status(503).json({ error: 'Account status unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
     }
+    if (walletIdentity.conflict) walletIdentity = { ...walletIdentity, storageUsername: usernameKey, conflict: false };
     let userData;
     try {
       userData = await redis.get(`nf_user_data:${walletIdentity.storageUsername}`);
