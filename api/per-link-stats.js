@@ -166,7 +166,7 @@ module.exports = async (req, res) => {
                 visits: dv.pull_uv || 0,
                 unique_users: dv.pull_uv || 0,
                 new_users: dv.new_uv || 0,
-                income: r2(dv.dn_income || 0),
+                income: r2(dv.d14_income || 0),
               };
               if (!aggDaily[dt]) aggDaily[dt] = { visits: 0, unique_users: 0, new_users: 0, income: 0 };
               aggDaily[dt].visits += daily[dt].visits;
@@ -210,7 +210,7 @@ module.exports = async (req, res) => {
               visits: dv.pull_uv || 0,
               unique_users: dv.pull_uv || 0,
               new_users: dv.new_uv || 0,
-              income: r2(dv.dn_income || 0),
+              income: r2(dv.d14_income || 0),
             };
             if (!aggDaily[dt]) aggDaily[dt] = { visits: 0, unique_users: 0, new_users: 0, income: 0 };
             aggDaily[dt].visits += daily[dt].visits;
@@ -276,12 +276,12 @@ module.exports = async (req, res) => {
             aggDaily[dt].visits += dv.pull_uv || 0;
             aggDaily[dt].unique_users += dv.pull_uv || 0;
             aggDaily[dt].new_users += dv.new_uv || 0;
-            aggDaily[dt].income += dv.dn_income || 0;
+            aggDaily[dt].income += dv.d14_income || 0;
             dailyRow[dt] = {
               visits: dv.pull_uv || 0,
               unique_users: dv.pull_uv || 0,
               new_users: dv.new_uv || 0,
-              income: r2(dv.dn_income || 0),
+              income: r2(dv.d14_income || 0),
             };
           }
           links.push({
@@ -306,7 +306,7 @@ module.exports = async (req, res) => {
 
       const totalVisits = links.reduce((s, l) => s + l.visits, 0);
       const totalNew = links.reduce((s, l) => s + l.new_users, 0);
-      const totalIncome = r2(links.reduce((s, l) => s + l.dn_income, 0));
+      const totalIncome = r2(links.reduce((s, l) => s + l.d14_income, 0));
 
       // Round aggregated daily income
       const daily = {};

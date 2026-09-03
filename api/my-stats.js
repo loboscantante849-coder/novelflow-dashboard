@@ -204,11 +204,11 @@ module.exports = async (req, res) => {
               aggDaily[dt].visits += dv.pull_uv || 0;
               aggDaily[dt].unique_users += dv.pull_uv || 0;
               aggDaily[dt].new_users += dv.new_uv || 0;
-              aggDaily[dt].income += dv.dn_income || 0;
+              aggDaily[dt].income += dv.d14_income || 0;
             }
             totalVisits += st.pull_uv || 0;
             totalNew += st.new_uv || 0;
-            totalIncome += st.dn_income || 0;
+            totalIncome += st.d14_income || 0;
 
             books.push({
               bookName,
@@ -224,6 +224,7 @@ module.exports = async (req, res) => {
               new_users: st.new_uv || 0,
               d14_income: r2(st.d14_income),
               dn_income: dn,
+              income: r2(st.d14_income),
               channel,
             });
           }
@@ -277,7 +278,7 @@ module.exports = async (req, res) => {
           aggDaily[dt].visits += dv.pull_uv || 0;
           aggDaily[dt].unique_users += dv.pull_uv || 0;
           aggDaily[dt].new_users += dv.new_uv || 0;
-          aggDaily[dt].income += dv.dn_income || 0;
+          aggDaily[dt].income += dv.d14_income || 0;
         }
 
         books.push({
@@ -294,6 +295,7 @@ module.exports = async (req, res) => {
           new_users: st.new_uv || 0,
           d14_income: r2(st.d14_income),
           dn_income: dn,
+          income: r2(st.d14_income),
           channel,
           assetIds: st.assetIds,
           assetCount: st.assetCount,
@@ -330,7 +332,7 @@ module.exports = async (req, res) => {
             aggDaily[dt].visits += dv.pull_uv || 0;
             aggDaily[dt].unique_users += dv.pull_uv || 0;
             aggDaily[dt].new_users += dv.new_uv || 0;
-            aggDaily[dt].income += dv.dn_income || 0;
+            aggDaily[dt].income += dv.d14_income || 0;
           }
           books.push({
             bookName,
@@ -346,6 +348,7 @@ module.exports = async (req, res) => {
             new_users: st.new_uv || 0,
             d14_income: r2(st.d14_income),
             dn_income: dn,
+            income: r2(st.d14_income),
             channel: channel + ' (synced)',
           });
           orphanCount++;
@@ -363,7 +366,7 @@ module.exports = async (req, res) => {
 
       const totalVisits = books.reduce((s, b) => s + b.visits, 0);
       const totalNew = books.reduce((s, b) => s + b.new_users, 0);
-      const totalIncome = r2(books.reduce((s, b) => s + b.dn_income, 0));
+      const totalIncome = r2(books.reduce((s, b) => s + b.d14_income, 0));
 
       const visits_daily = {}, unique_daily = {}, new_users_daily = {}, income_daily = {};
       for (const [dt, v] of Object.entries(aggDaily)) {

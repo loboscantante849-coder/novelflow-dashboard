@@ -8902,7 +8902,7 @@ function renderMyBooks() {
                 
                 const visits = stats.visits || 0;
                 const newUsers = stats.newUsers || stats.new_users || 0;
-                const income = stats.income || stats.dn_income || stats.d14_income || 0;
+                const income = stats.income || stats.d14_income || stats.dn_income || 0;
                 const incomeFmt = fmtIncome(income);
                 
                 return `
@@ -9074,7 +9074,7 @@ function renderMyBooks() {
                 const bookLink = escapeHtml(book.link || '');
                 const visits = stats.visits || 0;
                 const newUsers = stats.newUsers || stats.new_users || 0;
-                const income = stats.income || stats.dn_income || stats.d14_income || 0;
+                const income = stats.income || stats.d14_income || stats.dn_income || 0;
                 const incomeFmt = fmtIncome(income);
                 const hasData = book.code && book.link;
                 const isPending = !book.code && !book.link;
