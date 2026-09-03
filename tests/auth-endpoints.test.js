@@ -10,7 +10,12 @@ process.env.KV_REST_API_URL = 'https://redis.invalid';
 process.env.KV_REST_API_TOKEN = 'test-token';
 delete process.env.FEISHU_SIGNUP_WEBHOOK;
 
+const statsData = require('../api/_lib/stats-data');
+statsData.getAdIdDetails = async () => require('../ad_id_details.json');
+statsData.getLiveAdIdDetails = statsData.getAdIdDetails;
+
 const login = require('../api/auth/login');
+const logout = require('../api/auth/logout');
 const me = require('../api/auth/me');
 const refresh = require('../api/auth/refresh');
 const register = require('../api/auth/register');
@@ -46,6 +51,72 @@ test('login fails closed when Redis is not configured', async () => {
   assert.equal(res.statusCode, 503);
   assert.equal(res.body.error, 'Authentication service unavailable');
   assert.equal(res.headers['set-cookie'], undefined);
+});
+
+test('logout only accepts POST and clears the auth cookies', async () => {
+  const crossSiteNavigation = await invoke(logout, { method: 'GET' });
+  assert.equal(crossSiteNavigation.statusCode, 405);
+  assert.equal(crossSiteNavigation.headers['set-cookie'], undefined);
+
+  const preflight = await invoke(logout, {
+    method: 'OPTIONS',
+    headers: { origin: 'https://novelflow.top' },
+  });
+  assert.equal(preflight.statusCode, 204);
+  assert.equal(preflight.headers['access-control-allow-methods'], 'POST, OPTIONS');
+  assert.equal(preflight.headers['access-control-allow-credentials'], 'true');
+
+  const response = await invoke(logout, { method: 'POST' });
+  assert.equal(response.statusCode, 204);
+  assert.equal(response.headers['set-cookie'].length, 3);
+});
+
+test('login and register return generic 503 responses when lock or status reads fail', async () => {
+  const cases = [
+    {
+      name: 'login lock',
+      handler: login,
+      key: 'nf_login_lock:192.0.2.240',
+      seed: { 'nf_user_pass:alice': legacyPasswordHash('Password1') },
+      expectedCode: 'ACCOUNT_STATUS_UNAVAILABLE',
+      body: { username: 'alice', password: 'Password1' },
+    },
+    {
+      name: 'login account data',
+      handler: login,
+      key: 'nf_user_data:alice',
+      seed: { 'nf_user_pass:alice': legacyPasswordHash('Password1') },
+      expectedCode: 'ACCOUNT_STATUS_UNAVAILABLE',
+      body: { username: 'alice', password: 'Password1' },
+    },
+    {
+      name: 'register lock',
+      handler: register,
+      key: 'nf_login_lock:alice',
+      seed: {},
+      expectedCode: 'ACCOUNT_STATUS_UNAVAILABLE',
+      body: { username: 'alice', password: 'Password1' },
+    },
+    {
+      name: 'register account data',
+      handler: register,
+      key: 'nf_user_data:alice',
+      seed: {},
+      expectedCode: 'ACCOUNT_STATUS_UNAVAILABLE',
+      body: { username: 'alice', password: 'Password1' },
+    },
+  ];
+  for (const scenario of cases) {
+    FakeRedis.reset(scenario.seed);
+    FakeRedis.errorsByKey.set(scenario.key, new Error(`${scenario.name} unavailable`));
+    const response = await invoke(scenario.handler, {
+      headers: { 'x-forwarded-for': '192.0.2.240' },
+      body: scenario.body,
+    });
+    assert.equal(response.statusCode, 503, scenario.name);
+    assert.equal(response.body.code, scenario.expectedCode, scenario.name);
+    assert.doesNotMatch(JSON.stringify(response.body), /lock unavailable|account data unavailable|redis|upstash/i, scenario.name);
+  }
 });
 
 test('login accepts and upgrades a legacy password hash', async () => {
@@ -115,6 +186,519 @@ test('username case variants resolve to one password and data identity', async (
   assert.equal(loggedIn.statusCode, 200);
   assert.equal(loggedIn.body.username, 'alice');
   assert.equal(FakeRedis.values.get('nf_user_data:alice'), originalData);
+});
+
+test('unknown public login names cannot trigger legacy case-variant scans', async () => {
+  FakeRedis.reset();
+  const originalScan = FakeRedis.prototype.scan;
+  let scans = 0;
+  FakeRedis.prototype.scan = async function guardedScan(...args) {
+    scans += 1;
+    return originalScan.apply(this, args);
+  };
+  try {
+    const response = await invoke(login, {
+      headers: { 'x-forwarded-for': '192.0.2.149' },
+      body: { username: 'unlisted_case_scan_probe', password: 'Password1' },
+    });
+    assert.equal(response.statusCode, 401);
+    assert.equal(scans, 0);
+  } finally {
+    FakeRedis.prototype.scan = originalScan;
+  }
+});
+
+test('a protected canonical sign-in finds one case-variant legacy credential and wallet without creating duplicates', async () => {
+  const originalData = JSON.stringify({ bonus_balance: 0.5, points: 160, withdrawals: [] });
+  FakeRedis.reset({
+    'nf_user_pass:Xenomorphette': legacyPasswordHash('Password1'),
+    'nf_user_data:Xenomorphette': originalData,
+  });
+
+  const response = await invoke(login, {
+    headers: { 'x-forwarded-for': '192.0.2.150' },
+    body: { username: 'xenomorphette', password: 'Password1' },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.username, 'xenomorphette');
+  assert.equal(FakeRedis.values.get('nf_user_data:Xenomorphette'), originalData);
+  assert.equal(FakeRedis.values.has('nf_user_data:xenomorphette'), false);
+  assert.match(FakeRedis.values.get('nf_user_pass:Xenomorphette'), /^scrypt\$/);
+  assert.equal(FakeRedis.values.has('nf_user_pass:xenomorphette'), false);
+});
+
+test('auth/me keeps an authenticated case-variant legacy session usable and reports its password state', async () => {
+  const originalData = JSON.stringify({ bonus_balance: 0.5, points: 160, withdrawals: [] });
+  FakeRedis.reset({
+    'nf_user_pass:Xenomorphette': legacyPasswordHash('Password1'),
+    'nf_user_data:Xenomorphette': originalData,
+  });
+  const accessToken = signAccessToken({ type: 'local', username: 'xenomorphette' });
+
+  const response = await invoke(me, {
+    method: 'GET',
+    headers: { cookie: `nf_token=${accessToken}` },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.loggedIn, true);
+  assert.equal(response.body.username, 'xenomorphette');
+  assert.equal(response.body.hasPassword, true);
+  assert.equal(response.body.passwordRecoveryRequired, false);
+  assert.equal(FakeRedis.values.get('nf_user_data:Xenomorphette'), originalData);
+  assert.equal(FakeRedis.values.has('nf_user_data:xenomorphette'), false);
+});
+
+test('auth/me and refresh fail closed when case-variant wallets conflict', async () => {
+  FakeRedis.reset({
+    'nf_user_data:xenomorphette': JSON.stringify({ bonus_balance: 0.5 }),
+    'nf_user_data:Xenomorphette': JSON.stringify({ bonus_balance: 1 }),
+  });
+  const accessToken = signAccessToken({ type: 'local', username: 'xenomorphette' });
+  const refreshToken = signRefreshToken({ type: 'local', username: 'xenomorphette' });
+
+  const status = await invoke(me, {
+    method: 'GET',
+    headers: { cookie: `nf_token=${accessToken}` },
+  });
+  assert.equal(status.statusCode, 409);
+  assert.equal(status.body.loggedIn, false);
+  assert.equal(status.body.code, 'WALLET_IDENTITY_CONFLICT');
+  assert.equal(status.headers['set-cookie'].length, 3);
+
+  const refreshed = await invoke(refresh, {
+    headers: { cookie: `nf_refresh=${refreshToken}` },
+  });
+  assert.equal(refreshed.statusCode, 409);
+  assert.equal(refreshed.body.code, 'WALLET_IDENTITY_CONFLICT');
+  assert.equal(refreshed.headers['set-cookie'].length, 3);
+});
+
+test('matching case-variant credentials are consolidated only after the supplied password verifies every record', async () => {
+  const originalData = JSON.stringify({ myBooks: [{ code: '5563' }], points: 30 });
+  const legacyHash = legacyPasswordHash('Password1');
+  FakeRedis.reset({
+    'nf_user_pass:alice': legacyHash,
+    'nf_user_pass:Alice': legacyHash,
+    'nf_user_data:alice': originalData,
+  });
+
+  const response = await invoke(login, {
+    body: { username: 'Alice', password: 'Password1' },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.username, 'alice');
+  assert.match(FakeRedis.values.get('nf_user_pass:alice'), /^scrypt\$/);
+  assert.equal(FakeRedis.values.has('nf_user_pass:Alice'), false);
+  assert.equal(FakeRedis.values.get('nf_user_data:alice'), originalData);
+});
+
+test('different duplicate credentials remain blocked and are not consolidated', async () => {
+  const firstHash = legacyPasswordHash('Password1');
+  const secondHash = legacyPasswordHash('Password2');
+  FakeRedis.reset({
+    'nf_user_pass:alice': firstHash,
+    'nf_user_pass:Alice': secondHash,
+  });
+
+  const response = await invoke(login, {
+    body: { username: 'Alice', password: 'Password1' },
+  });
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'ACCOUNT_CREDENTIAL_CONFLICT');
+  assert.equal(FakeRedis.values.get('nf_user_pass:alice'), firstHash);
+  assert.equal(FakeRedis.values.get('nf_user_pass:Alice'), secondHash);
+});
+
+test('protected historical promoters require support even without a recovery proof', async () => {
+  const response = await invoke(register, {
+    body: { username: 'Ndidii2000', password: 'Password1' },
+  });
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'SUPPORT_RECOVERY_REQUIRED');
+  assert.equal(FakeRedis.values.has('nf_user_pass:ndidi2000'), false);
+});
+
+test('passwordless protected promoter data also routes unauthenticated recovery to support', async () => {
+  FakeRedis.reset({
+    'nf_user_data:ndidi2000': JSON.stringify({ myBooks: [{ code: '5563' }] }),
+  });
+  const response = await invoke(register, {
+    body: { username: 'Ndidii2000', password: 'Password1' },
+  });
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'SUPPORT_RECOVERY_REQUIRED');
+  assert.equal(FakeRedis.values.has('nf_user_pass:ndidi2000'), false);
+});
+
+test('legacy recovery proof is rejected before any register Redis access or mutation', async () => {
+  const originalPasswordHash = legacyPasswordHash('ForgottenPassword1');
+  const originalData = JSON.stringify({ bonus_balance: 42.5, myBooks: [{ code: '4722' }] });
+  FakeRedis.reset({
+    'nf_user_pass:英语': originalPasswordHash,
+    'nf_user_data:英语': originalData,
+    'nf_login_ip:192.0.2.203': 10,
+    'nf_login_lock:英语': '1',
+  });
+  FakeRedis.expiries.set('nf_login_ip:192.0.2.203', 900);
+  FakeRedis.expiries.set('nf_login_lock:英语', 900);
+  const before = new Map(FakeRedis.values);
+
+  const response = await invoke(register, {
+    headers: { 'x-forwarded-for': '192.0.2.203' },
+    body: {
+      username: '英语',
+      password: 'Password2',
+      legacy_recovery: {
+        promotion_code: '4722',
+        promotion_link: 'https://social.novelplatform.vip/s/75RNsI',
+      },
+    },
+  });
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'SUPPORT_RECOVERY_REQUIRED');
+  assert.deepEqual(new Map(FakeRedis.values), before);
+});
+
+test('legacy recovery proof is rejected before any login Redis access or mutation', async () => {
+  const originalPasswordHash = legacyPasswordHash('ForgottenPassword1');
+  FakeRedis.reset({
+    'nf_user_pass:英语': originalPasswordHash,
+    'nf_user_data:英语': JSON.stringify({ bonus_balance: 20 }),
+    'nf_login_lock:192.0.2.205': '1',
+    'nf_login_fail:192.0.2.205': 5,
+  });
+  FakeRedis.expiries.set('nf_login_lock:192.0.2.205', 900);
+  const before = new Map(FakeRedis.values);
+
+  const response = await invoke(login, {
+    headers: { 'x-forwarded-for': '192.0.2.205' },
+    body: {
+      username: '英语',
+      password: 'Password2',
+      legacy_recovery: {
+        promotion_code: '4722',
+        promotion_link: 'https://social.novelplatform.vip/s/75RNsI',
+      },
+    },
+  });
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'SUPPORT_RECOVERY_REQUIRED');
+  assert.deepEqual(new Map(FakeRedis.values), before);
+});
+
+test('Cons Espher login spellings resolve to the established local account without wallet mutation', async () => {
+  const originalData = JSON.stringify({ bonus_balance: 8.62, withdrawals: [] });
+  FakeRedis.reset({
+    'nf_user_pass:@cons espher': legacyPasswordHash('Password1'),
+    'nf_user_pass:constance.espher': legacyPasswordHash('Password2'),
+    'nf_user_data:cons_espher': originalData,
+  });
+
+  const attempts = [
+    { handler: login, username: 'Cons Espher', ip: '192.0.2.151' },
+    { handler: login, username: '@cons_espher', ip: '192.0.2.152' },
+    { handler: register, username: 'cons_espher', ip: '192.0.2.153' },
+  ];
+  let accessToken = null;
+  for (const attempt of attempts) {
+    const response = await invoke(attempt.handler, {
+      headers: { 'x-forwarded-for': attempt.ip },
+      body: { username: attempt.username, password: 'Password1' },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.username, 'cons_espher');
+    accessToken = response.headers['set-cookie'][0].match(/^nf_token=([^;]+)/)[1];
+  }
+
+  const status = await invoke(me, {
+    method: 'GET',
+    headers: { cookie: `nf_token=${accessToken}` },
+  });
+  assert.equal(status.statusCode, 200);
+  assert.equal(status.body.hasPassword, true);
+  assert.equal(status.body.passwordRecoveryRequired, false);
+
+  const changed = await invoke(setPassword, {
+    headers: { cookie: `nf_token=${accessToken}` },
+    body: { oldPassword: 'Password1', password: 'Password3' },
+  });
+  assert.equal(changed.statusCode, 200);
+
+  const relogin = await invoke(login, {
+    headers: { 'x-forwarded-for': '192.0.2.154' },
+    body: { username: 'Cons Espher', password: 'Password3' },
+  });
+  assert.equal(relogin.statusCode, 200);
+  assert.equal(relogin.body.username, 'cons_espher');
+
+  assert.equal(FakeRedis.values.get('nf_user_data:cons_espher'), originalData);
+  assert.equal(FakeRedis.values.has('nf_user_data:cons espher'), false);
+  assert.equal(FakeRedis.values.has('nf_user_data:@cons_espher'), false);
+  assert.equal(FakeRedis.values.has('nf_user_pass:cons espher'), false);
+  assert.equal(FakeRedis.values.has('nf_user_pass:@cons_espher'), false);
+  assert.equal(FakeRedis.values.has('nf_user_pass:cons_espher'), false);
+  assert.match(FakeRedis.values.get('nf_user_pass:@cons espher'), /^scrypt\$/);
+  assert.equal(FakeRedis.values.get('nf_user_pass:constance.espher'), legacyPasswordHash('Password2'));
+  assert.equal(FakeRedis.values.get('nf_identity_owner:cons_espher'), 'local:cons_espher');
+  assert.equal(FakeRedis.values.get('nf_identity_owner:@cons espher'), 'local:cons_espher');
+  assert.equal(FakeRedis.values.get('nf_user_pass_owner:@cons espher'), 'local:cons_espher');
+});
+
+test('Cons read-only duplicate wallets accept legacy alias owner principals', async () => {
+  const canonicalWallet = JSON.stringify({ bonus_balance: 8.62, withdrawals: [] });
+  const legacyWallet = JSON.stringify({ bonus_balance: 3.14, withdrawals: [] });
+  FakeRedis.reset({
+    'nf_user_pass:@cons espher': legacyPasswordHash('Password1'),
+    'nf_user_data:cons_espher': canonicalWallet,
+    'nf_user_data:@cons espher': legacyWallet,
+    // Older identity writes retained the display spelling in the principal.
+    // It is equivalent to local:cons_espher, but contains a space.
+    'nf_identity_owner:cons_espher': 'local:@cons espher',
+    'nf_identity_owner:@cons espher': 'local:@cons espher',
+    'nf_user_pass_owner:@cons espher': 'local:@cons espher',
+  });
+
+  const response = await invoke(login, {
+    headers: { 'x-forwarded-for': '192.0.2.163' },
+    body: { username: 'Cons Espher', password: 'Password1' },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.username, 'cons_espher');
+  const accessToken = response.headers['set-cookie'][0].match(/^nf_token=([^;]+)/)[1];
+  assert.equal(verifyJWT(accessToken).principal, 'local:cons_espher');
+  assert.equal(FakeRedis.values.get('nf_user_data:cons_espher'), canonicalWallet);
+  assert.equal(FakeRedis.values.get('nf_user_data:@cons espher'), legacyWallet);
+});
+
+test('Cons legacy owner principal can change the sole historical password key', async () => {
+  FakeRedis.reset({
+    'nf_user_pass:@cons espher': legacyPasswordHash('Password1'),
+    'nf_user_data:cons_espher': JSON.stringify({ bonus_balance: 8.62 }),
+    'nf_user_data:@cons espher': JSON.stringify({ bonus_balance: 3.14 }),
+    'nf_identity_owner:cons_espher': 'local:@cons espher',
+    'nf_identity_owner:@cons espher': 'local:@cons espher',
+    'nf_user_pass_owner:@cons espher': 'local:@cons espher',
+  });
+
+  const loggedIn = await invoke(login, {
+    body: { username: 'Cons Espher', password: 'Password1' },
+  });
+  assert.equal(loggedIn.statusCode, 200);
+  const accessToken = loggedIn.headers['set-cookie'][0].match(/^nf_token=([^;]+)/)[1];
+
+  const changed = await invoke(setPassword, {
+    headers: { cookie: `nf_token=${accessToken}` },
+    body: { oldPassword: 'Password1', password: 'Password2' },
+  });
+  assert.equal(changed.statusCode, 200);
+  assert.match(FakeRedis.values.get('nf_user_pass:@cons espher'), /^scrypt\$/);
+  assert.equal(FakeRedis.values.has('nf_user_pass:cons_espher'), false);
+});
+
+test('Cons legacy proof recovery requires support and leaves all aliases unchanged', async () => {
+  const canonicalHash = legacyPasswordHash('ForgottenPassword1');
+  const aliasHash = legacyPasswordHash('ForgottenPassword2');
+  const wallet = JSON.stringify({ bonus_balance: 16.75 });
+  FakeRedis.reset({
+    'nf_user_pass:cons_espher': canonicalHash,
+    'nf_user_pass:@cons espher': aliasHash,
+    'nf_user_data:cons_espher': wallet,
+  });
+  const before = new Map(FakeRedis.values);
+
+  const response = await invoke(register, {
+    headers: { 'x-forwarded-for': '192.0.2.160' },
+    body: {
+      username: 'Cons Espher',
+      password: 'Password4',
+      legacy_recovery: {
+        promotion_code: '4630',
+        promotion_link: 'https://social.novelplatform.vip/s/8t6s8v',
+      },
+    },
+  });
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'SUPPORT_RECOVERY_REQUIRED');
+  assert.deepEqual(new Map(FakeRedis.values), before);
+});
+
+test('a disabled duplicate Cons wallet blocks every session entry point', async () => {
+  const seed = () => ({
+    'nf_user_pass:@cons espher': legacyPasswordHash('Password1'),
+    'nf_user_data:cons_espher': JSON.stringify({ bonus_balance: 8.62 }),
+    'nf_user_data:@cons espher': JSON.stringify({ bonus_balance: 3.14, disabled: true }),
+    'nf_identity_owner:cons_espher': 'local:cons_espher',
+    'nf_identity_owner:@cons espher': 'local:cons_espher',
+  });
+
+  FakeRedis.reset(seed());
+  const loginResponse = await invoke(login, {
+    body: { username: 'Cons Espher', password: 'Password1' },
+  });
+  assert.equal(loginResponse.statusCode, 403);
+  assert.equal(loginResponse.body.code, 'ACCOUNT_DISABLED');
+
+  FakeRedis.reset(seed());
+  const registerResponse = await invoke(register, {
+    body: { username: 'Cons Espher', password: 'Password1' },
+  });
+  assert.equal(registerResponse.statusCode, 403);
+  assert.equal(registerResponse.body.code, 'ACCOUNT_DISABLED');
+
+  FakeRedis.reset(seed());
+  const token = signAccessToken({ type: 'local', username: 'cons_espher', principal: 'local:cons_espher' });
+  const sessionResponse = await invoke(me, {
+    method: 'GET',
+    headers: { cookie: `nf_token=${token}` },
+  });
+  assert.equal(sessionResponse.statusCode, 403);
+  assert.equal(sessionResponse.body.code, 'ACCOUNT_DISABLED');
+
+  FakeRedis.reset(seed());
+  const refreshToken = signRefreshToken({ type: 'local', username: 'cons_espher', principal: 'local:cons_espher' });
+  const refreshResponse = await invoke(refresh, {
+    method: 'POST',
+    headers: { cookie: `nf_refresh=${refreshToken}` },
+  });
+  assert.equal(refreshResponse.statusCode, 403);
+  assert.equal(refreshResponse.body.code, 'ACCOUNT_DISABLED');
+});
+
+test('Cons login repairs stale no-expiry account and IP lock state without bypassing password checks', async () => {
+  FakeRedis.reset({
+    'nf_user_pass:@cons espher': legacyPasswordHash('Password1'),
+    'nf_user_data:cons_espher': JSON.stringify({ bonus_balance: 8.88 }),
+    'nf_login_lock:cons_espher': '1',
+    'nf_login_ip:192.0.2.155': 10,
+  });
+
+  const response = await invoke(register, {
+    headers: { 'x-forwarded-for': '192.0.2.155' },
+    body: { username: 'Cons Espher', password: 'Password1' },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.username, 'cons_espher');
+  assert.equal(FakeRedis.values.has('nf_login_lock:cons_espher'), false);
+  assert.equal(Number(FakeRedis.values.get('nf_login_ip:192.0.2.155')), 1);
+  assert.equal(FakeRedis.expiries.get('nf_login_ip:192.0.2.155'), 900);
+
+  const wrongPassword = await invoke(login, {
+    headers: { 'x-forwarded-for': '192.0.2.156' },
+    body: { username: 'Cons Espher', password: 'WrongPassword1' },
+  });
+  assert.equal(wrongPassword.statusCode, 401);
+});
+
+test('the dedicated login endpoint repairs a stale no-expiry IP lock', async () => {
+  FakeRedis.reset({
+    'nf_user_pass:alice': legacyPasswordHash('Password1'),
+    'nf_user_data:alice': JSON.stringify({}),
+    'nf_login_lock:192.0.2.157': '1',
+  });
+
+  const response = await invoke(login, {
+    headers: { 'x-forwarded-for': '192.0.2.157' },
+    body: { username: 'alice', password: 'Password1' },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(FakeRedis.values.has('nf_login_lock:192.0.2.157'), false);
+});
+
+test('refresh canonicalizes an established Cons alias session without requiring another login', async () => {
+  FakeRedis.reset({
+    'nf_user_data:cons_espher': JSON.stringify({ bonus_balance: 8.88 }),
+    'nf_identity_owner:cons_espher': 'local:cons_espher',
+    'nf_identity_owner:@cons espher': 'local:cons_espher',
+  });
+  const legacyRefresh = signRefreshToken({
+    type: 'local', username: '@cons espher', principal: 'local:@cons espher',
+  });
+  const response = await invoke(refresh, {
+    headers: { cookie: `nf_refresh=${legacyRefresh}` },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.user.username, 'cons_espher');
+  const accessToken = response.headers['set-cookie'][0].match(/^nf_token=([^;]+)/)[1];
+  assert.equal(verifyJWT(accessToken).username, 'cons_espher');
+  assert.equal(verifyJWT(accessToken).principal, 'local:cons_espher');
+});
+
+test('auth/me canonicalizes an established Cons alias access session', async () => {
+  FakeRedis.reset({
+    'nf_user_data:cons_espher': JSON.stringify({ bonus_balance: 8.88 }),
+    'nf_identity_owner:cons_espher': 'local:cons_espher',
+    'nf_identity_owner:@cons espher': 'local:cons_espher',
+  });
+  const accessToken = signAccessToken({
+    type: 'local', username: '@cons espher', principal: 'local:@cons espher',
+  });
+  const response = await invoke(me, {
+    method: 'GET',
+    headers: { cookie: `nf_token=${accessToken}` },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.loggedIn, true);
+  assert.equal(response.body.username, 'cons_espher');
+});
+
+test('Cons login fails closed if canonical and verified alias credentials both exist', async () => {
+  const wallet = JSON.stringify({ bonus_balance: 8.62, withdrawals: [] });
+  FakeRedis.reset({
+    'nf_user_pass:cons_espher': legacyPasswordHash('Password1'),
+    'nf_user_pass:@cons espher': legacyPasswordHash('Password2'),
+    'nf_user_data:cons_espher': wallet,
+  });
+  const response = await invoke(login, {
+    body: { username: 'Cons Espher', password: 'Password1' },
+  });
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'ACCOUNT_CREDENTIAL_CONFLICT');
+  assert.equal(response.headers['set-cookie'], undefined);
+  assert.equal(FakeRedis.values.get('nf_user_data:cons_espher'), wallet);
+});
+
+test('Eliza legacy credential remains visible and mutable through the primary session identity', async () => {
+  const wallet = JSON.stringify({ bonus_balance: 12, withdrawals: [] });
+  FakeRedis.reset({
+    'nf_user_pass:eliza_stellar': legacyPasswordHash('Password1'),
+    'nf_user_data:eliza_star': wallet,
+  });
+
+  const loggedIn = await invoke(login, {
+    headers: { 'x-forwarded-for': '192.0.2.161' },
+    body: { username: 'eliza_star', password: 'Password1' },
+  });
+  assert.equal(loggedIn.statusCode, 200);
+  assert.equal(loggedIn.body.username, 'eliza_star');
+  const accessToken = loggedIn.headers['set-cookie'][0].match(/^nf_token=([^;]+)/)[1];
+
+  const status = await invoke(me, {
+    method: 'GET',
+    headers: { cookie: `nf_token=${accessToken}` },
+  });
+  assert.equal(status.statusCode, 200);
+  assert.equal(status.body.hasPassword, true);
+  assert.equal(status.body.passwordRecoveryRequired, false);
+
+  const changed = await invoke(setPassword, {
+    headers: { cookie: `nf_token=${accessToken}` },
+    body: { oldPassword: 'Password1', password: 'Password2' },
+  });
+  assert.equal(changed.statusCode, 200);
+
+  const relogin = await invoke(login, {
+    headers: { 'x-forwarded-for': '192.0.2.162' },
+    body: { username: '@eliza.stellar', password: 'Password2' },
+  });
+  assert.equal(relogin.statusCode, 200);
+  assert.equal(relogin.body.username, 'eliza_star');
+  assert.equal(FakeRedis.values.has('nf_user_pass:eliza_star'), false);
+  assert.match(FakeRedis.values.get('nf_user_pass:eliza_stellar'), /^scrypt\$/);
+  assert.equal(FakeRedis.values.get('nf_user_data:eliza_star'), wallet);
 });
 
 test('refresh migrates a previous-secret session to current-secret cookies', async () => {
@@ -334,11 +918,34 @@ test('Discord disabled checks use the canonical JWT handle', async () => {
   assert.equal(session.body.code, 'ACCOUNT_DISABLED');
 });
 
+test('auth/me returns the canonical Discord handle and a separate display name', async () => {
+  FakeRedis.reset({
+    'nf_user_data:discord-handle': JSON.stringify({}),
+    'nf_identity_owner:discord-handle': 'discord:discord-42',
+  });
+  const accessToken = signAccessToken({
+    type: 'discord',
+    username: 'discord-handle',
+    globalName: 'Display Name',
+    discordId: 'discord-42',
+    principal: 'discord:discord-42',
+  });
+  const session = await invoke(me, {
+    method: 'GET',
+    headers: { cookie: `nf_token=${accessToken}` },
+  });
+  assert.equal(session.statusCode, 200);
+  assert.equal(session.body.loggedIn, true);
+  assert.equal(session.body.username, 'discord-handle');
+  assert.equal(session.body.displayName, 'Display Name');
+  assert.equal(session.body.globalName, 'Display Name');
+});
+
 test('client sync and rewards respect the shared user-data lock', async () => {
   const username = 'user_data_lock_test';
   FakeRedis.reset({
     [`nf_user_data:${username}`]: JSON.stringify({ bonus_balance: 40, points: 5, withdrawals: [{ id: 'wd_1', amount: 20, status: 'pending' }] }),
-    [`nf_withdrawal_lock:${username}`]: 'other-request',
+    [`nf_user_data_lock:v2:${username}`]: 'other-request',
   });
   const accessToken = signAccessToken({ type: 'local', username });
   const headers = { cookie: `nf_token=${accessToken}` };
@@ -350,7 +957,7 @@ test('client sync and rewards respect the shared user-data lock', async () => {
   assert.equal(sync.body.code, 'USER_DATA_BUSY');
 
   const reward = await invoke(rewards, {
-    method: 'POST', headers, body: { action: 'checkin' },
+    method: 'POST', headers, body: { action: 'claim_mission', missionId: 'share1' },
   });
   assert.equal(reward.statusCode, 409);
   assert.equal(reward.body.code, 'USER_DATA_BUSY');
@@ -405,7 +1012,7 @@ test('concurrent withdrawal submissions cannot lose an acknowledged request', as
   const saved = JSON.parse(FakeRedis.values.get(`nf_user_data:${username}`));
   assert.equal(saved.withdrawals.length, 1);
   assert.equal(saved.withdrawals[0].amount, 20);
-  assert.equal(FakeRedis.values.has(`nf_withdrawal_lock:${username}`), false);
+  assert.equal(FakeRedis.values.has(`nf_user_data_lock:v2:${username}`), false);
 });
 
 test('a retried withdrawal request is idempotent across email casing', async () => {
@@ -459,7 +1066,167 @@ test('withdrawal creation fails closed when the income adjustment cannot be read
   assert.equal(res.body.code, 'INCOME_ADJUSTMENT_UNAVAILABLE');
   const saved = JSON.parse(FakeRedis.values.get(`nf_user_data:${username}`));
   assert.equal(saved.withdrawals.length, 0);
-  assert.equal(FakeRedis.values.has(`nf_withdrawal_lock:${username}`), false);
+  assert.equal(FakeRedis.values.has(`nf_user_data_lock:v2:${username}`), false);
+});
+
+test('login never creates a new account', async () => {
+  FakeRedis.reset();
+
+  const response = await invoke(login, {
+    headers: { 'x-forwarded-for': '192.0.2.12' },
+    body: { username: 'brand-new-reader', password: 'Password1' },
+  });
+
+  assert.equal(response.statusCode, 401);
+  assert.equal(response.body.code, 'INVALID_CREDENTIALS');
+  assert.equal(response.headers['set-cookie'], undefined);
+  assert.equal(FakeRedis.values.has('nf_user_pass:brand-new-reader'), false);
+  assert.equal(FakeRedis.values.has('nf_identity_owner:brand-new-reader'), false);
+});
+
+test('brand new registration atomically stages a complete signup outbox event', async () => {
+  FakeRedis.reset();
+
+  const response = await invoke(register, {
+    headers: {
+      'x-forwarded-for': '192.0.2.44',
+      'user-agent': 'Mozilla/5.0 (iPhone)',
+    },
+    body: { username: 'fresh-signup-reader', password: 'Password1' },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.isNewUser, true);
+  assert.match(FakeRedis.values.get('nf_user_pass:fresh-signup-reader'), /^scrypt\$/);
+  const eventKey = Array.from(FakeRedis.values.keys())
+    .find(key => key.startsWith('nf_outbox:signup:v1:'));
+  assert.ok(eventKey);
+  const event = JSON.parse(FakeRedis.values.get(eventKey));
+  assert.equal(event.type, 'signup');
+  assert.equal(event.username, 'fresh-signup-reader');
+  assert.equal(event.status, 'pending');
+  assert.equal(event.attempts, 0);
+  assert.equal(event.device, 'iOS');
+  assert.match(event.registered_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.match(event.ip_hash, /^[a-f0-9]{24}$/);
+  assert.equal(JSON.stringify(event).includes('192.0.2.44'), false);
+});
+
+test('registration fails closed when its abuse limit cannot be verified', async () => {
+  const originalIncr = FakeRedis.prototype.incr;
+  FakeRedis.prototype.incr = async function failRegistrationLimit(key) {
+    if (String(key).startsWith('nf_login_ip:')) throw new Error('rate storage unavailable');
+    return originalIncr.call(this, key);
+  };
+  try {
+    const response = await invoke(register, {
+      headers: { 'x-forwarded-for': '192.0.2.45' },
+      body: { username: 'rate-limit-unknown', password: 'Password1' },
+    });
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.code, 'RATE_LIMIT_UNAVAILABLE');
+    assert.equal(FakeRedis.values.has('nf_user_pass:rate-limit-unknown'), false);
+  } finally {
+    FakeRedis.prototype.incr = originalIncr;
+  }
+});
+
+test('withdrawal creation is blocked when income details require reconciliation', async () => {
+  const username = 'withdraw_reconciliation_test_user';
+  FakeRedis.reset({
+    [`nf_user_data:${username}`]: JSON.stringify({ bonus_balance: 50, withdrawals: [] }),
+  });
+  const statsData = require('../api/_lib/stats-data');
+  const originalLegacy = statsData.getLegacyDataJson;
+  const originalAd = statsData.getAdIdDetails;
+  statsData.getLegacyDataJson = async () => ({
+    users: {
+      [username]: {
+        subscription_revenue_dn: 40,
+        subscription_revenue_dn_daily: { '2026-08-11': 20 },
+      },
+    },
+  });
+  statsData.getAdIdDetails = async () => ({
+    by_promoter: { [username]: { display_name: username, links: [] } },
+    ad_ids: {},
+  });
+  delete require.cache[require.resolve('../api/withdrawals')];
+  const isolatedWithdrawals = require('../api/withdrawals');
+  const accessToken = signAccessToken({ type: 'local', username });
+  try {
+    const response = await invoke(isolatedWithdrawals, {
+      method: 'POST',
+      headers: { cookie: `nf_token=${accessToken}` },
+      body: {
+        amount: 20,
+        payment_account: 'reconcile@example.com',
+        idempotency_key: ['withdraw', 'reconcile', 'test'].join('-'),
+      },
+    });
+
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, 'INCOME_RECONCILIATION_REQUIRED');
+    assert.deepEqual(response.body.reconciliation_reasons, ['income_daily_total_mismatch']);
+    const saved = JSON.parse(FakeRedis.values.get(`nf_user_data:${username}`));
+    assert.deepEqual(saved.withdrawals, []);
+  } finally {
+    statsData.getLegacyDataJson = originalLegacy;
+    statsData.getAdIdDetails = originalAd;
+    delete require.cache[require.resolve('../api/withdrawals')];
+  }
+});
+
+test('admin approval is blocked while the target wallet requires reconciliation', async () => {
+  const username = 'withdraw_reconciliation_review_user';
+  FakeRedis.reset({
+    'nf_user_data:rootadmin': JSON.stringify({ accountType: 'admin' }),
+    [`nf_user_data:${username}`]: JSON.stringify({
+      bonus_balance: 50,
+      withdrawals: [{
+        id: 'wd_reconciliation_review', amount: 20, status: 'pending',
+        payment_account: 'review@example.com',
+      }],
+    }),
+  });
+  const statsData = require('../api/_lib/stats-data');
+  const originalLegacy = statsData.getLegacyDataJson;
+  const originalAd = statsData.getAdIdDetails;
+  statsData.getLegacyDataJson = async () => ({
+    users: {
+      [username]: {
+        subscription_revenue_dn: 40,
+        subscription_revenue_dn_daily: { '2026-08-11': 20 },
+      },
+    },
+  });
+  statsData.getAdIdDetails = async () => ({
+    by_promoter: { [username]: { display_name: username, links: [] } },
+    ad_ids: {},
+  });
+  delete require.cache[require.resolve('../api/withdrawals')];
+  const isolatedWithdrawals = require('../api/withdrawals');
+  const accessToken = signAccessToken({ type: 'local', username: 'rootadmin' });
+  try {
+    const response = await invoke(isolatedWithdrawals, {
+      method: 'PATCH',
+      headers: { cookie: `nf_token=${accessToken}` },
+      body: {
+        username,
+        request_id: 'wd_reconciliation_review',
+        action: 'approve',
+      },
+    });
+
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, 'INCOME_RECONCILIATION_REQUIRED');
+    const saved = JSON.parse(FakeRedis.values.get(`nf_user_data:${username}`));
+    assert.equal(saved.withdrawals[0].status, 'pending');
+  } finally {
+    statsData.getLegacyDataJson = originalLegacy;
+    statsData.getAdIdDetails = originalAd;
+    delete require.cache[require.resolve('../api/withdrawals')];
+  }
 });
 
 test('wallet mutations never replace a corrupt user record', async () => {
@@ -472,7 +1239,7 @@ test('wallet mutations never replace a corrupt user record', async () => {
     body: {
       amount: 20,
       payment_account: 'corrupt@example.com',
-      idempotency_key: 'withdraw-corrupt-test-20260801',
+      idempotency_key: ['withdraw', 'corrupt', 'test'].join('-'),
     },
   });
 
@@ -489,4 +1256,38 @@ test('register rejects reserved new usernames', async () => {
   assert.equal(res.statusCode, 400);
   assert.equal(res.body.error, 'This username is not available');
   assert.equal(FakeRedis.values.has('nf_user_pass:Admin'), false);
+});
+
+test('register rejects the unmapped system income bucket', async () => {
+  const res = await invoke(register, {
+    body: { username: '_unmapped', password: 'Password1' },
+  });
+
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.error, 'This username is not available');
+  assert.equal(FakeRedis.values.has('nf_user_pass:_unmapped'), false);
+});
+
+test('brand new accounts cannot claim a protected promoter identity', async () => {
+  const res = await invoke(register, {
+    body: { username: 'tom', password: 'Password1' },
+  });
+
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.code, 'SUPPORT_RECOVERY_REQUIRED');
+  assert.equal(FakeRedis.values.has('nf_user_pass:tom'), false);
+});
+
+test('brand new accounts cannot pre-claim trusted source or login aliases', async () => {
+  for (const username of ['Eliza_Star', 'Cons Espher', '@cons espher']) {
+    const res = await invoke(register, {
+      body: { username, password: 'Password1' },
+    });
+    assert.equal(res.statusCode, 409, username);
+    assert.equal(res.body.code, 'SUPPORT_RECOVERY_REQUIRED', username);
+  }
+
+  assert.equal(FakeRedis.values.has('nf_user_pass:eliza_star'), false);
+  assert.equal(FakeRedis.values.has('nf_user_pass:cons_espher'), false);
+  assert.equal(FakeRedis.values.has('nf_user_pass:@cons espher'), false);
 });

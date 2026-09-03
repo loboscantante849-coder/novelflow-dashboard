@@ -131,8 +131,16 @@ function extractUserInfo(payload) {
       novelFlowId: payload.novelFlowId
     };
   }
+  // `username` is the durable account/storage identity. Discord's global
+  // name is presentation-only and may contain spaces or change over time.
+  // Keep it separate so clients never use a display label as a data key.
+  const username = String(payload.username || '').trim();
+  const displayName = String(payload.globalName || username).trim() || username;
   return {
-    username: payload.globalName || payload.username,
+    username,
+    displayName,
+    // Preserve the legacy field for clients that already render globalName.
+    globalName: displayName,
     accountType: 'discord',
     discordId: payload.discordId,
     avatar: payload.avatar,

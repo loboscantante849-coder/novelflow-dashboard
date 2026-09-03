@@ -1,3 +1,5 @@
+const { resolveLocalLoginUsername } = require('./login-identity');
+
 const APPLICATION_ID = '642fc1ace309494378a774a6';
 const EQUITY_API_BASE = 'https://admin.novelflow.app/api/v1/welfaremanage/equitycode';
 const BOOK_API_BASE = 'https://admin.novelspa.app/api/v1/novelmanage/book';
@@ -6,7 +8,7 @@ const RECREATE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const FIRST_CODE = 90032;
 
 function canonicalUsername(value) {
-  return String(value || '').trim().toLowerCase();
+  return resolveLocalLoginUsername(value);
 }
 
 function safeParse(value, fallback = null) {

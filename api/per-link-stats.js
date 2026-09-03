@@ -25,6 +25,9 @@ const {
   loadSubmissions, loadCovers,
   buildAdIdLookup, aggregateSubmissionStats, buildLegacyAdIdLookup, zeroStats, r2,
 } = require('./_lib/stats-data');
+const { inspectApprovedSourceWalletOwner } = require('./_lib/income-source-owners');
+const { principalFromPayload } = require('./_lib/identity');
+const { resolveReadOnlyWalletStorageIdentity } = require('./_lib/wallet-identity');
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
@@ -44,10 +47,14 @@ module.exports = async (req, res) => {
 
   let admin;
   try {
-    if (await isDisabledUser(redis, payload, { failClosed: true })) {
+    if (await isDisabledUser(redis, payload, { failClosed: true, allowSafeReadOnlyWalletConflict: true })) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
-    admin = await isAdminUser(redis, jwtUsername, { failClosed: true });
+    // A duplicate historical wallet must not prevent a user from reading
+    // their own stats. Admin elevation remains fail-closed at every admin
+    // operation; here a status lookup failure simply scopes the request to the
+    // authenticated account (the default isAdminUser path returns false).
+    admin = await isAdminUser(redis, jwtUsername);
   } catch (_error) {
     return res.status(503).json({ error: 'Statistics temporarily unavailable', code: 'STORAGE_UNAVAILABLE' });
   }
@@ -83,9 +90,41 @@ module.exports = async (req, res) => {
     const adData = await getAdIdDetails(debugLog);
     if (!admin) {
       usernameCanon = resolvePromoterKey(username, adData);
+      const walletIdentity = await resolveReadOnlyWalletStorageIdentity(redis, username, {
+        expectedPrincipal: admin ? null : principalFromPayload(payload),
+      });
+      if (walletIdentity.conflict) {
+        return res.status(409).json({ error: 'Account identity recovery required', code: 'WALLET_IDENTITY_CONFLICT' });
+      }
+      if (adData?.by_promoter?.[usernameCanon]) {
+      const ownership = await inspectApprovedSourceWalletOwner(
+        redis,
+        adData,
+        username,
+        walletIdentity.storageUsername,
+        null,
+        { allowEquivalentAliases: Boolean(walletIdentity.readOnlyLegacyConflict) },
+      );
+        if (!ownership.approved) {
+          return res.status(403).json({ error: 'Income source owner is not verified', code: 'INCOME_SOURCE_OWNER_UNVERIFIED' });
+        }
+        if (!ownership.unique) {
+          return res.status(409).json({
+            error: 'Income source ownership requires reconciliation',
+            code: 'INCOME_SOURCE_OWNER_CONFLICT',
+            wallet_count: ownership.owners.length,
+          });
+        }
+      }
       debugLog.push(`username "${username}" → canon="${usernameCanon}"`);
     }
-    const submissions = redis ? await loadSubmissions(redis, username, admin, debugLog) : [];
+    const submissions = redis ? await loadSubmissions(
+      redis,
+      username,
+      admin,
+      debugLog,
+      { expectedPrincipal: admin ? null : principalFromPayload(payload) },
+    ) : [];
     const bookIds = submissions.map(s => s.bookId).filter(Boolean);
     const covers = redis ? await loadCovers(redis, bookIds, debugLog) : {};
 
@@ -296,6 +335,12 @@ module.exports = async (req, res) => {
 
     // =================== FALLBACK: link-stats.json ===================
     debugLog.push('primary ad_id_details unavailable — using legacy link-stats.json fallback');
+    if (!admin) {
+      return res.status(503).json(finalize({
+        error: 'Income source ownership is temporarily unavailable',
+        code: 'INCOME_SOURCE_OWNER_UNAVAILABLE',
+      }));
+    }
     const linkStats = await getLegacyLinkStats(debugLog);
     if (!linkStats) throw new Error('No statistics data source is available');
     const linkStatsLinks = (linkStats && linkStats.links) || {};

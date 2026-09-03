@@ -9,15 +9,26 @@
  *   - claim_mission   : Claim a completed mission (share1=20pts, share3=50pts, bindId=30pts)
  *   - bind_id         : Save NovelFlow ID (bind_id) — validated client-side, server stores it
  *   - exchange_vip    : Spend 1000 points for 3 VIP days
- *   - claim_streak_grand : Claim 7-day streak grand prize (+$0.5 bonus + 2 VIP days)
+ *   - claim_streak_grand : Claim the 7-day streak cash bonus (+$0.5)
+ *   - confirm_streak_vip : Confirm delivery of the separate 2-day VIP reward
  *
  * Auth: JWT required. All mutations apply ONLY to the authenticated user.
  */
 const { handlePreflight } = require('./_lib/cors');
 const { assertAccountIdentity, getAuthPayload, getRedis, checkRateLimit, getClientIp } = require('./_lib/security');
 const { Redis } = require('@upstash/redis');
-const { acquireUserDataLock, releaseUserDataLock } = require('./_lib/user-data-lock');
+const { commitUserDataUnderLock, releaseUserDataLock } = require('./_lib/user-data-lock');
 const { normalizeRedisKeys } = require('./_lib/redis-values');
+const { isSafeMoneyValue, splitStoredBonus } = require('./_lib/commission-policy');
+const { resolveNovelFlowMember } = require('./_lib/novelflow-member');
+const { acquireWalletCreationSourceGuard } = require('./_lib/income-source-owners');
+const { acquireWalletDataLock, resolveUsernameAlias } = require('./_lib/wallet-identity');
+const {
+  bindNovelFlowMember,
+  buildVipEntitlement,
+  commitUserDataWithVipEntitlement,
+  loadVerifiedNovelFlowBinding,
+} = require('./_lib/vip-entitlements');
 
 const STREAK_POINTS = [5, 5, 5, 5, 5, 10, 15]; // day 1-7
 const MISSION_POINTS = { share1: 20, share3: 50, bindId: 30 };
@@ -26,6 +37,7 @@ const VIP_DAYS_AWARDED = 3;
 const STREAK_GRAND_BONUS = 0.50;
 const STREAK_GRAND_VIP = 2;
 const STREAK_GRAND_REQUIRED = 7;
+const STREAK_GRAND_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const PER_USER_ACTION_LIMIT = 60; // per hour per user (generous, prevents abuse)
 const RATE_WINDOW = 3600;
 const MAX_REWARD_HISTORY = 100;
@@ -57,15 +69,30 @@ async function getUserData(redis, username) {
   return parsed;
 }
 
-async function saveUserData(redis, username, data) {
-  await redis.set(`nf_user_data:${username}`, JSON.stringify(data));
+async function saveUserData(redis, username, data, locks) {
+  await commitUserDataUnderLock(redis, `nf_user_data:${username}`, data, locks);
 }
 
 function normalizeUserData(data) {
   if (!data || typeof data !== 'object') data = {};
-  data.points = Number(data.points) || 0;
-  data.bonus_balance = Number(data.bonus_balance) || 0;
-  data.vip_days = Number(data.vip_days) || 0;
+  const numericFields = [
+    ['points', data.points],
+    ['bonus_balance', data.bonus_balance],
+    ['vip_days', data.vip_days],
+  ];
+  for (const [field, raw] of numericFields) {
+    // Only a genuinely absent legacy field defaults to zero. Explicit null or
+    // empty values may be evidence of an earlier non-finite serialization and
+    // must never be normalized away by a reward write.
+    const value = raw === undefined ? 0 : Number(raw);
+    if ((raw !== undefined && !isSafeMoneyValue(raw)) || !isSafeMoneyValue(value) || value < 0) {
+      const error = new Error(`Reward account field ${field} requires reconciliation`);
+      error.code = 'REWARD_DATA_RECONCILIATION_REQUIRED';
+      error.field = field;
+      throw error;
+    }
+    data[field] = value;
+  }
   if (!data.checkin || typeof data.checkin !== 'object' || Array.isArray(data.checkin)) {
     data.checkin = { streak: 0, lastCheckin: null, history: [] };
   }
@@ -131,14 +158,23 @@ async function loadVerifiedPromotionCount(redis, username) {
     } catch (_error) {
       continue;
     }
-    if (!submission || typeof submission !== 'object' || submission.status === 'pending') continue;
+    if (!submission || typeof submission !== 'object' || submission.status !== 'completed') continue;
+    const owner = String(submission.discordUsername || submission.username || '').trim().toLowerCase();
+    if (owner && owner !== String(username).trim().toLowerCase()) continue;
     const bookId = String(submission.bookId || '').trim();
     const title = String(submission.matchedBookName || submission.bookName || '').trim().toLowerCase();
-    const assetId = String(submission.linkId || submission.code || keys[index] || '').trim();
+    const assetId = String(submission.linkId || submission.inviteCode || submission.code || '').trim();
+    if (!assetId) continue;
     const identity = bookId ? `book:${bookId}` : title ? `title:${title}` : assetId ? `asset:${assetId}` : '';
     if (identity) books.add(identity);
   }
   return books.size;
+}
+
+async function resolveRewardVipBinding(redis, username, memberId, source) {
+  const savedBinding = await loadVerifiedNovelFlowBinding(redis, username, memberId);
+  if (savedBinding) return savedBinding;
+  return bindNovelFlowMember(redis, username, await resolveNovelFlowMember(memberId), { source });
 }
 
 module.exports = async (req, res) => {
@@ -148,7 +184,7 @@ module.exports = async (req, res) => {
   const payload = getAuthPayload(req);
   if (!payload) return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
 
-  const username = String(payload.username).toLowerCase();
+  const username = resolveUsernameAlias(payload.username);
   const redis = redisClient();
   if (!redis) return res.status(503).json({ error: 'Database unavailable' });
   try {
@@ -177,24 +213,47 @@ module.exports = async (req, res) => {
   if (typeof action !== 'string' || action.length > 40) {
     return res.status(400).json({ error: 'Invalid action', code: 'INVALID_ACTION' });
   }
-  let lock;
+  let walletLock;
   try {
-    lock = await acquireUserDataLock(redis, username);
-  } catch (_error) {
+    // A cloud-sync write can overlap a tap on Check In. Wait briefly for that
+    // normal write to finish instead of failing the user-facing action.
+    walletLock = await acquireWalletDataLock(redis, username, {
+      waitMs: action === 'checkin' ? 6000 : 0,
+      retryDelayMs: 100,
+    });
+  } catch (error) {
+    if (error && error.code === 'WALLET_IDENTITY_CONFLICT') {
+      return res.status(409).json({ error: 'Account identity recovery required', code: error.code });
+    }
     return res.status(503).json({ error: 'Reward storage is temporarily unavailable', code: 'REWARD_STORAGE_UNAVAILABLE' });
   }
+  const { lock, identity } = walletLock;
   if (!lock) {
     return res.status(409).json({ error: 'User data is being updated', code: 'USER_DATA_BUSY' });
   }
 
+  let sourceGuard = null;
   try {
-    const data = normalizeUserData(await getUserData(redis, username));
+    // Daily check-in changes only the already-established canonical wallet's
+    // points/streak. A legacy case-only duplicate reporting key must not block
+    // that non-financial action, but it must also never cause a new wallet to
+    // be created. Financial rewards keep the strict source-owner guard.
+    const establishedCheckinWallet = action === 'checkin' && identity.matches.length === 1;
+    if (!establishedCheckinWallet) {
+      sourceGuard = await acquireWalletCreationSourceGuard(redis, username, identity);
+    }
+    const walletUsername = identity.storageUsername;
+    const data = normalizeUserData(await getUserData(redis, walletUsername));
     if (data.disabled) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
+    }
+    if (data.wallet_merged_into) {
+      return res.status(409).json({ error: 'Wallet merged into a primary account', code: 'WALLET_MERGED' });
     }
     const before = rewardState(data);
     let historyDetails = {};
     let result = { success: true, action };
+    let vipEntitlementEvent = null;
 
     switch (action) {
 
@@ -272,19 +331,24 @@ module.exports = async (req, res) => {
       // ========== BIND NOVELFLOW ID ==========
       case 'bind_id': {
         const { bind_id } = req.body || {};
-        if (!bind_id || typeof bind_id !== 'string' || bind_id.trim().length < 3) {
-          return res.status(400).json({ error: 'Invalid bind ID (min 3 characters)', code: 'INVALID_ID' });
+        let member;
+        try {
+          member = await resolveNovelFlowMember(bind_id);
+          await bindNovelFlowMember(redis, username, member, { source: 'rewards' });
+        } catch (error) {
+          const status = ['NOVELFLOW_USER_NOT_FOUND', 'INVALID_NOVELFLOW_USER_ID'].includes(error && error.code) ? 400
+            : (['NOVELFLOW_ID_ALREADY_BOUND', 'NOVELFLOW_BINDING_IMMUTABLE'].includes(error && error.code) ? 409 : 503);
+          return res.status(status).json({
+            error: error.message || 'NovelFlow ID could not be verified',
+            code: error.code || 'NOVELFLOW_LOOKUP_FAILED',
+          });
         }
-        // Basic sanitization: alphanumerics, underscores, hyphens, colons, spaces allowed
-        const clean = bind_id.trim().slice(0, 100);
-        if (!/^[\w\-\s:]+$/.test(clean)) {
-          return res.status(400).json({ error: 'Bind ID contains invalid characters', code: 'INVALID_ID' });
-        }
-        data.bind_id = clean;
-        historyDetails = { bind_id_changed: true };
+        data.bind_id = member.user_id;
+        data.bind_id_verified_at = new Date().toISOString();
+        historyDetails = { bind_id_verified: true };
         result = {
           ...result,
-          bind_id: clean,
+          bind_id: member.user_id,
           message: 'NovelFlow ID bound successfully!',
         };
         break;
@@ -298,14 +362,29 @@ module.exports = async (req, res) => {
         if (!data.bind_id) {
           return res.status(400).json({ error: 'Bind your NovelFlow ID first', code: 'NO_BIND_ID' });
         }
+        let binding;
+        try {
+          binding = await resolveRewardVipBinding(redis, username, data.bind_id, 'exchange');
+        } catch (error) {
+          const status = error && error.code === 'NOVELFLOW_BINDING_CONFLICT' ? 409 : 503;
+          return res.status(status).json({ error: 'NovelFlow account verification is unavailable', code: error.code || 'NOVELFLOW_LOOKUP_FAILED' });
+        }
+        const exchangeSequence = Math.floor(Number(data.vip_exchange_sequence) || 0) + 1;
+        vipEntitlementEvent = buildVipEntitlement({
+          username, binding, source: 'points_exchange', sourceId: exchangeSequence,
+          days: VIP_DAYS_AWARDED, metadata: { points_cost: VIP_COST },
+        });
         data.points -= VIP_COST;
         data.vip_days += VIP_DAYS_AWARDED;
+        data.vip_exchange_sequence = exchangeSequence;
         result = {
           ...result,
           points_spent: VIP_COST,
           vip_days_awarded: VIP_DAYS_AWARDED,
           total_points: data.points,
           total_vip_days: data.vip_days,
+          fulfillment_status: vipEntitlementEvent.status,
+          vip_event_id: vipEntitlementEvent.event_id,
           message: `Exchanged ${VIP_COST} points for ${VIP_DAYS_AWARDED} VIP days!`,
         };
         break;
@@ -316,27 +395,86 @@ module.exports = async (req, res) => {
         if ((data.checkin.streak || 0) < STREAK_GRAND_REQUIRED) {
           return res.status(400).json({ error: `Need ${STREAK_GRAND_REQUIRED}-day streak`, code: 'STREAK_NOT_MET' });
         }
-        const myBooks = Array.isArray(data.myBooks) ? data.myBooks : [];
-        if (myBooks.length < 1) {
+        const verifiedPromotionCount = await loadVerifiedPromotionCount(redis, username);
+        if (verifiedPromotionCount < 1) {
           return res.status(400).json({ error: 'Create at least 1 book link first', code: 'NO_LINK' });
         }
         const claimedKeys = Object.keys(data.claimed || {});
         if (claimedKeys.length < 1) {
           return res.status(400).json({ error: 'Complete at least 1 mission first', code: 'NO_MISSION' });
         }
-        if (data.streak_grand_claimed) {
-          return res.status(400).json({ error: 'Already claimed grand prize', code: 'ALREADY_CLAIMED' });
+        const pendingVip = data.streak_grand_vip_pending && typeof data.streak_grand_vip_pending === 'object'
+          && !Array.isArray(data.streak_grand_vip_pending)
+          ? data.streak_grand_vip_pending : null;
+        if (pendingVip) {
+          result = {
+            ...result,
+            bonus_awarded: 0,
+            vip_days_awarded: 0,
+            vip_confirmation_required: true,
+            message: 'The $0.50 bonus was already credited. Confirm VIP delivery separately.',
+          };
+          break;
         }
+        const previousClaimedAt = Date.parse(data.streak_grand_claimed || '');
+        const nextAvailableAt = Number.isFinite(previousClaimedAt) ? previousClaimedAt + STREAK_GRAND_COOLDOWN_MS : 0;
+        if (nextAvailableAt > Date.now()) {
+          return res.status(400).json({
+            error: 'The 7-day prize can be claimed once every 7 days',
+            code: 'STREAK_GRAND_COOLDOWN',
+            available_at: new Date(nextAvailableAt).toISOString(),
+          });
+        }
+        const streakGrandSequence = Math.max(0, Number(data.streak_grand_sequence) || 0) + 1;
         data.bonus_balance = Math.round((data.bonus_balance + STREAK_GRAND_BONUS) * 100) / 100;
-        data.vip_days += STREAK_GRAND_VIP;
-        data.streak_grand_claimed = todayStr();
+        data.streak_grand_sequence = streakGrandSequence;
+        data.streak_grand_claimed = new Date().toISOString();
+        data.streak_grand_vip_pending = { sequence: streakGrandSequence, created_at: data.streak_grand_claimed };
         result = {
           ...result,
           bonus_awarded: STREAK_GRAND_BONUS,
+          vip_days_awarded: 0,
+          vip_confirmation_required: true,
+          total_bonus: data.bonus_balance,
+          total_vip_days: data.vip_days,
+          message: `7-day streak cash bonus claimed! +$${STREAK_GRAND_BONUS}. Confirm VIP delivery separately.`,
+        };
+        break;
+      }
+
+      // ========== CONFIRM 7-DAY VIP DELIVERY ==========
+      case 'confirm_streak_vip': {
+        const pendingVip = data.streak_grand_vip_pending && typeof data.streak_grand_vip_pending === 'object'
+          && !Array.isArray(data.streak_grand_vip_pending)
+          ? data.streak_grand_vip_pending : null;
+        if (!pendingVip || !Number.isSafeInteger(Number(pendingVip.sequence)) || Number(pendingVip.sequence) <= 0) {
+          return res.status(400).json({ error: 'No pending 7-day VIP reward', code: 'NO_PENDING_STREAK_VIP' });
+        }
+        if (!data.bind_id) return res.status(400).json({ error: 'Bind your verified NovelFlow ID first', code: 'NO_BIND_ID' });
+        let streakBinding;
+        try {
+          streakBinding = await resolveRewardVipBinding(redis, username, data.bind_id, 'streak');
+        } catch (error) {
+          const status = error && error.code === 'NOVELFLOW_BINDING_CONFLICT' ? 409 : 503;
+          return res.status(status).json({ error: 'NovelFlow account verification is unavailable', code: error.code || 'NOVELFLOW_LOOKUP_FAILED' });
+        }
+        const streakGrandSequence = Number(pendingVip.sequence);
+        vipEntitlementEvent = buildVipEntitlement({
+          username, binding: streakBinding, source: 'streak_grand', sourceId: streakGrandSequence,
+          days: STREAK_GRAND_VIP, metadata: { streak: STREAK_GRAND_REQUIRED },
+        });
+        data.vip_days += STREAK_GRAND_VIP;
+        delete data.streak_grand_vip_pending;
+        historyDetails = { streak_grand_vip_confirmed: true, vip_days_awarded: STREAK_GRAND_VIP };
+        result = {
+          ...result,
+          bonus_awarded: 0,
           vip_days_awarded: STREAK_GRAND_VIP,
           total_bonus: data.bonus_balance,
           total_vip_days: data.vip_days,
-          message: `7-day streak grand prize claimed! +$${STREAK_GRAND_BONUS} +${STREAK_GRAND_VIP} VIP days!`,
+          fulfillment_status: vipEntitlementEvent.status,
+          vip_event_id: vipEntitlementEvent.event_id,
+          message: `7-day VIP reward confirmed! +${STREAK_GRAND_VIP} VIP days.`,
         };
         break;
       }
@@ -347,28 +485,66 @@ module.exports = async (req, res) => {
 
     appendRewardHistory(data, action, before, historyDetails);
 
+    // Never serialize an anomalous numeric state. JSON.stringify(Infinity)
+    // becomes null, which would otherwise erase the evidence needed for
+    // wallet reconciliation.
+    normalizeUserData(data);
+
     // Include updated snapshot
     result.snapshot = {
       points: data.points,
       bonus_balance: data.bonus_balance,
+      reward_income_total: splitStoredBonus(data).reward_income_total,
       vip_days: data.vip_days,
       checkin: data.checkin,
       bind_id: data.bind_id || null,
       claimed: data.claimed,
       bonus_campaign1_claimed: data.bonus_campaign1_claimed || null,
       streak_grand_claimed: data.streak_grand_claimed || null,
+      streak_grand_vip_pending: data.streak_grand_vip_pending || null,
+      streak_grand_sequence: Number(data.streak_grand_sequence) || 0,
     };
 
-    await saveUserData(redis, username, data);
+    if (vipEntitlementEvent) {
+      await commitUserDataWithVipEntitlement(redis, {
+        userDataKey: `nf_user_data:${walletUsername}`,
+        userData: data,
+        event: vipEntitlementEvent,
+        lock,
+        additionalLocks: sourceGuard ? [sourceGuard] : [],
+      });
+    } else {
+      await saveUserData(redis, walletUsername, data, [lock, sourceGuard]);
+    }
     return res.status(200).json(result);
 
   } catch (error) {
-    console.error('[rewards] Error:', error);
+    console.error('[rewards] Error:', {
+      action,
+      username,
+      code: error && error.code || 'UNKNOWN',
+      message: error && error.message || 'Unknown reward error',
+      owners: Array.isArray(error && error.owners) ? error.owners : undefined,
+    });
     if (error?.code === 'USER_DATA_CORRUPT') {
       return res.status(503).json({ error: 'User data is temporarily unavailable', code: error.code });
     }
+    if (error?.code === 'REWARD_DATA_RECONCILIATION_REQUIRED') {
+      return res.status(409).json({
+        error: 'Reward data requires reconciliation before it can be changed',
+        code: error.code,
+        field: error.field || null,
+      });
+    }
+    if (error?.code === 'VIP_ENTITLEMENT_EXISTS') {
+      return res.status(409).json({ error: 'This VIP reward is already queued', code: error.code });
+    }
+    if (['INCOME_SOURCE_OWNER_UNVERIFIED', 'INCOME_SOURCE_OWNER_CONFLICT', 'INCOME_SOURCE_BUSY'].includes(error?.code)) {
+      return res.status(409).json({ error: error.message, code: error.code });
+    }
     return res.status(503).json({ error: 'Reward service temporarily unavailable', code: 'REWARD_STORAGE_UNAVAILABLE' });
   } finally {
+    await releaseUserDataLock(redis, sourceGuard);
     await releaseUserDataLock(redis, lock);
   }
 };

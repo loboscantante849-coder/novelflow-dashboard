@@ -18,8 +18,23 @@ const {
   buildAdIdLookup, aggregateSubmissionStats, zeroStats, r2,
 } = require('./_lib/stats-data');
 const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
+const { inspectApprovedSourceWalletOwner } = require('./_lib/income-source-owners');
+const { principalFromPayload } = require('./_lib/identity');
+const { resolveReadOnlyWalletStorageIdentity } = require('./_lib/wallet-identity');
 
 const IS_PROD = process.env.NODE_ENV === 'production';
+
+// A Discord session keeps the stable account handle in `username` while the
+// UI-facing `globalName` may contain spaces, punctuation, or a different
+// case.  The query parameter is therefore only an optional display-name
+// hint; the JWT handle remains the authoritative target for non-admin reads.
+function matchesAuthenticatedLabel(value, payload) {
+  const requested = String(value || '').trim().toLowerCase();
+  if (!requested) return true;
+  return [payload && payload.username, payload && payload.globalName, payload && payload.global_name]
+    .filter(Boolean)
+    .some(candidate => String(candidate).trim().toLowerCase() === requested);
+}
 
 module.exports = async (req, res) => {
   if (handlePreflight(req, res)) return;
@@ -35,7 +50,7 @@ module.exports = async (req, res) => {
   const redis = getRedis();
   if (!redis) return res.status(503).json({ error: 'Statistics temporarily unavailable', code: 'STORAGE_UNAVAILABLE' });
   try {
-    if (await isDisabledUser(redis, payload, { failClosed: true })) {
+    if (await isDisabledUser(redis, payload, { failClosed: true, allowSafeReadOnlyWalletConflict: true })) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
   } catch (_e) {
@@ -44,16 +59,16 @@ module.exports = async (req, res) => {
 
   const isAdmin = await isAdminUser(redis, jwtUsername);
 
-  // Determine target username: ?username= wins if admin, otherwise forced to JWT user
-  let requested = req.query.username || (req.body && req.body.username);
-  if (requested && String(requested).trim()) {
-    requested = String(requested).trim();
-    if (!isAdmin && requested.toLowerCase() !== String(jwtUsername).toLowerCase()) {
-      return res.status(403).json({ error: 'Forbidden: can only view your own stats', code: 'FORBIDDEN' });
-    }
-  } else {
-    requested = jwtUsername;
+  // Determine target username: admins may select a target; regular users are
+  // always scoped to the JWT account.  Accept an exact Discord display label
+  // for backwards-compatible clients, but never use it as the data key.
+  const requestedHint = req.query.username || (req.body && req.body.username);
+  if (!isAdmin && requestedHint && !matchesAuthenticatedLabel(requestedHint, payload)) {
+    return res.status(403).json({ error: 'Forbidden: can only view your own stats', code: 'FORBIDDEN' });
   }
+  const requested = isAdmin
+    ? (requestedHint && String(requestedHint).trim() ? String(requestedHint).trim() : jwtUsername)
+    : jwtUsername;
   const username = requested;
 
   const debugLog = [];
@@ -77,12 +92,49 @@ module.exports = async (req, res) => {
     const adData = await getAdIdDetails(IS_PROD ? [] : debugLog);
     let usernameCanon = null;
 
-    // 2. Load submissions from Redis
-    const submissions = redis ? await loadSubmissions(redis, username, isAdmin, IS_PROD ? [] : debugLog) : [];
+    if (!isAdmin && adData) {
+      usernameCanon = resolvePromoterKey(username, adData);
+      const walletIdentity = await resolveReadOnlyWalletStorageIdentity(redis, username, {
+        expectedPrincipal: isAdmin ? null : principalFromPayload(payload),
+      });
+      if (walletIdentity.conflict) {
+        return res.status(409).json({ error: 'Account identity recovery required', code: 'WALLET_IDENTITY_CONFLICT' });
+      }
+      if (adData.by_promoter?.[usernameCanon]) {
+        const ownership = await inspectApprovedSourceWalletOwner(
+          redis,
+          adData,
+          username,
+          walletIdentity.storageUsername,
+          null,
+          { allowEquivalentAliases: Boolean(walletIdentity.readOnlyLegacyConflict) },
+        );
+        if (!ownership.approved) {
+          return res.status(403).json({ error: 'Income source owner is not verified', code: 'INCOME_SOURCE_OWNER_UNVERIFIED' });
+        }
+        if (!ownership.unique) {
+          return res.status(409).json({
+            error: 'Income source ownership requires reconciliation',
+            code: 'INCOME_SOURCE_OWNER_CONFLICT',
+            wallet_count: ownership.owners.length,
+          });
+        }
+      }
+    }
 
-    // 3. Load covers
+    // 2. Load submissions from Redis
+    const submissions = redis ? await loadSubmissions(
+      redis,
+      username,
+      isAdmin,
+      IS_PROD ? [] : debugLog,
+      { expectedPrincipal: isAdmin ? null : principalFromPayload(payload) },
+    ) : [];
+
+    // Covers are loaded after attribution is resolved so legacy pipeline-only
+    // book IDs share the same bounded backfill budget as Redis submissions.
     const bookIds = submissions.map(s => s.bookId).filter(Boolean);
-    const covers = redis ? await loadCovers(redis, bookIds, IS_PROD ? [] : debugLog) : {};
+    let covers = {};
 
     // Helper to strip debug from response body
     const finalize = (obj) => {
@@ -95,12 +147,28 @@ module.exports = async (req, res) => {
 
     if (adData) {
       if (!isAdmin) {
-        const k = resolvePromoterKey(username, adData);
+        const k = usernameCanon;
         if (!IS_PROD) debugLog.push(`username "${username}" → canon="${k}"`);
         usernameCanon = k;
       }
       const { byAdId, promoterEntry, promoterEntries } =
         buildAdIdLookup(adData, usernameCanon, isAdmin, submissions);
+
+      // Some legacy pipeline rows predate nf_subs but still carry a trusted
+      // bookId. User profiles resolve every source with one shared external
+      // lookup budget; admin-wide views only read existing metadata/cache.
+      const attributedBookIds = isAdmin ? [] : Object.values(byAdId || {})
+        .map(entry => entry && entry.book_id)
+        .filter(Boolean);
+      if (bookIds.length || attributedBookIds.length) {
+        covers = await loadCovers(redis, [...bookIds, ...attributedBookIds], IS_PROD ? [] : debugLog, {
+          submissions,
+          backfill: !isAdmin,
+          maxLookups: 12,
+          concurrency: 3,
+          timeoutMs: 3000,
+        });
+      }
 
       if (isAdmin) {
         const books = [];
@@ -272,7 +340,7 @@ module.exports = async (req, res) => {
             linkId: isCode || isInvite ? null : adId,
             submittedAt: null,
             kocName: username,
-            cover: '',
+            cover: st.book_id ? (covers[st.book_id] || '') : '',
             visits: st.pull_uv || 0,
             unique_users: st.pull_uv || 0,
             new_users: st.new_uv || 0,
@@ -319,6 +387,15 @@ module.exports = async (req, res) => {
 
     // FALLBACK: legacy data.json
     if (!IS_PROD) debugLog.push('primary ad_id_details unavailable — using legacy data.json fallback');
+    // Legacy aggregates do not carry the trusted raw-owner registry. Only an
+    // admin may use them for operational recovery; ordinary accounts fail
+    // closed instead of being mapped to an unverified promoter source.
+    if (!isAdmin) {
+      return res.status(503).json({
+        error: 'Income source ownership is temporarily unavailable',
+        code: 'INCOME_SOURCE_OWNER_UNAVAILABLE',
+      });
+    }
     const dataJson = await getLegacyDataJson(IS_PROD ? [] : debugLog);
     if (!dataJson) throw new Error('No statistics data source is available');
     if (!isAdmin && !usernameCanon) usernameCanon = resolvePromoterKey(username, null);
@@ -339,7 +416,12 @@ module.exports = async (req, res) => {
       const books = [];
       const aggDaily = {};
       const covIds = matched.links.map(l => l.bookId).filter(Boolean);
-      const fallbackCovers = redis && covIds.length ? await loadCovers(redis, covIds, IS_PROD ? [] : debugLog) : {};
+      const fallbackCovers = redis && covIds.length ? await loadCovers(redis, covIds, IS_PROD ? [] : debugLog, {
+        backfill: true,
+        maxLookups: 12,
+        concurrency: 3,
+        timeoutMs: 3000,
+      }) : {};
       for (const l of matched.links) {
         const dn = r2(l.dn || l.d14_income || l.subscription_revenue || 0);
         if (l.unique_daily) for (const [dt, v] of Object.entries(l.unique_daily)) {

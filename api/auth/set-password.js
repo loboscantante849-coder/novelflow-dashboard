@@ -11,7 +11,12 @@ const { verifyAccessToken } = require('../_lib/jwt');
 const { Redis } = require('@upstash/redis');
 const { createPasswordHash, verifyPassword } = require('../_lib/password');
 const { checkRateLimit, getClientIp, isDisabledUser } = require('../_lib/security');
-const { bindPasswordPrincipal, principalFromPayload } = require('../_lib/identity');
+const {
+  bindPasswordPrincipal,
+  canonicalizeLocalPrincipal,
+  principalFromPayload,
+} = require('../_lib/identity');
+const { loadLocalLoginCredentials } = require('../_lib/login-identity');
 
 function getRedis() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -66,7 +71,13 @@ module.exports = async (req, res) => {
     const redis = getRedis();
     if (!redis) return res.status(503).json({ error: 'Storage not available' });
     try {
-      if (await isDisabledUser(redis, payload, { failClosed: true })) {
+      // Password changes do not mutate wallet balances. Permit the narrowly
+      // reviewed healthy Cons read-only duplicate while still blocking any
+      // disabled/merged wallet or owner mismatch.
+      if (await isDisabledUser(redis, payload, {
+        failClosed: true,
+        allowSafeReadOnlyWalletConflict: true,
+      })) {
         return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
       }
     } catch (_error) {
@@ -81,11 +92,32 @@ module.exports = async (req, res) => {
       return res.status(503).json({ error: 'Password service temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
     }
 
-    // Check if user already has a password
-    const storedHash = await redis.get('nf_user_pass:' + username);
+    // Check the canonical and explicitly reviewed historical credential keys.
+    // When a legacy alias is the only credential, update that same key instead
+    // of creating a second password record under the canonical username. This
+    // keeps subsequent alias logins deterministic while still failing closed
+    // when multiple credentials need manual reconciliation.
+    let credentials;
+    try {
+      credentials = await loadLocalLoginCredentials(redis, username);
+    } catch (_error) {
+      return res.status(503).json({
+        error: 'Account identity lookup is temporarily unavailable',
+        code: 'ACCOUNT_IDENTITY_UNAVAILABLE',
+      });
+    }
+    if (credentials.records.length > 1) {
+      return res.status(409).json({ error: 'Account credential recovery is required', code: 'ACCOUNT_CREDENTIAL_CONFLICT' });
+    }
+    const credentialStorageUsername = credentials.records[0]?.storageUsername || username;
+    const credentialUsername = credentialStorageUsername.toLowerCase();
+    const storedHash = credentials.records[0]?.hash || null;
     const principal = principalFromPayload(payload);
-    const passwordOwner = await redis.get('nf_user_pass_owner:' + username);
-    if (passwordOwner && String(passwordOwner) !== principal) {
+    const canonicalPrincipal = principal
+      ? canonicalizeLocalPrincipal(principal, credentialUsername)
+      : null;
+    const passwordOwner = await redis.get('nf_user_pass_owner:' + credentialUsername);
+    if (passwordOwner && canonicalizeLocalPrincipal(passwordOwner, credentialUsername) !== canonicalPrincipal) {
       return res.status(409).json({ error: 'Password belongs to another sign-in identity', code: 'ACCOUNT_IDENTITY_CONFLICT' });
     }
     if (storedHash && oldPassword) {
@@ -100,10 +132,10 @@ module.exports = async (req, res) => {
     }
 
     // Set new password
-    if (!principal || !await bindPasswordPrincipal(redis, username, principal)) {
+    if (!principal || !await bindPasswordPrincipal(redis, credentialUsername, principal)) {
       return res.status(409).json({ error: 'Account identity recovery required', code: 'ACCOUNT_IDENTITY_CONFLICT' });
     }
-    await redis.set('nf_user_pass:' + username, await createPasswordHash(password));
+    await redis.set('nf_user_pass:' + credentialStorageUsername, await createPasswordHash(password));
 
     return res.status(200).json({ success: true, message: 'Password set successfully' });
   } catch (error) {

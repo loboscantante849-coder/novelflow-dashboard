@@ -45,6 +45,7 @@ test('server reward snapshot overwrites stale browser values, including decrease
     novelflow_bind_id_zoe: 'stale-id',
     novelflow_bonus_campaign1_claimed_zoe: '1',
     novelflow_streak_grand_claimed_zoe: '2026-07-01',
+    novelflow_streak_grand_vip_pending_zoe: JSON.stringify({ sequence: 3 }),
   }, {
     points: 690,
     checkin: { streak: 0, lastCheckin: null, history: [] },
@@ -54,6 +55,7 @@ test('server reward snapshot overwrites stale browser values, including decrease
     bind_id: null,
     bonus_campaign1_claimed: null,
     streak_grand_claimed: null,
+    streak_grand_vip_pending: null,
   });
 
   assert.equal(values.get('novelflow_points_zoe'), '690');
@@ -64,6 +66,24 @@ test('server reward snapshot overwrites stale browser values, including decrease
   assert.equal(values.has('novelflow_bind_id_zoe'), false);
   assert.equal(values.has('novelflow_bonus_campaign1_claimed_zoe'), false);
   assert.equal(values.has('novelflow_streak_grand_claimed_zoe'), false);
+  assert.equal(values.has('novelflow_streak_grand_vip_pending_zoe'), false);
+});
+
+test('server reward snapshot persists a pending VIP delivery for the confirmation flow', () => {
+  const values = applySnapshot({}, {
+    points: 50,
+    checkin: { streak: 7, lastCheckin: '2026-09-01', history: [] },
+    claimed: { share1: 1 },
+    vip_days: 0,
+    bonus_balance: 0.5,
+    streak_grand_claimed: '2026-09-01T00:00:00.000Z',
+    streak_grand_vip_pending: { sequence: 1, created_at: '2026-09-01T00:00:00.000Z' },
+  });
+
+  assert.deepEqual(JSON.parse(values.get('novelflow_streak_grand_vip_pending_zoe')), {
+    sequence: 1,
+    created_at: '2026-09-01T00:00:00.000Z',
+  });
 });
 
 test('browser integrity code cannot clear server-managed reward state', () => {
@@ -73,6 +93,8 @@ test('browser integrity code cannot clear server-managed reward state', () => {
 
   const collectData = source.slice(source.indexOf('collectData() {'), source.indexOf('// Push local data to cloud'));
   assert.doesNotMatch(collectData, /claimed|points|checkin|vip_days|bonus_balance|bind_id/);
+  assert.doesNotMatch(source, /async function doCheckinV2\(\) \{\s*if \(isCheckedInToday\(\)\) return;/);
+  assert.match(source, /confirm_streak_vip/);
 });
 
 test('every successful login and session restore path enables authoritative cloud sync', () => {

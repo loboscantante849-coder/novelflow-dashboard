@@ -200,6 +200,10 @@
       "memory": 256,
       "maxDuration": 30
     },
+    "api/vip-fulfillment.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
     "api/withdrawals.js": {
       "memory": 256,
       "maxDuration": 30
@@ -211,6 +215,10 @@
   },
   "framework": null,
   "crons": [
+    {
+      "path": "/api/vip-fulfillment",
+      "schedule": "*/5 * * * *"
+    },
     {
       "path": "/api/trending-books?mode=refresh&limit=50",
       "schedule": "0 0 * * 1"

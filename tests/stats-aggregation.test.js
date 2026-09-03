@@ -6,9 +6,17 @@ const {
   buildAdIdLookup,
   buildLegacyAdIdLookup,
   markVerifiedAssets,
+  loadCovers,
   loadSubmissions,
   mergeSubmissionRecords,
 } = require('../api/_lib/stats-data');
+
+test('cover storage errors do not hide attribution statistics', async () => {
+  const debug = [];
+  const covers = await loadCovers({ async hget() { throw new Error('WRONGTYPE Operation against a key holding the wrong kind of value'); } }, ['book-1'], debug);
+  assert.deepEqual(covers, {});
+  assert.match(debug.join('\n'), /continuing without covers/);
+});
 
 test('keeps an invite code separate from the same numeric promotion code', () => {
   const lookup = buildAdIdLookup({

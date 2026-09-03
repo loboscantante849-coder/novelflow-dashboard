@@ -17,6 +17,10 @@ const {
 const { setCORSHeaders } = require('../_lib/cors');
 const { getRedis, isDisabledUser } = require('../_lib/security');
 const { resolveDiscordIdentity } = require('../_lib/identity');
+const { finalizePendingReferral, stageReferral } = require('../_lib/referrals');
+const { ensureMemberIdentity } = require('../_lib/member-identity');
+const { deliverSignupEvent, stageSignupEvent } = require('../_lib/signup-outbox');
+const { getLiveAdIdDetails } = require('../_lib/stats-data');
 const {
   OAUTH_STATE_COOKIE,
   clearOAuthStateCookie,
@@ -26,9 +30,18 @@ const {
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1504779503237333033';
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
+const REFERRAL_COOKIE = 'nf_referral_code';
 
 function getRedirectUri() {
   return process.env.DISCORD_REDIRECT_URI || 'https://novelflow.top/api/auth/callback';
+}
+
+function clearReferralCookie(res) {
+  const clearCookie = `${REFERRAL_COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/api/auth/callback; Max-Age=0`;
+  const existing = typeof res.getHeader === 'function' ? res.getHeader('Set-Cookie') : null;
+  if (Array.isArray(existing)) res.setHeader('Set-Cookie', [...existing, clearCookie]);
+  else if (existing) res.setHeader('Set-Cookie', [existing, clearCookie]);
+  else res.setHeader('Set-Cookie', clearCookie);
 }
 
 module.exports = async (req, res) => {
@@ -38,8 +51,10 @@ module.exports = async (req, res) => {
   var oauthError = req.query.error;
   var receivedState = req.query.state;
   var expectedState = readCookie(req, OAUTH_STATE_COOKIE);
+  var referralCode = readCookie(req, REFERRAL_COOKIE);
 
   clearOAuthStateCookie(res);
+  clearReferralCookie(res);
 
   if (!statesMatch(expectedState, receivedState)) {
     return res.redirect('/app-v2?auth=error');
@@ -95,7 +110,18 @@ module.exports = async (req, res) => {
     if (!redis) {
       return res.redirect('/app-v2?auth=error');
     }
-    var identity = await resolveDiscordIdentity(redis, userData.id, userData.username);
+    var mappingKey = `nf_discord_username:${String(userData.id || '').trim()}`;
+    var previousMapping = await redis.get(mappingKey);
+    var candidateUsername = String(previousMapping || userData.username || '').trim().toLowerCase();
+    var hadUserData = candidateUsername ? Boolean(await redis.get(`nf_user_data:${candidateUsername}`)) : false;
+    var runtimePromoterSnapshot = null;
+    if (!previousMapping) {
+      try { runtimePromoterSnapshot = await getLiveAdIdDetails(); } catch (_error) {}
+      if (!runtimePromoterSnapshot || !runtimePromoterSnapshot.by_promoter) {
+        return res.redirect('/app-v2?auth=error');
+      }
+    }
+    var identity = await resolveDiscordIdentity(redis, userData.id, userData.username, { adData: runtimePromoterSnapshot });
     if (!identity) {
       return res.redirect('/app-v2?auth=identity_conflict');
     }
@@ -111,6 +137,39 @@ module.exports = async (req, res) => {
       }
     } catch (_error) {
       return res.redirect('/app-v2?auth=error');
+    }
+
+    if (!previousMapping && !hadUserData && referralCode) {
+      try {
+        await stageReferral(redis, identity.username, referralCode);
+        await finalizePendingReferral(redis, identity.username);
+      } catch (error) {
+        console.warn('[auth/callback] Referral binding deferred:', error && error.code || error && error.message);
+      }
+    }
+    var isNewUser = !previousMapping && !hadUserData;
+    var member = null;
+    try {
+      member = await ensureMemberIdentity(redis, identity.username, {
+        source: 'discord',
+        createdAt: isNewUser ? new Date().toISOString() : null,
+      });
+    } catch (error) {
+      console.warn('[auth/callback] Member ID allocation deferred:', error && error.code || error && error.message);
+    }
+    if (isNewUser) {
+      try {
+        var signupEvent = await stageSignupEvent(redis, {
+          username: identity.username,
+          memberId: member && member.id || null,
+          referralCode: referralCode || '',
+          ip: req.headers && req.headers['x-forwarded-for'] || '',
+          userAgent: req.headers && req.headers['user-agent'] || '',
+        });
+        await deliverSignupEvent(redis, signupEvent);
+      } catch (error) {
+        console.warn('[auth/callback] Signup outbox deferred:', error && error.message);
+      }
     }
 
     var userPayload = buildUserPayload({
@@ -129,6 +188,7 @@ module.exports = async (req, res) => {
 
     setAuthCookies(res, accessToken, refreshToken, userInfo);
     clearOAuthStateCookie(res);
+    clearReferralCookie(res);
 
     return res.redirect('/app-v2?auth=success');
 

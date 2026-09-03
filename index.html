@@ -1736,6 +1736,19 @@
             text-align: center; padding: var(--sp-lg); color: var(--ink-mute);
             font-size: 12px;
         }
+        .stats-service-notice {
+            margin: 8px 0; padding: 9px 11px; border-radius: var(--r-sm);
+            background: #FFF7ED; color: #9A3412; font-size: 12px; line-height: 1.4;
+        }
+        .system-status-banner { display: none; margin: 8px auto; max-width: 680px; padding: 9px 12px; border-radius: 8px; background: #FEF3C7; color: #92400E; font-size: 12px; }
+        .system-status-banner.show { display: block; }
+        .qr-promo-card {
+            margin-top: 12px; padding: 12px; border: 1px solid var(--hairline);
+            border-radius: var(--r-md); background: linear-gradient(135deg,#FDF2F8,#F5F3FF);
+        }
+        .qr-promo-card p { margin: 5px 0 10px; color: var(--ink-mute); font-size: 12px; line-height: 1.45; }
+        .qr-promo-card button { width: 100%; padding: 10px; border: 0; border-radius: 8px; background: #312E81; color: white; font: inherit; font-weight: 600; cursor: pointer; }
+        .qr-promo-card button:disabled { opacity: .6; cursor: wait; }
 
 
         /* ========== Splash / Login Screen ========== */
@@ -2546,8 +2559,8 @@
         .earn-close { width: 30px; height: 30px; border-radius: 50%; border: none; background: var(--canvas-soft); color: var(--ink-mute); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
         .earn-close:hover { background: var(--hairline); color: var(--ink); }
         .earn-body { padding: 0; overflow-y: auto; flex: 1; }
-        .earn-stats { display: flex; gap: 8px; padding: 14px 16px 10px; background: linear-gradient(180deg, rgba(83,58,253,0.06) 0%, rgba(83,58,253,0) 100%); }
-        .earn-stat { flex: 1; background: var(--canvas); border: 1px solid var(--hairline); border-radius: 12px; padding: 10px 8px; text-align: center; position: relative; }
+        .earn-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 14px 16px 10px; background: linear-gradient(180deg, rgba(83,58,253,0.06) 0%, rgba(83,58,253,0) 100%); }
+        .earn-stat { flex: 1; min-width: 0; background: var(--canvas); border: 1px solid var(--hairline); border-radius: 12px; padding: 10px 8px; text-align: center; position: relative; }
         .earn-stat.primary { background: linear-gradient(135deg, #533afd 0%, #7b5cff 100%); border-color: transparent; color: #fff; }
         .earn-stat.primary .earn-stat-val { color: #fff; }
         .earn-stat.primary .earn-stat-label { color: rgba(255,255,255,0.85); }
@@ -2555,6 +2568,7 @@
         .earn-stat-label { font-size: 10px; color: var(--ink-mute); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 500; }
         .earn-stat-soon { position: absolute; top: 6px; right: 6px; font-size: 8px; background: rgba(0,0,0,0.06); color: var(--ink-mute); padding: 1px 5px; border-radius: 8px; font-weight: 600; }
         .earn-stat.primary .earn-stat-soon { background: rgba(255,255,255,0.2); color: rgba(255,255,255,0.9); }
+        .earn-stat-hint { font-size: 9px; color: var(--ink-mute); margin-top: 3px; line-height: 1.25; }
         #earnBonusBanner { margin: 0 16px 10px; padding: 10px 14px; background: linear-gradient(135deg,#FEF3C7,#FDE68A); border-radius: 12px; display: none; align-items: center; justify-content: space-between; color: #78350f; }
         .earn-bonus-left { display: flex; align-items: center; gap: 8px; }
         .earn-bonus-tag { font-size: 10px; color: #92400e; font-weight: 700; background: rgba(146,64,14,0.1); padding: 2px 6px; border-radius: 6px; letter-spacing: 0.3px; }
@@ -2701,6 +2715,7 @@
 
 <!-- VERSION: 20260518-204300 --></head>
 <body>
+    <div class="system-status-banner" id="systemStatusBanner" role="status"></div>
     <!-- Language Switch -->
     <div class="lang-switch" id="langSwitch">
         <button class="lang-switch-btn active" data-lang="en" onclick="switchLang('en')">EN</button>
@@ -3160,7 +3175,7 @@
                         </div>
                     </div>
                     <div class="bonus-mini-card" onclick="switchTab('profile')" style="cursor:pointer;">
-                        <div class="bonus-mini-label">🎁 Bonus Balance</div>
+                        <div class="bonus-mini-label">🎁 Lifetime Rewards</div>
                         <div class="bonus-mini-value" id="tasksBonusValue">$0.00</div>
                         <div style="font-size:9px;opacity:0.85;margin-top:2px;">Tap for details</div>
                     </div>
@@ -3256,9 +3271,9 @@
             <div class="bonus-profile-card" id="bonusProfileCard" style="display:none;">
                 <div class="bonus-profile-icon">🎁</div>
                 <div class="bonus-profile-text">
-                    <div class="bonus-profile-label">Bonus Balance (campaign & streak rewards)</div>
+                    <div class="bonus-profile-label">Lifetime Rewards (campaign & streak)</div>
                     <div class="bonus-profile-value" id="profileBonusValue">$0.00</div>
-                    <div class="bonus-profile-sub">Separate from CPS earnings — paid out via bonus channels</div>
+                    <div class="bonus-profile-sub">Cumulative rewards before withdrawals. See Earnings Center for available balance.</div>
                 </div>
             </div>
             <div id="statsLoadingArea"></div>
@@ -3398,6 +3413,11 @@
                 <div class="modal-recommend-label" data-i18n="share_this_text">📋 Share This Text</div>
                 <div class="modal-recommend-text" id="modalRecommendText"></div>
                 <button class="modal-copy-btn" style="width:100%; padding:10px; margin-top:4px;" onclick="copyModalResult('text')" data-i18n="copy_all_text">Copy All Text</button>
+                <div class="qr-promo-card">
+                    <strong>📱 QR promotion card</strong>
+                    <p>Download a shareable card with your book cover and a trackable QR code. QR scans are measured separately from visits and conversions.</p>
+                    <button type="button" data-nf-action="download-qr-card" id="downloadQrCardBtn">Create QR Card</button>
+                </div>
                 <button class="modal-reel-btn" id="modalCreateReelBtn" onclick="createReelFromModal()" style="width:100%;padding:12px;margin-top:8px;border:none;border-radius:10px;background:linear-gradient(135deg,#FF6B9D,#C084FC);color:white;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;" data-i18n="create_reels_book">🎬 Create Reels for This Book</button>
                 <button class="modal-done-btn" onclick="closeModal()" data-i18n="done_btn">Done</button>
             </div>
@@ -3689,6 +3709,9 @@
                 event.preventDefault();
                 event.stopPropagation();
                 downloadReelVideo(origin.dataset.videoUrl || '', origin.dataset.videoTitle || 'novelflow-reel');
+            } else if (action === 'download-qr-card') {
+                event.preventDefault();
+                downloadQrPromotionCard();
             } else if (action === 'copy-reel-text') {
                 event.preventDefault();
                 copyReelText(origin);
@@ -4878,11 +4901,17 @@
 
         // ========== V2 Check-in (Milestone Style) ==========
         async function doCheckinV2() {
-            if (isCheckedInToday()) return;
             const btn = document.getElementById('milestoneCheckinBtn');
+            if (!btn) return;
             btn.disabled = true;
             try {
                 const result = await RewardsAPI.call('checkin');
+                // The server is authoritative. A stale browser snapshot may
+                // report today's check-in even when the server has not seen it.
+                if (result && result.code === 'ALREADY_CHECKED_IN') {
+                    updateCheckinV2UI();
+                    return;
+                }
                 // Server already updated everything, snapshot applied
                 const btnText = btn.querySelector('.checkin-v2-btn-text');
                 const btnDone = btn.querySelector('.checkin-v2-btn-done');
@@ -5564,6 +5593,16 @@
         function hasStreakGrandClaimed() {
             return localStorage.getItem(getUserKey('streak_grand_claimed')) !== null;
         }
+        function getPendingStreakVip() {
+            try {
+                const value = JSON.parse(localStorage.getItem(getUserKey('streak_grand_vip_pending')) || 'null');
+                return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+            } catch (_error) { return null; }
+        }
+        function getBoundNovelFlowId() {
+            const value = localStorage.getItem(getUserKey('bind_id')) || '';
+            return /^[a-f0-9]{24}$/i.test(value) ? value : '';
+        }
 
         const CAMPAIGNS = [
             {
@@ -5650,15 +5689,24 @@
 
         async function claimStreakGrandPrize() {
             try {
-                const result = await RewardsAPI.call('claim_streak_grand');
+                const pending = getPendingStreakVip();
+                const result = pending
+                    ? await RewardsAPI.call('confirm_streak_vip')
+                    : await RewardsAPI.call('claim_streak_grand');
+                // A bound account can complete the two-step VIP delivery in
+                // the same user action. Unbound accounts keep the pending
+                // state and get an actionable confirmation button.
+                if (!pending && result.vip_confirmation_required && getBoundNovelFlowId()) {
+                    await RewardsAPI.call('confirm_streak_vip');
+                }
                 const overlay = document.createElement('div');
                 overlay.className = 'milestone-overlay';
                 overlay.onclick = () => overlay.remove();
                 overlay.innerHTML = '<div class="milestone-popup">' +
                     '<div class="milestone-popup-icon">👑</div>' +
-                    '<div class="milestone-popup-title">7-Day Streak Unlocked!</div>' +
-                    '<div class="milestone-popup-points" style="color:#FFD700;">+2 VIP days &nbsp; +$0.50</div>' +
-                    '<div class="milestone-popup-sub">VIP credited to your account within 24h · Bonus in Balance</div>' +
+                    '<div class="milestone-popup-title">7-Day Streak Reward Complete!</div>' +
+                    '<div class="milestone-popup-points" style="color:#FFD700;">' + (pending ? '+2 VIP days' : '+$0.50 bonus') + '</div>' +
+                    '<div class="milestone-popup-sub">' + (getPendingStreakVip() ? 'Bind your NovelFlow ID, then confirm the VIP delivery.' : 'VIP delivery has been queued safely.') + '</div>' +
                     '<button class="milestone-popup-btn" onclick="this.closest(\'.milestone-overlay\').remove()">Awesome</button>' +
                     '</div>';
                 document.body.appendChild(overlay);
@@ -5672,9 +5720,13 @@
             const hint = document.getElementById('streakGrandHint');
             if (!btn || !hint) return;
             if (hasStreakGrandClaimed()) {
-                btn.disabled = true;
-                btn.textContent = '✓ Grand Prize Claimed';
-                hint.textContent = 'Come back next streak cycle!';
+                const pending = getPendingStreakVip();
+                const bound = getBoundNovelFlowId();
+                btn.disabled = !pending || !bound;
+                btn.textContent = pending ? 'Confirm 2 VIP Days' : '✓ Grand Prize Claimed';
+                hint.textContent = pending
+                    ? (bound ? 'Confirm delivery to queue your VIP reward.' : 'Bind your NovelFlow ID to unlock VIP delivery.')
+                    : 'Come back next streak cycle!';
                 return;
             }
             const hasLink = AppState.myBooks && AppState.myBooks.length >= 1;
@@ -6089,6 +6141,114 @@
             else if (type === 'code') text = document.getElementById('modalResultCode').textContent;
             else if (type === 'text') text = document.getElementById('modalRecommendText').textContent;
             navigator.clipboard.writeText(text).then(() => showToast('Copied!', 'success')).catch(() => {});
+        }
+
+        function loadPromoImage(url) {
+            return new Promise((resolve, reject) => {
+                const image = new Image();
+                image.crossOrigin = 'anonymous';
+                image.onload = () => resolve(image);
+                image.onerror = reject;
+                image.src = url;
+            });
+        }
+
+        function drawRoundedRect(ctx, x, y, width, height, radius) {
+            const r = Math.min(radius, width / 2, height / 2);
+            ctx.beginPath(); ctx.roundRect(x, y, width, height, r); ctx.closePath(); ctx.fill();
+        }
+
+        function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+            const words = String(text || '').replace(/\s+/g, ' ').trim().split(' ');
+            let line = ''; let lineCount = 0;
+            for (const word of words) {
+                const next = line ? line + ' ' + word : word;
+                if (ctx.measureText(next).width > maxWidth && line) {
+                    ctx.fillText(line, x, y + lineCount * lineHeight); line = word; lineCount += 1;
+                    if (lineCount >= maxLines) return lineCount;
+                } else line = next;
+            }
+            if (line && lineCount < maxLines) { ctx.fillText(line, x, y + lineCount * lineHeight); lineCount += 1; }
+            return lineCount;
+        }
+
+        function getPromoExcerpt(book) {
+            const chapter = String(book?.promoExcerpt || book?.excerpt || '').replace(/\s+/g, ' ').trim();
+            if (chapter.length >= 80) return { label: 'FREE CHAPTER PREVIEW', text: chapter };
+            const description = String(book?.description || '').replace(/\s+/g, ' ').trim();
+            if (description.length >= 80) return { label: 'STORY PREVIEW', text: description };
+            return { label: 'START READING FREE', text: 'One choice can change everything. Step into the story and discover what happens next.' };
+        }
+
+        function drawStoryFrame(ctx, book, cover) {
+            const x = 48, y = 116, width = 984, height = 660;
+            const gradient = ctx.createLinearGradient(x, y, x + width, y + height);
+            gradient.addColorStop(0, '#14102F'); gradient.addColorStop(.48, '#4C1D95'); gradient.addColorStop(1, '#BE185D');
+            ctx.fillStyle = gradient; drawRoundedRect(ctx, x, y, width, height, 24);
+            if (cover) {
+                ctx.save(); ctx.beginPath(); ctx.roundRect(x, y, width, height, 24); ctx.clip();
+                const scale = Math.max(width / cover.width, height / cover.height);
+                const drawWidth = cover.width * scale, drawHeight = cover.height * scale;
+                ctx.drawImage(cover, x + (width - drawWidth) / 2, y + (height - drawHeight) / 2, drawWidth, drawHeight);
+                const shade = ctx.createLinearGradient(0, y, 0, y + height);
+                shade.addColorStop(0, 'rgba(13,8,30,.1)'); shade.addColorStop(.5, 'rgba(13,8,30,.38)'); shade.addColorStop(1, 'rgba(13,8,30,.92)');
+                ctx.fillStyle = shade; ctx.fillRect(x, y, width, height); ctx.restore();
+            } else {
+                ctx.fillStyle = 'rgba(253,230,138,.17)'; ctx.beginPath(); ctx.arc(840, 280, 180, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = 'rgba(244,114,182,.23)'; ctx.beginPath(); ctx.arc(160, 690, 210, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.font = '700 26px Inter, sans-serif'; ctx.fillText('A NOVELFLOW STORY', 98, 172);
+                ctx.fillStyle = '#FFFFFF'; ctx.font = '700 72px Georgia, serif'; drawWrappedText(ctx, book?.title || 'Featured story', 98, 305, 700, 84, 3);
+            }
+            ctx.fillStyle = 'rgba(255,255,255,.14)'; drawRoundedRect(ctx, 88, 440, 710, 250, 18);
+            const preview = getPromoExcerpt(book);
+            ctx.fillStyle = '#FDE68A'; ctx.font = '700 23px Inter, sans-serif'; ctx.fillText(preview.label, 118, 488);
+            ctx.fillStyle = '#FFFFFF'; ctx.font = 'italic 31px Georgia, serif';
+            drawWrappedText(ctx, '“' + preview.text + '”', 118, 542, 650, 42, 3);
+        }
+
+        async function downloadQrPromotionCard() {
+            const book = currentRecommendBook;
+            if (!book?.code) { showToast('Create your promotion link first.', 'error'); return; }
+            const button = document.getElementById('downloadQrCardBtn');
+            if (button) { button.disabled = true; button.textContent = 'Creating QR card…'; }
+            try {
+                const response = await authFetch('/api/qr-promotion', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: String(book.code) }), timeout: 15000,
+                });
+                const asset = await response.json().catch(() => ({}));
+                if (!response.ok || !asset.success || !asset.qrDataUrl) throw new Error(asset.error || 'QR card is temporarily unavailable');
+
+                const canvas = document.createElement('canvas'); canvas.width = 1080; canvas.height = 1350;
+                const ctx = canvas.getContext('2d');
+                const background = ctx.createLinearGradient(0, 0, 1080, 1350);
+                background.addColorStop(0, '#FDF6FF'); background.addColorStop(.55, '#FFF1F6'); background.addColorStop(1, '#EEF2FF');
+                ctx.fillStyle = background; ctx.fillRect(0, 0, 1080, 1350);
+                ctx.fillStyle = '#312E81'; ctx.font = '700 34px Inter, sans-serif'; ctx.fillText('NOVELFLOW · YOUR NEXT OBSESSION', 48, 72);
+                let cover = null;
+                try {
+                    const coverUrl = safeClientUrl(book.cover, { allowBlob: false });
+                    if (coverUrl) cover = await loadPromoImage(coverUrl);
+                } catch (_error) { /* the designed story frame is the visual fallback */ }
+                drawStoryFrame(ctx, book, cover);
+                ctx.fillStyle = '#111827'; ctx.font = '700 54px Inter, sans-serif';
+                const title = String(book.title || 'Featured story');
+                drawWrappedText(ctx, title, 56, 872, 580, 62, 2);
+                ctx.fillStyle = '#6B7280'; ctx.font = '700 20px Inter, sans-serif'; ctx.fillText('YOUR PROMOTION CODE', 56, 1065);
+                ctx.fillStyle = '#DB2777'; ctx.font = '700 76px Inter, sans-serif'; ctx.fillText(String(book.code), 56, 1143);
+                ctx.fillStyle = '#4B5563'; ctx.font = '400 25px Inter, sans-serif'; ctx.fillText('Open the story and enter this code to support me.', 56, 1192);
+                ctx.fillStyle = '#312E81'; ctx.font = '700 30px Inter, sans-serif'; ctx.fillText('SCAN TO READ FREE', 720, 848);
+                ctx.fillStyle = '#4B5563'; ctx.font = '400 21px Inter, sans-serif'; ctx.fillText('Your next chapter starts here', 737, 880);
+                const qr = await loadPromoImage(asset.qrDataUrl); ctx.fillStyle = '#FFFFFF'; drawRoundedRect(ctx, 690, 905, 326, 326, 12); ctx.drawImage(qr, 708, 923, 290, 290);
+                ctx.fillStyle = '#6B7280'; ctx.font = '400 20px Inter, sans-serif'; ctx.fillText('Scan count: ' + Number(asset.scans || 0), 766, 1262);
+                ctx.fillText('NovelFlow · Free reading', 56, 1306);
+                const download = document.createElement('a'); download.download = 'novelflow-' + String(book.code).replace(/[^A-Za-z0-9_-]/g, '') + '-qr-card.png'; download.href = canvas.toDataURL('image/png'); download.click();
+                showToast(asset.existing ? 'QR card downloaded. Scan count: ' + Number(asset.scans || 0) : 'QR card created and downloaded!', 'success');
+            } catch (error) {
+                showToast(error.message || 'Unable to create QR card', 'error');
+            } finally {
+                if (button) { button.disabled = false; button.textContent = 'Download QR Card'; }
+            }
         }
 
         async function confirmRecommend() {
@@ -6550,8 +6710,25 @@
             data: null,
             loading: false,
             loadingUser: null,
-            requestId: 0
+            requestId: 0,
+            stale: false
         };
+
+        const STATS_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+        function getStatsCacheKey() { return getUserKey('last_stats'); }
+        function saveLastStats(data) {
+            try { localStorage.setItem(getStatsCacheKey(), JSON.stringify({ savedAt: Date.now(), data })); } catch (_) {}
+        }
+        function getLastStats() {
+            try {
+                const cached = JSON.parse(localStorage.getItem(getStatsCacheKey()) || 'null');
+                return cached && cached.data && Date.now() - Number(cached.savedAt || 0) <= STATS_CACHE_MAX_AGE_MS ? cached : null;
+            } catch (_) { return null; }
+        }
+        function showStatsServiceNotice(message) {
+            const loadingArea = document.getElementById('statsLoadingArea');
+            if (loadingArea) loadingArea.innerHTML = '<div class="stats-service-notice">' + escapeHtml(message) + '</div>';
+        }
 
         function updateProfileMyBooksCount() {
             const countEl = document.getElementById('profileMyBooksCount');
@@ -6687,6 +6864,11 @@
                 localStorage.setItem(getUserKey('streak_grand_claimed'), String(cloud.streak_grand_claimed));
             } else {
                 localStorage.removeItem(getUserKey('streak_grand_claimed'));
+            }
+            if (cloud.streak_grand_vip_pending && typeof cloud.streak_grand_vip_pending === 'object' && !Array.isArray(cloud.streak_grand_vip_pending)) {
+                localStorage.setItem(getUserKey('streak_grand_vip_pending'), JSON.stringify(cloud.streak_grand_vip_pending));
+            } else {
+                localStorage.removeItem(getUserKey('streak_grand_vip_pending'));
             }
         }
 
@@ -6983,6 +7165,8 @@
                 // my-stats returns 'links' instead of 'books' — normalize for renderMyBooks
                 if (data.links && !data.books) data.books = data.links;
                 UserStats.data = data;
+                UserStats.stale = false;
+                saveLastStats(data);
                 
                 // Merge API books into AppState.myBooks (cloud-sourced)
                 if (data.books && data.books.length > 0) {
@@ -7039,13 +7223,20 @@
             } catch (error) {
                 if (!AuthSession.isCurrent(session) || requestId !== UserStats.requestId || isAbortError(error)) return false;
                 console.error('Error loading stats:', error);
-                UserStats.data = null;
-                // Show coming soon message
-                // Still show the overview panel with $0.00
-                const overview = document.getElementById('statsOverview');
-                if (overview) overview.style.display = 'grid';
-                const loadingArea = document.getElementById('statsLoadingArea');
-                if (loadingArea) loadingArea.innerHTML = '';
+                const cached = getLastStats();
+                if (cached?.data) {
+                    UserStats.data = cached.data;
+                    UserStats.stale = true;
+                    updateStatsOverview(cached.data);
+                    renderMyBooks();
+                    showStatsServiceNotice('Live statistics are temporarily unavailable. Showing your last saved results from ' + new Date(cached.savedAt).toLocaleString() + '.');
+                } else {
+                    UserStats.data = null;
+                    UserStats.stale = false;
+                    const overview = document.getElementById('statsOverview');
+                    if (overview) overview.style.display = 'none';
+                    showStatsServiceNotice('Live statistics are temporarily unavailable. Your promotion links and codes are unchanged; please retry shortly.');
+                }
                 return false;
             } finally {
                 if (AuthSession.isCurrent(session) && requestId === UserStats.requestId) {
@@ -7074,8 +7265,8 @@
             const lastUpdatedEl = document.getElementById('statsLastUpdated');
             const lastUpdatedTimeEl = document.getElementById('statsLastUpdatedTime');
             if (lastUpdatedEl && lastUpdatedTimeEl) {
-                const now = new Date();
-                lastUpdatedTimeEl.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+                const updated = new Date(data.last_updated || Date.now());
+                lastUpdatedTimeEl.textContent = updated.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
                 lastUpdatedEl.style.display = 'block';
             }
             
@@ -7104,6 +7295,22 @@
             setTimeout(() => {
                 if (btn) btn.disabled = false;
             }, 2000);
+        }
+
+        async function checkServiceStatus() {
+            const banner = document.getElementById('systemStatusBanner');
+            if (!banner) return;
+            try {
+                const response = await fetch('/api/health', { timeout: 7000 });
+                const status = await response.json().catch(() => null);
+                if (response.ok && status?.status === 'operational') {
+                    banner.classList.remove('show');
+                    banner.textContent = '';
+                    return;
+                }
+            } catch (_error) { /* a failed health request is shown as degraded below */ }
+            banner.textContent = 'Some NovelFlow services are temporarily unavailable. Your saved promotion links and codes remain valid; please retry in a few minutes.';
+            banner.classList.add('show');
         }
 
         // Escape HTML to prevent XSS
@@ -7492,7 +7699,7 @@ function renderMyBooks() {
             AuthSession.transition('');
             try {
                 await fetch('/api/auth/logout', {
-                    method: 'GET',
+                    method: 'POST',
                     credentials: 'include'
                 });
             } catch (e) {
@@ -7558,9 +7765,21 @@ function renderMyBooks() {
                     const seEl = document.getElementById('splashError'); if (seEl) seEl.textContent = result.error || 'Login failed';
                     return;
                 }
+
+                const verified = await fetch('/api/auth/me', { credentials: 'include' });
+                const sessionState = await verified.json().catch(() => ({}));
+                if (!verified.ok || !sessionState.loggedIn) {
+                    const seEl = document.getElementById('splashError');
+                    if (seEl) {
+                        seEl.textContent = sessionState.code === 'ACCOUNT_IDENTITY_CONFLICT'
+                            ? 'This account needs an identity recovery. Please do not create another account; send support your username: ' + username + ' (ACCOUNT_IDENTITY_CONFLICT).'
+                            : (sessionState.error || 'Your login could not be verified. Please try again.');
+                    }
+                    return;
+                }
                 
                 // Success
-                const authenticatedUsername = result.username || username;
+                const authenticatedUsername = sessionState.username || result.username || username;
                 setAuthenticatedUser({ username: authenticatedUsername, accountType: 'local' });
                 localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
                 localStorage.setItem('novelflow_last_user', authenticatedUsername);
@@ -8316,6 +8535,8 @@ function renderMyBooks() {
             AppState.myBooks = [];
             loadBooks(); checkLocalLogin(); renderMyBooks(); updateCheckinUI(); updateStats(); checkLoginStatus(); updateMissionsUI(); updatePointsDisplay(); if (typeof renderCampaigns === "function") renderCampaigns(); if (typeof updateBonusUI === "function") updateBonusUI(); if (typeof updateStreakGrandBtn === "function") updateStreakGrandBtn();
             if (typeof loadPerformanceDashboard === 'function') setTimeout(() => { loadPerformanceDashboard(); if (typeof initChartTooltip === 'function') setTimeout(initChartTooltip, 200); }, 1000);
+            checkServiceStatus();
+            setInterval(checkServiceStatus, 5 * 60 * 1000);
             document.getElementById('recommendModal').addEventListener('click', e => {
                 if (e.target.classList.contains('modal-overlay')) closeModal();
             });
@@ -9446,24 +9667,32 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
       <div class="earn-stats">
         <div class="earn-stat primary">
           <div class="earn-stat-val" id="earnAvailVal">$0.00</div>
-          <div class="earn-stat-label">Available Balance</div>
+          <div class="earn-stat-label">Available to Withdraw</div>
+          <div class="earn-stat-hint">after paid + pending</div>
         </div>
         <div class="earn-stat">
           <div class="earn-stat-val" id="earnTotalVal">$0.00</div>
-          <div class="earn-stat-label">Total Earned</div>
+          <div class="earn-stat-label">Promotion Earnings</div>
+          <div class="earn-stat-hint">CPS income only</div>
+        </div>
+        <div class="earn-stat">
+          <div class="earn-stat-val" id="earnWithdrawnVal">$0.00</div>
+          <div class="earn-stat-label">Already Withdrawn</div>
+          <div class="earn-stat-hint">approved payouts</div>
         </div>
         <div class="earn-stat">
           <span class="earn-stat-soon">Soon</span>
           <div class="earn-stat-val" id="earnPendingVal">$0.00</div>
-          <div class="earn-stat-label">Pending Settlement</div>
+          <div class="earn-stat-label">Pending Withdrawal</div>
+          <div class="earn-stat-hint">held for review</div>
         </div>
       </div>
       <div id="earnBonusBanner">
         <div class="earn-bonus-left">
           <span style="font-size:20px;">🎁</span>
           <div>
-            <div class="earn-bonus-tag">PLATFORM BONUS</div>
-            <div class="earn-bonus-sub">Promotional reward, withdrawable</div>
+            <div class="earn-bonus-tag">LIFETIME REWARDS</div>
+            <div class="earn-bonus-sub">Campaign and streak rewards; withdrawals are shown separately</div>
           </div>
         </div>
         <div class="earn-bonus-val" id="earnBonusVal">$0.00</div>
@@ -9548,7 +9777,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
     clearWithdrawalIdempotencyKey();
     const card = $('earnCardBalance');
     if (card) card.textContent = '$0.00 available';
-    ['earnAvailVal', 'earnTotalVal', 'earnPendingVal', 'earnBonusVal'].forEach(id => {
+    ['earnAvailVal', 'earnTotalVal', 'earnWithdrawnVal', 'earnPendingVal', 'earnBonusVal'].forEach(id => {
       const element = $(id);
       if (element) element.textContent = '$0.00';
     });
@@ -9610,12 +9839,14 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
   }
 
   function renderEarnings(data) {
-    const avail = Number(data.available_balance)||0;
-    const total = Number(data.total_earned)||0;
-    const pend  = Number(data.pending_settlement)||0;
-    const bonus = Number(data.bonus_balance)||0;
+    const avail = Number(data.withdrawable_balance ?? data.available_balance)||0;
+    const promotionIncome = Number(data.promotion_income_total ?? data.total_dn_income)||0;
+    const withdrawn = Number(data.withdrawn_total ?? data.approved_total)||0;
+    const pend  = Number(data.pending_withdrawal_total ?? data.pending_settlement)||0;
+    const bonus = Number(data.reward_income_total ?? data.bonus_balance)||0;
     if ($('earnAvailVal')) $('earnAvailVal').textContent = fmt$(avail);
-    if ($('earnTotalVal')) $('earnTotalVal').textContent = fmt$(total);
+    if ($('earnTotalVal')) $('earnTotalVal').textContent = fmt$(promotionIncome);
+    if ($('earnWithdrawnVal')) $('earnWithdrawnVal').textContent = fmt$(withdrawn);
     if ($('earnPendingVal')) $('earnPendingVal').textContent = fmt$(pend);
     const bb = $('earnBonusBanner');
     if (bb) bb.style.display = bonus > 0 ? 'flex' : 'none';
