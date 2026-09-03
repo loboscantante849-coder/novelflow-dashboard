@@ -5929,6 +5929,13 @@
                 if (!getBoundNovelFlowId()) showNovelFlowBindingGuide();
                 else showMilestoneCelebration(streak, result.points_awarded || 5);
             } catch (e) {
+                // A successful server mutation may still be followed by a
+                // non-critical UI refresh error. If today's state is present,
+                // keep the confirmed check-in and suppress a false red toast.
+                if (isCheckedInToday()) {
+                    updateCheckinV2UI();
+                    return;
+                }
                 showToast(localizedRewardError(e, 'reward_checkin_failed'), 'error');
                 btn.disabled = false;
             }
