@@ -88,15 +88,18 @@ module.exports = async (req, res) => {
     let usernameCanon = null;
 
     const adData = await getAdIdDetails(debugLog);
+    let walletReadConflict = false;
     if (!admin) {
       usernameCanon = resolvePromoterKey(username, adData);
       const walletIdentity = await resolveReadOnlyWalletStorageIdentity(redis, username, {
         expectedPrincipal: admin ? null : principalFromPayload(payload),
       });
       if (walletIdentity.conflict) {
-        return res.status(409).json({ error: 'Account identity recovery required', code: 'WALLET_IDENTITY_CONFLICT' });
+        // Read-only stats remain available for legacy duplicate wallets. Do
+        // not hydrate unsubmitted/orphan pipeline assets while conflicted.
+        walletReadConflict = true;
       }
-      if (adData?.by_promoter?.[usernameCanon]) {
+      if (!walletReadConflict && adData?.by_promoter?.[usernameCanon]) {
       const ownership = await inspectApprovedSourceWalletOwner(
         redis,
         adData,
@@ -109,11 +112,7 @@ module.exports = async (req, res) => {
           return res.status(403).json({ error: 'Income source owner is not verified', code: 'INCOME_SOURCE_OWNER_UNVERIFIED' });
         }
         if (!ownership.unique) {
-          return res.status(409).json({
-            error: 'Income source ownership requires reconciliation',
-            code: 'INCOME_SOURCE_OWNER_CONFLICT',
-            wallet_count: ownership.owners.length,
-          });
+          walletReadConflict = true;
         }
       }
       debugLog.push(`username "${username}" → canon="${usernameCanon}"`);
@@ -123,7 +122,7 @@ module.exports = async (req, res) => {
       username,
       admin,
       debugLog,
-      { expectedPrincipal: admin ? null : principalFromPayload(payload) },
+      { expectedPrincipal: admin ? null : principalFromPayload(payload), allowWalletIdentityConflict: !admin },
     ) : [];
     const bookIds = submissions.map(s => s.bookId).filter(Boolean);
     const covers = redis ? await loadCovers(redis, bookIds, debugLog) : {};
@@ -245,7 +244,7 @@ module.exports = async (req, res) => {
         if (!adData || !adData.by_promoter || admin) return null;
         return adData.by_promoter[usernameCanon] || null;
       })();
-      if (promoterEntry) {
+      if (promoterEntry && !walletReadConflict) {
         const knownAdIds = new Set(seenAdIds);
         for (const l of links) {
           if (l.linkId) knownAdIds.add(String(l.linkId));

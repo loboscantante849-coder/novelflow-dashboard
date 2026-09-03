@@ -473,9 +473,13 @@ async function loadSubmissions(redis, username, admin, debugLog, options = {}) {
   if (!admin) {
     try {
       const identity = await resolveReadOnlyWalletStorageIdentity(redis, walletUsername, options);
-      if (identity.conflict) throw walletIdentityConflict(identity);
-      const walletKey = `nf_user_data:${identity.storageUsername}`;
-      const kvData = await redis.get(walletKey);
+      if (identity.conflict && !options.allowWalletIdentityConflict) throw walletIdentityConflict(identity);
+      // In a read-only stats request, an ambiguous legacy wallet must not make
+      // the whole dashboard unavailable. nf_subs above is already owner-
+      // filtered; skip the ambiguous convenience cache instead of selecting
+      // one wallet and risking cross-account data.
+      const walletKey = identity.conflict ? null : `nf_user_data:${identity.storageUsername}`;
+      const kvData = walletKey ? await redis.get(walletKey) : null;
       const walletRecord = kvData && typeof kvData === 'string' ? JSON.parse(kvData) : kvData;
       if (walletRecord && walletRecord.wallet_merged_into) {
         const error = new Error('Wallet merged into a primary account');
@@ -501,7 +505,9 @@ async function loadSubmissions(redis, username, admin, debugLog, options = {}) {
             submittedAt: book.submittedAt || (book.createdAt ? new Date(book.createdAt).toISOString() : null)
           }, []));
         }
-        if (myBooks.length) debugLog?.push(`loaded ${myBooks.length} books from ${walletKey}`);
+      if (myBooks.length) debugLog?.push(`loaded ${myBooks.length} books from ${walletKey}`);
+      } else if (identity.conflict) {
+        debugLog?.push('wallet identity conflict: skipped ambiguous myBooks cache');
       }
     } catch (e) {
       const error = new Error(`User cloud data unavailable: ${e.message}`);

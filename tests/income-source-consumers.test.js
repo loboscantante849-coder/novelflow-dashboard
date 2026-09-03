@@ -175,7 +175,7 @@ test('stats consumers still reject a display-name hint belonging to another acco
   assert.equal(perLinkResponse.body.total_visits, 4);
 });
 
-test('stats consumers reject multiple approved wallets for one source', async () => {
+test('stats consumers stay available with duplicate wallets without borrowing orphan assets', async () => {
   currentAdData.ad_ids['trusted-alias'] = {
     username: '@Foo.Bar',
     username_canon: 'foo_bar',
@@ -187,10 +187,10 @@ test('stats consumers reject multiple approved wallets for one source', async ()
     invoke(myStats, { method: 'GET', headers, query: {} }),
     invoke(perLinkStats, { method: 'GET', headers, query: {} }),
   ]);
-  assert.equal(summary.statusCode, 409);
-  assert.equal(summary.body.code, 'INCOME_SOURCE_OWNER_CONFLICT');
-  assert.equal(links.statusCode, 409);
-  assert.equal(links.body.code, 'INCOME_SOURCE_OWNER_CONFLICT');
+  assert.equal(summary.statusCode, 200);
+  assert.equal(summary.body.total_income, 0);
+  assert.equal(links.statusCode, 200);
+  assert.equal(links.body.total_income, 0);
 });
 
 test('ordinary stats fail closed instead of using legacy income without the owner snapshot', async () => {

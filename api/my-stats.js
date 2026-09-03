@@ -91,6 +91,7 @@ module.exports = async (req, res) => {
     // 1. Fetch primary data
     const adData = await getAdIdDetails(IS_PROD ? [] : debugLog);
     let usernameCanon = null;
+    let walletReadConflict = false;
 
     if (!isAdmin && adData) {
       usernameCanon = resolvePromoterKey(username, adData);
@@ -98,9 +99,12 @@ module.exports = async (req, res) => {
         expectedPrincipal: isAdmin ? null : principalFromPayload(payload),
       });
       if (walletIdentity.conflict) {
-        return res.status(409).json({ error: 'Account identity recovery required', code: 'WALLET_IDENTITY_CONFLICT' });
+        // Statistics are read-only. Keep the request usable for legacy
+        // duplicate wallets, but disable orphan-source hydration below so a
+        // conflicting wallet can never borrow another wallet's pipeline rows.
+        walletReadConflict = true;
       }
-      if (adData.by_promoter?.[usernameCanon]) {
+      if (!walletReadConflict && adData.by_promoter?.[usernameCanon]) {
         const ownership = await inspectApprovedSourceWalletOwner(
           redis,
           adData,
@@ -113,11 +117,7 @@ module.exports = async (req, res) => {
           return res.status(403).json({ error: 'Income source owner is not verified', code: 'INCOME_SOURCE_OWNER_UNVERIFIED' });
         }
         if (!ownership.unique) {
-          return res.status(409).json({
-            error: 'Income source ownership requires reconciliation',
-            code: 'INCOME_SOURCE_OWNER_CONFLICT',
-            wallet_count: ownership.owners.length,
-          });
+          walletReadConflict = true;
         }
       }
     }
@@ -128,7 +128,7 @@ module.exports = async (req, res) => {
       username,
       isAdmin,
       IS_PROD ? [] : debugLog,
-      { expectedPrincipal: isAdmin ? null : principalFromPayload(payload) },
+      { expectedPrincipal: isAdmin ? null : principalFromPayload(payload), allowWalletIdentityConflict: !isAdmin },
     ) : [];
 
     // Covers are loaded after attribution is resolved so legacy pipeline-only
@@ -300,7 +300,7 @@ module.exports = async (req, res) => {
         });
       }
 
-      if (promoterEntry) {
+      if (promoterEntry && !walletReadConflict) {
         const knownAdIds = new Set(seenAdIds);
         for (const b of books) {
           if (b.linkId) knownAdIds.add(String(b.linkId));
