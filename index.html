@@ -6116,7 +6116,7 @@
                         if (!resp.ok) {
                             if (data.code === 'ALREADY_CHECKED_IN' || data.code === 'ALREADY_CLAIMED') {
                                 // Idempotent - treat as success, refresh from server.
-                                await CloudSync.pull();
+                                try { await CloudSync.pull(); } catch (_) {}
                                 return data;
                             }
                             if (data.code === 'USER_DATA_BUSY' && attempt < busyRetryDelays.length) {
@@ -6131,14 +6131,14 @@
                         // Apply the server snapshot only after one confirmed mutation.
                         if (data.snapshot) {
                             const s = data.snapshot;
-                            applyServerRewardState(s);
-                            if (typeof loadCheckinData === 'function') loadCheckinData();
-                            if (typeof updatePointsDisplay === 'function') updatePointsDisplay();
-                            if (typeof updateStats === 'function') updateStats();
-                            if (typeof updateBonusUI === 'function') updateBonusUI();
-                            if (typeof updateStreakGrandBtn === 'function') updateStreakGrandBtn();
-                            if (typeof renderMilestoneTrack === 'function') renderMilestoneTrack();
-                            if (typeof updateMissionsUI === 'function') updateMissionsUI();
+                            // A successful reward mutation must never be shown
+                            // as a failure because an optional UI refresh failed.
+                            try { applyServerRewardState(s); } catch (_) {}
+                            const refreshers = [loadCheckinData, updatePointsDisplay, updateStats, updateBonusUI, updateStreakGrandBtn, renderMilestoneTrack, updateMissionsUI];
+                            for (const refresh of refreshers) {
+                                if (typeof refresh !== 'function') continue;
+                                try { refresh(); } catch (_) {}
+                            }
                         }
                         return data;
                     }
