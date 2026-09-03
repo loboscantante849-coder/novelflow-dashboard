@@ -10015,8 +10015,10 @@ function renderMyBooks() {
             } catch (e) {
                 if (!AuthSession.isCurrent(session) || requestId !== _perfRequestId || isAbortError(e)) return;
                 console.warn('Perf dashboard load failed:', e.message);
-                if (perfErrorText) perfErrorText.textContent = getText('perf_unavailable');
-                if (perfError) perfError.classList.add('visible');
+                // Keep the dashboard usable during transient failures. Existing
+                // values remain visible and the normal refresh control can
+                // retry; do not replace the page with an alarming error banner.
+                if (perfError) perfError.classList.remove('visible');
                 if (!_lastPerfData && perfData) {
                     const dailySection = perfData.querySelector('.daily-books-section');
                     if (dailySection) dailySection.style.display = 'none';

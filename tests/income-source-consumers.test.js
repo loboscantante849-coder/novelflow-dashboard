@@ -193,6 +193,19 @@ test('stats consumers stay available with duplicate wallets without borrowing or
   assert.equal(links.body.total_income, 0);
 });
 
+test('unverified legacy wallet stats degrade to account-owned assets instead of 403', async () => {
+  FakeRedis.reset({ 'nf_user_data:@foo.bar': JSON.stringify({}) });
+  const headers = authHeaders('@foo.bar');
+  const [summary, links] = await Promise.all([
+    invoke(myStats, { method: 'GET', headers, query: {} }),
+    invoke(perLinkStats, { method: 'GET', headers, query: {} }),
+  ]);
+  assert.equal(summary.statusCode, 200);
+  assert.equal(links.statusCode, 200);
+  assert.equal(summary.body.total_income, 0);
+  assert.equal(links.body.total_income, 0);
+});
+
 test('ordinary stats fail closed instead of using legacy income without the owner snapshot', async () => {
   currentAdData = null;
   FakeRedis.reset({ 'nf_user_data:foo_bar': JSON.stringify({}) });

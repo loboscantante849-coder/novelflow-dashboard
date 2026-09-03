@@ -69,6 +69,7 @@ test('performance errors keep the dashboard surface visible', () => {
   assert.match(source, /failure must not make the entire performance surface disappear/);
   assert.match(source, /if \(!_lastPerfData && perfData\)[\s\S]*dailySection\.style\.display = 'none'/);
   assert.doesNotMatch(source, /if \(!_lastPerfData && perfData\) \{\s*perfData\.querySelectorAll/);
+  assert.doesNotMatch(source, /perfError\.classList\.add\('visible'\)/);
 });
 
 test('new member-facing labels include English and Spanish translations', () => {

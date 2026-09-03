@@ -109,7 +109,7 @@ module.exports = async (req, res) => {
         { allowEquivalentAliases: Boolean(walletIdentity.readOnlyLegacyConflict) },
       );
         if (!ownership.approved) {
-          return res.status(403).json({ error: 'Income source owner is not verified', code: 'INCOME_SOURCE_OWNER_UNVERIFIED' });
+          walletReadConflict = true;
         }
         if (!ownership.unique) {
           walletReadConflict = true;
