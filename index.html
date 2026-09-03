@@ -5899,6 +5899,11 @@
         }
 
         // ========== V2 Check-in (Milestone Style) ==========
+        function getBoundNovelFlowId() {
+            const value = localStorage.getItem(getUserKey('bind_id')) || '';
+            return /^[a-f0-9]{24}$/i.test(value) ? value : '';
+        }
+
         function showNovelFlowBindingGuide() {
             const row = document.getElementById('bindIdRow');
             if (row) { row.style.display = 'block'; row.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
