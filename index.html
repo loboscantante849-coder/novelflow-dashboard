@@ -3452,6 +3452,7 @@
                 <!-- Bind ID (collapsed - kept functional but visually slim) -->
                 <div id="bindIdRow" style="display:none;margin-top:10px;background:var(--canvas-soft);border-radius:10px;padding:10px;">
                     <div style="font-size:11px;font-weight:600;color:var(--ink);margin-bottom:6px;" data-i18n="bind_id_required">🔗 Bind NovelFlow ID (required for VIP rewards)</div>
+                    <div style="font-size:11px;line-height:1.45;color:var(--ink-mute);margin-bottom:8px;">Open your NovelFlow profile, copy your 24-character App User ID, paste it below, then tap Bind. It is used only to deliver rewards.</div>
                     <div style="display:flex;gap:6px;">
                         <input type="text" id="novelflowIdInput" maxlength="24" pattern="[A-Fa-f0-9]{24}" autocomplete="off" autocapitalize="none" spellcheck="false" data-i18n-placeholder="app_user_id_placeholder" placeholder="24-character App User ID" style="flex:1;padding:7px 10px;border:1px solid var(--hairline);border-radius:8px;font-size:12px;font-family:inherit;">
                         <button onclick="submitBindId()" data-i18n="bind_btn" style="padding:7px 12px;background:var(--ruby);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Bind</button>
@@ -5898,6 +5899,20 @@
         }
 
         // ========== V2 Check-in (Milestone Style) ==========
+        function showNovelFlowBindingGuide() {
+            const row = document.getElementById('bindIdRow');
+            if (row) { row.style.display = 'block'; row.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+            if (document.querySelector('.novelflow-binding-guide')) return;
+            const overlay = document.createElement('div');
+            overlay.className = 'milestone-overlay novelflow-binding-guide';
+            overlay.onclick = event => { if (event.target === overlay) overlay.remove(); };
+            overlay.innerHTML = '<div class="milestone-popup"><div class="milestone-popup-icon">🔗</div>' +
+                '<div class="milestone-popup-title">Bind your NovelFlow ID</div>' +
+                '<div class="milestone-popup-sub" style="text-align:left;line-height:1.6;">1. Open your NovelFlow profile.<br>2. Copy your 24-character App User ID.<br>3. Paste it in the binding box and tap <b>Bind</b>.<br><br>After verification, your 7-day reward can be delivered.</div>' +
+                '<button class="milestone-popup-btn" onclick="this.closest(\'.milestone-overlay\').remove();document.getElementById(\'novelflowIdInput\')?.focus();">Got it</button></div>';
+            document.body.appendChild(overlay);
+        }
+
         async function doCheckinV2() {
             if (isCheckedInToday()) return;
             const btn = document.getElementById('milestoneCheckinBtn');
@@ -5910,7 +5925,9 @@
                 if (btn) btn.classList.add('done');
                 if (btnText) btnText.style.display = 'none';
                 if (btnDone) btnDone.style.display = 'inline';
-                showMilestoneCelebration(result.streak || 1, result.points_awarded || 5);
+                const streak = result.streak || 1;
+                if (streak >= 7 && !getBoundNovelFlowId()) showNovelFlowBindingGuide();
+                showMilestoneCelebration(streak, result.points_awarded || 5);
             } catch (e) {
                 showToast(localizedRewardError(e, 'reward_checkin_failed'), 'error');
                 btn.disabled = false;
@@ -7091,6 +7108,7 @@
                     '</div>';
                 document.body.appendChild(overlay);
             } catch (e) {
+                if (e && ['NO_BIND_ID', 'NO_NEW_USER'].includes(e.code)) showNovelFlowBindingGuide();
                 showToast(localizedRewardError(e, 'reward_service_unavailable'), 'error');
             }
         }
@@ -7117,9 +7135,9 @@
             if (CheckinData.streak >= 7) {
                 btn.disabled = false;
                 btn.textContent = getText('streak_claim_cash');
-                hint.textContent = hasLink && hasTask
+                hint.textContent = hasLink && hasTask && bindId
                     ? getText('streak_ready')
-                    : getText('streak_verify_hint');
+                    : (bindId ? getText('streak_verify_hint') : 'Bind your NovelFlow ID and invite 1 new reader before claiming.');
             } else {
                 btn.disabled = true;
                 if (CheckinData.streak < 7) {

@@ -22,6 +22,7 @@ const { commitUserDataUnderLock, releaseUserDataLock } = require('./_lib/user-da
 const { normalizeRedisKeys } = require('./_lib/redis-values');
 const { isSafeMoneyValue, splitStoredBonus } = require('./_lib/commission-policy');
 const { resolveNovelFlowMember } = require('./_lib/novelflow-member');
+const { getAdIdDetails, buildAdIdLookup, submissionAssetIds } = require('./_lib/stats-data');
 const { acquireWalletCreationSourceGuard } = require('./_lib/income-source-owners');
 const { localLoginCredentialCandidates } = require('./_lib/login-identity');
 const {
@@ -189,6 +190,30 @@ async function loadVerifiedPromotionCount(redis, username) {
     if (identity) books.add(identity);
   }
   return books.size;
+}
+
+async function loadVerifiedPromotionEligibility(redis, username) {
+  const assetCount = await loadVerifiedPromotionCount(redis, username);
+  if (!assetCount) return { assetCount: 0, newUsers: 0 };
+  const adData = await getAdIdDetails();
+  if (!adData) return { assetCount, newUsers: 0 };
+  const identity = localLoginCredentialCandidates(username);
+  const candidates = Array.from(new Set((identity.usernames || []).map(value => String(value || '').trim().toLowerCase()).filter(Boolean)));
+  const indexed = await Promise.all(candidates.map(candidate => redis.smembers(`nf_user_subs:${candidate}`)));
+  const keys = normalizeRedisKeys(indexed.flat()).slice(0, 1000);
+  const rows = typeof redis.pipeline === 'function'
+    ? await (async () => { const p = redis.pipeline(); keys.forEach(key => p.hget('nf_subs', key)); return p.exec(); })()
+    : await Promise.all(keys.map(key => redis.hget('nf_subs', key)));
+  const assetIds = new Set();
+  for (const raw of rows) {
+    const sub = safeParse(raw, null);
+    if (!sub || sub.status !== 'completed') continue;
+    for (const id of submissionAssetIds(sub)) assetIds.add(String(id));
+  }
+  const lookup = buildAdIdLookup(adData, null, true, []);
+  let newUsers = 0;
+  for (const id of assetIds) if (lookup.byAdId[id]) newUsers += Number(lookup.byAdId[id].new_uv) || 0;
+  return { assetCount, newUsers };
 }
 
 async function resolveRewardVipBinding(redis, username, memberId, source) {
@@ -422,9 +447,14 @@ module.exports = async (req, res) => {
         if ((data.checkin.streak || 0) < STREAK_GRAND_REQUIRED) {
           return res.status(400).json({ error: `Need ${STREAK_GRAND_REQUIRED}-day streak`, code: 'STREAK_NOT_MET' });
         }
-        const verifiedPromotionCount = await loadVerifiedPromotionCount(redis, username);
-        if (verifiedPromotionCount < 1) {
+        let promotionEligibility;
+        try { promotionEligibility = await loadVerifiedPromotionEligibility(redis, username); }
+        catch (_error) { return res.status(503).json({ error: 'Promotion status temporarily unavailable', code: 'PROMOTION_STATUS_UNAVAILABLE' }); }
+        if (promotionEligibility.assetCount < 1) {
           return res.status(400).json({ error: 'Create at least 1 book link first', code: 'NO_LINK' });
+        }
+        if (promotionEligibility.newUsers < 1) {
+          return res.status(400).json({ error: 'Invite at least 1 new reader through your link first', code: 'NO_NEW_USER' });
         }
         const claimedKeys = Object.keys(data.claimed || {});
         if (claimedKeys.length < 1) {
