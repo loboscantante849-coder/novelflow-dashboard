@@ -205,9 +205,16 @@ async function loadVerifiedPromotionEligibility(redis, username) {
     ? await (async () => { const p = redis.pipeline(); keys.forEach(key => p.hget('nf_subs', key)); return p.exec(); })()
     : await Promise.all(keys.map(key => redis.hget('nf_subs', key)));
   const assetIds = new Set();
+  const allowedOwners = new Set(candidates);
   for (const raw of rows) {
     const sub = safeParse(raw, null);
     if (!sub || sub.status !== 'completed') continue;
+    const owner = String(sub.discordUsername || sub.username || '').trim().toLowerCase();
+    if (owner) {
+      const ownerIdentity = localLoginCredentialCandidates(owner);
+      const ownerPrimary = String(ownerIdentity.primaryUsername || '').trim().toLowerCase();
+      if (!allowedOwners.has(owner) && !allowedOwners.has(ownerPrimary)) continue;
+    }
     for (const id of submissionAssetIds(sub)) assetIds.add(String(id));
   }
   const lookup = buildAdIdLookup(adData, null, true, []);
