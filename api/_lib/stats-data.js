@@ -474,34 +474,37 @@ async function loadSubmissions(redis, username, admin, debugLog, options = {}) {
     try {
       const identity = await resolveReadOnlyWalletStorageIdentity(redis, walletUsername, options);
       if (identity.conflict) throw walletIdentityConflict(identity);
-      const walletKey = `nf_user_data:${identity.storageUsername}`;
-      const kvData = await redis.get(walletKey);
-      const walletRecord = kvData && typeof kvData === 'string' ? JSON.parse(kvData) : kvData;
-      if (walletRecord && walletRecord.wallet_merged_into) {
-        const error = new Error('Wallet merged into a primary account');
-        error.code = 'WALLET_MERGED';
-        throw error;
-      }
-      const myBooks = walletRecord?.myBooks;
-      if (Array.isArray(myBooks)) {
-        for (const book of myBooks) {
-          const bookCode = submissionIdentifier(book.code);
-          const bookLinkId = submissionIdentifier(book.linkId);
-          if (!bookLinkId && !bookCode) continue;
-          subs.push(markVerifiedAssets({
-            discordUsername: username,
-            status: 'completed',
-            code: bookCode,
-            linkId: bookLinkId,
-            bookId: book.bookId || null,
-            matchedBookName: book.title || book.bookName || 'Unknown',
-            bookName: book.title || book.bookName || 'Unknown',
-            cover: normalizeHttpsCoverUrl(book.cover || book.coverImage || ''),
-            link: book.link || null,
-            submittedAt: book.submittedAt || (book.createdAt ? new Date(book.createdAt).toISOString() : null)
-          }, []));
+      const walletUsernames = identity.readOnlyLegacyWallets || [identity.storageUsername];
+      for (const walletStorageUsername of walletUsernames) {
+        const walletKey = `nf_user_data:${walletStorageUsername}`;
+        const kvData = await redis.get(walletKey);
+        const walletRecord = kvData && typeof kvData === 'string' ? JSON.parse(kvData) : kvData;
+        if (walletRecord && walletRecord.wallet_merged_into) {
+          const error = new Error('Wallet merged into a primary account');
+          error.code = 'WALLET_MERGED';
+          throw error;
         }
-        if (myBooks.length) debugLog?.push(`loaded ${myBooks.length} books from ${walletKey}`);
+        const myBooks = walletRecord?.myBooks;
+        if (Array.isArray(myBooks)) {
+          for (const book of myBooks) {
+            const bookCode = submissionIdentifier(book.code);
+            const bookLinkId = submissionIdentifier(book.linkId);
+            if (!bookLinkId && !bookCode) continue;
+            subs.push(markVerifiedAssets({
+              discordUsername: username,
+              status: 'completed',
+              code: bookCode,
+              linkId: bookLinkId,
+              bookId: book.bookId || null,
+              matchedBookName: book.title || book.bookName || 'Unknown',
+              bookName: book.title || book.bookName || 'Unknown',
+              cover: normalizeHttpsCoverUrl(book.cover || book.coverImage || ''),
+              link: book.link || null,
+              submittedAt: book.submittedAt || (book.createdAt ? new Date(book.createdAt).toISOString() : null)
+            }, []));
+          }
+          if (myBooks.length) debugLog?.push(`loaded ${myBooks.length} books from ${walletKey}`);
+        }
       }
     } catch (e) {
       const error = new Error(`User cloud data unavailable: ${e.message}`);

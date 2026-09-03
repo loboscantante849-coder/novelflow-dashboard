@@ -115,6 +115,16 @@ test('clean URL aliases for internal HTML pages are protected', async () => {
   }
 });
 
+test('legacy dashboard hosts redirect to the canonical NovelFlow domain', () => {
+  const redirects = Array.isArray(vercel.redirects) ? vercel.redirects : [];
+  for (const host of ['novelflow-dashboard.vercel.app', 'dashboard.beidou.win', 'promo.novelflow.top']) {
+    const rule = redirects.find(entry => entry.has?.some(condition => condition.type === 'host' && condition.value === host));
+    assert.ok(rule, `${host} must redirect`);
+    assert.equal(rule.destination, 'https://novelflow.top/:path*');
+    assert.equal(rule.permanent, true);
+  }
+});
+
 test('sensitive business files remain available to server-side code', () => {
   for (const file of sensitiveFiles) {
     assert.equal(fs.existsSync(path.join(ROOT, file)), true, `${file} must not be deleted`);

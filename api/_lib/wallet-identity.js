@@ -4,6 +4,8 @@ const { isProtectedPromoterUsername } = require('./promoter-access');
 const CASE_VARIANT_SCAN_PAGE_LIMIT = 16;
 const CONS_READ_ONLY_CANONICAL = 'cons_espher';
 const CONS_READ_ONLY_LEGACY = '@cons espher';
+const ELIZA_READ_ONLY_CANONICAL = 'eliza_star';
+const ELIZA_READ_ONLY_LEGACY = 'eliza_stellar';
 
 // Reporting usernames and wallet/login usernames are different namespaces.
 // Keep this map deliberately small and exact: only verified historical
@@ -168,11 +170,49 @@ function canonicalReadOnlyOwner(value) {
  * local principal. This never merges data and is intentionally not used by
  * wallet locks or any mutation path.
  */
-async function resolveReadOnlyWalletStorageIdentity(redis, requestedUsername, { expectedPrincipal = null } = {}) {
+async function resolveReadOnlyWalletStorageIdentity(redis, requestedUsername, {
+  expectedPrincipal = null,
+  allowVerifiedLegacyAliases = false,
+} = {}) {
   const identity = await resolveWalletStorageIdentity(redis, requestedUsername);
   if (!identity.conflict) return identity;
 
   const matches = new Set(identity.matches || []);
+  // Eliza's historical reporting wallet is a reviewed alias. Statistics
+  // pages may read promotion metadata from both records, but mutation paths
+  // keep the normal conflict behavior and never merge balances.
+  if (allowVerifiedLegacyAliases &&
+      identity.primaryUsername === ELIZA_READ_ONLY_CANONICAL &&
+      matches.size === 2 &&
+      matches.has(ELIZA_READ_ONLY_CANONICAL) &&
+      matches.has(ELIZA_READ_ONLY_LEGACY)) {
+    const walletKeys = [
+      `nf_user_data:${ELIZA_READ_ONLY_CANONICAL}`,
+      `nf_user_data:${ELIZA_READ_ONLY_LEGACY}`,
+      `nf_identity_owner:${ELIZA_READ_ONLY_CANONICAL}`,
+      `nf_identity_owner:${ELIZA_READ_ONLY_LEGACY}`,
+    ];
+    const values = typeof redis.mget === 'function'
+      ? await redis.mget(...walletKeys)
+      : await Promise.all(walletKeys.map(key => redis.get(key)));
+    const canonicalRecord = parseReadOnlyWalletRecord(values[0]);
+    const legacyRecord = parseReadOnlyWalletRecord(values[1]);
+    if (healthyReadOnlyWalletRecord(canonicalRecord) && healthyReadOnlyWalletRecord(legacyRecord)) {
+      const owners = values.slice(2).map(canonicalReadOnlyOwner).filter(Boolean);
+      const expectedOwner = expectedPrincipal ? canonicalReadOnlyOwner(expectedPrincipal) : '';
+      const ownersCompatible = owners.length === 0 ||
+        (owners.length === 2 && new Set(owners).size === 1 && (!expectedOwner || owners[0] === expectedOwner));
+      if (ownersCompatible) {
+        return {
+          ...identity,
+          storageUsername: ELIZA_READ_ONLY_CANONICAL,
+          conflict: false,
+          readOnlyLegacyConflict: true,
+          readOnlyLegacyWallets: [ELIZA_READ_ONLY_CANONICAL, ELIZA_READ_ONLY_LEGACY],
+        };
+      }
+    }
+  }
   if (identity.primaryUsername !== CONS_READ_ONLY_CANONICAL ||
       matches.size !== 2 ||
       !matches.has(CONS_READ_ONLY_CANONICAL) ||

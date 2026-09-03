@@ -1,5 +1,25 @@
 {
   "cleanUrls": true,
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "novelflow-dashboard.vercel.app" }],
+      "destination": "https://novelflow.top/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "dashboard.beidou.win" }],
+      "destination": "https://novelflow.top/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "promo.novelflow.top" }],
+      "destination": "https://novelflow.top/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/app-v2-v3",

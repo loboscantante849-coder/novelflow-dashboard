@@ -92,6 +92,7 @@ module.exports = async (req, res) => {
       usernameCanon = resolvePromoterKey(username, adData);
       const walletIdentity = await resolveReadOnlyWalletStorageIdentity(redis, username, {
         expectedPrincipal: admin ? null : principalFromPayload(payload),
+        allowVerifiedLegacyAliases: true,
       });
       if (walletIdentity.conflict) {
         return res.status(409).json({ error: 'Account identity recovery required', code: 'WALLET_IDENTITY_CONFLICT' });
@@ -123,7 +124,10 @@ module.exports = async (req, res) => {
       username,
       admin,
       debugLog,
-      { expectedPrincipal: admin ? null : principalFromPayload(payload) },
+      {
+        expectedPrincipal: admin ? null : principalFromPayload(payload),
+        allowVerifiedLegacyAliases: true,
+      },
     ) : [];
     const bookIds = submissions.map(s => s.bookId).filter(Boolean);
     const covers = redis ? await loadCovers(redis, bookIds, debugLog) : {};

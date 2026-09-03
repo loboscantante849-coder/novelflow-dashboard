@@ -96,6 +96,7 @@ module.exports = async (req, res) => {
       usernameCanon = resolvePromoterKey(username, adData);
       const walletIdentity = await resolveReadOnlyWalletStorageIdentity(redis, username, {
         expectedPrincipal: isAdmin ? null : principalFromPayload(payload),
+        allowVerifiedLegacyAliases: true,
       });
       if (walletIdentity.conflict) {
         return res.status(409).json({ error: 'Account identity recovery required', code: 'WALLET_IDENTITY_CONFLICT' });
@@ -128,7 +129,10 @@ module.exports = async (req, res) => {
       username,
       isAdmin,
       IS_PROD ? [] : debugLog,
-      { expectedPrincipal: isAdmin ? null : principalFromPayload(payload) },
+      {
+        expectedPrincipal: isAdmin ? null : principalFromPayload(payload),
+        allowVerifiedLegacyAliases: true,
+      },
     ) : [];
 
     // Covers are loaded after attribution is resolved so legacy pipeline-only

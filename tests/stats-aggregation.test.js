@@ -124,6 +124,32 @@ test('submission loading uses lowercase CloudSync keys and exact invite ownershi
   assert.equal(submissions.some(item => item.inviteCode === '90031' && item.bookId === 'book-2'), true);
 });
 
+test('Eliza verified legacy wallet restores link/code metadata without merging balances', async () => {
+  const redis = {
+    async smembers() { return []; },
+    async get(key) {
+      if (key === 'nf_user_data:eliza_star') {
+        return JSON.stringify({ bonus_balance: 12, myBooks: [{ code: '4603', linkId: 'link-star', title: 'Star Book' }] });
+      }
+      if (key === 'nf_user_data:eliza_stellar') {
+        return JSON.stringify({ bonus_balance: 99, myBooks: [{ code: '4608', linkId: 'link-legacy', title: 'Legacy Book' }] });
+      }
+      return null;
+    },
+  };
+  const submissions = await loadSubmissions(redis, 'Eliza_Star', false, [], {
+    allowVerifiedLegacyAliases: true,
+  });
+  assert.deepEqual(
+    submissions.map(row => row.code).sort(),
+    ['4603', '4608'],
+  );
+  assert.deepEqual(
+    submissions.map(row => row.linkId).sort(),
+    ['link-legacy', 'link-star'],
+  );
+});
+
 test('submission loading fails visibly on Redis read errors', async () => {
   const redis = { async smembers() { throw new Error('temporary Redis failure'); } };
   await assert.rejects(
