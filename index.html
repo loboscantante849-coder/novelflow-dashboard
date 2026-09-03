@@ -5914,7 +5914,12 @@
         }
 
         async function doCheckinV2() {
-            if (isCheckedInToday()) return;
+            // A restored local snapshot may already contain today's check-in.
+            // Still show the binding guide for an unbound account.
+            if (isCheckedInToday()) {
+                if (!getBoundNovelFlowId()) showNovelFlowBindingGuide();
+                return;
+            }
             const btn = document.getElementById('milestoneCheckinBtn');
             btn.disabled = true;
             try {
@@ -5934,6 +5939,7 @@
                 // keep the confirmed check-in and suppress a false red toast.
                 if (isCheckedInToday()) {
                     updateCheckinV2UI();
+                    if (!getBoundNovelFlowId()) showNovelFlowBindingGuide();
                     return;
                 }
                 showToast(localizedRewardError(e, 'reward_checkin_failed'), 'error');
