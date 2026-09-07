@@ -37,8 +37,8 @@
         <button class="nav-item" data-view="library"><i data-lucide="library-big"></i><span>素材库</span></button>
         <button class="nav-item" data-view="completed"><i data-lucide="circle-check-big"></i><span>已完成</span></button>
         <button class="nav-item" data-view="attention"><i data-lucide="triangle-alert"></i><span>需处理</span></button>
-        <button class="nav-item" data-view="ads"><i data-lucide="megaphone"></i><span>广告素材</span></button>
-        <button class="nav-item" data-view="ad-performance"><i data-lucide="chart-no-axes-combined"></i><span>广告数据</span></button>
+        <button class="nav-item" data-view="ads" hidden><i data-lucide="megaphone"></i><span>广告素材</span></button>
+        <button class="nav-item" data-view="ad-performance" hidden><i data-lucide="chart-no-axes-combined"></i><span>广告数据</span></button>
       </nav>
       <button id="creativePlanQueueButton" class="side-plan-launch" type="button" hidden><i data-lucide="brain-circuit"></i><span>AI 策划</span><b id="creativePlanQueueCount">0</b><i data-lucide="chevron-right"></i></button>
       <section id="creativePlanQueue" hidden aria-live="polite"></section>
@@ -49,9 +49,9 @@
     <main class="workspace" data-console-version="harness-p0-p7">
       <section class="command-deck">
         <div class="command-title"><span class="eyebrow">NOVELFLOW CREATIVE STUDIO</span><h1>选书 → 文案 → SocialEcho 草稿</h1><p id="commandCapabilitySummary">正在读取服务端媒体生产能力与今日额度。</p></div>
-        <div class="command-actions"><button id="deckLeaderboard" class="primary-command"><i data-lucide="sparkles"></i><span>从榜单开始</span></button><button id="deckAdCampaign" class="secondary-command"><i data-lucide="megaphone"></i><span>广告素材</span></button><button id="deckCreativePlan" class="secondary-command"><i data-lucide="brain-circuit"></i><span>AI 先策划</span></button><button id="deckCreateRun" class="secondary-command"><i data-lucide="plus"></i><span>按书名创建</span></button><button id="weeklyReportButton" class="secondary-command"><i data-lucide="presentation"></i><span>本周简报</span></button></div>
+        <div class="command-actions"><button id="deckLeaderboard" class="primary-command"><i data-lucide="sparkles"></i><span>从榜单开始</span></button><button id="deckCreateRun" class="secondary-command"><i data-lucide="plus"></i><span>按书名创建</span></button><button id="deckAdCampaign" class="secondary-command" hidden><i data-lucide="megaphone"></i><span>广告素材</span></button><button id="deckCreativePlan" class="secondary-command" hidden><i data-lucide="brain-circuit"></i><span>AI 先策划</span></button><button id="weeklyReportButton" class="secondary-command" hidden><i data-lucide="presentation"></i><span>本周简报</span></button></div>
       </section>
-      <section id="dailyCampaignPanel" class="daily-campaign-panel" aria-labelledby="dailyCampaignTitle" aria-live="polite">
+      <section id="dailyCampaignPanel" class="daily-campaign-panel" hidden aria-labelledby="dailyCampaignTitle" aria-live="polite">
         <header class="daily-campaign-head">
           <div><span class="eyebrow">DAILY 12 × 3 CAMPAIGN</span><h1 id="dailyCampaignTitle">日常一键生产 36 套</h1><p>用实时三轴榜单为 12 个在线账号各选 3 本优质书，全程精确跟踪这 36 个 slot。</p></div>
           <div class="daily-campaign-actions">
@@ -222,7 +222,7 @@
     <form id="runForm">
       <header><div><span class="dialog-kicker">NEW AUTOMATION</span><h2>创建智能生产任务</h2></div><button class="icon-button" type="button" id="closeRunDialog" title="关闭"><i data-lucide="x"></i></button></header>
       <div class="dialog-body"><label>小说英文全名<input id="manualTitle" name="title" required maxlength="200" autocomplete="off" placeholder="例如 The Lycan King's Treasured Luna"></label><label>SKU <small>可选，留空将自动核验</small><input id="manualSku" name="sku" maxlength="100" autocomplete="off" placeholder="Book SKU"></label><label>目标应用 / 平台 / 账号<select id="manualAccount" required aria-label="手工任务目标账号"></select></label><div class="creative-profile"><label>文案风格<select id="creativeStyle"><option value="system_best">系统最优推荐</option><option value="revenge_comeback">复仇反杀</option><option value="forbidden_tension">禁忌拉扯</option><option value="dark_redemption">暗黑救赎</option></select></label><label>CTA 口吻<select id="ctaStyle"><option value="story_cliffhanger">系统最优推荐</option><option value="identity_reveal">身份反转</option><option value="romantic_tension">暧昧拉扯</option><option value="revenge_payoff">反击爽点</option></select></label><label>视频剧情<select id="videoStyle"><option value="five_beat">系统最优推荐</option><option value="reversal">强反转</option><option value="slow_burn">慢热张力</option><option value="revenge">复仇兑现</option></select></label><label>海报方向<select id="posterStyle"><option value="system_best">系统最优推荐</option><option value="luminous_cinema">电影氛围</option><option value="editorial_romance">时尚爱情</option></select></label></div><aside id="creativeProfilePreview" class="creative-profile-preview" aria-live="polite"></aside><div class="authorization-row"><i data-lucide="wand-sparkles"></i><div><strong>所选 AI 将基于章节证据创作</strong><span>所选方向只决定表达重点；原文事实优先。一键生产会自动推进已授权素材。</span></div></div><p id="runFormError" class="form-error" aria-live="polite"></p></div>
-      <footer><label class="model-choice-row">创意模型<span class="model-select-control"><select id="modelChoice"><option value="glm-5.3-flash">GLM 5.3 Flash（默认）</option><option value="deepseek-v4-flash-preview">DeepSeek V4 Flash Preview（兜底）</option><option value="hy3">HY3（短 JSON 修复）</option><option value="seed-2.1-turbo">Seed 2.1 Turbo（兼容旧任务）</option></select><span class="selected-model-badge" data-model-select="modelChoice"></span></span></label><button id="submitRun" class="primary-command" type="submit"><i data-lucide="zap"></i><span>立即智能生成</span></button></footer>
+      <footer><label class="model-choice-row">创意模型<span class="model-select-control"><select id="modelChoice"><option value="deepseek-v4-flash">DeepSeek V4 Flash（Token）</option></select><span class="selected-model-badge" data-model-select="modelChoice"></span></span></label><button id="submitRun" class="primary-command" type="submit"><i data-lucide="zap"></i><span>立即智能生成</span></button></footer>
     </form>
   </dialog>
   <dialog id="creativePlanDialog" class="run-dialog creative-plan-dialog">

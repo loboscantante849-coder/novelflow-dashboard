@@ -310,7 +310,7 @@ const creativeProfileOptions = {
   ctaStyle: { label: 'CTA', values: { story_cliffhanger: '系统推荐：用具体未解的情节问题收尾', identity_reveal: '身份反转：以已铺垫的秘密或认出为钩子', romantic_tension: '暧昧拉扯：以有证据的欲望、目光或边界收尾', revenge_payoff: '反击爽点：以有证据的清算或反转承诺收尾' } },
   videoStyle: { label: '视频剧情', values: { five_beat: '系统推荐：钩子、价值、升级、反转、悬念五拍', reversal: '强反转：把真实反转放在 8-11 秒', slow_burn: '慢热张力：用克制靠近和最终选择递进', revenge: '复仇兑现：只使用原文已有的反击或翻盘' } },
   posterStyle: { label: '海报', values: { system_best: '系统推荐：一张电影感，一张时尚情绪感', luminous_cinema: '电影氛围：强调高戏剧性的关键瞬间', editorial_romance: '时尚爱情：强调克制、情绪与留白' } },
-  modelChoice: { label: '生产模型', values: { 'glm-5.3-flash': 'GLM 5.3 Flash：默认生产', 'deepseek-v4-flash-preview': 'DeepSeek V4 Flash Preview：首选兜底', hy3: 'HY3：短 JSON 修复', 'seed-2.1-turbo': 'Seed 2.1 Turbo：兼容旧任务' } }
+  modelChoice: { label: '生产模型', values: { 'deepseek-v4-flash': 'DeepSeek V4 Flash：Token' } }
 };
 
 const modelLabels = { 'glm-5.3-flash': 'GLM 5.3 Flash', 'deepseek-v4-flash-preview': 'DeepSeek V4 Flash Preview', 'ling-3.0-flash': 'Ling 3.0 Flash', deepseek: 'DeepSeek V4 Flash Preview', 'deepseek-chat': 'DeepSeek', 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'seed-2.1-turbo': 'Seed 2.1 Turbo', 'doubao-seed-2-1-turbo-260628': 'Seed 2.1 Turbo', 'qwen3.7-max': 'Qwen 3.7 Max', 'minimax-m2.7': 'MiniMax M2.7', hy3: 'HY3', 'kimi-k2.7-code': 'Kimi K2.7 Code', 'qwen3.5-flash': 'Qwen 3.5 Flash', 'glm-4.5-air': 'GLM 4.5 Air', 'kimi-k2.5': 'Kimi K2.5', 'minimax-m2.5': 'MiniMax M2.5', 'metrics-fallback': '中台指标兜底', 'glm-5.2': 'GLM 5.2', 'kimi-k3': 'Kimi K3', 'minimax-m3': 'MiniMax M3' };
@@ -383,7 +383,7 @@ function selectedModelWaitMs(choice) {
 }
 
 function creativeProfileForForm() {
-  return { copyStyle: $('#creativeStyle').value, ctaStyle: $('#ctaStyle').value, videoStyle: $('#videoStyle').value, posterStyle: $('#posterStyle').value, modelChoice: $('#modelChoice')?.value || 'glm-5.3-flash' };
+  return { copyStyle: $('#creativeStyle').value, ctaStyle: $('#ctaStyle').value, videoStyle: $('#videoStyle').value, posterStyle: $('#posterStyle').value, modelChoice: 'deepseek-v4-flash' };
 }
 
 function creativeProfileHtml(profile, preview = false) {
@@ -591,7 +591,7 @@ function openCreativePlanDialog(book = {}) {
 async function analyzeCreativePlan(title, sku) {
   const planningSession = state.planningSession;
   state.planning = true;
-  const modelChoice = $('#planningRequestModel')?.value || 'glm-5.3-flash';
+  const modelChoice = 'deepseek-v4-flash';
   const selectedModel = modelLabel(modelChoice);
   const accountId = Number(state.planningTarget?.accountId || state.catalogFilters.accountId || 0);
   const delivery = accountId ? { ...(state.planningTarget || {}), accountId } : null;
@@ -5281,12 +5281,10 @@ if (restoredDashboard) {
   render();
 }
 loadStatus().then(() => { loadPublications({ silent: true }); if (hasLiveBackgroundWork()) kickWorker(); });
-if (state.dailyCampaignId) loadDailyCampaign({ silent: true });
+  // Slim console: daily batch is paused and loaded only from an explicit
+  // future advanced mode, never during startup.
 loadLeaderboard({ silent: true });
-const loadSecondaryStartup = () => {
-  loadCreativePlans({ silent: true });
-  if (restoredDashboard) loadVisibleCovers();
-};
+const loadSecondaryStartup = () => { if (restoredDashboard) loadVisibleCovers(); };
 if ('requestIdleCallback' in window) window.requestIdleCallback(loadSecondaryStartup, { timeout: 800 });
 else setTimeout(loadSecondaryStartup, 120);
 let idlePlanPolls = 0;
@@ -5297,15 +5295,11 @@ async function pollDashboard() {
   let active = hasLiveBackgroundWork();
   if (!document.hidden) {
     await loadStatus({ silent: true });
-    if (state.dailyCampaignId) await loadDailyCampaign({ silent: true });
+    // Daily campaign polling is intentionally disabled in slim mode.
     active = hasLiveBackgroundWork();
     if (active) {
       idlePlanPolls = 0;
-      loadCreativePlans({ silent: true });
       kickWorker();
-    } else if (++idlePlanPolls >= 3) {
-      idlePlanPolls = 0;
-      loadCreativePlans({ silent: true });
     }
   }
   setTimeout(pollDashboard, active && !document.hidden ? 8000 : 30000);

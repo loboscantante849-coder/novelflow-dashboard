@@ -166,3 +166,12 @@ body{background:#f5f7f7}.app-shell{grid-template-columns:244px 1fr}.topbar{heigh
 @media(max-width:1120px){.daily-campaign-head{display:block}.daily-campaign-actions{justify-content:flex-start;margin-top:10px}.daily-account-row{grid-template-columns:145px repeat(3,minmax(0,1fr))}.daily-stage-counts{grid-template-columns:repeat(4,1fr)}}
 @media(max-width:800px){.daily-campaign-contract{grid-template-columns:repeat(2,1fr)}.daily-campaign-contract article:nth-child(2){border-right:0}.daily-campaign-contract article:nth-child(-n+2){border-bottom:1px solid #e4ece9}.daily-selection-rules{grid-template-columns:1fr}.daily-campaign-create{grid-template-columns:1fr}.daily-account-row{grid-template-columns:1fr}.daily-account-route{min-height:48px}.daily-outcome-counts{grid-template-columns:repeat(2,1fr)}.daily-outcome-counts article:last-child{grid-column:1/-1}}
 @media(max-width:520px){.daily-campaign-panel{padding:12px}.daily-campaign-contract{grid-template-columns:1fr}.daily-campaign-contract article,.daily-campaign-contract article:nth-child(2){border-right:0;border-bottom:1px solid #e4ece9}.daily-campaign-contract article:last-child{border-bottom:0}.daily-stage-counts{grid-template-columns:repeat(2,1fr)}.daily-campaign-actions>*{flex:1}.daily-campaign-actions .icon-button{flex:0 0 35px}}
+
+/* Slim production console: keep the first viewport on one repeatable job. */
+#dailyCampaignPanel,#adCampaignWorkspace,#adPerformanceWorkspace,#adRegistryDialog,
+#creativePlanDialog,#planQueueDialog,#weeklyReportDialog,#assistantPanel,#copilotPanel,
+.side-plan-launch,.capability-block,.facebook-lock,[data-view="ads"],[data-view="ad-performance"]{display:none!important}
+.command-deck{min-height:0;padding-block:24px}.command-title h1{max-width:22ch}.command-actions{gap:8px}
+.command-actions .secondary-command{background:transparent}.operations-layout{grid-template-columns:minmax(0,1fr)}.run-list-panel{min-height:280px}
+.creative-profile,.creative-profile-preview{display:none}.model-choice-row{opacity:.8;pointer-events:none}
+@media(max-width:760px){.command-deck{padding:18px 16px}.command-actions{width:100%}.command-actions button{flex:1;min-width:0}}
