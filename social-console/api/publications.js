@@ -502,6 +502,10 @@ module.exports = async (req, res) => {
       const draft = await ensureVariantDraftForRun(redis, run, variantKey);
       if (!draft) return res.status(409).json({ error: 'Finished copy and video are required before creating a variant draft' });
       if (draft.status === 'external_draft') return res.status(200).json({ draft: publicDraft(draft), reused: true });
+      if (req.body?.deliveryMode === 'scheduled' && req.body?.scheduledAt) {
+        updateDraftFields(draft, { deliveryMode: 'scheduled', scheduledAt: req.body.scheduledAt });
+        await saveDraft(redis, draft, { preserveOrder: true });
+      }
       const rate = await consumeRateLimit(redis, 'socialecho_variant_draft', requestIdentity(req), 20, 60);
       if (!rate.allowed) {
         res.setHeader('Retry-After', String(rate.retryAfter));
