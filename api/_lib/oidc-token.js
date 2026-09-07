@@ -13,8 +13,8 @@ let cachedCreds = null;
 async function getCredentials() {
   if (cachedCreds) return cachedCreds;
   
-  const envUsername = process.env.OIDC_USERNAME;
-  const envPassword = process.env.OIDC_PASSWORD;
+  const envUsername = process.env.OIDC_USERNAME || process.env.NOVELFLOW_OIDC_USERNAME;
+  const envPassword = process.env.OIDC_PASSWORD || process.env.NOVELFLOW_OIDC_PASSWORD;
   if (envUsername && envPassword) {
     cachedCreds = { username: envUsername, password: envPassword };
     return cachedCreds;
@@ -81,6 +81,15 @@ async function getBookstoreToken() {
   // Check memory cache first
   if (cachedToken && Date.now() < cachedTokenExp) {
     return cachedToken;
+  }
+
+  // Prefer an explicitly provisioned access token. This avoids falling back
+  // to stale password-grant credentials when a current token is configured.
+  const configuredToken = process.env.NOVELFLOW_OIDC_TOKEN;
+  if (configuredToken) {
+    cachedToken = configuredToken;
+    cachedTokenExp = Date.now() + 5 * 60 * 1000;
+    return configuredToken;
   }
 
   // Always prefer getting a fresh token via OIDC
