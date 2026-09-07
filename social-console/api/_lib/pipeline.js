@@ -2111,7 +2111,7 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
           // Posts are fully reconstructible from the locked evidence package.
           // Once the reserve route has failed, use that deterministic package
           // immediately, including routes whose attribution Code is deferred.
-          if (pendingSection === 'posts' && structuredModelError(error)) {
+          if (pendingSection === 'posts' && (structuredModelError(error) || /inappropriate content|content policy|safety filter|timed out after/i.test(message))) {
             const fallbackCreative = sourceGroundedCreativeFallback(latest);
             if (fallbackCreative) {
               applySourceGroundedCreativeFallback(latest, fallbackCreative, message);
