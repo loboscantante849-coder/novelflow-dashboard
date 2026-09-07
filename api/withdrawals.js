@@ -44,6 +44,12 @@ const {
   computeWalletBalances,
   isSafeMoneyValue,
 } = require('./_lib/commission-policy');
+const {
+  MIN_WITHDRAWAL,
+  MAX_WITHDRAWAL,
+  PAYMENT_METHODS,
+  validateWithdrawalAmount,
+} = require('./_lib/financial-contract');
 
 function redisClient() {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -396,10 +402,10 @@ module.exports = async (req, res) => {
         wallet_username: walletUsername,
         ...balances,
         earnings_detail: daily,
-        min_withdrawal: 10,
+        min_withdrawal: MIN_WITHDRAWAL,
         fee_percent: 5,
         currency: 'USD',
-        payment_methods: ['paypal'],
+        payment_methods: PAYMENT_METHODS,
       });
     }
 
@@ -414,13 +420,9 @@ module.exports = async (req, res) => {
         return res.status(403).json({ error: 'Forbidden: can only submit withdrawals for your own account', code: 'FORBIDDEN' });
       }
 
-      const amt = Number(amount);
-      if (!Number.isFinite(amt) || amt < 10) {
-        return res.status(400).json({ error: 'Minimum withdrawal amount is $10' });
-      }
-      if (amt > 10000) {
-        return res.status(400).json({ error: 'Single withdrawal cannot exceed $10,000' });
-      }
+      const amountCheck = validateWithdrawalAmount(amount);
+      if (!amountCheck.ok) return res.status(400).json({ error: amountCheck.message, code: amountCheck.code });
+      const amt = amountCheck.amount;
 
       const account = String(payment_account || '').trim().toLowerCase();
       if (!EMAIL_RE.test(account)) {
