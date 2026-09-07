@@ -12,6 +12,8 @@ process.env.KV_REST_API_TOKEN = 'test-token';
 process.env.DISCORD_CLIENT_ID = 'test-discord-client';
 process.env.DISCORD_CLIENT_SECRET = 'test-discord-secret';
 process.env.DISCORD_REDIRECT_URI = 'https://novelflow.top/api/auth/callback';
+// OAuth is opt-in in production; enable it explicitly for isolated handler tests.
+process.env.ENABLE_DISCORD_AUTH = 'true';
 
 const discordStart = require('../api/auth/discord-start');
 const callback = require('../api/auth/callback');

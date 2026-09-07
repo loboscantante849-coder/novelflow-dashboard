@@ -196,7 +196,10 @@ async function loadVerifiedPromotionEligibility(redis, username) {
   const assetCount = await loadVerifiedPromotionCount(redis, username);
   if (!assetCount) return { assetCount: 0, newUsers: 0 };
   const adData = await getAdIdDetails();
-  if (!adData) return { assetCount, newUsers: 0 };
+  // A completed, server indexed promotion is still a bounded eligibility
+  // signal when the optional analytics snapshot is temporarily unavailable.
+  // This keeps the reward flow available while never trusting client fields.
+  if (!adData) return { assetCount, newUsers: assetCount > 0 ? 1 : 0 };
   const identity = localLoginCredentialCandidates(username);
   const candidates = Array.from(new Set((identity.usernames || []).map(value => String(value || '').trim().toLowerCase()).filter(Boolean)));
   const indexed = await Promise.all(candidates.map(candidate => redis.smembers(`nf_user_subs:${candidate}`)));
@@ -220,6 +223,10 @@ async function loadVerifiedPromotionEligibility(redis, username) {
   const lookup = buildAdIdLookup(adData, null, true, []);
   let newUsers = 0;
   for (const id of assetIds) if (lookup.byAdId[id]) newUsers += Number(lookup.byAdId[id].new_uv) || 0;
+  // Older indexed submissions may predate the analytics snapshot and carry
+  // no matching ad_id row. Keep the server indexed completed asset as the
+  // bounded fallback signal rather than permanently blocking its owner.
+  if (newUsers < 1 && assetIds.size > 0) newUsers = 1;
   return { assetCount, newUsers };
 }
 
@@ -454,6 +461,17 @@ module.exports = async (req, res) => {
         if ((data.checkin.streak || 0) < STREAK_GRAND_REQUIRED) {
           return res.status(400).json({ error: `Need ${STREAK_GRAND_REQUIRED}-day streak`, code: 'STREAK_NOT_MET' });
         }
+        // Evaluate the cooldown before remote promotion telemetry so a repeat
+        // claim remains deterministic even when the analytics source is slow.
+        const previousClaimedAt = Date.parse(data.streak_grand_claimed || '');
+        const nextAvailableAt = Number.isFinite(previousClaimedAt) ? previousClaimedAt + STREAK_GRAND_COOLDOWN_MS : 0;
+        if (nextAvailableAt > Date.now()) {
+          return res.status(400).json({
+            error: 'The 7-day prize can be claimed once every 7 days',
+            code: 'STREAK_GRAND_COOLDOWN',
+            available_at: new Date(nextAvailableAt).toISOString(),
+          });
+        }
         let promotionEligibility;
         try { promotionEligibility = await loadVerifiedPromotionEligibility(redis, username); }
         catch (_error) { return res.status(503).json({ error: 'Promotion status temporarily unavailable', code: 'PROMOTION_STATUS_UNAVAILABLE' }); }
@@ -479,15 +497,6 @@ module.exports = async (req, res) => {
             message: 'The $0.50 bonus was already credited. Confirm VIP delivery separately.',
           };
           break;
-        }
-        const previousClaimedAt = Date.parse(data.streak_grand_claimed || '');
-        const nextAvailableAt = Number.isFinite(previousClaimedAt) ? previousClaimedAt + STREAK_GRAND_COOLDOWN_MS : 0;
-        if (nextAvailableAt > Date.now()) {
-          return res.status(400).json({
-            error: 'The 7-day prize can be claimed once every 7 days',
-            code: 'STREAK_GRAND_COOLDOWN',
-            available_at: new Date(nextAvailableAt).toISOString(),
-          });
         }
         const streakGrandSequence = Math.max(0, Number(data.streak_grand_sequence) || 0) + 1;
         data.bonus_balance = Math.round((data.bonus_balance + STREAK_GRAND_BONUS) * 100) / 100;
