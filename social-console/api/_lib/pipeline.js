@@ -105,6 +105,9 @@ function cleanError(error) {
 function recoverableModelError(error) {
   const status = Number(error?.status || 0);
   const message = String(error?.message || error || '').toLowerCase();
+  // Provider content filters are model-specific and can be handled by the
+  // bounded compatibility fallback below; they are not credential failures.
+  if (/inappropriate content|content policy|safety filter/.test(message)) return true;
   if ([400, 401, 403].includes(status)) return false;
   if (/not configured|api key|credential|unauthorized|forbidden|invalid key|missing token/.test(message)) return false;
   return true;
