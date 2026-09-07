@@ -1825,7 +1825,23 @@ function shouldShortCircuitPostsToSourceEvidence(run, draft, pendingSection) {
   return p2AlreadyContinued || repairAttempts >= 1;
 }
 
-function applySourceGroundedCreativeFallback(run, creative, error) {
+function applySourceGroundedCreativeFallback(run, creative, error, options = {}) {
+  if (options.promote === true) {
+    run.artifacts = run.artifacts || {};
+    run.artifacts.posts = creative.posts;
+    run.artifacts.translations = { language: 'zh-CN', posts: creative.posts.map((item) => item.zhContent) };
+    run.artifacts.videoPrompt = creative.videoPrompt;
+    run.artifacts.posterPrompts = creative.posterPrompts;
+    run.artifacts.qualityReview = { ...(creative.qualityReview || {}), phase: 'post_generation', reviewedAt: now(), recommendation: 'keep' };
+    run.artifacts.usage = run.artifacts.usage || {};
+    run.artifacts.usage.creative = { model: 'evidence-continuation', strategy: 'evidence_fallback', completedAt: now() };
+    run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), { section: 'creativePackage', model: 'evidence-continuation', completedAt: now(), triggerReason: 'operator_selected_evidence_fallback', outputStatus: '已验证的证据兜底文案' }].slice(-24);
+    delete run.artifacts.creativeDraft;
+    run.state = 'running';
+    setStage(run, 'P3', 'done', { label: '证据兜底文案、CTA、Code、标签与平台链接已生成', model: 'evidence-continuation', phase: 'evidence_fallback' });
+    addEvent(run, 'creative_evidence_fallback_ready', 'Operator-selected evidence fallback generated validated copy with CTA, Code, hashtags and eligible Facebook link');
+    return run;
+  }
   const message = cleanError(error || 'Both model routes returned malformed structured output');
   // Evidence continuation is a candidate for operator review, not a creative
   // pass. The deterministic copy is intentionally conservative and can be
@@ -1987,6 +2003,19 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
   let stage = run.stages.P3;
   let modelLabel = creativeModelLabel(run);
   let draft = draftFor(run, suppressOptimizationReview);
+  // The operator can explicitly choose the evidence route from the planner.
+  // It must remain a first-class path: generate the same validated posts,
+  // CTA, platform Code and eligible Facebook link directly from locked
+  // chapters instead of waiting for an LLM failure to trigger fallback.
+  if (!revision && String(run.input?.copyStrategy || '') === 'evidence_fallback' && run.stages?.P5?.status === 'done') {
+    const fallbackCreative = sourceGroundedCreativeFallback(run);
+    if (fallbackCreative) {
+      applySourceGroundedCreativeFallback(run, fallbackCreative, 'operator_selected_evidence_fallback', { promote: true });
+      run.artifacts.modelActivity = [...(run.artifacts.modelActivity || []), { section: 'creativePackage', model: 'evidence-continuation', completedAt: now(), triggerReason: 'operator_selected_evidence_fallback', outputStatus: '已按锁定章节证据生成，含 CTA、Code、标签与路由链接' }].slice(-24);
+      await saveRun(redis, run);
+      return run;
+    }
+  }
   run.artifacts.creativeDraft = draft;
   const pending = pendingCreativeSections(draft, run);
   const pendingSection = requestedSection && pending.includes(requestedSection) ? requestedSection : pending[0];

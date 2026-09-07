@@ -1,5 +1,5 @@
 const storedRecommendationHistory = (() => { try { return JSON.parse(localStorage.getItem('nf_social:recommendation_history') || '[]'); } catch { return []; } })();
-const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, pointsBudget: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogUsageFilter: 'all', catalogFilters: { line: 'novelflow', platform: 'facebook', accountId: '13751295', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all', readBaseMin: '0', firstReadMin: '0', longReadMin: '0' }, catalogTarget: null, catalogTargetOptions: [], historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 12, statusScope: 'recent', statusCampaignId: '', detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, kickPromise: null, longKickKey: '', startingProductions: new Set(), planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0 };
+const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, pointsBudget: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogUsageFilter: 'all', catalogFilters: { line: 'novelflow', platform: 'facebook', accountId: '13751295', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all', readBaseMin: '0', firstReadMin: '0', longReadMin: '0' }, catalogTarget: null, catalogTargetOptions: [], historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 12, statusScope: 'recent', statusCampaignId: '', detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, kickPromise: null, longKickKey: '', startingProductions: new Set(), planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0, routePlan: null, routePlanLoading: false };
 const TARGET_ROUTE_FALLBACKS = [
   [13751295, 'NovelFlow', 'novelflow', 'facebook'], [13943450, 'NovelFlow', 'novelflow', 'instagram'], [13943940, 'NovelFlow', 'novelflow', 'tiktok'],
   [13943483, 'AstraNovel', 'astranovel', 'facebook'], [15401748, 'AstraNovel', 'astranovel', 'instagram'], [13944009, 'astranovel_freenovels', 'astranovel', 'tiktok'],
@@ -4435,6 +4435,41 @@ async function loadStatus({ silent = false } = {}) {
   }
 }
 
+function plannerDateValue() {
+  const input = $('#plannerDate');
+  if (input && !input.value) input.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date());
+  return input?.value || '';
+}
+
+function renderRoutePlan() {
+  const body = state.routePlan;
+  const table = $('#routePlannerTable');
+  if (!table) return;
+  if (!body) { table.innerHTML = '<div class="route-planner-empty">点击“生成规划”，读取 14 条账号路线的 verified ranking。</div>'; return; }
+  const rows = body.routes.flatMap((route) => (route.slots || []).map((slot) => `<tr><td><strong>${escapeHtml(route.accountTitle)}</strong><small>${escapeHtml(route.appKey)}</small></td><td><span class="platform-chip ${escapeHtml(route.platform)}">${escapeHtml(route.platform)}</span></td><td><strong>${escapeHtml(slot.title || '—')}</strong><small>${escapeHtml(slot.sku || '')}</small></td><td>#${Number(slot.rank || 0)}</td><td>${compactNumber(slot.metrics?.baseReadUnt || 0)}</td><td>${percentage(slot.metrics?.firstReadUntRate)}</td><td>${percentage(slot.metrics?.read20wRate || slot.metrics?.read10wRate)}</td><td><time>${new Date(slot.scheduledAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}</time></td><td><span class="strategy-chip">${slot.copyStrategy === 'evidence_fallback' ? '证据兜底' : 'LLM 六步法'}</span><small>${escapeHtml(slot.usage === 'unused' ? '未使用' : '已使用回填')}</small></td><td><code>${escapeHtml(slot.creativeVariantKey)}</code></td></tr>`));
+  table.innerHTML = rows.length ? `<table><thead><tr><th>账号</th><th>平台</th><th>书籍</th><th>排行</th><th>UV</th><th>首读</th><th>长读</th><th>发布时间</th><th>文案路线</th><th>创意变体</th></tr></thead><tbody>${rows.join('')}</tbody></table>` : '<div class="route-planner-empty">当前没有返回可用的 verified 书籍，请稍后重试。</div>';
+}
+
+async function loadRoutePlan() {
+  if (state.routePlanLoading) return;
+  state.routePlanLoading = true;
+  $('#routePlannerStatus').textContent = '正在并行读取 14 条排行 API…';
+  $('#loadRoutePlan').disabled = true;
+  try {
+    const topN = Number($('#plannerTopN').value || 3);
+    const copyStrategy = $('#plannerCopyStrategy').value || 'llm';
+    const date = plannerDateValue();
+    state.routePlan = await api(`/api/route-planner?topN=${topN}&copyStrategy=${encodeURIComponent(copyStrategy)}&date=${encodeURIComponent(date)}`, { timeoutMs: 120000 });
+    const ready = state.routePlan.routes.filter((route) => route.routeStatus === 'ready').length;
+    const slots = state.routePlan.routes.reduce((sum, route) => sum + (route.slots || []).length, 0);
+    $('#routePlannerStatus').textContent = `已生成 ${ready}/14 条路线 · ${slots} 个排期 · ${state.routePlan.timezone}`;
+    renderRoutePlan(); icons();
+  } catch (error) {
+    $('#routePlannerStatus').textContent = `规划失败：${error.message}`;
+    showToast(error.message, 'error');
+  } finally { state.routePlanLoading = false; $('#loadRoutePlan').disabled = false; }
+}
+
 async function loadLeaderboard({ refresh = false, silent = false } = {}) {
   const requestId = ++state.leaderboardRequestId;
   const requestSource = state.leaderboardSource;
@@ -5288,6 +5323,8 @@ document.querySelectorAll('#densityControl button').forEach((button) => button.a
 
 renderCreativeProfilePreview();
 syncCatalogTargetControls();
+plannerDateValue();
+$('#loadRoutePlan')?.addEventListener('click', loadRoutePlan);
 icons();
 // Render the most recent verified state immediately, then reconcile it in the background.
 const restoredDashboard = restoreDashboardSnapshot();

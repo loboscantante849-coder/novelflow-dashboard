@@ -381,6 +381,8 @@ function attachOperatorCatalogueEvidence(run, value) {
 
 function buildRunInput(book, body = {}, planning = null) {
   const delivery = normalizeDelivery(body.delivery || { accountId: body.accountId });
+  const copyStrategy = ['llm', 'evidence_fallback'].includes(String(body.copyStrategy || '')) ? String(body.copyStrategy) : 'llm';
+  const creativeVariantKey = text(body.creativeVariantKey, 180);
   const rawTemplate = text(body.videoControl?.template, 80) || text(body.videoTemplate, 80) || 'Ad_Plot_Seedance';
   const requestedTemplate = rawTemplate === 'adaptive_seedance' ? 'Ad_Plot_Seedance' : rawTemplate;
   videoControl.templatePolicy(requestedTemplate);
@@ -445,6 +447,8 @@ function buildRunInput(book, body = {}, planning = null) {
     // approved.
     paidMediaSubmissionAuthorized: body.paidAuthorized === true && body.paidMediaSubmissionAuthorized === true,
     posterGenerationRequired: body.posterGenerationRequired !== false,
+    copyStrategy,
+    ...(creativeVariantKey ? { creativeVariantKey } : {}),
     creativeProfile: sanitizeCreativeProfile(body.creativeProfile),
     ...(campaign?.id ? { campaign } : {}),
     ...(delivery ? { delivery } : {}),

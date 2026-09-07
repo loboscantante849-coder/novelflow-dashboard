@@ -777,6 +777,8 @@ module.exports.metricValue = metricValue;
 // Narrow internal exports keep the ownership and cache-version invariants
 // independently testable without broadening the HTTP contract.
 module.exports.enrichBooks = enrichBooks;
+module.exports.catalogBooks = catalogBooks;
+module.exports.hasVerifiedCatalogMetrics = hasVerifiedCatalogMetrics;
 module.exports.legacyCatalogCache = legacyCatalogCache;
 module.exports.CATALOG_CACHE_VERSION = CATALOG_CACHE_VERSION;
 module.exports.CANDIDATE_AXES = CANDIDATE_AXES;
