@@ -1183,6 +1183,23 @@ async function p2(redis, run) {
       }
       if (story.fallbackUsed) {
         const message = cleanError(error);
+        // Some TokenDance routes now reject romance/abuse source text at the
+        // provider safety layer. Give the operator-approved fast route one
+        // bounded compatibility attempt before marking the run unrecoverable.
+        if (/inappropriate content|content policy|safety filter/i.test(message) && current !== 'hy3') {
+          const nextAttemptAt = new Date(Date.now() + 1000).toISOString();
+          evidence.storyBrief = { ...story, status: 'recovering', modelChoice: 'hy3', fallbackUsed: false, nextAttemptAt, error: message, fallbackFrom: current };
+          route.activeModel = 'hy3';
+          route.fallbackModel = '';
+          route.fallbackUsed = false;
+          route.switchedAt = now();
+          route.switchReason = '内容安全策略拒绝高级模型；使用一次兼容性模型重试';
+          run.input.creativeProfile = { ...(run.input.creativeProfile || {}), modelChoice: 'hy3' };
+          setStage(run, 'P2', 'waiting', { label: '内容安全策略触发，兼容性模型将重试故事梳理', phase: 'story_intelligence_compatibility_retry', recoverable: true, nextAttemptAt, error: message, fallbackFrom: current });
+          addEvent(run, 'story_intelligence_compatibility_retry', 'Provider safety filtering rejected the premium model; one bounded hy3 compatibility retry was scheduled', { current, nextAttemptAt });
+          await saveRun(redis, run);
+          return;
+        }
         evidence.storyBrief = { status: 'waiting_for_operator', attempt, modelChoice: current, fallbackUsed: true, error: message };
         run.state = 'failed';
         setStage(run, 'P2', 'failed', { label: '首选与唯一备用模型均未完成，请选择重试或切换模型', phase: 'story_intelligence_waiting_for_operator', recoverable: false, nextAttemptAt: '', error: message });
