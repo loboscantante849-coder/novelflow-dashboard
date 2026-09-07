@@ -712,6 +712,14 @@ module.exports = async (req, res) => {
       }
       const run = await getRun(redis, text(req.body?.id, 100));
       if (!run) return res.status(404).json({ error: 'Run not found' });
+      if (req.body?.action === 'archive_failed') {
+        if (run.state !== 'failed') return res.status(409).json({ error: 'Only failed tasks can be removed from the production list' });
+        run.state = 'archived';
+        run.archivedAt = new Date().toISOString();
+        run.events = [...(run.events || []), { at: run.archivedAt, type: 'failed_run_archived', message: 'Operator removed this failed task from the production list; external Code, link and paid task records remain preserved' }].slice(-80);
+        await saveRun(redis, run, { preserveUpdatedAt: true });
+        return res.status(200).json({ run });
+      }
       if (req.body?.action === 'cancel_unstarted') {
         archiveUnstartedRun(run);
         await saveRun(redis, run, { preserveUpdatedAt: true });
@@ -1084,7 +1092,8 @@ module.exports = async (req, res) => {
           await saveRun(redis, run);
           return res.status(409).json({ error: reason });
         }
-        applySourceGroundedCreativeFallback(run, fallback.creative, run.stages?.P3?.error || 'Operator requested evidence continuation after repeated structured-output failures');
+        run.input.copyStrategy = 'evidence_fallback';
+        applySourceGroundedCreativeFallback(run, fallback.creative, run.stages?.P3?.error || 'Operator requested evidence continuation after repeated structured-output failures', { promote: true });
         run.events.push({ at: new Date().toISOString(), type: 'operator_evidence_continuation', message: 'Operator selected the validated locked-evidence creative package; no model or paid media was submitted' });
         await saveRun(redis, run);
         return res.status(200).json({ run });

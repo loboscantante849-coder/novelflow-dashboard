@@ -3229,6 +3229,18 @@ function assetLibraryFingerprint(runs) {
   });
 }
 
+function failedRunActionsHtml(run, compact = false) {
+  if (run?.state !== 'failed') return '';
+  const evidenceAvailable = run.stages?.P2?.status === 'done' && run.stages?.P5?.status === 'done' && run.stages?.P3?.status !== 'done';
+  return `<div class="failed-run-actions ${compact ? 'compact' : ''}"><button type="button" data-failed-retry="${escapeHtml(run.id)}"><i data-lucide="rotate-ccw"></i>重试</button>${evidenceAvailable ? `<button type="button" data-failed-fallback="${escapeHtml(run.id)}"><i data-lucide="shield-check"></i>证据兜底</button>` : ''}<button type="button" class="danger" data-failed-delete="${escapeHtml(run.id)}"><i data-lucide="trash-2"></i>删除</button></div>`;
+}
+
+function bindFailedRunActions(root = document) {
+  root.querySelectorAll('[data-failed-retry]').forEach((button) => button.addEventListener('click', (event) => { event.stopPropagation(); retryRun(button.dataset.failedRetry); }));
+  root.querySelectorAll('[data-failed-fallback]').forEach((button) => button.addEventListener('click', (event) => { event.stopPropagation(); useEvidenceFallback(button.dataset.failedFallback); }));
+  root.querySelectorAll('[data-failed-delete]').forEach((button) => button.addEventListener('click', (event) => { event.stopPropagation(); archiveFailedRun(button.dataset.failedDelete); }));
+}
+
 function renderRunList() {
   if (state.view === 'library') return renderAssetLibrary();
   const runs = filteredRuns();
@@ -3250,10 +3262,11 @@ function renderRunList() {
       <div class="book-cell">${cover(run)}<div><div class="book-name">${escapeHtml(run.input?.title)}</div><div class="book-meta">SKU ${escapeHtml(run.input?.sku)} · ${escapeHtml(new Date(run.createdAt).toLocaleDateString('zh-CN'))}</div></div></div>
       <div class="stage-meter"><div class="stage-track">${stages.map((item) => `<i class="stage-segment ${stageClass(item)}"></i>`).join('')}</div><div class="stage-label">${escapeHtml(activeLabel)} · ${stages.filter((item) => item.status === 'done').length}/${HARNESS_NODE_COUNT}</div><small class="run-operational-meta">${escapeHtml(ops.nextActionLabel || '')}${nextAttempt ? ` · ${escapeHtml(nextAttempt)}` : ''}</small></div>
       <div class="tracking-cell"><strong>${run.artifacts?.code ? `Code ${escapeHtml(run.artifacts.code)}` : '待分配'}</strong><span>${escapeHtml(run.artifacts?.shortUrl || '短链待创建')}</span></div>
-      <div><span class="status-badge ${escapeHtml(outcome.className)}">${escapeHtml(outcome.label)}</span><small class="run-operational-meta">${escapeHtml(blocker || schedule || (externalId ? `外部 ID ${externalId}` : ops.recoverable ? '可恢复' : ''))}</small></div>
+      <div><span class="status-badge ${escapeHtml(outcome.className)}">${escapeHtml(outcome.label)}</span><small class="run-operational-meta">${escapeHtml(blocker || schedule || (externalId ? `外部 ID ${externalId}` : ops.recoverable ? '可恢复' : ''))}</small>${failedRunActionsHtml(run, true)}</div>
     </article>`;
   }).join('');
   document.querySelectorAll('.run-row').forEach((row) => row.addEventListener('click', () => openDetail(row.dataset.id)));
+  bindFailedRunActions($('#runList'));
   renderRunLoadMore();
 }
 
@@ -4197,10 +4210,11 @@ function renderDetail() {
     const assets = assetSummary(run);
     const syncing = state.detailHydrating === run.id;
     const detailMessage = state.detailError || (syncing ? '正在加载可预览的完整素材；这不会阻塞当前任务。' : '任务已可操作。完整文案、视频和海报会在后台轻量同步。');
-    panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title || run.artifacts?.book?.title || '任务')}</h2><p>SKU ${escapeHtml(run.input?.sku || run.artifacts?.book?.bookSkuId || '--')} · Run ${escapeHtml(run.id.slice(-10))}</p></div><button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header><section class="pipeline"><div class="section-heading"><div><h3>P0-P7 可审计链路</h3><p>已完成节点、当前卡点和可用追踪信息即时展示。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="detail-sync-state ${syncing ? 'is-syncing' : ''}"><i data-lucide="${syncing ? 'loader-circle' : state.detailError ? 'circle-alert' : 'database-zap'}"></i><div><strong>${syncing ? '正在同步完整素材' : state.detailError ? '完整素材稍后可用' : '任务摘要已就绪'}</strong><span>${escapeHtml(detailMessage)}</span></div><button id="retryDetail" class="secondary-command" type="button" ${syncing ? 'disabled' : ''}><i data-lucide="refresh-cw"></i>${syncing ? '同步中' : '加载完整素材'}</button></div></section><section class="detail-section"><div class="section-heading"><h3>已可用产物</h3><span class="language-tag">无需等待</span></div><div class="asset-summary"><div><strong>${assets.posts}</strong><span>文案</span></div><div><strong>${assets.video}</strong><span>视频</span></div><div><strong>${assets.posters}</strong><span>海报</span></div><div><strong>${assets.tracking}</strong><span>追踪链接</span></div></div></section><section class="detail-section"><div class="section-heading"><h3>模型活动</h3><span class="language-tag">摘要记录</span></div>${modelActivityHtml(run)}</section>`;
+    panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title || run.artifacts?.book?.title || '任务')}</h2><p>SKU ${escapeHtml(run.input?.sku || run.artifacts?.book?.bookSkuId || '--')} · Run ${escapeHtml(run.id.slice(-10))}</p></div><div class="detail-actions">${failedRunActionsHtml(run)}<button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div></div><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header><section class="pipeline"><div class="section-heading"><div><h3>P0-P7 可审计链路</h3><p>已完成节点、当前卡点和可用追踪信息即时展示。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="detail-sync-state ${syncing ? 'is-syncing' : ''}"><i data-lucide="${syncing ? 'loader-circle' : state.detailError ? 'circle-alert' : 'database-zap'}"></i><div><strong>${syncing ? '正在同步完整素材' : state.detailError ? '完整素材稍后可用' : '任务摘要已就绪'}</strong><span>${escapeHtml(detailMessage)}</span></div><button id="retryDetail" class="secondary-command" type="button" ${syncing ? 'disabled' : ''}><i data-lucide="refresh-cw"></i>${syncing ? '同步中' : '加载完整素材'}</button></div></section><section class="detail-section"><div class="section-heading"><h3>已可用产物</h3><span class="language-tag">无需等待</span></div><div class="asset-summary"><div><strong>${assets.posts}</strong><span>文案</span></div><div><strong>${assets.video}</strong><span>视频</span></div><div><strong>${assets.posters}</strong><span>海报</span></div><div><strong>${assets.tracking}</strong><span>追踪链接</span></div></div></section><section class="detail-section"><div class="section-heading"><h3>模型活动</h3><span class="language-tag">摘要记录</span></div>${modelActivityHtml(run)}</section>`;
     panel.insertAdjacentHTML('beforeend', harnessLedgerHtml(run));
     $('#closeDetail')?.addEventListener('click', closeDetail);
     $('#retryDetail')?.addEventListener('click', () => retryRunDetail(run.id));
+    bindFailedRunActions(panel);
     state.detailFingerprint = `${run.id}:${run.updatedAt}:${run.state}:${syncing}:${state.detailError}`;
     icons();
     return;
@@ -4220,7 +4234,7 @@ function renderDetail() {
   const retryLabel = attributionBlocked ? '核对归因后继续' : posterPartial ? '单独重试失败海报' : videoLimitBlocked
     ? (p4BlockedReason === 'ac_points_budget' ? '积分额度恢复后重试视频' : p4BlockedReason === 'ac_configuration_wait' ? 'AC 配置恢复后重试视频' : p4BlockedReason === 'ac_capacity_wait' ? 'AC 容量恢复后重试视频' : `次日重试视频${run.stages.P4.nextWindow ? `（当前额度至 ${run.stages.P4.nextWindow}）` : ''}`)
     : '重试失败节点';
-  const canRetry = run.state === 'failed' || videoLimitBlocked || posterPartial || attributionBlocked;
+  const canRetry = run.state !== 'failed' && (videoLimitBlocked || posterPartial || attributionBlocked);
   if (run._assetOnly) {
     // Asset snapshots deliberately exclude source chapters and provider payloads.
     // They are for immediate review and reuse, not for silently triggering a
@@ -4260,7 +4274,7 @@ function renderDetail() {
     icons();
     return;
   }
-  panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><div class="detail-actions">${canRetry ? `<button id="retryRun" class="secondary-command"><i data-lucide="rotate-ccw"></i><span>${escapeHtml(retryLabel)}</span></button>` : ''}<button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div></div><nav class="detail-tabs" aria-label="成果模块"><button data-scroll-target="detail-overview">概览</button><button data-scroll-target="detail-decision">事前策划</button><button data-scroll-target="detail-quality">成品质检</button><button data-scroll-target="detail-copy">文案</button><button data-scroll-target="detail-video">视频</button><button data-scroll-target="detail-posters">海报</button><button data-scroll-target="detail-prompts">提示词</button><button data-scroll-target="detail-data">数据</button></nav><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header>
+  panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><div class="detail-actions">${failedRunActionsHtml(run)}${canRetry ? `<button id="retryRun" class="secondary-command"><i data-lucide="rotate-ccw"></i><span>${escapeHtml(retryLabel)}</span></button>` : ''}<button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div></div><nav class="detail-tabs" aria-label="成果模块"><button data-scroll-target="detail-overview">概览</button><button data-scroll-target="detail-decision">事前策划</button><button data-scroll-target="detail-quality">成品质检</button><button data-scroll-target="detail-copy">文案</button><button data-scroll-target="detail-video">视频</button><button data-scroll-target="detail-posters">海报</button><button data-scroll-target="detail-prompts">提示词</button><button data-scroll-target="detail-data">数据</button></nav><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header>
     <section id="detail-overview" class="pipeline"><div class="section-heading"><div><h3>P0-P7 可审计链路</h3><p>先锁定应用、平台、账号与选书快照，再推进证据、追踪、创意、媒体、审核包和 SocialEcho 草稿。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div>${productionModelRouteHtml(run)}<div class="creative-strategy">${creativeProfileHtml(run.input?.creativeProfile || {})}</div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="current-stage">${escapeHtml(active[1]?.label || labels[run.state] || run.state)}${active[1]?.error ? `：${escapeHtml(active[1].error)}` : ''}</div></section>
     ${decisionHtml(run)}
     ${postProductionReviewHtml(run)}
@@ -4279,6 +4293,7 @@ function renderDetail() {
   if (newVideo && playback?.time) newVideo.addEventListener('loadedmetadata', () => { newVideo.currentTime = Math.min(playback.time, newVideo.duration || playback.time); if (!playback.paused) newVideo.play().catch(() => {}); }, { once: true });
   $('#retryRun')?.addEventListener('click', () => attributionBlocked ? reconcileAttribution(run.id) : retryRun(run.id));
   $('#closeDetail')?.addEventListener('click', closeDetail);
+  bindFailedRunActions(panel);
   bindVideoDirectorControls(run, panel);
   panel.querySelectorAll('[data-reference-poster]').forEach((button) => button.addEventListener('click', () => {
     state.referencePosterChoice[run.id] = button.dataset.referencePoster;
@@ -4786,6 +4801,26 @@ async function kickWorker() {
 async function retryRun(id) {
   try { await api('/api/runs', { method: 'PATCH', body: JSON.stringify({ id, action: 'retry' }) }); state.detailFingerprint = ''; await loadStatus(); await kickWorker(); }
   catch (error) { showToast(error.message, 'error'); }
+}
+
+async function useEvidenceFallback(id) {
+  try {
+    await api('/api/runs', { method: 'PATCH', body: JSON.stringify({ id, action: 'continue_from_evidence' }), timeoutMs: 30000 });
+    state.detailFingerprint = '';
+    await loadStatus();
+    showToast('已使用锁定章节生成证据兜底文案，继续后续节点');
+    await kickWorker();
+  } catch (error) { showToast(`证据兜底失败：${error.message}`, 'error'); }
+}
+
+async function archiveFailedRun(id) {
+  try {
+    await api('/api/runs', { method: 'PATCH', body: JSON.stringify({ id, action: 'archive_failed' }) });
+    if (state.selectedId === id) { state.selectedId = ''; closeDetail(); }
+    state.detailFingerprint = '';
+    await loadStatus();
+    showToast('失败任务已从列表删除，外部任务记录仍保留');
+  } catch (error) { showToast(`删除失败：${error.message}`, 'error'); }
 }
 
 async function reconcileAttribution(id) {
