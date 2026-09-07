@@ -9,7 +9,11 @@ module.exports = async (req, res) => {
     return res.status(200).json({ ok: true });
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  if (localOpenAccess(req) || openAccess()) return res.status(200).json({ ok: true, authentication: 'open' });
+  if (localOpenAccess(req) || openAccess()) {
+    const session = createSession();
+    res.setHeader('Set-Cookie', `nf_social_session=${encodeURIComponent(session)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=43200`);
+    return res.status(200).json({ ok: true, authentication: 'open-bound' });
+  }
   const password = String(process.env.SOCIAL_CONSOLE_PASSWORD || '');
   const secret = String(process.env.SOCIAL_CONSOLE_SESSION_SECRET || '');
   if (!password || secret.length < 32) return res.status(503).json({ error: 'Console authentication is not configured' });

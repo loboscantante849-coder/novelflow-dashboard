@@ -102,6 +102,18 @@ function requireSession(req, res) {
 function requireOperatorMutation(req, res) {
   if (!requireSession(req, res)) return false;
   if (!openAccess()) return true;
+  // Passwordless mode still gets a signed HttpOnly session from /api/login.
+  // This keeps mutation requests same-origin and avoids exposing the operator
+  // secret to the browser or prompting the operator for it.
+  let sessionBound = false;
+  try {
+    const token = cookies(req).nf_social_session;
+    const [payload, signature, ...extra] = String(token || '').split('.');
+    const valid = Boolean(payload && signature && !extra.length && safeEqual(signature, sign(payload)));
+    const session = valid ? JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) : null;
+    sessionBound = Boolean(session && Number(session.exp) > Date.now());
+  } catch {}
+  if (sessionBound) return true;
   const expected = [process.env.SOCIAL_CONSOLE_OPERATOR_TOKEN, process.env.NOVELFLOW_OPERATOR_TOKEN]
     .map((value) => String(value || ''))
     .filter((value) => value.length >= 32);
