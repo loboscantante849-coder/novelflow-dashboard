@@ -33,17 +33,15 @@ const {
 const { getAdIdDetails, getLegacyDataJson, resolvePromoterKey } = require('./_lib/stats-data');
 const { isSystemStatsBucket } = require('./_lib/promoter-access');
 const { isApprovedSourceOwner, loadSourceOwnerIndex } = require('./_lib/income-source-owners');
+const { acquireWalletDataLock } = require('./_lib/wallet-identity');
 const {
-  acquireWalletDataLock,
   resolveUsernameAlias,
   resolveWalletStorageIdentity,
-} = require('./_lib/wallet-identity');
-const {
-  buildEarningsDetail,
-  buildIncomeProfile,
   computeWalletBalances,
+  buildEarningsDetail,
   isSafeMoneyValue,
-} = require('./_lib/commission-policy');
+} = require('./_lib/wallet-contract');
+const { buildIncomeProfile } = require('./_lib/commission-policy');
 const {
   MIN_WITHDRAWAL,
   MAX_WITHDRAWAL,
