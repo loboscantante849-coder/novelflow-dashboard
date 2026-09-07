@@ -214,8 +214,9 @@ module.exports = async (req, res) => {
         && !item.artifacts?.video
         && !(item.artifacts?.images || []).some((asset) => asset?.taskId);
       const structuredCreativeFailure = item.state === 'failed'
-        && ['waiting_for_operator', 'validation_waiting_for_operator', 'model_output_repairing'].includes(String(item.stages?.P3?.phase || ''))
-        && /invalid structured output|invalid json|incomplete creative|missing required/i.test(String(item.stages?.P3?.error || ''))
+        && (['waiting_for_operator', 'validation_waiting_for_operator', 'model_output_repairing'].includes(String(item.stages?.P3?.phase || ''))
+          || (String(item.stages?.P3?.phase || '') === 'evidence_continuation_review' && item.artifacts?.evidenceContinuationCandidate?.posts?.length))
+        && (String(item.stages?.P3?.phase || '') === 'evidence_continuation_review' || /invalid structured output|invalid json|incomplete creative|missing required/i.test(String(item.stages?.P3?.error || '')))
         && item.stages?.P1?.status === 'done'
         && item.stages?.P2?.status === 'done'
         && item.stages?.P5?.status === 'done';
