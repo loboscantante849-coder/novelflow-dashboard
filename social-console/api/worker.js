@@ -1,5 +1,5 @@
 const { getRedis, getRun, listRunSummaries, saveRun, addEvent, getCreativePlan, listCreativePlanSummaries, listDiscordJobs, saveCreativePlan } = require('./_lib/store');
-const { requireSession } = require('./_lib/auth');
+const { requireOperatorMutation } = require('./_lib/auth');
 const { processRun, p3 } = require('./_lib/pipeline');
 const { processCreativePlan } = require('./_lib/creative-plans');
 const { processDiscordJob } = require('./_lib/discord');
@@ -68,7 +68,7 @@ async function acquireRecoverableLease(redis, key, ttlSeconds = WORKER_LEASE_SEC
 
 module.exports = async (req, res) => {
   const cron = Boolean(process.env.CRON_SECRET) && req.headers.authorization === `Bearer ${process.env.CRON_SECRET}`;
-  if (!cron && !requireSession(req, res)) return;
+  if (!cron && !requireOperatorMutation(req, res)) return;
   const redis = getRedis();
   if (!redis) return res.status(503).json({ error: 'Storage not configured' });
   try {
@@ -77,6 +77,7 @@ module.exports = async (req, res) => {
     const requestedCreativeSection = String(req.body?.creativeSection || req.query?.creativeSection || '');
     const detailOnly = ['1', 'true'].includes(String(req.body?.detailOnly || req.query?.detailOnly || '').toLowerCase());
     const recoverCreative = ['1', 'true'].includes(String(req.body?.recoverCreative || req.query?.recoverCreative || '').toLowerCase());
+    const manualVideoLimitOverride = req.body?.manualVideoLimitOverride === true;
     if (requestedId && requestedPlanId) return res.status(400).json({ error: 'Specify either id or planId, not both' });
     if (requestedCreativeSection && !requestedId) return res.status(400).json({ error: 'A run id is required for creative section work' });
     if (requestedCreativeSection && !['posts', 'videoPrompt', 'posterPrompts', 'qualityReview'].includes(requestedCreativeSection)) return res.status(400).json({ error: 'Unsupported creative section' });
@@ -157,13 +158,50 @@ module.exports = async (req, res) => {
     const runnable = (item) => {
       if (item.state === 'queued') return true;
       if (item.state === 'running') {
+        // A saved P2/P3 retry timestamp is an intentional provider backoff.
+        // Do not let an early cron invocation keep selecting this run while
+        // newer eligible work waits behind it.
+        const modelRetryAt = [item.stages?.P1, item.stages?.P2, item.stages?.P3]
+          .map((stage) => Date.parse(stage?.nextAttemptAt || ''))
+          .find((value) => Number.isFinite(value) && value > Date.now());
+        if (modelRetryAt) return false;
+        const now = Date.now();
         const retryAt = Date.parse(item.stages?.P4?.nextAttemptAt || '');
+        const posterRetryAt = Date.parse(item.stages?.P3_5?.nextAttemptAt || '');
         const waitingForVideoCapacity = item.stages?.P4?.status === 'prepared'
-          && item.stages?.P4?.blockedReason === 'hourly_video_limit'
+          && ['daily_video_limit', 'hourly_video_limit', 'ac_points_budget', 'ac_configuration_wait', 'ac_capacity_wait'].includes(String(item.stages?.P4?.blockedReason || ''))
           && Number.isFinite(retryAt)
-          && retryAt > Date.now();
+          && retryAt > now;
+        const waitingForVideoProvider = item.stages?.P4?.status === 'prepared'
+          && ['ac_provider_unavailable', 'ac_points_budget', 'ac_configuration_wait', 'ac_capacity_wait'].includes(String(item.stages?.P4?.blockedReason || ''))
+          && Number.isFinite(retryAt)
+          && retryAt > now;
+        const posterWaiting = ['waiting', 'running', 'prepared'].includes(String(item.stages?.P3_5?.status || ''))
+          && Number.isFinite(posterRetryAt) && posterRetryAt > now;
         const posterFinished = ['done', 'partial', 'ambiguous'].includes(String(item.stages?.P3_5?.status || ''));
         if (waitingForVideoCapacity && posterFinished) return false;
+        // A provider cooldown is global to the AC branch.  Selecting the same
+        // run early would make the minutely cron starve every newer eligible
+        // run without doing useful work.
+        // An independent poster branch may still make progress while video is
+        // cooling down; retain the run only when that branch is runnable now.
+        const posterRunnable = !posterFinished && !posterWaiting;
+        if (waitingForVideoProvider && !posterRunnable) return false;
+        // Likewise, do not repeatedly select an in-flight video whose poll
+        // backoff has not elapsed. This was the main source of queue
+        // starvation: every cron tick returned `backoff` for the same oldest
+        // run and never reached queued work behind it.
+        const videoPollWaiting = item.stages?.P4?.status === 'running'
+          && Number.isFinite(retryAt) && retryAt > now;
+        if (videoPollWaiting && !posterRunnable) return false;
+        if (posterWaiting && (item.stages?.P4?.status === 'done'
+          || ['failed', 'ambiguous', 'blocked'].includes(String(item.stages?.P4?.status || '')))) return false;
+        const optimizationDueAt = Date.parse(item.artifacts?.optimization?.dueAt || '');
+        if (item.artifacts?.optimization?.status === 'awaiting_confirmation'
+          && Number.isFinite(optimizationDueAt) && optimizationDueAt > now) return false;
+        if (item.stages?.P4?.status === 'prepared'
+          && ['operator_video_pause', 'experimental_template'].includes(String(item.stages?.P4?.blockedReason || ''))
+          && posterFinished) return false;
         return true;
       }
       const creativeFailure = item.state === 'failed'
@@ -192,15 +230,44 @@ module.exports = async (req, res) => {
         && !['failed', 'ambiguous', 'blocked'].includes(item.stages?.P4?.status);
     };
 
+    const schedulerPriority = (item) => {
+      if (['running', 'submitted'].includes(String(item.stages?.P4?.status || ''))) return 0;
+      if (item.state === 'running') return 1;
+      if (item.state === 'queued') return 2;
+      return 3;
+    };
+
     let run = null;
+    let selectedLease = null;
     if (requestedId) {
       run = await getRun(redis, requestedId);
       if (!run) return res.status(404).json({ error: 'Run not found' });
     } else {
-      const candidates = (await listRunSummaries(redis, 50)).filter(runnable).slice(0, 4);
+      // Scan a wider bounded window so a cluster of recent backoff/held runs
+      // cannot hide older queued work indefinitely.
+      const candidates = (await listRunSummaries(redis, 200))
+        .filter(runnable)
+        .sort((left, right) => schedulerPriority(left) - schedulerPriority(right)
+          || Date.parse(left.updatedAt || left.createdAt || '') - Date.parse(right.updatedAt || right.createdAt || ''));
+      let lockedCandidates = 0;
       for (const candidate of candidates) {
         const full = await getRun(redis, candidate.id);
-        if (full && runnable(full)) { run = full; break; }
+        if (!full || !runnable(full)) continue;
+        const idleCreativeRetry = full.state === 'running'
+          && full.stages?.P3?.status === 'waiting'
+          && full.stages?.P3?.phase === 'manual_retry'
+          && !Object.values(full.artifacts?.creativeDraft?.inFlight || {}).some(Boolean);
+        const lease = await acquireRecoverableLease(redis, `nf_social:lock:${full.id}`, 810, idleCreativeRetry ? 45000 : STALE_LEASE_MS);
+        if (!lease) {
+          lockedCandidates += 1;
+          // Four owned worker leases are the campaign-wide model ceiling. A
+          // cron tick must not bypass them merely because a queued run exists.
+          if (lockedCandidates >= 4) break;
+          continue;
+        }
+        run = full;
+        selectedLease = lease;
+        break;
       }
     }
     if (!run) return res.status(200).json({ worked: false });
@@ -218,7 +285,16 @@ module.exports = async (req, res) => {
       } finally { await releaseLease(redis, leaseState.lease); }
     }
 
-    const leaseState = await acquireRecoverableLease(redis, `nf_social:lock:${run.id}`);
+    // A manual P3 retry is durably marked waiting before any provider call.
+    // If a request dies in that gap, the normal 825-second lease would leave
+    // the task invisible for too long. Once the stage is still waiting after
+    // 45 seconds, no live model call can own it because p3 marks it running
+    // before invoking the provider.
+    const idleCreativeRetry = run.state === 'running'
+      && run.stages?.P3?.status === 'waiting'
+      && run.stages?.P3?.phase === 'manual_retry'
+      && !Object.values(run.artifacts?.creativeDraft?.inFlight || {}).some(Boolean);
+    const leaseState = selectedLease || await acquireRecoverableLease(redis, `nf_social:lock:${run.id}`, 810, idleCreativeRetry ? 45000 : STALE_LEASE_MS);
     if (!leaseState) return res.status(200).json({ worked: false, locked: true });
     try {
       compactStoredEvidence(run);
@@ -232,7 +308,8 @@ module.exports = async (req, res) => {
         batch: true,
         maxSteps: BATCH_MAX_STEPS,
         maxRuntimeMs: BATCH_RUNTIME_MS,
-        stopAfterMedia: true
+        stopAfterMedia: true,
+        manualVideoLimitOverride
       });
       const updated = batch?.run || run;
       return res.status(200).json({

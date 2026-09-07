@@ -24,3 +24,22 @@ test('cover error kinds remain safe and non-sensitive', () => {
   assert.equal(coverErrorKind(Object.assign(new Error('request timed out'), { status: 504 })), 'timeout');
   assert.equal(coverErrorKind(Object.assign(new Error('boom'), { status: 500 })), 'upstream_5xx');
 });
+
+test('cover cache and exact lookup are isolated by target application', async () => {
+  const values = new Map();
+  const redis = {
+    async get(key) { return values.get(key) || null; },
+    async set(key, value) { values.set(key, value); return 'OK'; }
+  };
+  const calls = [];
+  const lookup = async (_title, _sku, options) => {
+    calls.push(options.applicationId);
+    return { cover: `https://cdn.example/${options.applicationId}.jpg` };
+  };
+  await resolveCoverBooks([{ sku: 'shared-sku', title: 'Shared Title' }], redis, lookup, { appKey: 'novelflow', applicationId: 'nf-app' });
+  await resolveCoverBooks([{ sku: 'shared-sku', title: 'Shared Title' }], redis, lookup, { appKey: 'maxnovel', applicationId: 'max-app' });
+  await resolveCoverBooks([{ sku: 'shared-sku', title: 'Shared Title' }], redis, lookup, { appKey: 'maxnovel', applicationId: 'max-app' });
+  assert.deepEqual(calls, ['nf-app', 'max-app']);
+  assert.ok(values.has('nf_social:book_cover:novelflow:shared-sku'));
+  assert.ok(values.has('nf_social:book_cover:maxnovel:shared-sku'));
+});

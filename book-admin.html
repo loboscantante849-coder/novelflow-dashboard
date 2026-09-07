@@ -787,9 +787,9 @@ tbody tr:last-child td {
 </div>
 
 <script type="module">
-// Config
-// SHA-256 hash of 'novelflow2026' - more secure than plain text
-const ADMIN_PASSWORD_HASH = 'a36ef0c5a1dd9c4212a13ea9564d9cb2fe49e87cbb99aaaa9feb7226714f4842';
+// Legacy static admin authentication is disabled. Credentials must be
+// verified by a server-side route before this page is re-enabled.
+const ADMIN_PASSWORD_HASH = '';
 const REPO_OWNER = 'loboscantante849-coder';
 const REPO_NAME = 'novelflow-dashboard';
 const FILE_PATH = 'submissions.json';
@@ -817,6 +817,12 @@ let fileSha = null;
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const password = document.getElementById('password').value;
+  if (!ADMIN_PASSWORD_HASH) {
+    document.getElementById('loginError').textContent = 'Legacy admin authentication is disabled';
+    document.getElementById('loginError').classList.add('show');
+    document.getElementById('password').value = '';
+    return;
+  }
   const inputHash = await sha256(password);
     if (inputHash === ADMIN_PASSWORD_HASH) {
     sessionStorage.setItem('adminLoggedIn', 'true');

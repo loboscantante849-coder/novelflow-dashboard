@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createRedis, RemoteRedis, getMany, listRunSummaries, newRun, runSummary, runDetail, runAssets, setStage, saveRun, findActiveRun, registerActiveRun, acquireRunCreation, releaseRunCreation, runIsActive } = require('../api/_lib/store');
+const { createRedis, RemoteRedis, getMany, listRunSummaries, newRun, runSummary, runDetail, runAssets, setStage, saveRun, findActiveRun, listActiveRuns, registerActiveRun, acquireRunCreation, releaseRunCreation, runIsActive, harnessProjection, videoDayInfo } = require('../api/_lib/store');
 
 test('storage uses direct Upstash credentials before the remote Vercel bridge', () => {
   const redis = createRedis({
@@ -21,6 +21,28 @@ test('storage keeps the authenticated bridge when direct credentials are unavail
   });
 
   assert.ok(redis instanceof RemoteRedis);
+});
+
+test('video capacity resets at Beijing midnight rather than the Vercel region midnight', () => {
+  const beforeMidnight = videoDayInfo(new Date('2026-08-06T15:59:59.000Z'));
+  const afterMidnight = videoDayInfo(new Date('2026-08-06T16:00:00.000Z'));
+  assert.equal(beforeMidnight.key, 'nf_social:video_day:20260806');
+  assert.equal(beforeMidnight.limit, 40);
+  assert.equal(beforeMidnight.resetAt, '2026-08-06T16:00:00.000Z');
+  assert.equal(afterMidnight.key, 'nf_social:video_day:20260807');
+  assert.equal(afterMidnight.resetAt, '2026-08-07T16:00:00.000Z');
+});
+
+test('video capacity accepts a date-scoped operator override and expires it at Beijing midnight', () => {
+  const previous = process.env.SOCIAL_VIDEO_DAILY_LIMIT_OVERRIDE;
+  process.env.SOCIAL_VIDEO_DAILY_LIMIT_OVERRIDE = '20260806:100';
+  try {
+    assert.equal(videoDayInfo(new Date('2026-08-06T15:59:59.000Z')).limit, 100);
+    assert.equal(videoDayInfo(new Date('2026-08-06T16:00:00.000Z')).limit, 40);
+  } finally {
+    if (previous === undefined) delete process.env.SOCIAL_VIDEO_DAILY_LIMIT_OVERRIDE;
+    else process.env.SOCIAL_VIDEO_DAILY_LIMIT_OVERRIDE = previous;
+  }
 });
 
 test('dashboard summaries use one Redis batch read when mget is available', async () => {
@@ -92,7 +114,7 @@ test('dashboard run summaries retain operational state without transferring full
   assert.deepEqual(summary.artifacts.usage.creative, { model: 'hy3', totalTokens: 1234 });
   assert.equal(summary.modelActivity.length, 3);
   assert.equal(summary.events.length, 1);
-  assert.equal(summary._summaryVersion, 7);
+  assert.equal(summary._summaryVersion, 8);
   assert.deepEqual(summary.stages.P1, { status: 'waiting' });
   assert.ok(bytes < 6000, `summary should be compact, received ${bytes} bytes`);
 });
@@ -143,10 +165,14 @@ test('completed review packages stay visible in compact dashboard summaries', ()
 });
 
 test('new production runs persist one-click autopilot state and safe source flags', () => {
-  const run = newRun({ title: 'Autopilot Romance', sku: 'auto-sku', source: 'catalog_7d', fullBookEvidence: true });
+  const run = newRun({ title: 'Autopilot Romance', sku: 'auto-sku', source: 'catalog_7d', fullBookEvidence: true, p0Selection: { source: 'content_dashboard_performance', readerBase: 1000, filters: { readBaseMin: 500 } } });
   assert.equal(run.input.source, 'catalog_7d');
   assert.equal(run.input.automationMode, 'one_click');
   assert.equal(run.input.fullBookEvidence, true);
+  assert.equal(run.stages.P0.status, 'done');
+  assert.equal(run.stages.P7.status, 'waiting');
+  assert.equal(runSummary(run).input.p0Selection.readerBase, 1000);
+  assert.equal(runSummary(run).input.p0Selection.filters.readBaseMin, 500);
   assert.deepEqual(run.autopilot, {
     enabled: true,
     mode: 'one_click',
@@ -167,6 +193,27 @@ test('new production runs persist one-click autopilot state and safe source flag
   assert.deepEqual(detail.autopilot, run.autopilot);
   assert.equal(summary.input.source, 'catalog_7d');
   assert.equal(summary.input.fullBookEvidence, true);
+});
+
+test('harness projection keeps the P0 route, stage ledger, and ambiguous external task durable', () => {
+  const run = newRun({
+    title: 'Harness Romance', sku: 'harness-sku',
+    delivery: { applicationId: 'max-app', appKey: 'maxnovel', appName: 'MaxNovel', productLine: 'maxnovel', accountId: 13943482, accountTitle: 'MaxNovel', platform: 'facebook', includeLink: false },
+    p0Selection: { source: 'content_dashboard_performance', windowDays: 30, sourceRank: 7, readerBase: 12000, firstReadRate: 32, longReadRate: 14, trend7v30: 0.18 }
+  });
+  run.state = 'blocked';
+  run.artifacts.video = { threadId: 'ac-thread-durable', status: 'submitting' };
+  run.stages.P4 = { status: 'ambiguous', error: 'provider response was not conclusive' };
+  const projection = harnessProjection(run);
+  assert.equal(projection.target.locked, true);
+  assert.equal(projection.target.appKey, 'maxnovel');
+  assert.equal(projection.target.accountId, 13943482);
+  assert.equal(projection.p0.sourceRank, 7);
+  assert.equal(projection.status, 'ambiguous');
+  assert.equal(projection.stages.find((stage) => stage.key === 'P4').externalTaskId, 'ac-thread-durable');
+  assert.match(projection.blockers[0].reason, /provider response/);
+  assert.deepEqual(runSummary(run).harness, projection);
+  assert.deepEqual(runDetail(run).harness, projection);
 });
 
 test('saveRun advances autopilot progress but analytics-only saves do not move it', async () => {
@@ -215,6 +262,108 @@ test('active run pointer and creation lock prevent duplicate one-click tasks', a
   await releaseRunCreation(redis, third);
 });
 
+test('reserved campaign runs block legacy creation for the full serverless window', async () => {
+  const values = new Map();
+  const setOptions = new Map();
+  const redis = {
+    async get(key) { return values.get(key) ?? null; },
+    async set(key, value, options = {}) {
+      if (options.nx && values.has(key)) return null;
+      values.set(key, value);
+      setOptions.set(key, options);
+      return 'OK';
+    },
+    async del(key) { values.delete(key); return 1; },
+    async zadd() { return 1; },
+    async zrange() { return []; }
+  };
+  const reserved = newRun({ title: 'Reserved Campaign Book', sku: 'reserved-campaign-sku', delivery: { accountId: 13751295 } });
+  reserved.state = 'reserved';
+  await saveRun(redis, reserved);
+  await registerActiveRun(redis, reserved);
+  assert.equal((await findActiveRun(redis, reserved.input.sku, 13751295)).id, reserved.id);
+  const lock = await acquireRunCreation(redis, reserved.input.sku, 13751295);
+  assert.equal(lock.acquired, true);
+  assert.equal(setOptions.get(lock.key).ex, 900);
+});
+
+test('active family registry keeps a live campaign sibling after the pointer sibling finishes', async () => {
+  const values = new Map();
+  const sorted = new Map();
+  const redis = {
+    async get(key) { return values.get(key) ?? null; },
+    async set(key, value, options = {}) {
+      if (options.nx && values.has(key)) return null;
+      values.set(key, value);
+      return 'OK';
+    },
+    async del(key) { values.delete(key); return 1; },
+    async zadd(key, entry) {
+      if (!sorted.has(key)) sorted.set(key, new Map());
+      sorted.get(key).set(String(entry.member), Number(entry.score));
+      return 1;
+    },
+    async zrange(key, start, end, options = {}) {
+      const entries = [...(sorted.get(key) || new Map()).entries()]
+        .sort((left, right) => options.rev ? right[1] - left[1] : left[1] - right[1])
+        .map(([member]) => member);
+      const stop = end < 0 ? entries.length : end + 1;
+      return entries.slice(start, stop);
+    },
+    async zrem(key, member) { return sorted.get(key)?.delete(String(member)) ? 1 : 0; }
+  };
+  const shared = {
+    title: 'Two Scene Winner', sku: 'two-scene-sku', delivery: { accountId: 13943482 },
+    campaign: { id: 'campaign_20260823_deadbeef00', itemIndex: 1 }
+  };
+  const first = newRun({ ...shared, creativeProfile: { sceneLane: 0, sceneRepeatIndex: 1, sceneRepeatCount: 2 } });
+  const second = newRun({ ...shared, campaign: { ...shared.campaign, itemIndex: 2 }, creativeProfile: { sceneLane: 2, sceneRepeatIndex: 2, sceneRepeatCount: 2 } });
+  first.updatedAt = '2026-08-23T06:00:00.000Z';
+  second.updatedAt = '2026-08-23T06:01:00.000Z';
+  await saveRun(redis, first, { preserveUpdatedAt: true });
+  await saveRun(redis, second, { preserveUpdatedAt: true });
+  await registerActiveRun(redis, first);
+  await registerActiveRun(redis, second);
+  assert.deepEqual(new Set((await listActiveRuns(redis, shared.sku, 13943482)).map((run) => run.id)), new Set([first.id, second.id]));
+  assert.equal((await findActiveRun(redis, shared.sku, 13943482)).id, second.id, 'newest sibling owns the compatibility pointer');
+
+  second.state = 'completed';
+  second.updatedAt = '2026-08-23T06:02:00.000Z';
+  await saveRun(redis, second, { preserveUpdatedAt: true });
+  const remaining = await listActiveRuns(redis, shared.sku, 13943482);
+  assert.deepEqual(remaining.map((run) => run.id), [first.id]);
+  assert.equal((await findActiveRun(redis, shared.sku, 13943482)).id, first.id);
+});
+
+test('the same SKU may run concurrently for different locked accounts', async () => {
+  const values = new Map();
+  const redis = {
+    async get(key) { return values.get(key) ?? null; },
+    async set(key, value, options = {}) {
+      if (options.nx && values.has(key)) return null;
+      values.set(key, value);
+      return 'OK';
+    },
+    async del(key) { values.delete(key); return 1; },
+    async zadd() { return 1; },
+    async zrange() { return []; }
+  };
+  const facebook = newRun({ title: 'Shared Winner', sku: 'shared-sku', delivery: { accountId: 13751295 } });
+  const instagram = newRun({ title: 'Shared Winner', sku: 'shared-sku', delivery: { accountId: 13943450 } });
+  await saveRun(redis, facebook);
+  await saveRun(redis, instagram);
+  await registerActiveRun(redis, facebook);
+  await registerActiveRun(redis, instagram);
+
+  assert.equal((await findActiveRun(redis, 'shared-sku', 13751295)).id, facebook.id);
+  assert.equal((await findActiveRun(redis, 'shared-sku', 13943450)).id, instagram.id);
+  const first = await acquireRunCreation(redis, 'shared-sku', 13751295);
+  const otherAccount = await acquireRunCreation(redis, 'shared-sku', 13943450);
+  assert.equal(first.acquired, true);
+  assert.equal(otherAccount.acquired, true);
+  assert.equal((await acquireRunCreation(redis, 'shared-sku', 13751295)).acquired, false);
+});
+
 test('a failed run with persisted paid task ids remains guarded from ordinary one-click recreation', () => {
   const run = newRun({ title: 'Paid Failure', sku: 'paid-failure-sku', paidAuthorized: true });
   run.state = 'failed';
@@ -222,4 +371,39 @@ test('a failed run with persisted paid task ids remains guarded from ordinary on
   assert.equal(runIsActive(run), true);
   run.artifacts.video = null;
   assert.equal(runIsActive(run), false);
+});
+
+test('a production-complete internal P7 draft remains guarded until SocialEcho returns an external ID', () => {
+  const run = newRun({ title: 'External Submission Pending', sku: 'external-submission-pending' });
+  run.state = 'completed';
+  run.stages.P7 = { status: 'waiting', blockedReason: 'external_submission_required' };
+  run.artifacts.review = { publicationDraftId: 'pub_0123456789abcdef0123456789abcdef', publicationStatus: 'ready_for_review' };
+  assert.equal(runIsActive(run), true);
+  run.stages.P7 = { status: 'done' };
+  assert.equal(runIsActive(run), false);
+});
+
+test('run detail preserves bounded object-shaped video QA evidence', () => {
+  const run = newRun({ title: 'Premium QA', sku: 'premium-qa-sku' });
+  run.artifacts.video = {
+    status: 'completed',
+    threadId: 'thread-premium-qa',
+    videoUrls: ['https://media.example/premium.mp4'],
+    executionQa: {
+      status: 'approved', score: 87, computedScore: 87,
+      criteria: { eventImmediacy: 5, socialStakes: 4, conflictObject: 5, powerDelta: 4, visualSpecificity: 4, brandPremium: 4, injected: 999 },
+      defects: [], unknownDefects: ['future_taxonomy_item'], taxonomyVersion: 1,
+      openingClass: 'public_confrontation', notes: 'n'.repeat(1500), reviewedAt: '2026-08-24T08:00:00.000Z',
+      reviewer: 'operator', assetKind: 'original', assetFingerprint: 'a'.repeat(64)
+    }
+  };
+
+  const qa = runDetail(run).artifacts.video.executionQa;
+  assert.deepEqual(qa.criteria, { eventImmediacy: 5, socialStakes: 4, conflictObject: 5, powerDelta: 4, visualSpecificity: 4, brandPremium: 4 });
+  assert.equal(qa.computedScore, 87);
+  assert.deepEqual(qa.unknownDefects, ['future_taxonomy_item']);
+  assert.equal(qa.taxonomyVersion, 1);
+  assert.equal(qa.assetKind, 'original');
+  assert.equal(qa.assetFingerprint, 'a'.repeat(64));
+  assert.equal(qa.notes.length, 1000);
 });

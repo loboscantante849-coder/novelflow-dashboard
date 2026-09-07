@@ -11,25 +11,44 @@ const planKey = (id) => `nf_social:creative_plan:${id}`;
 const runSummaryKey = (id) => `nf_social:run_summary:${id}`;
 const planSummaryKey = (id) => `nf_social:creative_plan_summary:${id}`;
 const ACTIVE_RUN_TTL = 90 * 24 * 60 * 60;
-const RUN_CREATE_LOCK_TTL = 120;
-const activeRunKey = (sku) => `nf_social:active_run:${crypto.createHash('sha256').update(String(sku || '').trim().toLowerCase()).digest('hex').slice(0, 32)}`;
-const runCreateLockKey = (sku) => `nf_social:run_create_lock:${crypto.createHash('sha256').update(String(sku || '').trim().toLowerCase()).digest('hex').slice(0, 32)}`;
-const RUN_SUMMARY_VERSION = 7;
+// Vercel's longest production handlers are allowed to run for 800 seconds.
+// Creation locks must outlive that complete reservation window so an older
+// single-run endpoint cannot race a 36-slot campaign while it is still
+// making every reserved identity durable.
+const RUN_CREATE_LOCK_TTL = 900;
+const runScope = (sku, accountId = 0) => `${String(sku || '').trim().toLowerCase()}:${Number(accountId || 0) || 0}`;
+const activeRunKey = (sku, accountId = 0) => `nf_social:active_run:${crypto.createHash('sha256').update(runScope(sku, accountId)).digest('hex').slice(0, 32)}`;
+const activeRunsKey = (sku, accountId = 0) => `nf_social:active_runs:${crypto.createHash('sha256').update(runScope(sku, accountId)).digest('hex').slice(0, 32)}`;
+const runCreateLockKey = (sku, accountId = 0) => `nf_social:run_create_lock:${crypto.createHash('sha256').update(runScope(sku, accountId)).digest('hex').slice(0, 32)}`;
+const RUN_SUMMARY_VERSION = 8;
 
-const AUTOPILOT_STAGES = Object.freeze(['P1', 'P2', 'P5', 'P3', 'P3_5', 'P4', 'P6']);
+const AUTOPILOT_STAGES = Object.freeze(['P0', 'P1', 'P2', 'P5', 'P3', 'P3_5', 'P4', 'P6', 'P7']);
+const HARNESS_STAGES = Object.freeze(['P0', 'P1', 'P2', 'P3', 'P3_5', 'P4', 'P5', 'P6', 'P7']);
+const HARNESS_LABELS = Object.freeze({
+  P0: 'P0 selection lock', P1: 'P1 identity', P2: 'P2 evidence', P3: 'P3 creative',
+  P3_5: 'P3.5 posters', P4: 'P4 video', P5: 'P5 attribution', P6: 'P6 review package', P7: 'P7 SocialEcho draft'
+});
 const AUTOPILOT_LABELS = Object.freeze({
+  P0: '锁定投放目标与选书快照',
   P1: '核验书籍身份',
   P2: '读取章节并建立证据',
   P5: '创建并验证 Code / 短链',
   P3: '生成文案与创意提示词',
   P3_5: '生成推广海报',
   P4: '提交并等待视频生成',
-  P6: '组装审核包并开启数据跟进'
+  P6: '组装审核包并开启数据跟进',
+  P7: '创建或核验 SocialEcho 草稿'
 });
 
 function runIsActive(run) {
   const state = String(run?.state || '');
-  if (['queued', 'running', 'blocked'].includes(state)) return true;
+  if (['reserved', 'queued', 'running', 'blocked'].includes(state)) return true;
+  // P0-P6 may be complete while P7 deliberately waits for an external
+  // SocialEcho ID. Treat that review-ready delivery as active for duplicate
+  // protection even though the worker correctly stops polling it.
+  if (state === 'completed'
+    && String(run?.stages?.P7?.status || '') !== 'done'
+    && Boolean(run?.artifacts?.review?.publicationDraftId)) return true;
   if (state !== 'failed') return false;
   const videoTask = Boolean(run?.artifacts?.video?.threadId);
   const posterTask = (Array.isArray(run?.artifacts?.images) ? run.artifacts.images : []).some((item) => item?.taskId);
@@ -38,7 +57,14 @@ function runIsActive(run) {
 
 function nextAutopilotAction(run) {
   const stages = run?.stages || {};
-  const pending = AUTOPILOT_STAGES.find((name) => String(stages[name]?.status || 'waiting') !== 'done');
+  const pending = AUTOPILOT_STAGES.find((name) => {
+    const stage = stages[name] || {};
+    // Video-only campaigns intentionally mark the optional poster branch as a
+    // non-blocking partial result. It must not make a finished P0-P7 run look
+    // perpetually unfinished in the dashboard or scheduler.
+    if (name === 'P3_5' && stage.nonBlocking === true && String(stage.status || '') === 'partial') return false;
+    return String(stage.status || 'waiting') !== 'done';
+  });
   if (!pending) return { nextAction: 'done', nextActionLabel: '全部生产节点已完成' };
   const stage = stages[pending] || {};
   const label = String(stage.label || AUTOPILOT_LABELS[pending] || pending).slice(0, 180);
@@ -67,7 +93,8 @@ function autopilotProjection(run, options = {}) {
     // A caller may save a stage transition before it flips the top-level
     // state. Treat that durable stage evidence as running instead of leaving
     // the dashboard on a stale queued badge.
-    const hasProgress = Object.values(run?.stages || {}).some((stage) => !['waiting', ''].includes(String(stage?.status || '')));
+    const hasProgress = AUTOPILOT_STAGES.filter((name) => name !== 'P0')
+      .some((name) => !['waiting', ''].includes(String(run?.stages?.[name]?.status || '')));
     status = hasProgress ? 'running' : 'queued';
   }
   else {
@@ -84,6 +111,121 @@ function autopilotProjection(run, options = {}) {
     lastProgressAt: String(options.progress ? now : (current.lastProgressAt || run?.updatedAt || run?.createdAt || now)),
     nextAction: action.nextAction,
     nextActionLabel: action.nextActionLabel
+  };
+}
+
+// Bounded, durable P0-P7 projection consumed by the console. Full evidence
+// and creative payloads remain available only from the detail endpoint.
+function harnessProjection(run) {
+  const input = run?.input || {};
+  const delivery = input.delivery && typeof input.delivery === 'object' ? input.delivery : {};
+  const selection = input.p0Selection && typeof input.p0Selection === 'object' ? input.p0Selection : {};
+  const artifacts = run?.artifacts || {};
+  const stages = run?.stages || {};
+  const stageRows = HARNESS_STAGES.map((name) => {
+    const stage = stages[name] || {};
+    const status = String(stage.status || 'waiting');
+    const externalTaskId = name === 'P4'
+      ? String(artifacts.video?.threadId || artifacts.videoRevision?.threadId || artifacts.referenceVideo?.threadId || '')
+      : name === 'P3_5'
+        ? (Array.isArray(artifacts.images) ? artifacts.images.map((item) => String(item?.taskId || '')).filter(Boolean).slice(0, 3) : [])
+        : name === 'P7'
+          // `publicationDraftId` is an internal Redis record. It must never be
+          // displayed as a SocialEcho external task ID. The provider ID is
+          // meaningful only after an explicit external_draft confirmation.
+          ? String(artifacts.review?.publicationStatus === 'external_draft'
+            ? (artifacts.review?.socialEchoDraftId || artifacts.review?.externalDraftId || '')
+            : '')
+          : '';
+    const internalTaskId = name === 'P7' ? String(artifacts.review?.publicationDraftId || '') : '';
+    return {
+      key: name,
+      status,
+      purpose: String(stage.label || AUTOPILOT_LABELS[name] || HARNESS_LABELS[name]),
+      artifact: name === 'P0'
+        ? String(selection.sourceRank ? `rank:${selection.sourceRank}` : '')
+        : name === 'P1'
+          ? String(artifacts.book?.bookSkuId || input.sku || '')
+          : name === 'P2'
+            ? (artifacts.evidence?.completed ? `${Number(artifacts.evidence.completed)}/${Number(artifacts.evidence.requested || artifacts.evidence.completed)} chapters` : '')
+            : name === 'P3'
+              ? (Array.isArray(artifacts.posts) ? `${artifacts.posts.length} posts` : '')
+              : name === 'P3_5'
+                ? (Array.isArray(artifacts.images) ? `${artifacts.images.filter((item) => item?.url).length}/${artifacts.images.length} posters` : '')
+                : name === 'P4'
+                  ? String(artifacts.video?.status || '')
+                  : name === 'P5'
+                    ? String(artifacts.code || '')
+                    : name === 'P6'
+                      ? String(artifacts.review ? 'review package ready' : '')
+                      : String(artifacts.review?.publicationStatus || artifacts.review?.publicationDraftId || ''),
+      recoverable: stage.recoverable === true || ['failed', 'blocked', 'ambiguous', 'partial'].includes(status),
+      nextAttemptAt: String(stage.nextAttemptAt || ''),
+      externalTaskId: Array.isArray(externalTaskId) ? externalTaskId : externalTaskId || '',
+      internalTaskId,
+      externalStatus: name === 'P7' ? String(artifacts.review?.publicationStatus || '') : '',
+      scheduledAt: name === 'P7' ? String(artifacts.review?.scheduledAt || input.campaign?.scheduledAt || '') : '',
+      error: String(stage.error || '').slice(0, 300),
+      blockedReason: String(stage.blockedReason || '')
+    };
+  });
+  const isOptionalPosterTerminal = (stage) => stage.key === 'P3_5'
+    && stage.status === 'partial' && stages.P3_5?.nonBlocking === true;
+  const blockers = stageRows.filter((stage) => ['failed', 'blocked', 'ambiguous', 'partial'].includes(stage.status) && !isOptionalPosterTerminal(stage)).map((stage) => ({
+    stage: stage.key,
+    label: HARNESS_LABELS[stage.key] || stage.key,
+    status: stage.status,
+    reason: stage.error || stage.blockedReason || (stage.status === 'ambiguous' ? 'manual reconciliation required; no duplicate submission' : 'operator action required')
+  }));
+  const active = stageRows.find((stage) => stage.status !== 'done' && !isOptionalPosterTerminal(stage)) || null;
+  const completed = stageRows.filter((stage) => stage.status === 'done' || isOptionalPosterTerminal(stage)).length;
+  const ambiguous = stageRows.some((stage) => stage.status === 'ambiguous') || String(artifacts.review?.publicationStatus || '') === 'publish_ambiguous';
+  const status = ambiguous ? 'ambiguous' : blockers.some((item) => ['failed', 'blocked'].includes(item.status)) ? (String(run?.state || '') === 'failed' ? 'failed' : 'blocked') : completed === HARNESS_STAGES.length ? 'completed' : String(run?.state || '') === 'queued' ? 'queued' : 'running';
+  return {
+    version: 1,
+    status,
+    completion: { completed, total: HARNESS_STAGES.length, percent: Math.round((completed / HARNESS_STAGES.length) * 100) },
+    target: {
+      locked: Boolean(delivery.applicationId && delivery.accountId && delivery.platform),
+      applicationId: String(delivery.applicationId || ''),
+      appKey: String(delivery.appKey || delivery.productLine || ''),
+      appName: String(delivery.appName || delivery.productLine || ''),
+      accountId: Number(delivery.accountId || 0),
+      accountTitle: String(delivery.accountTitle || ''),
+      platform: String(delivery.platform || ''),
+      publishType: String(delivery.publishType || ''),
+      includeLink: delivery.includeLink === true
+    },
+    p0: {
+      locked: Boolean(delivery.accountId && (input.sku || selection.sourceRank)),
+      source: String(selection.source || ''),
+      windowDays: Number(selection.windowDays || 0),
+      sourceRank: Number(selection.sourceRank || 0),
+      recommendationRank: Number(selection.recommendationRank || 0),
+      readerBase: Number(selection.readerBase || 0),
+      firstReadRate: Number(selection.firstReadRate || 0),
+      longReadRate: Number(selection.longReadRate || 0),
+      trend7v30: selection.trend7v30 == null ? null : Number(selection.trend7v30),
+      dataQuality: String(selection.dataQuality || ''),
+      sourceHealth: String(selection.sourceHealth || ''),
+      generatedAt: String(selection.generatedAt || ''),
+      receiptVersion: Number(selection.receiptVersion || 0),
+      receiptIssuedAt: String(selection.receiptIssuedAt || ''),
+      filters: selection.filters && typeof selection.filters === 'object' ? {
+        readBaseMin: Number(selection.filters.readBaseMin || 0),
+        firstReadMin: Number(selection.filters.firstReadMin || 0),
+        longReadMin: Number(selection.filters.longReadMin || 0),
+        language: String(selection.filters.language || ''),
+        complete: String(selection.filters.complete || ''),
+        length: String(selection.filters.length || 'all'),
+        genre: String(selection.filters.genre || '')
+      } : null
+    },
+    book: { title: String(input.title || artifacts.book?.title || ''), sku: String(input.sku || artifacts.book?.bookSkuId || '') },
+    activeStage: active ? { key: active.key, label: HARNESS_LABELS[active.key] || active.key, status: active.status, nextAttemptAt: active.nextAttemptAt } : null,
+    nextAction: nextAutopilotAction(run),
+    blockers,
+    stages: stageRows
   };
 }
 class RemoteRedis {
@@ -109,8 +251,9 @@ class RemoteRedis {
   del(key) { return this.call('del', { key }); }
 }
 function createRedis(environment = process.env) {
-  const url = environment.KV_REST_API_URL;
-  const token = environment.KV_REST_API_TOKEN;
+  // Keep Social Console state isolated from the shared application Redis.
+  const url = environment.SOCIAL_KV_REST_API_URL || environment.KV_REST_API_URL;
+  const token = environment.SOCIAL_KV_REST_API_TOKEN || environment.KV_REST_API_TOKEN;
   if (url && token && /^https:\/\//i.test(url)) return new Redis({ url, token });
   const bridgeUrl = environment.SOCIAL_STORE_URL;
   const bridgeSecret = environment.SOCIAL_STORE_SECRET;
@@ -149,6 +292,57 @@ function summaryInput(input = {}) {
       completedAt: String(input.planning.completedAt || '')
     }
     : null;
+  const delivery = input?.delivery && typeof input.delivery === 'object'
+    ? {
+      accountId: Number(input.delivery.accountId || 0),
+      accountTitle: String(input.delivery.accountTitle || '').slice(0, 300),
+      platform: String(input.delivery.platform || '').slice(0, 40),
+      publishType: String(input.delivery.publishType || '').slice(0, 40),
+      appKey: String(input.delivery.appKey || '').slice(0, 40),
+      appName: String(input.delivery.appName || '').slice(0, 80),
+      productLine: String(input.delivery.productLine || '').slice(0, 80),
+      applicationId: String(input.delivery.applicationId || '').slice(0, 80),
+      includeLink: input.delivery.includeLink === true
+    }
+    : null;
+  const selection = input?.p0Selection && typeof input.p0Selection === 'object'
+    ? {
+      source: String(input.p0Selection.source || '').slice(0, 80),
+      windowDays: Number(input.p0Selection.windowDays || 0),
+      sourceRank: Number(input.p0Selection.sourceRank || 0),
+      recommendationRank: Number(input.p0Selection.recommendationRank || 0),
+      readerBase: Number(input.p0Selection.readerBase || 0),
+      firstReadRate: Number(input.p0Selection.firstReadRate || 0),
+      longReadRate: Number(input.p0Selection.longReadRate || 0),
+      trend7v30: input.p0Selection.trend7v30 == null ? null : Number(input.p0Selection.trend7v30),
+      dataQuality: String(input.p0Selection.dataQuality || '').slice(0, 40),
+      sourceHealth: String(input.p0Selection.sourceHealth || '').slice(0, 40),
+      generatedAt: String(input.p0Selection.generatedAt || '').slice(0, 80),
+      receiptVersion: Number(input.p0Selection.receiptVersion || 0),
+      receiptIssuedAt: String(input.p0Selection.receiptIssuedAt || '').slice(0, 80),
+      filters: input.p0Selection.filters && typeof input.p0Selection.filters === 'object' ? {
+        language: String(input.p0Selection.filters.language || '').slice(0, 8),
+        complete: String(input.p0Selection.filters.complete || '').slice(0, 20),
+        length: String(input.p0Selection.filters.length || 'all').slice(0, 10),
+        genre: String(input.p0Selection.filters.genre || '').slice(0, 40),
+        readBaseMin: Number(input.p0Selection.filters.readBaseMin || 0),
+        firstReadMin: Number(input.p0Selection.filters.firstReadMin || 0),
+        longReadMin: Number(input.p0Selection.filters.longReadMin || 0)
+      } : null
+    }
+    : null;
+  const videoControl = input?.videoControl && typeof input.videoControl === 'object'
+    ? {
+      version: Number(input.videoControl.version || 1),
+      template: String(input.videoControl.template || 'Ad_Plot_Seedance').slice(0, 80),
+      referenceAssetIds: Array.isArray(input.videoControl.referenceAssetIds) ? input.videoControl.referenceAssetIds.slice(0, 9).map((id) => String(id).slice(0, 120)) : [],
+      enableSubtitles: input.videoControl.enableSubtitles === true,
+      lineage: input.videoControl.lineage && typeof input.videoControl.lineage === 'object' ? {
+        source: String(input.videoControl.lineage.source || '').slice(0, 40),
+        threadId: String(input.videoControl.lineage.threadId || '').slice(0, 180)
+      } : null
+    }
+    : null;
   return {
     title: String(input?.title || ''),
     sku: String(input?.sku || ''),
@@ -156,7 +350,54 @@ function summaryInput(input = {}) {
     automationMode: String(input?.automationMode || '').slice(0, 40),
     fullBookEvidence: input?.fullBookEvidence !== false,
     creativeProfile: input?.creativeProfile && typeof input.creativeProfile === 'object' ? input.creativeProfile : {},
+    ...(input?.campaign && typeof input.campaign === 'object' ? { campaign: {
+      id: String(input.campaign.id || '').slice(0, 100),
+      itemIndex: Number(input.campaign.itemIndex || 0),
+      slot: Number(input.campaign.slot || 0),
+      selectionTier: String(input.campaign.selectionTier || '').slice(0, 80),
+      autoSocialEchoDraft: input.campaign.autoSocialEchoDraft === true,
+      paidMediaAuthorized: input.campaign.paidMediaAuthorized === true,
+      deliveryMode: ['draft', 'scheduled'].includes(String(input.campaign.deliveryMode || '').toLowerCase())
+        ? String(input.campaign.deliveryMode).toLowerCase()
+        : (String(input.campaign.scheduledAt || '').trim() ? 'scheduled' : 'draft'),
+      // Keep the delivery intent in the compact summary. A missing timestamp
+      // must never make a scheduled item look like an ordinary status:0 draft.
+      scheduledAt: String(input.campaign.scheduledAt || '').slice(0, 80),
+      timezone: String(input.campaign.timezone || input.campaign.timeZone || 'Asia/Shanghai').slice(0, 40)
+    } } : {}),
+    ...(videoControl ? { videoControl } : {}),
+    ...(delivery?.accountId ? { delivery } : {}),
+    ...(selection ? { p0Selection: selection } : {}),
     ...(planning ? { planning } : {})
+  };
+}
+
+function publicVideoControl(control = {}) {
+  return {
+    version: Number(control?.version || 1),
+    template: String(control?.template || 'Ad_Plot_Seedance').slice(0, 80),
+    enableSubtitles: control?.enableSubtitles === true,
+    referenceAssetIds: Array.isArray(control?.referenceAssetIds) ? control.referenceAssetIds.slice(0, 9).map((id) => String(id).slice(0, 120)) : [],
+    references: Array.isArray(control?.references) ? control.references.slice(0, 9).map((reference) => ({ id: String(reference?.id || '').slice(0, 120), characterName: String(reference?.characterName || '').slice(0, 160), role: String(reference?.role || '').slice(0, 80), view: String(reference?.view || '').slice(0, 60) })) : [],
+    lineage: control?.lineage && typeof control.lineage === 'object' ? { source: String(control.lineage.source || '').slice(0, 40), threadId: String(control.lineage.threadId || '').slice(0, 180) } : null,
+    policy: control?.policy && typeof control.policy === 'object' ? { id: String(control.policy.id || '').slice(0, 80), production: control.policy.production === true, maxReferences: Number(control.policy.maxReferences || 0) } : null,
+    chapterWindow: control?.chapterWindow && typeof control.chapterWindow === 'object' ? { start: Number(control.chapterWindow.start || 0), end: Number(control.chapterWindow.end || 0), chapters: Array.isArray(control.chapterWindow.chapters) ? control.chapterWindow.chapters.slice(0, 8).map(Number) : [] } : null
+  };
+}
+
+function publicExecutionControls(execution = {}) {
+  if (!execution || typeof execution !== 'object') return null;
+  return {
+    enableSubtitles: typeof execution.enableSubtitles === 'boolean' ? execution.enableSubtitles : null,
+    isRewriting: typeof execution.isRewriting === 'boolean' ? execution.isRewriting : null,
+    isGenerateImage: typeof execution.isGenerateImage === 'boolean' ? execution.isGenerateImage : null,
+    effectiveVideoModel: String(execution.effectiveVideoModel || '').slice(0, 180),
+    model: String(execution.effectiveVideoModel || '').slice(0, 180),
+    ttsAudioVoice: String(execution.ttsAudioVoice || '').slice(0, 180),
+    wordCount: String(execution.wordCount || '').slice(0, 40),
+    referenceCount: Number(execution.referenceCount || 0),
+    storyboard: execution.storyboard && typeof execution.storyboard === 'object' ? { length: Number(execution.storyboard.length || 0), sha256: String(execution.storyboard.sha256 || '').slice(0, 80) } : null,
+    materialTraceIds: Array.isArray(execution.materialTraceIds) ? execution.materialTraceIds.slice(0, 4).map((id) => String(id).slice(0, 180)) : []
   };
 }
 
@@ -175,6 +416,8 @@ function summaryStages(stages = {}) {
     text('fallbackReason', stage?.fallbackReason, 180);
     text('startedAt', stage?.startedAt, 80);
     text('blockedReason', stage?.blockedReason, 80);
+    if (Number(stage?.identityRetryCount || 0) > 0) summary.identityRetryCount = Number(stage.identityRetryCount);
+    if (Number(stage?.evidenceRetryCount || 0) > 0) summary.evidenceRetryCount = Number(stage.evidenceRetryCount);
     if (Number(stage?.attempt || 0) > 0) summary.attempt = Number(stage.attempt);
     text('nextAttemptAt', stage?.nextAttemptAt, 80);
     return [name, summary];
@@ -214,15 +457,91 @@ function summaryModelActivity(activity = []) {
   });
 }
 
+function publicationSummary(run) {
+  const review = run?.artifacts?.review && typeof run.artifacts.review === 'object'
+    ? run.artifacts.review : {};
+  const campaign = run?.input?.campaign && typeof run.input.campaign === 'object'
+    ? run.input.campaign : {};
+  const publicationStatus = String(review.publicationStatus || '');
+  // `publicationDraftId` is generated by this service (`pub_...`). It is not
+  // a SocialEcho identifier. Only expose a provider ID after the provider has
+  // explicitly confirmed an external draft.
+  const externalDraftId = publicationStatus === 'external_draft'
+    ? String(review.socialEchoDraftId || review.externalDraftId || '').slice(0, 180)
+    : '';
+  const scheduledAt = String(review.scheduledAt || campaign.scheduledAt || '').slice(0, 80);
+  const deliveryMode = ['draft', 'scheduled'].includes(String(review.deliveryMode || '').toLowerCase())
+    ? String(review.deliveryMode).toLowerCase()
+    : (scheduledAt ? 'scheduled' : 'draft');
+  return {
+    status: publicationStatus || String(review.status || ''),
+    publicationStatus,
+    internalDraftId: String(review.publicationDraftId || '').slice(0, 180),
+    // Keep the explicit name for clients that already consume this field, but
+    // never fill it with the internal `pub_...` value.
+    externalDraftId,
+    socialEchoDraftId: externalDraftId,
+    deliveryMode,
+    scheduledAt,
+    timezone: String(review.timezone || campaign.timezone || campaign.timeZone || 'Asia/Shanghai').slice(0, 40),
+    accountId: Number(run?.input?.delivery?.accountId || review.accountId || 0) || 0,
+    platform: String(run?.input?.delivery?.platform || review.platform || '').slice(0, 40),
+    publishType: String(run?.input?.delivery?.publishType || review.publishType || '').slice(0, 40),
+    error: String(review.publicationError || '').slice(0, 300)
+  };
+}
+
+function harnessOperations(run) {
+  const harness = harnessProjection(run);
+  const stages = Array.isArray(harness.stages) ? harness.stages : [];
+  const active = harness.activeStage || null;
+  const blockers = Array.isArray(harness.blockers) ? harness.blockers : [];
+  const externalTaskIds = {};
+  for (const stage of stages) {
+    if (stage?.externalTaskId && (Array.isArray(stage.externalTaskId) ? stage.externalTaskId.length : true)) {
+      externalTaskIds[stage.key] = stage.externalTaskId;
+    }
+  }
+  const publication = publicationSummary(run);
+  const nextAttemptAt = active?.nextAttemptAt || stages
+    .map((stage) => stage?.nextAttemptAt || '')
+    .filter(Boolean)
+    .sort()[0] || '';
+  const firstBlocker = blockers[0] || null;
+  return {
+    currentStage: active?.key || (harness.status === 'completed' ? 'done' : ''),
+    currentStageLabel: active?.label || '',
+    nextAction: harness.nextAction?.nextAction || '',
+    nextActionLabel: harness.nextAction?.nextActionLabel || '',
+    recoverable: stages.some((stage) => stage?.recoverable === true),
+    nextAttemptAt,
+    blocked: Boolean(firstBlocker),
+    blockedReason: firstBlocker?.reason || '',
+    externalTaskIds,
+    p4TaskId: externalTaskIds.P4 || '',
+    p35TaskIds: externalTaskIds.P3_5 || [],
+    socialEchoExternalDraftId: publication.externalDraftId,
+    internalPublicationDraftId: publication.internalDraftId,
+    publicationStatus: publication.publicationStatus,
+    scheduledAt: publication.scheduledAt,
+    deliveryMode: publication.deliveryMode,
+    accountId: publication.accountId,
+    platform: publication.platform
+  };
+}
+
 function runSummary(run) {
   const artifacts = run?.artifacts || {};
   const book = artifacts.book || {};
+  const publication = publicationSummary(run);
   return {
     id: run.id,
     createdAt: run.createdAt,
     updatedAt: run.updatedAt,
     input: summaryInput(run.input),
     autopilot: autopilotProjection(run),
+    harness: harnessProjection(run),
+    operations: harnessOperations(run),
     state: run.state,
     stages: summaryStages(run.stages),
     artifacts: {
@@ -231,9 +550,9 @@ function runSummary(run) {
       shortUrl: artifacts.shortUrl,
       linkId: artifacts.linkId,
       posts: Array.isArray(artifacts.posts) ? artifacts.posts.map((post) => ({ type: post.type, content: 'ready' })) : [],
-      video: artifacts.video ? { threadId: artifacts.video.threadId, status: artifacts.video.status, videoUrls: (artifacts.video.videoUrls || []).slice(0, 1), videoModel: String(artifacts.video.videoModel || ''), isUserAdCopy: artifacts.video.isUserAdCopy === true ? true : artifacts.video.isUserAdCopy === false ? false : null, error: String(artifacts.video.error || '').slice(0, 300) } : null,
-      referenceVideo: artifacts.referenceVideo ? { threadId: artifacts.referenceVideo.threadId, status: artifacts.referenceVideo.status, videoUrls: (artifacts.referenceVideo.videoUrls || []).slice(0, 1), error: String(artifacts.referenceVideo.error || '').slice(0, 300) } : null,
-      videoRevision: artifacts.videoRevision ? { threadId: artifacts.videoRevision.threadId, status: artifacts.videoRevision.status, videoUrls: (artifacts.videoRevision.videoUrls || []).slice(0, 1), error: String(artifacts.videoRevision.error || '').slice(0, 300) } : null,
+      video: assetVideo(artifacts.video),
+      referenceVideo: assetVideo(artifacts.referenceVideo),
+      videoRevision: assetVideo(artifacts.videoRevision),
       images: Array.isArray(artifacts.images) ? artifacts.images.map((image) => ({ variant: image.variant, status: image.status, taskId: image.taskId, url: image.url })) : [],
       analytics: artifacts.analytics ? {
         status: String(artifacts.analytics.status || ''),
@@ -248,14 +567,35 @@ function runSummary(run) {
       } : null,
       distribution: artifacts.distribution ? { status: artifacts.distribution.status } : null,
       optimization: artifacts.optimization ? { status: artifacts.optimization.status } : null,
-      review: artifacts.review ? {
-        status: String(artifacts.review.status || 'ready'),
-        facebook: artifacts.review.facebook ? {
-          status: String(artifacts.review.facebook.status || 'paused'),
-          automaticPublishing: artifacts.review.facebook.automaticPublishing === true
-        } : { status: 'paused', automaticPublishing: false },
-        warningCount: Array.isArray(artifacts.review.mediaWarnings) ? artifacts.review.mediaWarnings.length : 0
-      } : null,
+      review: artifacts.review ? (() => {
+        // Keep the status payload light for the normal polling loop. Empty
+        // P7 fields add noise to every historical task; when a publication is
+        // actually present, each relevant field remains available to the UI.
+        const review = {
+          status: String(artifacts.review.status || 'ready'),
+          facebook: artifacts.review.facebook ? {
+            status: String(artifacts.review.facebook.status || 'paused'),
+            automaticPublishing: artifacts.review.facebook.automaticPublishing === true
+          } : { status: 'paused', automaticPublishing: false },
+          warningCount: Array.isArray(artifacts.review.mediaWarnings) ? artifacts.review.mediaWarnings.length : 0
+        };
+        if (publication.publicationStatus) review.publicationStatus = publication.publicationStatus;
+        if (publication.internalDraftId) review.publicationDraftId = publication.internalDraftId;
+        if (publication.externalDraftId) {
+          review.externalDraftId = publication.externalDraftId;
+          review.socialEchoDraftId = publication.socialEchoDraftId;
+        }
+        if (publication.deliveryMode === 'scheduled' || publication.scheduledAt) {
+          review.deliveryMode = publication.deliveryMode;
+          review.scheduledAt = publication.scheduledAt;
+          review.timezone = publication.timezone;
+        }
+        if (publication.accountId) review.accountId = publication.accountId;
+        if (publication.platform) review.platform = publication.platform;
+        if (publication.publishType) review.publishType = publication.publishType;
+        if (publication.error) review.publicationError = publication.error;
+        return review;
+      })() : null,
       usage: summaryUsage(artifacts.usage)
     },
     modelActivity: summaryModelActivity([...(artifacts.modelActivity || []), ...(artifacts.creativeDraft?.usage || [])]),
@@ -268,6 +608,7 @@ function runSummary(run) {
 function runDetail(run) {
   const copy = JSON.parse(JSON.stringify(run));
   copy.autopilot = autopilotProjection(copy);
+  copy.harness = harnessProjection(copy);
   const artifacts = copy.artifacts || {};
   if (artifacts.book) artifacts.book.description = String(artifacts.book.description || '').slice(0, 4000);
   delete artifacts.chapterList;
@@ -281,6 +622,7 @@ function runDetail(run) {
       parts: Object.fromEntries(Object.entries(draft.parts || {}).map(([key, value]) => [key, { status: value?.status || 'ready' }])),
       inFlight: draft.inFlight || {},
       failures: Object.fromEntries(Object.entries(draft.failures || {}).map(([key, value]) => [key, { attempt: value?.attempt || 1, error: String(value?.error || '').slice(0, 300), nextAttemptAt: value?.nextAttemptAt || '', recoverable: value?.recoverable !== false, fallbackFrom: value?.fallbackFrom || '', fallbackModel: value?.fallbackModel || '' }])),
+      repairAttempts: draft.repairAttempts && typeof draft.repairAttempts === 'object' ? { ...draft.repairAttempts } : {},
       usage: Array.isArray(draft.usage) ? draft.usage.slice(-24) : [],
       modelRoute: draft.modelRoute || null
     };
@@ -288,6 +630,10 @@ function runDetail(run) {
   if (Array.isArray(copy.events)) copy.events = copy.events.slice(-80).map((item) => ({ at: item.at, type: item.type, message: String(item.message || '').slice(0, 500) }));
   if (Array.isArray(artifacts.posts)) artifacts.posts = artifacts.posts.map((post) => ({ ...post, content: String(post.content || '').slice(0, 12000), zhContent: String(post.zhContent || '').slice(0, 12000) }));
   if (Array.isArray(artifacts.images)) artifacts.images = artifacts.images.map((image) => ({ ...image, prompt: String(image.prompt || '').slice(0, 5000), zhPrompt: String(image.zhPrompt || '').slice(0, 5000) }));
+  if (artifacts.video) artifacts.video = assetVideo(artifacts.video);
+  if (artifacts.referenceVideo) artifacts.referenceVideo = assetVideo(artifacts.referenceVideo);
+  if (artifacts.videoRevision) artifacts.videoRevision = assetVideo(artifacts.videoRevision);
+  if (Array.isArray(artifacts.characterAssets)) artifacts.characterAssets = artifacts.characterAssets.slice(0, 12).map((asset) => ({ id: assetText(asset?.id, 120), provider: assetText(asset?.provider, 40), kind: assetText(asset?.kind, 60), status: assetText(asset?.status, 60), characterId: assetText(asset?.characterId, 120), characterName: assetText(asset?.characterName, 160), label: assetText(asset?.label, 160), role: assetText(asset?.role, 80), view: assetText(asset?.view, 60), url: assetText(asset?.url, 4000), approved: asset?.approved === true, error: assetText(asset?.error, 400) }));
   if (artifacts.videoPrompt) artifacts.videoPrompt = { ...artifacts.videoPrompt, adCopy: String(artifacts.videoPrompt.adCopy || '').slice(0, 10000), buildRequirement: String(artifacts.videoPrompt.buildRequirement || '').slice(0, 10000) };
   if (artifacts.videoPromptDraft) artifacts.videoPromptDraft = { ...artifacts.videoPromptDraft, adCopy: String(artifacts.videoPromptDraft.adCopy || '').slice(0, 10000), buildRequirement: String(artifacts.videoPromptDraft.buildRequirement || '').slice(0, 10000) };
   copy.artifacts = artifacts;
@@ -304,6 +650,27 @@ function assetText(value, limit = 12000) {
 
 function assetVideo(video) {
   if (!video || typeof video !== 'object') return null;
+  const executionQa = video.executionQa && typeof video.executionQa === 'object'
+    ? {
+      status: assetText(video.executionQa.status, 80),
+      score: Number.isFinite(Number(video.executionQa.score)) ? Number(video.executionQa.score) : null,
+      computedScore: Number.isFinite(Number(video.executionQa.computedScore)) ? Number(video.executionQa.computedScore) : null,
+      criteria: video.executionQa.criteria && typeof video.executionQa.criteria === 'object' && !Array.isArray(video.executionQa.criteria)
+        ? Object.fromEntries(['eventImmediacy', 'socialStakes', 'conflictObject', 'powerDelta', 'visualSpecificity', 'brandPremium']
+          .filter((key) => Number.isFinite(Number(video.executionQa.criteria[key])))
+          .map((key) => [key, Math.max(0, Math.min(5, Number(video.executionQa.criteria[key])))]))
+        : {},
+      defects: Array.isArray(video.executionQa.defects) ? video.executionQa.defects.slice(0, 8).map((item) => assetText(item, 240)) : [],
+      unknownDefects: Array.isArray(video.executionQa.unknownDefects) ? video.executionQa.unknownDefects.slice(0, 8).map((item) => assetText(item, 240)) : [],
+      taxonomyVersion: Number.isFinite(Number(video.executionQa.taxonomyVersion)) ? Number(video.executionQa.taxonomyVersion) : null,
+      openingClass: assetText(video.executionQa.openingClass, 120),
+      notes: assetText(video.executionQa.notes, 1000),
+      reviewedAt: assetText(video.executionQa.reviewedAt, 80),
+      reviewer: assetText(video.executionQa.reviewer, 80),
+      assetKind: assetText(video.executionQa.assetKind, 40),
+      assetFingerprint: assetText(video.executionQa.assetFingerprint, 80)
+    }
+    : null;
   return {
     status: assetText(video.status, 80),
     threadId: assetText(video.threadId, 160),
@@ -311,6 +678,11 @@ function assetVideo(video) {
     coverImageUrl: assetText(video.coverImageUrl, 4000),
     videoModel: assetText(video.videoModel, 160),
     isUserAdCopy: video.isUserAdCopy === true ? true : video.isUserAdCopy === false ? false : null,
+    payloadFingerprint: assetText(video.payloadFingerprint, 80),
+    control: publicVideoControl(video.control),
+    controlWarnings: Array.isArray(video.controlWarnings) ? video.controlWarnings.slice(-12).map((warning) => assetText(warning, 120)) : [],
+    executionControls: video.executionControls ? { ...publicExecutionControls(video.executionControls), requestedEnableSubtitles: typeof video.control?.enableSubtitles === 'boolean' ? video.control.enableSubtitles : null } : null,
+    executionQa,
     error: assetText(video.error, 500)
   };
 }
@@ -374,6 +746,7 @@ function runAssets(run) {
       video: assetVideo(artifacts.video),
       referenceVideo: assetVideo(artifacts.referenceVideo),
       videoRevision: assetVideo(artifacts.videoRevision),
+      characterAssets: Array.isArray(artifacts.characterAssets) ? artifacts.characterAssets.slice(0, 12).map((asset) => ({ id: assetText(asset?.id, 120), provider: assetText(asset?.provider, 40), kind: assetText(asset?.kind, 60), status: assetText(asset?.status, 60), characterId: assetText(asset?.characterId, 120), characterName: assetText(asset?.characterName, 160), label: assetText(asset?.label, 160), role: assetText(asset?.role, 80), view: assetText(asset?.view, 60), url: assetText(asset?.url, 4000), approved: asset?.approved === true, error: assetText(asset?.error, 400) })) : [],
       videoPrompt: assetPrompt(artifacts.videoPrompt),
       videoPromptDraft: assetPrompt(artifacts.videoPromptDraft),
       posterPrompts: Array.isArray(artifacts.posterPrompts) ? artifacts.posterPrompts.slice(0, 4).map((item) => ({ variant: assetText(item?.variant, 120), prompt: assetText(item?.prompt, 7000), zhPrompt: assetText(item?.zhPrompt, 7000), repairCount: Number(item?.repairCount || 0) })) : [],
@@ -506,34 +879,91 @@ async function saveRun(redis, run, options = {}) {
 async function registerActiveRun(redis, run) {
   const sku = String(run?.input?.sku || '').trim();
   if (!redis || !sku || !run?.id) return run;
-  await redis.set(activeRunKey(sku), run.id, { ex: ACTIVE_RUN_TTL });
+  const accountId = run.input?.delivery?.accountId;
+  const pointerKey = activeRunKey(sku, accountId);
+  const familyKey = activeRunsKey(sku, accountId);
+  if (!runIsActive(run)) {
+    if (typeof redis.zrem === 'function') await redis.zrem(familyKey, run.id).catch(() => {});
+    const pointer = await redis.get(pointerKey).catch(() => null);
+    if (String(pointer || '') === String(run.id)) await redis.del(pointerKey).catch(() => {});
+    return run;
+  }
+  await Promise.all([
+    redis.set(pointerKey, run.id, { ex: ACTIVE_RUN_TTL }),
+    redis.zadd(familyKey, { score: Date.parse(run.updatedAt || run.createdAt || '') || Date.now(), member: run.id })
+  ]);
   return run;
 }
 
 /**
- * Find a queued/running/ambiguous production for the same SKU. The pointer is
- * fast for new runs; the bounded index scan keeps old runs (created before the
- * pointer existed) compatible. Terminal pointers are lazily removed.
+ * Return every queued/running/ambiguous production in one immutable
+ * SKU+account family. A zset is necessary because a reviewed campaign may
+ * intentionally run two non-overlapping scene variants of the same book.
+ * The old single pointer remains a migration/lookup accelerator, while stale
+ * registry members are removed only after their durable run is inspected.
  */
-async function findActiveRun(redis, sku) {
+async function listActiveRuns(redis, sku, accountId = 0) {
   const normalizedSku = String(sku || '').trim();
-  if (!redis || !normalizedSku) return null;
-  const pointer = await redis.get(activeRunKey(normalizedSku));
-  if (pointer) {
-    const run = await getRun(redis, String(pointer));
-    if (run && runIsActive(run) && String(run.input?.sku || '').trim().toLowerCase() === normalizedSku.toLowerCase()) return run;
-    await redis.del(activeRunKey(normalizedSku)).catch(() => {});
+  const normalizedAccountId = Number(accountId || 0) || 0;
+  if (!redis || !normalizedSku) return [];
+  const pointerKey = activeRunKey(normalizedSku, normalizedAccountId);
+  const familyKey = activeRunsKey(normalizedSku, normalizedAccountId);
+  let members = [];
+  try {
+    members = typeof redis.zrange === 'function'
+      ? await redis.zrange(familyKey, 0, -1, { rev: true })
+      : [];
+  } catch {}
+  const pointer = await redis.get(pointerKey).catch(() => null);
+  const ids = [...new Set([...(Array.isArray(members) ? members : []), ...(pointer ? [pointer] : [])]
+    .map((value) => String(value || '')).filter(Boolean))];
+  const active = [];
+  for (const id of ids) {
+    const run = await getRun(redis, id);
+    const accountMatches = !normalizedAccountId || Number(run?.input?.delivery?.accountId || 0) === normalizedAccountId;
+    const skuMatches = String(run?.input?.sku || '').trim().toLowerCase() === normalizedSku.toLowerCase();
+    if (run && runIsActive(run) && accountMatches && skuMatches) active.push(run);
+    else if (typeof redis.zrem === 'function') await redis.zrem(familyKey, id).catch(() => {});
   }
-  const summaries = await listRunSummaries(redis, 50);
-  const match = summaries.find((run) => runIsActive(run) && String(run.input?.sku || '').trim().toLowerCase() === normalizedSku.toLowerCase());
-  if (match) await registerActiveRun(redis, match);
-  return match || null;
+  // Migrate legacy runs only when neither the family registry nor its pointer
+  // yielded a live item. New multi-variant campaigns never rely on this
+  // bounded compatibility scan.
+  if (!active.length) {
+    const summaries = await listRunSummaries(redis, 50);
+    const legacy = summaries.filter((run) => runIsActive(run)
+      && (!normalizedAccountId || Number(run.input?.delivery?.accountId || 0) === normalizedAccountId)
+      && String(run.input?.sku || '').trim().toLowerCase() === normalizedSku.toLowerCase());
+    for (const summary of legacy) {
+      const run = await getRun(redis, summary.id) || summary;
+      if (runIsActive(run)) {
+        active.push(run);
+        await registerActiveRun(redis, run);
+      }
+    }
+  }
+  active.sort((left, right) => (Date.parse(right.updatedAt || right.createdAt || '') || 0)
+    - (Date.parse(left.updatedAt || left.createdAt || '') || 0));
+  if (active.length) {
+    if (String(pointer || '') !== String(active[0].id)) {
+      await redis.set(pointerKey, active[0].id, { ex: ACTIVE_RUN_TTL }).catch(() => {});
+    }
+  } else if (pointer) {
+    await redis.del(pointerKey).catch(() => {});
+  }
+  return active;
 }
 
-async function acquireRunCreation(redis, sku) {
+/** Find any active member of a SKU+account family for legacy one-click
+ * de-duplication. Campaign code calls listActiveRuns to validate siblings. */
+async function findActiveRun(redis, sku, accountId = 0) {
+  const active = await listActiveRuns(redis, sku, accountId);
+  return active[0] || null;
+}
+
+async function acquireRunCreation(redis, sku, accountId = 0) {
   const normalizedSku = String(sku || '').trim();
   if (!redis || !normalizedSku) return { acquired: false, token: '', key: '' };
-  const key = runCreateLockKey(normalizedSku);
+  const key = runCreateLockKey(normalizedSku, accountId);
   const token = crypto.randomUUID();
   const result = await redis.set(key, token, { nx: true, ex: RUN_CREATE_LOCK_TTL });
   return { acquired: result === true || String(result || '').toUpperCase() === 'OK', token, key };
@@ -665,7 +1095,7 @@ function newCreativePlan(input) {
   };
 }
 function stageMap() {
-  return Object.fromEntries(['P1', 'P2', 'P3', 'P3_5', 'P4', 'P5', 'P6'].map((stage) => [stage, { status: 'waiting' }]));
+  return Object.fromEntries(['P0', 'P1', 'P2', 'P3', 'P3_5', 'P4', 'P5', 'P6', 'P7'].map((stage) => [stage, { status: 'waiting' }]));
 }
 function newRun(input) {
   const now = new Date().toISOString();
@@ -685,6 +1115,17 @@ function newRun(input) {
     artifacts: { book: null, evidence: null, code: null, shortUrl: null, linkId: null, posts: [], translations: null, videoPrompt: null, posterPrompts: [], video: null, images: [], review: null, analytics: null, usage: {} },
     events: [{ at: now, type: 'queued', message: 'Full production run queued' }]
   };
+  run.stages.P0 = {
+    status: 'done',
+    startedAt: now,
+    completedAt: now,
+    updatedAt: now,
+    label: normalizedInput.delivery
+      ? `${normalizedInput.delivery.appName} / ${normalizedInput.delivery.platform} / ${normalizedInput.delivery.accountTitle} selection locked`
+      : 'Legacy task without an explicit target route',
+    target: normalizedInput.delivery || null,
+    selection: normalizedInput.p0Selection || null
+  };
   run.autopilot = autopilotProjection(run, { now });
   return run;
 }
@@ -703,22 +1144,46 @@ function setStage(run, name, status, extra = {}) {
   return run.stages[name];
 }
 
-function videoHourInfo(at = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' }).formatToParts(at);
+function videoDayInfo(at = new Date()) {
+  // The campaign is operated in China, so a "day" means the Beijing business
+  // day. The key changes at 00:00 Asia/Shanghai, independent of a browser or
+  // Vercel Function region.
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(at);
   const value = (type) => parts.find((part) => part.type === type)?.value || '';
-  const hour = `${value('year')}${value('month')}${value('day')}${value('hour')}`;
-  const remaining = Math.max(60, Math.ceil((3600000 - (at.getTime() % 3600000)) / 1000) + 60);
-  return { key: `nf_social:video_hour:${hour}`, limit: 5, expiresIn: remaining, label: `${value('month')}/${value('day')} ${value('hour')}:00` };
+  const year = Number(value('year'));
+  const month = Number(value('month'));
+  const day = Number(value('day'));
+  const keyDate = `${value('year')}${value('month')}${value('day')}`;
+  const override = String(process.env.SOCIAL_VIDEO_DAILY_LIMIT_OVERRIDE || '').trim();
+  const [overrideDate, overrideValue] = override.split(':');
+  const parsedOverride = Number(overrideValue);
+  const limit = overrideDate === keyDate && Number.isSafeInteger(parsedOverride) && parsedOverride >= 1 && parsedOverride <= 500
+    ? parsedOverride
+    : 40;
+  const nextMidnight = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0) - 8 * 60 * 60 * 1000);
+  const expiresIn = Math.max(60, Math.ceil((nextMidnight.getTime() - at.getTime()) / 1000) + 60);
+  const nextParts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit' }).formatToParts(nextMidnight);
+  const nextValue = (type) => nextParts.find((part) => part.type === type)?.value || '';
+  return {
+    key: `nf_social:video_day:${keyDate}`,
+    limit,
+    expiresIn,
+    label: `${value('year')}-${value('month')}-${value('day')}`,
+    resetAt: nextMidnight.toISOString(),
+    resetLabel: `${nextValue('month')}/${nextValue('day')} 00:00 (Asia/Shanghai)`,
+    scope: 'day',
+    timeZone: 'Asia/Shanghai'
+  };
 }
 
 async function videoCapacity(redis) {
-  const info = videoHourInfo();
+  const info = videoDayInfo();
   const used = Math.max(0, Number(await redis.get(info.key)) || 0);
   return { ...info, used: Math.min(used, info.limit), remaining: Math.max(0, info.limit - used) };
 }
 
 async function reserveVideoSlot(redis) {
-  const info = videoHourInfo();
+  const info = videoDayInfo();
   await redis.set(info.key, '0', { nx: true, ex: info.expiresIn });
   const used = Number(await redis.incr(info.key));
   if (used <= info.limit) return { ...info, used, remaining: info.limit - used, granted: true };
@@ -727,7 +1192,7 @@ async function reserveVideoSlot(redis) {
 }
 
 async function releaseVideoSlot(redis, key) {
-  if (typeof key === 'string' && key.startsWith('nf_social:video_hour:')) await redis.incrby(key, -1);
+  if (typeof key === 'string' && key.startsWith('nf_social:video_day:')) await redis.incrby(key, -1);
 }
 
-module.exports = { getRedis, createRedis, RemoteRedis, getMany, listRuns, listRunSummaries, getRun, getRunDetail, getRunSummary, getRunAssets, saveRunAssets, saveRun, registerActiveRun, findActiveRun, acquireRunCreation, releaseRunCreation, newRun, addEvent, setStage, runSummary, runDetail, runAssets, autopilotProjection, runIsActive, nextAutopilotAction, activeRunKey, runCreateLockKey, listCreativePlans, listCreativePlanSummaries, getCreativePlan, saveCreativePlan, newCreativePlan, creativePlanDetail, getDiscordJob, saveDiscordJob, listDiscordJobs, listDiscordJobSummaries, removeDiscordJobFromQueue, discordJobSummary, RUN_INDEX, PLAN_INDEX, DISCORD_JOB_INDEX, DISCORD_HISTORY_INDEX, videoCapacity, reserveVideoSlot, releaseVideoSlot };
+module.exports = { getRedis, createRedis, RemoteRedis, getMany, listRuns, listRunSummaries, getRun, getRunDetail, getRunSummary, getRunAssets, saveRunAssets, saveRun, registerActiveRun, listActiveRuns, findActiveRun, acquireRunCreation, releaseRunCreation, newRun, addEvent, setStage, runSummary, runDetail, runAssets, autopilotProjection, harnessProjection, harnessOperations, publicationSummary, runIsActive, nextAutopilotAction, activeRunKey, activeRunsKey, runCreateLockKey, listCreativePlans, listCreativePlanSummaries, getCreativePlan, saveCreativePlan, newCreativePlan, creativePlanDetail, getDiscordJob, saveDiscordJob, listDiscordJobs, listDiscordJobSummaries, removeDiscordJobFromQueue, discordJobSummary, RUN_INDEX, PLAN_INDEX, DISCORD_JOB_INDEX, DISCORD_HISTORY_INDEX, videoDayInfo, videoCapacity, reserveVideoSlot, releaseVideoSlot };

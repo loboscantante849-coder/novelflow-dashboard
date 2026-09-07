@@ -1,6 +1,8 @@
 const { getRedis } = require('./_lib/store');
 const { requireSession } = require('./_lib/auth');
 const providers = require('./_lib/providers');
+const { normalizeDelivery } = require('./_lib/distribution');
+const { consumeRateLimit, requestIdentity } = require('./_lib/rate-limit');
 
 async function parallel(items, limit, work) {
   const result = [];
@@ -36,13 +38,14 @@ function coverErrorKind(error) {
   return 'unknown';
 }
 
-async function resolveCoverBooks(normalized, redis, findExactBook = providers.findExactBook) {
+async function resolveCoverBooks(normalized, redis, findExactBook = providers.findExactBook, route = {}) {
+  const appKey = String(route.appKey || 'novelflow').trim().toLowerCase().replace(/[^a-z0-9]/g, '') || 'novelflow';
   return parallel(normalized, 8, async (book) => {
-    const key = `nf_social:book_cover:${book.sku}`;
+    const key = `nf_social:book_cover:${appKey}:${book.sku}`;
     const cached = redis ? await redis.get(key) : null;
     if (cached) return { sku: book.sku, cover: thumbnail(typeof cached === 'string' ? cached : String(cached)), state: 'ready' };
     try {
-      const exact = await findExactBook(book.title, book.sku);
+      const exact = await findExactBook(book.title, book.sku, route.applicationId ? { applicationId: route.applicationId } : {});
       const cover = thumbnail(exact.cover);
       if (cover && redis) await redis.set(key, cover, { ex: 30 * 24 * 60 * 60 });
       return { sku: book.sku, cover, state: cover ? 'ready' : 'missing' };
@@ -55,12 +58,19 @@ async function resolveCoverBooks(normalized, redis, findExactBook = providers.fi
 module.exports = async (req, res) => {
   if (!requireSession(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const delivery = normalizeDelivery({ accountId: Number(req.body?.accountId || 0) });
+  if (!delivery) return res.status(400).json({ error: 'A verified target account is required for cover lookup' });
   const books = Array.isArray(req.body?.books) ? req.body.books.slice(0, 50) : [];
   const normalized = books.map((book) => ({ sku: String(book?.sku || '').trim(), title: String(book?.title || '').trim() })).filter((book) => book.sku && book.title);
   if (!normalized.length) return res.status(400).json({ error: 'Provide up to 50 book SKU and title pairs' });
   const redis = getRedis();
+  const rate = await consumeRateLimit(redis, 'book_covers', requestIdentity(req), 30, 60);
+  if (!rate.allowed) {
+    res.setHeader('Retry-After', String(rate.retryAfter));
+    return res.status(429).json({ error: 'Cover lookup rate limit reached. Try again later.' });
+  }
   try {
-    const resolved = await resolveCoverBooks(normalized, redis);
+    const resolved = await resolveCoverBooks(normalized, redis, providers.findExactBook, delivery);
     return res.status(200).json({
       covers: Object.fromEntries(resolved.filter((item) => item.cover).map((item) => [item.sku, item.cover])),
       missing: resolved.filter((item) => item.state === 'missing').map((item) => item.sku),

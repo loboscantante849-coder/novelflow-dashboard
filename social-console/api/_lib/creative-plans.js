@@ -1,4 +1,5 @@
 const providers = require('./providers');
+const { normalizeDelivery } = require('./distribution');
 const { selectedChapters } = require('./pipeline');
 const { newRun, saveRun, saveCreativePlan, listRunSummaries, registerActiveRun, findActiveRun, acquireRunCreation, releaseRunCreation } = require('./store');
 
@@ -8,8 +9,8 @@ const PROFILE_OPTIONS = {
   videoStyle: ['five_beat', 'reversal', 'slow_burn', 'revenge'],
   posterStyle: ['system_best', 'luminous_cinema', 'editorial_romance']
 };
-const LONG_RUNNING_MODELS = new Set(['deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'kimi-k2.7-code']);
-const PRODUCTION_MODELS = new Set(['deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'hy3', 'kimi-k2.7-code', 'qwen3.5-flash', 'glm-4.5-air', 'kimi-k2.5', 'minimax-m2.5', 'glm-5.2', 'kimi-k3', 'minimax-m3']);
+const LONG_RUNNING_MODELS = new Set(['glm-5.3-flash', 'deepseek-v4-flash-preview', 'ling-3.0-flash', 'deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'kimi-k2.7-code']);
+const PRODUCTION_MODELS = new Set(['glm-5.3-flash', 'deepseek-v4-flash-preview', 'ling-3.0-flash', 'deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'hy3', 'kimi-k2.7-code', 'qwen3.5-flash', 'glm-4.5-air', 'kimi-k2.5', 'minimax-m2.5', 'glm-5.2', 'kimi-k3', 'minimax-m3']);
 
 function profile(value) {
   return Object.fromEntries(Object.entries(PROFILE_OPTIONS).map(([key, allowed]) => [key, allowed.includes(String(value?.[key] || '')) ? String(value[key]) : allowed[0]]));
@@ -78,9 +79,12 @@ async function autoStartProduction(redis, plan) {
     }
     const book = plan.artifacts?.book;
     if (!book?.title || !book?.bookSkuId) throw new Error('Completed plan is missing its verified book identity');
-    const lock = await acquireRunCreation(redis, book.bookSkuId);
+    const delivery = normalizeDelivery(plan.input?.delivery || {});
+    if (!delivery && plan.input?.p0Selection?.target) throw new Error('The P0 target route is no longer valid');
+    const accountId = delivery?.accountId || 0;
+    const lock = await acquireRunCreation(redis, book.bookSkuId, accountId);
     if (!lock.acquired) {
-      const existingBookRun = await findActiveRun(redis, book.bookSkuId);
+      const existingBookRun = await findActiveRun(redis, book.bookSkuId, accountId);
       if (!existingBookRun) throw new Error('The verified book already has a production task being created');
       plan.input.productionRunId = existingBookRun.id;
       plan.input.autoStartState = 'linked_existing';
@@ -90,7 +94,7 @@ async function autoStartProduction(redis, plan) {
       return plan;
     }
     try {
-      const existingBookRun = await findActiveRun(redis, book.bookSkuId);
+      const existingBookRun = await findActiveRun(redis, book.bookSkuId, accountId);
       if (existingBookRun) {
         plan.input.productionRunId = existingBookRun.id;
         plan.input.autoStartState = 'linked_existing';
@@ -108,6 +112,8 @@ async function autoStartProduction(redis, plan) {
         videoTemplate: 'adaptive_seedance',
         fullBookEvidence: true,
         paidAuthorized: plan.input?.paidAuthorized !== false,
+        ...(delivery ? { delivery } : {}),
+        p0Selection: plan.input?.p0Selection || null,
         creativeProfile: productionProfile(plan),
         planning: planningSnapshot(plan),
         requestedAt: new Date().toISOString()
@@ -152,7 +158,8 @@ async function processCreativePlan(redis, plan) {
     if (plan.stages.identity.status !== 'done') {
       setStage(plan, 'identity', 'running', { label: '正在核验书籍与全书章节结构', error: '' });
       await saveCreativePlan(redis, plan);
-      const book = await providers.findExactBook(plan.input.title, plan.input.sku);
+      const delivery = normalizeDelivery(plan.input?.delivery || {});
+      const book = await providers.findExactBook(plan.input.title, plan.input.sku, delivery ? { applicationId: delivery.applicationId } : {});
       const chapterList = await providers.listChapters(book.cityBookId);
       const candidates = selectedChapters(chapterList, book.payPoint);
       const refs = [...new Map([...candidates.slice(0, 2), ...candidates.slice(-2)].map((item) => [item.id, item])).values()];
@@ -239,7 +246,7 @@ async function processCreativePlan(redis, plan) {
 }
 
 function modelLabelForPlan(value) {
-  return ({ deepseek: 'DeepSeek', hy3: 'HY3', 'qwen3.7-max': 'Qwen 3.7 Max', 'seed-2.1-turbo': 'Seed 2.1 Turbo', 'minimax-m2.7': 'MiniMax M2.7', 'kimi-k2.7-code': 'Kimi K2.7 Code' })[String(value)] || String(value || 'AI');
+  return ({ 'ling-3.0-flash': 'Ling 3.0 Flash', deepseek: 'DeepSeek', hy3: 'HY3', 'qwen3.7-max': 'Qwen 3.7 Max', 'seed-2.1-turbo': 'Seed 2.1 Turbo', 'minimax-m2.7': 'MiniMax M2.7', 'kimi-k2.7-code': 'Kimi K2.7 Code' })[String(value)] || String(value || 'AI');
 }
 
 module.exports = { processCreativePlan, autoStartProduction, planningSnapshot };

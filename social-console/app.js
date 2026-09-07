@@ -1,5 +1,43 @@
 const storedRecommendationHistory = (() => { try { return JSON.parse(localStorage.getItem('nf_social:recommendation_history') || '[]'); } catch { return []; } })();
-const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogFilters: { line: 'novelflow', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all' }, historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 12, detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, kickPromise: null, longKickKey: '', startingSku: '', planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0 };
+const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, pointsBudget: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogUsageFilter: 'all', catalogFilters: { line: 'novelflow', platform: 'facebook', accountId: '13751295', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all', readBaseMin: '0', firstReadMin: '0', longReadMin: '0' }, catalogTarget: null, catalogTargetOptions: [], historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 12, statusScope: 'recent', statusCampaignId: '', detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, kickPromise: null, longKickKey: '', startingProductions: new Set(), planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0 };
+const TARGET_ROUTE_FALLBACKS = [
+  [13751295, 'NovelFlow', 'novelflow', 'facebook'], [13943450, 'NovelFlow', 'novelflow', 'instagram'], [13943940, 'NovelFlow', 'novelflow', 'tiktok'],
+  [13943483, 'AstraNovel', 'astranovel', 'facebook'], [15401748, 'AstraNovel', 'astranovel', 'instagram'], [13944009, 'astranovel_freenovels', 'astranovel', 'tiktok'],
+  [13943482, 'MaxNovel', 'maxnovel', 'facebook'], [15590770, 'MaxNovel', 'maxnovel', 'instagram'], [13943764, 'maxnovel.app', 'maxnovel', 'tiktok'],
+  [13943484, 'Storyca', 'storyca', 'facebook'], [13943914, 'Storyca', 'storyca', 'instagram'], [13943918, 'storyca.app', 'storyca', 'tiktok'],
+  [13943485, 'Novelvio', 'novelvio', 'facebook'], [18185914, 'novelvio', 'novelvio', 'tiktok']
+].map(([accountId, accountTitle, appKey, platform]) => ({ accountId, accountTitle, appKey, productLine: appKey, platform }));
+const DAILY_CAMPAIGN_ACCOUNT_IDS = Object.freeze([
+  13751295, 13943450, 13943940,
+  13943483, 13944009,
+  13943482, 13943764,
+  13943484, 13943914, 13943918,
+  13943485, 18185914
+]);
+function paidMediaAvailable() {
+  const capabilities = state.capabilities || {};
+  if (typeof capabilities.paidMediaAvailable === 'boolean') {
+    return capabilities.paidMediaAvailable && capabilities.videoGenerationPaused !== true;
+  }
+  if (typeof capabilities.videoGenerationPaused === 'boolean') return capabilities.videoGenerationPaused === false;
+  return capabilities.video === true;
+}
+function videoGenerationPaused() { return !paidMediaAvailable(); }
+state.publicationDrafts = [];
+state.publicationAccounts = [];
+state.publicationLoading = false;
+state.publicationAccountLoading = false;
+state.publicationBusy = new Set();
+state.publicationSaveTimers = new Map();
+state.publicationExpanded = false;
+state.adCampaigns = [];
+state.adCampaign = null;
+state.adCampaignId = 'whatsapp-ads-20260806';
+state.adCampaignLoading = false;
+state.adPerformance = null;
+state.adPerformanceLoading = false;
+state.adPerformanceError = '';
+state.adPerformanceEditingId = '';
 // These browser-only maps make the first click feel immediate while the
 // durable run remains the source of truth. They are intentionally not
 // persisted: a refresh reconciles them from /api/status.
@@ -7,14 +45,23 @@ state.pendingProductions = new Map();
 state.productionRequests = new Map();
 state.batchStarting = false;
 state.batchProgress = null;
-const DASHBOARD_CACHE_KEY = 'nf_social:dashboard_snapshot:v1';
+state.dailyCampaign = null;
+state.dailyCampaignId = (() => { try { return localStorage.getItem('nf_social:daily_campaign_id') || ''; } catch { return ''; } })();
+state.dailyCampaignPhase = state.dailyCampaignId ? 'created' : 'idle';
+state.dailyCampaignLoading = false;
+state.dailyCampaignAction = '';
+state.dailyCampaignError = '';
+state.dailyCampaignConfirmationToken = '';
+// v2 invalidates browser snapshots created before product-line ownership was
+// verified by exact application/SKU semantics.
+const DASHBOARD_CACHE_KEY = 'nf_social:dashboard_snapshot:v2';
 const DASHBOARD_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
 let dashboardSnapshotHandle = null;
 
 function leaderboardQueryKey(source = state.leaderboardSource) {
   if (source !== 'catalog') return `history:${state.windowDays}`;
   const filters = state.catalogFilters;
-  return ['catalog', state.catalogDays, state.catalogSort, filters.line, filters.language, filters.complete, filters.status, filters.length, filters.genre].join(':');
+  return ['catalog', state.catalogDays, state.catalogSort, filters.line, filters.platform, filters.accountId, filters.language, filters.complete, filters.status, filters.length, filters.genre, filters.readBaseMin, filters.firstReadMin, filters.longReadMin].join(':');
 }
 
 function compactRunSnapshot(run) {
@@ -28,7 +75,8 @@ function compactRunSnapshot(run) {
     input: {
       title: run.input?.title || '',
       sku: run.input?.sku || '',
-      creativeProfile: run.input?.creativeProfile || null
+      creativeProfile: run.input?.creativeProfile || null,
+      delivery: run.input?.delivery || null
     },
     stages: run.stages || {},
     artifacts: {
@@ -58,7 +106,19 @@ function compactBookSnapshot(book) {
   return {
     // Covers are intentionally not persisted. Restoring fifty remote image
     // URLs can delay the first useful API responses on a cold browser load.
-    rank: book.rank, title: book.title, bookSkuId: book.bookSkuId,
+    rank: book.rank, recommendationRank: book.recommendationRank, recommendationScore: book.recommendationScore,
+    scaleScore: book.scaleScore, qualityScore: book.qualityScore, trendScore: book.trendScore,
+    readerBase7d: book.readerBase7d, readerBase30d: book.readerBase30d, readerBase90d: book.readerBase90d,
+    readerDaily7d: book.readerDaily7d, readerDaily30d: book.readerDaily30d, readerDaily90d: book.readerDaily90d,
+    trend7v30: book.trend7v30, trend30v90: book.trend30v90, comparisonQuality: book.comparisonQuality,
+    title: book.title, bookSkuId: book.bookSkuId,
+    p0Receipt: String(book.p0Receipt || ''),
+    selectionTarget: book.selectionTarget ? {
+      accountId: Number(book.selectionTarget.accountId || 0), accountTitle: String(book.selectionTarget.accountTitle || ''),
+      appKey: String(book.selectionTarget.appKey || ''), appName: String(book.selectionTarget.appName || ''),
+      productLine: String(book.selectionTarget.productLine || ''), platform: String(book.selectionTarget.platform || ''),
+      publishType: String(book.selectionTarget.publishType || ''), applicationId: String(book.selectionTarget.applicationId || '')
+    } : null,
     category: book.category || '', tags: Array.isArray(book.tags) ? book.tags.slice(0, 8) : [],
     description: String(book.description || '').slice(0, 240), productLine: book.productLine || '',
     isShort: book.isShort, automationReady: book.automationReady,
@@ -78,6 +138,7 @@ function persistDashboardSnapshot() {
       runs: state.runs.map(compactRunSnapshot),
       capabilities: state.capabilities,
       videoLimit: state.videoLimit,
+      pointsBudget: state.pointsBudget,
       leaderboard: state.leaderboard.map(compactBookSnapshot),
       leaderboardUpdated: state.leaderboardUpdated,
       leaderboardWarning: state.leaderboardWarning,
@@ -106,6 +167,7 @@ function restoreDashboardSnapshot() {
     state.runs = Array.isArray(snapshot.runs) ? snapshot.runs : [];
     state.capabilities = snapshot.capabilities || {};
     state.videoLimit = snapshot.videoLimit || null;
+    state.pointsBudget = snapshot.pointsBudget || null;
     const cachedLeaderboardMatches = snapshot.leaderboardQueryKey === leaderboardQueryKey();
     const trustedLeaderboard = ['verified_metrics', 'stale_verified_metrics'].includes(String(snapshot.leaderboardDataQuality || ''));
     state.leaderboard = cachedLeaderboardMatches && trustedLeaderboard && Array.isArray(snapshot.leaderboard)
@@ -171,10 +233,29 @@ state.coverRetryTimer = null;
 state.copilotMessages = (() => { try { return JSON.parse(localStorage.getItem('nf_social:copilot_messages') || '[]').slice(-14); } catch { return []; } })();
 state.copilotBusy = false;
 state.referencePosterChoice = {};
+state.videoControlDrafts = new Map();
+state.videoControlSaved = new Map();
+state.videoControlAssets = new Map();
+state.videoControlPreviews = new Map();
+state.videoControlLoading = new Set();
+state.videoControlLoaded = new Set();
+state.videoControlRequests = new Map();
+state.videoControlErrors = new Map();
+state.videoControlSaving = new Set();
+state.videoControlPreviewing = new Set();
+state.characterAssetGenerating = new Set();
 state.todayRailPaused = false;
 state.analyticsRefresh = new Map();
+const VIDEO_CONTROL_TEMPLATES = [
+  { value: 'Ad_Plot_Seedance', label: 'Seedance 生产', maxReferences: 1, previewOnly: false },
+  { value: 'Ad_Plot_Video_V4', label: 'V4 多参考实验（仅预览）', maxReferences: 9, previewOnly: true }
+];
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+function taskIdForUi(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item || '').slice(-12)).filter(Boolean).join(', ');
+  return String(value || '').slice(-18);
+}
 function coverSrc(value) {
   const url = String(value || '').trim();
   try {
@@ -206,10 +287,14 @@ function handleCoverImageLoad(image) {
   image.classList.add('is-loaded');
 }
 const labels = { queued: '排队中', running: '生产中', completed: '已完成', failed: '失败', blocked: '已暂停', partial: '部分完成', ambiguous: '需人工核验' };
-const stageLabels = { P1: '选书', P2: '证据', P3: '创意', P3_5: '海报', P4: '视频', P5: 'Code', P6: '审核' };
-const stageIcons = { P1: 'book-open-check', P2: 'library', P3: 'message-square-text', P3_5: 'images', P4: 'video', P5: 'link-2', P6: 'badge-check' };
-const pipelineOrder = ['P1', 'P2', 'P5', 'P3', 'P4', 'P3_5', 'P6'];
-const catalogSortLabels = { promotionScore: '推广综合分', baseReadUnt: '阅读 UV', firstReadUntRate: '首读率', read10wRate: '10 万字留存', read20wRate: '20 万字留存', ttProfit: '利润' };
+const stageLabels = { P0: '选书锁定', P1: '书籍核验', P2: '证据', P3: '创意', P3_5: '海报', P4: '视频', P5: 'Code', P6: '审核包', P7: '草稿审核' };
+const stageIcons = { P0: 'list-checks', P1: 'book-open-check', P2: 'library', P3: 'message-square-text', P3_5: 'images', P4: 'video', P5: 'link-2', P6: 'badge-check', P7: 'send-horizontal' };
+// The operator-facing harness uses the conceptual P0→P7 order. Attribution
+// (P5) may still execute early on the server, but it no longer makes the UI
+// appear to jump backwards from creative work to Code allocation.
+const pipelineOrder = ['P0', 'P1', 'P2', 'P3', 'P3_5', 'P4', 'P5', 'P6', 'P7'];
+const HARNESS_NODE_COUNT = pipelineOrder.length;
+const catalogSortLabels = { recommendationScore: '综合推荐分', baseReadUnt: '中台阅读排行', firstReadUntRate: '首读率', read20wRate: '长读留存', trend7v30: '近期趋势' };
 
 let iconFrame = 0;
 function icons() {
@@ -225,13 +310,14 @@ const creativeProfileOptions = {
   ctaStyle: { label: 'CTA', values: { story_cliffhanger: '系统推荐：用具体未解的情节问题收尾', identity_reveal: '身份反转：以已铺垫的秘密或认出为钩子', romantic_tension: '暧昧拉扯：以有证据的欲望、目光或边界收尾', revenge_payoff: '反击爽点：以有证据的清算或反转承诺收尾' } },
   videoStyle: { label: '视频剧情', values: { five_beat: '系统推荐：钩子、价值、升级、反转、悬念五拍', reversal: '强反转：把真实反转放在 8-11 秒', slow_burn: '慢热张力：用克制靠近和最终选择递进', revenge: '复仇兑现：只使用原文已有的反击或翻盘' } },
   posterStyle: { label: '海报', values: { system_best: '系统推荐：一张电影感，一张时尚情绪感', luminous_cinema: '电影氛围：强调高戏剧性的关键瞬间', editorial_romance: '时尚爱情：强调克制、情绪与留白' } },
-  modelChoice: { label: '生产模型', values: { hy3: 'HY3：默认快速模型', deepseek: 'DeepSeek V4 Pro：深度创意', 'seed-2.1-turbo': 'Seed 2.1 Turbo：备用生成', 'qwen3.7-max': 'Qwen 3.7 Max：深度策划', 'minimax-m2.7': 'MiniMax M2.7：表达与润色', 'kimi-k2.7-code': 'Kimi K2.7 Code：结构分析' } }
+  modelChoice: { label: '生产模型', values: { 'glm-5.3-flash': 'GLM 5.3 Flash：默认生产', 'deepseek-v4-flash-preview': 'DeepSeek V4 Flash Preview：首选兜底', hy3: 'HY3：短 JSON 修复', 'seed-2.1-turbo': 'Seed 2.1 Turbo：兼容旧任务' } }
 };
 
-const modelLabels = { deepseek: 'DeepSeek V4 Pro', 'deepseek-chat': 'DeepSeek', 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'seed-2.1-turbo': 'Seed 2.1 Turbo', 'doubao-seed-2-1-turbo-260628': 'Seed 2.1 Turbo', 'qwen3.7-max': 'Qwen 3.7 Max', 'minimax-m2.7': 'MiniMax M2.7', hy3: 'HY3', 'kimi-k2.7-code': 'Kimi K2.7 Code', 'qwen3.5-flash': 'Qwen 3.5 Flash', 'glm-4.5-air': 'GLM 4.5 Air', 'kimi-k2.5': 'Kimi K2.5', 'minimax-m2.5': 'MiniMax M2.5', 'metrics-fallback': '中台指标兜底', 'glm-5.2': 'GLM 5.2', 'kimi-k3': 'Kimi K3', 'minimax-m3': 'MiniMax M3' };
+const modelLabels = { 'glm-5.3-flash': 'GLM 5.3 Flash', 'deepseek-v4-flash-preview': 'DeepSeek V4 Flash Preview', 'ling-3.0-flash': 'Ling 3.0 Flash', deepseek: 'DeepSeek V4 Flash Preview', 'deepseek-chat': 'DeepSeek', 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'seed-2.1-turbo': 'Seed 2.1 Turbo', 'doubao-seed-2-1-turbo-260628': 'Seed 2.1 Turbo', 'qwen3.7-max': 'Qwen 3.7 Max', 'minimax-m2.7': 'MiniMax M2.7', hy3: 'HY3', 'kimi-k2.7-code': 'Kimi K2.7 Code', 'qwen3.5-flash': 'Qwen 3.5 Flash', 'glm-4.5-air': 'GLM 4.5 Air', 'kimi-k2.5': 'Kimi K2.5', 'minimax-m2.5': 'MiniMax M2.5', 'metrics-fallback': '中台指标兜底', 'glm-5.2': 'GLM 5.2', 'kimi-k3': 'Kimi K3', 'minimax-m3': 'MiniMax M3' };
 function modelLabel(value) { return modelLabels[String(value || '').toLowerCase()] || String(value || 'AI'); }
 function modelBrand(value) {
   const key = String(value || '').toLowerCase();
+  if (key.includes('ling')) return { key: 'ling', mark: 'L', color: '16a085' };
   if (key.includes('deepseek')) return { key: 'deepseek', mark: 'DS', icon: 'deepseek', color: '1677ff' };
   if (key.includes('seed') || key.includes('doubao')) return { key: 'seed', mark: 'S', icon: 'bytedance', color: '1e88e5' };
   if (key.includes('qwen')) return { key: 'qwen', mark: 'Q', icon: 'qwen', color: '111827' };
@@ -254,7 +340,7 @@ function renderModelBadges() {
     if (select) badge.innerHTML = modelLogoHtml(select.value, { compact: true, label: false });
   });
 }
-const longBackgroundModels = new Set(['deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'kimi-k2.7-code']);
+const longBackgroundModels = new Set(['glm-5.3-flash', 'deepseek-v4-flash-preview', 'ling-3.0-flash', 'deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'kimi-k2.7-code']);
 const usesLongBackground = (choice) => longBackgroundModels.has(String(choice || '').toLowerCase());
 function workerDispatchBusy(key, cooldownMs = WORKER_DISPATCH_COOLDOWN_MS) {
   const previous = state.workerDispatches.get(key);
@@ -297,7 +383,7 @@ function selectedModelWaitMs(choice) {
 }
 
 function creativeProfileForForm() {
-  return { copyStyle: $('#creativeStyle').value, ctaStyle: $('#ctaStyle').value, videoStyle: $('#videoStyle').value, posterStyle: $('#posterStyle').value, modelChoice: $('#modelChoice')?.value || 'hy3' };
+  return { copyStyle: $('#creativeStyle').value, ctaStyle: $('#ctaStyle').value, videoStyle: $('#videoStyle').value, posterStyle: $('#posterStyle').value, modelChoice: $('#modelChoice')?.value || 'glm-5.3-flash' };
 }
 
 function creativeProfileHtml(profile, preview = false) {
@@ -370,7 +456,9 @@ function planResultHtml(result) {
 }
 
 function planJobResult(job) {
-  return { id: job.id, book: job.artifacts?.book || { title: job.input?.title || '', sku: job.input?.sku || '' }, plan: job.artifacts?.plan || {}, evidenceScope: job.artifacts?.evidenceScope || { chapterCount: 0, sampledChapters: [] }, usage: job.artifacts?.usage || {}, modelChoice: job.input?.modelChoice || 'hy3', preferredModelChoice: job.input?.preferredModelChoice || job.input?.modelChoice || 'hy3', fallbackUsed: Boolean(job.input?.fallbackUsed), modelHistory: job.input?.modelHistory || [], autoStartProduction: job.input?.autoStartProduction === true, productionRunId: job.input?.productionRunId || '' };
+  const delivery = job.input?.delivery || null;
+  const book = job.artifacts?.book || { title: job.input?.title || '', sku: job.input?.sku || '' };
+  return { id: job.id, book: delivery ? { ...book, selectionTarget: delivery } : book, delivery, p0Selection: job.input?.p0Selection || null, plan: job.artifacts?.plan || {}, evidenceScope: job.artifacts?.evidenceScope || { chapterCount: 0, sampledChapters: [] }, usage: job.artifacts?.usage || {}, modelChoice: job.input?.modelChoice || 'hy3', preferredModelChoice: job.input?.preferredModelChoice || job.input?.modelChoice || 'hy3', fallbackUsed: Boolean(job.input?.fallbackUsed), modelHistory: job.input?.modelHistory || [], autoStartProduction: job.input?.autoStartProduction === true, productionRunId: job.input?.productionRunId || '' };
 }
 
 function visibleCreativePlanJobs(planJobs = state.planJobs, runs = state.runs) {
@@ -428,6 +516,8 @@ async function showPlanJob(id) {
   }
   const result = planJobResult(job);
   state.creativePlan = result;
+  state.planningTarget = result.delivery || p0TargetForBook(result.book);
+  state.planningP0Selection = result.p0Selection || p0SelectionForBook(result.book);
   if ($('#planQueueDialog').open) $('#planQueueDialog').close();
   $('#creativePlanForm').hidden = true;
   $('#creativePlanLoading').hidden = true;
@@ -471,7 +561,7 @@ function bindCreativePlanActions(result) {
     try {
       const creativeProfile = creativePlanProfile();
       const actualPlanningModel = result.usage?.model || result.modelChoice || creativeProfile.modelChoice;
-      await createProduction({ title: result.book.title, sku: result.book.bookSkuId || result.book.sku, source: 'ai_plan', creativeProfile, planning: { planId: result.id || '', preferredModel: result.preferredModelChoice || actualPlanningModel, actualModel: actualPlanningModel, fallbackUsed: Boolean(result.fallbackUsed) } });
+      await createProduction({ title: result.book.title, sku: result.book.bookSkuId || result.book.sku, source: 'ai_plan', creativeProfile, planning: { planId: result.id || '', preferredModel: result.preferredModelChoice || actualPlanningModel, actualModel: actualPlanningModel, fallbackUsed: Boolean(result.fallbackUsed) }, delivery: state.planningTarget, p0Selection: state.planningP0Selection });
       renderCreativePlanQueue();
       $('#creativePlanDialog').close();
       showToast(`策划由 ${modelLabel(actualPlanningModel)} 完成；生产使用 ${modelLabel(creativeProfile.modelChoice)}`);
@@ -484,12 +574,14 @@ function openCreativePlanDialog(book = {}) {
   state.planningSession = Number(state.planningSession || 0) + 1;
   state.planning = false;
   state.creativePlan = null;
+  state.planningTarget = p0TargetForBook(book);
+  state.planningP0Selection = book?.title ? p0SelectionForBook(book) : { ...p0SelectionForBook({}), source: 'manual_plan' };
   $('#creativePlanForm').hidden = false;
   $('#creativePlanLoading').hidden = true;
   $('#creativePlanResult').hidden = true;
   $('#creativePlanResult').innerHTML = '';
   $('#creativePlanError').textContent = '';
-  if (!$('#planningRequestModel')) $('#creativePlanInput').insertAdjacentHTML('beforeend', '<label class="plan-model-choice">首选策划模型<select id="planningRequestModel"><option value="hy3">HY3（默认，实测最快）</option><option value="deepseek">DeepSeek V4 Pro（深度）</option><option value="seed-2.1-turbo">Seed 2.1 Turbo（备用）</option><option value="qwen3.7-max">Qwen 3.7 Max（深度）</option><option value="minimax-m2.7">MiniMax M2.7（润色）</option><option value="kimi-k2.7-code">Kimi K2.7 Code（结构）</option></select></label>');
+  if (!$('#planningRequestModel')) $('#creativePlanInput').insertAdjacentHTML('beforeend', '<label class="plan-model-choice">首选策划模型<select id="planningRequestModel"><option value="glm-5.3-flash">GLM 5.3 Flash（默认）</option><option value="hy3">HY3（快速）</option><option value="deepseek-v4-flash-preview">DeepSeek V4 Flash Preview</option><option value="seed-2.1-turbo">Seed 2.1 Turbo（备用）</option><option value="qwen3.7-max">Qwen 3.7 Max（深度）</option><option value="minimax-m2.7">MiniMax M2.7（润色）</option><option value="kimi-k2.7-code">Kimi K2.7 Code（结构）</option></select></label>');
   $('#planTitle').value = book.title || '';
   $('#planSku').value = book.bookSkuId || '';
   if (!$('#creativePlanDialog').open) $('#creativePlanDialog').showModal();
@@ -499,18 +591,23 @@ function openCreativePlanDialog(book = {}) {
 async function analyzeCreativePlan(title, sku) {
   const planningSession = state.planningSession;
   state.planning = true;
-  const modelChoice = $('#planningRequestModel')?.value || 'hy3';
+  const modelChoice = $('#planningRequestModel')?.value || 'glm-5.3-flash';
   const selectedModel = modelLabel(modelChoice);
-  const planningPending = markPendingProduction({ title, sku, source: 'ai_plan', creativeProfile: { modelChoice } });
-  planningPending.status = 'planning';
-  renderOneClickStatus();
+  const accountId = Number(state.planningTarget?.accountId || state.catalogFilters.accountId || 0);
+  const delivery = accountId ? { ...(state.planningTarget || {}), accountId } : null;
+  const p0Selection = state.planningP0Selection;
+  let planningPending = null;
   const requestId = crypto.randomUUID();
   $('#creativePlanForm').hidden = true;
   $('#creativePlanLoading').hidden = false;
   $('#creativePlanResult').hidden = true;
   $('#creativePlanLoading strong').textContent = `${selectedModel} 正在转入后台策划`;
   try {
-    const body = await api('/api/creative-plan', { method: 'POST', body: JSON.stringify({ title, sku, modelChoice, requestId, autoStartProduction: true, paidAuthorized: true, promoter: 'xujt' }), timeoutMs: 15000 });
+    if (!accountId) throw new Error('请先选择一个已核验的目标账号');
+    planningPending = markPendingProduction({ title, sku, source: 'ai_plan', creativeProfile: { modelChoice }, delivery, p0Selection });
+    planningPending.status = 'planning';
+    renderOneClickStatus();
+    const body = await api('/api/creative-plan', { method: 'POST', body: JSON.stringify({ title, sku, modelChoice, requestId, autoStartProduction: true, paidAuthorized: true, promoter: 'xujt', accountId, p0Selection }), timeoutMs: 15000 });
     queueCreativePlanJob(body.job, selectedModel, planningSession);
   } catch (error) {
     if (planningSession !== state.planningSession) return;
@@ -519,8 +616,10 @@ async function analyzeCreativePlan(title, sku) {
       const recovered = await recoverCreativePlanRequest(requestId, selectedModel, planningSession);
       if (planningSession !== state.planningSession || recovered) return;
     }
-    planningPending.status = 'failed';
-    planningPending.error = error.message || '策划请求失败';
+    if (planningPending) {
+      planningPending.status = 'failed';
+      planningPending.error = error.message || '策划请求失败';
+    }
     renderOneClickStatus();
     const result = $('#creativePlanResult');
     result.hidden = false;
@@ -574,12 +673,160 @@ function catalogShortChoice() {
 }
 
 function catalogRequestQuery() {
-  return `&sort=${encodeURIComponent(state.catalogSort)}&line=${encodeURIComponent(state.catalogFilters.line)}&language=${encodeURIComponent(state.catalogFilters.language)}&complete=${encodeURIComponent(state.catalogFilters.complete)}&status=${encodeURIComponent(state.catalogFilters.status)}&isShort=${catalogShortChoice()}`;
+  // Keep the provider request pinned to the familiar central reading ranking.
+  // Other metrics only reorder the already verified rows in the browser, so
+  // the displayed central rank never changes meaning.
+  const filters = state.catalogFilters;
+  return `&sort=baseReadUnt&compare=1&line=${encodeURIComponent(filters.line)}&platform=${encodeURIComponent(filters.platform)}&accountId=${encodeURIComponent(filters.accountId)}&language=${encodeURIComponent(filters.language)}&complete=${encodeURIComponent(filters.complete)}&status=${encodeURIComponent(filters.status)}&isShort=${catalogShortChoice()}&readBaseMin=${encodeURIComponent(filters.readBaseMin)}&firstReadMin=${encodeURIComponent(filters.firstReadMin)}&longReadMin=${encodeURIComponent(filters.longReadMin)}`;
+}
+
+function catalogTargetRoutes() {
+  return state.catalogTargetOptions.length ? state.catalogTargetOptions : TARGET_ROUTE_FALLBACKS;
+}
+
+function syncCatalogTargetControls({ resetAccount = false } = {}) {
+  const appKey = state.catalogFilters.line;
+  const appRoutes = catalogTargetRoutes().filter((route) => String(route.appKey || route.productLine) === appKey);
+  const availablePlatforms = [...new Set(appRoutes.map((route) => route.platform))];
+  if (!availablePlatforms.includes(state.catalogFilters.platform)) state.catalogFilters.platform = availablePlatforms[0] || 'facebook';
+  const routes = appRoutes.filter((route) => route.platform === state.catalogFilters.platform);
+  if (resetAccount || !routes.some((route) => String(route.accountId) === String(state.catalogFilters.accountId))) {
+    state.catalogFilters.accountId = routes[0] ? String(routes[0].accountId) : '';
+  }
+  const application = $('#catalogApplication');
+  if (application) application.value = appKey;
+  const platform = $('#catalogPlatform');
+  if (platform) {
+    platform.innerHTML = availablePlatforms.map((value) => `<option value="${value}">${{ facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok' }[value] || value}</option>`).join('');
+    platform.value = state.catalogFilters.platform;
+  }
+  const account = $('#catalogAccount');
+  if (account) {
+    account.innerHTML = routes.map((route) => `<option value="${route.accountId}">${escapeHtml(route.accountTitle || route.appName || route.appKey)} · ${{ facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok' }[route.platform] || route.platform}</option>`).join('');
+    account.value = state.catalogFilters.accountId;
+  }
+  const manual = $('#manualAccount');
+  if (manual) {
+    manual.innerHTML = catalogTargetRoutes().map((route) => `<option value="${route.accountId}" ${String(route.accountId) === String(state.catalogFilters.accountId) ? 'selected' : ''}>${escapeHtml(route.appName || route.appKey)} · ${escapeHtml(route.accountTitle || '')} · ${{ facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok' }[route.platform] || route.platform}</option>`).join('');
+  }
+}
+
+function p0TargetForBook(book = {}, explicitTarget = null) {
+  const target = explicitTarget || book.selectionTarget || state.catalogTarget;
+  const accountId = Number(target?.accountId || state.catalogFilters.accountId || 0);
+  return accountId ? { ...target, accountId } : null;
+}
+
+function p0SelectionForBook(book = {}, explicitTarget = null) {
+  const target = p0TargetForBook(book, explicitTarget);
+  const windowKey = `readerBase${Number(state.catalogDays)}d`;
+  return {
+    source: 'content_dashboard_performance',
+    windowDays: state.catalogDays,
+    sourceRank: Number(book.rank || 0),
+    recommendationRank: Number(book.recommendationRank || 0),
+    readerBase: Number(book[windowKey] ?? book.baseReadUnt ?? 0),
+    firstReadRate: Number(book.firstReadUntRate || 0),
+    longReadRate: Number(book.read20wRate || book.read10wRate || 0),
+    trend7v30: Number.isFinite(Number(book.trend7v30)) ? Number(book.trend7v30) : null,
+    receipt: String(book.p0Receipt || ''),
+    filters: {
+      language: state.catalogFilters.language,
+      complete: state.catalogFilters.complete,
+      length: state.catalogFilters.length,
+      genre: state.catalogFilters.genre,
+      readBaseMin: Number(state.catalogFilters.readBaseMin || 0),
+      firstReadMin: Number(state.catalogFilters.firstReadMin || 0),
+      longReadMin: Number(state.catalogFilters.longReadMin || 0)
+    },
+    target
+  };
+}
+
+function p0TargetLabel(target = {}) {
+  const platformLabel = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok' }[target.platform] || target.platform || '未选择平台';
+  return `${target.appName || target.appKey || target.productLine || '未选择产品线'} / ${platformLabel} / ${target.accountTitle || target.accountId || '未选择账号'}`;
+}
+
+function p0Percent(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '—';
+  return `${(numeric <= 1 ? numeric * 100 : numeric).toLocaleString('zh-CN', { maximumFractionDigits: 1 })}%`;
+}
+
+function p0DecisionTarget() {
+  const routes = catalogTargetRoutes();
+  return state.catalogTarget || routes.find((route) => String(route.appKey || route.productLine) === String(state.catalogFilters.line)
+    && route.platform === state.catalogFilters.platform
+    && String(route.accountId) === String(state.catalogFilters.accountId)) || {
+    appKey: state.catalogFilters.line,
+    appName: state.catalogFilters.line,
+    productLine: state.catalogFilters.line,
+    platform: state.catalogFilters.platform,
+    accountId: Number(state.catalogFilters.accountId || 0),
+    accountTitle: ''
+  };
+}
+
+function p0EligibleBooks() {
+  if (state.leaderboardSource !== 'catalog') return [];
+  const target = p0DecisionTarget();
+  return catalogVisibleBooks(target).filter((book) => {
+    const selectionTarget = book.selectionTarget || target;
+    const sameRoute = String(selectionTarget.accountId || '') === String(target.accountId || '')
+      && String(selectionTarget.platform || '') === String(target.platform || '')
+      && String(selectionTarget.appKey || selectionTarget.productLine || '') === String(target.appKey || target.productLine || '');
+    const usage = bookUsageMeta(book, target).status;
+    return sameRoute && Boolean(book.p0Receipt) && book.automationReady !== false && book.recommendationReady !== false && ['unused', 'selected'].includes(usage);
+  });
+}
+
+function renderP0DecisionRail() {
+  const rail = $('#p0DecisionRail');
+  const content = $('#p0DecisionContent');
+  const status = $('#p0RouteStatus');
+  if (!rail || !content || !status) return;
+  const target = p0DecisionTarget();
+  const locked = Boolean(target.accountId && target.platform && (target.appKey || target.productLine));
+  const eligible = p0EligibleBooks();
+  const selected = state.selectedBooks.size;
+  const filters = state.catalogFilters;
+  const windowDays = state.catalogDays;
+  status.className = `route-lock-badge ${locked ? 'locked' : 'pending'}`;
+  status.innerHTML = `<i data-lucide="${locked ? 'lock-keyhole' : 'unlock-keyhole'}"></i><strong>${locked ? '路由已锁定' : '等待锁定路由'}</strong>`;
+  content.innerHTML = `<div class="p0-route-grid">
+    <article class="p0-route-cell target"><span>目标应用</span><strong>${escapeHtml(target.appName || target.appKey || '—')}</strong><small>产品线：${escapeHtml(target.productLine || target.appKey || '—')}</small></article>
+    <article class="p0-route-cell"><span>目标平台</span><strong>${escapeHtml({ facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok' }[target.platform] || target.platform || '—')}</strong><small>发布规则：${target.includeLink ? '允许归因短链' : '只展示 Code'}</small></article>
+    <article class="p0-route-cell account"><span>SocialEcho 账号</span><strong>${escapeHtml(target.accountTitle || '—')}</strong><small>账号 ID ${escapeHtml(String(target.accountId || '—'))}</small></article>
+    <article class="p0-route-cell"><span>当前排行窗口</span><strong>近 ${windowDays} 天</strong><small>只在目标产品线内读取中台指标</small></article>
+  </div>
+  <div class="p0-metric-strip">
+    <div><span>阅读基数门槛</span><strong>${Number(filters.readBaseMin || 0).toLocaleString('zh-CN')}</strong><small>读者用户</small></div>
+    <div><span>首读率门槛</span><strong>${p0Percent(filters.firstReadMin)}</strong><small>开篇转化</small></div>
+    <div><span>长读留存门槛</span><strong>${p0Percent(filters.longReadMin)}</strong><small>20w 优先，缺失用 10w</small></div>
+    <div class="p0-eligibility"><span>当前可选候选</span><strong>${eligible.length}</strong><small>${selected ? `已选 ${selected} 本` : '未选书籍'} · 未使用记录优先</small></div>
+  </div>
+  <div class="p0-rail-footer"><span><i data-lucide="shield-check"></i> ${locked ? `当前榜单只来自 ${escapeHtml(target.appName || target.appKey || '目标')} 产品线` : '先从下方筛选器选择目标应用、平台和账号'}</span><button type="button" class="p0-jump-action" data-p0-focus="catalogApplication"><i data-lucide="sliders-horizontal"></i>调整 P0 筛选</button></div>`;
+  content.querySelector('[data-p0-focus]')?.addEventListener('click', () => { $('#catalogApplication')?.focus(); $('#catalogApplication')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+}
+
+function renderHarnessStageStrip() {
+  const strip = $('#harnessStageStrip');
+  if (!strip) return;
+  const run = state.runs.find((item) => item.id === state.selectedId) || state.runs[0];
+  const projection = run ? harnessProjectionForUi(run) : null;
+  const stages = new Map((projection?.stages || []).map((stage) => [stage.key, stage]));
+  strip.querySelectorAll('[data-harness-stage]').forEach((node) => {
+    const key = node.dataset.harnessStage;
+    const stage = stages.get(key);
+    node.className = stage ? `status-${stage.status || 'waiting'}` : key === 'P0' && p0DecisionTarget().accountId ? 'status-prepared' : '';
+    if (stage?.purpose) node.title = stage.purpose;
+  });
 }
 
 async function assistantSnapshot(mode) {
   const activeRuns = state.runs.filter((run) => ['queued', 'running', 'blocked', 'failed'].includes(run.state)).slice(0, 8).map((run) => ({
-    id: run.id, title: run.input?.title, state: run.state, code: run.artifacts?.code || '', completedStages: Object.values(run.stages || {}).filter((stage) => stage.status === 'done').length,
+    id: run.id, title: run.input?.title, state: run.state, code: run.artifacts?.code || '', completedStages: completedHarnessStages(run),
     updatedAt: run.updatedAt, selectedModel: modelLabel(run.input?.creativeProfile?.modelChoice),
     stages: Object.fromEntries(Object.entries(run.stages || {}).map(([key, stage]) => [key, { status: stage.status, phase: stage.phase || '', recoverable: Boolean(stage.recoverable), nextAttemptAt: stage.nextAttemptAt || '', error: String(stage.error || '').slice(0, 160) }])),
     assets: assetSummary(run), optimization: run.artifacts?.optimization?.status || '', lastEvent: run.events?.at(-1)?.message || ''
@@ -643,7 +890,7 @@ function localAssistantAnalysis(snapshot, mode) {
     const recovering = stages.find(([, stage]) => stage.recoverable);
     if (blocked) actions.push({ priority: 'high', title: `${run.title}：需要处理`, reason: `${blocked[0]} 当前为 ${blocked[1].status}，打开任务查看保存的原因与处理入口。`, runId: run.id });
     else if (recovering) actions.push({ priority: 'medium', title: `${run.title}：后台恢复中`, reason: `${recovering[0]} 会从已保存节点继续，不会重新创建追踪或付费任务。`, runId: run.id });
-    else actions.push({ priority: 'low', title: `${run.title}：继续生产`, reason: `已完成 ${run.completedStages || 0}/7 个节点，可打开查看当前产物。`, runId: run.id });
+    else actions.push({ priority: 'low', title: `${run.title}：继续生产`, reason: `已完成 ${run.completedStages || 0}/${HARNESS_NODE_COUNT} 个节点，可打开查看当前产物。`, runId: run.id });
   });
   return { headline: mode === 'assets' ? '素材实时检查' : '实时生产诊断', summary: actions.length ? '结论直接来自当前任务状态，模型不可用时也可以继续操作。' : '当前没有需要立即处理的任务。', actions, recommendations: [] };
 }
@@ -777,7 +1024,9 @@ async function sendCopilot(text) {
 }
 
 function showLogin() {
-  showApp();
+  $('#loginView').hidden = false;
+  $('#appView').hidden = true;
+  requestAnimationFrame(() => $('#password')?.focus());
 }
 
 function showApp() {
@@ -786,23 +1035,486 @@ function showApp() {
 }
 
 function capabilityName(key) {
-  return { storage: '任务存储', pipeline: '书库与短链', llm: 'AI 创意模型', video: 'AC 视频', image: '海报生成', report: '归因数据' }[key] || key;
+  return { storage: '任务存储', pipeline: '书库与短链', llm: 'AI 创意模型', video: 'AC 视频', image: '海报生成', report: '归因数据', publishing: 'SocialEcho 发布' }[key] || key;
 }
 
 function renderCapabilities() {
-  $('#capabilities').innerHTML = Object.entries(state.capabilities).map(([key, ok]) => `<div class="cap-row ${ok ? 'ok' : ''}"><span>${escapeHtml(capabilityName(key))}</span><i></i></div>`).join('');
-  const values = Object.values(state.capabilities);
+  const readinessEntries = Object.entries(state.capabilities).filter(([key]) => !['videoGenerationPaused', 'imageGenerationPaused', 'paidMediaAvailable', 'image'].includes(key));
+  const imageOptional = Object.prototype.hasOwnProperty.call(state.capabilities, 'image')
+    ? [['image', state.capabilities.image]]
+    : [];
+  $('#capabilities').innerHTML = readinessEntries.concat(imageOptional).map(([key, ok]) => `<div class="cap-row ${ok ? 'ok' : ''}${key === 'image' ? ' optional' : ''}"><span>${escapeHtml(capabilityName(key))}${key === 'image' ? '（可选）' : ''}</span><i></i></div>`).join('');
+  const values = readinessEntries.map(([, value]) => value);
   const readyCount = values.filter(Boolean).length;
   const allReady = values.length > 0 && readyCount === values.length;
   $('#systemState').classList.toggle('online', allReady);
   $('#systemState').innerHTML = `<span class="pulse-dot"></span>生产配置 ${readyCount}/${values.length || 6}`;
-  const video = state.videoLimit || { used: 0, limit: 5, remaining: 5 };
+  const video = state.videoLimit || { used: 0, limit: 40, remaining: 40, scope: 'day', timeZone: 'Asia/Shanghai' };
   const capacity = $('#videoCapacity');
   capacity.classList.toggle('at-limit', Number(video.remaining) === 0);
-  const reset = new Date(); reset.setMinutes(0, 0, 0); reset.setHours(reset.getHours() + 1);
-  const resetLabel = reset.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
-  capacity.title = `本网站每小时最多提交 ${video.limit} 条付费视频；已用 ${video.used} 条，${resetLabel} 重置。`;
+  const reset = Date.parse(video.resetAt || '');
+  const resetLabel = Number.isFinite(reset) ? new Date(reset).toLocaleString('zh-CN', { timeZone: video.timeZone || 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : '次日 00:00';
+  capacity.title = `本网站每天最多提交 ${video.limit} 条付费视频；已用 ${video.used} 条，北京时间 ${resetLabel} 重置。`;
   capacity.innerHTML = `<i data-lucide="video"></i><strong>视频额度 ${video.remaining}/${video.limit}</strong><small>${video.used} 已用 · ${resetLabel} 重置</small>`;
+  const points = state.pointsBudget || { used: 0, limit: 1000, remaining: 1000, scope: 'day', timeZone: 'Asia/Shanghai' };
+  const pointsCapacity = $('#pointsCapacity');
+  if (pointsCapacity) {
+    const pointsUsed = Number.isFinite(Number(points.used)) ? Number(points.used) : 0;
+    const pointsLimit = Number.isFinite(Number(points.limit)) ? Number(points.limit) : 1000;
+    const pointsRemaining = Math.max(0, Number.isFinite(Number(points.remaining)) ? Number(points.remaining) : pointsLimit - pointsUsed);
+    const pointsReset = Date.parse(points.resetAt || '');
+    const pointsResetLabel = Number.isFinite(pointsReset) ? new Date(pointsReset).toLocaleString('zh-CN', { timeZone: points.timeZone || 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : '次日 00:00';
+    pointsCapacity.classList.toggle('at-limit', pointsRemaining === 0);
+    pointsCapacity.title = `每日受控付费 AC 积分上限 ${pointsLimit}；已预留/计入 ${pointsUsed}，剩余 ${pointsRemaining}，北京时间 ${pointsResetLabel} 重置。`;
+    pointsCapacity.innerHTML = `<i data-lucide="coins"></i><strong>积分 ${pointsRemaining}/${pointsLimit}</strong><small>${pointsUsed} 已计入 · ${pointsResetLabel} 重置</small>`;
+  }
+  const commandSummary = $('#commandCapabilitySummary');
+  if (commandSummary) commandSummary.textContent = paidMediaAvailable()
+    ? '先用中台实时阅读规模、质量和趋势选书；付费媒体提交已由服务端能力与 40/日额度门禁接管。'
+    : '先用中台实时阅读规模、质量和趋势选书；服务端当前未开放新的付费媒体提交。';
+}
+
+const DAILY_CAMPAIGN_STAGES = Object.freeze([
+  ['P0', '选书'], ['P1', '核验'], ['P2', '证据'], ['P3', '创意'],
+  ['P4', '视频'], ['P5', '归因'], ['P6', '审核'], ['P7', '草稿']
+]);
+
+function dailyPlatformLabel(value) {
+  return { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok' }[String(value || '').toLowerCase()] || String(value || '待核验');
+}
+
+function dailyCampaignAssignments(campaign = state.dailyCampaign) {
+  const candidates = [
+    campaign?.assignments, campaign?.slots, campaign?.items,
+    campaign?.manifest?.assignments, campaign?.manifest?.slots,
+    campaign?.progress?.items, campaign?.runs
+  ];
+  return candidates.find(Array.isArray) || [];
+}
+
+function dailyAssignmentAccountId(item) {
+  return Number(item?.accountId || item?.route?.accountId || item?.delivery?.accountId || item?.input?.delivery?.accountId || item?.input?.campaign?.accountId || 0);
+}
+
+function dailyAssignmentProfile(item) {
+  return item?.creativeProfile || item?.input?.creativeProfile || item?.campaign?.creativeProfile || {};
+}
+
+function dailyCampaignRoutes(campaign = state.dailyCampaign) {
+  const assignments = dailyCampaignAssignments(campaign);
+  const responseRoutes = [campaign?.accounts, campaign?.onlineAccounts, campaign?.routes, campaign?.targets, campaign?.manifest?.routes].find(Array.isArray) || [];
+  return DAILY_CAMPAIGN_ACCOUNT_IDS.map((accountId, index) => {
+    const fallback = TARGET_ROUTE_FALLBACKS.find((route) => Number(route.accountId) === accountId) || { accountId, accountTitle: `账号 ${accountId}`, platform: '' };
+    const fromResponse = responseRoutes.find((route) => Number(route?.accountId || route?.id) === accountId) || {};
+    const fromAssignment = assignments.find((item) => dailyAssignmentAccountId(item) === accountId) || {};
+    const status = fromResponse.status;
+    const explicitOnline = typeof fromResponse.online === 'boolean' ? fromResponse.online
+      : typeof fromResponse.available === 'boolean' ? fromResponse.available
+        : Number.isFinite(Number(status)) && status !== '' ? Number(status) === 1
+          : ['online', 'active', 'ready'].includes(String(status || '').toLowerCase()) ? true
+            : ['offline', 'disabled', 'expired'].includes(String(status || '').toLowerCase()) ? false
+              : null;
+    return {
+      ...fallback,
+      ...fromResponse,
+      accountId,
+      accountTitle: fromResponse.accountTitle || fromResponse.title || fromResponse.name || fromAssignment.accountTitle || fromAssignment.input?.delivery?.accountTitle || fallback.accountTitle,
+      appKey: fromResponse.appKey || fromAssignment.appKey || fromAssignment.input?.delivery?.appKey || fallback.appKey,
+      platform: fromResponse.platform || fromAssignment.platform || fromAssignment.input?.delivery?.platform || fallback.platform,
+      online: explicitOnline,
+      accountIndex: index
+    };
+  });
+}
+
+function unwrapDailyCampaignResponse(body = {}) {
+  const payload = body.campaign || body.preview || body.manifest || body.data?.campaign || body.data?.preview || body.data || body;
+  const normalized = payload && typeof payload === 'object' ? { ...payload } : {};
+  const confirmationToken = body.confirmationToken || body.confirmPaidToken || body.authorizationToken
+    || normalized.confirmationToken || normalized.confirmPaidToken || normalized.authorizationToken || '';
+  return {
+    ...normalized,
+    confirmationToken,
+    campaignId: normalized.campaignId || normalized.id || body.campaignId || body.id || '',
+    responseCapabilities: body.capabilities || normalized.capabilities || null,
+    responseVideoLimit: body.videoLimit || normalized.videoLimit || null,
+    responsePointsBudget: body.pointsBudget || normalized.pointsBudget || null
+  };
+}
+
+function dailyCampaignStatus(campaign = state.dailyCampaign) {
+  return String(campaign?.status || campaign?.state || campaign?.phase || '').toLowerCase();
+}
+
+function dailyCampaignIsStale(campaign = state.dailyCampaign) {
+  const quality = String(campaign?.dataQuality || campaign?.snapshot?.dataQuality || '').toLowerCase();
+  if (quality.includes('stale') || quality.includes('expired')) return true;
+  const expiresAt = Date.parse(campaign?.receiptExpiresAt || campaign?.snapshotExpiresAt || campaign?.expiresAt || '');
+  return Number.isFinite(expiresAt) && expiresAt <= Date.now();
+}
+
+function applyDailyCampaignResponse(body, action = '') {
+  const next = unwrapDailyCampaignResponse(body);
+  state.dailyCampaign = { ...(state.dailyCampaign || {}), ...next };
+  state.dailyCampaignId = String(next.campaignId || state.dailyCampaignId || '');
+  state.dailyCampaignConfirmationToken = String(next.confirmationToken || state.dailyCampaignConfirmationToken || '');
+  if (next.responseCapabilities && typeof next.responseCapabilities === 'object') state.capabilities = { ...state.capabilities, ...next.responseCapabilities };
+  if (next.responseVideoLimit && typeof next.responseVideoLimit === 'object') state.videoLimit = next.responseVideoLimit;
+  if (next.responsePointsBudget && typeof next.responsePointsBudget === 'object') state.pointsBudget = next.responsePointsBudget;
+  const status = dailyCampaignStatus(state.dailyCampaign);
+  if (action === 'create' || ['created', 'queued', 'running', 'completed', 'partial', 'failed'].includes(status)) state.dailyCampaignPhase = 'created';
+  else if (action === 'preview' || status.includes('preview')) state.dailyCampaignPhase = 'preview';
+  if (state.dailyCampaignPhase === 'created' && state.dailyCampaignId) {
+    try { localStorage.setItem('nf_social:daily_campaign_id', state.dailyCampaignId); } catch {}
+  }
+  state.dailyCampaignError = '';
+}
+
+function dailyCountValue(value) {
+  if (Number.isFinite(Number(value)) && value !== '' && value != null) return Number(value);
+  if (!value || typeof value !== 'object') return null;
+  for (const key of ['completed', 'done', 'success', 'count', 'value']) {
+    if (Number.isFinite(Number(value[key]))) return Number(value[key]);
+  }
+  return null;
+}
+
+function dailyExplicitCount(campaign, keys = []) {
+  const sources = [campaign?.counts, campaign?.statusCounts, campaign?.outcomes, campaign?.progress?.counts, campaign?.summary?.counts, campaign?.summary];
+  for (const source of sources) {
+    if (!source || typeof source !== 'object') continue;
+    for (const key of keys) {
+      const count = dailyCountValue(source[key]);
+      if (count != null) return count;
+    }
+  }
+  return null;
+}
+
+function dailyAssignmentStatus(item) {
+  const stage = item?.currentStage || item?.stage || item?.phase || item?.run?.currentStage || '';
+  const status = item?.status || item?.state || item?.run?.state || item?.publication?.status || '';
+  return { stage: String(stage || '').toUpperCase(), status: String(status || '').toLowerCase() };
+}
+
+function dailyCampaignOutcomeMetrics(campaign = state.dailyCampaign) {
+  const items = dailyCampaignAssignments(campaign);
+  const derived = { created: 0, waiting: 0, running: 0, failed: 0, draft: 0 };
+  for (const item of items) {
+    const { status } = dailyAssignmentStatus(item);
+    if (item?.runId || item?.id && String(item.id).startsWith('run_') || item?.run?.id) derived.created += 1;
+    if (/failed|error|ambiguous/.test(status)) derived.failed += 1;
+    else if (/external_draft|draft_ready|drafted/.test(status) || item?.draftId || item?.publication?.externalDraftId) derived.draft += 1;
+    else if (/queued|waiting|prepared|pending|capacity|limit/.test(status)) derived.waiting += 1;
+    else if (/running|processing|generating|uploading|submitting/.test(status)) derived.running += 1;
+  }
+  const value = (keys, fallback) => {
+    const explicit = dailyExplicitCount(campaign, keys);
+    return explicit == null ? fallback : explicit;
+  };
+  return {
+    total: value(['total', 'requested', 'selected'], items.length || 36),
+    created: value(['created', 'runs', 'submitted'], derived.created || (state.dailyCampaignPhase === 'created' ? items.length : 0)),
+    waiting: value(['waiting', 'queued', 'pending'], derived.waiting),
+    running: value(['running', 'processing', 'active'], derived.running),
+    failed: value(['failed', 'errors', 'blocked'], derived.failed),
+    draft: value(['draft', 'drafts', 'externalDrafts', 'external_draft'], derived.draft)
+  };
+}
+
+function dailyStageSource(campaign = state.dailyCampaign) {
+  return campaign?.stageCounts || campaign?.progress?.stageCounts || campaign?.progress?.stages || campaign?.stages || campaign?.counts?.stages || null;
+}
+
+function dailyCampaignStageDone(stage, campaign = state.dailyCampaign) {
+  const source = dailyStageSource(campaign);
+  const explicit = dailyCountValue(Array.isArray(source) ? source.find((item) => item?.stage === stage) : source?.[stage]);
+  if (explicit != null) return explicit;
+  const assignments = dailyCampaignAssignments(campaign);
+  if (!assignments.length) return null;
+  const wanted = DAILY_CAMPAIGN_STAGES.findIndex(([key]) => key === stage);
+  let hasExactStageState = false;
+  let completed = 0;
+  for (const item of assignments) {
+    let itemCompleted = false;
+    const stageState = item?.stages?.[stage] || item?.run?.stages?.[stage];
+    if (stageState) {
+      hasExactStageState = true;
+      itemCompleted = ['completed', 'success', 'ready', 'skipped'].includes(String(stageState.status || stageState.state || '').toLowerCase());
+      if (itemCompleted) completed += 1;
+      continue;
+    }
+    const current = dailyAssignmentStatus(item).stage;
+    const currentIndex = DAILY_CAMPAIGN_STAGES.findIndex(([key]) => key === current);
+    if (currentIndex >= 0) {
+      hasExactStageState = true;
+      itemCompleted = currentIndex > wanted || (currentIndex === wanted && ['completed', 'success', 'external_draft'].includes(dailyAssignmentStatus(item).status));
+      if (itemCompleted) completed += 1;
+    }
+    if (!itemCompleted && stage === 'P7' && (item?.draftId || /external_draft|draft_ready/.test(dailyAssignmentStatus(item).status))) {
+      hasExactStageState = true;
+      completed += 1;
+    }
+  }
+  return hasExactStageState ? completed : null;
+}
+
+function dailySelectionSummary(campaign = state.dailyCampaign) {
+  const summary = campaign?.selectionSummary || campaign?.summary?.selection || campaign?.summary || {};
+  const assignments = dailyCampaignAssignments(campaign);
+  const byTier = (tiers) => assignments.filter((item) => tiers.includes(String(item?.selectionTier || item?.selection?.tier || ''))).length;
+  const count = (key, fallback) => dailyCountValue(summary[key]) ?? fallback;
+  const titles = assignments.map((item) => String(item?.title || item?.book?.title || item?.input?.title || '').trim().toLowerCase()).filter(Boolean);
+  return {
+    uniqueHigh: count('highQualityUnique', byTier(['unique_high'])),
+    expanded: count('expandedUnique', byTier(['unique_expanded', 'unique_current'])),
+    repeat: count('repeatedForQuality', byTier(['quality_repeat'])),
+    backfill: count('backfilled', byTier(['quality_backfill'])),
+    uniqueTitles: count('uniqueTitles', titles.length ? new Set(titles).size : null)
+  };
+}
+
+function dailyCampaignPreviewReady() {
+  if (state.dailyCampaignPhase !== 'preview' || dailyCampaignIsStale()) return false;
+  const assignments = dailyCampaignAssignments();
+  const routes = dailyCampaignRoutes();
+  return assignments.length === 36 && routes.length === 12 && routes.every((route) => route.online === true) && Boolean(state.dailyCampaignConfirmationToken);
+}
+
+function dailyCampaignCapabilitiesReady() {
+  const capabilities = state.capabilities || {};
+  // Daily social campaigns produce video and copy only; poster/image
+  // generation is optional and may be intentionally paused.
+  return paidMediaAvailable() && ['storage', 'pipeline', 'llm', 'video', 'publishing'].every((key) => capabilities[key] === true);
+}
+
+function dailyCampaignFreshnessLabel(campaign = state.dailyCampaign) {
+  if (!campaign) return '待预检';
+  if (dailyCampaignIsStale(campaign)) return '快照已过期';
+  const generatedAt = Date.parse(campaign.snapshotGeneratedAt || campaign.generatedAt || campaign.snapshot?.generatedAt || campaign.updatedAt || '');
+  if (!Number.isFinite(generatedAt)) return '实时收据已核验';
+  return `${new Date(generatedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })} 快照`;
+}
+
+function dailySlotTone(item) {
+  const { status } = dailyAssignmentStatus(item);
+  if (/failed|error|ambiguous/.test(status)) return 'failed';
+  if (/external_draft|draft_ready|drafted/.test(status) || item?.draftId || item?.publication?.externalDraftId) return 'draft';
+  if (/queued|waiting|prepared|pending|capacity|limit/.test(status)) return 'waiting';
+  return '';
+}
+
+function dailySlotHtml(item, slot, accountIndex) {
+  if (!item) return `<article class="daily-slot empty"><span>SLOT ${accountIndex * 3 + slot}</span><small>待实时预览</small></article>`;
+  const profile = dailyAssignmentProfile(item);
+  const title = item.title || item.book?.title || item.input?.title || '待核验书名';
+  const tier = item.selectionTier || item.selection?.tier || '待记录选书层级';
+  const form = profile.creativeForm || item.creativeForm || '创意形式待锁定';
+  const score = item.qualityScore ?? item.selection?.qualityScore ?? item.campaignScore;
+  const rankingDays = Number(item.rankingWindowDays || item.p0Selection?.windowDays || item.input?.p0Selection?.windowDays || 0);
+  const completion = String(item.completionStatus || item.p0Selection?.filters?.complete || item.input?.p0Selection?.filters?.complete || '');
+  const rankingLabel = rankingDays ? `${rankingDays}天${completion || '实时榜'}` : '';
+  const status = dailyAssignmentStatus(item);
+  const stateLabel = item.draftId || /external_draft|draft_ready/.test(status.status) ? '草稿已就绪' : status.stage || status.status || '已选书';
+  return `<article class="daily-slot ${dailySlotTone(item)}"><header><span>SLOT ${accountIndex * 3 + slot}</span><b>${escapeHtml(stateLabel)}</b></header><h3 title="${escapeHtml(title)}">${escapeHtml(title)}</h3><p><span>${escapeHtml(String(tier).replaceAll('_', ' '))}</span><span>${escapeHtml(String(form).replaceAll('_', ' '))}</span>${rankingLabel ? `<span>${escapeHtml(rankingLabel)}</span>` : ''}${score != null ? `<span>质量 ${escapeHtml(score)}</span>` : ''}</p></article>`;
+}
+
+function renderDailyCampaign() {
+  const panel = $('#dailyCampaignPanel');
+  if (!panel) return;
+  const campaign = state.dailyCampaign;
+  const assignments = dailyCampaignAssignments(campaign);
+  const routes = dailyCampaignRoutes(campaign);
+  const metrics = dailyCampaignOutcomeMetrics(campaign);
+  const mediaAvailable = paidMediaAvailable();
+  const campaignCapabilitiesReady = dailyCampaignCapabilitiesReady();
+  const remaining = Number(state.videoLimit?.remaining ?? state.videoLimit?.limit ?? 40);
+  const capability = $('#dailyCampaignCapability');
+  capability.className = `daily-campaign-capability ${campaignCapabilitiesReady ? remaining > 0 ? '' : 'queued' : 'blocked'}`;
+  capability.innerHTML = campaignCapabilitiesReady
+    ? remaining > 0 ? `<i data-lucide="circle-check"></i><b>生产链路可用 · 今日视频余 ${remaining}</b>` : '<i data-lucide="clock-3"></i><b>今日额度已满 · 后端排队</b>'
+    : mediaAvailable ? '<i data-lucide="circle-alert"></i><b>生产链路配置未全部就绪</b>' : '<i data-lucide="circle-pause"></i><b>服务端未开放付费媒体</b>';
+  panel.setAttribute('aria-busy', state.dailyCampaignLoading ? 'true' : 'false');
+  $('#dailyCampaignAccountCount').textContent = campaign ? String(routes.filter((route) => route.online === true).length) : '12';
+  $('#dailyCampaignSlotCount').textContent = String(assignments.length || 36);
+  $('#dailyCampaignFreshness').textContent = dailyCampaignFreshnessLabel(campaign);
+  $('#dailyCampaignAccounts').innerHTML = routes.map((route) => `<span class="daily-account-chip ${route.online === true ? 'online' : route.online === false ? 'offline' : ''}"><i></i>${escapeHtml(route.accountTitle)} · ${escapeHtml(dailyPlatformLabel(route.platform))}</span>`).join('');
+
+  const selection = dailySelectionSummary(campaign);
+  const summaryValue = (value) => value == null ? '—' : String(value);
+  $('#dailyCampaignTierSummary').innerHTML = [
+    ['优质全局唯一', selection.uniqueHigh, ''], ['扩展仍唯一', selection.expanded, ''],
+    ['为质量解释重复', selection.repeat, 'fallback'], ['质量回填', selection.backfill, 'backfill'], ['本次唯一书名', selection.uniqueTitles, '']
+  ].map(([label, value, tone]) => `<article class="${tone}"><span>${label}</span><strong>${summaryValue(value)}</strong></article>`).join('');
+
+  $('#dailyCampaignIdentity').textContent = state.dailyCampaignId ? `Campaign ${state.dailyCampaignId}` : '尚未创建 Campaign';
+  const updatedAt = Date.parse(campaign?.updatedAt || campaign?.createdAt || '');
+  $('#dailyCampaignUpdated').textContent = Number.isFinite(updatedAt) ? `更新 ${new Date(updatedAt).toLocaleString('zh-CN', { hour12: false })}` : state.dailyCampaignLoading ? '正在读取' : '等待预览';
+  $('#dailyCampaignStageCounts').innerHTML = DAILY_CAMPAIGN_STAGES.map(([stage, label]) => {
+    const done = dailyCampaignStageDone(stage, campaign);
+    const progress = done == null ? 0 : Math.max(0, Math.min(100, done / 36 * 100));
+    return `<article class="daily-stage-count" style="--stage-progress:${progress}%"><span>${stage}</span><strong>${done == null ? '—' : done}/36</strong><small>${label}</small></article>`;
+  }).join('');
+  $('#dailyCampaignOutcomeCounts').innerHTML = [
+    ['已建任务', metrics.created, ''], ['等待 / 排队', metrics.waiting, 'waiting'], ['生产中', metrics.running, ''], ['失败 / 歧义', metrics.failed, 'failed'], ['SocialEcho 草稿', metrics.draft, 'draft']
+  ].map(([label, value, tone]) => `<article class="${tone}"><span>${label}</span><strong>${value}</strong></article>`).join('');
+
+  const notice = $('#dailyCampaignNotice');
+  notice.className = 'daily-campaign-notice';
+  if (state.dailyCampaignPhase === 'create_ambiguous') {
+    notice.classList.add('warning');
+    notice.textContent = '创建请求的返回结果不确定，已禁止重复付费提交。请用右上角刷新按 Campaign ID 对账；只有后端确认仍是 preview 才会重新解锁。';
+  } else if (state.dailyCampaignError) {
+    notice.classList.add('error');
+    notice.textContent = state.dailyCampaignError;
+  } else if (state.dailyCampaignLoading) {
+    notice.textContent = state.dailyCampaignAction === 'create' ? '正在幂等创建 36 个 durable run；请勿重复点击。' : '正在核验 12 个账号、实时三轴榜单和 36 个选书位。';
+  } else if (dailyCampaignIsStale(campaign)) {
+    notice.classList.add('error');
+    notice.textContent = '这份选书快照或 P0 收据已过期，不能创建付费任务；请重新预览实时榜单。';
+  } else if (state.dailyCampaignPhase === 'created') {
+    notice.classList.add(metrics.failed ? 'warning' : 'success');
+    notice.textContent = `已按 Campaign ID 精确跟踪 ${metrics.total} 个 slot：${metrics.draft} 条 SocialEcho 定时任务，${metrics.waiting} 条等待 / 排队，${metrics.failed} 条失败或歧义。不会立即发布。`;
+  } else if (dailyCampaignPreviewReady()) {
+    notice.classList.add('success');
+    notice.textContent = '预览已锁定 12 个在线账号和 36 个优质 slot。勾选一次性付费确认后才能创建；SocialEcho 将保存 status:1 + scheduled_at 定时任务。';
+  } else if (state.dailyCampaignPhase === 'preview') {
+    notice.classList.add('warning');
+    notice.textContent = assignments.length !== 36 ? `预览只返回 ${assignments.length}/36 个 slot，已禁止创建。` : '预览尚未返回一次性付费确认 token，已禁止创建。';
+  } else {
+    notice.textContent = '先预览：后台会核验 12 个 SocialEcho 账号、实时榜单、36 个选书与今日视频额度，不会产生付费任务。';
+  }
+
+  const preview = $('#previewDailyCampaign');
+  preview.disabled = state.dailyCampaignLoading || state.dailyCampaignPhase === 'create_ambiguous';
+  preview.classList.toggle('loading', state.dailyCampaignLoading && state.dailyCampaignAction === 'preview');
+  preview.innerHTML = state.dailyCampaignLoading && state.dailyCampaignAction === 'preview' ? '<i data-lucide="loader-circle"></i><span>正在实时预览</span>' : '<i data-lucide="scan-search"></i><span>预览今日选书</span>';
+  const refresh = $('#refreshDailyCampaign');
+  refresh.hidden = !state.dailyCampaignId;
+  refresh.disabled = state.dailyCampaignLoading;
+  const retryCreative = $('#retryDailyCampaignCreative');
+  retryCreative.hidden = !state.dailyCampaignId || Number(metrics.failed || 0) < 1;
+  retryCreative.disabled = state.dailyCampaignLoading;
+  const ready = dailyCampaignPreviewReady() && campaignCapabilitiesReady && state.dailyCampaignPhase !== 'created';
+  const checkbox = $('#dailyCampaignPaidConfirm');
+  checkbox.disabled = !ready || state.dailyCampaignLoading;
+  if (!ready) checkbox.checked = false;
+  $('#dailyCampaignPaidLabel').classList.toggle('disabled', checkbox.disabled);
+  const create = $('#createDailyCampaign');
+  create.disabled = !ready || !checkbox.checked || state.dailyCampaignLoading;
+  create.classList.toggle('loading', state.dailyCampaignLoading && state.dailyCampaignAction === 'create');
+  create.innerHTML = state.dailyCampaignLoading && state.dailyCampaignAction === 'create'
+    ? '<i data-lucide="loader-circle"></i><span>正在创建 36 条</span>'
+    : remaining < 36 && mediaAvailable ? '<i data-lucide="clock-3"></i><span>创建 36 条（超额后端排队）</span>' : '<i data-lucide="sparkles"></i><span>一键创建 36 条生产任务</span>';
+
+  $('#dailyCampaignSlots').innerHTML = routes.map((route, accountIndex) => {
+    const accountItems = assignments.filter((item) => dailyAssignmentAccountId(item) === route.accountId);
+    return `<section class="daily-account-row"><header class="daily-account-route"><span>${accountIndex + 1}</span><div><strong>${escapeHtml(route.accountTitle)}</strong><small>${escapeHtml(route.appKey || '')} · ${escapeHtml(dailyPlatformLabel(route.platform))} · ${route.accountId}</small></div></header>${[1, 2, 3].map((slot) => {
+      const item = accountItems.find((candidate, index) => Number(candidate?.slot || candidate?.slotIndex || candidate?.campaignSlot || candidate?.input?.campaign?.slot || index + 1) === slot);
+      return dailySlotHtml(item, slot, accountIndex);
+    }).join('')}</section>`;
+  }).join('');
+}
+
+async function previewDailyCampaign() {
+  if (state.dailyCampaignLoading) return;
+  state.dailyCampaignLoading = true;
+  state.dailyCampaignAction = 'preview';
+  state.dailyCampaignError = '';
+  state.dailyCampaignConfirmationToken = '';
+  renderDailyCampaign(); icons();
+  try {
+    const body = await api('/api/daily-campaign', {
+      method: 'POST', timeoutMs: 780000,
+      body: JSON.stringify({ action: 'preview', accountIds: DAILY_CAMPAIGN_ACCOUNT_IDS, accountCount: 12, itemsPerAccount: 3, slotsPerAccount: 3, totalSlots: 36, avoidDays: 14, autoSubmit: true })
+    });
+    applyDailyCampaignResponse(body, 'preview');
+    showToast('今日 12 × 3 选书预览已生成，未创建付费任务');
+  } catch (error) {
+    state.dailyCampaignError = error.message || '无法生成今日预览';
+    showToast(state.dailyCampaignError, 'error');
+  } finally {
+    state.dailyCampaignLoading = false;
+    state.dailyCampaignAction = '';
+    renderDailyCampaign(); renderCapabilities(); icons();
+  }
+}
+
+async function createDailyCampaign() {
+  if (state.dailyCampaignLoading || !dailyCampaignPreviewReady()) return;
+  if (!dailyCampaignCapabilitiesReady()) { showToast('服务端存储、榜单、AI、媒体或 SocialEcho 能力未全部就绪', 'error'); return; }
+  if (!$('#dailyCampaignPaidConfirm').checked) { showToast('请先勾选本次 36 条一次性付费确认'); return; }
+  state.dailyCampaignLoading = true;
+  state.dailyCampaignAction = 'create';
+  state.dailyCampaignError = '';
+  renderDailyCampaign(); icons();
+  try {
+    const body = await api('/api/daily-campaign', {
+      method: 'POST', timeoutMs: 780000,
+      body: JSON.stringify({
+        action: 'create', campaignId: state.dailyCampaignId, confirmationToken: state.dailyCampaignConfirmationToken,
+        confirmPaid: true, paidAuthorized: true, autoSubmit: true,
+        accountIds: DAILY_CAMPAIGN_ACCOUNT_IDS, accountCount: 12, itemsPerAccount: 3, slotsPerAccount: 3, totalSlots: 36
+      })
+    });
+    applyDailyCampaignResponse(body, 'create');
+    $('#dailyCampaignPaidConfirm').checked = false;
+    showToast('已创建 36 条 durable 生产任务；完成后按排期提交 SocialEcho status:1 定时任务');
+  } catch (error) {
+    const definitive = Number(error?.status || 0) >= 400 && Number(error?.status || 0) < 500;
+    state.dailyCampaignPhase = definitive ? 'preview' : 'create_ambiguous';
+    if (!definitive && state.dailyCampaignId) {
+      try { localStorage.setItem('nf_social:daily_campaign_id', state.dailyCampaignId); } catch {}
+    }
+    state.dailyCampaignError = error.message || '无法创建今日 Campaign';
+    if (error?.status === 401) showLogin();
+    showToast(definitive ? state.dailyCampaignError : '创建返回不确定，已禁止重发；请刷新 Campaign 对账', 'error');
+  } finally {
+    state.dailyCampaignLoading = false;
+    state.dailyCampaignAction = '';
+    renderDailyCampaign(); renderCapabilities(); icons();
+  }
+}
+
+async function retryDailyCampaignCreative() {
+  if (!state.dailyCampaignId || state.dailyCampaignLoading) return;
+  state.dailyCampaignLoading = true;
+  state.dailyCampaignAction = 'retry_creative';
+  renderDailyCampaign(); icons();
+  try {
+    const body = await api('/api/daily-campaign', {
+      method: 'POST', timeoutMs: 120000,
+      body: JSON.stringify({ action: 'retry_failed_creative', campaignId: state.dailyCampaignId })
+    });
+    applyDailyCampaignResponse(body);
+    showToast(`已重新入队 ${Number(body.retried || 0)} 条失败创意；付费媒体任务未被重试`);
+    await kickWorker();
+  } catch (error) {
+    state.dailyCampaignError = error.message || '无法重试失败创意';
+    showToast(state.dailyCampaignError, 'error');
+  } finally {
+    state.dailyCampaignLoading = false;
+    state.dailyCampaignAction = '';
+    renderDailyCampaign(); icons();
+  }
+}
+
+async function loadDailyCampaign({ silent = false } = {}) {
+  if (!state.dailyCampaignId || state.dailyCampaignLoading) return;
+  state.dailyCampaignLoading = true;
+  state.dailyCampaignAction = 'refresh';
+  if (!silent) { renderDailyCampaign(); icons(); }
+  try {
+    const body = await api(`/api/daily-campaign?campaignId=${encodeURIComponent(state.dailyCampaignId)}`, { timeoutMs: 45000 });
+    applyDailyCampaignResponse(body);
+  } catch (error) {
+    state.dailyCampaignError = error.message || '无法读取 Campaign 状态';
+    if (!silent) showToast(state.dailyCampaignError, 'error');
+  } finally {
+    state.dailyCampaignLoading = false;
+    state.dailyCampaignAction = '';
+    renderDailyCampaign(); renderCapabilities(); icons();
+  }
 }
 
 function showToast(message, kind = '') {
@@ -814,7 +1526,500 @@ function showToast(message, kind = '') {
   showToast.timer = setTimeout(() => { toast.className = 'toast'; }, 4600);
 }
 
+const publicationStatusLabels = {
+  ready_for_review: '内部草稿待确认', uploading: '上传视频中', submitting: '保存草稿中', external_draft: 'SocialEcho 草稿已就绪', submitted: '已提交平台',
+  published: '已发布', publish_ambiguous: '需核对平台记录', failed: '提交失败', internal_draft: '内部草稿（未提交）'
+};
+
+function publicationScheduleLabel(draft) {
+  const mode = String(draft?.deliveryMode || '').toLowerCase();
+  const scheduledAt = Date.parse(draft?.scheduledAt || '');
+  if (draft?.status === 'external_draft' && mode === 'scheduled' && Number.isFinite(scheduledAt)) {
+    return `已创建定时任务 · ${new Date(scheduledAt).toLocaleString('zh-CN', { hour12: false })}`;
+  }
+  if (mode === 'scheduled' && Number.isFinite(scheduledAt)) {
+    return `待提交定时 · ${new Date(scheduledAt).toLocaleString('zh-CN', { hour12: false })}`;
+  }
+  return 'status:0 内部草稿 · 未排期';
+}
+
+function publicationAccountOptions(draft) {
+  const placeholder = `<option value="">选择发布账号</option>`;
+  const options = state.publicationAccounts.map((account) => {
+    const disabled = account.status !== 1 || !account.supported;
+    const suffix = account.supported ? '' : ' · 暂未开放';
+    return `<option value="${account.id}" ${Number(draft.accountId) === account.id ? 'selected' : ''} ${disabled ? 'disabled' : ''}>${escapeHtml(account.title || account.account)} · ${escapeHtml(account.platformTitle || account.platform)}${suffix}</option>`;
+  }).join('');
+  return placeholder + options;
+}
+
+function updatePublicationDraft(id, patch) {
+  const draft = state.publicationDrafts.find((item) => item.id === id);
+  if (!draft) return;
+  Object.assign(draft, patch);
+  clearTimeout(state.publicationSaveTimers.get(id));
+  const timer = setTimeout(async () => {
+    state.publicationSaveTimers.delete(id);
+    try {
+      const body = await api('/api/publications', { method: 'PATCH', body: JSON.stringify({ id, ...patch }) });
+      const index = state.publicationDrafts.findIndex((item) => item.id === id);
+      if (index >= 0) state.publicationDrafts[index] = body.draft;
+      const marker = document.querySelector(`[data-publication-saved="${id}"]`);
+      if (marker) marker.textContent = '已自动保存';
+    } catch (error) {
+      const marker = document.querySelector(`[data-publication-saved="${id}"]`);
+      if (marker) marker.textContent = '保存失败';
+      showToast(error.message, 'error');
+    }
+  }, 450);
+  const marker = document.querySelector(`[data-publication-saved="${id}"]`);
+  if (marker) marker.textContent = '正在保存…';
+}
+
+function bindPublicationWorkbench() {
+  const list = $('#publicationList');
+  if (!list) return;
+  list.querySelectorAll('[data-publication-caption]').forEach((input) => input.addEventListener('input', () => updatePublicationDraft(input.dataset.publicationCaption, { caption: input.value })));
+  list.querySelectorAll('[data-publication-account]').forEach((select) => select.addEventListener('change', () => {
+    const account = state.publicationAccounts.find((item) => item.id === Number(select.value));
+    updatePublicationDraft(select.dataset.publicationAccount, { accountId: Number(select.value), accountTitle: account?.title || '', platform: account?.platform || '', publishType: account?.publishType || '' });
+  }));
+  list.querySelectorAll('[data-publication-post]').forEach((select) => select.addEventListener('change', () => {
+    const draft = state.publicationDrafts.find((item) => item.id === select.dataset.publicationPost);
+    const postIndex = Number(select.value);
+    const caption = draft?.posts?.[postIndex]?.content || '';
+    if (!draft || !caption) return;
+    draft.postIndex = postIndex;
+    draft.caption = caption;
+    const textarea = list.querySelector(`[data-publication-caption="${draft.id}"]`);
+    if (textarea) textarea.value = caption;
+    updatePublicationDraft(draft.id, { postIndex, caption });
+  }));
+  list.querySelectorAll('[data-publication-publish]').forEach((button) => button.addEventListener('click', () => publishPublication(button.dataset.publicationPublish)));
+  list.querySelectorAll('[data-publication-reconcile]').forEach((button) => button.addEventListener('click', () => reconcilePublication(button.dataset.publicationReconcile)));
+}
+
+function renderPublicationWorkbench() {
+  const section = $('#publicationWorkbench');
+  const list = $('#publicationList');
+  if (!section || !list) return;
+  // Keep terminal provider states visible. Hiding external_draft made a
+  // successful P7 look like “0 条待审核” and forced operators to guess whether
+  // the API call had actually created anything.
+  const workbenchStatuses = new Set(['ready_for_review', 'uploading', 'submitting', 'publish_ambiguous', 'failed', 'external_draft', 'submitted', 'published']);
+  const visible = state.publicationDrafts.filter((draft) => workbenchStatuses.has(draft.status));
+  section.hidden = !state.publicationLoading && !visible.length;
+  const reviewCount = visible.filter((draft) => draft.status === 'ready_for_review').length;
+  const externalCount = visible.filter((draft) => ['external_draft', 'submitted', 'published'].includes(draft.status)).length;
+  $('#publicationCount').textContent = externalCount ? `${reviewCount} 条待审核 · ${externalCount} 条已入 SocialEcho` : `${reviewCount} 条待审核`;
+  section.classList.toggle('is-expanded', state.publicationExpanded);
+  const toggle = $('#togglePublicationWorkbench');
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', String(state.publicationExpanded));
+    toggle.querySelector('small').textContent = state.publicationExpanded ? '收起审核区' : '点击进入审核';
+    toggle.onclick = () => { state.publicationExpanded = !state.publicationExpanded; renderPublicationWorkbench(); };
+  }
+  list.hidden = !state.publicationExpanded;
+  if (state.publicationLoading && !visible.length) {
+    list.innerHTML = '<div class="publication-empty"><i data-lucide="loader-circle"></i><span>正在读取待审核草稿</span></div>';
+    icons();
+    return;
+  }
+  list.innerHTML = visible.map((draft) => {
+    const busy = state.publicationBusy.has(draft.id) || ['uploading', 'submitting'].includes(draft.status);
+    const terminal = ['external_draft', 'submitted', 'published'].includes(draft.status);
+    const canPublish = draft.status === 'ready_for_review' && draft.accountId && !busy;
+    const account = state.publicationAccounts.find((item) => item.id === Number(draft.accountId));
+    const status = publicationStatusLabels[draft.status] || draft.status;
+    const terminalProviderState = ['external_draft', 'submitted', 'published'].includes(draft.status);
+    const externalId = draft.provider?.externalDraftId || '';
+    const internalId = draft.id || '';
+    const providerAction = draft.status === 'external_draft'
+      ? `<a class="primary-command" href="${escapeHtml(draft.provider?.socialEchoUrl || 'https://app.socialecho.net/')}" target="_blank" rel="noreferrer"><i data-lucide="external-link"></i><span>去 SocialEcho 预览</span></a>`
+      : terminalProviderState
+        ? `<span class="publication-terminal-note">${draft.status === 'published' ? '已发布（只读）' : '已提交平台（只读）'}</span>`
+        : `<button class="primary-command" data-publication-publish="${escapeHtml(draft.id)}" type="button" ${canPublish ? '' : 'disabled'}><i data-lucide="save"></i><span>${busy ? '正在保存草稿' : '保存到 SocialEcho 草稿'}</span></button>`;
+    return `<article class="publication-draft status-${escapeHtml(draft.status)}" data-publication-id="${escapeHtml(draft.id)}">
+      <div class="publication-media"><img src="${escapeHtml(draft.previewImageUrl || draft.book?.cover || '')}" alt="${escapeHtml(draft.book?.title || '素材首帧')}" loading="lazy"><span>${escapeHtml(account?.platformTitle || draft.platform || '待选平台')}</span></div>
+      <div class="publication-editor">
+        <header><div><span>${escapeHtml(status)}</span><h3>${escapeHtml(draft.book?.title || '未命名素材')}</h3></div><small data-publication-saved="${escapeHtml(draft.id)}">已保存为内部草稿</small></header>
+        <div class="publication-fields">
+          <label>${draft.routeLocked ? 'P0 锁定账号' : '发布账号'}<select data-publication-account="${escapeHtml(draft.id)}" ${terminal || busy || draft.routeLocked ? 'disabled' : ''}>${publicationAccountOptions(draft)}</select></label>
+          <label>文案版本<select data-publication-post="${escapeHtml(draft.id)}" ${terminal || busy ? 'disabled' : ''}>${draft.posts.map((post) => `<option value="${post.index}" ${Number(draft.postIndex) === post.index ? 'selected' : ''}>版本 ${post.index + 1}${post.type ? ` · ${escapeHtml(post.type)}` : ''}</option>`).join('')}</select></label>
+        </div>
+        <label class="publication-caption">英文发布文案<textarea data-publication-caption="${escapeHtml(draft.id)}" maxlength="12000" ${terminal || busy ? 'disabled' : ''}>${escapeHtml(draft.caption)}</textarea></label>
+        <div class="publication-tracking"><span>Code <strong>${escapeHtml(draft.tracking?.code || '不创建')}</strong></span>${draft.tracking?.shortUrl ? `<a href="${escapeHtml(draft.tracking.shortUrl)}" target="_blank" rel="noreferrer">${escapeHtml(draft.tracking.shortUrl)}</a>` : '<span>本品牌暂不创建归因链接</span>'}</div>
+        <div class="publication-provider-meta"><span>${escapeHtml(publicationScheduleLabel(draft))}</span><span>内部 ID ${escapeHtml(internalId)}</span>${externalId && terminalProviderState ? `<span>外部 ID ${escapeHtml(externalId)}</span>` : '<span>外部 ID 待确认</span>'}</div>
+        ${draft.error ? `<p class="publication-error">${escapeHtml(draft.error)}</p>` : ''}
+        <footer><span>${terminalProviderState ? '已取得 SocialEcho 外部记录；正式发布仍由人工操作' : draft.deliveryMode === 'scheduled' ? '确认后提交 status:1 + scheduled_at，不会立即发布' : '确认后保存 status:0 草稿，不会正式发布'}</span>${draft.status === 'publish_ambiguous' ? `<button class="secondary-command" data-publication-reconcile="${escapeHtml(draft.id)}" type="button"><i data-lucide="refresh-cw"></i>核对平台记录</button>` : ''}${providerAction}</footer>
+      </div>
+    </article>`;
+  }).join('');
+  bindPublicationWorkbench();
+  icons();
+}
+
+async function loadPublicationAccounts() {
+  if (state.publicationAccountLoading || state.publicationAccounts.length) return;
+  state.publicationAccountLoading = true;
+  try {
+    const body = await api('/api/publications?action=accounts', { timeoutMs: 60000 });
+    state.publicationAccounts = body.accounts || [];
+    renderPublicationWorkbench();
+  } catch (error) { showToast(`SocialEcho 账号读取失败：${error.message}`, 'error'); }
+  finally { state.publicationAccountLoading = false; }
+}
+
+async function loadPublications({ silent = false } = {}) {
+  if (state.publicationLoading) return;
+  state.publicationLoading = true;
+  renderPublicationWorkbench();
+  try {
+    const body = await api('/api/publications', { method: 'POST', body: JSON.stringify({ action: 'sync' }), timeoutMs: 60000 });
+    state.publicationDrafts = body.drafts || [];
+    if (state.publicationDrafts.some((draft) => ['ready_for_review', 'failed'].includes(draft.status))) loadPublicationAccounts();
+  } catch (error) {
+    if (error.status === 401) showLogin();
+    else if (!silent) showToast(error.message, 'error');
+  } finally { state.publicationLoading = false; renderPublicationWorkbench(); renderAdCampaignWorkspace(); renderLeaderboard(); renderTodayRail(); }
+}
+
+const adVersionLabels = { original: '原始版', paced: '节奏版', optimized: '优化版' };
+const adStatusLabels = { completed: '视频完成', running: '视频生成中', prepared: '等待提交', failed: '视频失败', submit_ambiguous: '提交待对账', localization_failed: '语言处理失败' };
+
+function adDraftFor(item) {
+  return state.publicationDrafts.find((draft) => draft.id === item.draft?.internalId) || null;
+}
+
+function adStatus(value, readyValues = []) {
+  const ready = readyValues.includes(String(value || ''));
+  const pending = !ready && !/failed|ambiguous/.test(String(value || ''));
+  return `<span class="ad-status ${ready ? 'ready' : pending ? 'pending' : ''}">${escapeHtml(value || 'pending')}</span>`;
+}
+
+function renderAdCampaignWorkspace() {
+  const section = $('#adCampaignWorkspace');
+  const summary = $('#adCampaignSummary');
+  const books = $('#adCampaignBooks');
+  if (!section || !summary || !books || section.hidden) return;
+  const campaign = state.adCampaign;
+  if (state.adCampaignLoading && !campaign) {
+    summary.innerHTML = '';
+    books.innerHTML = '<div class="ad-empty"><i data-lucide="loader-circle"></i><span>正在读取 Campaign</span></div>';
+    icons();
+    return;
+  }
+  if (!campaign?.items?.length) {
+    summary.innerHTML = '';
+    books.innerHTML = '<div class="ad-empty"><i data-lucide="inbox"></i><span>当前没有广告素材 Campaign</span></div>';
+    icons();
+    return;
+  }
+  const items = campaign.items;
+  const grouped = [...items.reduce((map, item) => {
+    if (!map.has(item.title)) map.set(item.title, []);
+    map.get(item.title).push(item);
+    return map;
+  }, new Map()).entries()];
+  const completed = items.filter((item) => item.status === 'completed').length;
+  const drafts = items.filter((item) => item.draft?.status === 'external_draft').length;
+  const tracking = items.filter((item) => item.attribution?.status === 'ready').length;
+  const metaBound = items.filter((item) => item.meta?.status === 'bound').length;
+  const languageCounts = Object.fromEntries(['en', 'pt', 'es'].map((language) => [language, items.filter((item) => item.language === language).length]));
+  summary.innerHTML = [
+    ['书籍', grouped.length, `${items.length} 条素材`, 'ready'],
+    ['视频', completed, `${items.length} 条`, completed === items.length ? 'ready' : 'pending'],
+    ['SocialEcho 草稿', drafts, `${items.length} 条`, drafts === items.length ? 'ready' : 'pending'],
+    ['归因', tracking, `${items.length} 条`, tracking === items.length ? 'ready' : 'pending'],
+    ['多语言', `${languageCounts.en}/${languageCounts.pt}/${languageCounts.es}`, 'EN / PT / ES', 'ready'],
+    ['Meta 已绑定', metaBound, `${items.length} 条`, metaBound === items.length ? 'ready' : 'pending']
+  ].map(([label, value, note, status]) => `<article class="${status}"><span>${label}</span><strong>${value}</strong><small>${note}</small></article>`).join('');
+  books.innerHTML = grouped.map(([title, variants]) => {
+    variants.sort((left, right) => ['original', 'paced', 'optimized'].indexOf(left.version) - ['original', 'paced', 'optimized'].indexOf(right.version));
+    const first = variants.find((item) => item.previewImageUrl) || variants[0];
+    const bookDrafts = variants.filter((item) => item.draft?.status === 'external_draft').length;
+    const bookMeta = variants.filter((item) => item.meta?.status === 'bound').length;
+    const cover = first.previewImageUrl ? `<img class="ad-book-cover" src="${escapeHtml(first.previewImageUrl)}" alt="${escapeHtml(title)} 首帧" loading="lazy">` : '<span class="ad-book-cover-fallback">无首帧</span>';
+    const rows = variants.map((item) => {
+      const draft = adDraftFor(item);
+      const caption = String(draft?.caption || '');
+      const meta = item.meta || {};
+      const queryId = meta.copywritingId || item.attribution?.linkId || item.attribution?.code || '';
+      const metaLines = [['Campaign', meta.campaignId], ['Ad set', meta.adsetId], ['Ad', meta.adId], ['Creative', meta.creativeId], ['Copywriting', meta.copywritingId]].filter(([, value]) => value);
+      return `<article class="ad-variant-row" data-ad-item="${escapeHtml(item.id)}">
+        <div class="ad-variant-cell"><div class="ad-version"><b>${escapeHtml(adVersionLabels[item.version] || item.version)}</b></div><span class="ad-language">${escapeHtml(item.language.toUpperCase())} / ${escapeHtml(item.country)}</span>${item.revision ? `<span class="ad-status pending">修订 ${item.revision}</span>` : ''}</div>
+        <div class="ad-variant-cell"><span>广告正文</span><strong>${caption ? `${caption.length} 字 · XLSX 对应版本` : `${item.captionLength || 0} 字 · 正文同步中`}</strong><details class="ad-copy-details"><summary>查看完整正文</summary><pre>${escapeHtml(caption || '正在从 SocialEcho 草稿读取正文')}</pre></details></div>
+        <div class="ad-variant-cell"><span>AC 视频</span><strong>${escapeHtml(adStatusLabels[item.status] || item.status)}</strong><div class="ad-id">${escapeHtml(item.threadId || '尚无 threadId')}</div>${item.priorThreadId ? `<div class="ad-id">旧任务 ${escapeHtml(item.priorThreadId)}</div>` : ''}</div>
+        <div class="ad-variant-cell"><span>${escapeHtml(item.attribution?.application || '归因')}</span><strong>Code ${escapeHtml(item.attribution?.code || '—')}</strong>${adStatus(item.attribution?.status, ['ready'])}<div class="ad-links">${item.attribution?.shortUrl ? `<a href="${escapeHtml(item.attribution.shortUrl)}" target="_blank" rel="noreferrer"><i data-lucide="link-2"></i>短链</a>` : ''}${queryId ? `<button type="button" data-ad-query="${escapeHtml(queryId)}"><i data-lucide="chart-spline"></i>数据</button>` : ''}</div></div>
+        <div class="ad-variant-cell"><span>SocialEcho</span><strong>${item.draft?.externalId ? `草稿 ${escapeHtml(item.draft.externalId)}` : '尚无草稿'}</strong>${adStatus(item.draft?.status, ['external_draft'])}<div class="ad-links">${item.draft?.externalId ? '<a href="https://app.socialecho.net/publish" target="_blank" rel="noreferrer"><i data-lucide="external-link"></i>预览</a>' : ''}</div></div>
+        <div class="ad-variant-cell"><span>Meta 映射</span><strong>${meta.status === 'bound' ? '已绑定' : '未绑定'}</strong>${adStatus(meta.status, ['bound'])}<div class="ad-meta-list">${metaLines.length ? metaLines.map(([label, value]) => `<span>${label} ${escapeHtml(value)}</span>`).join('') : '<span>等待 campaign / ad set / ad / creative ID</span>'}</div></div>
+      </article>`;
+    }).join('');
+    return `<section class="ad-book-group"><header class="ad-book-head">${cover}<div><h2>${escapeHtml(title)}</h2><p>${variants.map((item) => `${item.language.toUpperCase()}/${item.country}`).filter((value, index, all) => all.indexOf(value) === index).join(' · ')}</p></div><div class="ad-book-progress"><span>${bookDrafts}/${variants.length} 草稿</span><span>${bookMeta}/${variants.length} Meta</span></div></header><div class="ad-variant-head"><span>版本</span><span>正文</span><span>AC</span><span>归因</span><span>SocialEcho</span><span>Meta</span></div>${rows}</section>`;
+  }).join('');
+  books.querySelectorAll('[data-ad-query]').forEach((button) => button.addEventListener('click', () => {
+    $('#dataQueryInput').value = button.dataset.adQuery;
+    $('#dataQueryDialog').showModal();
+    runDataQuery();
+  }));
+  icons();
+}
+
+async function loadAdCampaign({ refreshList = false, silent = false } = {}) {
+  if (state.adCampaignLoading) return;
+  state.adCampaignLoading = true;
+  renderAdCampaignWorkspace();
+  try {
+    if (refreshList || !state.adCampaigns.length) {
+      const list = await api('/api/ad-video-campaign?action=list&limit=30', { timeoutMs: 30000 });
+      state.adCampaigns = list.campaigns || [];
+      if (!state.adCampaigns.some((item) => item.id === state.adCampaignId)) state.adCampaignId = state.adCampaigns[0]?.id || 'whatsapp-ads-20260806';
+    }
+    const body = await api(`/api/ad-video-campaign?campaignId=${encodeURIComponent(state.adCampaignId)}`, { timeoutMs: 30000 });
+    state.adCampaign = body.campaign || null;
+    const select = $('#adCampaignSelect');
+    if (select) select.innerHTML = state.adCampaigns.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === state.adCampaignId ? 'selected' : ''}>${escapeHtml(item.id)} · ${item.bookCount} 本 / ${item.itemCount} 条</option>`).join('');
+  } catch (error) {
+    if (!silent) showToast(error.message, 'error');
+  } finally {
+    state.adCampaignLoading = false;
+    renderAdCampaignWorkspace();
+  }
+}
+
+function adPerformanceDate(daysAgo = 0) {
+  const date = new Date(Date.now() - Number(daysAgo || 0) * 86400000);
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .formatToParts(date).reduce((value, part) => ({ ...value, [part.type]: part.value }), {});
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function adMetric(value, fallback = null) {
+  if (value === '' || value == null) return fallback;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function adMetricFrom(value, keys, fallback = null) {
+  for (const key of keys) {
+    const current = key.split('.').reduce((entry, part) => entry?.[part], value);
+    const number = adMetric(current, null);
+    if (number != null) return number;
+  }
+  return fallback;
+}
+
+function formatAdInteger(value) {
+  const number = adMetric(value, null);
+  return number == null ? '—' : Math.round(number).toLocaleString('en-US');
+}
+
+function formatAdCurrency(value) {
+  const number = adMetric(value, null);
+  return number == null ? '—' : `$${number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function adSourceBadge(source, readyLabel = '已连接') {
+  const status = String(source?.status || source || 'unmapped');
+  const labels = {
+    ok: readyLabel, no_data: '暂无数据', unmapped: '待绑定', not_configured: '未配置', unconfigured: '未配置',
+    unavailable: '暂不可用', failed: '暂不可用', auth_error: '凭证失效', account_mismatch: '账户不匹配', disabled: '已停用', partial: '部分可用'
+  };
+  const kind = status === 'ok' ? 'ok' : ['no_data', 'unmapped', 'not_configured', 'unconfigured', 'partial'].includes(status) ? 'warn' : 'error';
+  return `<span class="ad-source-state ${kind}">${escapeHtml(labels[status] || status)}</span>`;
+}
+
+function adPerformanceItems() {
+  const value = state.adPerformance || {};
+  return Array.isArray(value.ads) ? value.ads : Array.isArray(value.items) ? value.items : Array.isArray(value.records) ? value.records : [];
+}
+
+function socialSourceForAd(ad) {
+  const social = ad.social || ad.report || {};
+  if (social.primary?.summary) return social.primary;
+  if (social.funnel?.status === 'ok') return social.funnel;
+  if (social.putreport?.status === 'ok') return social.putreport;
+  return social.funnel || social.putreport || social;
+}
+
+function renderAdPerformance() {
+  const section = $('#adPerformanceWorkspace');
+  const summary = $('#adPerformanceSummary');
+  const table = $('#adPerformanceTable');
+  const notice = $('#adPerformanceNotice');
+  if (!section || !summary || !table || section.hidden) return;
+  const payload = state.adPerformance || {};
+  const items = adPerformanceItems();
+  const apiWindow = payload.window || {};
+  if (!$('#adPerformanceFrom').value) $('#adPerformanceFrom').value = apiWindow.from || adPerformanceDate(7);
+  if (!$('#adPerformanceTo').value) $('#adPerformanceTo').value = apiWindow.to || adPerformanceDate(1);
+  const sourceWarnings = Object.values(payload.sourceStatus || {}).flatMap((source) => Array.isArray(source?.warnings) ? source.warnings : []);
+  const warnings = [...new Set([state.adPerformanceError, ...(Array.isArray(payload.warnings) ? payload.warnings : []), ...sourceWarnings].filter(Boolean))];
+  notice.hidden = !warnings.length;
+  notice.classList.toggle('error', Boolean(state.adPerformanceError));
+  notice.textContent = warnings.join(' · ');
+  if (state.adPerformanceLoading && !items.length) {
+    summary.innerHTML = '';
+    table.innerHTML = '<div class="ad-performance-loading"><i data-lucide="loader-circle"></i><span>正在读取广告数据</span></div>';
+    icons();
+    return;
+  }
+  if (!items.length) {
+    summary.innerHTML = '';
+    table.innerHTML = '<div class="ad-performance-empty"><i data-lucide="inbox"></i><span>暂无已登记广告</span></div>';
+    icons();
+    return;
+  }
+  const enabled = items.filter((item) => item.registry?.active !== false && item.active !== false);
+  const metaStatus = String(payload.sourceStatus?.meta?.status || 'unconfigured');
+  const metaAvailable = ['ok', 'partial', 'no_data'].includes(metaStatus);
+  const spend = enabled.reduce((total, item) => total + (adMetricFrom(item, ['meta.summary.spend', 'meta.metrics.spend', 'meta.spend'], 0) || 0), 0);
+  const impressions = enabled.reduce((total, item) => total + (adMetricFrom(item, ['meta.summary.impressions', 'meta.metrics.impressions', 'meta.impressions'], 0) || 0), 0);
+  const clicks = enabled.reduce((total, item) => total + (adMetricFrom(item, ['meta.summary.linkClicks', 'meta.metrics.linkClicks', 'meta.linkClicks', 'meta.inlineLinkClicks', 'meta.clicks'], 0) || 0), 0);
+  const reportMapped = enabled.filter((item) => item.reportId || item.registry?.reportId || item.mapping?.reportId).length;
+  const beidouMapped = enabled.filter((item) => item.beidouCampaignName || item.registry?.beidouCampaignName || item.mapping?.beidouCampaignName).length;
+  summary.innerHTML = [
+    ['白名单广告', enabled.length, `${items.length} 条已登记`, ''],
+    ['Meta 花费', metaAvailable ? formatAdCurrency(payload.summary?.meta?.spend ?? spend) : '—', `${apiWindow.from || $('#adPerformanceFrom').value} 至 ${apiWindow.to || $('#adPerformanceTo').value}`, 'meta'],
+    ['展示', metaAvailable ? formatAdInteger(payload.summary?.meta?.impressions ?? impressions) : '—', 'Meta Insights', 'meta'],
+    ['链接点击', metaAvailable ? formatAdInteger(payload.summary?.meta?.linkClicks ?? clicks) : '—', clicks > 0 ? `平均 ${formatAdCurrency(spend / clicks)}` : 'Meta Insights', 'meta'],
+    ['源映射', `${reportMapped}/${beidouMapped}`, '社媒报表 / 北斗', 'report']
+  ].map(([label, value, note, kind]) => `<article class="${kind}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(note)}</small></article>`).join('');
+  const rows = items.map((item) => {
+    const registry = item.registry || item;
+    const meta = item.meta || {};
+    const hasMeta = Boolean(item.meta);
+    const metrics = meta.summary || meta.metrics || meta;
+    const social = socialSourceForAd(item);
+    const socialSummary = social?.summary || social?.metrics || {};
+    const beidou = item.beidou || {};
+    const beidouSummary = beidou.summary || beidou.metrics || beidou;
+    const metaAdId = String(item.metaAdId || registry.metaAdId || meta.adId || meta.id || '');
+    const language = String(item.language || registry.language || 'other').toLowerCase();
+    const label = String(meta.adName || meta.name || item.name || registry.name || `Meta ${metaAdId}`);
+    const effectiveStatus = String(meta.effectiveStatus || meta.effective_status || meta.delivery || (meta.rows?.length ? '有数据' : (registry.active === false ? '已停用' : '—')));
+    const itemSpend = adMetricFrom(metrics, ['spend']);
+    const itemImpressions = adMetricFrom(metrics, ['impressions']);
+    const itemClicks = adMetricFrom(metrics, ['linkClicks', 'inlineLinkClicks', 'clicks']);
+    const itemCpc = adMetricFrom(metrics, ['costPerLinkClick', 'cpc'], itemClicks > 0 && itemSpend != null ? itemSpend / itemClicks : null);
+    const metaItemStatus = String(item.metaStatus || (hasMeta ? 'ok' : payload.sourceStatus?.meta?.status || 'no_data'));
+    const beidouStatus = String(item.beidouStatus || beidou.status || (beidou.rows ? (beidou.rows.length ? 'ok' : 'no_data') : registry.beidouCampaignName ? payload.sourceStatus?.beidou?.status || 'no_data' : 'unmapped'));
+    const socialStatus = String(item.socialStatus || social?.status || (social?.rows ? (social.rows.length ? 'ok' : 'no_data') : registry.reportId ? payload.sourceStatus?.social?.status || 'no_data' : 'unmapped'));
+    const beidouCell = beidouStatus === 'ok'
+      ? `<span class="ad-performance-number">${formatAdInteger(adMetricFrom(beidouSummary, ['visits', 'totalVisits', 'value'], 0))}</span><span class="ad-performance-sub">Campaign 访问</span>`
+      : adSourceBadge(beidouStatus);
+    const socialCell = socialStatus === 'ok'
+      ? `<span class="ad-performance-number">${formatAdInteger(adMetricFrom(socialSummary, ['pullUv', 'activeUv'], 0))} UV</span><span class="ad-performance-sub">D14 ${formatAdCurrency(adMetricFrom(socialSummary, ['d14Income'], 0))}</span>`
+      : adSourceBadge(socialStatus);
+    return `<tr class="${registry.active === false ? 'disabled' : ''}">
+      <td><div class="ad-performance-name"><span class="ad-performance-language ${escapeHtml(language)}">${escapeHtml(language)}</span><div><strong>${escapeHtml(label)}</strong><small>${escapeHtml(metaAdId)}</small></div></div></td>
+      <td>${hasMeta ? `<span class="ad-source-state ${meta.rows?.length || effectiveStatus === 'ACTIVE' ? 'ok' : 'warn'}">${escapeHtml(effectiveStatus)}</span>` : adSourceBadge(metaItemStatus)}</td>
+      <td><span class="ad-performance-number">${formatAdCurrency(itemSpend)}</span></td>
+      <td><span class="ad-performance-number">${formatAdInteger(itemImpressions)}</span></td>
+      <td><span class="ad-performance-number">${formatAdInteger(itemClicks)}</span></td>
+      <td><span class="ad-performance-number">${formatAdCurrency(itemCpc)}</span></td>
+      <td>${beidouCell}</td><td>${socialCell}</td>
+      <td><button class="icon-button ad-performance-row-action" type="button" data-edit-meta-ad="${escapeHtml(metaAdId)}" title="编辑映射"><i data-lucide="pencil"></i></button></td>
+    </tr>`;
+  }).join('');
+  table.innerHTML = `<div class="ad-performance-scroll"><table><thead><tr><th>广告</th><th>投放</th><th>花费</th><th>展示</th><th>链接点击</th><th>CPC</th><th>北斗</th><th>社媒报表</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  table.querySelectorAll('[data-edit-meta-ad]').forEach((button) => button.addEventListener('click', () => openAdRegistry(button.dataset.editMetaAd)));
+  icons();
+}
+
+async function loadAdPerformance({ force = false, silent = false } = {}) {
+  if (state.adPerformanceLoading) return;
+  state.adPerformanceLoading = true;
+  state.adPerformanceError = '';
+  renderAdPerformance();
+  const from = $('#adPerformanceFrom').value || adPerformanceDate(7);
+  const to = $('#adPerformanceTo').value || adPerformanceDate(1);
+  try {
+    const query = new URLSearchParams({ from, to });
+    if (force) query.set('refresh', '1');
+    const body = await api(`/api/ad-performance?${query}`, { timeoutMs: 150000 });
+    state.adPerformance = body.performance || body;
+  } catch (error) {
+    state.adPerformanceError = error.message;
+    if (error.status === 401) showLogin();
+    else if (!silent) showToast(error.message, 'error');
+  } finally {
+    state.adPerformanceLoading = false;
+    renderAdPerformance();
+  }
+}
+
+function openAdRegistry(metaAdId = '') {
+  const item = adPerformanceItems().find((value) => String(value.metaAdId || value.registry?.metaAdId || value.meta?.adId || value.meta?.id || '') === String(metaAdId));
+  const registry = item?.registry || item || {};
+  state.adPerformanceEditingId = String(metaAdId || '');
+  $('#registryMetaAdId').value = metaAdId || '';
+  $('#registryMetaAdId').readOnly = Boolean(metaAdId);
+  $('#registryLanguage').value = registry.language || 'pt';
+  $('#registryLabel').value = registry.name || item?.meta?.adName || item?.meta?.name || '';
+  $('#registryReportDimension').value = registry.reportDimension || registry.mapping?.reportDimension || '';
+  $('#registryReportId').value = registry.reportId || registry.mapping?.reportId || '';
+  $('#registryBeidouCampaignName').value = registry.beidouCampaignName || registry.mapping?.beidouCampaignName || '';
+  $('#registryEnabled').checked = registry.active !== false;
+  $('#adRegistryDialog').showModal();
+  icons();
+}
+
+async function saveAdRegistry(event) {
+  event.preventDefault();
+  const button = $('#saveAdRegistry');
+  button.disabled = true;
+  const record = {
+    action: 'upsert', metaAdId: $('#registryMetaAdId').value.trim(), language: $('#registryLanguage').value,
+    name: $('#registryLabel').value.trim(), reportDimension: $('#registryReportDimension').value,
+    reportId: $('#registryReportId').value.trim(), beidouCampaignName: $('#registryBeidouCampaignName').value.trim(),
+    active: $('#registryEnabled').checked
+  };
+  try {
+    await api('/api/ad-performance', { method: 'POST', timeoutMs: 45000, body: JSON.stringify(record) });
+    $('#adRegistryDialog').close();
+    showToast(state.adPerformanceEditingId ? '广告映射已更新' : '广告已加入白名单');
+    state.adPerformanceEditingId = '';
+    await loadAdPerformance({ force: true, silent: true });
+  } catch (error) { showToast(error.message, 'error'); }
+  finally { button.disabled = false; }
+}
+
+async function publishPublication(id) {
+  const draft = state.publicationDrafts.find((item) => item.id === id);
+  if (!draft || !draft.accountId || state.publicationBusy.has(id)) return;
+  clearTimeout(state.publicationSaveTimers.get(id));
+  state.publicationBusy.add(id);
+  renderPublicationWorkbench();
+  try {
+    const body = await api('/api/publications', { method: 'POST', timeoutMs: 360000, body: JSON.stringify({ action: 'save_external_draft', id, accountId: draft.accountId, accountTitle: draft.accountTitle, platform: draft.platform, publishType: draft.publishType, postIndex: draft.postIndex, caption: draft.caption }) });
+    const index = state.publicationDrafts.findIndex((item) => item.id === id);
+    if (index >= 0) state.publicationDrafts[index] = body.draft;
+    showToast('已保存到 SocialEcho 草稿；正式发布仍由你在 SocialEcho 决定');
+  } catch (error) {
+    if (error.details?.draft) {
+      const index = state.publicationDrafts.findIndex((item) => item.id === id);
+      if (index >= 0) state.publicationDrafts[index] = error.details.draft;
+    }
+    showToast(error.details?.ambiguous ? '提交结果不明确，已停止重试；请核对平台记录' : error.message, 'error');
+  } finally { state.publicationBusy.delete(id); renderPublicationWorkbench(); }
+}
+
+async function reconcilePublication(id) {
+  if (state.publicationBusy.has(id)) return;
+  state.publicationBusy.add(id); renderPublicationWorkbench();
+  try {
+    const body = await api('/api/publications', { method: 'POST', body: JSON.stringify({ action: 'reconcile', id }) });
+    const index = state.publicationDrafts.findIndex((item) => item.id === id);
+    if (index >= 0) state.publicationDrafts[index] = body.draft;
+    showToast(body.found ? '已找到对应平台记录' : '暂未找到对应记录，仍保持停止重试');
+  } catch (error) { showToast(error.message, 'error'); }
+  finally { state.publicationBusy.delete(id); renderPublicationWorkbench(); }
+}
+
 function openDetail(id, target = '') {
+  $('#detailPanel').hidden = false;
+  $('#detailScrim').hidden = false;
   state.selectedId = id;
   state.detailOpen = true;
   state.detailTarget = target;
@@ -957,6 +2162,8 @@ function closeDetail() {
   $('#detailScrim').setAttribute('aria-hidden', 'true');
   $('#detailPanel').classList.remove('open');
   $('#detailScrim').classList.remove('open');
+  $('#detailPanel').hidden = true;
+  $('#detailScrim').hidden = true;
 }
 
 function openNodeDecision(id, node) {
@@ -1021,11 +2228,54 @@ function productionIdentity({ title = '', bookSkuId = '', sku = '' } = {}) {
   return normalizedSku ? `sku:${normalizedSku}` : `title:${String(title || '').trim().toLowerCase()}`;
 }
 
+function routeProductionIdentity(book = {}, target = p0TargetForBook(book)) {
+  const accountId = Number(target?.accountId || 0);
+  return accountId ? `${accountId}:${productionIdentity(book)}` : productionIdentity(book);
+}
+
+function creativePlanJobBook(job = {}) {
+  return { title: job.input?.title || job.artifacts?.book?.title || '', sku: job.input?.sku || job.artifacts?.book?.bookSkuId || job.artifacts?.book?.sku || '' };
+}
+
+function pendingMatchesCreativePlanJob(pending, job) {
+  const jobAccountId = Number(job?.input?.delivery?.accountId || 0);
+  const pendingAccountId = Number(pending?.delivery?.accountId || 0);
+  if (!jobAccountId || jobAccountId !== pendingAccountId) return false;
+  const jobBook = creativePlanJobBook(job);
+  const jobSku = String(jobBook.sku || '').trim();
+  const pendingSku = String(pending?.sku || '').trim();
+  if (jobSku && pendingSku) return jobSku === pendingSku;
+  return String(jobBook.title || '').trim().toLowerCase() === String(pending?.title || '').trim().toLowerCase();
+}
+
+function pendingProductionForCreativePlanJob(job) {
+  const jobBook = creativePlanJobBook(job);
+  const exact = state.pendingProductions.get(routeProductionIdentity(jobBook, job?.input?.delivery || {}));
+  return exact || [...state.pendingProductions.values()].find((pending) => pendingMatchesCreativePlanJob(pending, job));
+}
+
+function runMatchesTargetAccount(run, target) {
+  const accountId = Number(target?.accountId || 0);
+  return !accountId || Number(run?.input?.delivery?.accountId || 0) === accountId;
+}
+
+function draftMatchesTargetAccount(draft, target) {
+  const accountId = Number(target?.accountId || 0);
+  return !accountId || Number(draft?.accountId || 0) === accountId;
+}
+
 function runMatchesBook(run, book) {
   const bookSku = String(book?.bookSkuId || book?.sku || '').trim();
   const runSku = String(run?.input?.sku || '').trim();
   if (bookSku && runSku && bookSku === runSku) return true;
   return String(run?.input?.title || '').trim().toLowerCase() === String(book?.title || '').trim().toLowerCase();
+}
+
+function draftMatchesBook(draft, book) {
+  const bookSku = String(book?.bookSkuId || book?.sku || '').trim();
+  const draftSku = String(draft?.book?.sku || '').trim();
+  if (bookSku && draftSku && bookSku === draftSku) return true;
+  return String(draft?.book?.title || '').trim().toLowerCase() === String(book?.title || '').trim().toLowerCase();
 }
 
 function runProtectsBook(run) {
@@ -1035,12 +2285,59 @@ function runProtectsBook(run) {
     || (Array.isArray(run.artifacts?.images) && run.artifacts.images.some((item) => item?.taskId));
 }
 
-function activeRunFor(book) {
-  return state.runs.find((run) => runMatchesBook(run, book) && runProtectsBook(run));
+function activeRunFor(book, target = p0TargetForBook(book)) {
+  return state.runs.find((run) => runMatchesBook(run, book) && runMatchesTargetAccount(run, target) && runProtectsBook(run));
 }
 
-function pendingProductionFor(book) {
-  return state.pendingProductions?.get?.(productionIdentity(book));
+function bookUsageMeta(book, target = p0TargetForBook(book)) {
+  const matches = state.runs.filter((run) => runMatchesBook(run, book) && runMatchesTargetAccount(run, target)).sort((left, right) => Date.parse(right.updatedAt || right.createdAt || '') - Date.parse(left.updatedAt || left.createdAt || ''));
+  const latest = matches[0] || null;
+  const publication = state.publicationDrafts.filter((draft) => draftMatchesBook(draft, book) && draftMatchesTargetAccount(draft, target)).sort((left, right) => Date.parse(right.updatedAt || right.createdAt || '') - Date.parse(left.updatedAt || left.createdAt || ''))[0] || null;
+  const selected = state.selectedBooks.has(routeProductionIdentity(book, target));
+  if (!latest && publication) return { status: 'used', label: '已做过', run: { id: publication.runId, state: 'completed', createdAt: publication.createdAt, updatedAt: publication.updatedAt, input: { title: publication.book?.title, sku: publication.book?.sku }, stages: { P6: { status: 'done' } }, artifacts: {} } };
+  if (!latest) return selected ? { status: 'selected', label: '本次已选', run: null } : { status: 'unused', label: '未用过', run: null };
+  const protectedRun = matches.find((run) => runProtectsBook(run));
+  if (protectedRun) return { status: 'active', label: protectedRun.state === 'blocked' || protectedRun.state === 'failed' ? '待人工处理' : '生产中', run: protectedRun };
+  if (latest.state === 'failed') return { status: 'failed', label: '失败待处理', run: latest };
+  if (latest.state === 'completed' || latest.stages?.P6?.status === 'done') return { status: 'used', label: '已用过', run: latest };
+  return { status: 'used', label: '已选过', run: latest };
+}
+
+function bookRouteHistory(book) {
+  const platformLabel = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok' };
+  const matches = state.runs.filter((run) => runMatchesBook(run, book)).sort((left, right) => Date.parse(right.updatedAt || right.createdAt || '') - Date.parse(left.updatedAt || left.createdAt || ''));
+  const seen = new Set();
+  const draftRoutes = state.publicationDrafts.filter((draft) => draftMatchesBook(draft, book)).map((draft) => {
+    const account = String(draft.accountTitle || '').trim();
+    const platform = String(draft.platform || '').toLowerCase();
+    const routeKey = `${account.toLowerCase()}:${platform}`;
+    if (seen.has(routeKey)) return null;
+    seen.add(routeKey);
+    const at = draft.updatedAt || draft.createdAt;
+    return { runId: draft.runId, account: account || '历史草稿', platform: platformLabel[platform] || platform || '平台待补', date: at ? new Date(at).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' }) : '', draftStatus: draft.status || '' };
+  }).filter(Boolean);
+  const runRoutes = matches.map((run) => {
+    const draft = state.publicationDrafts.find((item) => item.runId === run.id);
+    const delivery = run.input?.delivery || {};
+    const account = String(draft?.accountTitle || delivery.accountTitle || delivery.appName || '').trim();
+    const platform = String(draft?.platform || delivery.platform || '').toLowerCase();
+    const routeKey = `${account.toLowerCase()}:${platform}`;
+    if (seen.has(routeKey)) return null;
+    seen.add(routeKey);
+    const at = run.updatedAt || run.createdAt;
+    return {
+      runId: run.id,
+      account: account || '历史任务',
+      platform: platformLabel[platform] || platform || '平台待补',
+      date: at ? new Date(at).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' }) : '',
+      draftStatus: draft?.status || ''
+    };
+  }).filter(Boolean);
+  return [...draftRoutes, ...runRoutes];
+}
+
+function pendingProductionFor(book, target = p0TargetForBook(book)) {
+  return state.pendingProductions?.get?.(routeProductionIdentity(book, target));
 }
 
 function bookIsShort(book) {
@@ -1056,12 +2353,51 @@ function bookGenre(book) {
   return 'other';
 }
 
-function catalogVisibleBooks() {
-  return state.leaderboard.filter((book) => {
+function catalogVisibleBooks(target = p0DecisionTarget()) {
+  const filtered = state.leaderboard.filter((book) => {
     const { length, genre } = state.catalogFilters;
     const lengthMatches = length === 'all' || (length === 'short' ? bookIsShort(book) : !bookIsShort(book));
-    return lengthMatches && (genre === 'all' || bookGenre(book) === genre);
+    const usage = bookUsageMeta(book, target).status;
+    const usageMatches = state.catalogUsageFilter === 'all'
+      || (state.catalogUsageFilter === 'used' ? ['used', 'active', 'failed'].includes(usage) : usage === state.catalogUsageFilter);
+    return lengthMatches && (genre === 'all' || bookGenre(book) === genre) && usageMatches;
   });
+  const key = state.catalogSort;
+  return filtered.sort((left, right) => Number(right[key] ?? -1) - Number(left[key] ?? -1) || Number(right.baseReadUnt || 0) - Number(left.baseReadUnt || 0));
+}
+
+function normalizeRate(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
+  return Math.min(1, numeric > 1 ? numeric / 100 : numeric);
+}
+
+function scoreCatalogBooks(books, days = state.catalogDays) {
+  const windowKey = `readerBase${Number(days)}d`;
+  const scaleValue = (book) => Number.isFinite(Number(book?.[windowKey])) ? Number(book[windowKey]) : Number(book?.baseReadUnt || 0);
+  const maxScale = Math.max(1, ...(books || []).map(scaleValue));
+  return (books || []).map((book) => {
+    const readers = Math.max(0, scaleValue(book));
+    const scaleScore = Math.round(Math.log1p(readers) / Math.log1p(maxScale) * 1000) / 10;
+    const qualityParts = [
+      [normalizeRate(book.firstReadUntRate), .45],
+      [normalizeRate(book.read10wRate), .30],
+      [normalizeRate(book.read20wRate), .25]
+    ].filter(([value]) => value !== null);
+    const qualityWeight = qualityParts.reduce((sum, [, weight]) => sum + weight, 0);
+    const qualityScore = qualityWeight >= .7
+      ? Math.round(qualityParts.reduce((sum, [value, weight]) => sum + value * weight, 0) / qualityWeight * 1000) / 10
+      : null;
+    const trends = [[book.trend7v30, .65], [book.trend30v90, .35]].filter(([value]) => Number.isFinite(Number(value)));
+    const trendWeight = trends.reduce((sum, [, weight]) => sum + weight, 0);
+    const trendGrowth = trendWeight ? trends.reduce((sum, [value, weight]) => sum + Math.max(-1, Math.min(1, Number(value))) * weight, 0) / trendWeight : null;
+    const trendScore = trendGrowth === null ? null : Math.round((50 + trendGrowth * 50) * 10) / 10;
+    const recommendationScore = qualityScore === null ? null : Math.round((trendScore === null
+      ? scaleScore * .56 + qualityScore * .44
+      : scaleScore * .45 + qualityScore * .35 + trendScore * .20) * 10) / 10;
+    return { ...book, scaleScore, qualityScore, trendScore, recommendationScore, recommendationReady: recommendationScore !== null };
+  }).sort((left, right) => Number(right.recommendationScore ?? -1) - Number(left.recommendationScore ?? -1) || Number(right.baseReadUnt || 0) - Number(left.baseReadUnt || 0))
+    .map((book, index) => ({ ...book, recommendationRank: book.recommendationScore === null ? null : index + 1 }));
 }
 
 function metricHasSignal(books, key) {
@@ -1078,8 +2414,9 @@ function catalogDataHealth(books = state.leaderboard, sortKey = state.catalogSor
   const read20w = metricHasSignal(books, 'read20wRate');
   const profit = metricHasSignal(books, 'ttProfit');
   const promotionScore = metricHasSignal(books, 'promotionScore');
-  const byMetric = { promotionScore, baseReadUnt: uv, firstReadUntRate: firstRead, read10wRate: read10w, read20wRate: read20w, ttProfit: profit };
-  return { uv, firstRead, read10w, read20w, profit, promotionScore, selected: Boolean(byMetric[sortKey]), any: uv || firstRead || read10w || read20w || profit };
+  const recommendationScore = metricHasSignal(books, 'recommendationScore');
+  const byMetric = { recommendationScore, promotionScore, baseReadUnt: uv, firstReadUntRate: firstRead, read10wRate: read10w, read20wRate: read20w, ttProfit: profit };
+  return { uv, firstRead, read10w, read20w, profit, promotionScore, recommendationScore, selected: Boolean(byMetric[sortKey]), any: uv || firstRead || read10w || read20w || profit };
 }
 
 function catalogQualityAllowsRanking(books = state.leaderboard, quality = state.leaderboardDataQuality) {
@@ -1132,10 +2469,14 @@ function renderBatchBookBar() {
     start.disabled = working || count === 0;
     start.innerHTML = working
       ? '<i data-lucide="loader-circle"></i><span>后台入队中</span>'
-      : `<i data-lucide="zap"></i><span>一键生成已选 ${count} 本</span>`;
+      : `<i data-lucide="file-pen-line"></i><span>生成已选 ${count} 本文案</span>`;
   }
   const clear = $('#clearBookSelection');
   if (clear) clear.disabled = working;
+  const note = bar?.querySelector('small');
+  if (note) note.textContent = paidMediaAvailable()
+    ? '批量任务会生成策划、归因和文案；付费媒体由后端额度门禁控制。'
+    : '批量任务会生成策划、归因和文案；服务端当前未开放新付费媒体提交。';
 }
 
 function pendingProductionLabel(item) {
@@ -1150,14 +2491,15 @@ function activeAutopilotItems() {
     .filter((run) => ['queued', 'running', 'blocked', 'failed'].includes(run.state) && run.autopilot?.enabled !== false)
     .slice(0, 6)
     .map((run) => {
-      const done = Object.values(run.stages || {}).filter((stage) => stage.status === 'done').length;
+      const done = completedHarnessStages(run);
       const live = currentStage(run);
       const model = modelLabel(run.artifacts?.modelRoute?.activeModel || run.input?.creativeProfile?.modelChoice || 'hy3');
       const next = run.autopilot?.nextActionLabel || live?.[1]?.label || stageLabels[live?.[0]] || '后台正在推进';
       return {
         kind: 'run', key: `run:${run.id}`, runId: run.id, title: run.input?.title || run.artifacts?.book?.title || '未命名任务',
+        routeIdentity: routeProductionIdentity({ title: run.input?.title || run.artifacts?.book?.title, sku: run.input?.sku || run.artifacts?.book?.bookSkuId }, run.input?.delivery || {}),
         status: run.state, startedAt: Date.parse(run.updatedAt || run.createdAt || '') || 0,
-        label: `${next} · ${done}/7 节点 · ${model}`
+        label: `${next} · ${done}/${HARNESS_NODE_COUNT} 节点 · ${model}`
       };
     });
 }
@@ -1167,11 +2509,15 @@ function renderOneClickStatus() {
   if (!panel) return;
   const pending = [...state.pendingProductions.values()].sort((left, right) => right.startedAt - left.startedAt);
   const active = activeAutopilotItems();
-  const activeBooks = new Set(active.map((item) => String(item.title || '').trim().toLowerCase()));
-  const items = [...pending.filter((item) => !activeBooks.has(String(item.title || '').trim().toLowerCase())), ...active];
+  const activeRoutes = new Set(active.map((item) => item.routeIdentity));
+  const activeRunIds = new Set(active.map((item) => item.runId).filter(Boolean));
+  const items = [...pending.filter((item) => !activeRunIds.has(item.runId) && !activeRoutes.has(routeProductionIdentity(item, item.delivery))), ...active];
   panel.hidden = items.length === 0;
   if (!items.length) { panel.innerHTML = ''; return; }
-  panel.innerHTML = `<header><span><i data-lucide="zap"></i></span><div><strong>一键生产已接管</strong><small>后台会连续完成书籍核验、全书策划、Code / Link、创意、视频、海报与审核包；关闭页面也会继续。</small></div></header><div class="one-click-items">${items.map((item) => {
+  const mediaStatusCopy = paidMediaAvailable()
+    ? '付费视频依服务端能力和 40/日 limiter 自动提交或排队，已有 threadId 安全回收结果。'
+    : '服务端当前未开放新视频提交，已有 threadId 只回收结果。';
+  panel.innerHTML = `<header><span><i data-lucide="file-pen-line"></i></span><div><strong>文案生产与历史任务</strong><small>后台继续完成书籍核验、全书策划、Code / Link 和六步法文案；${mediaStatusCopy}</small></div></header><div class="one-click-items">${items.map((item) => {
     const failed = item.status === 'failed';
     const blocked = item.status === 'blocked';
     const icon = failed || blocked ? 'triangle-alert' : item.kind === 'run' ? 'activity' : 'loader-circle';
@@ -1187,12 +2533,16 @@ function renderOneClickStatus() {
     const item = state.pendingProductions.get(button.dataset.retryProduction);
     if (!item) return;
     state.pendingProductions.delete(item.key);
-    createProduction({ title: item.title, sku: item.sku, source: item.source, creativeProfile: item.creativeProfile || {} }).catch((error) => showToast(error.message, 'error'));
+    createProduction({ title: item.title, sku: item.sku, source: item.source, creativeProfile: item.creativeProfile || {}, delivery: item.delivery, p0Selection: item.p0Selection }).catch((error) => showToast(error.message, 'error'));
   }));
   panel.querySelectorAll('[data-open-autopilot]').forEach((button) => button.addEventListener('click', () => openDetail(button.dataset.openAutopilot)));
 }
 
 function todayScore(books, minUv = 20) {
+  const transparentScores = scoreCatalogBooks(books, state.catalogDays).filter((book) => book.recommendationReady && Number(book.baseReadUnt || 0) >= minUv);
+  if (transparentScores.some((book) => Number.isFinite(Number(book.recommendationScore)))) {
+    return transparentScores.map((book) => ({ ...book, todayScore: book.recommendationScore }));
+  }
   const eligible = (books || []).filter((book) => {
     const uv = Number(book?.baseReadUnt || 0);
     const firstRead = Number(book?.firstReadUntRate || 0);
@@ -1361,15 +2711,20 @@ function renderTodayRail() {
       ? '<button id="retryTodayRail" class="today-source-state stale" type="button"><i data-lucide="refresh-cw"></i>当前为最近一次已验证推荐，点击更新</button>'
       : '';
   const historical = state.todayDataQuality === 'history_verified';
-  list.innerHTML = `${sourceState}${books.slice(0, 12).map((book, index) => {
-    const active = activeRunFor(book);
-    const pending = typeof pendingProductionFor === 'function' ? pendingProductionFor(book) : null;
-    return `<article class="today-card ${active || pending ? 'in-progress' : ''}"><div class="today-cover" ${coverDataAttributes(book)}>${leaderboardCover(book)}</div><div class="today-card-copy"><span>${historical ? '投放候选' : `近 ${recommendationDays} 天`} #${index + 1} · 综合 ${book.todayScore}</span><h3>${escapeHtml(book.title)}</h3><p>${escapeHtml(bookGenre(book) === 'other' ? book.category || 'Romance' : bookGenre(book))} · ${historical ? `拉起 ${compactNumber(book.pullUv)} UV` : `UV ${compactNumber(book.baseReadUnt)}`}</p><div>${historical ? `<b>D14 $${Number(book.d14Income || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</b><b>复盘 ${Number(book.score || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 })}</b>` : `<b>首读 ${percentage(book.firstReadUntRate)}</b><b>长读 ${percentage(book.read20wRate || book.read10wRate)}</b>`}</div></div><div class="today-card-actions"><button class="today-start" data-today-start="${index}" type="button" ${pending && pending.status !== 'failed' ? 'disabled' : ''}><i data-lucide="${active ? 'arrow-right' : pending ? pending.status === 'failed' ? 'rotate-ccw' : 'loader-circle' : 'zap'}"></i>${active ? '查看任务' : pending ? pending.status === 'failed' ? '重新入队' : '已入队' : '一键生成'}</button>${!active && !pending ? `<button class="today-plan" data-today-book="${index}" type="button"><i data-lucide="brain-circuit"></i>先策划</button>` : ''}</div></article>`;
+  const displayedBooks = books.slice(0, 12);
+  const fallbackTarget = p0DecisionTarget();
+  const displayedTargets = displayedBooks.map((book) => p0TargetForBook(book, book.selectionTarget || fallbackTarget));
+  list.innerHTML = `${sourceState}${displayedBooks.map((book, index) => {
+    const target = displayedTargets[index];
+    const active = activeRunFor(book, target);
+    const pending = typeof pendingProductionFor === 'function' ? pendingProductionFor(book, target) : null;
+    const usage = bookUsageMeta(book, target);
+    return `<article class="today-card usage-${escapeHtml(usage.status)} ${active || pending ? 'in-progress' : ''}"><div class="today-cover" ${coverDataAttributes(book)}>${leaderboardCover(book)}</div><div class="today-card-copy"><span>${historical ? '投放候选' : `近 ${recommendationDays} 天`} #${index + 1} · 综合 ${book.todayScore} · ${escapeHtml(usage.label)}</span><h3>${escapeHtml(book.title)}</h3><p>${escapeHtml(bookGenre(book) === 'other' ? book.category || 'Romance' : bookGenre(book))} · ${historical ? `拉起 ${compactNumber(book.pullUv)} UV` : `UV ${compactNumber(book.baseReadUnt)}`}</p><div>${historical ? `<b>D14 $${Number(book.d14Income || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</b><b>复盘 ${Number(book.score || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 })}</b>` : `<b>首读 ${percentage(book.firstReadUntRate)}</b><b>长读 ${percentage(book.read20wRate || book.read10wRate)}</b>`}</div></div><div class="today-card-actions"><button class="today-start" data-today-start="${index}" ${usage.run ? `data-today-run="${escapeHtml(usage.run.id)}"` : ''} type="button" ${pending && pending.status !== 'failed' ? 'disabled' : ''}><i data-lucide="${usage.run ? 'arrow-right' : pending ? pending.status === 'failed' ? 'rotate-ccw' : 'loader-circle' : 'file-pen-line'}"></i>${usage.run ? usage.status === 'failed' || usage.run.state === 'blocked' ? '查看处理' : '查看历史' : pending ? pending.status === 'failed' ? '重新入队' : '已入队' : videoGenerationPaused() ? '生成文案' : '一键生成'}</button>${usage.status === 'unused' && !pending ? `<button class="today-plan" data-today-book="${index}" type="button"><i data-lucide="brain-circuit"></i>先策划</button>` : ''}</div></article>`;
   }).join('')}`;
   $('#retryTodayRail')?.addEventListener('click', () => loadTodayRail());
   $('#openTodayHistory')?.addEventListener('click', openHistoryRanking);
-  list.querySelectorAll('[data-today-book]').forEach((button) => button.addEventListener('click', () => { const book = books[Number(button.dataset.todayBook)]; if (book) openCreativePlanDialog(book); }));
-  list.querySelectorAll('[data-today-start]').forEach((button) => button.addEventListener('click', () => { const book = books[Number(button.dataset.todayStart)]; if (book) startProduction(book); }));
+  list.querySelectorAll('[data-today-book]').forEach((button) => button.addEventListener('click', () => { const index = Number(button.dataset.todayBook); const book = displayedBooks[index]; const target = displayedTargets[index]; if (book && target) openCreativePlanDialog({ ...book, selectionTarget: target }); }));
+  list.querySelectorAll('[data-today-start]').forEach((button) => button.addEventListener('click', () => { if (button.dataset.todayRun) return openDetail(button.dataset.todayRun); const index = Number(button.dataset.todayStart); const book = displayedBooks[index]; const target = displayedTargets[index]; if (book && target) startProduction(book, target); }));
 }
 
 async function loadTodayCovers() {
@@ -1382,7 +2737,7 @@ async function loadTodayCovers() {
   const skus = missing.map((book) => String(book.bookSkuId));
   skus.forEach((sku) => state.coverInFlight.add(sku));
   try {
-    const coverBody = await api('/api/book-covers', { method: 'POST', body: JSON.stringify({ books: missing.map((book) => ({ sku: book.bookSkuId, title: book.title })) }), timeoutMs: 30000 });
+    const coverBody = await api('/api/book-covers', { method: 'POST', body: JSON.stringify({ accountId: Number(state.catalogFilters.accountId || 0), books: missing.map((book) => ({ sku: book.bookSkuId, title: book.title })) }), timeoutMs: 30000 });
     const covers = coverBody.covers || {};
     const missingSkus = new Set((coverBody.missing || []).map(String));
     const failedSkus = new Map((coverBody.failed || []).map((item) => [String(item.sku), String(item.kind || 'unknown')]));
@@ -1430,6 +2785,8 @@ function renderLeaderboard() {
   $('#refreshLeaderboard').classList.toggle('loading', state.leaderboardLoading);
   empty.hidden = state.leaderboard.length > 0;
   const catalog = state.leaderboardSource === 'catalog';
+  const catalogTarget = p0DecisionTarget();
+  grid.classList.toggle('catalog-list', catalog);
   grid.classList.toggle('history-mode', !catalog);
   if (catalog) $('#historyDecisionBar').hidden = true;
   if (!catalog) {
@@ -1440,10 +2797,15 @@ function renderLeaderboard() {
     renderCoverRetryControl();
   }
   $('#leaderboardEyebrow').textContent = catalog ? 'CONTENT DASHBOARD' : 'PROMOTION REVIEW';
-  $('#leaderboardTitle').textContent = catalog ? '从真实榜单选一本' : '历史投放复盘';
+  $('#leaderboardTitle').textContent = catalog ? '中台书籍排行' : '历史投放复盘';
   $('#leaderboardDescription').textContent = catalog
-    ? 'NovelFlow 中台全书库数据，按近 7/30/90 天窗口和真实业务指标排序。'
+    ? '映射中台阅读排行，竖向密集展示书名、核心指标与发布历史。'
     : '把你们历史 Code / 链接的书级归因翻译成明确复投结论；不混入新推广书池，也不冒充单条素材表现。';
+  if (catalog) {
+    const target = catalogTarget;
+    $('#leaderboardTitle').textContent = `${target.appName || target.appKey || '目标产品线'} / ${target.platform || 'platform'} 选书工作台`;
+    $('#leaderboardDescription').textContent = `当前榜单只来自 ${target.appName || target.appKey || '目标产品线'} 产品线；先按阅读基数、首读率、长读留存和趋势筛选，再进入 P0 锁定。`;
+  }
   $('#windowControl').hidden = catalog;
   $('#catalogWindowControl').hidden = !catalog;
   $('#catalogSort').hidden = !catalog;
@@ -1473,10 +2835,16 @@ function renderLeaderboard() {
   if (state.leaderboardLoading) $('#leaderboardUpdated').textContent = '正在后台刷新，当前保留上一版已验证榜单';
   if (catalog) {
     const sortLabel = catalogSortLabels[state.catalogSort] || '阅读 UV';
-    const visibleBooks = catalogVisibleBooks();
+    const visibleBooks = catalogVisibleBooks(catalogTarget);
     const promotionMinUv = Number(state.leaderboardMetrics?.promotionMinUv || state.leaderboardMetrics?.minReadUnt || 0);
     const observedTopUv = Number(state.leaderboardMetrics?.observedTopUv || 0);
     const candidateTotal = Number(state.leaderboardMetrics?.candidateTotal || state.leaderboardMetrics?.fetched || visibleBooks.length);
+    const usageCounts = state.leaderboard.reduce((counts, book) => {
+      const status = bookUsageMeta(book, catalogTarget).status;
+      if (status === 'unused' || status === 'selected') counts.unused += 1;
+      else counts.used += 1;
+      return counts;
+    }, { unused: 0, used: 0 });
     if (!visibleBooks.length) {
       grid.innerHTML = '';
       empty.hidden = false;
@@ -1503,51 +2871,78 @@ function renderLeaderboard() {
     const displayedBooks = visibleBooks.slice(startIndex, startIndex + 50);
     grid.innerHTML = displayedBooks.map((book) => {
       const index = state.leaderboard.indexOf(book);
-      const active = activeRunFor(book);
-      const pending = typeof pendingProductionFor === 'function' ? pendingProductionFor(book) : null;
-      const rankingActionable = selectedMetricReady && book.automationReady !== false;
-      const ready = Boolean(active || pending) || rankingActionable;
-      const completedStages = active ? Object.values(active.stages || {}).filter((stage) => stage.status === 'done').length : 0;
+      const target = catalogTarget;
+      const selectionKey = routeProductionIdentity(book, target);
+      const active = activeRunFor(book, target);
+      const pending = typeof pendingProductionFor === 'function' ? pendingProductionFor(book, target) : null;
+      const usage = bookUsageMeta(book, target);
+      const freshReceiptReady = Boolean(book.p0Receipt);
+      const rankingActionable = selectedMetricReady && freshReceiptReady && book.automationReady !== false && book.recommendationReady !== false;
+      const selectable = rankingActionable && !pending && ['unused', 'selected'].includes(usage.status);
+      const ready = Boolean(usage.run || pending) || rankingActionable;
+      const completedStages = active ? completedHarnessStages(active) : 0;
       const liveStage = active ? currentStage(active) : null;
       const progressLabel = pending
         ? pendingProductionLabel(pending)
         : active
-          ? `${liveStage?.[1]?.label || stageLabels[liveStage?.[0]] || '后台生产中'} · ${completedStages}/7 节点`
+          ? `${liveStage?.[1]?.label || stageLabels[liveStage?.[0]] || '后台生产中'} · ${completedStages}/${HARNESS_NODE_COUNT} 节点`
           : '';
-      const metric = state.catalogSort === 'ttProfit'
-        ? `$${Number(book.ttProfit || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
-        : state.catalogSort === 'promotionScore'
-          ? `${Number(book.promotionScore || 0).toFixed(0)} / 100`
+      const metric = state.catalogSort === 'recommendationScore'
+          ? `${Number(book.recommendationScore || 0).toFixed(1)} / 100`
         : state.catalogSort === 'baseReadUnt'
           ? compactNumber(book.baseReadUnt)
+          : state.catalogSort === 'trend7v30'
+            ? (Number.isFinite(Number(book.trend7v30)) ? `${Number(book.trend7v30) >= 0 ? '+' : ''}${Math.round(Number(book.trend7v30) * 100)}%` : '—')
           : percentage(book[state.catalogSort]);
-      return `<article class="leaderboard-card ${active || pending ? 'in-progress' : ''} ${selectedMetricReady ? '' : 'metrics-disabled'}">
-        <span class="rank">${selectedMetricReady ? `#${book.rank}` : '待验证'}</span><label class="select-book" title="${selectedMetricReady ? '加入批量选择' : '真实指标恢复后可选择'}"><input type="checkbox" data-select-sku="${escapeHtml(book.bookSkuId)}" ${state.selectedBooks.has(String(book.bookSkuId)) ? 'checked' : ''} ${selectedMetricReady ? '' : 'disabled'}><span></span></label>
-        <div class="leaderboard-cover" ${coverDataAttributes(book)}>${leaderboardCover(book)}</div>
-        <div class="leaderboard-copy"><h2>${escapeHtml(book.title)}</h2>${health.uv || health.firstRead ? `<p>阅读 ${health.uv ? compactNumber(book.baseReadUnt) : '—'} UV · 首读 ${health.firstRead ? percentage(book.firstReadUntRate) : '—'}</p><div class="book-tags"><span>10w 留存 ${health.read10w ? percentage(book.read10wRate) : '—'}</span><span>20w 留存 ${health.read20w ? percentage(book.read20wRate) : '—'}</span></div>` : '<p>书籍已核验 · 中台业务指标同步中</p><div class="book-tags"><span>不使用 0 UV 虚假排序</span><span>恢复后自动更新</span></div>'}</div>
-        <div class="leaderboard-metrics"><span>${escapeHtml(sortLabel)}</span><strong>${selectedMetricReady ? metric : '—'}</strong><small>${selectedMetricReady ? escapeHtml(book.productLine || 'astranovel') : '指标同步中'}</small></div>
-        ${progressLabel ? `<div class="book-live-progress"><span><i data-lucide="${pending ? pending.status === 'failed' ? 'triangle-alert' : 'loader-circle' : 'activity'}"></i>${escapeHtml(progressLabel)}</span><i style="width:${pending ? 8 : Math.max(8, Math.round(completedStages / 7 * 100))}%"></i></div>` : ''}
-        <div class="book-commands">${!active && !pending ? `<button class="plan-book" data-index="${index}" ${!rankingActionable ? 'disabled' : ''} title="${rankingActionable ? '先由 AI 分析原文与创意方向' : '等待真实业务指标恢复'}"><i data-lucide="brain-circuit"></i><span>先策划</span></button>` : ''}<button class="start-book ${active ? 'resume' : ''}" data-index="${index}" ${!ready || (pending && pending.status !== 'failed') || state.startingSku === String(book.title) ? 'disabled' : ''}>${active ? ['blocked', 'failed'].includes(active.state) ? '查看修复' : '查看任务' : pending ? pending.status === 'failed' ? '重新入队' : '已入队' : !rankingActionable ? '等待真实指标' : state.startingSku === String(book.title) ? '正在入队' : '一键生成'}<i data-lucide="${!ready ? 'circle-off' : active ? ['blocked', 'failed'].includes(active.state) ? 'triangle-alert' : 'arrow-right' : pending ? pending.status === 'failed' ? 'rotate-ccw' : 'loader-circle' : 'zap'}"></i></button></div>
+      const centralRank = book.rank;
+      const routeHistory = bookRouteHistory(book);
+      const routeHistoryHtml = routeHistory.length
+        ? `<div class="book-route-history"><span>发过</span>${routeHistory.slice(0, 2).map((route) => `<b title="${escapeHtml(`${route.account} · ${route.platform} · ${route.date}`)}">${escapeHtml(route.account)} · ${escapeHtml(route.platform)}${route.date ? ` · ${escapeHtml(route.date)}` : ''}</b>`).join('')}${routeHistory.length > 2 ? `<i>+${routeHistory.length - 2}</i>` : ''}</div>`
+        : '<div class="book-route-history unused"><span>未发过</span><b>可用</b></div>';
+      const lastUsed = usage.run ? new Date(usage.run.updatedAt || usage.run.createdAt).toLocaleDateString('zh-CN') : '';
+      const daily = (days) => Number.isFinite(Number(book[`readerDaily${days}d`])) ? `${compactNumber(book[`readerDaily${days}d`])}/天` : '数据不足';
+      const trend = Number.isFinite(Number(book.trend7v30)) ? `${Number(book.trend7v30) >= 0 ? '+' : ''}${Math.round(Number(book.trend7v30) * 100)}%` : '数据不足';
+      const selectedReaders = Number.isFinite(Number(book[`readerBase${state.catalogDays}d`])) ? Number(book[`readerBase${state.catalogDays}d`]) : Number(book.baseReadUnt || 0);
+      const longReadWindow = Number(book.read20wRate || 0) > 0 ? '20w' : Number(book.read10wRate || 0) > 0 ? '10w' : '';
+      const longReadValue = longReadWindow === '20w' ? book.read20wRate : longReadWindow === '10w' ? book.read10wRate : null;
+      const routeMatches = String(book.selectionTarget?.accountId || target.accountId || '') === String(target.accountId || '')
+        && String(book.selectionTarget?.platform || target.platform || '') === String(target.platform || '')
+        && String(book.selectionTarget?.appKey || book.selectionTarget?.productLine || target.appKey || '') === String(target.appKey || target.productLine || '');
+      const p0Qualified = selectedMetricReady && freshReceiptReady && routeMatches && book.automationReady !== false && book.recommendationReady !== false && ['unused', 'selected'].includes(usage.status);
+      const p0Reason = !routeMatches ? '产品线/账号不匹配，已阻止进入生产' : usage.status !== 'unused' && usage.status !== 'selected' ? '已有该账号历史任务，默认阻止重复使用' : !selectedMetricReady ? '中台指标尚未通过验证' : !freshReceiptReady ? '请刷新榜单以取得本次目标账号的 P0 校验收据' : book.automationReady === false || book.recommendationReady === false ? '缺少可执行的归因或推荐指标' : '满足当前 P0 指标门槛，可锁定';
+      return `<article class="leaderboard-card decision-card usage-${escapeHtml(usage.status)} ${active || pending ? 'in-progress' : ''} ${selectedMetricReady ? '' : 'metrics-disabled'} ${p0Qualified ? 'p0-qualified' : 'p0-blocked'}">
+        <div class="book-rank-cell"><label class="select-book" title="${selectable ? '加入本次批量选择' : usage.status === 'unused' ? '真实指标恢复后可选择' : '该书已有历史任务，避免误重复'}"><input type="checkbox" data-select-sku="${escapeHtml(book.bookSkuId)}" data-select-key="${escapeHtml(selectionKey)}" ${state.selectedBooks.has(selectionKey) ? 'checked' : ''} ${selectable ? '' : 'disabled'}><span></span></label><span class="rank">${selectedMetricReady && centralRank ? `中台 #${centralRank}` : '待验证'}</span><span class="book-usage-badge ${escapeHtml(usage.status)}">${escapeHtml(usage.label)}</span></div>
+        <div class="p0-eligibility-line ${p0Qualified ? 'qualified' : 'blocked'}"><i data-lucide="${p0Qualified ? 'shield-check' : 'shield-x'}"></i><strong>${p0Qualified ? 'P0 可锁定' : 'P0 已阻止'}</strong><span>${escapeHtml(p0Reason)}</span></div>
+        <div class="leaderboard-copy"><h2 title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</h2><small class="book-product-line">${escapeHtml(target.appName || target.appKey || '目标产品线')} · SKU ${escapeHtml(book.bookSkuId || '—')}</small>${routeHistoryHtml}${progressLabel ? `<small class="book-inline-progress">${escapeHtml(progressLabel)}</small>` : ''}</div>
+        <div class="book-core-metric"><span>${state.catalogDays} 天阅读用户</span><strong>${selectedMetricReady ? compactNumber(selectedReaders) : '—'}</strong><small>日均 ${daily(state.catalogDays)}</small></div>
+        <div class="book-core-metric"><span>首读率</span><strong>${selectedMetricReady ? percentage(book.firstReadUntRate) : '—'}</strong><small>开篇转化</small></div>
+        <div class="book-core-metric"><span>长读留存</span><strong>${selectedMetricReady && longReadValue != null ? percentage(longReadValue) : '—'}</strong><small>${longReadWindow ? `${longReadWindow} 留存` : '数据不足'}</small></div>
+        <div class="book-core-metric trend ${Number(book.trend7v30) >= 0 ? 'up' : 'down'}"><span>7 天 vs 30 天</span><strong>${selectedMetricReady ? trend : '—'}</strong><small>日均趋势</small></div>
+        <div class="leaderboard-metrics"><span>${escapeHtml(sortLabel)}</span><strong>${selectedMetricReady ? metric : '—'}</strong><small>推荐 ${book.recommendationScore ?? '—'}</small></div>
+        ${progressLabel ? `<div class="book-live-progress"><span><i data-lucide="${pending ? pending.status === 'failed' ? 'triangle-alert' : 'loader-circle' : 'activity'}"></i>${escapeHtml(progressLabel)}</span><i style="width:${pending ? 8 : Math.max(8, Math.round(completedStages / HARNESS_NODE_COUNT * 100))}%"></i></div>` : ''}
+        <div class="book-commands">${usage.status === 'unused' && !pending ? `<button class="plan-book" data-index="${index}" ${!rankingActionable ? 'disabled' : ''} title="${rankingActionable ? '先由 AI 分析原文与创意方向' : '等待真实业务指标恢复'}"><i data-lucide="brain-circuit"></i><span>先策划</span></button>` : ''}<button class="start-book ${usage.run ? 'resume' : ''}" data-index="${index}" ${usage.run ? `data-run-id="${escapeHtml(usage.run.id)}"` : ''} ${!ready || (pending && pending.status !== 'failed') || state.startingProductions.has(routeProductionIdentity(book, target)) ? 'disabled' : ''}>${usage.run ? usage.status === 'failed' || usage.run.state === 'blocked' ? '查看处理' : '查看历史' : pending ? pending.status === 'failed' ? '重新入队' : '已入队' : !rankingActionable ? '等待真实指标' : state.startingProductions.has(routeProductionIdentity(book, target)) ? '正在入队' : videoGenerationPaused() ? '生成文案' : '一键生成'}<i data-lucide="${!ready ? 'circle-off' : usage.run ? 'arrow-right' : pending ? pending.status === 'failed' ? 'rotate-ccw' : 'loader-circle' : 'zap'}"></i></button></div>
       </article>`;
     }).join('');
     const window = state.leaderboardWindow;
     $('#leaderboardUpdated').classList.toggle('warning', !selectedMetricReady);
     $('#leaderboardUpdated').textContent = selectedMetricReady
-      ? (window?.throughDate ? `${window.startDate} 至 ${window.throughDate} · ${sortLabel} · 可推广 ${visibleBooks.length}/${candidateTotal}${promotionMinUv ? ` · UV ≥ ${compactNumber(promotionMinUv)}` : ''}${state.leaderboardWarning ? ` · ${state.leaderboardWarning}` : ''}` : '正在加载中台业务数据')
+      ? (window?.throughDate ? `${window.startDate} 至 ${window.throughDate} · 中台排行 ${candidateTotal} 本 · 未发 ${usageCounts.unused} · 已发/生产 ${usageCounts.used}${state.catalogUsageFilter !== 'all' ? ` · 当前筛选 ${visibleBooks.length}` : ''}${state.leaderboardWarning ? ` · ${state.leaderboardWarning}` : ''}` : '正在加载中台业务数据')
       : `已找到 ${visibleBooks.length} 本书，但中台 ${sortLabel} 尚未通过验证 · 已禁止按榜单启动`;
     renderLeaderboardPager(displayedBooks.length, visibleBooks.length, totalPages);
     document.querySelectorAll('.start-book').forEach((button) => button.addEventListener('click', () => {
+      if (button.dataset.runId) return openDetail(button.dataset.runId);
       const book = state.leaderboard[Number(button.dataset.index)];
-      if (book) startProduction(book);
+      if (book) startProduction(book, catalogTarget);
     }));
     document.querySelectorAll('.plan-book').forEach((button) => button.addEventListener('click', () => {
       const book = state.leaderboard[Number(button.dataset.index)];
-      if (book) openCreativePlanDialog(book);
+      if (book) openCreativePlanDialog({ ...book, selectionTarget: catalogTarget });
     }));
     document.querySelectorAll('[data-select-sku]').forEach((input) => input.addEventListener('change', () => {
-      const sku = String(input.dataset.selectSku);
-      if (input.checked) state.selectedBooks.add(sku); else state.selectedBooks.delete(sku);
-      renderBatchBookBar();
+      const selectionKey = String(input.dataset.selectKey || '');
+      if (!selectionKey) return;
+      if (input.checked) state.selectedBooks.add(selectionKey); else state.selectedBooks.delete(selectionKey);
+      renderLeaderboard(); icons();
     }));
     renderBatchBookBar();
     return;
@@ -1555,21 +2950,21 @@ function renderLeaderboard() {
   renderLeaderboardPager(0, 0);
   if (catalog) {
     grid.innerHTML = state.leaderboard.map((book, index) => {
-      const active = activeRunFor(book);
+      const active = activeRunFor(book, catalogTarget);
       const ready = book.automationReady !== false;
       return `<article class="leaderboard-card ${active ? 'in-progress' : ''}">
         <span class="rank">#${book.rank}</span>
         <div class="leaderboard-cover" ${coverDataAttributes(book)}>${leaderboardCover(book)}</div>
         <div class="leaderboard-copy"><h2>${escapeHtml(book.title)}</h2><p>书库排序 · ${escapeHtml(book.category || 'English fiction')}</p><div class="book-tags"><span>在架可推广</span><span>SKU ${escapeHtml(book.bookSkuId || '—')}</span></div></div>
         <div class="leaderboard-metrics"><span>书库排名</span><strong>#${book.rank}</strong><small>${escapeHtml(book.category || 'English fiction')}</small></div>
-        <button class="start-book ${active ? 'resume' : ''}" data-index="${index}" ${!ready || state.startingSku === String(book.title) ? 'disabled' : ''}>${!ready ? '暂不可用' : state.startingSku === String(book.title) ? '正在校验' : active ? ['blocked', 'failed'].includes(active.state) ? '查看修复' : '查看任务' : '智能一键生成'}<i data-lucide="${!ready ? 'circle-off' : active ? ['blocked', 'failed'].includes(active.state) ? 'triangle-alert' : 'arrow-right' : 'zap'}"></i></button>
+        <button class="start-book ${active ? 'resume' : ''}" data-index="${index}" ${!ready || state.startingProductions.has(routeProductionIdentity(book, catalogTarget)) ? 'disabled' : ''}>${!ready ? '暂不可用' : state.startingProductions.has(routeProductionIdentity(book, catalogTarget)) ? '正在校验' : active ? ['blocked', 'failed'].includes(active.state) ? '查看修复' : '查看任务' : '智能一键生成'}<i data-lucide="${!ready ? 'circle-off' : active ? ['blocked', 'failed'].includes(active.state) ? 'triangle-alert' : 'arrow-right' : 'zap'}"></i></button>
       </article>`;
     }).join('');
     const window = state.leaderboardWindow;
     $('#leaderboardUpdated').textContent = window?.throughDate ? `书库数据截至 ${window.throughDate}` : '正在加载书库排行';
     document.querySelectorAll('.start-book').forEach((button) => button.addEventListener('click', () => {
       const book = state.leaderboard[Number(button.dataset.index)];
-      if (book) startProduction(book);
+      if (book) startProduction(book, catalogTarget);
     }));
     return;
   }
@@ -1732,15 +3127,49 @@ function stageClass(stage) {
   return '';
 }
 
+function displayStage(run, key) {
+  const stage = run?.stages?.[key];
+  if (stage) return stage;
+  if (key === 'P0') return { status: 'done', label: '历史任务：书籍选择已锁定' };
+  if (key === 'P7' && run?.state === 'completed' && run?.stages?.P6?.status === 'done') {
+    return { status: 'done', label: '历史任务：审核交付已完成' };
+  }
+  return { status: 'waiting' };
+}
+
+function completedHarnessStages(run) {
+  return pipelineOrder.filter((key) => displayStage(run, key).status === 'done').length;
+}
+
 function currentStage(run) {
-  return pipelineOrder.map((key) => [key, run.stages?.[key] || {}]).find(([, value]) => !['done', 'waiting'].includes(value.status)) || pipelineOrder.map((key) => [key, run.stages?.[key] || {}]).find(([, value]) => value.status === 'waiting') || ['P6', { label: '全部完成' }];
+  return pipelineOrder.map((key) => [key, displayStage(run, key)]).find(([, value]) => !['done', 'waiting'].includes(value.status)) || pipelineOrder.map((key) => [key, displayStage(run, key)]).find(([, value]) => value.status === 'waiting') || ['P7', { label: '全部完成' }];
 }
 
 function runOutcome(run) {
+  const harnessStatus = String(run.harness?.status || '');
+  const review = run.artifacts?.review || {};
+  const operations = run.operations || {};
+  const publicationStatus = String(review.publicationStatus || operations.publicationStatus || '');
+  const externalDraftId = String(review.externalDraftId || review.socialEchoDraftId || operations.socialEchoExternalDraftId || '');
+  if (harnessStatus === 'ambiguous' || publicationStatus === 'publish_ambiguous') {
+    return { className: 'ambiguous', label: 'P7 需人工对账 · 禁止重复提交' };
+  }
+  const ambiguous = Object.entries(run.stages || {}).find(([, stage]) => stage?.status === 'ambiguous');
+  if (ambiguous) {
+    return { className: 'ambiguous', label: `需人工核验 · ${stageLabels[ambiguous[0]] || ambiguous[0]}` };
+  }
   const partial = Object.entries(run.stages || {}).find(([, stage]) => stage?.status === 'partial');
   if (run.state === 'completed' && partial) {
     return { className: 'partial', label: `主体完成 · ${stageLabels[partial[0]] || partial[0]}部分完成` };
   }
+  if (publicationStatus === 'external_draft' && externalDraftId) {
+    return { className: 'completed', label: review.deliveryMode === 'scheduled' ? 'P7 SocialEcho 定时任务已确认' : 'P7 SocialEcho 草稿已确认' };
+  }
+  if (['ready_for_review', 'internal_draft', 'ready'].includes(publicationStatus)
+    || operations.internalPublicationDraftId) {
+    return { className: 'partial', label: review.deliveryMode === 'scheduled' ? 'P7 内部定时草稿待提交' : 'P7 内部草稿待存入 SocialEcho' };
+  }
+  if (operations.blocked) return { className: 'blocked', label: `已阻塞 · ${operations.blockedReason || '需要处理'}` };
   return { className: run.state, label: labels[run.state] || run.state };
 }
 
@@ -1765,7 +3194,7 @@ function videoAssetState(run) {
   const status = String(video?.status || stage.status || 'waiting');
   if (['submitting', 'queued', 'running', 'prepared'].includes(status)) return { label: '视频生成中', tone: 'working' };
   if (status === 'ambiguous') return { label: '视频需核验', tone: 'attention' };
-  if (status === 'blocked') return { label: stage.blockedReason === 'hourly_video_limit' ? '视频等候额度' : '视频已暂停', tone: 'attention' };
+  if (status === 'blocked') return { label: ['daily_video_limit', 'hourly_video_limit'].includes(String(stage.blockedReason || '')) ? '视频等候额度' : '视频已暂停', tone: 'attention' };
   if (['failed', 'partial', 'completed_missing_media'].includes(status)) return { label: '视频生成失败', tone: 'failed' };
   return { label: '视频未提交', tone: 'idle' };
 }
@@ -1794,13 +3223,20 @@ function renderRunList() {
   $('#emptyRuns').hidden = runs.length > 0;
   $('#runList').innerHTML = runs.map((run) => {
     const active = currentStage(run);
-    const stages = Object.values(run.stages || {});
+    const stages = pipelineOrder.map((key) => displayStage(run, key));
     const outcome = runOutcome(run);
+    const ops = run.operations || {};
+    const activeKey = ops.currentStage || active[0] || '';
+    const activeLabel = ops.currentStageLabel || stageLabels[activeKey] || activeKey;
+    const nextAttempt = ops.nextAttemptAt ? `下次 ${ops.nextAttemptAt}` : '';
+    const blocker = ops.blockedReason || '';
+    const externalId = ops.socialEchoExternalDraftId || (ops.externalTaskIds?.P4 ? taskIdForUi(ops.externalTaskIds.P4) : '');
+    const schedule = ops.scheduledAt ? `排期 ${ops.scheduledAt}` : '';
     return `<article class="run-row ${run.id === state.selectedId ? 'selected' : ''}" data-id="${escapeHtml(run.id)}">
       <div class="book-cell">${cover(run)}<div><div class="book-name">${escapeHtml(run.input?.title)}</div><div class="book-meta">SKU ${escapeHtml(run.input?.sku)} · ${escapeHtml(new Date(run.createdAt).toLocaleDateString('zh-CN'))}</div></div></div>
-      <div class="stage-meter"><div class="stage-track">${stages.map((item) => `<i class="stage-segment ${stageClass(item)}"></i>`).join('')}</div><div class="stage-label">${escapeHtml(stageLabels[active[0]] || active[0])} · ${stages.filter((item) => item.status === 'done').length}/7</div></div>
+      <div class="stage-meter"><div class="stage-track">${stages.map((item) => `<i class="stage-segment ${stageClass(item)}"></i>`).join('')}</div><div class="stage-label">${escapeHtml(activeLabel)} · ${stages.filter((item) => item.status === 'done').length}/${HARNESS_NODE_COUNT}</div><small class="run-operational-meta">${escapeHtml(ops.nextActionLabel || '')}${nextAttempt ? ` · ${escapeHtml(nextAttempt)}` : ''}</small></div>
       <div class="tracking-cell"><strong>${run.artifacts?.code ? `Code ${escapeHtml(run.artifacts.code)}` : '待分配'}</strong><span>${escapeHtml(run.artifacts?.shortUrl || '短链待创建')}</span></div>
-      <div><span class="status-badge ${escapeHtml(outcome.className)}">${escapeHtml(outcome.label)}</span></div>
+      <div><span class="status-badge ${escapeHtml(outcome.className)}">${escapeHtml(outcome.label)}</span><small class="run-operational-meta">${escapeHtml(blocker || schedule || (externalId ? `外部 ID ${externalId}` : ops.recoverable ? '可恢复' : ''))}</small></div>
     </article>`;
   }).join('');
   document.querySelectorAll('.run-row').forEach((row) => row.addEventListener('click', () => openDetail(row.dataset.id)));
@@ -1810,9 +3246,22 @@ function renderRunList() {
 function renderRunLoadMore() {
   const button = $('#loadMoreRuns');
   if (!button) return;
-  button.hidden = state.statusLimit >= 50 || state.runs.length < state.statusLimit;
+  button.hidden = state.statusScope === 'campaign' || state.statusLimit >= 50 || state.runs.length < state.statusLimit;
   button.disabled = state.statusLoading;
   button.querySelector('span').textContent = state.statusLoading && state.statusLimit >= 50 ? '正在加载更早任务' : '加载更早的任务';
+  const scopeLabel = $('#runListScopeLabel');
+  const campaignButton = $('#loadCampaignRuns');
+  if (scopeLabel) {
+    scopeLabel.textContent = state.statusScope === 'campaign'
+      ? `当前显示 Campaign 全部 ${state.runs.length} 条任务`
+      : `当前显示最近 ${state.runs.length} 条任务`;
+  }
+  if (campaignButton) {
+    const canLoad = Boolean(state.dailyCampaignId) && state.statusScope !== 'campaign';
+    campaignButton.hidden = !canLoad;
+    campaignButton.disabled = state.statusLoading;
+    campaignButton.querySelector('span').textContent = state.statusLoading && state.statusScope !== 'campaign' ? '正在加载 Campaign' : '查看本 Campaign 全部任务';
+  }
 }
 
 async function copyAssetText(value, message) {
@@ -2033,7 +3482,7 @@ function renderFocusRun() {
   const run = state.runs.find((item) => item.id === state.selectedId) || state.runs[0];
   section.hidden = !run;
   if (!run) return;
-  const completed = Object.values(run.stages || {}).filter((stage) => stage.status === 'done').length;
+  const completed = completedHarnessStages(run);
   const videoReady = Boolean(run.artifacts?.video?.videoUrls?.[0]);
   const videoProgress = videoState(run, run.artifacts?.video);
   const posterCount = (run.artifacts?.images || []).filter((item) => item.url).length;
@@ -2041,11 +3490,14 @@ function renderFocusRun() {
   const shortUrl = run.artifacts?.shortUrl;
   const reviewReady = Boolean(run.artifacts?.review) || run.stages?.P6?.status === 'done';
   const outcome = runOutcome(run);
-  const completion = Math.round(completed / 7 * 100);
+  const completion = Math.round(completed / HARNESS_NODE_COUNT * 100);
+  const harness = harnessProjectionForUi(run);
+  const target = harness.target || {};
   content.innerHTML = `<article class="focus-card">
-    <div class="focus-book">${cover(run)}<div><div class="focus-title-row"><h2>${escapeHtml(run.input?.title)}</h2><span class="status-badge ${escapeHtml(outcome.className)}">${escapeHtml(outcome.label)}</span></div><p>SKU ${escapeHtml(run.input?.sku)} · ${completed}/7 个节点完成</p><div class="focus-tracking"><span>Code <strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></span>${shortUrl ? `<a href="${escapeHtml(shortUrl)}" target="_blank" rel="noopener">打开短链 <i data-lucide="external-link"></i></a>` : '<span>短链待创建</span>'}</div></div></div>
+    <div class="focus-book">${cover(run)}<div><div class="focus-title-row"><h2>${escapeHtml(run.input?.title)}</h2><span class="status-badge ${escapeHtml(outcome.className)}">${escapeHtml(outcome.label)}</span></div><p>SKU ${escapeHtml(run.input?.sku)} · ${completed}/${HARNESS_NODE_COUNT} 个节点完成</p><div class="focus-tracking"><span>Code <strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></span>${shortUrl ? `<a href="${escapeHtml(shortUrl)}" target="_blank" rel="noopener">打开短链 <i data-lucide="external-link"></i></a>` : '<span>短链待创建</span>'}</div></div></div>
+    <div class="focus-route-lock"><i data-lucide="${target.locked ? 'lock-keyhole' : 'unlock-keyhole'}"></i><div><span>P0 目标路由</span><strong>${escapeHtml(target.appName || target.appKey || '未锁定')} / ${escapeHtml(target.platform || '—')} / ${escapeHtml(target.accountTitle || '未绑定账号')}</strong></div><small>${target.locked ? 'route locked' : 'route pending'}</small></div>
     <div class="focus-progress" aria-label="生产完成度"><div><span>生产完成度</span><strong>${completion}%</strong></div><div class="focus-progress-track"><i style="width:${completion}%"></i></div><small>${escapeHtml(videoProgress.label)}</small></div>
-    <div class="focus-flow">${pipelineOrder.map((key) => `<button class="focus-step ${stageClass(run.stages?.[key])}" data-node-decision="${key}" title="查看${escapeHtml(stageLabels[key])}的决策说明"><i data-lucide="${stageIcons[key]}"></i><span>${escapeHtml(stageLabels[key])}</span></button>`).join('')}</div>
+    <div class="focus-flow">${pipelineOrder.map((key) => `<button class="focus-step ${stageClass(displayStage(run, key))}" data-node-decision="${key}" title="查看${escapeHtml(stageLabels[key])}的决策说明"><i data-lucide="${stageIcons[key]}"></i><span>${escapeHtml(stageLabels[key])}</span></button>`).join('')}</div>
     <div class="focus-assets"><button data-detail-target="copy"><i data-lucide="message-square-text"></i><strong>${copyCount}</strong><span>成品文案</span></button><button data-detail-target="video" class="${videoReady ? 'ready' : videoProgress.kind === 'failed' || videoProgress.kind === 'blocked' ? 'failed' : ''}"><i data-lucide="video"></i><strong>${videoReady ? '已就绪' : videoProgress.kind === 'failed' || videoProgress.kind === 'blocked' ? '生成失败' : videoProgress.kind === 'running' ? '生成中' : '等待中'}</strong><span>视频</span></button><button data-detail-target="posters" class="${posterCount === 2 ? 'ready' : posterCount ? 'partial' : ''}"><i data-lucide="images"></i><strong>${posterCount}/2</strong><span>海报</span></button><button data-detail-target="review" class="${reviewReady ? 'ready' : ''}"><i data-lucide="badge-check"></i><strong>${reviewReady ? '已就绪' : '等待中'}</strong><span>审核包</span></button></div>
   </article>`;
   $('#openFocusRun').onclick = () => openDetail(run.id);
@@ -2054,8 +3506,9 @@ function renderFocusRun() {
 }
 
 function pipelineNode(run, key) {
-  const stage = run.stages?.[key] || { status: 'waiting' };
-  const artifact = { P1: run.artifacts?.book?.bookSkuId, P2: run.artifacts?.evidence?.completed ? `${run.artifacts.evidence.completed} 章` : '', P5: run.artifacts?.code ? `Code ${run.artifacts.code}` : '', P3: run.artifacts?.posts?.length ? `${run.artifacts.posts.length} 套文案` : '', P4: run.artifacts?.video?.videoUrls?.[0] ? '可播放' : run.artifacts?.video?.threadId ? '生成中' : '', P3_5: run.artifacts?.images?.length ? `${run.artifacts.images.filter((item) => item.url).length}/2 海报` : '', P6: run.artifacts?.review ? '审核包就绪' : '' }[key] || stage.label || stage.status;
+  const stage = displayStage(run, key);
+  const target = run.input?.delivery;
+  const artifact = { P0: target ? `${target.appName || target.appKey} · ${target.platform}` : '历史选择', P1: run.artifacts?.book?.bookSkuId, P2: run.artifacts?.evidence?.completed ? `${run.artifacts.evidence.completed} 章` : '', P5: run.artifacts?.code ? `Code ${run.artifacts.code}` : '', P3: run.artifacts?.posts?.length ? `${run.artifacts.posts.length} 套文案` : '', P4: run.artifacts?.video?.videoUrls?.[0] ? '可播放' : run.artifacts?.video?.threadId ? '生成中' : '', P3_5: run.artifacts?.images?.length ? `${run.artifacts.images.filter((item) => item.url).length}/2 海报` : '', P6: run.artifacts?.review ? '审核包就绪' : '', P7: run.artifacts?.review?.publicationStatus === 'external_draft' ? 'SocialEcho 草稿' : run.artifacts?.review?.publicationDraftId ? '内部草稿' : '' }[key] || stage.label || stage.status;
   const stageStatus = stage.status === 'done' ? '已完成' : stage.status === 'waiting' && stage.phase === 'fallback_scheduled' ? '备用模型将接管' : stage.status === 'waiting' && /repairing|recovering/.test(String(stage.phase || '')) ? 'AI 自动修复中' : stage.status === 'waiting' ? '等待上游节点' : stage.status === 'failed' ? '生成失败' : stage.status === 'blocked' ? '已阻塞' : stage.status === 'ambiguous' ? '需人工核验' : stage.status === 'partial' ? '部分完成' : stage.status === 'submitting' ? '提交中' : stage.status === 'prepared' ? '已准备' : '生成中';
   return `<button type="button" class="flow-node ${stageClass(stage)}" data-node-decision="${key}" title="查看${escapeHtml(stageLabels[key] || key)}的决策说明"><span class="flow-node-top"><i data-lucide="${stageIcons[key] || 'circle'}"></i><span>${escapeHtml(stageLabels[key] || key)}</span></span><strong>${escapeHtml(artifact)}</strong><small>${escapeHtml(stageStatus)}</small></button>`;
 }
@@ -2119,7 +3572,7 @@ async function recoverAiWait(id, button) {
 }
 
 function nodeDecision(run, node) {
-  const stage = run.stages?.[node] || {};
+  const stage = displayStage(run, node);
   const evidence = run.artifacts?.evidence;
   const selectedModel = modelLabel(run.input?.creativeProfile?.modelChoice);
   const planning = run.input?.planning || {};
@@ -2128,13 +3581,15 @@ function nodeDecision(run, node) {
   const rationale = Object.values(strategy.rationale || {}).map(String).filter(Boolean).join('；');
   const planningTime = planning.completedAt ? new Date(planning.completedAt).toLocaleString('zh-CN', { hour12: false }) : '';
   const decisions = {
+    P0: { timing: '生成前', title: '投放目标与选书快照', conclusion: run.input?.delivery ? `已锁定 ${run.input.delivery.appName || run.input.delivery.appKey} / ${run.input.delivery.platform} / ${run.input.delivery.accountTitle}，后续查书、Code 与草稿都使用同一路由。` : '历史任务没有保存完整投放路由。', why: '先锁定应用、平台和账号，再在对应产品线内按阅读基数与质量指标选书。', basis: run.input?.p0Selection?.source ? `${run.input.p0Selection.source} · ${run.input.p0Selection.windowDays || 0} 天 · 排名 ${run.input.p0Selection.sourceRank || '未记录'}` : 'Legacy selection' },
     P1: { timing: '生成前', title: '书籍身份核验', conclusion: run.artifacts?.book ? `已锁定 SKU ${run.artifacts.book.bookSkuId}，后续资产只会绑定这一条书籍记录。` : '等待精确书名与 SKU 核验。', why: '避免同名书、历史下架书或错误 SKU 进入推广链路。', basis: run.artifacts?.book?.title || 'Bookstore exact lookup' },
     P2: { timing: '生成前', title: '章节证据锁定', conclusion: evidence?.completed ? `已锁定 ${evidence.completed}/${evidence.requested} 个章节证据，覆盖开篇与后段升级。` : '等待下载章节证据。', why: '素材只能使用已锁定章节事实，避免生成后再倒推依据。', basis: evidence?.chapters?.map((item) => `Ch.${item.order}`).join(' / ') || '章节证据尚未就绪' },
     P5: { timing: '生成前', title: '追踪 Code 与短链', conclusion: run.artifacts?.shortUrl ? `Code ${run.artifacts.code} 与短链已在创意生成前完成验证。` : '等待后台自动分配并远端验证。', why: '先确保归因可用，再把已验证短链写入文案。', basis: run.artifacts?.shortUrl || 'Promotion code and link verification' },
     P3: strategy.editorialThesis ? { timing: '生成前', title: '事前创意策划', conclusion: strategy.editorialThesis, why: rationale || '该方向在任何成品文案、视频或海报生成之前，由章节样本确定并固化。', basis: `${modelLabel(planning.actualModel)} · ${planningTime || '生成前已固化'}${strategyEvidence.length ? ` · ${strategyEvidence.map((item) => `Ch.${item.chapter}`).join(' / ')}` : ''}` } : { timing: '生成前', title: '生产时创意约束', conclusion: `${selectedModel} 将根据已锁定章节证据生成文案、视频叙事和海报提示词。`, why: '此任务未经过独立智能策划入口，因此这里只展示生成前已有的人工选项，不引用成品结果。', basis: `${selectedModel} · ${evidence?.chapters?.map((item) => `Ch.${item.order}`).join(' / ') || '等待章节证据'}` },
     P4: { timing: '执行记录', title: '视频生成执行', conclusion: run.artifacts?.video?.threadId ? `AC 任务 ${run.artifacts.video.threadId} 已提交或正在回传。` : '视频将采用已验证章节的五拍叙事。', why: run.artifacts?.videoPrompt?.reversal || '在 8-11 秒给出原文支持的反转，结尾保留未解问题。', basis: (run.artifacts?.videoPrompt?.evidenceChapters || []).map((item) => `Ch.${item}`).join(' / ') || '等待视频提示词' },
     P3_5: { timing: '执行记录', title: '海报生成执行', conclusion: run.artifacts?.images?.length ? `${run.artifacts.images.filter((item) => item.url).length}/${run.artifacts.images.length} 张海报已回传。` : '两套视觉将分别覆盖电影感与编辑爱情感。', why: '每张图聚焦一个有章节依据的决定性瞬间。', basis: (run.artifacts?.posterPrompts || []).map((item) => item.variant).join(' / ') || '等待海报提示词' },
-    P6: { timing: '生成后', title: '审核与归因包', conclusion: run.artifacts?.review ? '审核包已就绪，Facebook 保持手动发布。' : '等待素材汇总与归因数据查询。', why: '这是生成完成后的汇总审核，不代表事前创意决策。', basis: run.artifacts?.analytics?.summary?.pullUv != null ? `当前拉起 UV ${run.artifacts.analytics.summary.pullUv}` : 'Facebook automatic publishing disabled' }
+    P6: { timing: '生成后', title: '审核与归因包', conclusion: run.artifacts?.review ? '审核包已就绪，发布动作仍由人工审核。' : '等待素材汇总与归因数据查询。', why: '这是生成完成后的汇总审核，不代表事前创意决策。', basis: run.artifacts?.analytics?.summary?.pullUv != null ? `当前拉起 UV ${run.artifacts.analytics.summary.pullUv}` : 'Automatic publishing disabled' },
+    P7: { timing: '交付记录', title: 'SocialEcho 定时任务与对账', conclusion: run.artifacts?.review?.publicationStatus === 'external_draft' ? 'SocialEcho status 1 + scheduled_at 定时任务已创建，绝不立即发布。' : run.artifacts?.review?.publicationStatus === 'publish_ambiguous' ? '定时任务提交结果不明确，已停止自动重试并等待对账。' : run.artifacts?.review?.publicationDraftId ? '内部定时任务草稿已持久化，等待 SocialEcho API 提交。' : '等待审核包生成可交付定时任务。', why: 'P7 只提交带未来 scheduled_at 的定时任务，不调用立即发布；任何歧义结果都必须先对账。', basis: run.artifacts?.review?.publicationDraftId || 'Publication draft not created' }
   };
   return { ...(decisions[node] || decisions.P1), status: stage.status || 'waiting' };
 }
@@ -2157,7 +3612,89 @@ function postProductionReviewHtml(run) {
 }
 
 function pipelineHtml(run) {
-  return `<div class="flow-main">${pipelineNode(run, 'P1')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P2')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P5')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P3')}</div><div class="flow-branch"><div>${pipelineNode(run, 'P4')}</div><div>${pipelineNode(run, 'P3_5')}</div></div><div class="flow-final"><i data-lucide="git-merge"></i>${pipelineNode(run, 'P6')}</div>`;
+  return `<div class="flow-main">${pipelineNode(run, 'P0')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P1')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P2')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P5')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P3')}</div><div class="flow-branch"><div>${pipelineNode(run, 'P4')}</div><div>${pipelineNode(run, 'P3_5')}</div></div><div class="flow-final"><i data-lucide="git-merge"></i>${pipelineNode(run, 'P6')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P7')}</div>`;
+}
+
+function harnessProjectionForUi(run) {
+  const fallbackTarget = run.input?.delivery || {};
+  const fallbackP0 = run.input?.p0Selection || {};
+  const fallbackStages = pipelineOrder.map((key, order) => {
+    const stage = displayStage(run, key);
+    const isP7 = key === 'P7';
+    const publicationStatus = String(run.artifacts?.review?.publicationStatus || '');
+    const externalDraftId = isP7 && publicationStatus === 'external_draft'
+      ? String(run.artifacts?.review?.socialEchoDraftId || run.artifacts?.review?.externalDraftId || '')
+      : '';
+    return {
+      key, order, label: stageLabels[key] || key, purpose: stage.label || '', status: stage.status || 'waiting',
+      artifact: isP7 ? (externalDraftId ? 'SocialEcho external draft' : String(run.artifacts?.review?.publicationDraftId || '')) : '',
+      recoverable: Boolean(stage.recoverable), error: stage.error || '', blockedReason: stage.blockedReason || '',
+      externalTaskId: key === 'P4' ? String(run.artifacts?.video?.threadId || '') : externalDraftId,
+      internalTaskId: isP7 ? String(run.artifacts?.review?.publicationDraftId || '') : '',
+      externalStatus: isP7 ? publicationStatus : '',
+      scheduledAt: isP7 ? String(run.artifacts?.review?.scheduledAt || run.input?.campaign?.scheduledAt || '') : ''
+    };
+  });
+  const fallback = {
+    status: runOutcome(run).className || run.state,
+    completion: { completed: completedHarnessStages(run), total: HARNESS_NODE_COUNT, percent: Math.round(completedHarnessStages(run) / HARNESS_NODE_COUNT * 100) },
+    target: { locked: Boolean(fallbackTarget.accountId), applicationId: fallbackTarget.applicationId || '', appKey: fallbackTarget.appKey || fallbackTarget.productLine || '', appName: fallbackTarget.appName || fallbackTarget.productLine || '', accountId: fallbackTarget.accountId || 0, accountTitle: fallbackTarget.accountTitle || '', platform: fallbackTarget.platform || '', includeLink: fallbackTarget.includeLink === true },
+    p0: { locked: Boolean(fallbackTarget.accountId && (run.input?.sku || fallbackP0.sourceRank)), source: fallbackP0.source || '', windowDays: fallbackP0.windowDays || 0, sourceRank: fallbackP0.sourceRank || 0, readerBase: fallbackP0.readerBase || 0, firstReadRate: fallbackP0.firstReadRate || 0, longReadRate: fallbackP0.longReadRate || 0, trend7v30: fallbackP0.trend7v30 ?? null, filters: fallbackP0.filters || null },
+    book: { title: run.input?.title || run.artifacts?.book?.title || '', sku: run.input?.sku || run.artifacts?.book?.bookSkuId || '' },
+    activeStage: currentStage(run) ? { key: currentStage(run)[0], label: stageLabels[currentStage(run)[0]] || currentStage(run)[0], status: currentStage(run)[1]?.status || 'waiting' } : null,
+    nextAction: { nextAction: run.operations?.nextAction || '', nextActionLabel: run.operations?.nextActionLabel || '' },
+    blockers: Object.entries(run.stages || {}).filter(([, stage]) => ['failed', 'blocked', 'ambiguous', 'partial'].includes(String(stage?.status || ''))).map(([stage, value]) => ({ stage, label: stageLabels[stage] || stage, status: value.status, reason: value.error || value.blockedReason || (value.status === 'ambiguous' ? '先对账，不得重复提交' : '需要处理') })),
+    stages: fallbackStages
+  };
+  const projected = run.harness && typeof run.harness === 'object' ? run.harness : fallback;
+  // Normalize old summaries in memory. In particular, never trust a legacy
+  // P7 `publicationDraftId` as an external SocialEcho ID.
+  const normalizedStages = (Array.isArray(projected.stages) ? projected.stages : fallbackStages).map((stage) => {
+    const next = { ...stage };
+    if (next.key === 'P7') {
+      const publicationStatus = String(next.externalStatus || run.artifacts?.review?.publicationStatus || '');
+      next.internalTaskId = next.internalTaskId || String(run.artifacts?.review?.publicationDraftId || '');
+      next.externalTaskId = publicationStatus === 'external_draft'
+        ? (next.externalTaskId || String(run.artifacts?.review?.socialEchoDraftId || run.artifacts?.review?.externalDraftId || ''))
+        : '';
+      next.externalStatus = publicationStatus;
+      next.scheduledAt = next.scheduledAt || String(run.artifacts?.review?.scheduledAt || run.input?.campaign?.scheduledAt || '');
+    }
+    return next;
+  });
+  const blockers = Array.isArray(projected.blockers) && projected.blockers.length
+    ? projected.blockers
+    : fallback.blockers;
+  return {
+    ...fallback,
+    ...projected,
+    stages: normalizedStages,
+    blockers,
+    nextAction: projected.nextAction || fallback.nextAction,
+    activeStage: projected.activeStage || fallback.activeStage
+  };
+}
+
+function harnessStatusLabel(status) {
+  return { done: '已完成', waiting: '等待上游', running: '运行中', submitting: '提交中', prepared: '已准备', failed: '明确失败', blocked: '已阻塞', ambiguous: '需人工对账', partial: '部分完成' }[status] || status || '等待中';
+}
+
+function harnessLedgerHtml(run) {
+  const harness = harnessProjectionForUi(run);
+  const target = harness.target || {};
+  const p0 = harness.p0 || {};
+  const completion = harness.completion || {};
+  const platformLabel = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok' }[target.platform] || target.platform || '—';
+  const blockers = Array.isArray(harness.blockers) ? harness.blockers : [];
+  const stages = Array.isArray(harness.stages) ? harness.stages : [];
+  const taskId = (value) => Array.isArray(value) ? value.map((item) => String(item).slice(-10)).join(', ') : String(value || '').slice(-16);
+  return `<section id="detail-harness" class="detail-section harness-detail-section">
+    <header class="harness-detail-head"><div><span class="eyebrow">P0-P7 HARNESS LEDGER</span><h3>可恢复、可审计的生产账本</h3><p>同一个目标路由贯穿选书、Code、媒体和 SocialEcho 草稿；外部任务 ID 先保存再轮询。</p></div><span class="harness-completion ${escapeHtml(harness.status || '')}"><strong>${Number(completion.percent || 0)}%</strong><small>${Number(completion.completed || 0)}/${Number(completion.total || HARNESS_NODE_COUNT)} 节点</small></span></header>
+    <div class="harness-target-lock ${target.locked ? 'locked' : 'unlocked'}"><div><span>目标路由</span><strong>${escapeHtml(target.appName || target.appKey || '未锁定')} / ${escapeHtml(platformLabel)} / ${escapeHtml(target.accountTitle || '未绑定账号')}</strong><small>${target.applicationId ? `applicationId ${escapeHtml(String(target.applicationId).slice(-16))}` : '缺少 applicationId，禁止执行'} · accountId ${escapeHtml(String(target.accountId || '—'))}</small></div><b><i data-lucide="${target.locked ? 'lock-keyhole' : 'unlock-keyhole'}"></i>${target.locked ? 'route locked' : 'route pending'}</b></div>
+    <div class="harness-p0-snapshot"><span>P0 书籍快照</span><strong>${escapeHtml(harness.book?.title || run.input?.title || '未锁定书籍')}</strong><small>SKU ${escapeHtml(harness.book?.sku || '—')} · 中台 rank ${escapeHtml(String(p0.sourceRank || '—'))} · 近 ${escapeHtml(String(p0.windowDays || '—'))} 天</small><div><b>阅读 ${compactNumber(p0.readerBase)}</b><b>首读 ${p0Percent(p0.firstReadRate)}</b><b>长读 ${p0Percent(p0.longReadRate)}</b><b>趋势 ${p0.trend7v30 == null ? '—' : p0Percent(p0.trend7v30)}</b></div></div>
+    <div class="harness-ledger-list">${stages.map((stage) => { const external = stage.externalTaskId ? `外部 ID ${escapeHtml(taskId(stage.externalTaskId))}` : ''; const internal = stage.internalTaskId ? `内部 ID ${escapeHtml(taskId(stage.internalTaskId))}` : ''; const schedule = stage.scheduledAt ? `排期 ${escapeHtml(stage.scheduledAt)}` : ''; return `<article class="harness-ledger-row status-${escapeHtml(stage.status || 'waiting')}"><div class="harness-step-key"><b>${escapeHtml(stage.key)}</b><span>${escapeHtml(stage.label || stageLabels[stage.key] || stage.key)}</span></div><div><strong>${escapeHtml(stage.purpose || '等待节点执行')}</strong><small>${escapeHtml(stage.artifact || '—')}</small></div><div><span class="harness-status-chip">${escapeHtml(harnessStatusLabel(stage.status))}</span><small>${external || internal || stage.nextAttemptAt ? `${external}${external && internal ? ' · ' : ''}${internal}${(external || internal) && stage.nextAttemptAt ? ' · ' : ''}${stage.nextAttemptAt ? `下次尝试 ${escapeHtml(stage.nextAttemptAt)}` : ''}` : stage.recoverable ? '可恢复' : ''}${schedule ? `<br>${schedule}` : ''}</small></div><div class="harness-next-action">${stage.status === 'ambiguous' ? '先对账，不得重提' : stage.status === 'failed' ? '人工确认失败后再重试' : stage.status === 'blocked' ? '处理阻塞条件' : stage.status === 'done' ? '已留存产物' : '等待后台推进'}</div></article>`; }).join('')}</div>
+    ${blockers.length ? `<aside class="harness-blockers"><strong><i data-lucide="triangle-alert"></i>当前阻塞</strong>${blockers.map((item) => `<span>${escapeHtml(item.stage)} · ${escapeHtml(item.reason)}</span>`).join('')}</aside>` : '<aside class="harness-clear"><i data-lucide="shield-check"></i>当前没有需要人工升级的 Harness 阻塞</aside>'}
+  </section>`;
 }
 
 function idlePipelineHtml() {
@@ -2224,13 +3761,301 @@ function videoState(run, video) {
   if (video?.status === 'failed' || ['failed', 'ambiguous'].includes(stage)) return { label: `生成失败：${video?.error || run.stages?.P4?.error || '请打开任务查看处理入口'}`, kind: 'failed' };
   if (video?.status === 'running' || video?.status === 'submitting' || ['running', 'submitting'].includes(stage)) return { label: '视频生成中，后台持续反馈进度', kind: 'running' };
   if (stage === 'blocked') return { label: run.stages?.P4?.label || '视频已阻塞，等待处理', kind: 'blocked' };
-  if (stage === 'prepared' && stageDetail.blockedReason === 'hourly_video_limit') {
+  if (stage === 'prepared' && ['daily_video_limit', 'hourly_video_limit'].includes(String(stageDetail.blockedReason || ''))) {
     const retryAt = Date.parse(stageDetail.nextAttemptAt || '');
     const retryLabel = Number.isFinite(retryAt) ? new Date(retryAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
-    return { label: `${stageDetail.label || '本小时视频额度已满，已自动排队'}${retryLabel ? ` · 预计 ${retryLabel} 后继续` : ''}`, kind: 'queued' };
+    return { label: `${stageDetail.label || '本日视频额度已满，已自动排队'}${retryLabel ? ` · 预计 ${retryLabel} 后继续` : ''}`, kind: 'queued' };
   }
-  if (stage === 'prepared') return { label: '视频任务已准备，等待提交', kind: 'prepared' };
+  if (stage === 'prepared') return { label: stageDetail.blockedReason === 'operator_video_pause' ? '视频参数已保存；新提交当前暂停' : '视频任务已准备，等待提交', kind: 'prepared' };
   return { label: '等待视频任务进入生成', kind: 'waiting' };
+}
+
+function videoControlTemplate(value) {
+  return VIDEO_CONTROL_TEMPLATES.find((item) => item.value === String(value || '')) || VIDEO_CONTROL_TEMPLATES[0];
+}
+
+function videoControlLineageOptions(run) {
+  const options = [{ value: '', label: '不关联上游素材', lineage: null }];
+  [
+    ['video', '当前成片', run.artifacts?.video],
+    ['reference_video', '旧参考版本', run.artifacts?.referenceVideo],
+    ['video_revision', '提示词修订版本', run.artifacts?.videoRevision]
+  ].forEach(([source, label, video]) => {
+    const threadId = String(video?.threadId || '').trim();
+    if (threadId && String(video?.status || '').toLowerCase() === 'completed') options.push({ value: `${source}:${threadId}`, label: `${label} · ${threadId.slice(-10)}`, lineage: { source, threadId } });
+  });
+  return options;
+}
+
+function videoControlLineageKey(lineage) {
+  if (!lineage || typeof lineage !== 'object') return '';
+  const source = String(lineage.source || lineage.kind || '').trim();
+  const threadId = String(lineage.threadId || lineage.parentThreadId || '').trim();
+  return source && threadId ? `${source}:${threadId}` : '';
+}
+
+function normalizeVideoControl(control = {}) {
+  const template = videoControlTemplate(control.template).value;
+  const maxReferences = videoControlTemplate(template).maxReferences;
+  const rawReferenceAssetIds = Array.isArray(control.referenceAssetIds)
+    ? control.referenceAssetIds
+    : Array.isArray(control.reference_asset_ids) ? control.reference_asset_ids : [];
+  const referenceAssetIds = [...new Set(rawReferenceAssetIds
+    .map((value) => String(value || '').trim())
+    .filter(Boolean))].slice(0, maxReferences);
+  const lineage = control.lineage && typeof control.lineage === 'object'
+    ? { source: String(control.lineage.source || control.lineage.kind || '').trim(), threadId: String(control.lineage.threadId || control.lineage.parentThreadId || '').trim() }
+    : null;
+  return { template, referenceAssetIds, enableSubtitles: false, lineage: lineage?.source && lineage?.threadId ? lineage : null };
+}
+
+function videoControlForRun(run) {
+  const draft = state.videoControlDrafts.get(run.id);
+  const saved = state.videoControlSaved.get(run.id);
+  const control = normalizeVideoControl(draft || saved || run.artifacts?.videoControl || run.input?.videoControl || {});
+  const lineageKey = videoControlLineageKey(control.lineage);
+  const lineageAvailable = !lineageKey || videoControlLineageOptions(run).some((item) => item.value === lineageKey);
+  return lineageAvailable ? control : { ...control, lineage: null };
+}
+
+function updateVideoControlDraft(run, changes) {
+  const current = videoControlForRun(run);
+  const next = normalizeVideoControl({ ...current, ...changes });
+  state.videoControlDrafts.set(run.id, next);
+  state.videoControlPreviews.delete(run.id);
+  state.detailFingerprint = '';
+  renderDetail();
+  icons();
+}
+
+function characterAssetId(asset) {
+  return String(asset?.id || asset?.assetId || asset?.characterAssetId || '').trim();
+}
+
+function characterAssetLabel(asset, index) {
+  return String(asset?.label || asset?.name || asset?.characterName || asset?.character || asset?.variant || `人物资产 ${index + 1}`).trim();
+}
+
+function characterAssetReady(asset) {
+  const status = String(asset?.status || 'ready').toLowerCase();
+  return asset?.approved !== false && !['queued', 'pending', 'running', 'generating', 'failed', 'error', 'preview_failed', 'submit_ambiguous'].includes(status);
+}
+
+function characterAssetPreview(asset) {
+  const source = String(asset?.previewUrl || asset?.url || '').trim();
+  // Meitu result CDNs can be signed per image. The asset was produced and
+  // validated server-side, so render that managed URL directly instead of
+  // turning the generic media proxy into an open CDN allowlist.
+  return source && String(asset?.provider || '').toLowerCase() === 'meitu' ? source : source ? `/api/media?url=${encodeURIComponent(source)}` : '';
+}
+
+function videoControlPreviewHtml(run, control) {
+  const preview = state.videoControlPreviews.get(run.id);
+  if (!preview) return '';
+  const warnings = Array.isArray(preview.warnings) ? preview.warnings.map((item) => String(item || '').trim()).filter(Boolean) : [];
+  const previewControl = normalizeVideoControl(preview.control || control);
+  const fingerprint = String(preview.payloadFingerprint || preview.fingerprint || '').trim();
+  const remark = String(preview.remark || '').trim();
+  return `<div class="video-quality-meta"><span>模板：${escapeHtml(videoControlTemplate(previewControl.template).label)}</span><span>参考图：${previewControl.referenceAssetIds.length}</span><span>字幕：固定关闭</span>${fingerprint ? `<span>合同指纹：${escapeHtml(fingerprint.slice(-16))}</span>` : ''}${remark ? `<span>追踪标识：${escapeHtml(remark.slice(-16))}</span>` : ''}${warnings.map((warning) => `<small class="video-quality-warning">${escapeHtml(warning)}</small>`).join('')}</div>`;
+}
+
+function videoExecutionQaHtml(run, video) {
+  const execution = video?.executionControls || video?.execution_controls || {};
+  const qa = video?.executionQa || video?.execution_qa || video?.qa || {};
+  const requestedSubtitles = typeof execution.requestedEnableSubtitles === 'boolean'
+    ? execution.requestedEnableSubtitles
+    : typeof execution.requested?.enableSubtitles === 'boolean' ? execution.requested.enableSubtitles : videoControlForRun(run).enableSubtitles;
+  const effectiveSubtitles = typeof execution.enableSubtitles === 'boolean'
+    ? execution.enableSubtitles
+    : typeof execution.effective?.enableSubtitles === 'boolean' ? execution.effective.enableSubtitles : null;
+  const model = String(execution.model || execution.videoModel || video?.videoModel || '').trim();
+  const score = Number(qa.score ?? qa.fidelityScore);
+  const result = String(qa.status || qa.decision || '').trim();
+  if (effectiveSubtitles === null && !model && !result && !Number.isFinite(score)) return '';
+  const mismatch = effectiveSubtitles !== null && requestedSubtitles !== effectiveSubtitles;
+  return `<div class="video-quality-meta"><span>请求字幕：${requestedSubtitles ? '开启' : '关闭'}</span>${effectiveSubtitles === null ? '<span>服务端执行值：待回包</span>' : `<span>服务端字幕：${effectiveSubtitles ? '开启' : '关闭'}</span>`}${model ? `<span>实际模型：${escapeHtml(model)}</span>` : ''}${Number.isFinite(score) ? `<span>保真评分：${Math.round(score)}</span>` : ''}${result ? `<span>执行质检：${escapeHtml(result)}</span>` : ''}${mismatch ? '<small class="video-quality-warning">请求的字幕控制与服务端实际执行不一致；该成片不能自动视为通过。</small>' : ''}</div>`;
+}
+
+function videoDirectorControlHtml(run) {
+  if (run._assetOnly || !run.id) return '';
+  const control = videoControlForRun(run);
+  const template = videoControlTemplate(control.template);
+  const assets = state.videoControlAssets.get(run.id) || [];
+  const loading = state.videoControlLoading.has(run.id);
+  const error = state.videoControlErrors.get(run.id) || '';
+  const selected = new Set(control.referenceAssetIds);
+  const lineageOptions = videoControlLineageOptions(run);
+  const lineageKey = videoControlLineageKey(control.lineage);
+  const promptReady = Boolean(run.artifacts?.videoPrompt?.adCopy && run.artifacts?.videoPrompt?.buildRequirement);
+  const saving = state.videoControlSaving.has(run.id);
+  const previewing = state.videoControlPreviewing.has(run.id);
+  const generating = state.characterAssetGenerating.has(run.id);
+  const assetOptions = assets.length
+    ? `<div class="reference-poster-options">${assets.map((asset, index) => {
+      const id = characterAssetId(asset);
+      const ready = Boolean(id) && characterAssetReady(asset);
+      const isSelected = selected.has(id);
+      const preview = characterAssetPreview(asset);
+      const status = String(asset?.status || (ready ? 'ready' : 'preparing'));
+      return `<button type="button" class="reference-poster-option ${isSelected ? 'selected' : ''}" data-character-asset-id="${escapeHtml(id)}" ${ready ? '' : 'disabled'}>${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(characterAssetLabel(asset, index))}">` : '<i data-lucide="image"></i>'}<span><i data-lucide="${isSelected ? 'circle-dot' : 'circle'}"></i>${escapeHtml(characterAssetLabel(asset, index))} · ${escapeHtml(status)}</span></button>`;
+    }).join('')}</div>`
+    : `<div class="media-placeholder"><i data-lucide="images"></i>${loading ? '正在读取人物资产' : '暂无可用人物资产；可先明确生成一组角色参考图'}</div>`;
+  const previewOnlyNotice = template.previewOnly ? '<small class="video-quality-warning">V4 目前仅用于合同预览和单变量验证，不会在这里出现视频提交入口。</small>' : '';
+  const promptNotice = promptReady ? '' : '<small class="video-quality-warning">等待视频剧情包完成后，才可保存并预览 AC 合同。</small>';
+  const characterInputs = `<div class="creative-profile"><label>角色名<input data-character-name maxlength="120" value="Lead adult"></label><label>身份<select data-character-role><option value="lead">主角</option><option value="love_interest">对手戏</option><option value="antagonist">对立角色</option><option value="supporting">配角</option></select></label><label>视觉锚点<input data-character-anchors maxlength="900" placeholder="如红发、绿眼、制服、成年"></label></div>`;
+  return `<div class="reference-poster-picker video-director-control" data-video-director-control="${escapeHtml(run.id)}"><div><strong>AC 导演控制</strong><span>只保存任务配置并预览合同；不会从浏览器直连 AC 或图像服务。</span></div><div class="creative-profile"><label>模板策略<select data-video-control-template><option value="Ad_Plot_Seedance" ${template.value === 'Ad_Plot_Seedance' ? 'selected' : ''}>Seedance 生产</option><option value="Ad_Plot_Video_V4" ${template.value === 'Ad_Plot_Video_V4' ? 'selected' : ''}>V4 多参考实验（仅预览）</option></select></label><label>素材关联<select data-video-control-lineage>${lineageOptions.map((item) => `<option value="${escapeHtml(item.value)}" ${item.value === lineageKey ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}</select></label></div><div class="authorization-row"><i data-lucide="captions-off"></i><div><strong>字幕</strong><span>固定关闭，文字后期处理；结果页仍会显示服务端是否擅自烧录文字。</span></div><label><input type="checkbox" disabled> 固定关闭，文字后期处理</label></div><div><strong>人物参考资产</strong><span class="language-tag">已选 ${selected.size}/${template.maxReferences} · 仅可选择服务端资产库中的图片</span></div>${characterInputs}${assetOptions}<div class="video-rework-actions"><button class="secondary-command" data-video-control-save type="button" ${saving || !promptReady ? 'disabled' : ''}><i data-lucide="${saving ? 'loader-circle' : 'save'}"></i><span>${saving ? '保存中' : '保存控制'}</span></button><button class="primary-command" data-video-control-preview type="button" ${previewing || !promptReady ? 'disabled' : ''}><i data-lucide="${previewing ? 'loader-circle' : 'file-search'}"></i><span>${previewing ? '预览中' : '保存并预览合同'}</span></button><button class="secondary-command" data-character-assets-generate type="button" ${generating ? 'disabled' : ''}><i data-lucide="${generating ? 'loader-circle' : 'images'}"></i><span>${generating ? '角色图生成中' : '生成角色参考图'}</span></button></div>${error ? `<small class="video-quality-warning">${escapeHtml(error)}</small>` : ''}${previewOnlyNotice}${promptNotice}${videoControlPreviewHtml(run, control)}</div>`;
+}
+
+function rerenderVideoDirectorControl(runId) {
+  if (state.detailOpen && state.selectedId === runId) {
+    state.detailFingerprint = '';
+    renderDetail();
+    icons();
+  }
+}
+
+function savedVideoControl(body) {
+  return body?.control || body?.videoControl || body?.data?.control || null;
+}
+
+async function loadVideoDirectorControl(runId, { force = false } = {}) {
+  if (!runId || (!force && (state.videoControlLoaded.has(runId) || state.videoControlRequests.has(runId)))) return state.videoControlRequests.get(runId);
+  state.videoControlLoading.add(runId);
+  state.videoControlErrors.delete(runId);
+  const request = (async () => {
+    const [controlResult, assetsResult] = await Promise.allSettled([
+      api('/api/video-control', { method: 'POST', body: JSON.stringify({ action: 'get', runId }), timeoutMs: 20000 }),
+      api('/api/character-assets', { method: 'POST', body: JSON.stringify({ action: 'list', runId }), timeoutMs: 20000 })
+    ]);
+    const errors = [];
+    if (controlResult.status === 'fulfilled') {
+      const saved = savedVideoControl(controlResult.value);
+      if (saved && !state.videoControlDrafts.has(runId)) state.videoControlSaved.set(runId, normalizeVideoControl(saved));
+      if (controlResult.value?.preview) state.videoControlPreviews.set(runId, controlResult.value.preview);
+    } else {
+      errors.push(`导演控制：${controlResult.reason?.message || '暂不可用'}`);
+    }
+    if (assetsResult.status === 'fulfilled') {
+      const assets = Array.isArray(assetsResult.value?.assets) ? assetsResult.value.assets : [];
+      state.videoControlAssets.set(runId, assets);
+    } else {
+      errors.push(`人物资产：${assetsResult.reason?.message || '暂不可用'}`);
+    }
+    if (errors.length) state.videoControlErrors.set(runId, errors.join('；'));
+    state.videoControlLoaded.add(runId);
+  })();
+  state.videoControlRequests.set(runId, request);
+  try { await request; }
+  finally {
+    state.videoControlRequests.delete(runId);
+    state.videoControlLoading.delete(runId);
+    rerenderVideoDirectorControl(runId);
+  }
+}
+
+async function saveVideoDirectorControl(runId, { silent = false } = {}) {
+  const run = state.runs.find((item) => item.id === runId);
+  if (!run) throw new Error('任务不存在，无法保存导演控制');
+  const control = { ...videoControlForRun(run), enableSubtitles: false };
+  state.videoControlSaving.add(runId);
+  state.videoControlErrors.delete(runId);
+  rerenderVideoDirectorControl(runId);
+  try {
+    const body = await api('/api/video-control', { method: 'POST', body: JSON.stringify({ action: 'set_video_control', runId, control }), timeoutMs: 25000 });
+    state.videoControlSaved.set(runId, normalizeVideoControl(savedVideoControl(body) || control));
+    state.videoControlDrafts.delete(runId);
+    state.videoControlPreviews.delete(runId);
+    state.videoControlLoaded.add(runId);
+    if (!silent) showToast('AC 导演控制已保存；尚未提交视频任务');
+    return body;
+  } catch (error) {
+    state.videoControlErrors.set(runId, error.message || '导演控制保存失败');
+    throw error;
+  } finally {
+    state.videoControlSaving.delete(runId);
+    rerenderVideoDirectorControl(runId);
+  }
+}
+
+async function previewVideoDirectorControl(runId) {
+  state.videoControlPreviewing.add(runId);
+  state.videoControlErrors.delete(runId);
+  rerenderVideoDirectorControl(runId);
+  try {
+    await saveVideoDirectorControl(runId, { silent: true });
+    const body = await api('/api/video-control', { method: 'POST', body: JSON.stringify({ action: 'preview_video_contract', runId }), timeoutMs: 25000 });
+    if (!body?.preview) throw new Error('服务端没有返回可审查的 AC 合同预览');
+    state.videoControlPreviews.set(runId, body.preview);
+    showToast('AC 合同预览已生成；未提交任何视频任务');
+  } catch (error) {
+    state.videoControlErrors.set(runId, error.message || 'AC 合同预览失败');
+    showToast(error.message, 'error');
+  } finally {
+    state.videoControlPreviewing.delete(runId);
+    rerenderVideoDirectorControl(runId);
+  }
+}
+
+async function generateCharacterAssets(runId, character = {}) {
+  state.characterAssetGenerating.add(runId);
+  state.videoControlErrors.delete(runId);
+  rerenderVideoDirectorControl(runId);
+  try {
+    const body = await api('/api/character-assets', { method: 'POST', body: JSON.stringify({ runId, action: 'generate', character }), timeoutMs: 25000 });
+    if (Array.isArray(body?.assets)) {
+      state.videoControlAssets.set(runId, body.assets);
+      state.videoControlLoaded.add(runId);
+    } else {
+      state.videoControlLoaded.delete(runId);
+      await loadVideoDirectorControl(runId, { force: true });
+    }
+    showToast(body?.status === 'submit_ambiguous' ? '角色图请求状态不明，已停止自动重试；请先核验外部结果' : body?.status === 'submitting' ? '角色参考图已进入后端生成队列' : body?.status === 'ready' ? '角色参考图已就绪，可选择后保存并预览合同' : '角色参考图请求已提交；未提交 AC 视频');
+  } catch (error) {
+    state.videoControlErrors.set(runId, error.message || '角色参考图生成失败');
+    showToast(error.message, 'error');
+  } finally {
+    state.characterAssetGenerating.delete(runId);
+    rerenderVideoDirectorControl(runId);
+  }
+}
+
+function bindVideoDirectorControls(run, panel) {
+  const controlPanel = panel.querySelector(`[data-video-director-control="${run.id}"]`);
+  if (!controlPanel) return;
+  controlPanel.querySelector('[data-video-control-template]')?.addEventListener('change', (event) => {
+    const template = videoControlTemplate(event.currentTarget.value);
+    const control = videoControlForRun(run);
+    updateVideoControlDraft(run, { template: template.value, referenceAssetIds: control.referenceAssetIds.slice(0, template.maxReferences) });
+  });
+  controlPanel.querySelector('[data-video-control-lineage]')?.addEventListener('change', (event) => {
+    const selected = videoControlLineageOptions(run).find((item) => item.value === event.currentTarget.value);
+    updateVideoControlDraft(run, { lineage: selected?.lineage || null });
+  });
+  controlPanel.querySelectorAll('[data-character-asset-id]').forEach((button) => button.addEventListener('click', () => {
+    const id = String(button.dataset.characterAssetId || '').trim();
+    if (!id) return;
+    const control = videoControlForRun(run);
+    const template = videoControlTemplate(control.template);
+    const next = control.referenceAssetIds.filter((value) => value !== id);
+    if (next.length === control.referenceAssetIds.length) {
+      if (next.length >= template.maxReferences) {
+        if (template.maxReferences === 1) next.splice(0, next.length, id);
+        else { showToast(`当前模板最多选择 ${template.maxReferences} 张参考图`); return; }
+      } else next.push(id);
+    }
+    updateVideoControlDraft(run, { referenceAssetIds: next });
+  }));
+  controlPanel.querySelector('[data-video-control-save]')?.addEventListener('click', () => saveVideoDirectorControl(run.id).catch((error) => showToast(error.message, 'error')));
+  controlPanel.querySelector('[data-video-control-preview]')?.addEventListener('click', () => previewVideoDirectorControl(run.id));
+  controlPanel.querySelector('[data-character-assets-generate]')?.addEventListener('click', () => {
+    const character = {
+      name: String(controlPanel.querySelector('[data-character-name]')?.value || '').trim(),
+      role: String(controlPanel.querySelector('[data-character-role]')?.value || '').trim(),
+      visualAnchors: String(controlPanel.querySelector('[data-character-anchors]')?.value || '').trim()
+    };
+    openConfirmation('character_assets', run.id, { character });
+  });
+  if (!state.videoControlLoaded.has(run.id) && !state.videoControlLoading.has(run.id)) loadVideoDirectorControl(run.id).catch(() => {});
 }
 
 function videoHtml(run) {
@@ -2248,21 +4073,24 @@ function videoHtml(run) {
   };
   const asset = (video, title, referenceVersion = false) => {
     const url = video?.videoUrls?.[0];
-    if (url) return `<article class="video-asset"><div class="video-asset-head"><strong>${escapeHtml(title)}</strong>${referenceVersion ? '<span>额外版本</span>' : ''}</div>${qualityMeta(video)}<div class="video-shell"><video ${referenceVersion ? '' : 'id="resultVideo"'} controls preload="metadata" playsinline poster="${escapeHtml(video.coverImageUrl || '')}"><source src="${escapeHtml(url)}"></video></div></article>`;
+    if (url) return `<article class="video-asset"><div class="video-asset-head"><strong>${escapeHtml(title)}</strong>${referenceVersion ? '<span>额外版本</span>' : ''}</div>${qualityMeta(video)}${videoExecutionQaHtml(run, video)}<div class="video-shell"><video ${referenceVersion ? '' : 'id="resultVideo"'} controls preload="metadata" playsinline poster="${escapeHtml(video.coverImageUrl || '')}"><source src="${escapeHtml(url)}"></video></div></article>`;
     const state = videoState(run, video);
     return `<article class="video-asset ${state.kind}"><div class="video-asset-head"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(state.kind === 'failed' ? '需处理' : state.kind === 'running' ? '后台生成中' : state.kind === 'queued' ? '已自动排队' : '')}</span></div><div class="media-placeholder"><i data-lucide="${state.kind === 'failed' ? 'circle-alert' : state.kind === 'running' ? 'loader-circle' : state.kind === 'queued' ? 'clock-3' : 'video'}"></i>${escapeHtml(state.label)}</div></article>`;
   };
   const referencePosters = (run.artifacts?.images || []).filter((item) => ['luminous_cinema', 'editorial_romance'].includes(item.variant) && item.url);
   const selectedReferencePoster = state.referencePosterChoice[run.id] || referencePosters[0]?.variant || '';
-  const canCreateReference = Boolean(referencePosters.length && !reference);
-  const canRewrite = Boolean(run.artifacts?.videoPrompt && run.artifacts?.evidence?.chapters?.length);
-  const canSubmitRevision = run.artifacts?.videoPromptDraft?.status === 'approved' && !revision;
+  const mediaPaused = videoGenerationPaused();
+  const canCreateReference = Boolean(!mediaPaused && referencePosters.length && !reference);
+  const canRewrite = Boolean(!mediaPaused && run.artifacts?.videoPrompt && run.artifacts?.evidence?.chapters?.length);
+  const selectedDirectorTemplate = videoControlTemplate(videoControlForRun(run).template);
+  const canSubmitRevision = !selectedDirectorTemplate.previewOnly && !mediaPaused && run.artifacts?.videoPromptDraft?.status === 'approved' && !revision;
+  const directorControl = videoDirectorControlHtml(run);
   const assets = [asset(original, '原始成片')];
   if (revision) assets.push(asset(revision, '重写提示词版', true));
-  if (reference) assets.push(asset(reference, '参考海报版', true));
-  const posterPicker = canCreateReference ? `<div class="reference-poster-picker"><div><strong>选择参考海报</strong><span>可选海报 1 或海报 2，提交前会再次确认</span></div><div class="reference-poster-options">${referencePosters.map((poster) => `<button type="button" class="reference-poster-option ${selectedReferencePoster === poster.variant ? 'selected' : ''}" data-reference-poster="${escapeHtml(poster.variant)}"><img src="${escapeHtml(`/api/media?url=${encodeURIComponent(poster.url)}`)}" alt="${escapeHtml(poster.variant)}"><span><i data-lucide="${selectedReferencePoster === poster.variant ? 'circle-dot' : 'circle'}"></i>海报 ${poster.variant === 'luminous_cinema' ? '1' : '2'}</span></button>`).join('')}</div><button id="createReferenceVideo" class="secondary-command reference-video-command" data-poster-variant="${escapeHtml(selectedReferencePoster)}"><i data-lucide="clapperboard"></i><span>用选中的海报制作 AC 视频</span></button></div>` : '';
+  if (reference) assets.push(asset(reference, '人物参考版', true));
+  const posterPicker = !directorControl && canCreateReference ? `<div class="reference-poster-picker"><div><strong>选择参考海报</strong><span>可选海报 1 或海报 2，提交前会再次确认</span></div><div class="reference-poster-options">${referencePosters.map((poster) => `<button type="button" class="reference-poster-option ${selectedReferencePoster === poster.variant ? 'selected' : ''}" data-reference-poster="${escapeHtml(poster.variant)}"><img src="${escapeHtml(`/api/media?url=${encodeURIComponent(poster.url)}`)}" alt="${escapeHtml(poster.variant)}"><span><i data-lucide="${selectedReferencePoster === poster.variant ? 'circle-dot' : 'circle'}"></i>海报 ${poster.variant === 'luminous_cinema' ? '1' : '2'}</span></button>`).join('')}</div><button id="createReferenceVideo" class="secondary-command reference-video-command" data-poster-variant="${escapeHtml(selectedReferencePoster)}"><i data-lucide="clapperboard"></i><span>用选中的海报制作 AC 视频</span></button></div>` : '';
   const rewriteReady = run.artifacts?.videoPromptDraft?.status === 'ready_for_review';
-  return `<div class="video-assets">${assets.join('')}</div><div class="video-rework-actions">${canRewrite ? '<button id="rewriteVideoPrompt" class="secondary-command"><i data-lucide="sparkles"></i><span>重写提示词并重做视频</span></button>' : ''}${canSubmitRevision ? '<button id="createVideoRevision" class="primary-command"><i data-lucide="video"></i><span>提交核对后的新视频</span></button>' : ''}</div>${rewriteReady ? '<aside class="video-rewrite-ready"><i data-lucide="sparkles"></i><div><strong>新视频提示词已写好</strong><span>先核对剧情与镜头，再确认提交一条新的 AC 视频。</span></div><button id="reviewRewrittenVideo" class="primary-command" type="button">核对并提交新视频</button></aside>' : ''}${posterPicker}`;
+  return `${mediaPaused ? '<aside class="video-rewrite-ready"><i data-lucide="pause-circle"></i><div><strong>服务端未开放新视频提交</strong><span>已提交的 threadId 继续回收结果；prepared 任务不会越过服务端门禁。</span></div></aside>' : ''}${directorControl}<div class="video-assets">${assets.join('')}</div><div class="video-rework-actions">${canRewrite ? '<button id="rewriteVideoPrompt" class="secondary-command"><i data-lucide="sparkles"></i><span>重写提示词并重做视频</span></button>' : ''}${canSubmitRevision ? '<button id="createVideoRevision" class="primary-command"><i data-lucide="video"></i><span>提交核对后的新视频</span></button>' : ''}</div>${rewriteReady && !mediaPaused ? '<aside class="video-rewrite-ready"><i data-lucide="sparkles"></i><div><strong>新视频提示词已写好</strong><span>先核对剧情与镜头，再确认提交一条新的 AC 视频。</span></div><button id="reviewRewrittenVideo" class="primary-command" type="button">核对并提交新视频</button></aside>' : ''}${posterPicker}`;
 }
 
 function imagesHtml(run) {
@@ -2355,7 +4183,8 @@ function renderDetail() {
     const assets = assetSummary(run);
     const syncing = state.detailHydrating === run.id;
     const detailMessage = state.detailError || (syncing ? '正在加载可预览的完整素材；这不会阻塞当前任务。' : '任务已可操作。完整文案、视频和海报会在后台轻量同步。');
-    panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title || run.artifacts?.book?.title || '任务')}</h2><p>SKU ${escapeHtml(run.input?.sku || run.artifacts?.book?.bookSkuId || '--')} · Run ${escapeHtml(run.id.slice(-10))}</p></div><button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header><section class="pipeline"><div class="section-heading"><div><h3>P1-P6 生产链路</h3><p>已完成节点、当前卡点和可用追踪信息即时展示。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="detail-sync-state ${syncing ? 'is-syncing' : ''}"><i data-lucide="${syncing ? 'loader-circle' : state.detailError ? 'circle-alert' : 'database-zap'}"></i><div><strong>${syncing ? '正在同步完整素材' : state.detailError ? '完整素材稍后可用' : '任务摘要已就绪'}</strong><span>${escapeHtml(detailMessage)}</span></div><button id="retryDetail" class="secondary-command" type="button" ${syncing ? 'disabled' : ''}><i data-lucide="refresh-cw"></i>${syncing ? '同步中' : '加载完整素材'}</button></div></section><section class="detail-section"><div class="section-heading"><h3>已可用产物</h3><span class="language-tag">无需等待</span></div><div class="asset-summary"><div><strong>${assets.posts}</strong><span>文案</span></div><div><strong>${assets.video}</strong><span>视频</span></div><div><strong>${assets.posters}</strong><span>海报</span></div><div><strong>${assets.tracking}</strong><span>追踪链接</span></div></div></section><section class="detail-section"><div class="section-heading"><h3>模型活动</h3><span class="language-tag">摘要记录</span></div>${modelActivityHtml(run)}</section>`;
+    panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title || run.artifacts?.book?.title || '任务')}</h2><p>SKU ${escapeHtml(run.input?.sku || run.artifacts?.book?.bookSkuId || '--')} · Run ${escapeHtml(run.id.slice(-10))}</p></div><button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header><section class="pipeline"><div class="section-heading"><div><h3>P0-P7 可审计链路</h3><p>已完成节点、当前卡点和可用追踪信息即时展示。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="detail-sync-state ${syncing ? 'is-syncing' : ''}"><i data-lucide="${syncing ? 'loader-circle' : state.detailError ? 'circle-alert' : 'database-zap'}"></i><div><strong>${syncing ? '正在同步完整素材' : state.detailError ? '完整素材稍后可用' : '任务摘要已就绪'}</strong><span>${escapeHtml(detailMessage)}</span></div><button id="retryDetail" class="secondary-command" type="button" ${syncing ? 'disabled' : ''}><i data-lucide="refresh-cw"></i>${syncing ? '同步中' : '加载完整素材'}</button></div></section><section class="detail-section"><div class="section-heading"><h3>已可用产物</h3><span class="language-tag">无需等待</span></div><div class="asset-summary"><div><strong>${assets.posts}</strong><span>文案</span></div><div><strong>${assets.video}</strong><span>视频</span></div><div><strong>${assets.posters}</strong><span>海报</span></div><div><strong>${assets.tracking}</strong><span>追踪链接</span></div></div></section><section class="detail-section"><div class="section-heading"><h3>模型活动</h3><span class="language-tag">摘要记录</span></div>${modelActivityHtml(run)}</section>`;
+    panel.insertAdjacentHTML('beforeend', harnessLedgerHtml(run));
     $('#closeDetail')?.addEventListener('click', closeDetail);
     $('#retryDetail')?.addEventListener('click', () => retryRunDetail(run.id));
     state.detailFingerprint = `${run.id}:${run.updatedAt}:${run.state}:${syncing}:${state.detailError}`;
@@ -2368,11 +4197,16 @@ function renderDetail() {
   const playback = oldVideo ? { time: oldVideo.currentTime, paused: oldVideo.paused } : null;
   const active = currentStage(run);
   const selectedModel = modelLabel(run.input?.creativeProfile?.modelChoice);
-  const videoLimitBlocked = run.stages?.P4?.blockedReason === 'hourly_video_limit';
+  const p4BlockedReason = String(run.stages?.P4?.blockedReason || '');
+  const p5BlockedReason = String(run.stages?.P5?.blockedReason || '');
+  const attributionBlocked = ['attribution_write_ambiguous', 'attribution_provider_unavailable'].includes(p5BlockedReason);
+  const videoLimitBlocked = ['daily_video_limit', 'hourly_video_limit', 'ac_points_budget', 'ac_configuration_wait', 'ac_capacity_wait'].includes(p4BlockedReason);
   const posterPartial = run.stages?.P3_5?.status === 'partial';
   const variantPending = state.creativeVariantRunId === run.id;
-  const retryLabel = posterPartial ? '单独重试失败海报' : videoLimitBlocked ? `下小时重试视频${run.stages.P4.nextWindow ? `（当前额度至 ${run.stages.P4.nextWindow}）` : ''}` : '重试失败节点';
-  const canRetry = run.state === 'failed' || videoLimitBlocked || posterPartial;
+  const retryLabel = attributionBlocked ? '核对归因后继续' : posterPartial ? '单独重试失败海报' : videoLimitBlocked
+    ? (p4BlockedReason === 'ac_points_budget' ? '积分额度恢复后重试视频' : p4BlockedReason === 'ac_configuration_wait' ? 'AC 配置恢复后重试视频' : p4BlockedReason === 'ac_capacity_wait' ? 'AC 容量恢复后重试视频' : `次日重试视频${run.stages.P4.nextWindow ? `（当前额度至 ${run.stages.P4.nextWindow}）` : ''}`)
+    : '重试失败节点';
+  const canRetry = run.state === 'failed' || videoLimitBlocked || posterPartial || attributionBlocked;
   if (run._assetOnly) {
     // Asset snapshots deliberately exclude source chapters and provider payloads.
     // They are for immediate review and reuse, not for silently triggering a
@@ -2396,22 +4230,24 @@ function renderDetail() {
     panel.querySelector('[data-refresh-analytics]')?.addEventListener('click', () => refreshRunAnalytics(run.id));
     panel.querySelectorAll('[data-node-decision]').forEach((button) => button.addEventListener('click', () => { state.selectedNode = button.dataset.nodeDecision; showToast(`${stageLabels[state.selectedNode] || state.selectedNode} 的已保存状态已显示在概览中`); }));
     panel.querySelectorAll('[data-scroll-target]').forEach((button) => button.addEventListener('click', () => panel.querySelector(`#${button.dataset.scrollTarget}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })));
+    panel.insertAdjacentHTML('beforeend', harnessLedgerHtml(run));
     state.detailFingerprint = `${run.id}:${run.updatedAt}:assets`;
     icons();
     return;
   }
   if (run._detailPartial) {
-    panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header><section class="pipeline"><div class="section-heading"><div><h3>P1-P6 生产链路</h3><p>节点和恢复状态可立即查看，文案与媒体详情正在后台建立轻量快照。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="detail-sync-state"><i data-lucide="database-zap"></i><div><strong>正在补齐素材详情</strong><span>${escapeHtml(state.detailError || '后台只整理已有任务数据，不会调用模型，也不会提交付费图片或视频。')}</span></div><button id="retryDetail" class="secondary-command" type="button"><i data-lucide="refresh-cw"></i>立即检查</button></div></section><section class="detail-section"><div class="section-heading"><h3>模型活动</h3><span class="language-tag">摘要记录</span></div>${modelActivityHtml(run)}</section>`;
+    panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header><section class="pipeline"><div class="section-heading"><div><h3>P0-P7 可审计链路</h3><p>节点和恢复状态可立即查看，文案与媒体详情正在后台建立轻量快照。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="detail-sync-state"><i data-lucide="database-zap"></i><div><strong>正在补齐素材详情</strong><span>${escapeHtml(state.detailError || '后台只整理已有任务数据，不会调用模型，也不会提交付费图片或视频。')}</span></div><button id="retryDetail" class="secondary-command" type="button"><i data-lucide="refresh-cw"></i>立即检查</button></div></section><section class="detail-section"><div class="section-heading"><h3>模型活动</h3><span class="language-tag">摘要记录</span></div>${modelActivityHtml(run)}</section>`;
     $('#closeDetail')?.addEventListener('click', closeDetail);
     $('#retryDetail')?.addEventListener('click', () => hydrateRunDetail(run.id));
     panel.querySelector('[data-ai-wait-recovery]')?.addEventListener('click', (event) => recoverAiWait(run.id, event.currentTarget));
     state.detailFingerprint = fingerprint;
+    panel.insertAdjacentHTML('beforeend', harnessLedgerHtml(run));
     requestDetailHydration(run.id);
     icons();
     return;
   }
   panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><div class="detail-actions">${canRetry ? `<button id="retryRun" class="secondary-command"><i data-lucide="rotate-ccw"></i><span>${escapeHtml(retryLabel)}</span></button>` : ''}<button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div></div><nav class="detail-tabs" aria-label="成果模块"><button data-scroll-target="detail-overview">概览</button><button data-scroll-target="detail-decision">事前策划</button><button data-scroll-target="detail-quality">成品质检</button><button data-scroll-target="detail-copy">文案</button><button data-scroll-target="detail-video">视频</button><button data-scroll-target="detail-posters">海报</button><button data-scroll-target="detail-prompts">提示词</button><button data-scroll-target="detail-data">数据</button></nav><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header>
-    <section id="detail-overview" class="pipeline"><div class="section-heading"><div><h3>P1-P6 生产链路</h3><p>书籍核验与证据锁定后，自动完成追踪、创意、视频、海报与审核包。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div>${productionModelRouteHtml(run)}<div class="creative-strategy">${creativeProfileHtml(run.input?.creativeProfile || {})}</div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="current-stage">${escapeHtml(active[1]?.label || labels[run.state] || run.state)}${active[1]?.error ? `：${escapeHtml(active[1].error)}` : ''}</div></section>
+    <section id="detail-overview" class="pipeline"><div class="section-heading"><div><h3>P0-P7 可审计链路</h3><p>先锁定应用、平台、账号与选书快照，再推进证据、追踪、创意、媒体、审核包和 SocialEcho 草稿。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div>${productionModelRouteHtml(run)}<div class="creative-strategy">${creativeProfileHtml(run.input?.creativeProfile || {})}</div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="current-stage">${escapeHtml(active[1]?.label || labels[run.state] || run.state)}${active[1]?.error ? `：${escapeHtml(active[1].error)}` : ''}</div></section>
     ${decisionHtml(run)}
     ${postProductionReviewHtml(run)}
     <section id="detail-copy" class="detail-section"><div class="section-heading"><h3>六步法成品文案</h3><div class="section-actions"><span class="language-tag">EN / 中文</span><button class="secondary-command create-variant" data-variant="creative" ${variantPending ? 'disabled' : ''}><i data-lucide="${variantPending ? 'loader-circle' : 'sparkles'}"></i><span>${variantPending ? `${escapeHtml(selectedModel)} 生成中` : `${escapeHtml(selectedModel)} 再来一版`}</span></button>${run.artifacts?.posts?.length ? removeAssetButton('copy', '文案') : ''}</div></div>${variantPending ? '<div class="optimization-alert"><div><i data-lucide="loader-circle"></i><strong>AI 正在重写创意包</strong><span>正在基于当前版本与已锁定章节证据生成双语文案、视频脚本和海报提示词。</span></div></div>' : ''}${optimizationHtml(run)}${copyHtml(run)}</section>
@@ -2423,10 +4259,13 @@ function renderDetail() {
     <section id="detail-models" class="detail-section"><div class="section-heading"><h3>模型活动</h3><span class="language-tag">真实调用记录</span></div>${modelActivityHtml(run)}</section>
     <section id="detail-review" class="detail-section"><h3>运行记录</h3><div class="event-list">${eventsHtml(run)}</div></section>`;
   state.detailFingerprint = fingerprint;
+  panel.insertAdjacentHTML('beforeend', harnessLedgerHtml(run));
+  panel.querySelector('#detail-overview')?.after(panel.querySelector('#detail-harness'));
   const newVideo = $('#resultVideo');
   if (newVideo && playback?.time) newVideo.addEventListener('loadedmetadata', () => { newVideo.currentTime = Math.min(playback.time, newVideo.duration || playback.time); if (!playback.paused) newVideo.play().catch(() => {}); }, { once: true });
-  $('#retryRun')?.addEventListener('click', () => retryRun(run.id));
+  $('#retryRun')?.addEventListener('click', () => attributionBlocked ? reconcileAttribution(run.id) : retryRun(run.id));
   $('#closeDetail')?.addEventListener('click', closeDetail);
+  bindVideoDirectorControls(run, panel);
   panel.querySelectorAll('[data-reference-poster]').forEach((button) => button.addEventListener('click', () => {
     state.referencePosterChoice[run.id] = button.dataset.referencePoster;
     state.detailFingerprint = '';
@@ -2478,29 +4317,43 @@ function renderDetail() {
 }
 
 function render() {
-  renderCapabilities(); renderStats(); renderTodayRail(); renderOneClickStatus(); renderFocusRun(); renderLeaderboard(); renderRunList(); renderDetail(); renderCreativePlanQueue(); renderModelBadges(); icons();
+  renderCapabilities(); renderDailyCampaign(); renderStats(); renderP0DecisionRail(); renderHarnessStageStrip(); renderTodayRail(); renderOneClickStatus(); renderPublicationWorkbench(); renderFocusRun(); renderLeaderboard(); renderRunList(); renderDetail(); renderCreativePlanQueue(); renderModelBadges(); icons();
 }
 
 function statusPayloadFingerprint(body) {
   return JSON.stringify({
-    runs: (body.runs || []).map((run) => [run.id, run.state, run.updatedAt]),
+    // A provider can advance a stage or expose an external ID without
+    // changing the legacy `updatedAt` copied into an old summary. Include the
+    // compact operational projection so the UI redraws on every meaningful
+    // P0-P7 transition.
+    runs: (body.runs || []).map((run) => [run.id, run.state, run.updatedAt,
+      run.operations?.currentStage, run.operations?.nextAction,
+      run.operations?.blockedReason, run.operations?.nextAttemptAt,
+      run.operations?.socialEchoExternalDraftId,
+      run.operations?.scheduledAt,
+      run.harness?.status,
+      (run.harness?.stages || []).map((stage) => [stage.key, stage.status, stage.phase, stage.error, stage.externalTaskId, stage.nextAttemptAt])]),
     capabilities: body.capabilities || {},
     videoLimit: body.videoLimit || null,
-    runLimit: Number(body.runLimit || state.statusLimit)
+    pointsBudget: body.pointsBudget || null,
+    runLimit: Number(body.runLimit || state.statusLimit),
+    scope: body.scope || null,
+    totalRunCount: Number(body.totalRunCount || 0)
   });
 }
 
 function activeRunBookFingerprint(runs = state.runs) {
-  return runs.filter(runProtectsBook).map((run) => `${run.input?.sku || ''}:${String(run.input?.title || '').trim().toLowerCase()}`).sort().join('|');
+  return runs.filter(runProtectsBook).map((run) => `${Number(run.input?.delivery?.accountId || 0)}:${run.input?.sku || ''}:${String(run.input?.title || '').trim().toLowerCase()}`).sort().join('|');
 }
 
 function reconcilePendingProductions() {
   for (const [key, pending] of state.pendingProductions.entries()) {
     const earliestCreatedAt = Number(pending.startedAt || 0) - 5000;
     const run = pending.runId
-      ? state.runs.find((candidate) => candidate.id === pending.runId)
+      ? state.runs.find((candidate) => candidate.id === pending.runId && runMatchesBook(candidate, pending) && runMatchesTargetAccount(candidate, pending.delivery))
       : state.runs.find((candidate) => runProtectsBook(candidate)
         && runMatchesBook(candidate, pending)
+        && runMatchesTargetAccount(candidate, pending.delivery)
         && Date.parse(candidate.createdAt || '') >= earliestCreatedAt);
     if (!run) continue;
     pending.runId = run.id;
@@ -2511,8 +4364,12 @@ function reconcilePendingProductions() {
 
 function renderStatusViews({ rankingChanged = false } = {}) {
   renderCapabilities();
+  renderDailyCampaign();
   renderStats();
+  renderP0DecisionRail();
+  renderHarnessStageStrip();
   renderOneClickStatus();
+  renderPublicationWorkbench();
   renderFocusRun();
   renderRunList();
   renderDetail();
@@ -2523,7 +4380,11 @@ function renderStatusViews({ rankingChanged = false } = {}) {
 async function loadStatus({ silent = false } = {}) {
   if (state.statusLoading) return state.statusRequest;
   state.statusLoading = true;
-  const request = api(`/api/status?limit=${state.statusLimit}`);
+  const campaignId = String(state.statusCampaignId || '').trim();
+  const endpoint = campaignId
+    ? `/api/status?campaignId=${encodeURIComponent(campaignId)}`
+    : `/api/status?limit=${state.statusLimit}`;
+  const request = api(endpoint);
   state.statusRequest = request;
   try {
     const body = await request;
@@ -2538,7 +4399,10 @@ async function loadStatus({ silent = false } = {}) {
     reconcilePendingProductions();
     state.capabilities = body.capabilities || {};
     state.videoLimit = body.videoLimit || null;
-    state.statusLimit = Math.max(12, Math.min(50, Number(body.runLimit || state.statusLimit)));
+    state.pointsBudget = body.pointsBudget || null;
+    state.statusScope = body.scope?.type || (campaignId ? 'campaign' : 'recent');
+    if (body.scope?.campaignId) state.statusCampaignId = String(body.scope.campaignId);
+    if (!campaignId) state.statusLimit = Math.max(12, Math.min(50, Number(body.runLimit || state.statusLimit)));
     if (!state.selectedId || !state.runs.some((run) => run.id === state.selectedId)) state.selectedId = state.runs[0]?.id || '';
     state.statusFingerprint = fingerprint;
     if (changed) saveDashboardSnapshot();
@@ -2548,7 +4412,8 @@ async function loadStatus({ silent = false } = {}) {
     // Polling refreshes only the compact progress projection. Rehydrating the
     // full task on every poll made a slow detail record starve the whole UI.
   } catch (error) {
-    if (!silent) showToast(error.message, 'error');
+    if (error.status === 401) showLogin();
+    else if (!silent) showToast(error.message, 'error');
   } finally {
     state.statusLoading = false;
     state.statusRequest = null;
@@ -2589,7 +4454,17 @@ async function loadLeaderboard({ refresh = false, silent = false } = {}) {
   try {
     const body = await api(`/api/leaderboard?source=${requestSource}&days=${requestDays}${requestCatalogQuery}${refresh ? '&refresh=1' : ''}`, { timeoutMs: refresh ? 75000 : 45000, signal: controller.signal });
     if (requestId !== state.leaderboardRequestId) return;
-    const incomingBooks = body.books || [];
+    if (requestSource === 'catalog') {
+      state.catalogTargetOptions = Array.isArray(body.targetOptions) && body.targetOptions.length ? body.targetOptions : state.catalogTargetOptions;
+      state.catalogTarget = body.target || state.catalogTarget;
+      if (body.target) {
+        state.catalogFilters.line = body.target.appKey || body.target.productLine || state.catalogFilters.line;
+        state.catalogFilters.platform = body.target.platform || state.catalogFilters.platform;
+        state.catalogFilters.accountId = String(body.target.accountId || state.catalogFilters.accountId);
+      }
+      syncCatalogTargetControls();
+    }
+    const incomingBooks = (body.books || []).map((book) => ({ ...book, ...(body.target ? { selectionTarget: body.target } : {}) }));
     const incomingEligible = requestSource !== 'catalog' || responseAllowsCatalogRanking(body, incomingBooks);
     const keepVerifiedMetrics = requestSource === 'catalog'
       && state.leaderboardDataKey === requestKey
@@ -2599,7 +4474,7 @@ async function loadLeaderboard({ refresh = false, silent = false } = {}) {
       // A bounded cover worker owns image requests. Letting provider cover
       // URLs through here makes a cold dashboard start fifty image downloads
       // before the primary controls become responsive.
-      state.leaderboard = incomingEligible ? incomingBooks.map(({ cover, ...book }) => book) : [];
+      state.leaderboard = incomingEligible ? scoreCatalogBooks(incomingBooks.map(({ cover, ...book }) => book), requestDays) : [];
       state.leaderboardUpdated = body.generatedAt || '';
       state.leaderboardWindow = body.window || null;
       state.leaderboardMetrics = body.metrics || null;
@@ -2622,7 +4497,7 @@ async function loadLeaderboard({ refresh = false, silent = false } = {}) {
     if (requestId !== state.leaderboardRequestId) return;
     const hasPrevious = requestSource === 'catalog' ? catalogQualityAllowsRanking(state.leaderboard) : state.leaderboard.length > 0;
     const fallbackActivated = !hasPrevious && requestSource === 'catalog'
-      && activateHistoricalLeaderboardFallback('可继续策划或一键生成');
+      && activateHistoricalLeaderboardFallback('可继续策划或生成文案');
     if (!fallbackActivated) {
       if (!hasPrevious) state.leaderboard = [];
       state.leaderboardDataQuality = hasPrevious && requestSource === 'catalog' ? 'stale_verified_metrics' : (error.details?.dataQuality || 'unavailable');
@@ -2633,6 +4508,16 @@ async function loadLeaderboard({ refresh = false, silent = false } = {}) {
         : (error.details?.refreshWarning || state.leaderboardError);
       state.leaderboardDataKey = requestKey;
       shouldLoadCovers = hasPrevious;
+      const retryAt = requestSource === 'catalog' ? Date.parse(error.details?.sourceHealth?.retryAfter || '') : NaN;
+      if (!hasPrevious && Number.isFinite(retryAt) && retryAt > Date.now()) {
+        const delay = Math.min(180000, Math.max(5000, retryAt - Date.now() + 250));
+        clearTimeout(state.leaderboardRetryTimer);
+        state.leaderboardRetryTimer = setTimeout(() => {
+          state.leaderboardRetryTimer = null;
+          loadLeaderboard({ silent: true });
+        }, delay);
+        state.leaderboardWarning = `中台正在恢复，系统会在 ${Math.ceil(delay / 1000)} 秒后自动重试当前产品线`;
+      }
     } else {
       shouldLoadCovers = true;
       // Replace the compact rail fallback with the complete reviewed ranking
@@ -2644,7 +4529,7 @@ async function loadLeaderboard({ refresh = false, silent = false } = {}) {
     if (requestId === state.leaderboardRequestId) {
       if (state.leaderboardController === controller) state.leaderboardController = null;
       state.leaderboardLoading = false;
-      renderLeaderboard(); renderTodayRail(); icons();
+      renderP0DecisionRail(); renderHarnessStageStrip(); renderLeaderboard(); renderTodayRail(); icons();
       // Covers are decorative and load only after the ranking interaction is ready.
       if (shouldLoadCovers) loadVisibleCovers();
     }
@@ -2678,7 +4563,7 @@ async function loadVisibleCovers() {
     const skus = batch.map((book) => String(book.bookSkuId));
     skus.forEach((sku) => state.coverInFlight.add(sku));
     try {
-      const body = await api('/api/book-covers', { method: 'POST', body: JSON.stringify({ books: batch.map((book) => ({ sku: book.bookSkuId, title: book.title })) }), timeoutMs: 30000 });
+      const body = await api('/api/book-covers', { method: 'POST', body: JSON.stringify({ accountId: Number(state.catalogFilters.accountId || 0), books: batch.map((book) => ({ sku: book.bookSkuId, title: book.title })) }), timeoutMs: 30000 });
       const covers = body.covers || {};
       const missingSkus = new Set((body.missing || []).map(String));
       const failedSkus = new Map((body.failed || []).map((item) => [String(item.sku), String(item.kind || 'unknown')]));
@@ -2735,7 +4620,7 @@ async function loadCreativePlans({ silent = false } = {}) {
     state.planJobs = body.jobs || [];
     for (const pending of state.pendingProductions?.values?.() || []) {
       if (pending.status !== 'planning') continue;
-      const job = state.planJobs.find((item) => String(item.input?.title || item.artifacts?.book?.title || '').trim().toLowerCase() === String(pending.title || '').trim().toLowerCase());
+      const job = state.planJobs.find((item) => pendingMatchesCreativePlanJob(pending, item));
       if (job?.state === 'failed') {
         pending.status = 'failed';
         pending.error = job.stages?.analysis?.error || 'AI 策划未完成';
@@ -2752,9 +4637,7 @@ async function loadCreativePlans({ silent = false } = {}) {
 
 function queueCreativePlanJob(job, selectedModel, planningSession = null) {
   if (!job) return false;
-  const pendingKey = productionIdentity({ title: job.input?.title || job.artifacts?.book?.title, sku: job.input?.sku || job.artifacts?.book?.bookSkuId });
-  const pending = state.pendingProductions.get(pendingKey)
-    || [...state.pendingProductions.values()].find((item) => String(item.title || '').trim().toLowerCase() === String(job.input?.title || '').trim().toLowerCase());
+  const pending = pendingProductionForCreativePlanJob(job);
   if (pending) {
     pending.status = 'planning';
     pending.error = '';
@@ -2785,7 +4668,7 @@ function dispatchesForRun(run) {
   if (run?.stages?.P1?.status === 'done' && run?.stages?.P2?.status === 'done' && run?.stages?.P5?.status === 'done' && run?.stages?.P3?.status !== 'done' && Object.keys(draft?.inFlight || {}).some((section) => draft.inFlight[section])) return [];
   const videoRetryAt = Date.parse(run.stages?.P4?.nextAttemptAt || '');
   const waitingForVideoCapacity = run.stages?.P4?.status === 'prepared'
-    && run.stages?.P4?.blockedReason === 'hourly_video_limit'
+    && ['daily_video_limit', 'hourly_video_limit'].includes(String(run.stages?.P4?.blockedReason || ''))
     && Number.isFinite(videoRetryAt)
     && videoRetryAt > Date.now();
   const posterFinished = ['done', 'partial', 'ambiguous'].includes(String(run.stages?.P3_5?.status || ''));
@@ -2814,7 +4697,9 @@ async function kickWorker() {
   if (!plans.length && !runs.length) { state.longKickKey = ''; return 0; }
   state.kicking = true;
   state.kickPromise = (async () => {
-    const targets = [...plans.flatMap(dispatchesForPlan), ...runs.flatMap(dispatchesForRun)];
+    // The service owns provider concurrency, but this page should not amplify
+    // a shared-model 429 by waking every active campaign item on each poll.
+    const targets = [...plans.flatMap(dispatchesForPlan), ...runs.flatMap(dispatchesForRun)].slice(0, 1);
     let dispatched = 0;
     for (const target of targets) {
       // Older open tabs may still have a section request in flight. Do not
@@ -2843,6 +4728,15 @@ async function kickWorker() {
 async function retryRun(id) {
   try { await api('/api/runs', { method: 'PATCH', body: JSON.stringify({ id, action: 'retry' }) }); state.detailFingerprint = ''; await loadStatus(); await kickWorker(); }
   catch (error) { showToast(error.message, 'error'); }
+}
+
+async function reconcileAttribution(id) {
+  try {
+    await api('/api/runs', { method: 'PATCH', body: JSON.stringify({ id, action: 'reconcile_attribution' }) });
+    state.detailFingerprint = '';
+    await loadStatus();
+    await kickWorker();
+  } catch (error) { showToast(error.message, 'error'); }
 }
 
 async function removeRunAsset(run, asset) {
@@ -2919,15 +4813,17 @@ function openConfirmation(kind, runId, options = {}) {
   const dialog = $('#confirmationDialog');
   const reference = kind === 'reference_video';
   const revision = kind === 'video_revision';
+  const characterAssets = kind === 'character_assets';
   const run = state.runs.find((item) => item.id === runId);
   const selectedModel = modelLabel(run?.input?.creativeProfile?.modelChoice);
   const posterNumber = state.confirmation.posterVariant === 'luminous_cinema' ? '1' : '2';
-  $('#confirmationTitle').textContent = reference ? `提交海报 ${posterNumber} 参考 AC 视频？` : revision ? '提交重写提示词版 AC 视频？' : `让 ${selectedModel} 再创作一版？`;
+  $('#confirmationTitle').textContent = characterAssets ? '生成角色一致性参考图？' : reference ? `提交海报 ${posterNumber} 参考 AC 视频？` : revision ? '提交重写提示词版 AC 视频？' : `让 ${selectedModel} 再创作一版？`;
   $('#confirmationDescription').textContent = reference
-    ? `将使用已完成的海报 ${posterNumber} 作为参考图，额外提交一条付费 AC 视频。原视频不会被替换，并受本小时 5 条上限控制。`
-    : revision ? '将使用你刚刚核对并采用的新视频提示词，额外提交一条付费 AC 视频。原视频不会被替换，并受本小时 5 条上限控制。'
+    ? `将使用已完成的海报 ${posterNumber} 作为参考图，额外提交一条付费 AC 视频。原视频不会被替换，并受本日 40 条上限控制。`
+    : revision ? '将使用你刚刚核对并采用的新视频提示词，额外提交一条付费 AC 视频。原视频不会被替换，并受本日 40 条上限控制。'
+      : characterAssets ? '将由后端根据当前任务的已锁定书籍和章节证据创建人物参考资产。此操作不会提交 AC 视频；生成完成后仍需在导演控制区手动选择、保存和预览。'
     : `${selectedModel} 会基于当前文案、原著证据、Code 和链接，生成明显不同的双语文案、视频脚本与海报提示词。不会自动提交付费视频或图片。`;
-  $('#confirmAction').textContent = reference || revision ? '确认提交视频' : '确认生成新创意';
+  $('#confirmAction').textContent = characterAssets ? '确认生成角色图' : reference || revision ? '确认提交视频' : '确认生成新创意';
   dialog.showModal();
 }
 
@@ -2939,6 +4835,7 @@ async function confirmAction() {
   try {
     if (request.kind === 'reference_video') await startReferenceVideo(request.runId, request.posterVariant);
     else if (request.kind === 'video_revision') await startVideoRevision(request.runId);
+    else if (request.kind === 'character_assets') await generateCharacterAssets(request.runId, request.character);
     else {
       state.creativeVariantRunId = request.runId;
       state.detailFingerprint = '';
@@ -2970,7 +4867,7 @@ async function pollReferenceVideos() {
   const run = state.runs.find((item) => item.artifacts?.referenceVideo?.status === 'running');
   if (run) {
     try {
-      await api('/api/reference-video', { method: 'POST', body: JSON.stringify({ runId: run.id, posterVariant: run.artifacts.referenceVideo.posterVariant }) });
+      await api('/api/reference-video', { method: 'POST', body: JSON.stringify({ runId: run.id, referenceAssetId: run.artifacts.referenceVideo.referenceAssetId }) });
       state.detailFingerprint = '';
       await loadStatus({ silent: true });
     } catch {}
@@ -2989,6 +4886,7 @@ async function pollReferenceVideos() {
 
 function openRunDialog() {
   $('#runFormError').textContent = '';
+  syncCatalogTargetControls();
   $('#runDialog').showModal();
   setTimeout(() => $('#manualTitle').focus(), 0);
 }
@@ -3002,11 +4900,11 @@ function upsertRun(run) {
   else state.runs[index] = run;
 }
 
-function markPendingProduction({ title, sku = '', source = 'manual', creativeProfile = {} }) {
-  const key = productionIdentity({ title, sku });
+function markPendingProduction({ title, sku = '', source = 'manual', creativeProfile = {}, delivery = null, p0Selection = null }) {
+  const key = routeProductionIdentity({ title, sku }, delivery);
   const existing = state.pendingProductions.get(key);
   if (existing && existing.status !== 'failed') return existing;
-  const pending = { key, title: String(title || ''), sku: String(sku || ''), source, creativeProfile, status: 'submitting', startedAt: Date.now(), error: '' };
+  const pending = { key, title: String(title || ''), sku: String(sku || ''), source, creativeProfile, delivery, p0Selection, status: 'submitting', startedAt: Date.now(), error: '' };
   state.pendingProductions.set(key, pending);
   renderOneClickStatus();
   renderLeaderboard();
@@ -3014,8 +4912,10 @@ function markPendingProduction({ title, sku = '', source = 'manual', creativePro
   return pending;
 }
 
-async function createProduction({ title, sku = '', source = 'manual', creativeProfile = {}, planning = null, kick = true, notify = true }) {
-  const key = productionIdentity({ title, sku });
+async function createProduction({ title, sku = '', source = 'manual', creativeProfile = {}, planning = null, delivery = null, p0Selection = null, kick = true, notify = true }) {
+  const accountId = Number(delivery?.accountId || state.catalogFilters.accountId || 0);
+  if (!accountId) throw new Error('请先选择一个已核验的目标账号');
+  const key = routeProductionIdentity({ title, sku }, { accountId });
   const previousRequest = state.productionRequests.get(key);
   if (previousRequest) return previousRequest;
   const previousPending = state.pendingProductions.get(key);
@@ -3023,10 +4923,10 @@ async function createProduction({ title, sku = '', source = 'manual', creativePr
     if (previousPending.runId) openDetail(previousPending.runId);
     return null;
   }
-  const pending = markPendingProduction({ title, sku, source, creativeProfile });
+  const pending = markPendingProduction({ title, sku, source, creativeProfile, delivery: { ...(delivery || {}), accountId }, p0Selection });
   const request = (async () => {
     try {
-      const body = await api('/api/runs', { method: 'POST', body: JSON.stringify({ title, sku, promoter: 'xujt', paidAuthorized: true, fullBookEvidence: true, source, creativeProfile, planning }) });
+      const body = await api('/api/runs', { method: 'POST', body: JSON.stringify({ title, sku, promoter: 'xujt', paidAuthorized: true, fullBookEvidence: true, source, creativeProfile, planning, accountId, p0Selection }) });
       if (!body?.run?.id) throw new Error('后台没有返回可追踪的任务 ID，请稍后重试');
       pending.status = 'accepted';
       pending.runId = body.run.id;
@@ -3059,38 +4959,41 @@ async function createProduction({ title, sku = '', source = 'manual', creativePr
   finally { if (state.productionRequests.get(key) === request) state.productionRequests.delete(key); }
 }
 
-async function startProduction(book) {
-  const pending = pendingProductionFor(book);
+async function startProduction(book, explicitTarget = null) {
+  const target = p0TargetForBook(book, explicitTarget);
+  if (!target) { showToast('当前榜单没有锁定目标账号', 'error'); return; }
+  const pending = pendingProductionFor(book, target);
   if (pending) {
     if (pending.status === 'failed') {
       state.pendingProductions.delete(pending.key);
       renderOneClickStatus();
-      return startProduction(book);
+      return startProduction(book, target);
     }
     if (pending.runId) openDetail(pending.runId);
     else showToast(`《${book.title}》已经入队，后台正在连接，不需要重复点击`);
     return;
   }
-  const existing = activeRunFor(book);
+  const existing = activeRunFor(book, target);
   if (existing) {
     openDetail(existing.id);
     return;
   }
-  const key = productionIdentity(book);
+  const key = routeProductionIdentity(book, target);
   if (state.productionRequests.has(key)) {
     showToast(`《${book.title}》正在入队，请在上方状态卡查看`);
     return;
   }
-  state.startingSku = String(book.title);
+  const startingKey = routeProductionIdentity(book, target);
+  state.startingProductions.add(startingKey);
   renderLeaderboard();
   renderOneClickStatus();
   icons();
   try {
-    await createProduction({ title: book.title, sku: book.bookSkuId || '', source: `catalog_${state.catalogDays}d` });
+    await createProduction({ title: book.title, sku: book.bookSkuId || '', source: `catalog_${target.appKey || state.catalogFilters.line}_${target.platform}_${state.catalogDays}d`, delivery: target, p0Selection: p0SelectionForBook(book, target) });
   } catch (error) {
     showToast(`《${book.title}》入队失败：${error.message}`, 'error');
   } finally {
-    state.startingSku = '';
+    state.startingProductions.delete(startingKey);
     renderLeaderboard();
     renderOneClickStatus();
     icons();
@@ -3099,7 +5002,11 @@ async function startProduction(book) {
 
 async function startSelectedProductions() {
   if (state.batchStarting) return;
-  const books = [...state.selectedBooks].map((sku) => state.leaderboard.find((book) => String(book.bookSkuId) === String(sku))).filter((book) => book && !activeRunFor(book) && !pendingProductionFor(book));
+  const target = p0TargetForBook({}, p0DecisionTarget());
+  if (!target) { showToast('当前榜单没有锁定目标账号', 'error'); return; }
+  const books = state.leaderboard.filter((book) => state.selectedBooks.has(routeProductionIdentity(book, target))
+    && !activeRunFor(book, target)
+    && !pendingProductionFor(book, target));
   if (!books.length) { showToast('请先勾选至少一本有真实指标的书'); return; }
   state.batchStarting = true;
   state.batchProgress = { total: books.length, completed: 0, failed: 0 };
@@ -3109,7 +5016,7 @@ async function startSelectedProductions() {
   let existing = 0;
   for (const book of books) {
     try {
-      const run = await createProduction({ title: book.title, sku: book.bookSkuId || '', source: `catalog_${state.catalogDays}d_batch`, kick: false, notify: false });
+      const run = await createProduction({ title: book.title, sku: book.bookSkuId || '', source: `catalog_${target.appKey || state.catalogFilters.line}_${target.platform}_${state.catalogDays}d_batch`, delivery: target, p0Selection: p0SelectionForBook(book, target), kick: false, notify: false });
       if (run?._creationDuplicate) existing += 1; else accepted += 1;
     } catch {
       state.batchProgress.failed += 1;
@@ -3132,15 +5039,25 @@ async function startSelectedProductions() {
 
 $('#loginForm').addEventListener('submit', async (event) => {
   event.preventDefault(); $('#loginError').textContent = '';
-  try { await api('/api/login', { method: 'POST', body: JSON.stringify({ password: $('#password').value }) }); $('#password').value = ''; await loadStatus(); }
+  try { await api('/api/login', { method: 'POST', body: JSON.stringify({ password: $('#password').value }) }); $('#password').value = ''; await loadStatus(); await loadPublications({ silent: true }); }
   catch (error) { $('#loginError').textContent = error.message; }
 });
 $('#togglePassword').addEventListener('click', () => { const input = $('#password'); input.type = input.type === 'password' ? 'text' : 'password'; });
 $('#refreshButton').addEventListener('click', () => loadStatus());
 $('#videoCapacity').addEventListener('click', () => {
-  const video = state.videoLimit || { used: 0, limit: 5, remaining: 5 };
-  const reset = new Date(); reset.setMinutes(0, 0, 0); reset.setHours(reset.getHours() + 1);
-  showToast(`本小时剩余 ${video.remaining}/${video.limit} 条视频额度，已使用 ${video.used} 条；${reset.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })} 自动重置。`);
+  const video = state.videoLimit || { used: 0, limit: 40, remaining: 40, scope: 'day', timeZone: 'Asia/Shanghai' };
+  const reset = Date.parse(video.resetAt || '');
+  const resetLabel = Number.isFinite(reset) ? new Date(reset).toLocaleString('zh-CN', { timeZone: video.timeZone || 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : '次日 00:00';
+  showToast(`本日剩余 ${video.remaining}/${video.limit} 条视频额度，已使用 ${video.used} 条；北京时间 ${resetLabel} 自动重置。`);
+});
+$('#pointsCapacity').addEventListener('click', () => {
+  const points = state.pointsBudget || { used: 0, limit: 1000, remaining: 1000, timeZone: 'Asia/Shanghai' };
+  const used = Number.isFinite(Number(points.used)) ? Number(points.used) : 0;
+  const limit = Number.isFinite(Number(points.limit)) ? Number(points.limit) : 1000;
+  const remaining = Math.max(0, Number.isFinite(Number(points.remaining)) ? Number(points.remaining) : limit - used);
+  const reset = Date.parse(points.resetAt || '');
+  const resetLabel = Number.isFinite(reset) ? new Date(reset).toLocaleString('zh-CN', { timeZone: points.timeZone || 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : '次日 00:00';
+  showToast(`每日受控积分上限 ${limit}；已计入 ${used}，剩余 ${remaining}。轮询、上传和创建 SocialEcho 草稿不计入；北京时间 ${resetLabel} 自动重置。`);
 });
 function openCatalogRanking() {
   const changed = state.leaderboardSource !== 'catalog';
@@ -3162,6 +5079,8 @@ function setOverviewFilter(filter) {
   const next = state.overviewFilter === filter ? 'all' : filter;
   state.overviewFilter = next;
   state.view = 'operations';
+  $('#adCampaignWorkspace').hidden = true;
+  $('#adPerformanceWorkspace').hidden = true;
   document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.view === 'operations'));
   renderStats(); renderRunList(); icons();
   $('#controlBand').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -3173,6 +5092,24 @@ function switchView(view) {
   state.view = view;
   state.overviewFilter = 'all';
   document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.view === view));
+  if (view === 'ads') {
+    $('#adCampaignWorkspace').hidden = false;
+    $('#adPerformanceWorkspace').hidden = true;
+    renderAdCampaignWorkspace();
+    loadAdCampaign({ silent: true });
+    $('#adCampaignWorkspace').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  if (view === 'ad-performance') {
+    $('#adCampaignWorkspace').hidden = true;
+    $('#adPerformanceWorkspace').hidden = false;
+    renderAdPerformance();
+    loadAdPerformance({ silent: true });
+    $('#adPerformanceWorkspace').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  $('#adCampaignWorkspace').hidden = true;
+  $('#adPerformanceWorkspace').hidden = true;
   renderStats(); renderRunList(); icons();
   const labels = { operations: '全部生产任务', library: '已生成素材', completed: '已完成任务', attention: '需要处理的任务' };
   $('#controlBand').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -3188,6 +5125,13 @@ function openAssistant() {
 
 $('#leaderboardButton').addEventListener('click', openCatalogRanking);
 $('#deckLeaderboard').addEventListener('click', openCatalogRanking);
+$('#deckAdCampaign').addEventListener('click', () => switchView('ads'));
+$('#previewDailyCampaign').addEventListener('click', previewDailyCampaign);
+$('#refreshDailyCampaign').addEventListener('click', () => loadDailyCampaign());
+$('#retryDailyCampaignCreative').addEventListener('click', retryDailyCampaignCreative);
+$('#dailyCampaignPaidConfirm').addEventListener('change', renderDailyCampaign);
+$('#createDailyCampaign').addEventListener('click', createDailyCampaign);
+$('#showAdvancedFlow').addEventListener('click', () => { $('#controlBand').scrollIntoView({ behavior: 'smooth', block: 'start' }); showToast('打开任一任务即可查看完整 P0–P7 节点与产物'); });
 $('#createRunButton').addEventListener('click', openRunDialog);
 $('#deckCreateRun').addEventListener('click', openRunDialog);
 $('#deckCreativePlan').addEventListener('click', () => openCreativePlanDialog());
@@ -3195,6 +5139,15 @@ $('#weeklyReportButton').addEventListener('click', openWeeklyReport);
 $('#dataQueryButton').addEventListener('click', () => { $('#dataQueryDialog').showModal(); $('#dataQueryInput').focus(); });
 $('#closeDataQuery').addEventListener('click', () => $('#dataQueryDialog').close());
 $('#dataQueryForm').addEventListener('submit', (event) => { event.preventDefault(); runDataQuery(); });
+$('#refreshAdCampaign').addEventListener('click', () => loadAdCampaign({ refreshList: true }));
+$('#adCampaignSelect').addEventListener('change', (event) => { state.adCampaignId = event.target.value; state.adCampaign = null; loadAdCampaign(); });
+$('#refreshAdPerformance').addEventListener('click', () => loadAdPerformance({ force: true }));
+$('#adPerformanceFrom').addEventListener('change', () => loadAdPerformance());
+$('#adPerformanceTo').addEventListener('change', () => loadAdPerformance());
+$('#openAdRegistry').addEventListener('click', () => openAdRegistry());
+$('#closeAdRegistry').addEventListener('click', () => $('#adRegistryDialog').close());
+$('#cancelAdRegistry').addEventListener('click', () => $('#adRegistryDialog').close());
+$('#adRegistryForm').addEventListener('submit', saveAdRegistry);
 $('#closeRunDialog').addEventListener('click', closeRunDialog);
 $('#closeCreativePlan').addEventListener('click', () => {
   state.planningSession = Number(state.planningSession || 0) + 1;
@@ -3227,11 +5180,18 @@ $('#runForm').addEventListener('submit', async (event) => {
   event.preventDefault();
   const title = $('#manualTitle').value.trim();
   const sku = $('#manualSku').value.trim();
+  const accountId = Number($('#manualAccount').value || 0);
+  const delivery = catalogTargetRoutes().find((route) => Number(route.accountId) === accountId) || { accountId };
   const creativeProfile = creativeProfileForForm();
   const button = $('#submitRun');
   $('#runFormError').textContent = '';
   button.disabled = true;
-  try { await createProduction({ title, sku, source: 'manual', creativeProfile }); closeRunDialog(); $('#runForm').reset(); }
+  try {
+    await createProduction({ title, sku, source: 'manual', creativeProfile, delivery, p0Selection: { ...p0SelectionForBook({}), source: 'manual' } });
+    closeRunDialog();
+    $('#runForm').reset();
+    syncCatalogTargetControls();
+  }
   catch (error) { $('#runFormError').textContent = error.message; }
   finally { button.disabled = false; }
 });
@@ -3259,7 +5219,33 @@ $('#retryCovers').addEventListener('click', () => {
 document.querySelectorAll('#windowControl button').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('#windowControl button').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.windowDays = Number(button.dataset.days); loadLeaderboard(); }));
 document.querySelectorAll('#catalogWindowControl button').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('#catalogWindowControl button').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.catalogDays = Number(button.dataset.days); loadLeaderboard(); }));
 $('#catalogSort').addEventListener('change', (event) => { state.catalogSort = event.target.value; loadLeaderboard(); });
-document.querySelectorAll('[data-catalog-filter]').forEach((input) => input.addEventListener('change', (event) => { state.catalogFilters[event.target.dataset.catalogFilter] = event.target.value; loadLeaderboard(); }));
+$('#catalogUsageFilter').addEventListener('change', (event) => { state.catalogUsageFilter = event.target.value; state.leaderboardPage = 1; renderLeaderboard(); icons(); });
+document.querySelectorAll('[data-catalog-filter]').forEach((input) => input.addEventListener('change', (event) => {
+  const key = event.target.dataset.catalogFilter;
+  state.catalogFilters[key] = event.target.value;
+  if (key === 'line') {
+    syncCatalogTargetControls({ resetAccount: true });
+    state.catalogTarget = null;
+    state.selectedBooks.clear();
+    state.coverFailures.clear();
+    state.coverInFlight.clear();
+  }
+  loadLeaderboard();
+}));
+$('#catalogPlatform').addEventListener('change', (event) => {
+  state.catalogFilters.platform = event.target.value;
+  syncCatalogTargetControls({ resetAccount: true });
+  state.catalogTarget = null;
+  state.selectedBooks.clear();
+  loadLeaderboard();
+});
+$('#catalogAccount').addEventListener('change', (event) => {
+  state.catalogFilters.accountId = event.target.value;
+  state.catalogTarget = null;
+  state.selectedBooks.clear();
+  syncCatalogTargetControls();
+  loadLeaderboard();
+});
 $('#clearBookSelection').addEventListener('click', () => { state.selectedBooks.clear(); renderLeaderboard(); icons(); });
 $('#startSelectedBooks').addEventListener('click', startSelectedProductions);
 $('#previousBooks').addEventListener('click', () => { if (state.leaderboardPage <= 1) return; state.leaderboardPage -= 1; state.leaderboardCoverKey = ''; renderLeaderboard(); loadVisibleCovers(); $('#leaderboardSection').scrollIntoView({ behavior: 'smooth', block: 'start' }); icons(); });
@@ -3273,18 +5259,29 @@ $('#loadMoreRuns').addEventListener('click', async () => {
   renderRunLoadMore();
   await loadStatus({ silent: true });
 });
+$('#loadCampaignRuns')?.addEventListener('click', async () => {
+  if (!state.dailyCampaignId || state.statusLoading) return;
+  state.statusCampaignId = String(state.dailyCampaignId);
+  state.statusScope = 'campaign';
+  state.selectedId = '';
+  renderRunLoadMore();
+  showToast('正在读取本 Campaign 的全部任务，不受最近 12/50 条窗口限制');
+  await loadStatus({ silent: true });
+});
 document.querySelectorAll('[data-overview-filter]').forEach((button) => button.addEventListener('click', () => setOverviewFilter(button.dataset.overviewFilter)));
 document.querySelectorAll('.nav-item').forEach((button) => button.addEventListener('click', () => switchView(button.dataset.view)));
 document.querySelectorAll('#densityControl button').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('#densityControl button').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.density = button.dataset.density; renderRunList(); icons(); }));
 
 renderCreativeProfilePreview();
+syncCatalogTargetControls();
 icons();
 // Render the most recent verified state immediately, then reconcile it in the background.
 const restoredDashboard = restoreDashboardSnapshot();
 if (restoredDashboard) {
   render();
 }
-loadStatus().then(() => { if (hasLiveBackgroundWork()) kickWorker(); });
+loadStatus().then(() => { loadPublications({ silent: true }); if (hasLiveBackgroundWork()) kickWorker(); });
+if (state.dailyCampaignId) loadDailyCampaign({ silent: true });
 loadLeaderboard({ silent: true });
 const loadSecondaryStartup = () => {
   loadCreativePlans({ silent: true });
@@ -3300,6 +5297,7 @@ async function pollDashboard() {
   let active = hasLiveBackgroundWork();
   if (!document.hidden) {
     await loadStatus({ silent: true });
+    if (state.dailyCampaignId) await loadDailyCampaign({ silent: true });
     active = hasLiveBackgroundWork();
     if (active) {
       idlePlanPolls = 0;

@@ -1,29 +1,34 @@
 const { getRedis, getRun, saveRun, addEvent, reserveVideoSlot } = require('./_lib/store');
-const { requireSession } = require('./_lib/auth');
+const { requireOperatorMutation } = require('./_lib/auth');
 const providers = require('./_lib/providers');
+const videoControl = require('./_lib/video-control');
 const { referenceVideoPayload } = require('./_lib/pipeline');
 
 const now = () => new Date().toISOString();
-const threadId = (value) => String(value?.thread_id || value?.threadId || value?.base_info?.thread_id || value?.id || '');
+const threadId = (value) => String(providers.taskIdOf(value) || '');
 
 module.exports = async (req, res) => {
-  if (!requireSession(req, res)) return;
+  // This route can create a paid AC task, so an open-access preview must not
+  // turn it into an unauthenticated provider client.
+  if (!requireOperatorMutation(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const pauseSetting = String(process.env.SOCIAL_VIDEO_GENERATION_PAUSED || '').trim().toLowerCase();
+  const submissionsPaused = pauseSetting ? !['0', 'false', 'off'].includes(pauseSetting) : process.env.VERCEL_ENV === 'production';
   const redis = getRedis();
   if (!redis) return res.status(503).json({ error: 'Social console storage is not configured' });
   const run = await getRun(redis, String(req.body?.runId || ''));
   if (!run) return res.status(404).json({ error: 'Run not found' });
-  const requestedVariant = ['luminous_cinema', 'editorial_romance'].includes(String(req.body?.posterVariant || '')) ? String(req.body.posterVariant) : 'editorial_romance';
-  const poster = (run.artifacts?.images || []).find((item) => item.variant === requestedVariant && item.status === 'success' && item.url);
-  if (!poster) return res.status(409).json({ error: `A completed ${requestedVariant} poster is required before submitting a reference video` });
+  const referenceAssetId = String(req.body?.referenceAssetId || '').trim();
+  if (!/^[a-z0-9][a-z0-9_-]{2,119}$/i.test(referenceAssetId)) return res.status(400).json({ error: 'Select one approved managed character reference image' });
   let video = run.artifacts.referenceVideo;
   try {
-    if (video?.posterVariant && video.posterVariant !== requestedVariant) return res.status(409).json({ error: 'A poster-reference video already exists for this run. Keep or remove it before switching the reference poster.', video });
+    if (video?.referenceAssetId && video.referenceAssetId !== referenceAssetId) return res.status(409).json({ error: 'A character-reference video already exists for this run. Keep or remove it before switching the reference image.', video });
     if (!video) {
-      const prepared = referenceVideoPayload(run, poster.url);
-      video = { status: 'prepared', remark: prepared.remark, payload: prepared.payload, posterUrl: poster.url, posterVariant: poster.variant, threadId: '', videoUrls: [] };
+      if (submissionsPaused) return res.status(409).json({ error: 'New video submissions are paused by the operator' });
+      const prepared = referenceVideoPayload(run, referenceAssetId);
+      video = { status: 'prepared', remark: prepared.remark, payload: prepared.payload, payloadFingerprint: prepared.payloadFingerprint, control: prepared.control, controlWarnings: [...(prepared.warnings || [])], submissionAllowed: prepared.submissionAllowed, referenceAssetId, threadId: '', videoUrls: [] };
       run.artifacts.referenceVideo = video;
-      addEvent(run, 'reference_video_prepared', 'Poster-reference AC video prepared', { posterVariant: poster.variant });
+      addEvent(run, 'reference_video_prepared', 'Character-reference AC video prepared', { referenceAssetId });
       await saveRun(redis, run);
     }
     if (video.status === 'prepared') {
@@ -34,9 +39,11 @@ module.exports = async (req, res) => {
         await saveRun(redis, run);
         return res.status(200).json({ video, runId: run.id });
       }
+      if (submissionsPaused) return res.status(409).json({ error: 'New video submissions are paused by the operator', video });
+      if (video.submissionAllowed === false || video.control?.policy?.production === false) return res.status(409).json({ error: 'Experimental templates are dry-run only until a single-variable experiment is explicitly authorized', video });
       const slot = await reserveVideoSlot(redis);
-      if (!slot.granted) return res.status(429).json({ error: `Video limit reached (${slot.limit}/${slot.limit}); retry after ${slot.label}`, video });
-      video.slot = { key: slot.key, hour: slot.label, reservedAt: now(), position: slot.used, limit: slot.limit };
+      if (!slot.granted) return res.status(429).json({ error: `Daily video limit reached (${slot.limit}/${slot.limit}); retry after ${slot.resetLabel}`, video });
+      video.slot = { key: slot.key, day: slot.label, resetAt: slot.resetAt, reservedAt: now(), position: slot.used, limit: slot.limit };
       video.status = 'submitting';
       video.submitAttemptedAt = now();
       await saveRun(redis, run);
@@ -46,7 +53,7 @@ module.exports = async (req, res) => {
         if (!video.threadId) throw new providers.ProviderError('AC accepted the reference-video request without a thread ID', { ambiguous: true });
         video.status = 'running';
         video.submittedAt = now();
-        addEvent(run, 'reference_video_submitted', 'One paid AC poster-reference video submitted', { threadId: video.threadId, posterVariant: poster.variant });
+        addEvent(run, 'reference_video_submitted', 'One paid AC character-reference video submitted', { threadId: video.threadId, referenceAssetId });
         await saveRun(redis, run);
         return res.status(202).json({ video, runId: run.id });
       } catch (error) {
@@ -58,6 +65,7 @@ module.exports = async (req, res) => {
     if (video.status === 'running') {
       const result = await providers.acResult(video.threadId);
       Object.assign(video, result, { lastCheckedAt: now() });
+      video.controlWarnings = [...new Set([...(video.controlWarnings || []), ...videoControl.executionWarnings(video.control, result.executionControls)])].slice(-12);
       if (result.status === 'completed') {
         video.mediaValidation = await providers.validateVideo(result.videoUrls[0]);
         addEvent(run, 'reference_video_ready', 'AC poster-reference video completed and media URL verified', { threadId: video.threadId });

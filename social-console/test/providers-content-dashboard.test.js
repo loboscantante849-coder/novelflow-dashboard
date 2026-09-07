@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const providers = require('../api/_lib/providers');
 
-test('content dashboard uses the Writer Admin request contract and sorts locally', async (t) => {
+test('content dashboard uses the Writer Admin request contract and preserves deterministic local ordering', async (t) => {
   const originalFetch = global.fetch;
   const previousToken = process.env.NOVELFLOW_OIDC_TOKEN;
   process.env.NOVELFLOW_OIDC_TOKEN = 'test-dashboard-token';
@@ -21,15 +21,121 @@ test('content dashboard uses the Writer Admin request contract and sorts locally
   };
   const result = await providers.contentDashboardBooks({
     startDate: '2026-07-01', endDate: '2026-07-07', sortField: 'firstReadUntRate',
-    filters: { productLine: ['novelflow'], language: 'EN' }, maxPages: 1
+    filters: { productLine: ['novelflow'], language: 'EN', skuIds: ['a', 'b'] }, maxPages: 1
   });
-  const request = requests.find((item) => item.url.includes('/contentmiddleground/report/list'));
+  const request = requests.find((item) => item.url.includes('/contentmiddleground/report/v2/list'));
   const headers = new Headers(request.options.headers);
   const body = JSON.parse(request.options.body);
   assert.equal(headers.get('content-type'), 'application/json; charset=utf-8');
   assert.equal(headers.get('x-os'), 'web');
-  assert.equal(Object.hasOwn(body, 'sortField'), false);
+  assert.equal(body.sortField, 'firstReadUntRate');
+  assert.equal(body.sortIsAsc, false);
+  assert.deepEqual(body.skuIds, ['a', 'b']);
+  assert.ok(result.books.every((book) => book.productLineVerified === true));
   assert.deepEqual(result.books.map((book) => book.title), ['First', 'Second']);
+});
+
+test('content dashboard rejects rows that conflict with the requested product line', async (t) => {
+  const originalFetch = global.fetch;
+  const previousToken = process.env.NOVELFLOW_OIDC_TOKEN;
+  process.env.NOVELFLOW_OIDC_TOKEN = 'test-dashboard-token';
+  t.after(() => {
+    global.fetch = originalFetch;
+    if (previousToken === undefined) delete process.env.NOVELFLOW_OIDC_TOKEN;
+    else process.env.NOVELFLOW_OIDC_TOKEN = previousToken;
+  });
+  global.fetch = async () => new Response(JSON.stringify({ code: 200, data: { total: 3, data: [
+    { skuId: 'max-explicit', title: 'Max Explicit', productLine: 'Max-Novel', baseReadUnt: 500 },
+    { skuId: 'max-inferred', title: 'Max Inferred', baseReadUnt: 400 },
+    { skuId: 'novelflow-wrong', title: 'Wrong Product', productLine: 'novelflow', baseReadUnt: 900 }
+  ] } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  const result = await providers.contentDashboardBooks({
+    startDate: '2026-07-01', endDate: '2026-07-07', sortField: 'baseReadUnt',
+    filters: { productLine: ['maxnovel'], language: 'EN' }, maxPages: 1
+  });
+  assert.deepEqual(result.books.map((book) => book.title), ['Max Explicit', 'Max Inferred']);
+  assert.ok(result.books.every((book) => book.productLine === 'Max-Novel' || book.productLine === 'maxnovel'));
+});
+
+test('relaxed product-line retry omits the incompatible server filter and keeps only explicit echoes', async (t) => {
+  const originalFetch = global.fetch;
+  const previousToken = process.env.NOVELFLOW_OIDC_TOKEN;
+  process.env.NOVELFLOW_OIDC_TOKEN = 'test-dashboard-token';
+  const requests = [];
+  t.after(() => {
+    global.fetch = originalFetch;
+    if (previousToken === undefined) delete process.env.NOVELFLOW_OIDC_TOKEN;
+    else process.env.NOVELFLOW_OIDC_TOKEN = previousToken;
+  });
+  global.fetch = async (url, options = {}) => {
+    if (!String(url).includes('/contentmiddleground/report/v2/list')) return new Response('{}', { status: 200 });
+    const body = JSON.parse(String(options.body || '{}'));
+    requests.push(body);
+    if (body.productLine) return new Response(JSON.stringify({ message: 'generic upstream 500' }), { status: 500 });
+    return new Response(JSON.stringify({ code: 200, data: { total: 3, data: [
+      { skuId: 'max-explicit', title: 'Max Explicit', productLine: 'Max-Novel', baseReadUnt: 500 },
+      { skuId: 'max-missing-echo', title: 'Missing Echo', baseReadUnt: 900 },
+      { skuId: 'wrong-line', title: 'Wrong Product', productLine: 'novelflow', baseReadUnt: 1000 }
+    ] } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  const result = await providers.contentDashboardBooks({
+    startDate: '2026-07-01', endDate: '2026-07-07', sortField: 'baseReadUnt',
+    filters: { productLine: ['maxnovel'], language: 'EN', omitServerProductLine: true, requireProductLineEcho: true }, maxPages: 1
+  });
+  assert.equal(requests[0].productLine, undefined);
+  assert.deepEqual(result.books.map((book) => book.title), ['Max Explicit']);
+  assert.equal(result.books[0].productLineVerified, true);
+});
+
+test('relaxed recovery can carry an unlabelled row to exact bookstore ownership verification', async (t) => {
+  const originalFetch = global.fetch;
+  const previousToken = process.env.NOVELFLOW_OIDC_TOKEN;
+  process.env.NOVELFLOW_OIDC_TOKEN = 'test-dashboard-token';
+  t.after(() => {
+    global.fetch = originalFetch;
+    if (previousToken === undefined) delete process.env.NOVELFLOW_OIDC_TOKEN;
+    else process.env.NOVELFLOW_OIDC_TOKEN = previousToken;
+  });
+  global.fetch = async (url, options = {}) => {
+    if (!String(url).includes('/contentmiddleground/report/v2/list')) return new Response('{}', { status: 200 });
+    const body = JSON.parse(String(options.body || '{}'));
+    assert.equal(body.productLine, undefined);
+    return new Response(JSON.stringify({ code: 200, data: { total: 1, data: [
+      { skuId: 'max-unlabelled', title: 'Max Unlabelled', baseReadUnt: 900 }
+    ] } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  const result = await providers.contentDashboardBooks({
+    startDate: '2026-07-01', endDate: '2026-07-07', sortField: 'baseReadUnt',
+    filters: { productLine: ['maxnovel'], language: 'EN', omitServerProductLine: true, requireProductLineEcho: true, allowMissingProductLineEcho: true }, maxPages: 1
+  });
+  assert.equal(result.books[0].bookSkuId, 'max-unlabelled');
+  assert.equal(result.books[0].productLine, '');
+  assert.equal(result.books[0].productLineVerified, false);
+});
+
+test('relaxed recovery can carry a differently labelled row to exact bookstore ownership verification', async (t) => {
+  const originalFetch = global.fetch;
+  const previousToken = process.env.NOVELFLOW_OIDC_TOKEN;
+  process.env.NOVELFLOW_OIDC_TOKEN = 'test-dashboard-token';
+  t.after(() => {
+    global.fetch = originalFetch;
+    if (previousToken === undefined) delete process.env.NOVELFLOW_OIDC_TOKEN;
+    else process.env.NOVELFLOW_OIDC_TOKEN = previousToken;
+  });
+  global.fetch = async (url) => {
+    if (!String(url).includes('/contentmiddleground/report/v2/list')) return new Response('{}', { status: 200 });
+    return new Response(JSON.stringify({ code: 200, data: { total: 1, data: [
+      { skuId: 'max-upstream-label', title: 'Max Upstream Label', productLine: 'anystories', baseReadUnt: 900 }
+    ] } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  const result = await providers.contentDashboardBooks({
+    startDate: '2026-07-01', endDate: '2026-07-07', sortField: 'baseReadUnt',
+    filters: { productLine: ['maxnovel'], language: 'EN', omitServerProductLine: true, requireProductLineEcho: true, allowUnmatchedProductLine: true }, maxPages: 1
+  });
+  assert.equal(result.books[0].bookSkuId, 'max-upstream-label');
+  assert.equal(result.books[0].productLine, 'anystories');
+  assert.equal(result.books[0].productLineEchoPresent, true);
+  assert.equal(result.books[0].productLineVerified, false);
 });
 
 test('promotion score ranks only statistically qualified books and balances scale with conversion', async (t) => {
@@ -80,12 +186,12 @@ test('content dashboard refreshes an expired configured credential once after it
     if (String(url).includes('/connect/token')) {
       return new Response(JSON.stringify({ access_token: 'fresh-token' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
-    const dashboardCalls = calls.filter((item) => item.url.includes('/contentmiddleground/report/list'));
+    const dashboardCalls = calls.filter((item) => item.url.includes('/contentmiddleground/report/v2/list'));
     if (dashboardCalls.length === 1) return new Response(JSON.stringify({ message: 'oops' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     return new Response(JSON.stringify({ code: 200, data: { total: 1, data: [{ skuId: 'fresh-book', title: 'Fresh Book', baseReadUnt: 1 }] } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   };
   const result = await providers.contentDashboardBooks({ startDate: '2026-07-01', endDate: '2026-07-07', maxPages: 1 });
-  const dashboardCalls = calls.filter((item) => item.url.includes('/contentmiddleground/report/list'));
+  const dashboardCalls = calls.filter((item) => item.url.includes('/contentmiddleground/report/v2/list'));
   assert.equal(dashboardCalls.length, 2);
   const tokenCalls = calls.filter((item) => item.url.includes('/connect/token'));
   assert.equal(tokenCalls.length, 1);
@@ -118,8 +224,9 @@ test('exact book lookup falls back to a SKU-verified canonical record', async (t
 
   const book = await providers.findExactBook('Stale Dashboard Title', 'target-sku');
 
-  assert.equal(requests.length, 2);
-  assert.equal(requests[1].searchParams.get('bookId'), 'target-sku');
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].searchParams.get('bookId'), 'target-sku');
+  assert.equal(requests[0].searchParams.get('bookStatus'), '1');
   assert.equal(book.bookSkuId, 'target-sku');
   assert.equal(book.title, 'Canonical Book Title');
   assert.equal(book.cover, 'https://cdn.example/canonical-cover.jpg');
@@ -146,9 +253,39 @@ test('exact book lookup uses the legacy SKU keyword path only with an exact iden
 
   const book = await providers.findExactBook('Unmatched Dashboard Title', 'keyword-sku');
 
-  assert.equal(requests.length, 3);
-  assert.equal(requests[2].searchParams.get('keyword'), 'keyword-sku');
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].searchParams.get('keyword'), 'keyword-sku');
+  assert.equal(requests[1].searchParams.get('bookStatus'), '1');
   assert.equal(book.bookSkuId, 'keyword-sku');
   assert.equal(book.title, 'Keyword Canonical Title');
   assert.equal(book.cover, 'https://cdn.example/keyword-cover.jpg');
+});
+
+test('exact lookup may recover from an application partition by matching both title and SKU', async (t) => {
+  const originalFetch = global.fetch;
+  const previousToken = process.env.NOVELFLOW_OIDC_TOKEN;
+  process.env.NOVELFLOW_OIDC_TOKEN = 'test-partition-token';
+  const requests = [];
+  t.after(() => {
+    global.fetch = originalFetch;
+    if (previousToken === undefined) delete process.env.NOVELFLOW_OIDC_TOKEN;
+    else process.env.NOVELFLOW_OIDC_TOKEN = previousToken;
+  });
+  global.fetch = async (url) => {
+    const requestUrl = new URL(String(url));
+    requests.push(requestUrl);
+    const titleQuery = requestUrl.searchParams.get('bookName');
+    const records = titleQuery === 'Partitioned Exact Book'
+      ? [{ bookSkuId: 'partition-sku', id: 'partition-city-id', title: 'Partitioned Exact Book', bookStatus: 1 }]
+      : [];
+    return new Response(JSON.stringify({ code: 200, data: { data: records, total: records.length } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+
+  const book = await providers.findExactBook('Partitioned Exact Book', 'partition-sku', { applicationId: 'partition-app' });
+  assert.equal(requests.length, 3);
+  assert.equal(requests[0].searchParams.get('bookId'), 'partition-sku');
+  assert.equal(requests[1].searchParams.get('keyword'), 'partition-sku');
+  assert.equal(requests[2].searchParams.get('bookName'), 'Partitioned Exact Book');
+  assert.equal(book.bookSkuId, 'partition-sku');
+  assert.equal(book.cityBookId, 'partition-city-id');
 });

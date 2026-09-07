@@ -46,3 +46,48 @@ test('social storage bridge rejects cross-namespace and oversized mget requests'
   });
   assert.equal(oversized.statusCode, 400);
 });
+
+test('social storage bridge supports signed atomic counter deltas', async () => {
+  FakeRedis.reset({ 'nf_social:video_day:20260904': '4' });
+  const incremented = await invoke(socialStore, {
+    headers: { authorization: 'Bearer test-social-store-secret' },
+    body: { op: 'incrby', args: { key: 'nf_social:video_day:20260904', amount: 3 } }
+  });
+  assert.equal(incremented.statusCode, 200);
+  assert.equal(incremented.body.result, 7);
+
+  const released = await invoke(socialStore, {
+    headers: { authorization: 'Bearer test-social-store-secret' },
+    body: { op: 'incrby', args: { key: 'nf_social:video_day:20260904', amount: -2 } }
+  });
+  assert.equal(released.statusCode, 200);
+  assert.equal(released.body.result, 5);
+
+  const malformed = await invoke(socialStore, {
+    headers: { authorization: 'Bearer test-social-store-secret' },
+    body: { op: 'incrby', args: { key: 'nf_social:video_day:20260904', amount: 0.5 } }
+  });
+  assert.equal(malformed.statusCode, 400);
+});
+
+test('social storage bridge supports bounded signed counter increments', async () => {
+  const increment = await invoke(socialStore, {
+    headers: { authorization: 'Bearer test-social-store-secret' },
+    body: { op: 'incrby', args: { key: 'nf_social:ac_points:20260904', amount: 7 } }
+  });
+  assert.equal(increment.statusCode, 200);
+  assert.equal(increment.body.result, 7);
+
+  const decrement = await invoke(socialStore, {
+    headers: { authorization: 'Bearer test-social-store-secret' },
+    body: { op: 'incrby', args: { key: 'nf_social:ac_points:20260904', amount: -2 } }
+  });
+  assert.equal(decrement.statusCode, 200);
+  assert.equal(decrement.body.result, 5);
+
+  const oversized = await invoke(socialStore, {
+    headers: { authorization: 'Bearer test-social-store-secret' },
+    body: { op: 'incrby', args: { key: 'nf_social:ac_points:20260904', amount: 1001 } }
+  });
+  assert.equal(oversized.statusCode, 400);
+});

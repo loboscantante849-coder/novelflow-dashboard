@@ -21,7 +21,7 @@ function options(value) {
   const input = value && typeof value === 'object' ? value : {};
   const output = {};
   if (input.nx === true) output.nx = true;
-  if (Number.isInteger(input.ex) && input.ex > 0 && input.ex <= 7 * 86400) output.ex = input.ex;
+  if (Number.isInteger(input.ex) && input.ex > 0 && input.ex <= 30 * 86400) output.ex = input.ex;
   if (input.rev === true) output.rev = true;
   return output;
 }
@@ -51,6 +51,14 @@ module.exports = async (req, res) => {
       if (!args.entry || !Number.isFinite(args.entry.score) || typeof args.entry.member !== 'string' || !validKey(`${KEY_PREFIX}run:${args.entry.member}`)) return res.status(400).json({ error: 'Invalid sorted-set entry' });
       result = await redis.zadd(key, { score: args.entry.score, member: args.entry.member });
     } else if (op === 'incr') result = await redis.incr(key);
+    else if (op === 'incrby') {
+      // Budget and video-capacity reservations use signed integer deltas.
+      // Keep the bridge narrow so callers cannot turn it into an arbitrary
+      // Redis command proxy or apply unbounded counter changes.
+      const amount = Number(args.amount);
+      if (!Number.isSafeInteger(amount) || amount === 0 || Math.abs(amount) > 1000) return res.status(400).json({ error: 'Invalid increment amount' });
+      result = await redis.incrby(key, amount);
+    }
     else if (op === 'del') result = await redis.del(key);
     else return res.status(400).json({ error: 'Unsupported operation' });
     return res.status(200).json({ result: result ?? null });

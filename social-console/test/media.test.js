@@ -15,7 +15,7 @@ test('allowed image media is proxied only when the upstream is a readable image'
   };
 
   try {
-    await handler({ method: 'GET', query: { url: 'https://assets.laoye.chat/gallery/poster.jpg' } }, res);
+  await handler({ method: 'GET', query: { url: 'https://ai.iiit.cn/v1/gallery/poster.jpg' } }, res);
   } finally {
     global.fetch = originalFetch;
   }

@@ -1,7 +1,9 @@
 const { requireSession } = require('./_lib/auth');
 const { getRedis, getCreativePlan, listCreativePlanSummaries, newCreativePlan, saveCreativePlan, creativePlanDetail } = require('./_lib/store');
+const { normalizeDelivery, sanitizeP0Selection } = require('./_lib/distribution');
+const { p0SelectionFromReceipt, requiresP0Receipt } = require('./_lib/p0-receipts');
 
-const MODEL_CHOICES = new Set(['deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'hy3', 'kimi-k2.7-code', 'qwen3.5-flash', 'glm-4.5-air', 'kimi-k2.5', 'minimax-m2.5', 'glm-5.2', 'kimi-k3', 'minimax-m3']);
+const MODEL_CHOICES = new Set(['glm-5.3-flash', 'deepseek-v4-flash-preview', 'deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'hy3', 'kimi-k2.7-code', 'qwen3.5-flash', 'glm-4.5-air', 'kimi-k2.5', 'minimax-m2.5', 'glm-5.2', 'kimi-k3', 'minimax-m3']);
 const text = (value, max) => typeof value === 'string' && value.trim().length <= max ? value.trim() : '';
 const requestKey = (id) => `nf_social:plan_request:${id}`;
 
@@ -60,15 +62,32 @@ module.exports = async (req, res) => {
     const title = text(req.body?.title, 200);
     const sku = text(req.body?.sku, 100);
     const requestId = text(req.body?.requestId, 100);
-    const requestedModel = String(req.body?.modelChoice || 'hy3');
-    const modelChoice = MODEL_CHOICES.has(requestedModel) ? requestedModel : 'hy3';
+    const requestedModel = String(req.body?.modelChoice || 'glm-5.3-flash');
+    const modelChoice = MODEL_CHOICES.has(requestedModel) ? requestedModel : 'glm-5.3-flash';
     if (!title) return res.status(400).json({ error: 'Exact book title is required' });
+    const requestedAccountId = Number(req.body?.accountId || req.body?.delivery?.accountId || 0);
+    const delivery = requestedAccountId ? normalizeDelivery({ accountId: requestedAccountId }) : null;
+    if (req.body?.autoStartProduction !== false && !delivery) {
+      return res.status(400).json({ error: 'A verified target account is required before an AI plan can auto-start production' });
+    }
+    const rawReceipt = text(req.body?.p0Receipt, 12000) || text(req.body?.p0Selection?.receipt, 12000);
+    const p0Selection = requiresP0Receipt(req.body || {})
+      ? p0SelectionFromReceipt(rawReceipt, { delivery, title, sku })
+      : sanitizeP0Selection(req.body?.p0Selection, delivery);
     if (requestId) {
       const existingId = await redis.get(requestKey(requestId));
       const existing = existingId ? await getCreativePlan(redis, String(existingId)) : null;
       if (existing) return res.status(200).json({ job: existing, queued: ['queued', 'running'].includes(existing.state), duplicate: true });
     }
-    const job = newCreativePlan({ title, sku, modelChoice, preferredModelChoice: modelChoice, fallbackUsed: false, autoStartProduction: req.body?.autoStartProduction !== false, paidAuthorized: req.body?.paidAuthorized !== false, promoter: text(req.body?.promoter, 80) || 'xujt', clientRequestId: requestId });
+    const job = newCreativePlan({
+      title, sku, modelChoice, preferredModelChoice: modelChoice, fallbackUsed: false,
+      autoStartProduction: req.body?.autoStartProduction !== false,
+      paidAuthorized: req.body?.paidAuthorized !== false,
+      promoter: text(req.body?.promoter, 80) || 'xujt',
+      clientRequestId: requestId,
+      ...(delivery ? { delivery } : {}),
+      p0Selection
+    });
     // Publish the request-id mapping only after the plan is durable. A browser
     // timeout can then safely reconcile to a real task instead of seeing a
     // mapping that points at a plan which has not finished saving yet.

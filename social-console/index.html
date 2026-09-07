@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="/assistant-overrides.css">
   <link rel="stylesheet" href="/premium-ui.css">
   <link rel="stylesheet" href="/studio-ui.css">
+  <link rel="stylesheet" href="/ad-campaign-ui.css">
+  <link rel="stylesheet" href="/ad-performance-ui.css">
 </head>
 <body>
   <section id="loginView" class="login-view" hidden>
@@ -22,10 +24,10 @@
     </form>
   </section>
 
-  <div id="appView" class="app-shell">
+  <div id="appView" class="app-shell" hidden>
     <header class="topbar">
       <div class="brand-lockup"><span class="brand-mark">NF</span><div><strong>NovelFlow</strong><small>Social Operations</small></div></div>
-      <div class="topbar-actions"><span id="videoCapacity" class="video-capacity" title="本网站每小时最多提交 5 条付费视频"><i data-lucide="video"></i><strong>视频额度 5/5</strong><small>0 已用 · 等待同步</small></span><span id="systemState" class="system-state" title="显示生产所需配置是否齐全，不代表第三方供应商实时零故障"><span class="pulse-dot"></span>读取生产配置</span><button id="createRunButton" class="top-create"><i data-lucide="plus"></i><span>新创作</span></button><button id="refreshButton" class="icon-button" title="刷新"><i data-lucide="refresh-cw"></i></button></div>
+      <div class="topbar-actions"><span id="videoCapacity" class="video-capacity" title="本网站每天最多提交 40 条付费视频"><i data-lucide="video"></i><strong>视频额度 40/40</strong><small>0 已用 · 等待同步</small></span><span id="pointsCapacity" class="video-capacity points-capacity" title="每日受控积分：所有受控付费 AC 创建和重试共用同一服务端上限"><i data-lucide="coins"></i><strong>积分额度 1000</strong><small>等待同步</small></span><span id="systemState" class="system-state" title="显示生产所需配置是否齐全，不代表第三方供应商实时零故障"><span class="pulse-dot"></span>读取生产配置</span><button id="createRunButton" class="top-create"><i data-lucide="plus"></i><span>新创作</span></button><button id="refreshButton" class="icon-button" title="刷新"><i data-lucide="refresh-cw"></i></button></div>
     </header>
 
     <aside class="sidebar">
@@ -35,6 +37,8 @@
         <button class="nav-item" data-view="library"><i data-lucide="library-big"></i><span>素材库</span></button>
         <button class="nav-item" data-view="completed"><i data-lucide="circle-check-big"></i><span>已完成</span></button>
         <button class="nav-item" data-view="attention"><i data-lucide="triangle-alert"></i><span>需处理</span></button>
+        <button class="nav-item" data-view="ads"><i data-lucide="megaphone"></i><span>广告素材</span></button>
+        <button class="nav-item" data-view="ad-performance"><i data-lucide="chart-no-axes-combined"></i><span>广告数据</span></button>
       </nav>
       <button id="creativePlanQueueButton" class="side-plan-launch" type="button" hidden><i data-lucide="brain-circuit"></i><span>AI 策划</span><b id="creativePlanQueueCount">0</b><i data-lucide="chevron-right"></i></button>
       <section id="creativePlanQueue" hidden aria-live="polite"></section>
@@ -42,16 +46,121 @@
       <div class="facebook-lock pro-edition"><i data-lucide="crown"></i><span>迷人专属 · 至尊无敌 PRO</span></div>
     </aside>
 
-    <main class="workspace">
+    <main class="workspace" data-console-version="harness-p0-p7">
       <section class="command-deck">
-        <div class="command-title"><span class="eyebrow">NOVELFLOW CREATIVE STUDIO</span><h1>今天，做出一条值得发布的素材</h1><p>从真实榜单挑一本好书，AI 读取原文后自动完成策划、文案、海报与视频。</p></div>
-        <div class="command-actions"><button id="deckLeaderboard" class="primary-command"><i data-lucide="sparkles"></i><span>从榜单开始</span></button><button id="deckCreativePlan" class="secondary-command"><i data-lucide="brain-circuit"></i><span>AI 先策划</span></button><button id="deckCreateRun" class="secondary-command"><i data-lucide="plus"></i><span>按书名创建</span></button><button id="weeklyReportButton" class="secondary-command"><i data-lucide="presentation"></i><span>本周简报</span></button></div>
+        <div class="command-title"><span class="eyebrow">NOVELFLOW CREATIVE STUDIO</span><h1>选书 → 文案 → SocialEcho 草稿</h1><p id="commandCapabilitySummary">正在读取服务端媒体生产能力与今日额度。</p></div>
+        <div class="command-actions"><button id="deckLeaderboard" class="primary-command"><i data-lucide="sparkles"></i><span>从榜单开始</span></button><button id="deckAdCampaign" class="secondary-command"><i data-lucide="megaphone"></i><span>广告素材</span></button><button id="deckCreativePlan" class="secondary-command"><i data-lucide="brain-circuit"></i><span>AI 先策划</span></button><button id="deckCreateRun" class="secondary-command"><i data-lucide="plus"></i><span>按书名创建</span></button><button id="weeklyReportButton" class="secondary-command"><i data-lucide="presentation"></i><span>本周简报</span></button></div>
+      </section>
+      <section id="dailyCampaignPanel" class="daily-campaign-panel" aria-labelledby="dailyCampaignTitle" aria-live="polite">
+        <header class="daily-campaign-head">
+          <div><span class="eyebrow">DAILY 12 × 3 CAMPAIGN</span><h1 id="dailyCampaignTitle">日常一键生产 36 套</h1><p>用实时三轴榜单为 12 个在线账号各选 3 本优质书，全程精确跟踪这 36 个 slot。</p></div>
+          <div class="daily-campaign-actions">
+            <span id="dailyCampaignCapability" class="daily-campaign-capability checking"><i data-lucide="loader-circle"></i><b>正在核验生产能力</b></span>
+            <button id="previewDailyCampaign" class="secondary-command" type="button"><i data-lucide="scan-search"></i><span>预览今日选书</span></button>
+            <button id="retryDailyCampaignCreative" class="secondary-command" type="button" hidden><i data-lucide="rotate-ccw"></i><span>重试失败创意</span></button>
+            <button id="refreshDailyCampaign" class="icon-button" type="button" title="按 Campaign ID 刷新 36 条精确状态" hidden><i data-lucide="refresh-cw"></i></button>
+          </div>
+        </header>
+        <div class="daily-campaign-contract" aria-label="每日生产合同">
+          <article><span>在线账号</span><strong id="dailyCampaignAccountCount">12</strong><small>预检会再次实时核验</small></article>
+          <article><span>每号素材</span><strong>3</strong><small>同账号书籍硬去重</small></article>
+          <article><span>本次 Slots</span><strong id="dailyCampaignSlotCount">36</strong><small>不依赖“最近 12/30/50 条”</small></article>
+          <article><span>选书时效</span><strong id="dailyCampaignFreshness">待预检</strong><small>阅读基数 · 首读 · 长读并集</small></article>
+        </div>
+        <div class="daily-selection-rules">
+          <div><i data-lucide="radio-tower"></i><span><strong>实时三轴候选池</strong><small>同时召回阅读规模、首读率和 20w 长读留存优势书，过期收据不可创建。</small></span></div>
+          <div><i data-lucide="git-compare-arrows"></i><span><strong>先质量，再去重</strong><small>同账号 3 本不重复；同应用、全活动优先不重复；候选不足时只用高质量书可解释回填。</small></span></div>
+          <div><i data-lucide="clapperboard"></i><span><strong>12 种创意形式轮换</strong><small>对峙、证据发现、追逐、公开反转、仪式中断等交错，禁止床醒与低信息首屏。</small></span></div>
+        </div>
+        <div id="dailyCampaignNotice" class="daily-campaign-notice">先预览：后台会核验 12 个 SocialEcho 账号、实时榜单、36 个选书与今日视频额度，不会产生付费任务。</div>
+        <div id="dailyCampaignAccounts" class="daily-campaign-accounts" aria-label="12 个目标账号"></div>
+        <div id="dailyCampaignTierSummary" class="daily-tier-summary" aria-label="选书去重与降级说明"></div>
+        <div class="daily-campaign-progress">
+          <header><div><span class="eyebrow">CAMPAIGN EXACT STATUS</span><h2 id="dailyCampaignIdentity">尚未创建 Campaign</h2></div><span id="dailyCampaignUpdated">等待预览</span></header>
+          <div id="dailyCampaignStageCounts" class="daily-stage-counts" aria-label="P0-P7 精确计数"></div>
+          <div id="dailyCampaignOutcomeCounts" class="daily-outcome-counts" aria-label="Campaign 结果计数"></div>
+        </div>
+        <div class="daily-campaign-create">
+          <label id="dailyCampaignPaidLabel" class="daily-paid-confirmation disabled"><input id="dailyCampaignPaidConfirm" type="checkbox" disabled><span><strong>我确认本次 36 条付费媒体生成</strong><small>仅创建 SocialEcho <b>status:1 + scheduled_at</b> 定时任务，绝不正式发布（不立即发布）；今日超额部分由后端 40/日 limiter 排队，前端不越过。</small></span></label>
+          <button id="createDailyCampaign" class="primary-command" type="button" disabled><i data-lucide="sparkles"></i><span>一键创建 36 条生产任务</span></button>
+        </div>
+        <div id="dailyCampaignSlots" class="daily-campaign-slots" aria-label="36 个 Campaign slots"></div>
+      </section>
+      <section id="adCampaignWorkspace" class="ad-campaign-workspace" hidden aria-live="polite">
+        <header class="ad-campaign-head">
+          <div><span class="eyebrow">AD CREATIVE OPERATIONS</span><h1>广告素材工作台</h1></div>
+          <div class="ad-campaign-actions"><select id="adCampaignSelect" aria-label="广告 Campaign"></select><button id="refreshAdCampaign" class="icon-button" type="button" title="刷新广告素材"><i data-lucide="refresh-cw"></i></button><a class="secondary-command" href="https://app.socialecho.net/publish" target="_blank" rel="noreferrer"><i data-lucide="external-link"></i><span>SocialEcho 草稿</span></a></div>
+        </header>
+        <div id="adCampaignSummary" class="ad-campaign-summary"></div>
+        <div id="adCampaignBooks" class="ad-campaign-books"></div>
+      </section>
+      <section id="adPerformanceWorkspace" class="ad-performance-workspace" hidden aria-live="polite">
+        <header class="ad-performance-head">
+          <div><span class="eyebrow">ALLOWLISTED ADS</span><h1>广告数据</h1></div>
+          <div class="ad-performance-actions">
+            <label><span>开始</span><input id="adPerformanceFrom" type="date" aria-label="广告数据开始日期"></label>
+            <label><span>结束</span><input id="adPerformanceTo" type="date" aria-label="广告数据结束日期"></label>
+            <button id="refreshAdPerformance" class="secondary-command" type="button"><i data-lucide="refresh-cw"></i><span>刷新</span></button>
+            <button id="openAdRegistry" class="primary-command" type="button"><i data-lucide="plus"></i><span>登记广告</span></button>
+          </div>
+        </header>
+        <div id="adPerformanceNotice" class="ad-performance-notice" hidden></div>
+        <div id="adPerformanceSummary" class="ad-performance-summary"></div>
+        <div id="adPerformanceTable" class="ad-performance-table"></div>
+      </section>
+      <dialog id="adRegistryDialog" class="ad-registry-dialog">
+        <form id="adRegistryForm" method="dialog">
+          <header><div><span class="eyebrow">ALLOWLIST</span><h2>登记 Meta 广告</h2></div><button id="closeAdRegistry" class="icon-button" type="button" title="关闭"><i data-lucide="x"></i></button></header>
+          <div class="ad-registry-grid">
+            <label><span>Meta Ad ID</span><input id="registryMetaAdId" name="metaAdId" inputmode="numeric" pattern="[0-9]{15,22}" maxlength="22" required></label>
+            <label><span>语言</span><select id="registryLanguage" name="language"><option value="pt">葡语</option><option value="es">西语</option></select></label>
+            <label class="wide"><span>广告名称</span><input id="registryLabel" name="label" maxlength="180"></label>
+            <label><span>社媒报表维度</span><select id="registryReportDimension" name="reportDimension"><option value="">待绑定</option><option value="adid">Ad / Link ID</option><option value="copywritingid">Copywriting ID</option><option value="campaignid">Campaign ID</option><option value="adsetid">Ad set ID</option></select></label>
+            <label><span>社媒报表 ID</span><input id="registryReportId" name="reportId" maxlength="128"></label>
+            <label class="wide"><span>北斗 Campaign 名称</span><input id="registryBeidouCampaignName" name="beidouCampaignName" maxlength="180"></label>
+            <label class="wide ad-registry-check"><input id="registryEnabled" name="enabled" type="checkbox" checked><span>参与数据抓取</span></label>
+          </div>
+          <footer><button id="cancelAdRegistry" class="secondary-command" type="button">取消</button><button id="saveAdRegistry" class="primary-command" type="submit"><i data-lucide="save"></i><span>保存</span></button></footer>
+        </form>
+      </dialog>
+      <section id="p0DecisionRail" class="p0-decision-rail" aria-label="P0 选书与投放路由">
+        <header class="p0-rail-head">
+          <div><span class="eyebrow">P0 DECISION RAIL</span><h2>先锁定投放路由，再进入书籍候选</h2><p>每一行候选都必须属于当前产品线，并绑定同一个应用、平台和 SocialEcho 账号。</p></div>
+          <span id="p0RouteStatus" class="route-lock-badge pending"><i data-lucide="lock-keyhole"></i><strong>正在读取路由</strong></span>
+        </header>
+        <div id="p0DecisionContent" class="p0-decision-content" aria-live="polite"></div>
+      </section>
+      <section class="primary-workflow" aria-label="精简生产流程">
+        <article><span>1</span><div><strong>选书</strong><small>看规模、质量、趋势和使用历史</small></div></article><i data-lucide="chevron-right"></i>
+        <article><span>2</span><div><strong>文案审核</strong><small>原文证据、六步法文案、Code / Facebook 链接</small></div></article><i data-lucide="chevron-right"></i>
+        <article><span>3</span><div><strong>SocialEcho 定时任务</strong><small>媒体通过审核后按排期保存为 status:1 + scheduled_at，绝不立即发布</small></div></article>
+        <button type="button" id="showAdvancedFlow"><i data-lucide="workflow"></i>完整 P0–P7 在任务详情</button>
+      </section>
+      <section id="harnessStageStrip" class="harness-stage-strip" aria-label="P0-P7 Harness">
+        <header><div><span class="eyebrow">DURABLE HARNESS</span><h2>P0-P7 可恢复生产链路</h2></div><span>每个节点都有状态、产物和恢复入口</span></header>
+        <div class="harness-stage-list">
+          <article data-harness-stage="P0"><b>P0</b><strong>选书锁定</strong><small>应用 / 平台 / 账号</small></article><i data-lucide="chevron-right"></i>
+          <article data-harness-stage="P1"><b>P1</b><strong>身份核验</strong><small>精确 SKU</small></article><i data-lucide="chevron-right"></i>
+          <article data-harness-stage="P2"><b>P2</b><strong>证据锁定</strong><small>章节事实</small></article><i data-lucide="chevron-right"></i>
+          <article data-harness-stage="P3"><b>P3</b><strong>创意生成</strong><small>六步法文案</small></article><i data-lucide="chevron-right"></i>
+          <article data-harness-stage="P3_5"><b>P3.5</b><strong>海报分支</strong><small>可独立恢复</small></article><i data-lucide="chevron-right"></i>
+          <article data-harness-stage="P4"><b>P4</b><strong>视频任务</strong><small>持久化 threadId</small></article><i data-lucide="chevron-right"></i>
+          <article data-harness-stage="P5"><b>P5</b><strong>Code 归因</strong><small>按应用分配</small></article><i data-lucide="chevron-right"></i>
+          <article data-harness-stage="P6"><b>P6</b><strong>审核包</strong><small>人工复核</small></article><i data-lucide="chevron-right"></i>
+          <article data-harness-stage="P7"><b>P7</b><strong>SocialEcho 定时任务</strong><small>status 1 + scheduled_at，不立即发布</small></article>
+        </div>
       </section>
       <section id="todayRail" class="today-rail" aria-label="今日推荐">
         <header class="today-rail-head"><div><span class="eyebrow">TODAY'S PICKS</span><h2>今日灵感书单</h2><p id="todayRailDescription">正在校验真实 UV、首读与长读留存样本。</p></div><div><button id="todayRailPrev" class="icon-button" type="button" title="上一组推荐"><i data-lucide="chevron-left"></i></button><button id="todayRailNext" class="icon-button" type="button" title="下一组推荐"><i data-lucide="chevron-right"></i></button></div></header>
         <div id="todayRailList" class="today-rail-list" aria-live="polite"></div>
       </section>
       <section id="oneClickStatus" class="one-click-status" aria-live="polite" hidden></section>
+      <section id="publicationWorkbench" class="publication-workbench" aria-live="polite" hidden>
+        <header class="publication-workbench-head">
+          <button id="togglePublicationWorkbench" class="publication-toggle" type="button" aria-expanded="false"><i data-lucide="inbox"></i><span><b>待存入 SocialEcho</b><small>点击进入审核</small></span><strong id="publicationCount" class="publication-count">0 条待审核</strong><i data-lucide="chevron-down"></i></button>
+        </header>
+        <div id="publicationList" class="publication-list"></div>
+      </section>
       <section class="overview-band overview-actions" aria-label="任务快捷筛选">
         <button class="overview-kpi" data-overview-filter="active" type="button" aria-pressed="false"><span>正在生产</span><strong id="runningRuns">0</strong><small>点击查看后台持续推进的任务</small></button>
         <button class="overview-kpi" data-overview-filter="assets" type="button" aria-pressed="false"><span>可直接使用素材</span><strong id="readyAssets">0</strong><small>点击查看已有文案、海报或视频</small></button>
@@ -65,13 +174,31 @@
 
       <section id="leaderboardSection" class="leaderboard-band">
         <div class="leaderboard-heading">
-          <div><span id="leaderboardEyebrow" class="eyebrow">CONTENT DASHBOARD</span><h1 id="leaderboardTitle">从真实榜单选一本</h1><p id="leaderboardDescription">NovelFlow 中台全书库数据，默认按阅读 UV 排序。</p></div>
-          <div class="leaderboard-actions"><div id="leaderboardSource" class="segmented source-control"><button class="active" data-source="catalog">新推广选书</button><button data-source="history">投放复盘</button></div><div id="catalogFilters" class="catalog-filters"><span class="fixed-filter">novelflow</span><select data-catalog-filter="language" aria-label="语言"><option value="EN">英语</option><option value="ES">西语</option></select><select data-catalog-filter="complete" aria-label="完结状态"><option value="已完结">已完结</option><option value="连载中">连载中</option></select><select data-catalog-filter="status" aria-label="书籍状态"><option value="上架">上架</option><option value="下架">下架</option></select><select data-catalog-filter="length" aria-label="是否短篇"><option value="all">全部篇幅</option><option value="short">短篇书（后台：是）</option><option value="long">常规长篇书（后台：否）</option></select><select data-catalog-filter="genre" aria-label="题材"><option value="all">全部题材</option><option value="werewolf">Werewolf</option><option value="ceo">CEO</option><option value="mafia">Mafia</option><option value="vampire">Vampire</option></select></div><div id="catalogWindowControl" class="segmented"><button data-days="7">近 7 天</button><button class="active" data-days="30">近 30 天</button><button data-days="90">近 90 天</button></div><select id="catalogSort" class="catalog-sort" aria-label="排序指标"><option value="baseReadUnt">阅读 UV</option><option value="firstReadUntRate">首读率</option><option value="read10wRate">10 万字留存</option><option value="read20wRate">20 万字留存</option><option value="ttProfit">利润</option></select><div id="windowControl" class="segmented" hidden><button data-days="3">近 3 天</button><button class="active" data-days="7">近 7 天</button><button data-days="30">近 30 天</button></div><span id="leaderboardUpdated" class="updated-label">正在加载中台业务数据</span><button id="retryCovers" class="icon-button cover-retry" type="button" title="重试未加载封面" aria-label="重试未加载封面" hidden><i data-lucide="image-down"></i></button><button id="refreshLeaderboard" class="icon-button" type="button" title="刷新榜单" aria-label="刷新榜单"><i data-lucide="refresh-cw"></i></button></div>
+          <div><span id="leaderboardEyebrow" class="eyebrow">CONTENT DASHBOARD</span><h1 id="leaderboardTitle">中台书籍排行</h1><p id="leaderboardDescription">映射中台阅读排行，竖向密集展示书名、核心指标与发布历史。</p></div>
+          <div class="leaderboard-actions">
+            <div id="leaderboardSource" class="segmented source-control"><button class="active" data-source="catalog">新推广选书</button><button data-source="history">投放复盘</button></div>
+            <div id="catalogFilters" class="catalog-filters">
+              <select id="catalogApplication" data-catalog-filter="line" aria-label="目标应用"><option value="novelflow">NovelFlow</option><option value="astranovel">AstraNovel</option><option value="maxnovel">MaxNovel</option><option value="storyca">Storyca</option><option value="novelvio">Novelvio</option></select>
+              <select id="catalogPlatform" aria-label="目标平台"></select>
+              <select id="catalogAccount" aria-label="目标账号"></select>
+              <select id="catalogReadBase" data-catalog-filter="readBaseMin" aria-label="最低阅读基数"><option value="0">阅读基数不限</option><option value="100">阅读 ≥ 100</option><option value="500">阅读 ≥ 500</option><option value="1000">阅读 ≥ 1,000</option><option value="5000">阅读 ≥ 5,000</option><option value="10000">阅读 ≥ 10,000</option><option value="50000">阅读 ≥ 50,000</option></select>
+              <select id="catalogFirstRead" data-catalog-filter="firstReadMin" aria-label="最低首读率"><option value="0">首读率不限</option><option value="0.1">首读 ≥ 10%</option><option value="0.2">首读 ≥ 20%</option><option value="0.3">首读 ≥ 30%</option><option value="0.4">首读 ≥ 40%</option><option value="0.5">首读 ≥ 50%</option></select>
+              <select id="catalogLongRead" data-catalog-filter="longReadMin" aria-label="最低长读留存"><option value="0">长读留存不限</option><option value="0.05">长读 ≥ 5%</option><option value="0.1">长读 ≥ 10%</option><option value="0.15">长读 ≥ 15%</option><option value="0.2">长读 ≥ 20%</option><option value="0.3">长读 ≥ 30%</option></select>
+              <select data-catalog-filter="language" aria-label="语言"><option value="EN">英语</option><option value="PT">葡语</option><option value="ES">西语</option></select>
+              <select data-catalog-filter="complete" aria-label="完结状态"><option value="已完结">已完结</option><option value="连载中">连载中</option></select>
+              <select data-catalog-filter="status" aria-label="书籍状态"><option value="上架">上架</option><option value="下架">下架</option></select>
+              <select data-catalog-filter="length" aria-label="是否短篇"><option value="all">全部篇幅</option><option value="short">短篇书（后台：是）</option><option value="long">常规长篇书（后台：否）</option></select>
+              <select data-catalog-filter="genre" aria-label="题材"><option value="all">全部题材</option><option value="werewolf">Werewolf</option><option value="ceo">CEO</option><option value="mafia">Mafia</option><option value="vampire">Vampire</option></select>
+              <select id="catalogUsageFilter" aria-label="使用状态"><option value="all">全部使用状态</option><option value="unused">未发过</option><option value="selected">本次已选</option><option value="active">生产中</option><option value="used">已发过 / 待处理</option></select>
+            </div>
+            <div id="catalogWindowControl" class="segmented"><button data-days="7">近 7 天</button><button class="active" data-days="30">近 30 天</button><button data-days="90">近 90 天</button></div><select id="catalogSort" class="catalog-sort" aria-label="排序指标"><option value="baseReadUnt">中台阅读排行</option><option value="recommendationScore">综合推荐分</option><option value="firstReadUntRate">首读率</option><option value="read20wRate">长读留存</option><option value="trend7v30">近期趋势</option></select><div id="windowControl" class="segmented" hidden><button data-days="3">近 3 天</button><button class="active" data-days="7">近 7 天</button><button data-days="30">近 30 天</button></div><span id="leaderboardUpdated" class="updated-label">正在加载中台业务数据</span><button id="retryCovers" class="icon-button cover-retry" type="button" title="重试未加载封面" aria-label="重试未加载封面" hidden><i data-lucide="image-down"></i></button><button id="refreshLeaderboard" class="icon-button" type="button" title="刷新榜单" aria-label="刷新榜单"><i data-lucide="refresh-cw"></i></button>
+          </div>
         </div>
+        <div class="selection-logic"><strong>只看 4 个关键信号</strong><span><b>1</b> 周期阅读用户</span><span><b>2</b> 首读率</span><span><b>3</b> 20w 长读留存（无则 10w）</span><span><b>4</b> 7 天 vs 30 天日均趋势</span><small>阅读用户看市场基数，首读看开篇转化，长读看内容质量，趋势看近期是否在升温。综合推荐分仅作辅助，不改变中台排名。</small></div>
         <section id="historyDecisionBar" class="history-decision-bar" aria-label="复投判断筛选" hidden></section>
         <div id="leaderboard" class="leaderboard-grid" aria-live="polite"></div>
         <div id="leaderboardPager" class="leaderboard-pager" hidden><span id="leaderboardCount">第 1/1 页 · 0 本</span><div><button id="previousBooks" class="secondary-command" type="button"><i data-lucide="chevron-left"></i>上一页</button><button id="nextBooks" class="secondary-command" type="button">下一页 50 本<i data-lucide="chevron-right"></i></button></div></div>
-        <div id="batchBookBar" class="batch-book-bar" hidden><span id="batchBookCount">已选 0 本</span><small>点击一次即可全部入队，后台按书独立推进；视频仍受每小时 5 条安全锁保护。</small><button id="startSelectedBooks" class="primary-command batch-start" type="button"><i data-lucide="zap"></i><span>一键生成已选</span></button><button id="clearBookSelection" class="icon-button" type="button" title="清除选择"><i data-lucide="x"></i></button></div>
+        <div id="batchBookBar" class="batch-book-bar" hidden><span id="batchBookCount">已选 0 本</span><small>批量任务会生成策划、归因和文案；付费媒体状态由服务端能力与额度门禁决定。</small><button id="startSelectedBooks" class="primary-command batch-start" type="button"><i data-lucide="file-pen-line"></i><span>生成已选文案</span></button><button id="clearBookSelection" class="icon-button" type="button" title="清除选择"><i data-lucide="x"></i></button></div>
         <div id="leaderboardEmpty" class="leaderboard-empty" hidden><i data-lucide="cloud-off"></i><strong>今日榜单暂不可用</strong><span>任务与已有素材不受影响，可稍后刷新。</span></div>
       </section>
 
@@ -85,6 +212,7 @@
           <div id="runListHead" class="run-list-head"><span>书籍与任务</span><span>节点</span><span>追踪</span><span>状态</span></div>
           <div id="runList" class="run-list"></div>
           <div id="emptyRuns" class="empty-state" hidden><i data-lucide="library-big"></i><strong>还没有生产任务</strong></div>
+          <div class="run-list-scope"><span id="runListScopeLabel">当前显示最近任务</span><button id="loadCampaignRuns" class="secondary-command" type="button" hidden><i data-lucide="list-restart"></i><span>查看本 Campaign 全部任务</span></button></div>
           <button id="loadMoreRuns" class="load-more-runs" type="button" hidden><i data-lucide="history"></i><span>加载更早的任务</span></button>
         </div>
       </section>
@@ -93,8 +221,8 @@
   <dialog id="runDialog" class="run-dialog">
     <form id="runForm">
       <header><div><span class="dialog-kicker">NEW AUTOMATION</span><h2>创建智能生产任务</h2></div><button class="icon-button" type="button" id="closeRunDialog" title="关闭"><i data-lucide="x"></i></button></header>
-      <div class="dialog-body"><label>小说英文全名<input id="manualTitle" name="title" required maxlength="200" autocomplete="off" placeholder="例如 The Lycan King's Treasured Luna"></label><label>SKU <small>可选，留空将自动核验</small><input id="manualSku" name="sku" maxlength="100" autocomplete="off" placeholder="Book SKU"></label><div class="creative-profile"><label>文案风格<select id="creativeStyle"><option value="system_best">系统最优推荐</option><option value="revenge_comeback">复仇反杀</option><option value="forbidden_tension">禁忌拉扯</option><option value="dark_redemption">暗黑救赎</option></select></label><label>CTA 口吻<select id="ctaStyle"><option value="story_cliffhanger">系统最优推荐</option><option value="identity_reveal">身份反转</option><option value="romantic_tension">暧昧拉扯</option><option value="revenge_payoff">反击爽点</option></select></label><label>视频剧情<select id="videoStyle"><option value="five_beat">系统最优推荐</option><option value="reversal">强反转</option><option value="slow_burn">慢热张力</option><option value="revenge">复仇兑现</option></select></label><label>海报方向<select id="posterStyle"><option value="system_best">系统最优推荐</option><option value="luminous_cinema">电影氛围</option><option value="editorial_romance">时尚爱情</option></select></label></div><aside id="creativeProfilePreview" class="creative-profile-preview" aria-live="polite"></aside><div class="authorization-row"><i data-lucide="wand-sparkles"></i><div><strong>所选 AI 将基于章节证据创作</strong><span>所选方向只决定表达重点；原文事实优先。一键生产会自动推进已授权素材。</span></div></div><p id="runFormError" class="form-error" aria-live="polite"></p></div>
-      <footer><label class="model-choice-row">创意模型<span class="model-select-control"><select id="modelChoice"><option value="hy3">HY3（默认，实测最快）</option><option value="deepseek">DeepSeek V4 Pro（深度）</option><option value="seed-2.1-turbo">Seed 2.1 Turbo（备用）</option><option value="qwen3.7-max">Qwen 3.7 Max（深度）</option><option value="minimax-m2.7">MiniMax M2.7（备用）</option><option value="kimi-k2.7-code">Kimi K2.7 Code（备用）</option></select><span class="selected-model-badge" data-model-select="modelChoice"></span></span></label><button id="submitRun" class="primary-command" type="submit"><i data-lucide="zap"></i><span>立即智能生成</span></button></footer>
+      <div class="dialog-body"><label>小说英文全名<input id="manualTitle" name="title" required maxlength="200" autocomplete="off" placeholder="例如 The Lycan King's Treasured Luna"></label><label>SKU <small>可选，留空将自动核验</small><input id="manualSku" name="sku" maxlength="100" autocomplete="off" placeholder="Book SKU"></label><label>目标应用 / 平台 / 账号<select id="manualAccount" required aria-label="手工任务目标账号"></select></label><div class="creative-profile"><label>文案风格<select id="creativeStyle"><option value="system_best">系统最优推荐</option><option value="revenge_comeback">复仇反杀</option><option value="forbidden_tension">禁忌拉扯</option><option value="dark_redemption">暗黑救赎</option></select></label><label>CTA 口吻<select id="ctaStyle"><option value="story_cliffhanger">系统最优推荐</option><option value="identity_reveal">身份反转</option><option value="romantic_tension">暧昧拉扯</option><option value="revenge_payoff">反击爽点</option></select></label><label>视频剧情<select id="videoStyle"><option value="five_beat">系统最优推荐</option><option value="reversal">强反转</option><option value="slow_burn">慢热张力</option><option value="revenge">复仇兑现</option></select></label><label>海报方向<select id="posterStyle"><option value="system_best">系统最优推荐</option><option value="luminous_cinema">电影氛围</option><option value="editorial_romance">时尚爱情</option></select></label></div><aside id="creativeProfilePreview" class="creative-profile-preview" aria-live="polite"></aside><div class="authorization-row"><i data-lucide="wand-sparkles"></i><div><strong>所选 AI 将基于章节证据创作</strong><span>所选方向只决定表达重点；原文事实优先。一键生产会自动推进已授权素材。</span></div></div><p id="runFormError" class="form-error" aria-live="polite"></p></div>
+      <footer><label class="model-choice-row">创意模型<span class="model-select-control"><select id="modelChoice"><option value="glm-5.3-flash">GLM 5.3 Flash（默认）</option><option value="deepseek-v4-flash-preview">DeepSeek V4 Flash Preview（兜底）</option><option value="hy3">HY3（短 JSON 修复）</option><option value="seed-2.1-turbo">Seed 2.1 Turbo（兼容旧任务）</option></select><span class="selected-model-badge" data-model-select="modelChoice"></span></span></label><button id="submitRun" class="primary-command" type="submit"><i data-lucide="zap"></i><span>立即智能生成</span></button></footer>
     </form>
   </dialog>
   <dialog id="creativePlanDialog" class="run-dialog creative-plan-dialog">
@@ -108,11 +236,11 @@
   <dialog id="confirmationDialog" class="run-dialog confirmation-dialog"><header><div><span class="dialog-kicker">CONFIRM GENERATION</span><h2 id="confirmationTitle">确认操作</h2></div><button id="closeConfirmation" class="icon-button" type="button" title="关闭"><i data-lucide="x"></i></button></header><div class="dialog-body"><p id="confirmationDescription" class="confirmation-description"></p></div><footer><button id="confirmAction" class="primary-command" type="button">确认</button></footer></dialog>
   <dialog id="weeklyReportDialog" class="run-dialog weekly-report-dialog"><header><div><span class="dialog-kicker">WEEKLY OPERATIONS BRIEF</span><h2>本周经营简报</h2></div><button id="closeWeeklyReport" class="icon-button" type="button" title="关闭"><i data-lucide="x"></i></button></header><div class="weekly-report-toolbar"><div id="reportWindowControl" class="segmented"><button class="active" data-report-days="7" type="button">近 7 天</button><button data-report-days="30" type="button">近 30 天</button></div><span id="weeklyReportPeriod" class="updated-label">正在读取真实数据</span></div><div id="weeklyReportContent" class="weekly-report-content" aria-live="polite"></div><footer><button id="copyWeeklyReport" class="secondary-command" type="button"><i data-lucide="copy"></i><span>复制汇报</span></button><button id="refreshWeeklyReport" class="primary-command" type="button"><i data-lucide="refresh-cw"></i><span>更新简报</span></button></footer></dialog>
   <dialog id="dataQueryDialog" class="run-dialog data-query-dialog"><header><div><span class="dialog-kicker">TRACKING DATA</span><h2>Code / Link 实际数据</h2></div><button id="closeDataQuery" class="icon-button" type="button" title="关闭"><i data-lucide="x"></i></button></header><form id="dataQueryForm"><div class="dialog-body"><label>输入 Code、linkId 或 NovelFlow 短链<input id="dataQueryInput" required maxlength="240" autocomplete="off" placeholder="例如 44446 或 https://social.novelplatform.vip/s/..."></label><label>查询窗口<select id="dataQueryDays"><option value="7">近 7 天</option><option value="30" selected>近 30 天</option><option value="90">近 90 天</option></select></label><p id="dataQueryError" class="form-error" aria-live="polite"></p><section id="dataQueryResult" class="data-query-result"><span>输入追踪值后，系统会同时读取真实漏斗、putreport 和历史快照，并明确标注来源，不把不同来源重复相加。</span></section></div><footer><button id="submitDataQuery" class="primary-command" type="submit"><i data-lucide="search"></i><span>查询真实数据</span></button></footer></form></dialog>
-  <div id="detailScrim" class="detail-scrim" aria-hidden="true"></div>
-  <aside id="detailPanel" class="detail-panel" aria-hidden="true"><div class="detail-empty"><i data-lucide="panel-right-open"></i><span>选择一本书查看完整生产链路</span></div></aside>
+  <div id="detailScrim" class="detail-scrim" aria-hidden="true" hidden></div>
+  <aside id="detailPanel" class="detail-panel" aria-hidden="true" hidden><div class="detail-empty"><i data-lucide="panel-right-open"></i><span>选择一本书查看完整生产链路</span></div></aside>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="/lucide.min.js"></script>
-  <script src="/app.js?v=ready-assets-20260805"></script>
+  <script src="/app.js?v=harness-p0-p7-20260806"></script>
 </body>
 </html>

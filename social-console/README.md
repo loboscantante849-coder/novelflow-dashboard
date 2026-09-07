@@ -6,10 +6,40 @@ Standalone Vercel project for `social.novelflow.top`.
 - Redis keys: `nf_social:*`; promoter-site user data is never touched
 - Runtime credentials: `NOVELFLOW_*` Vercel environment variables only
 - Deployment protection must be enabled before the custom domain is attached
+- Local loopback access is password-free; deployed consoles still use their configured access controls.
 
 Each run is stored at `nf_social:run:<id>` and indexed in `nf_social:runs`.
 The production worker will advance persisted stages so browser closes and
 function timeouts cannot lose Code/link, video task ID, image task ID, or data.
+
+## Allowlisted Meta ad performance
+
+The private `GET/POST /api/ad-performance` endpoint and the **广告数据** view
+read only the account `915817154893411`. The seed registry contains these six
+active ads; new IDs must be explicitly registered by an authenticated operator:
+
+```text
+120248838909080743  120248835695450743  120248801168210743
+120248839344220743  120248846340630743  120248846975590743
+```
+
+Meta is queried through the official Graph Insights API. Unknown IDs and rows
+from another account are discarded on every page. Beidou is joined only by an
+explicit campaign name and remains campaign-level; Social reports require an
+explicit dimension plus report ID and are filtered again by ID and date. The
+three sources are returned separately and are never added into one synthetic
+total.
+
+Set `META_MARKETING_ACCESS_TOKEN`, `BEIDOU_REPORT_TOKEN`, the existing
+NovelFlow report/OIDC credentials, and the isolated Redis variables before a
+Vercel deployment. Keep `SOCIAL_CONSOLE_OPEN_ACCESS=false`; tokens are never
+sent to the browser or written to the registry. The local passwordless flag
+does not apply to a deployed console.
+
+The latest verified Meta baseline for 2026-08-01 through 2026-08-10 is kept in
+`docs/ad-performance-baseline-2026-08-01_2026-08-10.csv`. The prior
+2026-08-01 through 2026-08-08 baseline remains in
+`docs/ad-performance-baseline-2026-08-01_2026-08-08.csv` for comparison.
 
 ## Discord book assistant
 

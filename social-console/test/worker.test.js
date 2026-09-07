@@ -76,7 +76,7 @@ async function invoke(t, { redis = new MemoryRedis(), body = {}, store = {}, pip
     saveCreativePlan: async (_redis, item) => item,
     ...store
   });
-  Object.assign(authModule, { requireSession: () => true });
+  Object.assign(authModule, { requireSession: () => true, requireOperatorMutation: () => true });
   Object.assign(pipelineModule, { processRun: async (_redis, item) => item, p3: async (_redis, item) => item, ...pipeline });
   Object.assign(planModule, { processCreativePlan: async (_redis, item) => item, ...plans });
   Object.assign(discordModule, { processDiscordJob: async (_redis, item) => item, ...discord });
@@ -216,6 +216,77 @@ test('cron never restarts a creative task that explicitly waits for an operator'
   assert.equal(runCalls, 0);
 });
 
+test('cron skips an AC provider cooldown and advances another eligible run', async (t) => {
+  const cooling = run('run_cooling1234567890');
+  cooling.stages.P3 = { status: 'done' };
+  cooling.stages.P4 = {
+    status: 'prepared',
+    blockedReason: 'ac_provider_unavailable',
+    nextAttemptAt: new Date(Date.now() + 60000).toISOString()
+  };
+  // A video cooldown may still legitimately advance an independent poster
+  // branch. This case verifies the true starvation guard once that branch is
+  // already terminal.
+  cooling.stages.P3_5 = { status: 'done' };
+  const eligible = run('run_eligible1234567890');
+  const calls = [];
+  const { result } = await invoke(t, {
+    store: {
+      listRunSummaries: async () => [cooling, eligible],
+      getRun: async (_redis, id) => id === cooling.id ? cooling : id === eligible.id ? eligible : null
+    },
+    pipeline: { processRun: async (_redis, item) => { calls.push(item.id); return item; } }
+  });
+
+  assert.equal(result.statusCode, 200);
+  assert.deepEqual(calls, [eligible.id]);
+  assert.equal(result.body.run.id, eligible.id);
+});
+
+test('cron skips a video poll backoff and an unexpired optimization wait instead of starving queued work', async (t) => {
+  const polling = run('run_polling1234567890');
+  polling.stages.P3 = { status: 'done' };
+  polling.stages.P3_5 = { status: 'partial', nonBlocking: true };
+  polling.stages.P4 = { status: 'running', nextAttemptAt: new Date(Date.now() + 60000).toISOString() };
+  polling.artifacts.video = { status: 'running', threadId: 'thread-polling' };
+  const optimizing = run('run_optimizing123456789');
+  optimizing.stages.P3 = { status: 'done' };
+  optimizing.artifacts.optimization = { status: 'awaiting_confirmation', dueAt: new Date(Date.now() + 60000).toISOString() };
+  const queued = run('run_queued_after_wait123');
+  queued.state = 'queued';
+  const calls = [];
+  const { result } = await invoke(t, {
+    store: {
+      listRunSummaries: async () => [polling, optimizing, queued],
+      getRun: async (_redis, id) => ({ [polling.id]: polling, [optimizing.id]: optimizing, [queued.id]: queued }[id]) || null
+    },
+    pipeline: { processRun: async (_redis, item) => { calls.push(item.id); return item; } }
+  });
+  assert.equal(result.statusCode, 200);
+  assert.deepEqual(calls, [queued.id]);
+  assert.equal(result.body.run.id, queued.id);
+});
+
+test('cron skips an owned task lease and advances the next eligible queued run', async (t) => {
+  const locked = run('run_locked1234567890');
+  const queued = run('run_queued1234567890');
+  queued.state = 'queued';
+  const redis = new MemoryRedis();
+  await redis.set(`nf_social:lock:${locked.id}`, `v1|${Date.now()}|another-worker`);
+  const calls = [];
+  const { result } = await invoke(t, {
+    redis,
+    store: {
+      listRunSummaries: async () => [locked, queued],
+      getRun: async (_redis, id) => id === locked.id ? locked : id === queued.id ? queued : null
+    },
+    pipeline: { processRun: async (_redis, item) => { calls.push(item.id); return item; } }
+  });
+  assert.equal(result.statusCode, 200);
+  assert.deepEqual(calls, [queued.id]);
+  assert.equal(result.body.run.id, queued.id);
+});
+
 test('an unknown explicit plan id never falls through to an unrelated runnable run', async (t) => {
   const fallback = run('run_abcdef1234567890');
   let runCalls = 0;
@@ -319,6 +390,26 @@ test('a stale worker lease is recovered from the latest saved run state', async 
   assert.equal(result.statusCode, 200);
   assert.ok(target.events.some((item) => item.type === 'stale_worker_lock_recovered'));
   assert.ok(saves >= 1);
+  assert.equal(await redis.get(`nf_social:lock:${target.id}`), null);
+});
+
+test('an idle manual P3 retry lease is recovered before the general stale window', async (t) => {
+  const target = run();
+  target.stages.P3 = { status: 'waiting', phase: 'manual_retry' };
+  target.artifacts.creativeDraft = { inFlight: {} };
+  const redis = new MemoryRedis();
+  await redis.set(`nf_social:lock:${target.id}`, `v1|${Date.now() - 60000}|11111111-1111-1111-1111-111111111111`);
+  let calls = 0;
+  const { result } = await invoke(t, {
+    redis,
+    body: { id: target.id },
+    store: { getRun: async () => target },
+    pipeline: { processRun: async () => { calls += 1; return target; } }
+  });
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(calls, 1);
+  assert.ok(target.events.some((item) => item.type === 'stale_worker_lock_recovered'));
   assert.equal(await redis.get(`nf_social:lock:${target.id}`), null);
 });
 
