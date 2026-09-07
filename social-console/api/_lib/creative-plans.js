@@ -53,7 +53,7 @@ function planningSnapshot(plan) {
 
 function productionProfile(plan) {
   const recommended = profile(plan.artifacts?.plan?.recommendedProfile);
-  const requestedModel = String(plan.input?.modelChoice || 'hy3');
+  const requestedModel = String(plan.input?.modelChoice || 'deepseek-v4-flash-preview');
   return { ...recommended, modelChoice: PRODUCTION_MODELS.has(requestedModel) ? requestedModel : 'hy3' };
 }
 
@@ -214,7 +214,7 @@ async function processCreativePlan(redis, plan) {
       return autoStartProduction(redis, plan);
     } catch (error) {
       if (!recoverableModelError(error)) throw error;
-      const preferred = plan.input.preferredModelChoice || plan.input.modelChoice || 'hy3';
+      const preferred = plan.input.preferredModelChoice || plan.input.modelChoice || 'deepseek-v4-flash-preview';
       const currentModel = plan.input.modelChoice || preferred;
       const attempt = Number(analysis.attempt || 0) + 1;
       if (plan.input.fallbackUsed) {

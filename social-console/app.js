@@ -310,7 +310,7 @@ const creativeProfileOptions = {
   ctaStyle: { label: 'CTA', values: { story_cliffhanger: '系统推荐：用具体未解的情节问题收尾', identity_reveal: '身份反转：以已铺垫的秘密或认出为钩子', romantic_tension: '暧昧拉扯：以有证据的欲望、目光或边界收尾', revenge_payoff: '反击爽点：以有证据的清算或反转承诺收尾' } },
   videoStyle: { label: '视频剧情', values: { five_beat: '系统推荐：钩子、价值、升级、反转、悬念五拍', reversal: '强反转：把真实反转放在 8-11 秒', slow_burn: '慢热张力：用克制靠近和最终选择递进', revenge: '复仇兑现：只使用原文已有的反击或翻盘' } },
   posterStyle: { label: '海报', values: { system_best: '系统推荐：一张电影感，一张时尚情绪感', luminous_cinema: '电影氛围：强调高戏剧性的关键瞬间', editorial_romance: '时尚爱情：强调克制、情绪与留白' } },
-  modelChoice: { label: '生产模型', values: { 'deepseek-v4-flash': 'DeepSeek V4 Flash：Token' } }
+  modelChoice: { label: '生产模型', values: { 'deepseek-v4-flash-preview': 'DeepSeek V4 Flash：Token' } }
 };
 
 const modelLabels = { 'glm-5.3-flash': 'GLM 5.3 Flash', 'deepseek-v4-flash-preview': 'DeepSeek V4 Flash Preview', 'ling-3.0-flash': 'Ling 3.0 Flash', deepseek: 'DeepSeek V4 Flash Preview', 'deepseek-chat': 'DeepSeek', 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'seed-2.1-turbo': 'Seed 2.1 Turbo', 'doubao-seed-2-1-turbo-260628': 'Seed 2.1 Turbo', 'qwen3.7-max': 'Qwen 3.7 Max', 'minimax-m2.7': 'MiniMax M2.7', hy3: 'HY3', 'kimi-k2.7-code': 'Kimi K2.7 Code', 'qwen3.5-flash': 'Qwen 3.5 Flash', 'glm-4.5-air': 'GLM 4.5 Air', 'kimi-k2.5': 'Kimi K2.5', 'minimax-m2.5': 'MiniMax M2.5', 'metrics-fallback': '中台指标兜底', 'glm-5.2': 'GLM 5.2', 'kimi-k3': 'Kimi K3', 'minimax-m3': 'MiniMax M3' };
@@ -383,7 +383,7 @@ function selectedModelWaitMs(choice) {
 }
 
 function creativeProfileForForm() {
-  return { copyStyle: $('#creativeStyle').value, ctaStyle: $('#ctaStyle').value, videoStyle: $('#videoStyle').value, posterStyle: $('#posterStyle').value, modelChoice: 'deepseek-v4-flash' };
+  return { copyStyle: $('#creativeStyle').value, ctaStyle: $('#ctaStyle').value, videoStyle: $('#videoStyle').value, posterStyle: $('#posterStyle').value, modelChoice: 'deepseek-v4-flash-preview' };
 }
 
 function creativeProfileHtml(profile, preview = false) {
@@ -581,7 +581,7 @@ function openCreativePlanDialog(book = {}) {
   $('#creativePlanResult').hidden = true;
   $('#creativePlanResult').innerHTML = '';
   $('#creativePlanError').textContent = '';
-  if (!$('#planningRequestModel')) $('#creativePlanInput').insertAdjacentHTML('beforeend', '<label class="plan-model-choice">首选策划模型<select id="planningRequestModel"><option value="glm-5.3-flash">GLM 5.3 Flash（默认）</option><option value="hy3">HY3（快速）</option><option value="deepseek-v4-flash-preview">DeepSeek V4 Flash Preview</option><option value="seed-2.1-turbo">Seed 2.1 Turbo（备用）</option><option value="qwen3.7-max">Qwen 3.7 Max（深度）</option><option value="minimax-m2.7">MiniMax M2.7（润色）</option><option value="kimi-k2.7-code">Kimi K2.7 Code（结构）</option></select></label>');
+  if (!$('#planningRequestModel')) $('#creativePlanInput').insertAdjacentHTML('beforeend', '<label class="plan-model-choice">首选策划模型<select id="planningRequestModel"><option value="deepseek-v4-flash-preview">DeepSeek V4 Flash（默认）</option><option value="hy3">HY3（快速）</option><option value="glm-5.3-flash">GLM 5.3 Flash（备用）</option><option value="seed-2.1-turbo">Seed 2.1 Turbo（备用）</option><option value="qwen3.7-max">Qwen 3.7 Max（深度）</option><option value="minimax-m2.7">MiniMax M2.7（润色）</option><option value="kimi-k2.7-code">Kimi K2.7 Code（结构）</option></select></label>');
   $('#planTitle').value = book.title || '';
   $('#planSku').value = book.bookSkuId || '';
   if (!$('#creativePlanDialog').open) $('#creativePlanDialog').showModal();
@@ -591,7 +591,7 @@ function openCreativePlanDialog(book = {}) {
 async function analyzeCreativePlan(title, sku) {
   const planningSession = state.planningSession;
   state.planning = true;
-  const modelChoice = 'deepseek-v4-flash';
+  const modelChoice = 'deepseek-v4-flash-preview';
   const selectedModel = modelLabel(modelChoice);
   const accountId = Number(state.planningTarget?.accountId || state.catalogFilters.accountId || 0);
   const delivery = accountId ? { ...(state.planningTarget || {}), accountId } : null;

@@ -3,7 +3,7 @@ const { getRedis, getCreativePlan, listCreativePlanSummaries, newCreativePlan, s
 const { normalizeDelivery, sanitizeP0Selection } = require('./_lib/distribution');
 const { p0SelectionFromReceipt, requiresP0Receipt } = require('./_lib/p0-receipts');
 
-const MODEL_CHOICES = new Set(['glm-5.3-flash', 'deepseek-v4-flash-preview', 'deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'hy3', 'kimi-k2.7-code', 'qwen3.5-flash', 'glm-4.5-air', 'kimi-k2.5', 'minimax-m2.5', 'glm-5.2', 'kimi-k3', 'minimax-m3']);
+const MODEL_CHOICES = new Set(['deepseek-v4-flash-preview', 'deepseek', 'glm-5.3-flash', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'hy3', 'kimi-k2.7-code', 'qwen3.5-flash', 'glm-4.5-air', 'kimi-k2.5', 'minimax-m2.5', 'glm-5.2', 'kimi-k3', 'minimax-m3']);
 const text = (value, max) => typeof value === 'string' && value.trim().length <= max ? value.trim() : '';
 const requestKey = (id) => `nf_social:plan_request:${id}`;
 
@@ -47,7 +47,7 @@ module.exports = async (req, res) => {
         return res.status(200).json({ job: creativePlanDetail(job) });
       }
       if (req.body?.action !== 'retry') return res.status(400).json({ error: 'Unsupported planning action' });
-      job.input.preferredModelChoice = job.input.preferredModelChoice || job.input.modelChoice || 'hy3';
+      job.input.preferredModelChoice = job.input.preferredModelChoice || job.input.modelChoice || 'deepseek-v4-flash-preview';
       job.input.modelChoice = job.input.preferredModelChoice;
       job.input.fallbackUsed = false;
       job.input.autoStartProduction = job.input.autoStartProduction !== false;
@@ -62,8 +62,8 @@ module.exports = async (req, res) => {
     const title = text(req.body?.title, 200);
     const sku = text(req.body?.sku, 100);
     const requestId = text(req.body?.requestId, 100);
-    const requestedModel = String(req.body?.modelChoice || 'glm-5.3-flash');
-    const modelChoice = MODEL_CHOICES.has(requestedModel) ? requestedModel : 'glm-5.3-flash';
+    const requestedModel = String(req.body?.modelChoice || 'deepseek-v4-flash-preview');
+    const modelChoice = MODEL_CHOICES.has(requestedModel) ? requestedModel : 'deepseek-v4-flash-preview';
     if (!title) return res.status(400).json({ error: 'Exact book title is required' });
     const requestedAccountId = Number(req.body?.accountId || req.body?.delivery?.accountId || 0);
     const delivery = requestedAccountId ? normalizeDelivery({ accountId: requestedAccountId }) : null;

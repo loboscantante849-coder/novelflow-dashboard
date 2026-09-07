@@ -45,7 +45,7 @@ const CREATIVE_PROFILE_OPTIONS = Object.freeze({
   ctaStyle: new Set(['story_cliffhanger', 'identity_reveal', 'romantic_tension', 'revenge_payoff']),
   videoStyle: new Set(['five_beat', 'reversal', 'slow_burn', 'revenge']),
   posterStyle: new Set(['system_best', 'luminous_cinema', 'editorial_romance']),
-  modelChoice: new Set(['glm-5.3-flash', 'deepseek-v4-flash-preview', 'hy3', 'deepseek', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'kimi-k2.7-code', 'qwen3.5-flash', 'glm-4.5-air', 'kimi-k2.5', 'minimax-m2.5', 'glm-5.2', 'kimi-k3', 'minimax-m3'])
+  modelChoice: new Set(['deepseek-v4-flash-preview', 'deepseek', 'glm-5.3-flash', 'hy3', 'seed-2.1-turbo', 'qwen3.7-max', 'minimax-m2.7', 'kimi-k2.7-code', 'qwen3.5-flash', 'glm-4.5-air', 'kimi-k2.5', 'minimax-m2.5', 'glm-5.2', 'kimi-k3', 'minimax-m3'])
 });
 
 const VOICE_STYLES = new Set(['confessional', 'cinematic', 'confrontation', 'mystery', 'reflective', 'punchy', 'yearning']);
@@ -125,7 +125,7 @@ function sanitizeCreativeProfile(value) {
 function rewriteModelChoice(body, run) {
   const requested = text(body?.modelChoice, 80);
   if (requested && !CREATIVE_PROFILE_OPTIONS.modelChoice.has(requested)) throw new providers.ProviderError('Unsupported creative model', { status: 400 });
-  return requested || run?.input?.creativeProfile?.modelChoice || run?.artifacts?.modelRoute?.activeModel || 'hy3';
+  return requested || run?.input?.creativeProfile?.modelChoice || run?.artifacts?.modelRoute?.activeModel || 'deepseek-v4-flash-preview';
 }
 
 function reusableSiblingVideo(targetRun, sourceRun) {
@@ -866,7 +866,7 @@ module.exports = async (req, res) => {
         const existingProfile = run.input.creativeProfile || {};
         const profile = {
           ...existingProfile,
-          modelChoice: text(req.body?.modelChoice, 80) || existingProfile.modelChoice || 'glm-5.3-flash',
+          modelChoice: text(req.body?.modelChoice, 80) || existingProfile.modelChoice || 'deepseek-v4-flash-preview',
           forceEnglish: req.body?.forceEnglish === undefined ? existingProfile.forceEnglish === true : req.body.forceEnglish === true,
           emojiRange: req.body?.emojiRange === '3-5' || req.body?.emojiRange === '2-4' ? req.body.emojiRange : existingProfile.emojiRange || '2-4',
           copyStyle: allowed(req.body?.copyStyle, ['system_best', 'revenge_comeback', 'forbidden_tension', 'dark_redemption'], existingProfile.copyStyle || 'system_best'),

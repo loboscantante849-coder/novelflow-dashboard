@@ -1880,6 +1880,10 @@ function applySourceGroundedCreativeFallback(run, creative, error, options = {})
   addEvent(run, 'creative_evidence_candidate_saved', 'Both model routes returned malformed structure; an evidence-grounded candidate was saved for operator review and paid media remains locked', { error: message, candidateCreatedAt: candidateAt });
 }
 
+function autoPromoteEvidenceFallback(run) {
+  return ['llm', 'evidence_fallback'].includes(String(run?.input?.copyStrategy || ''));
+}
+
 async function finalizeCreativeDraft(redis, run) {
   const draft = run.artifacts.creativeDraft;
   if (!draft || pendingCreativeSections(draft, run).length) return run;
@@ -1927,7 +1931,7 @@ async function finalizeCreativeDraft(redis, run) {
     if (draft.validationFallbackUsed && coreReady) {
       const fallbackCreative = sourceGroundedCreativeFallback(run);
       if (fallbackCreative) {
-        applySourceGroundedCreativeFallback(run, fallbackCreative, error);
+        applySourceGroundedCreativeFallback(run, fallbackCreative, error, { promote: autoPromoteEvidenceFallback(run) });
         await saveRun(redis, run);
         return run;
       }
@@ -2022,7 +2026,7 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
   if (shouldShortCircuitPostsToSourceEvidence(run, draft, pendingSection)) {
     const fallbackCreative = sourceGroundedCreativeFallback(run);
     if (fallbackCreative) {
-      applySourceGroundedCreativeFallback(run, fallbackCreative, run.stages?.P3?.error || draft.failures?.posts?.error);
+      applySourceGroundedCreativeFallback(run, fallbackCreative, run.stages?.P3?.error || draft.failures?.posts?.error, { promote: autoPromoteEvidenceFallback(run) });
       addEvent(run, 'creative_posts_evidence_circuit_breaker', 'P2 had already continued from locked evidence and P3 posts were structurally malformed, so the validated full evidence package replaced another model retry');
       await saveRun(redis, run);
       return run;
@@ -2143,7 +2147,7 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
           if (pendingSection === 'posts' && (structuredModelError(error) || /inappropriate content|content policy|safety filter|timed out after/i.test(message))) {
             const fallbackCreative = sourceGroundedCreativeFallback(latest);
             if (fallbackCreative) {
-              applySourceGroundedCreativeFallback(latest, fallbackCreative, message);
+              applySourceGroundedCreativeFallback(latest, fallbackCreative, message, { promote: autoPromoteEvidenceFallback(latest) });
               addEvent(latest, 'creative_posts_evidence_circuit_breaker', 'Posts were rebuilt from locked chapter evidence after the reserve model failed; no attribution or media submission was required');
               await saveRun(redis, latest);
               return syncRun(originalRun, latest);
@@ -2181,7 +2185,7 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
             // treating the run as operator-blocked.  It never submits media.
             const fallbackCreative = sourceGroundedCreativeFallback(latest);
             if (fallbackCreative) {
-              applySourceGroundedCreativeFallback(latest, fallbackCreative, message);
+              applySourceGroundedCreativeFallback(latest, fallbackCreative, message, { promote: autoPromoteEvidenceFallback(latest) });
               addEvent(latest, 'creative_video_package_evidence_continuation', 'Video prompt was incomplete after the reserve model; the full validated creative package was rebuilt from locked chapter evidence before any media submission');
               await saveRun(redis, latest);
               return syncRun(originalRun, latest);
@@ -2240,7 +2244,7 @@ async function p3(redis, run, revision = null, suppressOptimizationReview = fals
           if (pendingSection === 'posts' && structuredModelError(error)) {
             const fallbackCreative = sourceGroundedCreativeFallback(latest);
             if (fallbackCreative) {
-              applySourceGroundedCreativeFallback(latest, fallbackCreative, message);
+              applySourceGroundedCreativeFallback(latest, fallbackCreative, message, { promote: autoPromoteEvidenceFallback(latest) });
               await saveRun(redis, latest);
               return syncRun(originalRun, latest);
             }
@@ -3345,6 +3349,16 @@ async function advancePosters(redis, run) {
 // continue through all immediately-runnable free stages without requiring a
 // browser click for every node.
 async function processRunOnce(redis, run, options = {}) {
+  // Migrate unfinished legacy tasks to the operator-approved DeepSeek route.
+  // Completed media is never rewritten; only a still-open creative stage moves.
+  if (run.stages?.P3?.status !== 'done' && String(run.input?.creativeProfile?.modelChoice || '') === 'glm-5.3-flash'
+    && !run.artifacts?.video?.threadId && !(run.artifacts?.images || []).some((item) => item?.taskId)) {
+    run.input.creativeProfile = { ...(run.input.creativeProfile || {}), modelChoice: 'deepseek-v4-flash-preview' };
+    run.artifacts = run.artifacts || {};
+    run.artifacts.modelRoute = { ...(run.artifacts.modelRoute || {}), preferredModel: 'deepseek-v4-flash-preview', activeModel: 'deepseek-v4-flash-preview', fallbackUsed: false, fallbackFrom: 'glm-5.3-flash', switchReason: '全局创意模型已切换为 DeepSeek' };
+    addEvent(run, 'creative_model_migrated', 'Unfinished creative work was migrated from GLM 5.3 Flash to DeepSeek V4 Flash');
+    await saveRun(redis, run);
+  }
   if (run.state === 'queued') {
     run.state = 'running';
     addEvent(run, 'worker_started', 'One-click production started');
@@ -3375,9 +3389,23 @@ async function processRunOnce(redis, run, options = {}) {
   if (structuredLegacyCreativeFailure) {
     const fallbackCreative = sourceGroundedCreativeFallback(run);
     if (fallbackCreative) {
-      applySourceGroundedCreativeFallback(run, fallbackCreative, run.stages.P3.error);
+      applySourceGroundedCreativeFallback(run, fallbackCreative, run.stages.P3.error, { promote: autoPromoteEvidenceFallback(run) });
       await saveRun(redis, run);
     }
+  }
+  // Older runs may already be parked in the terminal evidence-review phase.
+  // Promote the validated deterministic package on the next worker tick so
+  // they do not remain permanently waiting for a manual decision.
+  if (run.stages?.P3?.phase === 'evidence_continuation_review' && run.artifacts?.evidenceContinuationCandidate?.posts?.length
+    && trackingReady(run)) {
+    const candidate = run.artifacts.evidenceContinuationCandidate;
+    applySourceGroundedCreativeFallback(run, {
+      posts: candidate.posts,
+      videoPrompt: candidate.videoPrompt,
+      posterPrompts: candidate.posterPrompts || [],
+      qualityReview: candidate.qualityReview || { recommendation: 'keep', status: 'evidence_fallback' }
+    }, 'automatic_evidence_fallback_promotion', { promote: true });
+    await saveRun(redis, run);
   }
   // Evidence continuation now fails closed and stores a review candidate. Do
   // not immediately reopen that terminal state in the same worker tick.
