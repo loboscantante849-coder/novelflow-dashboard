@@ -644,8 +644,19 @@ async function api(url, options = {}) {
   if (externalSignal?.aborted) controller.abort();
   else externalSignal?.addEventListener('abort', abortFromCaller, { once: true });
   let response;
+  let retriedWithOperatorToken = false;
   try {
-    response = await fetch(url, { ...fetchOptions, signal: controller.signal, headers: { 'Content-Type': 'application/json', ...(fetchOptions.headers || {}) } });
+    while (true) {
+      const operatorToken = (() => { try { return localStorage.getItem('nf_social:operator_token') || ''; } catch { return ''; } })();
+      const headers = { 'Content-Type': 'application/json', ...(fetchOptions.headers || {}) };
+      if (operatorToken) headers['x-social-operator-token'] = operatorToken;
+      response = await fetch(url, { ...fetchOptions, signal: controller.signal, headers });
+      if (response.status !== 401 || retriedWithOperatorToken || !['POST', 'PUT', 'PATCH', 'DELETE'].includes(String(fetchOptions.method || 'GET').toUpperCase())) break;
+      const token = window.prompt('请输入本机操作令牌（仅保存在此浏览器）');
+      if (!token) break;
+      try { localStorage.setItem('nf_social:operator_token', token.trim()); } catch {}
+      retriedWithOperatorToken = true;
+    }
   } catch (error) {
     if (error?.name === 'AbortError') throw new Error(`请求超过 ${Math.ceil(timeoutMs / 1000)} 秒，已停止等待；可直接重试或切换模型`);
     throw error;
