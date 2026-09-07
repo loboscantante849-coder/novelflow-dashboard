@@ -6,6 +6,18 @@
       "has": [{ "type": "host", "value": "novelflow-dashboard.vercel.app" }],
       "destination": "https://novelflow.top/:path*",
       "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "dashboard.beidou.win" }],
+      "destination": "https://novelflow.top/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "promo.novelflow.top" }],
+      "destination": "https://novelflow.top/:path*",
+      "permanent": true
     }
   ],
   "rewrites": [
@@ -172,14 +184,6 @@
       "memory": 256,
       "maxDuration": 30
     },
-    "api/signup-outbox.js": {
-      "memory": 256,
-      "maxDuration": 30
-    },
-    "api/vip-fulfillment.js": {
-      "memory": 256,
-      "maxDuration": 30
-    },
     "api/auth/set-password.js": {
       "memory": 256,
       "maxDuration": 30
@@ -208,19 +212,15 @@
       "memory": 256,
       "maxDuration": 30
     },
-    "api/activity-rewards.js": {
-      "memory": 256,
-      "maxDuration": 30
-    },
-    "api/admin-balance-migration.js": {
-      "memory": 512,
-      "maxDuration": 30
-    },
     "api/equity-code.js": {
       "memory": 256,
       "maxDuration": 30
     },
     "api/user-data.js": {
+      "memory": 256,
+      "maxDuration": 30
+    },
+    "api/vip-fulfillment.js": {
       "memory": 256,
       "maxDuration": 30
     },
@@ -238,10 +238,6 @@
     {
       "path": "/api/vip-fulfillment",
       "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/signup-outbox",
-      "schedule": "*/10 * * * *"
     },
     {
       "path": "/api/trending-books?mode=refresh&limit=50",
