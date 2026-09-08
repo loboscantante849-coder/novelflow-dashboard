@@ -3514,7 +3514,7 @@
                 </div>
                 <div class="stats-overview-card">
                     <div class="stats-overview-icon">&#128214;</div>
-                    <div class="stats-overview-value" id="readerNewUsers">0</div>
+                    <div class="stats-overview-value" id="readerNewUsers">--</div>
                     <div class="stats-overview-label" data-i18n="profile_reader_new_users">Reader New Users</div>
                 </div>
                 <div class="stats-overview-card">
@@ -3528,6 +3528,7 @@
                     <div class="stats-overview-label" data-i18n="profile_app_registrations">App Registrations</div>
                 </div>
             </div>
+            <p id="statsLastUpdated" class="login-tip" style="display:none" aria-live="polite"><span data-i18n="stats_snapshot_updated">Data updated</span>: <span id="statsLastUpdatedTime">--</span></p>
             <button class="recommender-badge" id="recommenderBadge" type="button" data-nf-action="open-referral-details">
                 <span class="badge-mark" aria-hidden="true">N</span>
                 <span class="recommender-badge-copy"><span class="recommender-badge-eyebrow" id="recommenderBadgeEyebrow">Partner status</span><span class="recommender-badge-title" id="recommenderBadgeText">Recommender</span><span class="recommender-badge-sub" id="recommenderBadgeSub"></span></span>
@@ -4457,6 +4458,8 @@
                 profile_available_withdraw: 'Ready to Withdraw',
                 profile_withdrawn: 'Withdrawn',
                 profile_reader_new_users: 'Reader New Users',
+                stats_snapshot_updated: 'Data updated',
+                stats_snapshot_delayed: 'Data is delayed; recent readers may be missing.',
                 profile_platform_registrations: 'Website Registrations',
                 profile_app_registrations: 'App Registrations',
                 my_books_search_placeholder: 'Search your books, codes, or links',
@@ -5085,6 +5088,8 @@
                 profile_available_withdraw: 'Listo para retirar',
                 profile_withdrawn: 'Retirado',
                 profile_reader_new_users: 'Nuevos lectores',
+                stats_snapshot_updated: 'Datos actualizados',
+                stats_snapshot_delayed: 'Los datos están retrasados; pueden faltar lectores recientes.',
                 profile_platform_registrations: 'Registros en el sitio web',
                 profile_app_registrations: 'Registros en la app',
                 my_books_search_placeholder: 'Busca tus libros, codigos o enlaces',
@@ -8179,10 +8184,10 @@
                 ? (data.referrals.website_registrations ?? data.referrals.total)
                 : null;
             const appRegistrations = data && data.referrals ? data.referrals.app_registrations : null;
-            const countOrDash = value => Number.isFinite(Number(value)) ? Number(value).toLocaleString() : '--';
-            const readerNewUsers = stats && Number.isFinite(Number(stats.total_new))
+            const countOrDash = value => value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(value).toLocaleString() : '--';
+            const readerNewUsers = stats && stats.total_new !== null && stats.total_new !== undefined && Number.isFinite(Number(stats.total_new))
                 ? stats.total_new
-                : (referrals && referrals.reader_new_users);
+                : null;
             if (readerEl) readerEl.textContent = countOrDash(readerNewUsers);
             if (inviteEl) inviteEl.textContent = countOrDash(websiteRegistrations);
             if (appInviteEl) appInviteEl.textContent = countOrDash(appRegistrations);
@@ -8838,8 +8843,12 @@
             const lastUpdatedEl = document.getElementById('statsLastUpdated');
             const lastUpdatedTimeEl = document.getElementById('statsLastUpdatedTime');
             if (lastUpdatedEl && lastUpdatedTimeEl) {
-                const now = new Date();
-                lastUpdatedTimeEl.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+                const updated = data.last_updated ? new Date(data.last_updated) : null;
+                const valid = updated && Number.isFinite(updated.getTime());
+                const locale = AppState.currentLang === 'es' ? 'es-ES' : 'en-US';
+                const delayed = valid && Date.now() - updated.getTime() > 24 * 60 * 60 * 1000;
+                lastUpdatedTimeEl.textContent = valid ? updated.toLocaleString(locale) : '--';
+                if (delayed) lastUpdatedTimeEl.textContent += ' · ' + getText('stats_snapshot_delayed');
                 lastUpdatedEl.style.display = 'block';
             }
             

@@ -218,3 +218,38 @@ test('promotion preflight establishes one source wallet before any upstream side
     error => error && error.code === 'INCOME_SOURCE_OWNER_CONFLICT',
   );
 });
+
+test('admin target stats remain scoped and agree with the account self view', async () => {
+  FakeRedis.values.set('nf_user_data:operator', JSON.stringify({ accountType: 'admin' }));
+  currentAdData.by_promoter.other = { links: ['other-link'] };
+  currentAdData.ad_ids['other-link'] = { username_canon: 'other', stats: { new_uv: 100 } };
+  for (const endpoint of [myStats, perLinkStats]) {
+    const own = await invoke(endpoint, { method: 'GET', headers: authHeaders('foo.bar'), query: {} });
+    const selected = await invoke(endpoint, { method: 'GET', headers: authHeaders('operator'), query: { username: 'foo.bar' } });
+    assert.equal(selected.statusCode, 200);
+    assert.equal(selected.body.total_new, own.body.total_new);
+    assert.equal(selected.body.total_new, 2);
+    const all = await invoke(endpoint, { method: 'GET', headers: authHeaders('operator'), query: {} });
+    assert.equal(all.body.total_new, 102);
+  }
+});
+
+test('stats include owned assets omitted from the secondary promoter index exactly once', async () => {
+  currentAdData.ad_ids['owner-only'] = { username: 'Foo.Bar', username_canon: 'foo_bar', stats: { new_uv: 3 }, daily: [{ dt: '2026-08-20', new_uv: 3 }] };
+  for (const endpoint of [myStats, perLinkStats]) {
+    const result = await invoke(endpoint, { method: 'GET', headers: authHeaders('foo.bar'), query: {} });
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.body.total_new, 5);
+    assert.equal(result.body.new_users_daily?.['2026-08-20'] ?? result.body.daily['2026-08-20'].new_users, 3);
+  }
+});
+
+test('admin global stats do not count an asset twice through promoter indexes', async () => {
+  FakeRedis.values.set('nf_user_data:operator', JSON.stringify({ accountType: 'admin' }));
+  currentAdData.by_promoter.alias = { links: ['trusted-link'] };
+  for (const endpoint of [myStats, perLinkStats]) {
+    const result = await invoke(endpoint, { method: 'GET', headers: authHeaders('operator'), query: {} });
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.body.total_new, 2);
+  }
+});

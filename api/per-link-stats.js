@@ -68,6 +68,7 @@ module.exports = async (req, res) => {
   }
   if (!username) return res.status(400).json({ error: 'username is required' });
 
+  const allPromoters = admin && !String(requestedUsername || '').trim();
   const debugLog = [];
 
   const finalize = body => {
@@ -88,6 +89,7 @@ module.exports = async (req, res) => {
     let usernameCanon = null;
 
     const adData = await getAdIdDetails(debugLog);
+    if (!allPromoters) usernameCanon = resolvePromoterKey(username, adData);
     if (!admin) {
       usernameCanon = resolvePromoterKey(username, adData);
       const walletIdentity = await resolveReadOnlyWalletStorageIdentity(redis, username, {
@@ -121,7 +123,7 @@ module.exports = async (req, res) => {
     const submissions = redis ? await loadSubmissions(
       redis,
       username,
-      admin,
+      allPromoters,
       debugLog,
       { expectedPrincipal: admin ? null : principalFromPayload(payload) },
     ) : [];
@@ -130,13 +132,13 @@ module.exports = async (req, res) => {
 
     // =================== PRIMARY PATH ===================
     if (adData) {
-      const { byAdId, promoterEntries } = buildAdIdLookup(adData, usernameCanon, admin, submissions);
+      const { byAdId, promoterEntries } = buildAdIdLookup(adData, usernameCanon, allPromoters, submissions);
 
       const links = [];
       const aggDaily = {};
       const seenAdIds = new Set();
 
-      if (admin) {
+      if (allPromoters) {
         // Admin: build one record per ad_id across all promoters, joined with nf_subs metadata.
         const nfSubsByAdId = new Map();
         for (const sub of submissions) {
@@ -152,6 +154,8 @@ module.exports = async (req, res) => {
           ]));
           for (const adIdRaw of adIds) {
             const adId = String(adIdRaw);
+            if (seenAdIds.has(adId)) continue;
+            seenAdIds.add(adId);
             const st = byAdId[adId] || zeroStats();
             const sub = nfSubsByAdId.get(adId) || {};
             const channel = st.channel || (String(adId).startsWith('invite:') ? 'invite' : (pEntry.links?.includes(adIdRaw) ? 'link' : 'code'));
@@ -242,31 +246,23 @@ module.exports = async (req, res) => {
 
       // ---------- ORPHAN AD_ID SYNC (same reasoning as my-stats.js) ----------
       const promoterEntry = (() => {
-        if (!adData || !adData.by_promoter || admin) return null;
+        if (!adData || !adData.by_promoter || allPromoters) return null;
         return adData.by_promoter[usernameCanon] || null;
       })();
-      if (promoterEntry) {
+      if (!allPromoters) {
         const knownAdIds = new Set(seenAdIds);
-        for (const l of links) {
-          if (l.linkId) knownAdIds.add(String(l.linkId));
-          if (l.code && l.code !== 'N/A') knownAdIds.add(String(l.code));
-        }
-        const promoAdIds = Array.from(new Set([
-          ...(promoterEntry.links || []).map(String),
-          ...(promoterEntry.codes || []).map(String),
-          ...(promoterEntry.invites || []).map(value => `invite:${String(value)}`),
-        ]));
+        const promoAdIds = Object.keys(byAdId);
         let orphanCount = 0;
         for (const adId of promoAdIds) {
           if (knownAdIds.has(adId)) continue;
           const st = byAdId[adId];
           if (!st) continue;
           knownAdIds.add(adId);
-          const isCode = (promoterEntry.codes || []).map(String).includes(adId);
+          const isCode = (promoterEntry?.codes || []).map(String).includes(adId);
           const isInvite = String(adId).startsWith('invite:');
           const channel = (isInvite ? 'invite' : (isCode ? 'code' : 'link')) + ' (synced)';
           let bookName = st.book_name || 'Unknown';
-          for (const pb of (promoterEntry.books || [])) {
+          for (const pb of (promoterEntry?.books || [])) {
             if ((pb.ad_ids || []).map(String).includes(adId)) { bookName = pb.name; break; }
           }
           const dn = r2(st.dn_income);
@@ -327,7 +323,8 @@ module.exports = async (req, res) => {
         total_unique: totalVisits,
         total_new: totalNew,
         total_income: totalIncome,
-        last_updated: adData.last_updated || new Date().toISOString(),
+        last_updated: adData.last_updated || null,
+          data_through: adData.date_range?.to || adData.date_range?.end || null,
         daily, links,
         debug: debugLog, version: 'v6-unified-funnel',
       }));
