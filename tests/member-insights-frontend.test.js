@@ -75,3 +75,27 @@ test('new member-facing labels include English and Spanish translations', () => 
     assert.equal((source.match(new RegExp(`${key}:`, 'g')) || []).length, 2, `${key} should exist in EN and ES`);
   }
 });
+
+
+test('personal reader counts never substitute referral-network totals or turn missing data into zero', () => {
+  const vm = require('node:vm');
+  const start = source.indexOf('            const countOrDash =');
+  const end = source.indexOf('            if (inviteEl)', start);
+  const snippet = source.slice(start, end);
+  for (const [stats, expected] of [[null, '--'], [{ total_new: null }, '--'], [{ total_new: 0 }, '0'], [{ total_new: 23 }, '23']]) {
+    const readerEl = {};
+    vm.runInNewContext(snippet, { stats, referrals: { reader_new_users: 999 }, readerEl });
+    assert.equal(readerEl.textContent, expected);
+  }
+});
+
+test('stats timestamp shows the source snapshot date and explicitly labels delayed data', () => {
+  const vm = require('node:vm');
+  const start = source.indexOf('                const updated = data.last_updated');
+  const end = source.indexOf("                lastUpdatedEl.style.display = 'block';", start);
+  const snippet = source.slice(start, end);
+  const lastUpdatedTimeEl = {};
+  vm.runInNewContext(snippet, { data: { last_updated: '2026-09-06T00:14:46Z' }, AppState: { currentLang: 'en' }, lastUpdatedTimeEl, getText: () => 'delayed', Date: class extends Date { static now() { return Date.parse('2026-09-08T00:00:00Z'); } } });
+  assert.match(lastUpdatedTimeEl.textContent, /2026/);
+  assert.match(lastUpdatedTimeEl.textContent, /delayed/);
+});

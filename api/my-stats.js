@@ -70,6 +70,7 @@ module.exports = async (req, res) => {
     ? (requestedHint && String(requestedHint).trim() ? String(requestedHint).trim() : jwtUsername)
     : jwtUsername;
   const username = requested;
+  const allPromoters = isAdmin && !String(requestedHint || '').trim();
 
   const debugLog = [];
   if (!IS_PROD) debugLog.push(`auth: jwt_user=${jwtUsername}, target=${username}, isAdmin=${isAdmin}`);
@@ -90,7 +91,7 @@ module.exports = async (req, res) => {
   try {
     // 1. Fetch primary data
     const adData = await getAdIdDetails(IS_PROD ? [] : debugLog);
-    let usernameCanon = null;
+    let usernameCanon = allPromoters ? null : resolvePromoterKey(username, adData);
 
     if (!isAdmin && adData) {
       usernameCanon = resolvePromoterKey(username, adData);
@@ -126,7 +127,7 @@ module.exports = async (req, res) => {
     const submissions = redis ? await loadSubmissions(
       redis,
       username,
-      isAdmin,
+      allPromoters,
       IS_PROD ? [] : debugLog,
       { expectedPrincipal: isAdmin ? null : principalFromPayload(payload) },
     ) : [];
@@ -152,7 +153,7 @@ module.exports = async (req, res) => {
         usernameCanon = k;
       }
       const { byAdId, promoterEntry, promoterEntries } =
-        buildAdIdLookup(adData, usernameCanon, isAdmin, submissions);
+        buildAdIdLookup(adData, usernameCanon, allPromoters, submissions);
 
       // Some legacy pipeline rows predate nf_subs but still carry a trusted
       // bookId. User profiles resolve every source with one shared external
@@ -170,7 +171,8 @@ module.exports = async (req, res) => {
         });
       }
 
-      if (isAdmin) {
+      if (allPromoters) {
+        const seenAdminAdIds = new Set();
         const books = [];
         const aggDaily = {};
         let totalVisits = 0, totalNew = 0, totalIncome = 0;
@@ -190,6 +192,8 @@ module.exports = async (req, res) => {
           ]));
           for (const adIdRaw of adIds) {
             const adId = String(adIdRaw);
+            if (seenAdminAdIds.has(adId)) continue;
+            seenAdminAdIds.add(adId);
             const st = byAdId[adId] || zeroStats();
             const sub = nfSubsByAdId.get(adId) || {};
             const channel = st.channel || (String(adId).startsWith('invite:') ? 'invite' : (pEntry.links?.includes(adIdRaw) ? 'link' : (pEntry.codes?.includes(adIdRaw) ? 'code' : 'link')));
@@ -246,7 +250,8 @@ module.exports = async (req, res) => {
           total_unique: totalVisits,
           total_new: totalNew,
           total_income: r2(totalIncome),
-          last_updated: adData.last_updated || new Date().toISOString(),
+          last_updated: adData.last_updated || null,
+          data_through: adData.date_range?.to || adData.date_range?.end || null,
           visits_daily, unique_daily, new_users_daily, income_daily,
           books, debug: debugLog, version: 'v6.1-security',
         }));
@@ -302,28 +307,20 @@ module.exports = async (req, res) => {
         });
       }
 
-      if (promoterEntry) {
+      {
         const knownAdIds = new Set(seenAdIds);
-        for (const b of books) {
-          if (b.linkId) knownAdIds.add(String(b.linkId));
-          if (b.code && b.code !== 'N/A') knownAdIds.add(String(b.code));
-        }
-        const promoAdIds = Array.from(new Set([
-          ...(promoterEntry.links || []).map(String),
-          ...(promoterEntry.codes || []).map(String),
-          ...(promoterEntry.invites || []).map(value => `invite:${String(value)}`),
-        ]));
+        const promoAdIds = Object.keys(byAdId);
         let orphanCount = 0;
         for (const adId of promoAdIds) {
           if (knownAdIds.has(adId)) continue;
           const st = byAdId[adId];
           if (!st) continue;
           knownAdIds.add(adId);
-          const isCode = (promoterEntry.codes || []).map(String).includes(adId);
+          const isCode = (promoterEntry?.codes || []).map(String).includes(adId);
           const isInvite = String(adId).startsWith('invite:');
-          const channel = isInvite ? 'invite' : (isCode ? 'code' : 'link');
+          const channel = st.channel || (isInvite ? 'invite' : (isCode ? 'code' : 'link'));
           let bookName = st.book_name || 'Unknown';
-          for (const pb of (promoterEntry.books || [])) {
+          for (const pb of (promoterEntry?.books || [])) {
             if ((pb.ad_ids || []).map(String).includes(adId)) { bookName = pb.name; break; }
           }
           const dn = r2(st.dn_income);
@@ -377,12 +374,13 @@ module.exports = async (req, res) => {
       }
 
       return res.status(200).json(finalize({
-        username, isAdmin: false,
+        username, isAdmin,
         total_visits: totalVisits,
         total_unique: totalVisits,
         total_new: totalNew,
         total_income: totalIncome,
-        last_updated: adData.last_updated || new Date().toISOString(),
+        last_updated: adData.last_updated || null,
+          data_through: adData.date_range?.to || adData.date_range?.end || null,
         visits_daily, unique_daily, new_users_daily, income_daily,
         books, debug: debugLog, version: 'v6.1-security',
       }));
