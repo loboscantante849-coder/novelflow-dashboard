@@ -446,7 +446,10 @@ function buildRunInput(book, body = {}, planning = null) {
     // cannot begin submitting paid media merely because a later campaign was
     // approved.
     paidMediaSubmissionAuthorized: body.paidAuthorized === true && body.paidMediaSubmissionAuthorized === true,
-    posterGenerationRequired: body.posterGenerationRequired !== false,
+    // Poster production has been retired from the Social Console. Keep the
+    // durable field so historical runs remain readable, but never create a
+    // new paid image intent.
+    posterGenerationRequired: false,
     copyStrategy,
     ...(creativeVariantKey ? { creativeVariantKey } : {}),
     creativeProfile: sanitizeCreativeProfile(body.creativeProfile),

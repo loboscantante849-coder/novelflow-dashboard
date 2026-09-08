@@ -1,7 +1,7 @@
 const { getRedis, listRunSummaries } = require('./_lib/store');
 const { requireSession } = require('./_lib/auth');
 const providers = require('./_lib/providers');
-const { ACCOUNT_ROUTES, APPS, appByKey, normalizeDelivery } = require('./_lib/distribution');
+const { ACCOUNT_ROUTES, APPS, normalizeDelivery } = require('./_lib/distribution');
 const leaderboard = require('./leaderboard');
 
 const text = (value, max) => typeof value === 'string' && value.trim().length <= max ? value.trim() : '';
@@ -30,7 +30,27 @@ function plannerFilters(route) {
   return leaderboard.catalogFilters({ line: route.appKey, platform: route.platform, accountId: route.accountId, language: 'EN', complete: '已完结', status: '上架', readBaseMin: '0', firstReadMin: '0', longReadMin: '0' }, target);
 }
 
-async function loadRoute(route, topN, date, routeIndex, usedByAccount) {
+function runUsageTime(run) {
+  const values = [
+    run.input?.campaign?.scheduledAt,
+    run.artifacts?.review?.scheduledAt,
+    run.createdAt,
+    run.updatedAt
+  ];
+  for (const value of values) {
+    const parsed = Date.parse(value || '');
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
+function usageState(lastUsedAt, planTime, cooldownDays) {
+  if (!lastUsedAt) return 'never_used';
+  const ageDays = Math.floor(Math.max(0, planTime - lastUsedAt) / 86400000);
+  return ageDays >= cooldownDays ? 'cooldown_clear' : 'recent';
+}
+
+async function loadRoute(route, topN, date, routeIndex, recentByAccount, cooldownDays) {
   const target = normalizeDelivery({ accountId: route.accountId });
   const filters = plannerFilters(route);
   let verifiedTargetCatalog = null;
@@ -46,20 +66,27 @@ async function loadRoute(route, topN, date, routeIndex, usedByAccount) {
     .sort((a, b) => Number(a.rank || 999999) - Number(b.rank || 999999));
   const selected = [];
   const seen = new Set();
+  const planTime = Date.parse(`${date}T23:59:59+08:00`);
   for (const book of eligible) {
     const sku = String(book.bookSkuId || '');
     if (!sku || seen.has(sku)) continue;
     seen.add(sku);
-    const used = usedByAccount.get(`${route.accountId}:${sku}`) === true;
-    // Prefer unused rows, but backfill from verified rows if the route is sparse.
-    if (!used) selected.push({ book, usage: 'unused' });
+    const lastUsedAt = recentByAccount.get(`${route.accountId}:${sku}`) || 0;
+    const usage = usageState(lastUsedAt, planTime, cooldownDays);
+    // Keep books used by this account inside the cooling window out of the
+    // first pass. Older books remain eligible so the catalogue can rotate.
+    if (usage !== 'recent') selected.push({ book, usage, lastUsedAt });
     if (selected.length >= topN) break;
   }
   if (selected.length < topN) {
-    for (const book of eligible) {
+    const recentBackfill = eligible
+      .map((book) => ({ book, lastUsedAt: recentByAccount.get(`${route.accountId}:${String(book.bookSkuId || '')}`) || 0 }))
+      .filter(({ book, lastUsedAt }) => lastUsedAt && !selected.some((item) => String(item.book.bookSkuId) === String(book.bookSkuId)))
+      .sort((a, b) => a.lastUsedAt - b.lastUsedAt);
+    for (const { book, lastUsedAt } of recentBackfill) {
       const sku = String(book.bookSkuId || '');
       if (!sku || selected.some((item) => String(item.book.bookSkuId) === sku)) continue;
-      selected.push({ book, usage: 'used_backfill' });
+      selected.push({ book, usage: 'recent_backfill', lastUsedAt });
       if (selected.length >= topN) break;
     }
   }
@@ -67,10 +94,11 @@ async function loadRoute(route, topN, date, routeIndex, usedByAccount) {
     accountId: route.accountId, accountTitle: route.accountTitle, appKey: route.appKey,
     appName: APPS[route.appKey]?.name || route.accountTitle, platform: route.platform,
     routeStatus: selected.length ? 'ready' : 'unavailable',
-    slots: selected.map(({ book, usage }, slotIndex) => ({
+    slots: selected.map(({ book, usage, lastUsedAt }, slotIndex) => ({
       slot: slotIndex + 1, title: book.title, sku: book.bookSkuId, rank: Number(book.rank || slotIndex + 1),
       metrics: { baseReadUnt: Number(book.baseReadUnt || 0), firstReadUntRate: Number(book.firstReadUntRate || 0), read10wRate: Number(book.read10wRate || 0), read20wRate: Number(book.read20wRate || 0), ttProfit: Number(book.ttProfit || 0) },
-      usage, scheduledAt: scheduleAt(date, route.platform, routeIndex, slotIndex),
+      usage, lastUsedAt: lastUsedAt ? new Date(lastUsedAt).toISOString() : '', cooldownDays,
+      scheduledAt: scheduleAt(date, route.platform, routeIndex, slotIndex),
       creativeVariantKey: `planner:${date}:${route.accountId}:${route.platform}:${book.bookSkuId}:${slotIndex + 1}`,
       copyStrategy: 'llm', accountId: route.accountId, accountTitle: route.accountTitle, appKey: route.appKey, platform: route.platform
     }))
@@ -99,20 +127,26 @@ module.exports = async (req, res) => {
   const topN = Math.max(1, Math.min(10, Number(req.query?.topN) || 3));
   const date = shanghaiDate(req.query?.date);
   const copyStrategy = ['llm', 'hy3', 'evidence_fallback'].includes(String(req.query?.copyStrategy)) ? String(req.query.copyStrategy) : 'llm';
+  const cooldownDays = Math.max(1, Math.min(90, Number(req.query?.cooldownDays) || 7));
+  const platform = ['facebook', 'instagram', 'tiktok'].includes(String(req.query?.platform || '').toLowerCase()) ? String(req.query.platform).toLowerCase() : '';
+  const accountId = Number(req.query?.accountId || 0);
+  const selectedRoutes = ACCOUNT_ROUTES.filter((route) => (!platform || route.platform === platform) && (!accountId || route.accountId === accountId));
   const summaries = await listRunSummaries(redis, 500);
-  const usedByAccount = new Map();
+  const recentByAccount = new Map();
   summaries.forEach((run) => {
-    const accountId = Number(run.input?.delivery?.accountId || 0);
+    const runAccountId = Number(run.input?.delivery?.accountId || 0);
     const sku = String(run.input?.sku || run.input?.verifiedBook?.bookSkuId || '');
-    if (accountId && sku) usedByAccount.set(`${accountId}:${sku}`, true);
+    const usedAt = runUsageTime(run);
+    const key = `${runAccountId}:${sku}`;
+    if (runAccountId && sku && usedAt > (recentByAccount.get(key) || 0)) recentByAccount.set(key, usedAt);
   });
   // A small parallel pool keeps every route independent without flooding the
   // ranking and bookstore upstreams. The previous 14-way burst commonly left
   // only the first two routes populated.
-  const settled = await mapWithConcurrency(ACCOUNT_ROUTES, 3, (route, index) => loadRoute(route, topN, date, index, usedByAccount));
+  const settled = await mapWithConcurrency(selectedRoutes, 3, (route, index) => loadRoute(route, topN, date, index, recentByAccount, cooldownDays));
   const routes = settled.map((entry, index) => entry.status === 'fulfilled' ? { ...entry.value, slots: entry.value.slots.map((slot) => ({ ...slot, copyStrategy })) } : ({
-    accountId: ACCOUNT_ROUTES[index].accountId, accountTitle: ACCOUNT_ROUTES[index].accountTitle, appKey: ACCOUNT_ROUTES[index].appKey,
-    platform: ACCOUNT_ROUTES[index].platform, routeStatus: 'unavailable', slots: [], error: String(entry.reason?.message || '排行 API 暂时不可用').slice(0, 180)
+    accountId: selectedRoutes[index].accountId, accountTitle: selectedRoutes[index].accountTitle, appKey: selectedRoutes[index].appKey,
+    platform: selectedRoutes[index].platform, routeStatus: 'unavailable', slots: [], error: String(entry.reason?.message || '排行 API 暂时不可用').slice(0, 180)
   }));
-  return res.status(200).json({ generatedAt: new Date().toISOString(), date, timezone: 'Asia/Shanghai', topN, copyStrategy, routeCount: ACCOUNT_ROUTES.length, routes });
+  return res.status(200).json({ generatedAt: new Date().toISOString(), date, timezone: 'Asia/Shanghai', topN, copyStrategy, cooldownDays, platform, accountId: accountId || null, routeCount: selectedRoutes.length, totalRouteCount: ACCOUNT_ROUTES.length, routes });
 };

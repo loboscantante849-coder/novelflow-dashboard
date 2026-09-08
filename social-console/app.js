@@ -1,5 +1,5 @@
 const storedRecommendationHistory = (() => { try { return JSON.parse(localStorage.getItem('nf_social:recommendation_history') || '[]'); } catch { return []; } })();
-const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, pointsBudget: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogUsageFilter: 'all', catalogFilters: { line: 'novelflow', platform: 'facebook', accountId: '13751295', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all', readBaseMin: '0', firstReadMin: '0', longReadMin: '0' }, catalogTarget: null, catalogTargetOptions: [], historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 12, statusScope: 'recent', statusCampaignId: '', detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, kickPromise: null, longKickKey: '', startingProductions: new Set(), planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0, routePlan: null, routePlanLoading: false, leaderboardReceiptRefreshKey: '' };
+const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, pointsBudget: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogUsageFilter: 'all', catalogFilters: { line: 'novelflow', platform: 'facebook', accountId: '13751295', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all', readBaseMin: '0', firstReadMin: '0', longReadMin: '0' }, catalogTarget: null, catalogTargetOptions: [], historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 12, statusScope: 'recent', statusCampaignId: '', detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, kickPromise: null, longKickKey: '', startingProductions: new Set(), planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0, routePlan: null, routePlanLoading: false, productionTrayExpanded: false, leaderboardReceiptRefreshKey: '' };
 const TARGET_ROUTE_FALLBACKS = [
   [13751295, 'NovelFlow', 'novelflow', 'facebook'], [13943450, 'NovelFlow', 'novelflow', 'instagram'], [13943940, 'NovelFlow', 'novelflow', 'tiktok'],
   [13943483, 'AstraNovel', 'astranovel', 'facebook'], [15401748, 'AstraNovel', 'astranovel', 'instagram'], [13944009, 'astranovel_freenovels', 'astranovel', 'tiktok'],
@@ -232,7 +232,6 @@ state.coverFailures = new Map();
 state.coverRetryTimer = null;
 state.copilotMessages = (() => { try { return JSON.parse(localStorage.getItem('nf_social:copilot_messages') || '[]').slice(-14); } catch { return []; } })();
 state.copilotBusy = false;
-state.referencePosterChoice = {};
 state.videoControlDrafts = new Map();
 state.videoControlSaved = new Map();
 state.videoControlAssets = new Map();
@@ -287,12 +286,12 @@ function handleCoverImageLoad(image) {
   image.classList.add('is-loaded');
 }
 const labels = { queued: '排队中', running: '生产中', completed: '已完成', failed: '失败', blocked: '已暂停', partial: '部分完成', ambiguous: '需人工核验' };
-const stageLabels = { P0: '选书锁定', P1: '书籍核验', P2: '证据', P3: '创意', P3_5: '海报', P4: '视频', P5: 'Code', P6: '审核包', P7: '草稿审核' };
-const stageIcons = { P0: 'list-checks', P1: 'book-open-check', P2: 'library', P3: 'message-square-text', P3_5: 'images', P4: 'video', P5: 'link-2', P6: 'badge-check', P7: 'send-horizontal' };
+const stageLabels = { P0: '选书锁定', P1: '书籍核验', P2: '证据', P3: '创意', P4: '视频', P5: 'Code', P6: '审核包', P7: '草稿审核' };
+const stageIcons = { P0: 'list-checks', P1: 'book-open-check', P2: 'library', P3: 'message-square-text', P4: 'video', P5: 'link-2', P6: 'badge-check', P7: 'send-horizontal' };
 // The operator-facing harness uses the conceptual P0→P7 order. Attribution
 // (P5) may still execute early on the server, but it no longer makes the UI
 // appear to jump backwards from creative work to Code allocation.
-const pipelineOrder = ['P0', 'P1', 'P2', 'P3', 'P3_5', 'P4', 'P5', 'P6', 'P7'];
+const pipelineOrder = ['P0', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'];
 const HARNESS_NODE_COUNT = pipelineOrder.length;
 const catalogSortLabels = { recommendationScore: '综合推荐分', baseReadUnt: '中台阅读排行', firstReadUntRate: '首读率', read20wRate: '长读留存', trend7v30: '近期趋势' };
 
@@ -309,7 +308,6 @@ const creativeProfileOptions = {
   copyStyle: { label: '文案', values: { system_best: '系统推荐：从原文选择最有张力的冲突', revenge_comeback: '复仇反杀：只在原文支持时突出夺回主动权', forbidden_tension: '禁忌拉扯：只在原文支持时突出欲望与边界', dark_redemption: '暗黑救赎：只在原文支持时突出危险与重获掌控' } },
   ctaStyle: { label: 'CTA', values: { story_cliffhanger: '系统推荐：用具体未解的情节问题收尾', identity_reveal: '身份反转：以已铺垫的秘密或认出为钩子', romantic_tension: '暧昧拉扯：以有证据的欲望、目光或边界收尾', revenge_payoff: '反击爽点：以有证据的清算或反转承诺收尾' } },
   videoStyle: { label: '视频剧情', values: { five_beat: '系统推荐：钩子、价值、升级、反转、悬念五拍', reversal: '强反转：把真实反转放在 8-11 秒', slow_burn: '慢热张力：用克制靠近和最终选择递进', revenge: '复仇兑现：只使用原文已有的反击或翻盘' } },
-  posterStyle: { label: '海报', values: { system_best: '系统推荐：一张电影感，一张时尚情绪感', luminous_cinema: '电影氛围：强调高戏剧性的关键瞬间', editorial_romance: '时尚爱情：强调克制、情绪与留白' } },
   modelChoice: { label: '生产模型', values: { 'deepseek-v4-flash-preview': 'DeepSeek V4 Flash：Token' } }
 };
 
@@ -383,7 +381,7 @@ function selectedModelWaitMs(choice) {
 }
 
 function creativeProfileForForm() {
-  return { copyStyle: $('#creativeStyle').value, ctaStyle: $('#ctaStyle').value, videoStyle: $('#videoStyle').value, posterStyle: $('#posterStyle').value, modelChoice: 'deepseek-v4-flash-preview' };
+  return { copyStyle: $('#creativeStyle').value, ctaStyle: $('#ctaStyle').value, videoStyle: $('#videoStyle').value, modelChoice: 'deepseek-v4-flash-preview' };
 }
 
 function creativeProfileHtml(profile, preview = false) {
@@ -402,14 +400,14 @@ function productionModelRouteHtml(run) {
   const taskPreferred = taskRoute.preferredModel || production;
   const taskSwitch = taskRoute.fallbackUsed && modelLabel(taskPreferred) !== modelLabel(production);
   if (!planning?.actualModel) {
-    return `<div class="production-model-route"><i data-lucide="route"></i><div><span>本任务模型路线</span><strong><b>全程创意</b>${taskSwitch ? `${modelLogoHtml(taskPreferred, { compact: true })}<i data-lucide="arrow-right"></i>` : ''}${modelLogoHtml(production, { compact: true })}</strong><small>${taskSwitch ? '首选不可用后已整体切换一次；后续文案、视频、海报和质检保持同一模型。' : '文案、视频、海报和质检使用同一模型；不会按节点混用。'}</small></div></div>`;
+    return `<div class="production-model-route"><i data-lucide="route"></i><div><span>本任务模型路线</span><strong><b>全程创意</b>${taskSwitch ? `${modelLogoHtml(taskPreferred, { compact: true })}<i data-lucide="arrow-right"></i>` : ''}${modelLogoHtml(production, { compact: true })}</strong><small>${taskSwitch ? '首选不可用后已整体切换一次；后续文案、视频和质检保持同一模型。' : '文案、视频和质检使用同一模型；不会按节点混用。'}</small></div></div>`;
   }
   const preferred = planning.preferredModel || planning.actualModel;
   const actual = planning.actualModel;
   const strategy = planning.fallbackUsed && modelLabel(preferred) !== modelLabel(actual)
     ? `${modelLogoHtml(preferred, { compact: true })}<i data-lucide="arrow-right"></i>${modelLogoHtml(actual, { compact: true })}`
     : modelLogoHtml(actual, { compact: true });
-  return `<div class="production-model-route"><i data-lucide="route"></i><div><span>模型分工</span><strong><b>策划</b>${strategy}<b>生产</b>${taskSwitch ? `${modelLogoHtml(taskPreferred, { compact: true })}<i data-lucide="arrow-right"></i>` : ''}${modelLogoHtml(production, { compact: true })}</strong><small>${taskSwitch ? '生产任务已整体切换一次备用模型，后续创意节点保持同一模型。' : '生产的文案、视频、海报和质检保持同一模型。'}</small></div></div>`;
+  return `<div class="production-model-route"><i data-lucide="route"></i><div><span>模型分工</span><strong><b>策划</b>${strategy}<b>生产</b>${taskSwitch ? `${modelLogoHtml(taskPreferred, { compact: true })}<i data-lucide="arrow-right"></i>` : ''}${modelLogoHtml(production, { compact: true })}</strong><small>${taskSwitch ? '生产任务已整体切换一次备用模型，后续创意节点保持同一模型。' : '生产的文案、视频和质检保持同一模型。'}</small></div></div>`;
 }
 
 function renderCreativeProfilePreview() {
@@ -436,9 +434,8 @@ function planResultHtml(result) {
   const rationale = plan.rationale || {};
   const copy = plan.copyBlueprint || {};
   const video = plan.videoBlueprint || {};
-  const poster = plan.posterBlueprint || {};
   const evidence = Array.isArray(plan.evidence) ? plan.evidence.slice(0, 4) : [];
-  const actualModel = result.usage?.model || result.modelChoice || 'hy3';
+  const actualModel = result.usage?.model || result.modelChoice || 'deepseek-v4-flash-preview';
   const preferredModel = result.preferredModelChoice || actualModel;
   const routeText = result.fallbackUsed && modelLabel(preferredModel) !== modelLabel(actualModel) ? `${modelLabel(preferredModel)} 未及时返回，${modelLabel(actualModel)} 完成策划` : `${modelLabel(actualModel)} 完成策划`;
   const footer = result.autoStartProduction
@@ -450,7 +447,7 @@ function planResultHtml(result) {
     <div class="plan-thesis"><strong>核心推广判断</strong><p>${escapeHtml(plan.editorialThesis)}</p></div>
     <div class="plan-profile">${Object.keys(creativeProfileOptions).map((key) => profileSelect(key, profile[key] || Object.keys(creativeProfileOptions[key].values)[0])).join('')}</div>
     <div class="plan-rationale">${Object.entries(creativeProfileOptions).map(([key, definition]) => `<article><span>${escapeHtml(definition.label)}</span><strong>${escapeHtml(rationale[key] || '以章节证据为准')}</strong></article>`).join('')}</div>
-    <div class="plan-blueprints"><article><span>文案蓝图</span><strong>${escapeHtml(copy.hook || '')}</strong><p>${escapeHtml(copy.emotionalArc || copy.zhSummary || '')}</p><small>CTA：${escapeHtml(copy.cta || '')}</small></article><article><span>视频剧情</span><strong>${escapeHtml(video.opening || video.arc || '')}</strong><p>${escapeHtml(video.reversal || video.zhSummary || '')}</p><small>悬念：${escapeHtml(video.cliffhanger || '')}</small></article><article><span>海报方向</span><strong>${escapeHtml(poster.moment || '')}</strong><p>${escapeHtml(poster.mood || poster.zhSummary || '')}</p></article></div>
+    <div class="plan-blueprints"><article><span>文案蓝图</span><strong>${escapeHtml(copy.hook || '')}</strong><p>${escapeHtml(copy.emotionalArc || copy.zhSummary || '')}</p><small>CTA：${escapeHtml(copy.cta || '')}</small></article><article><span>视频剧情</span><strong>${escapeHtml(video.opening || video.arc || '')}</strong><p>${escapeHtml(video.reversal || video.zhSummary || '')}</p><small>悬念：${escapeHtml(video.cliffhanger || '')}</small></article></div>
     ${evidence.length ? `<div class="plan-evidence">${evidence.map((item) => `<article><span>Ch.${escapeHtml(item.chapter)}</span><strong>“${escapeHtml(item.quote)}”</strong><p>${escapeHtml(item.why || '')}</p></article>`).join('')}</div>` : ''}
     ${footer}`;
 }
@@ -458,7 +455,7 @@ function planResultHtml(result) {
 function planJobResult(job) {
   const delivery = job.input?.delivery || null;
   const book = job.artifacts?.book || { title: job.input?.title || '', sku: job.input?.sku || '' };
-  return { id: job.id, book: delivery ? { ...book, selectionTarget: delivery } : book, delivery, p0Selection: job.input?.p0Selection || null, plan: job.artifacts?.plan || {}, evidenceScope: job.artifacts?.evidenceScope || { chapterCount: 0, sampledChapters: [] }, usage: job.artifacts?.usage || {}, modelChoice: job.input?.modelChoice || 'hy3', preferredModelChoice: job.input?.preferredModelChoice || job.input?.modelChoice || 'hy3', fallbackUsed: Boolean(job.input?.fallbackUsed), modelHistory: job.input?.modelHistory || [], autoStartProduction: job.input?.autoStartProduction === true, productionRunId: job.input?.productionRunId || '' };
+  return { id: job.id, book: delivery ? { ...book, selectionTarget: delivery } : book, delivery, p0Selection: job.input?.p0Selection || null, plan: job.artifacts?.plan || {}, evidenceScope: job.artifacts?.evidenceScope || { chapterCount: 0, sampledChapters: [] }, usage: job.artifacts?.usage || {}, modelChoice: job.input?.modelChoice || 'deepseek-v4-flash-preview', preferredModelChoice: job.input?.preferredModelChoice || job.input?.modelChoice || 'deepseek-v4-flash-preview', fallbackUsed: Boolean(job.input?.fallbackUsed), modelHistory: job.input?.modelHistory || [], autoStartProduction: job.input?.autoStartProduction === true, productionRunId: job.input?.productionRunId || '' };
 }
 
 function visibleCreativePlanJobs(planJobs = state.planJobs, runs = state.runs) {
@@ -923,7 +920,7 @@ async function runAssistant(mode) {
   if (state.assistantRunning) return;
   const result = $('#assistantResult');
   const select = $('#assistantModelChoice');
-  const modelChoice = select?.value || 'hy3';
+  const modelChoice = select?.value || 'deepseek-v4-flash-preview';
   const selectedModel = modelLabel(modelChoice);
   state.assistantRunning = true;
   const activeCount = state.runs.filter((run) => ['queued', 'running'].includes(run.state)).length;
@@ -1021,7 +1018,7 @@ async function sendCopilot(text) {
   state.copilotMessages.push({ role: 'user', content: value }); persistCopilot(); renderCopilotThread();
   const input = $('#copilotInput'); const button = $('#copilotForm button'); input.value = ''; button.disabled = true;
   try {
-    const modelChoice = $('#assistantModelChoice')?.value || 'hy3';
+    const modelChoice = $('#assistantModelChoice')?.value || 'deepseek-v4-flash-preview';
     const body = await api('/api/copilot', { method: 'POST', body: JSON.stringify({ messages: state.copilotMessages, context: copilotContext(), modelChoice }), timeoutMs: selectedModelWaitMs(modelChoice) });
     const reply = { role: 'assistant', content: body.message?.content || '', toolCalls: body.message?.toolCalls || [] };
     state.copilotMessages.push(reply); renderCopilotThread();
@@ -1049,7 +1046,7 @@ function showApp() {
 }
 
 function capabilityName(key) {
-  return { storage: '任务存储', pipeline: '书库与短链', llm: 'AI 创意模型', video: 'AC 视频', image: '海报生成', report: '归因数据', publishing: 'SocialEcho 发布' }[key] || key;
+  return { storage: '任务存储', pipeline: '书库与短链', llm: 'AI 创意模型', video: 'AC 视频', image: '人物参考图', report: '归因数据', publishing: 'SocialEcho 发布' }[key] || key;
 }
 
 function renderCapabilities() {
@@ -2507,7 +2504,7 @@ function activeAutopilotItems() {
     .map((run) => {
       const done = completedHarnessStages(run);
       const live = currentStage(run);
-      const model = modelLabel(run.artifacts?.modelRoute?.activeModel || run.input?.creativeProfile?.modelChoice || 'hy3');
+      const model = modelLabel(run.artifacts?.modelRoute?.activeModel || run.input?.creativeProfile?.modelChoice || 'deepseek-v4-flash-preview');
       const next = run.autopilot?.nextActionLabel || live?.[1]?.label || stageLabels[live?.[0]] || '后台正在推进';
       return {
         kind: 'run', key: `run:${run.id}`, runId: run.id, title: run.input?.title || run.artifacts?.book?.title || '未命名任务',
@@ -2528,10 +2525,8 @@ function renderOneClickStatus() {
   const items = [...pending.filter((item) => !activeRunIds.has(item.runId) && !activeRoutes.has(routeProductionIdentity(item, item.delivery))), ...active];
   panel.hidden = items.length === 0;
   if (!items.length) { panel.innerHTML = ''; return; }
-  const mediaStatusCopy = paidMediaAvailable()
-    ? '付费视频依服务端能力和 40/日 limiter 自动提交或排队，已有 threadId 安全回收结果。'
-    : '服务端当前未开放新视频提交，已有 threadId 只回收结果。';
-  panel.innerHTML = `<header><span><i data-lucide="file-pen-line"></i></span><div><strong>文案生产与历史任务</strong><small>后台继续完成书籍核验、全书策划、Code / Link 和六步法文案；${mediaStatusCopy}</small></div></header><div class="one-click-items">${items.map((item) => {
+  const mediaStatusCopy = paidMediaAvailable() ? '文案与视频在后台继续推进；视频受 40/日 limiter 控制，已有 threadId 只回收结果' : '服务端当前未开放新视频提交；文案继续推进，已有 threadId 只回收结果';
+  panel.innerHTML = `<header><span><i data-lucide="file-pen-line"></i></span><div><strong>后台任务</strong><small>${mediaStatusCopy}</small></div><button class="one-click-toggle" type="button" aria-expanded="${state.productionTrayExpanded}">${state.productionTrayExpanded ? '收起' : `查看 ${items.length} 条`}</button></header><div class="one-click-items" ${state.productionTrayExpanded ? '' : 'hidden'}>${items.slice(0, 4).map((item) => {
     const failed = item.status === 'failed';
     const blocked = item.status === 'blocked';
     const icon = failed || blocked ? 'triangle-alert' : item.kind === 'run' ? 'activity' : 'loader-circle';
@@ -2543,6 +2538,7 @@ function renderOneClickStatus() {
         : '<b>后台推进中</b>';
     return `<article class="${item.kind === 'run' ? 'active' : ''} ${failed ? 'failed' : ''} ${blocked ? 'blocked' : ''}"><span class="one-click-pulse"><i data-lucide="${icon}"></i></span><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(label)}</small></div>${action}</article>`;
   }).join('')}</div>`;
+  panel.querySelector?.('.one-click-toggle')?.addEventListener('click', () => { state.productionTrayExpanded = !state.productionTrayExpanded; renderOneClickStatus(); icons(); });
   panel.querySelectorAll('[data-retry-production]').forEach((button) => button.addEventListener('click', () => {
     const item = state.pendingProductions.get(button.dataset.retryProduction);
     if (!item) return;
@@ -3390,22 +3386,20 @@ function renderAssetLibrary() {
   $('#emptyRuns').hidden = true;
   list.innerHTML = runs.length ? runs.map((run) => {
     const assets = assetSummary(run);
-    const posters = (run.artifacts?.images || []).filter((item) => item?.status === 'success' && item?.url).slice(0, 2);
     const videoUrl = run.artifacts?.video?.videoUrls?.[0] || '';
     const coverUrl = run.artifacts?.book?.cover;
-    const posterPreview = posters.length ? `<div class="asset-gallery">${posters.map((item) => assetImageFrame(`/api/media?url=${encodeURIComponent(item.url)}`, `${run.input?.title} 海报`, '海报')).join('')}</div>` : '';
     const coverBook = { title: run.input?.title || '', bookSkuId: run.input?.sku || '', cover: coverUrl || '' };
     const coverPreview = coverUrl ? `<div class="asset-cover-preview resilient-cover" ${coverDataAttributes(coverBook)}>${leaderboardCover(coverBook, 'BOOK')}</div>` : '';
     const videoState = videoAssetState(run);
-    const preview = `${posterPreview || coverPreview || '<div class="asset-empty">素材准备中</div>'}${videoUrl ? '<span class="asset-video-indicator"><i data-lucide="play"></i>视频可播放</span>' : ''}`;
+    const preview = `${coverPreview || '<div class="asset-empty">素材准备中</div>'}${videoUrl ? '<span class="asset-video-indicator"><i data-lucide="play"></i>视频可播放</span>' : ''}`;
     return `<article class="asset-card" data-asset-run="${escapeHtml(run.id)}">
       <header class="asset-card-head"><div class="asset-cover resilient-cover" ${coverDataAttributes(coverBook)}>${leaderboardCover(coverBook, 'BOOK')}</div><div><h2>${escapeHtml(run.input?.title || '')}</h2><p>${run.artifacts?.code ? `Code ${escapeHtml(run.artifacts.code)}` : '未生成推广 Code'} ${run.artifacts?.shortUrl ? '· 短链已验证' : ''}</p></div><button class="icon-button asset-open" data-open-asset="${escapeHtml(run.id)}" title="打开完整任务"><i data-lucide="arrow-up-right"></i></button></header>
       <div class="asset-preview">${preview}</div>
-      <div class="asset-remove-actions">${assets.posts ? `<button data-remove-library="copy" data-run-id="${escapeHtml(run.id)}"><i data-lucide="trash-2"></i>删除文案</button>` : ''}${run.artifacts?.video ? `<button data-remove-library="video" data-run-id="${escapeHtml(run.id)}"><i data-lucide="trash-2"></i>删除视频</button>` : ''}${(run.artifacts?.images || []).length ? `<button data-remove-library="posters" data-run-id="${escapeHtml(run.id)}"><i data-lucide="trash-2"></i>删除海报</button>` : ''}</div>
-      <div class="asset-counts"><span>${assets.posts} 条文案</span><span>${assets.posters} 张海报</span><span class="video-state ${videoState.tone}">${escapeHtml(videoState.label)}</span><span>${assets.tracking ? '追踪已验证' : '追踪未完成'}</span></div>
-      <div class="asset-actions"><button data-copy-post="${escapeHtml(run.id)}" ${assets.posts ? '' : 'disabled'}><i data-lucide="copy"></i>文案</button><button data-copy-link="${escapeHtml(run.id)}" ${run.artifacts?.shortUrl ? '' : 'disabled'}><i data-lucide="link"></i>链接</button><button data-preview-media="${escapeHtml(run.id)}" ${videoUrl || posters[0]?.url ? '' : 'disabled'}><i data-lucide="play"></i>预览</button></div>
+      <div class="asset-remove-actions">${assets.posts ? `<button data-remove-library="copy" data-run-id="${escapeHtml(run.id)}"><i data-lucide="trash-2"></i>删除文案</button>` : ''}${run.artifacts?.video ? `<button data-remove-library="video" data-run-id="${escapeHtml(run.id)}"><i data-lucide="trash-2"></i>删除视频</button>` : ''}</div>
+      <div class="asset-counts"><span>${assets.posts} 条文案</span><span class="video-state ${videoState.tone}">${escapeHtml(videoState.label)}</span><span>${assets.tracking ? '追踪已验证' : '追踪未完成'}</span></div>
+      <div class="asset-actions"><button data-copy-post="${escapeHtml(run.id)}" ${assets.posts ? '' : 'disabled'}><i data-lucide="copy"></i>文案</button><button data-copy-link="${escapeHtml(run.id)}" ${run.artifacts?.shortUrl ? '' : 'disabled'}><i data-lucide="link"></i>链接</button><button data-preview-media="${escapeHtml(run.id)}" ${videoUrl ? '' : 'disabled'}><i data-lucide="play"></i>预览</button></div>
     </article>`;
-  }).join('') : '<div class="asset-library-empty"><i data-lucide="library-big"></i><strong>还没有可直接使用的素材</strong><span>文案、视频、海报或已验证追踪完成后会自动出现在这里。</span></div>';
+  }).join('') : '<div class="asset-library-empty"><i data-lucide="library-big"></i><strong>还没有可直接使用的素材</strong><span>文案、视频或已验证追踪完成后会自动出现在这里。</span></div>';
   list.querySelectorAll('[data-open-asset]').forEach((button) => button.addEventListener('click', () => openDetail(button.dataset.openAsset)));
   list.querySelectorAll('[data-copy-post]').forEach((button) => button.addEventListener('click', async () => {
     button.disabled = true;
@@ -3439,12 +3433,12 @@ function renderStats() {
   const complete = state.runs.filter((run) => run.state === 'completed').length;
   const attention = state.runs.filter(runNeedsAttention).length;
   $('#runningRuns').textContent = active;
-  $('#readyAssets').textContent = state.runs.reduce((sum, run) => { const assets = assetSummary(run); return sum + assets.posts + assets.posters + assets.video; }, 0);
+  $('#readyAssets').textContent = state.runs.reduce((sum, run) => { const assets = assetSummary(run); return sum + assets.posts + assets.video; }, 0);
   $('#attentionRuns').textContent = attention;
   const scope = `最近 ${state.runs.length} 个任务`;
   const scopeCopy = {
     active: `${scope} · 点击查看后台持续推进的任务`,
-    assets: `${scope} · 点击取用已有文案、海报或视频`,
+    assets: `${scope} · 点击取用已有文案或视频`,
     attention: `${scope} · 点击查看失败、阻塞、歧义或部分完成`
   };
   document.querySelectorAll('[data-overview-filter]').forEach((button) => {
@@ -3454,13 +3448,13 @@ function renderStats() {
     const description = button.querySelector('small');
     if (description) description.textContent = scopeCopy[button.dataset.overviewFilter] || description.textContent;
   });
-  const viewText = { operations: '素材、生产进度与发布后的真实表现', library: '按书籍快速取用已完成的文案、视频、海报与追踪链接', completed: '已完成的生产任务与可复用资产', attention: '需要确认、重试或核验的任务' };
+  const viewText = { operations: '素材、生产进度与发布后的真实表现', library: '按书籍快速取用已完成的文案、视频与追踪链接', completed: '已完成的生产任务与可复用资产', attention: '需要确认、重试或核验的任务' };
   const overviewText = { active: '正在生产中的任务', assets: '已有可直接使用素材的任务', attention: '失败、阻塞、歧义或部分完成的任务' };
   $('#viewSubtitle').textContent = state.view === 'operations' && state.overviewFilter !== 'all' ? overviewText[state.overviewFilter] : (viewText[state.view] || viewText.operations);
 }
 
 function modelLedgerEntries() {
-  const sectionLabels = { storyBrief: 'P2 全书梳理', posts: 'P3 六步法文案', videoPrompt: 'P3 视频剧情', posterPrompts: 'P3 海报提示词', qualityReview: 'P3 成品质检', videoPromptRewrite: '视频提示词重写', distribution: '发布建议包' };
+  const sectionLabels = { storyBrief: 'P2 全书梳理', posts: 'P3 六步法文案', videoPrompt: 'P3 视频剧情', qualityReview: 'P3 成品质检', videoPromptRewrite: '视频提示词重写', distribution: '发布建议包' };
   const runs = state.runs.flatMap((run) => (run.modelActivity || []).map((item) => ({
     runId: run.id,
     title: run.artifacts?.book?.title || run.input?.title || '未命名书籍',
@@ -3512,7 +3506,6 @@ function renderFocusRun() {
   const completed = completedHarnessStages(run);
   const videoReady = Boolean(run.artifacts?.video?.videoUrls?.[0]);
   const videoProgress = videoState(run, run.artifacts?.video);
-  const posterCount = (run.artifacts?.images || []).filter((item) => item.url).length;
   const copyCount = (run.artifacts?.posts || []).length;
   const shortUrl = run.artifacts?.shortUrl;
   const reviewReady = Boolean(run.artifacts?.review) || run.stages?.P6?.status === 'done';
@@ -3525,7 +3518,7 @@ function renderFocusRun() {
     <div class="focus-route-lock"><i data-lucide="${target.locked ? 'lock-keyhole' : 'unlock-keyhole'}"></i><div><span>P0 目标路由</span><strong>${escapeHtml(target.appName || target.appKey || '未锁定')} / ${escapeHtml(target.platform || '—')} / ${escapeHtml(target.accountTitle || '未绑定账号')}</strong></div><small>${target.locked ? 'route locked' : 'route pending'}</small></div>
     <div class="focus-progress" aria-label="生产完成度"><div><span>生产完成度</span><strong>${completion}%</strong></div><div class="focus-progress-track"><i style="width:${completion}%"></i></div><small>${escapeHtml(videoProgress.label)}</small></div>
     <div class="focus-flow">${pipelineOrder.map((key) => `<button class="focus-step ${stageClass(displayStage(run, key))}" data-node-decision="${key}" title="查看${escapeHtml(stageLabels[key])}的决策说明"><i data-lucide="${stageIcons[key]}"></i><span>${escapeHtml(stageLabels[key])}</span></button>`).join('')}</div>
-    <div class="focus-assets"><button data-detail-target="copy"><i data-lucide="message-square-text"></i><strong>${copyCount}</strong><span>成品文案</span></button><button data-detail-target="video" class="${videoReady ? 'ready' : videoProgress.kind === 'failed' || videoProgress.kind === 'blocked' ? 'failed' : ''}"><i data-lucide="video"></i><strong>${videoReady ? '已就绪' : videoProgress.kind === 'failed' || videoProgress.kind === 'blocked' ? '生成失败' : videoProgress.kind === 'running' ? '生成中' : '等待中'}</strong><span>视频</span></button><button data-detail-target="posters" class="${posterCount === 2 ? 'ready' : posterCount ? 'partial' : ''}"><i data-lucide="images"></i><strong>${posterCount}/2</strong><span>海报</span></button><button data-detail-target="review" class="${reviewReady ? 'ready' : ''}"><i data-lucide="badge-check"></i><strong>${reviewReady ? '已就绪' : '等待中'}</strong><span>审核包</span></button></div>
+    <div class="focus-assets"><button data-detail-target="copy"><i data-lucide="message-square-text"></i><strong>${copyCount}</strong><span>成品文案</span></button><button data-detail-target="video" class="${videoReady ? 'ready' : videoProgress.kind === 'failed' || videoProgress.kind === 'blocked' ? 'failed' : ''}"><i data-lucide="video"></i><strong>${videoReady ? '已就绪' : videoProgress.kind === 'failed' || videoProgress.kind === 'blocked' ? '生成失败' : videoProgress.kind === 'running' ? '生成中' : '等待中'}</strong><span>视频</span></button><button data-detail-target="review" class="${reviewReady ? 'ready' : ''}"><i data-lucide="badge-check"></i><strong>${reviewReady ? '已就绪' : '等待中'}</strong><span>审核包</span></button></div>
   </article>`;
   $('#openFocusRun').onclick = () => openDetail(run.id);
   document.querySelectorAll('[data-detail-target]').forEach((button) => button.addEventListener('click', () => openDetail(run.id, button.dataset.detailTarget)));
@@ -3535,7 +3528,7 @@ function renderFocusRun() {
 function pipelineNode(run, key) {
   const stage = displayStage(run, key);
   const target = run.input?.delivery;
-  const artifact = { P0: target ? `${target.appName || target.appKey} · ${target.platform}` : '历史选择', P1: run.artifacts?.book?.bookSkuId, P2: run.artifacts?.evidence?.completed ? `${run.artifacts.evidence.completed} 章` : '', P5: run.artifacts?.code ? `Code ${run.artifacts.code}` : '', P3: run.artifacts?.posts?.length ? `${run.artifacts.posts.length} 套文案` : '', P4: run.artifacts?.video?.videoUrls?.[0] ? '可播放' : run.artifacts?.video?.threadId ? '生成中' : '', P3_5: run.artifacts?.images?.length ? `${run.artifacts.images.filter((item) => item.url).length}/2 海报` : '', P6: run.artifacts?.review ? '审核包就绪' : '', P7: run.artifacts?.review?.publicationStatus === 'external_draft' ? 'SocialEcho 草稿' : run.artifacts?.review?.publicationDraftId ? '内部草稿' : '' }[key] || stage.label || stage.status;
+  const artifact = { P0: target ? `${target.appName || target.appKey} · ${target.platform}` : '历史选择', P1: run.artifacts?.book?.bookSkuId, P2: run.artifacts?.evidence?.completed ? `${run.artifacts.evidence.completed} 章` : '', P5: run.artifacts?.code ? `Code ${run.artifacts.code}` : '', P3: run.artifacts?.posts?.length ? `${run.artifacts.posts.length} 套文案` : '', P4: run.artifacts?.video?.videoUrls?.[0] ? '可播放' : run.artifacts?.video?.threadId ? '生成中' : '', P6: run.artifacts?.review ? '审核包就绪' : '', P7: run.artifacts?.review?.publicationStatus === 'external_draft' ? 'SocialEcho 草稿' : run.artifacts?.review?.publicationDraftId ? '内部草稿' : '' }[key] || stage.label || stage.status;
   const stageStatus = stage.status === 'done' ? '已完成' : stage.status === 'waiting' && stage.phase === 'fallback_scheduled' ? '备用模型将接管' : stage.status === 'waiting' && /repairing|recovering/.test(String(stage.phase || '')) ? 'AI 自动修复中' : stage.status === 'waiting' ? '等待上游节点' : stage.status === 'failed' ? '生成失败' : stage.status === 'blocked' ? '已阻塞' : stage.status === 'ambiguous' ? '需人工核验' : stage.status === 'partial' ? '部分完成' : stage.status === 'submitting' ? '提交中' : stage.status === 'prepared' ? '已准备' : '生成中';
   return `<button type="button" class="flow-node ${stageClass(stage)}" data-node-decision="${key}" title="查看${escapeHtml(stageLabels[key] || key)}的决策说明"><span class="flow-node-top"><i data-lucide="${stageIcons[key] || 'circle'}"></i><span>${escapeHtml(stageLabels[key] || key)}</span></span><strong>${escapeHtml(artifact)}</strong><small>${escapeHtml(stageStatus)}</small></button>`;
 }
@@ -3555,7 +3548,7 @@ function productionStatusHtml(run, active) {
   const [key, stage = {}] = active || [];
   const waiting = ['waiting', 'running', 'submitting', 'prepared'].includes(stage.status);
   if (!waiting) return '';
-  const model = run.input?.creativeProfile?.modelChoice || 'hy3';
+  const model = run.input?.creativeProfile?.modelChoice || 'deepseek-v4-flash-preview';
   const isCreative = ['P2', 'P3'].includes(key);
   const fallback = stage.fallbackFrom || (stage.phase === 'fallback_scheduled' ? model : '');
   const nextAt = Date.parse(stage.nextAttemptAt || '');
@@ -3572,8 +3565,8 @@ function productionStatusHtml(run, active) {
       ? '自动恢复已停止，不会继续消耗 Token；请在任务详情中选择重试或切换模型。'
       : isCreative
         ? `${modelLabel(model)} 正在${key === 'P2' ? '梳理全书结构' : '生成创意素材'}，任务不会因页面关闭而中断。`
-        : '正在等待前置节点或外部任务返回；不会重复创建 Code、图片或视频。';
-  const nextStep = overdue ? '请在“模型活动”确认是否已有产物；没有产物时再手动选择重试或切换模型，避免双重调用。' : /repairing/.test(String(stage.phase || '')) ? (next ? `${next} 前后台会自动完成修复，不需要点击。` : '后台会自动完成修复，不需要点击。') : stage.phase === 'fallback_scheduled' ? (next ? `${next} 后启动唯一备用模型。` : '备用模型将在下一次后台推进时启动。') : key === 'P3' ? '完成后会依次保存文案、视频提示词、海报提示词和成品质检。' : key === 'P2' ? '完成后将继续创建 Code 和短链，再进入创意生成。' : stage.label || '后台会在状态变化后自动推进下一节点。';
+        : '正在等待前置节点或外部任务返回；不会重复创建 Code 或视频。';
+  const nextStep = overdue ? '请在“模型活动”确认是否已有产物；没有产物时再手动选择重试或切换模型，避免双重调用。' : /repairing/.test(String(stage.phase || '')) ? (next ? `${next} 前后台会自动完成修复，不需要点击。` : '后台会自动完成修复，不需要点击。') : stage.phase === 'fallback_scheduled' ? (next ? `${next} 后启动唯一备用模型。` : '备用模型将在下一次后台推进时启动。') : key === 'P3' ? '完成后会依次保存文案、视频提示词和成品质检。' : key === 'P2' ? '完成后将继续创建 Code 和短链，再进入创意生成。' : stage.label || '后台会在状态变化后自动推进下一节点。';
   const recoveryAction = overdue && key === 'P3' && !/repairing/.test(String(stage.phase || '')) ? `<button class="primary-command ai-wait-recovery" data-ai-wait-recovery="${escapeHtml(run.id)}" type="button"><i data-lucide="route"></i>启用唯一备用继续</button>` : '';
   return `<aside class="production-status-card ${overdue ? 'overdue' : stage.phase === 'fallback_scheduled' ? 'fallback' : ''}"><div class="production-status-icon"><i data-lucide="${overdue ? 'circle-alert' : stage.phase === 'fallback_scheduled' ? 'route' : 'loader-circle'}"></i></div><div><span>当前正在发生什么</span><strong>${escapeHtml(stageLabels[key] || key)} · ${escapeHtml(waitDurationLabel(stage.startedAt || run.updatedAt))}${overdue ? ' · 已超时' : ''}</strong><p>${escapeHtml(situation)}</p><small><b>下一步：</b>${escapeHtml(nextStep)}</small></div><div class="production-status-meta"><span>${isCreative ? modelLogoHtml(model, { compact: true }) : '自动推进'}</span><small>${overdue ? `正常窗口 ${Math.ceil(expectedSeconds / 60)} 分钟 · 未自动重发` : stage.error ? escapeHtml(stage.error) : '状态已持久化，可关闭页面'}</small>${recoveryAction}</div></aside>`;
 }
@@ -3612,9 +3605,8 @@ function nodeDecision(run, node) {
     P1: { timing: '生成前', title: '书籍身份核验', conclusion: run.artifacts?.book ? `已锁定 SKU ${run.artifacts.book.bookSkuId}，后续资产只会绑定这一条书籍记录。` : '等待精确书名与 SKU 核验。', why: '避免同名书、历史下架书或错误 SKU 进入推广链路。', basis: run.artifacts?.book?.title || 'Bookstore exact lookup' },
     P2: { timing: '生成前', title: '章节证据锁定', conclusion: evidence?.completed ? `已锁定 ${evidence.completed}/${evidence.requested} 个章节证据，覆盖开篇与后段升级。` : '等待下载章节证据。', why: '素材只能使用已锁定章节事实，避免生成后再倒推依据。', basis: evidence?.chapters?.map((item) => `Ch.${item.order}`).join(' / ') || '章节证据尚未就绪' },
     P5: { timing: '生成前', title: '追踪 Code 与短链', conclusion: run.artifacts?.shortUrl ? `Code ${run.artifacts.code} 与短链已在创意生成前完成验证。` : '等待后台自动分配并远端验证。', why: '先确保归因可用，再把已验证短链写入文案。', basis: run.artifacts?.shortUrl || 'Promotion code and link verification' },
-    P3: strategy.editorialThesis ? { timing: '生成前', title: '事前创意策划', conclusion: strategy.editorialThesis, why: rationale || '该方向在任何成品文案、视频或海报生成之前，由章节样本确定并固化。', basis: `${modelLabel(planning.actualModel)} · ${planningTime || '生成前已固化'}${strategyEvidence.length ? ` · ${strategyEvidence.map((item) => `Ch.${item.chapter}`).join(' / ')}` : ''}` } : { timing: '生成前', title: '生产时创意约束', conclusion: `${selectedModel} 将根据已锁定章节证据生成文案、视频叙事和海报提示词。`, why: '此任务未经过独立智能策划入口，因此这里只展示生成前已有的人工选项，不引用成品结果。', basis: `${selectedModel} · ${evidence?.chapters?.map((item) => `Ch.${item.order}`).join(' / ') || '等待章节证据'}` },
+    P3: strategy.editorialThesis ? { timing: '生成前', title: '事前创意策划', conclusion: strategy.editorialThesis, why: rationale || '该方向在任何成品文案或视频生成之前，由章节样本确定并固化。', basis: `${modelLabel(planning.actualModel)} · ${planningTime || '生成前已固化'}${strategyEvidence.length ? ` · ${strategyEvidence.map((item) => `Ch.${item.chapter}`).join(' / ')}` : ''}` } : { timing: '生成前', title: '生产时创意约束', conclusion: `${selectedModel} 将根据已锁定章节证据生成文案与视频叙事。`, why: '此任务未经过独立智能策划入口，因此这里只展示生成前已有的人工选项，不引用成品结果。', basis: `${selectedModel} · ${evidence?.chapters?.map((item) => `Ch.${item.order}`).join(' / ') || '等待章节证据'}` },
     P4: { timing: '执行记录', title: '视频生成执行', conclusion: run.artifacts?.video?.threadId ? `AC 任务 ${run.artifacts.video.threadId} 已提交或正在回传。` : '视频将采用已验证章节的五拍叙事。', why: run.artifacts?.videoPrompt?.reversal || '在 8-11 秒给出原文支持的反转，结尾保留未解问题。', basis: (run.artifacts?.videoPrompt?.evidenceChapters || []).map((item) => `Ch.${item}`).join(' / ') || '等待视频提示词' },
-    P3_5: { timing: '执行记录', title: '海报生成执行', conclusion: run.artifacts?.images?.length ? `${run.artifacts.images.filter((item) => item.url).length}/${run.artifacts.images.length} 张海报已回传。` : '两套视觉将分别覆盖电影感与编辑爱情感。', why: '每张图聚焦一个有章节依据的决定性瞬间。', basis: (run.artifacts?.posterPrompts || []).map((item) => item.variant).join(' / ') || '等待海报提示词' },
     P6: { timing: '生成后', title: '审核与归因包', conclusion: run.artifacts?.review ? '审核包已就绪，发布动作仍由人工审核。' : '等待素材汇总与归因数据查询。', why: '这是生成完成后的汇总审核，不代表事前创意决策。', basis: run.artifacts?.analytics?.summary?.pullUv != null ? `当前拉起 UV ${run.artifacts.analytics.summary.pullUv}` : 'Automatic publishing disabled' },
     P7: { timing: '交付记录', title: 'SocialEcho 定时任务与对账', conclusion: run.artifacts?.review?.publicationStatus === 'external_draft' ? 'SocialEcho status 1 + scheduled_at 定时任务已创建，绝不立即发布。' : run.artifacts?.review?.publicationStatus === 'publish_ambiguous' ? '定时任务提交结果不明确，已停止自动重试并等待对账。' : run.artifacts?.review?.publicationDraftId ? '内部定时任务草稿已持久化，等待 SocialEcho API 提交。' : '等待审核包生成可交付定时任务。', why: 'P7 只提交带未来 scheduled_at 的定时任务，不调用立即发布；任何歧义结果都必须先对账。', basis: run.artifacts?.review?.publicationDraftId || 'Publication draft not created' }
   };
@@ -3639,7 +3631,7 @@ function postProductionReviewHtml(run) {
 }
 
 function pipelineHtml(run) {
-  return `<div class="flow-main">${pipelineNode(run, 'P0')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P1')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P2')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P5')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P3')}</div><div class="flow-branch"><div>${pipelineNode(run, 'P4')}</div><div>${pipelineNode(run, 'P3_5')}</div></div><div class="flow-final"><i data-lucide="git-merge"></i>${pipelineNode(run, 'P6')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P7')}</div>`;
+  return `<div class="flow-main">${pipelineNode(run, 'P0')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P1')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P2')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P5')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P3')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P4')}</div><div class="flow-final"><i data-lucide="git-merge"></i>${pipelineNode(run, 'P6')}<i class="flow-arrow" data-lucide="arrow-right"></i>${pipelineNode(run, 'P7')}</div>`;
 }
 
 function harnessProjectionForUi(run) {
@@ -3676,7 +3668,7 @@ function harnessProjectionForUi(run) {
   const projected = run.harness && typeof run.harness === 'object' ? run.harness : fallback;
   // Normalize old summaries in memory. In particular, never trust a legacy
   // P7 `publicationDraftId` as an external SocialEcho ID.
-  const normalizedStages = (Array.isArray(projected.stages) ? projected.stages : fallbackStages).map((stage) => {
+  const normalizedStages = (Array.isArray(projected.stages) ? projected.stages : fallbackStages).filter((stage) => stage.key !== 'P3_5').map((stage) => {
     const next = { ...stage };
     if (next.key === 'P7') {
       const publicationStatus = String(next.externalStatus || run.artifacts?.review?.publicationStatus || '');
@@ -3689,14 +3681,16 @@ function harnessProjectionForUi(run) {
     }
     return next;
   });
-  const blockers = Array.isArray(projected.blockers) && projected.blockers.length
+  const blockers = (Array.isArray(projected.blockers) && projected.blockers.length
     ? projected.blockers
-    : fallback.blockers;
+    : fallback.blockers).filter((item) => item.stage !== 'P3_5');
+  const visibleCompleted = normalizedStages.filter((stage) => stage.status === 'done' || (stage.key === 'P4' && run.input?.paidAuthorized !== true && stage.status === 'partial')).length;
   return {
     ...fallback,
     ...projected,
     stages: normalizedStages,
     blockers,
+    completion: { completed: visibleCompleted, total: normalizedStages.length, percent: normalizedStages.length ? Math.round(visibleCompleted / normalizedStages.length * 100) : 0 },
     nextAction: projected.nextAction || fallback.nextAction,
     activeStage: projected.activeStage || fallback.activeStage
   };
@@ -3725,7 +3719,7 @@ function harnessLedgerHtml(run) {
 }
 
 function idlePipelineHtml() {
-  return `<div class="idle-pipeline"><span>选书</span><i data-lucide="arrow-right"></i><span>证据</span><i data-lucide="arrow-right"></i><span>Code / 短链</span><i data-lucide="arrow-right"></i><span>创意</span><i data-lucide="arrow-right"></i><span>视频 / 海报</span><i data-lucide="arrow-right"></i><span>审核包</span></div>`;
+  return `<div class="idle-pipeline"><span>选书</span><i data-lucide="arrow-right"></i><span>证据</span><i data-lucide="arrow-right"></i><span>Code / 短链</span><i data-lucide="arrow-right"></i><span>创意</span><i data-lucide="arrow-right"></i><span>视频</span><i data-lucide="arrow-right"></i><span>审核包</span></div>`;
 }
 
 function removeAssetButton(asset, label) {
@@ -3769,15 +3763,13 @@ function optimizationHtml(run) {
 function promptHtml(run) {
   const video = run.artifacts?.videoPrompt;
   const draft = run.artifacts?.videoPromptDraft;
-  const posters = run.artifacts?.posterPrompts || [];
-  if (!video && !posters.length) return '';
+  if (!video) return '';
   const beats = video ? [
     ['钩子 0-2s', video.hook, video.zhHook], ['价值 2-5s', video.valuePromise, video.zhValuePromise], ['升级 5-8s', video.escalation, video.zhEscalation], ['反转 8-11s', video.reversal, video.zhReversal], ['悬念 11-15s', video.cliffhanger, video.zhCliffhanger]
   ].filter(([, value]) => value) : [];
   return `<section id="detail-prompts" class="detail-section"><div class="section-heading"><h3>双语生产提示词</h3><span class="language-tag">EN / 中文</span></div>
     ${video ? `<div class="video-story"><div class="video-story-head"><strong>短视频叙事脚本</strong><span>基于原文章节 ${escapeHtml((video.evidenceChapters || []).join(' / '))}</span></div>${beats.length ? `<div class="story-beats">${beats.map(([label, value, zh]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${zh ? `<small>${escapeHtml(zh)}</small>` : ''}</article>`).join('')}</div>` : ''}${Array.isArray(video.sourceEvidence) && video.sourceEvidence.length ? `<div class="source-evidence">${video.sourceEvidence.map((item) => `<span>Ch.${escapeHtml(item.chapter)} · “${escapeHtml(item.quote)}”</span>`).join('')}</div>` : ''}<div class="prompt-block"><strong>英文旁白与镜头执行</strong><pre>${escapeHtml(video.adCopy)}\n\n${escapeHtml(video.buildRequirement)}</pre>${video.zhAdCopy || video.zhBuildRequirement ? `<p class="translation">${escapeHtml(video.zhAdCopy || '')}\n\n${escapeHtml(video.zhBuildRequirement || '')}</p>` : ''}</div></div>` : ''}
     ${draft?.status === 'ready_for_review' ? `<aside class="video-rewrite-review"><header><div><span>待核对视频提示词</span><strong>${escapeHtml(modelLabel(draft.model))} 已基于原文证据重写</strong></div><span>未提交新视频</span></header><div class="story-beats">${[['钩子 0-2s', draft.hook, draft.zhHook], ['价值 2-5s', draft.valuePromise, draft.zhValuePromise], ['升级 5-8s', draft.escalation, draft.zhEscalation], ['反转 8-11s', draft.reversal, draft.zhReversal], ['悬念 11-15s', draft.cliffhanger, draft.zhCliffhanger]].map(([label, value, zh]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${zh ? `<small>${escapeHtml(zh)}</small>` : ''}</article>`).join('')}</div><div class="prompt-block"><strong>新旁白与镜头执行</strong><pre>${escapeHtml(draft.adCopy)}\n\n${escapeHtml(draft.buildRequirement)}</pre></div><footer><button class="secondary-command" data-video-prompt-action="discard" type="button">保留原提示词</button><button class="secondary-command" data-video-prompt-action="approve" type="button">仅采用新提示词</button><button class="primary-command" data-video-prompt-action="approve_and_submit" type="button"><i data-lucide="video"></i>核对无误，提交新视频</button></footer></aside>` : ''}
-    ${posters.map((item) => `<div class="prompt-block"><strong>${escapeHtml(item.variant)}${item.repairCount ? ` · DeepSeek 审核修复 ${escapeHtml(item.repairCount)}/1` : ''}</strong><pre>${escapeHtml(item.prompt)}</pre>${item.zhPrompt ? `<p class="translation">${escapeHtml(item.zhPrompt)}</p>` : ''}</div>`).join('')}
   </section>`;
 }
 
@@ -4104,10 +4096,7 @@ function videoHtml(run) {
     const state = videoState(run, video);
     return `<article class="video-asset ${state.kind}"><div class="video-asset-head"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(state.kind === 'failed' ? '需处理' : state.kind === 'running' ? '后台生成中' : state.kind === 'queued' ? '已自动排队' : '')}</span></div><div class="media-placeholder"><i data-lucide="${state.kind === 'failed' ? 'circle-alert' : state.kind === 'running' ? 'loader-circle' : state.kind === 'queued' ? 'clock-3' : 'video'}"></i>${escapeHtml(state.label)}</div></article>`;
   };
-  const referencePosters = (run.artifacts?.images || []).filter((item) => ['luminous_cinema', 'editorial_romance'].includes(item.variant) && item.url);
-  const selectedReferencePoster = state.referencePosterChoice[run.id] || referencePosters[0]?.variant || '';
   const mediaPaused = videoGenerationPaused();
-  const canCreateReference = Boolean(!mediaPaused && referencePosters.length && !reference);
   const canRewrite = Boolean(!mediaPaused && run.artifacts?.videoPrompt && run.artifacts?.evidence?.chapters?.length);
   const selectedDirectorTemplate = videoControlTemplate(videoControlForRun(run).template);
   const canSubmitRevision = !selectedDirectorTemplate.previewOnly && !mediaPaused && run.artifacts?.videoPromptDraft?.status === 'approved' && !revision;
@@ -4115,24 +4104,8 @@ function videoHtml(run) {
   const assets = [asset(original, '原始成片')];
   if (revision) assets.push(asset(revision, '重写提示词版', true));
   if (reference) assets.push(asset(reference, '人物参考版', true));
-  const posterPicker = !directorControl && canCreateReference ? `<div class="reference-poster-picker"><div><strong>选择参考海报</strong><span>可选海报 1 或海报 2，提交前会再次确认</span></div><div class="reference-poster-options">${referencePosters.map((poster) => `<button type="button" class="reference-poster-option ${selectedReferencePoster === poster.variant ? 'selected' : ''}" data-reference-poster="${escapeHtml(poster.variant)}"><img src="${escapeHtml(`/api/media?url=${encodeURIComponent(poster.url)}`)}" alt="${escapeHtml(poster.variant)}"><span><i data-lucide="${selectedReferencePoster === poster.variant ? 'circle-dot' : 'circle'}"></i>海报 ${poster.variant === 'luminous_cinema' ? '1' : '2'}</span></button>`).join('')}</div><button id="createReferenceVideo" class="secondary-command reference-video-command" data-poster-variant="${escapeHtml(selectedReferencePoster)}"><i data-lucide="clapperboard"></i><span>用选中的海报制作 AC 视频</span></button></div>` : '';
   const rewriteReady = run.artifacts?.videoPromptDraft?.status === 'ready_for_review';
-  return `${mediaPaused ? '<aside class="video-rewrite-ready"><i data-lucide="pause-circle"></i><div><strong>服务端未开放新视频提交</strong><span>已提交的 threadId 继续回收结果；prepared 任务不会越过服务端门禁。</span></div></aside>' : ''}${directorControl}<div class="video-assets">${assets.join('')}</div><div class="video-rework-actions">${canRewrite ? '<button id="rewriteVideoPrompt" class="secondary-command"><i data-lucide="sparkles"></i><span>重写提示词并重做视频</span></button>' : ''}${canSubmitRevision ? '<button id="createVideoRevision" class="primary-command"><i data-lucide="video"></i><span>提交核对后的新视频</span></button>' : ''}</div>${rewriteReady && !mediaPaused ? '<aside class="video-rewrite-ready"><i data-lucide="sparkles"></i><div><strong>新视频提示词已写好</strong><span>先核对剧情与镜头，再确认提交一条新的 AC 视频。</span></div><button id="reviewRewrittenVideo" class="primary-command" type="button">核对并提交新视频</button></aside>' : ''}${posterPicker}`;
-}
-
-function imagesHtml(run) {
-  const images = run.artifacts?.images || [];
-  const concepts = run.artifacts?.posterPrompts || [];
-  if (!images.length && concepts.length) return `<div class="poster-ready-bar"><div><strong>两套海报概念已就绪</strong><span>电影感负责抓眼，编辑感适合静态信息流；生成后可放大预览，也可选作 AC 视频参考图。</span></div><button type="button" class="primary-command" data-generate-posters="${escapeHtml(run.id)}"><i data-lucide="images"></i>生成海报</button></div><div class="media-grid">${concepts.map((item) => `<article class="poster-concept"><div><i data-lucide="sparkles"></i><strong>${escapeHtml(item.variant === 'luminous_cinema' ? '电影感主视觉' : item.variant === 'editorial_romance' ? '编辑感情绪图' : item.variant)}</strong><span>视觉概念已就绪</span></div><p>${escapeHtml(item.zhPrompt || item.prompt)}</p></article>`).join('')}</div>`;
-  if (!images.length) return '<div class="media-placeholder">两张推广海报将在这里显示</div>';
-  return `<div class="media-grid">${images.map((item) => { const previewable = item.status === 'success' && item.url; const mediaUrl = previewable ? `/api/media?url=${encodeURIComponent(item.url)}` : ''; const referenceHint = item.variant === 'luminous_cinema' && previewable ? '<span class="poster-reference-hint"><i data-lucide="clapperboard"></i>可作为 AC 参考视频</span>' : ''; const unavailable = item.status === 'preview_failed'; return `<article class="poster-item ${previewable ? 'ready' : ''} ${unavailable ? 'failed' : ''}">${previewable ? `<button class="open-image-preview" type="button" data-image-url="${escapeHtml(mediaUrl)}" data-image-label="${escapeHtml(item.variant)}"><img src="${escapeHtml(mediaUrl)}" alt="${escapeHtml(item.variant)}" onerror="this.closest('.poster-item').classList.add('failed');this.closest('button').disabled=true"><span class="poster-expand"><i data-lucide="maximize-2"></i> 预览海报</span></button>` : `<div class="poster-live"><i data-lucide="${unavailable ? 'image-off' : 'image'}"></i><strong>${escapeHtml(item.variant)}</strong><span>${escapeHtml(unavailable ? '供应商链接失效，未重复扣费提交' : (item.status || '等待生成'))}${item.progress != null ? ` · ${escapeHtml(item.progress)}%` : ''}</span>${unavailable && item.error ? `<small>${escapeHtml(item.error)}</small>` : ''}</div>`}<span>${escapeHtml(item.variant)} · ${escapeHtml(item.status)}</span>${referenceHint}</article>`; }).join('')}</div>`;
-}
-
-function openImageViewer(url, label) {
-  $('#imageViewerTitle').textContent = label || '推广海报预览';
-  $('#imageViewerImage').src = url;
-  $('#imageViewerImage').alt = label || '推广海报预览';
-  $('#imageViewer').showModal();
+  return `${mediaPaused ? '<aside class="video-rewrite-ready"><i data-lucide="pause-circle"></i><div><strong>服务端未开放新视频提交</strong><span>已提交的 threadId 继续回收结果；prepared 任务不会越过服务端门禁。</span></div></aside>' : ''}${directorControl}<div class="video-assets">${assets.join('')}</div><div class="video-rework-actions">${canRewrite ? '<button id="rewriteVideoPrompt" class="secondary-command"><i data-lucide="sparkles"></i><span>重写提示词并重做视频</span></button>' : ''}${canSubmitRevision ? '<button id="createVideoRevision" class="primary-command"><i data-lucide="video"></i><span>提交核对后的新视频</span></button>' : ''}</div>${rewriteReady && !mediaPaused ? '<aside class="video-rewrite-ready"><i data-lucide="sparkles"></i><div><strong>新视频提示词已写好</strong><span>先核对剧情与镜头，再确认提交一条新的 AC 视频。</span></div><button id="reviewRewrittenVideo" class="primary-command" type="button">核对并提交新视频</button></aside>' : ''}`;
 }
 
 function analyticsHtml(run) {
@@ -4151,13 +4124,13 @@ function eventsHtml(run) {
   return [...(run.events || [])].reverse().slice(0, 15).map((event) => `<div class="event"><time>${escapeHtml(new Date(event.at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }))}</time><span>${escapeHtml(event.message)}</span></div>`).join('');
 }
 
-const creativeSectionNames = { posts: '六步法文案', videoPrompt: '视频剧情', posterPrompts: '海报提示词', qualityReview: '质量审查', distribution: '发布建议包' };
+const creativeSectionNames = { posts: '六步法文案', videoPrompt: '视频剧情', qualityReview: '质量审查', distribution: '发布建议包' };
 
 function distributionHtml(run) {
   const plan = run.artifacts?.distribution;
   if (!plan) return `<section id="detail-distribution" class="detail-section distribution-pending"><div class="section-heading"><div><h3>发布建议包</h3><p>素材完成后，AI 会在审核阶段生成适合的频道与通用短钩子。</p></div><button class="secondary-command" data-generate-distribution="${escapeHtml(run.id)}"><i data-lucide="send"></i>生成发布建议</button></div></section>`;
   const channelFor = (asset) => (plan.channels || []).filter((channel) => channel.bestFor?.includes(asset)).map((channel) => `<span title="${escapeHtml(channel.reason || '')}">${escapeHtml(channel.name)}</span>`).join('') || '<span>待人工判断</span>';
-  return `<section id="detail-distribution" class="detail-section distribution-plan"><div class="section-heading"><div><h3>发布建议包</h3><p>仅供你手动选择频道和发布，不会自动分享到 Facebook。</p></div><span class="language-tag">${escapeHtml(plan.model || plan.status === 'fallback' ? '建议就绪' : 'AI 推荐')}</span></div><div class="distribution-hook"><div><span>通用短钩子</span><strong>${escapeHtml(plan.universalHook || '')}</strong>${plan.zhUniversalHook ? `<small>${escapeHtml(plan.zhUniversalHook)}</small>` : ''}</div><button class="secondary-command" data-copy-distribution-hook="${escapeHtml(run.id)}"><i data-lucide="copy"></i>复制钩子</button></div><div class="distribution-assets"><div><span>文案适合发往</span><p>${channelFor('copy')}</p></div><div><span>视频适合发往</span><p>${channelFor('video')}</p></div><div><span>海报适合发往</span><p>${channelFor('poster')}</p></div></div><div class="distribution-channels">${(plan.channels || []).map((channel) => `<article><strong>${escapeHtml(channel.name)}</strong><span>${escapeHtml((channel.bestFor || []).map((asset) => ({ copy: '文案', video: '视频', poster: '海报' })[asset] || asset).join(' / '))}</span><p>${escapeHtml(channel.reason || '')}</p></article>`).join('')}</div></section>`;
+  return `<section id="detail-distribution" class="detail-section distribution-plan"><div class="section-heading"><div><h3>发布建议包</h3><p>仅供你手动选择频道和发布，不会自动分享到 Facebook。</p></div><span class="language-tag">${escapeHtml(plan.model || plan.status === 'fallback' ? '建议就绪' : 'AI 推荐')}</span></div><div class="distribution-hook"><div><span>通用短钩子</span><strong>${escapeHtml(plan.universalHook || '')}</strong>${plan.zhUniversalHook ? `<small>${escapeHtml(plan.zhUniversalHook)}</small>` : ''}</div><button class="secondary-command" data-copy-distribution-hook="${escapeHtml(run.id)}"><i data-lucide="copy"></i>复制钩子</button></div><div class="distribution-assets"><div><span>文案适合发往</span><p>${channelFor('copy')}</p></div><div><span>视频适合发往</span><p>${channelFor('video')}</p></div></div><div class="distribution-channels">${(plan.channels || []).map((channel) => `<article><strong>${escapeHtml(channel.name)}</strong><span>${escapeHtml((channel.bestFor || []).filter((asset) => asset !== 'poster').map((asset) => ({ copy: '文案', video: '视频' })[asset] || asset).join(' / '))}</span><p>${escapeHtml(channel.reason || '')}</p></article>`).join('')}</div></section>`;
 }
 
 function modelActivityHtml(run) {
@@ -4170,7 +4143,7 @@ function modelActivityHtml(run) {
   if (!rows.length) return '<div class="model-activity-empty"><i data-lucide="activity"></i><span>创意生成开始后，这里会显示实际模型、耗时、Token 和自动切换记录。</span></div>';
   return `<div class="model-activity-list">${rows.map((item) => {
     const rejected = item.validationStatus === 'rejected';
-    const requestedModel = item.requestedModel || run.input?.creativeProfile?.modelChoice || 'hy3';
+    const requestedModel = item.requestedModel || run.input?.creativeProfile?.modelChoice || 'deepseek-v4-flash-preview';
     const actualModel = item.model || item.requestedModel;
     const requested = modelLabel(requestedModel);
     const actual = item.recovering ? '等待自动路由' : modelLabel(actualModel);
@@ -4209,8 +4182,8 @@ function renderDetail() {
     const active = currentStage(run);
     const assets = assetSummary(run);
     const syncing = state.detailHydrating === run.id;
-    const detailMessage = state.detailError || (syncing ? '正在加载可预览的完整素材；这不会阻塞当前任务。' : '任务已可操作。完整文案、视频和海报会在后台轻量同步。');
-    panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title || run.artifacts?.book?.title || '任务')}</h2><p>SKU ${escapeHtml(run.input?.sku || run.artifacts?.book?.bookSkuId || '--')} · Run ${escapeHtml(run.id.slice(-10))}</p></div><div class="detail-actions">${failedRunActionsHtml(run)}<button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div></div><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header><section class="pipeline"><div class="section-heading"><div><h3>P0-P7 可审计链路</h3><p>已完成节点、当前卡点和可用追踪信息即时展示。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="detail-sync-state ${syncing ? 'is-syncing' : ''}"><i data-lucide="${syncing ? 'loader-circle' : state.detailError ? 'circle-alert' : 'database-zap'}"></i><div><strong>${syncing ? '正在同步完整素材' : state.detailError ? '完整素材稍后可用' : '任务摘要已就绪'}</strong><span>${escapeHtml(detailMessage)}</span></div><button id="retryDetail" class="secondary-command" type="button" ${syncing ? 'disabled' : ''}><i data-lucide="refresh-cw"></i>${syncing ? '同步中' : '加载完整素材'}</button></div></section><section class="detail-section"><div class="section-heading"><h3>已可用产物</h3><span class="language-tag">无需等待</span></div><div class="asset-summary"><div><strong>${assets.posts}</strong><span>文案</span></div><div><strong>${assets.video}</strong><span>视频</span></div><div><strong>${assets.posters}</strong><span>海报</span></div><div><strong>${assets.tracking}</strong><span>追踪链接</span></div></div></section><section class="detail-section"><div class="section-heading"><h3>模型活动</h3><span class="language-tag">摘要记录</span></div>${modelActivityHtml(run)}</section>`;
+    const detailMessage = state.detailError || (syncing ? '正在加载可预览的完整素材；这不会阻塞当前任务。' : '任务已可操作。完整文案和视频会在后台轻量同步。');
+    panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title || run.artifacts?.book?.title || '任务')}</h2><p>SKU ${escapeHtml(run.input?.sku || run.artifacts?.book?.bookSkuId || '--')} · Run ${escapeHtml(run.id.slice(-10))}</p></div><div class="detail-actions">${failedRunActionsHtml(run)}<button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div></div><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header><section class="pipeline"><div class="section-heading"><div><h3>P0-P7 可审计链路</h3><p>已完成节点、当前卡点和可用追踪信息即时展示。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="detail-sync-state ${syncing ? 'is-syncing' : ''}"><i data-lucide="${syncing ? 'loader-circle' : state.detailError ? 'circle-alert' : 'database-zap'}"></i><div><strong>${syncing ? '正在同步完整素材' : state.detailError ? '完整素材稍后可用' : '任务摘要已就绪'}</strong><span>${escapeHtml(detailMessage)}</span></div><button id="retryDetail" class="secondary-command" type="button" ${syncing ? 'disabled' : ''}><i data-lucide="refresh-cw"></i>${syncing ? '同步中' : '加载完整素材'}</button></div></section><section class="detail-section"><div class="section-heading"><h3>已可用产物</h3><span class="language-tag">无需等待</span></div><div class="asset-summary"><div><strong>${assets.posts}</strong><span>文案</span></div><div><strong>${assets.video}</strong><span>视频</span></div><div><strong>${assets.tracking}</strong><span>追踪链接</span></div></div></section><section class="detail-section"><div class="section-heading"><h3>模型活动</h3><span class="language-tag">摘要记录</span></div>${modelActivityHtml(run)}</section>`;
     panel.insertAdjacentHTML('beforeend', harnessLedgerHtml(run));
     $('#closeDetail')?.addEventListener('click', closeDetail);
     $('#retryDetail')?.addEventListener('click', () => retryRunDetail(run.id));
@@ -4229,22 +4202,20 @@ function renderDetail() {
   const p5BlockedReason = String(run.stages?.P5?.blockedReason || '');
   const attributionBlocked = ['attribution_write_ambiguous', 'attribution_provider_unavailable'].includes(p5BlockedReason);
   const videoLimitBlocked = ['daily_video_limit', 'hourly_video_limit', 'ac_points_budget', 'ac_configuration_wait', 'ac_capacity_wait'].includes(p4BlockedReason);
-  const posterPartial = run.stages?.P3_5?.status === 'partial';
   const variantPending = state.creativeVariantRunId === run.id;
-  const retryLabel = attributionBlocked ? '核对归因后继续' : posterPartial ? '单独重试失败海报' : videoLimitBlocked
+  const retryLabel = attributionBlocked ? '核对归因后继续' : videoLimitBlocked
     ? (p4BlockedReason === 'ac_points_budget' ? '积分额度恢复后重试视频' : p4BlockedReason === 'ac_configuration_wait' ? 'AC 配置恢复后重试视频' : p4BlockedReason === 'ac_capacity_wait' ? 'AC 容量恢复后重试视频' : `次日重试视频${run.stages.P4.nextWindow ? `（当前额度至 ${run.stages.P4.nextWindow}）` : ''}`)
     : '重试失败节点';
-  const canRetry = run.state !== 'failed' && (videoLimitBlocked || posterPartial || attributionBlocked);
+  const canRetry = run.state !== 'failed' && (videoLimitBlocked || attributionBlocked);
   if (run._assetOnly) {
     // Asset snapshots deliberately exclude source chapters and provider payloads.
     // They are for immediate review and reuse, not for silently triggering a
     // second creative or paid-media submission from an old task.
     const assetRun = { ...run, artifacts: { ...run.artifacts, images: [], videoPromptDraft: null } };
-    panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title || run.artifacts?.book?.title || '任务')}</h2><p>SKU ${escapeHtml(run.input?.sku || run.artifacts?.book?.bookSkuId || '--')} · Run ${escapeHtml(run.id.slice(-10))}</p></div><button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div><nav class="detail-tabs" aria-label="成品模块"><button data-scroll-target="detail-overview">概览</button><button data-scroll-target="detail-copy">文案</button><button data-scroll-target="detail-video">视频</button><button data-scroll-target="detail-posters">海报</button><button data-scroll-target="detail-prompts">提示词</button><button data-scroll-target="detail-data">数据</button></nav><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header>
+    panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title || run.artifacts?.book?.title || '任务')}</h2><p>SKU ${escapeHtml(run.input?.sku || run.artifacts?.book?.bookSkuId || '--')} · Run ${escapeHtml(run.id.slice(-10))}</p></div><button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div><nav class="detail-tabs" aria-label="成品模块"><button data-scroll-target="detail-overview">概览</button><button data-scroll-target="detail-copy">文案</button><button data-scroll-target="detail-video">视频</button><button data-scroll-target="detail-prompts">提示词</button><button data-scroll-target="detail-data">数据</button></nav><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header>
       <section id="detail-overview" class="pipeline"><div class="section-heading"><div><h3>已生成素材</h3><p>这里直接展示已保存的成品，不等待章节全文或模型诊断。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}</section>
       <section id="detail-copy" class="detail-section"><div class="section-heading"><h3>六步法成品文案</h3><span class="language-tag">EN / 中文</span></div>${copyHtml(run)}</section>
       <section id="detail-video" class="detail-section"><div class="section-heading"><h3>AC 视频预览</h3><span class="language-tag">已保存版本</span></div>${videoHtml(assetRun)}</section>
-      <section id="detail-posters" class="detail-section"><div class="section-heading"><h3>推广海报</h3><span class="language-tag">已保存版本</span></div>${imagesHtml(run)}</section>
       ${promptHtml(assetRun)}
       <section id="detail-data" class="detail-section"><div class="section-heading"><h3>实际数据反馈</h3><span class="language-tag">Code + Link</span></div>${analyticsHtml(run)}</section>
       <section id="detail-review" class="detail-section"><h3>运行记录</h3><div class="event-list">${eventsHtml(run)}</div></section>`;
@@ -4254,7 +4225,6 @@ function renderDetail() {
       const chinese = button.dataset.copyPostLanguage === 'zh';
       copyAssetText(chinese ? post?.zhContent : post?.content, chinese ? '完整中文文案已复制（含 CTA 与标签）' : '完整英文发布文案已复制（含 CTA、链接与标签）');
     }));
-    panel.querySelectorAll('.open-image-preview').forEach((button) => button.addEventListener('click', () => openImageViewer(button.dataset.imageUrl, button.dataset.imageLabel)));
     panel.querySelector('[data-refresh-analytics]')?.addEventListener('click', () => refreshRunAnalytics(run.id));
     panel.querySelectorAll('[data-node-decision]').forEach((button) => button.addEventListener('click', () => { state.selectedNode = button.dataset.nodeDecision; showToast(`${stageLabels[state.selectedNode] || state.selectedNode} 的已保存状态已显示在概览中`); }));
     panel.querySelectorAll('[data-scroll-target]').forEach((button) => button.addEventListener('click', () => panel.querySelector(`#${button.dataset.scrollTarget}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })));
@@ -4274,13 +4244,12 @@ function renderDetail() {
     icons();
     return;
   }
-  panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><div class="detail-actions">${failedRunActionsHtml(run)}${canRetry ? `<button id="retryRun" class="secondary-command"><i data-lucide="rotate-ccw"></i><span>${escapeHtml(retryLabel)}</span></button>` : ''}<button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div></div><nav class="detail-tabs" aria-label="成果模块"><button data-scroll-target="detail-overview">概览</button><button data-scroll-target="detail-decision">事前策划</button><button data-scroll-target="detail-quality">成品质检</button><button data-scroll-target="detail-copy">文案</button><button data-scroll-target="detail-video">视频</button><button data-scroll-target="detail-posters">海报</button><button data-scroll-target="detail-prompts">提示词</button><button data-scroll-target="detail-data">数据</button></nav><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header>
+  panel.innerHTML = `<header class="detail-header"><div class="detail-title-row"><div class="detail-title"><h2>${escapeHtml(run.input?.title)}</h2><p>SKU ${escapeHtml(run.input?.sku)} · Run ${escapeHtml(run.id.slice(-10))}</p></div><div class="detail-actions">${failedRunActionsHtml(run)}${canRetry ? `<button id="retryRun" class="secondary-command"><i data-lucide="rotate-ccw"></i><span>${escapeHtml(retryLabel)}</span></button>` : ''}<button id="closeDetail" class="icon-button" title="关闭详情"><i data-lucide="x"></i></button></div></div><nav class="detail-tabs" aria-label="成果模块"><button data-scroll-target="detail-overview">概览</button><button data-scroll-target="detail-decision">事前策划</button><button data-scroll-target="detail-quality">成品质检</button><button data-scroll-target="detail-copy">文案</button><button data-scroll-target="detail-video">视频</button><button data-scroll-target="detail-prompts">提示词</button><button data-scroll-target="detail-data">数据</button></nav><div class="tracking-strip"><div><span>Promotion Code</span><strong>${escapeHtml(run.artifacts?.code || '待分配')}</strong></div><div><span>Verified short link</span>${run.artifacts?.shortUrl ? `<a class="tracking-link" href="${escapeHtml(run.artifacts.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(run.artifacts.shortUrl)} <i data-lucide="external-link"></i></a>` : '<strong>待创建</strong>'}</div></div></header>
     <section id="detail-overview" class="pipeline"><div class="section-heading"><div><h3>P0-P7 可审计链路</h3><p>先锁定应用、平台、账号与选书快照，再推进证据、追踪、创意、媒体、审核包和 SocialEcho 草稿。</p></div><span class="status-badge ${escapeHtml(run.state)}">${escapeHtml(labels[run.state] || run.state)}</span></div>${productionModelRouteHtml(run)}<div class="creative-strategy">${creativeProfileHtml(run.input?.creativeProfile || {})}</div><div class="production-flow">${pipelineHtml(run)}</div>${productionStatusHtml(run, active)}<div class="current-stage">${escapeHtml(active[1]?.label || labels[run.state] || run.state)}${active[1]?.error ? `：${escapeHtml(active[1].error)}` : ''}</div></section>
     ${decisionHtml(run)}
     ${postProductionReviewHtml(run)}
-    <section id="detail-copy" class="detail-section"><div class="section-heading"><h3>六步法成品文案</h3><div class="section-actions"><span class="language-tag">EN / 中文</span><button class="secondary-command create-variant" data-variant="creative" ${variantPending ? 'disabled' : ''}><i data-lucide="${variantPending ? 'loader-circle' : 'sparkles'}"></i><span>${variantPending ? `${escapeHtml(selectedModel)} 生成中` : `${escapeHtml(selectedModel)} 再来一版`}</span></button>${run.artifacts?.posts?.length ? removeAssetButton('copy', '文案') : ''}</div></div>${variantPending ? '<div class="optimization-alert"><div><i data-lucide="loader-circle"></i><strong>AI 正在重写创意包</strong><span>正在基于当前版本与已锁定章节证据生成双语文案、视频脚本和海报提示词。</span></div></div>' : ''}${optimizationHtml(run)}${copyHtml(run)}</section>
+    <section id="detail-copy" class="detail-section"><div class="section-heading"><h3>六步法成品文案</h3><div class="section-actions"><span class="language-tag">EN / 中文</span><button class="secondary-command create-variant" data-variant="creative" ${variantPending ? 'disabled' : ''}><i data-lucide="${variantPending ? 'loader-circle' : 'sparkles'}"></i><span>${variantPending ? `${escapeHtml(selectedModel)} 生成中` : `${escapeHtml(selectedModel)} 再来一版`}</span></button>${run.artifacts?.posts?.length ? removeAssetButton('copy', '文案') : ''}</div></div>${variantPending ? '<div class="optimization-alert"><div><i data-lucide="loader-circle"></i><strong>AI 正在重写创意包</strong><span>正在基于当前版本与已锁定章节证据生成双语文案和视频脚本。</span></div></div>' : ''}${optimizationHtml(run)}${copyHtml(run)}</section>
     <section id="detail-video" class="detail-section"><div class="section-heading"><h3>AC 视频预览</h3><div class="section-actions"><span class="language-tag">1 条</span>${run.artifacts?.video ? removeAssetButton('video', '视频') : ''}${run.artifacts?.referenceVideo ? removeAssetButton('reference_video', '参考视频') : ''}</div></div>${videoHtml(run)}</section>
-    <section id="detail-posters" class="detail-section"><div class="section-heading"><h3>推广海报</h3><div class="section-actions"><span class="language-tag">2 张</span>${run.artifacts?.images?.length ? removeAssetButton('posters', '海报') : ''}</div></div>${imagesHtml(run)}</section>
     ${promptHtml(run)}
     ${distributionHtml(run)}
     <section id="detail-data" class="detail-section"><div class="section-heading"><h3>实际数据反馈</h3><span class="language-tag">Code + Link</span></div>${analyticsHtml(run)}</section>
@@ -4295,13 +4264,6 @@ function renderDetail() {
   $('#closeDetail')?.addEventListener('click', closeDetail);
   bindFailedRunActions(panel);
   bindVideoDirectorControls(run, panel);
-  panel.querySelectorAll('[data-reference-poster]').forEach((button) => button.addEventListener('click', () => {
-    state.referencePosterChoice[run.id] = button.dataset.referencePoster;
-    state.detailFingerprint = '';
-    renderDetail(); icons();
-  }));
-  panel.querySelector('[data-generate-posters]')?.addEventListener('click', (event) => continuePosterGeneration(event.currentTarget.dataset.generatePosters));
-  $('#createReferenceVideo')?.addEventListener('click', (event) => openConfirmation('reference_video', run.id, { posterVariant: event.currentTarget.dataset.posterVariant }));
   $('#rewriteVideoPrompt')?.addEventListener('click', () => rewriteVideoPrompt(run.id));
   $('#createVideoRevision')?.addEventListener('click', () => openConfirmation('video_revision', run.id));
   $('#reviewRewrittenVideo')?.addEventListener('click', () => panel.querySelector('#detail-prompts')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
@@ -4337,10 +4299,9 @@ function renderDetail() {
   });
   panel.querySelectorAll('[data-optimization]').forEach((button) => button.addEventListener('click', () => decideOptimization(run, button.dataset.optimization)));
   panel.querySelectorAll('[data-node-decision]').forEach((button) => button.addEventListener('click', () => { state.selectedNode = button.dataset.nodeDecision; state.detailFingerprint = ''; renderDetail(); }));
-  panel.querySelectorAll('.open-image-preview').forEach((button) => button.addEventListener('click', () => openImageViewer(button.dataset.imageUrl, button.dataset.imageLabel)));
   document.querySelectorAll('[data-scroll-target]').forEach((button) => button.addEventListener('click', () => panel.querySelector(`#${button.dataset.scrollTarget}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })));
   if (state.detailOpen && state.detailTarget) {
-    const targets = { copy: 'detail-copy', video: 'detail-video', posters: 'detail-posters', review: 'detail-review', decision: 'detail-decision' };
+    const targets = { copy: 'detail-copy', video: 'detail-video', review: 'detail-review', decision: 'detail-decision' };
     panel.querySelector(`#${targets[state.detailTarget] || 'detail-overview'}`)?.scrollIntoView({ block: 'start' });
     state.detailTarget = '';
   }
@@ -4457,17 +4418,36 @@ function plannerDateValue() {
   return input?.value || '';
 }
 
+function syncRoutePlannerAccounts() {
+  const platform = $('#plannerPlatform')?.value || '';
+  const account = $('#plannerAccount');
+  if (!account) return;
+  const previous = account.value;
+  const routes = catalogTargetRoutes().filter((route) => !platform || route.platform === platform);
+  account.innerHTML = `<option value="">全部账号（${routes.length}）</option>${routes.map((route) => `<option value="${route.accountId}">${escapeHtml(route.accountTitle || route.appName || route.appKey)} · ${{ facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok' }[route.platform] || route.platform}</option>`).join('')}`;
+  account.value = routes.some((route) => String(route.accountId) === previous) ? previous : '';
+}
+
+function plannerRouteCount() {
+  const platform = $('#plannerPlatform')?.value || '';
+  const accountId = Number($('#plannerAccount')?.value || 0);
+  return catalogTargetRoutes().filter((route) => (!platform || route.platform === platform) && (!accountId || Number(route.accountId) === accountId)).length;
+}
+
 function renderRoutePlan() {
   const body = state.routePlan;
   const table = $('#routePlannerTable');
   if (!table) return;
-  if (!body) { table.innerHTML = '<div class="route-planner-empty">点击“生成规划”，读取 14 条账号路线的 verified ranking。</div>'; return; }
-  const strategyLabel = body.copyStrategy === 'hy3' ? 'HY3 快速六步法' : body.copyStrategy === 'evidence_fallback' ? '证据兜底' : 'DeepSeek 六步法';
+  if (!body) { table.innerHTML = '<div class="route-planner-empty">选择平台或账号，然后生成排期。</div>'; return; }
+  const strategyLabel = body.copyStrategy === 'hy3' ? 'HY3 快线' : body.copyStrategy === 'evidence_fallback' ? '证据兜底' : 'DeepSeek 主线';
+  const usageLabel = (slot) => slot.usage === 'never_used' ? '从未使用' : slot.usage === 'cooldown_clear' ? `已过 ${Number(slot.cooldownDays || body.cooldownDays || 7)} 天冷却` : '近期回填';
   const rows = body.routes.flatMap((route) => {
-    if (!(route.slots || []).length) return [`<tr class="route-unavailable"><td><strong>${escapeHtml(route.accountTitle)}</strong><small>${escapeHtml(route.appKey)}</small></td><td><span class="platform-chip ${escapeHtml(route.platform)}">${escapeHtml(route.platform)}</span></td><td colspan="7"><span class="route-status">本路线暂未拿到可用排行</span><small>${escapeHtml(route.error || '可重新生成规划')}</small></td><td><button type="button" class="route-refresh" data-route-refresh="${escapeHtml(route.accountId)}">重新读取</button></td></tr>`];
-    return route.slots.map((slot) => `<tr><td><strong>${escapeHtml(route.accountTitle)}</strong><small>${escapeHtml(route.appKey)}</small></td><td><span class="platform-chip ${escapeHtml(route.platform)}">${escapeHtml(route.platform)}</span></td><td><strong>${escapeHtml(slot.title || '—')}</strong><small>${escapeHtml(slot.sku || '')}</small></td><td>#${Number(slot.rank || 0)}</td><td>${compactNumber(slot.metrics?.baseReadUnt || 0)}</td><td>${percentage(slot.metrics?.firstReadUntRate)}</td><td>${percentage(slot.metrics?.read20wRate || slot.metrics?.read10wRate)}</td><td><time>${new Date(slot.scheduledAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}</time></td><td><span class="strategy-chip">${strategyLabel}</span><small>${escapeHtml(slot.usage === 'unused' ? '未使用' : '已使用回填')}</small></td><td><code>${escapeHtml(slot.creativeVariantKey)}</code><button type="button" class="route-generate" data-route-generate="${escapeHtml(JSON.stringify({ ...slot, accountId: route.accountId, accountTitle: route.accountTitle, appKey: route.appKey, platform: route.platform }))}">生成</button></td></tr>`);
+    if (!(route.slots || []).length) return [`<tr class="route-unavailable"><td><strong>${escapeHtml(route.accountTitle)}</strong><small>${escapeHtml(route.appKey)}</small></td><td><span class="platform-chip ${escapeHtml(route.platform)}">${escapeHtml(route.platform)}</span></td><td colspan="3"><span class="route-status">本路线暂未拿到可用排行</span><small>${escapeHtml(route.error || '可重新生成规划')}</small></td><td><button type="button" class="route-refresh" data-route-refresh="${escapeHtml(route.accountId)}">重新读取</button></td></tr>`];
+    return route.slots.map((slot) => `<tr><td><strong>${escapeHtml(route.accountTitle)}</strong><small>${escapeHtml(route.appKey)}</small></td><td><span class="platform-chip ${escapeHtml(route.platform)}">${escapeHtml(route.platform)}</span></td><td><strong>${escapeHtml(slot.title || '—')}</strong><small>#${Number(slot.rank || 0)} · UV ${compactNumber(slot.metrics?.baseReadUnt || 0)} · 首读 ${percentage(slot.metrics?.firstReadUntRate)} · 长读 ${percentage(slot.metrics?.read20wRate || slot.metrics?.read10wRate)}</small></td><td><time>${new Date(slot.scheduledAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}</time></td><td><span class="strategy-chip">${strategyLabel}</span><small>${escapeHtml(usageLabel(slot))}</small></td><td><span class="variant-chip" title="${escapeHtml(slot.creativeVariantKey)}">V${Number(slot.slot || 1)}</span><button type="button" class="route-generate" data-route-generate="${escapeHtml(JSON.stringify({ ...slot, accountId: route.accountId, accountTitle: route.accountTitle, appKey: route.appKey, platform: route.platform }))}">生成</button></td></tr>`);
   });
-  table.innerHTML = rows.length ? `<table><thead><tr><th>账号</th><th>平台</th><th>书籍</th><th>排行</th><th>UV</th><th>首读</th><th>长读</th><th>发布时间</th><th>文案路线</th><th>创意变体 / 下一步</th></tr></thead><tbody>${rows.join('')}</tbody></table>` : '<div class="route-planner-empty">当前没有返回可用的 verified 书籍，请稍后重试。</div>';
+  const platforms = new Set(body.routes.map((route) => route.platform)).size;
+  const slots = body.routes.reduce((sum, route) => sum + (route.slots || []).length, 0);
+  table.innerHTML = rows.length ? `<div class="route-plan-summary"><span><strong>${body.routeCount}</strong> 条路线</span><span><strong>${slots}</strong> 个排期</span><span><strong>${platforms}</strong> 个平台</span><small>同一账号近 ${Number(body.cooldownDays || 7)} 天内优先不重复</small></div><table><thead><tr><th>账号</th><th>平台</th><th>书籍与指标</th><th>发布时间</th><th>文案与冷却</th><th>下一步</th></tr></thead><tbody>${rows.join('')}</tbody></table>` : '<div class="route-planner-empty">当前筛选没有可用书籍，请调整账号或稍后重试。</div>';
   table.querySelectorAll('[data-route-generate]').forEach((button) => button.addEventListener('click', () => {
     const slot = JSON.parse(button.dataset.routeGenerate);
     const modelChoice = slot.copyStrategy === 'hy3' ? 'hy3' : 'deepseek-v4-flash-preview';
@@ -4479,21 +4459,37 @@ function renderRoutePlan() {
 async function loadRoutePlan() {
   if (state.routePlanLoading) return;
   state.routePlanLoading = true;
-  $('#routePlannerStatus').textContent = '正在并行读取 14 条排行 API…';
-  $('#loadRoutePlan').disabled = true;
+  const routeCount = plannerRouteCount();
+  const startedAt = Date.now();
+  const button = $('#loadRoutePlan');
+  const buttonLabel = button.querySelector('span');
+  $('#routePlannerStatus').textContent = `正在分批读取 ${routeCount} 条路线，每批 3 条…`;
+  $('#routePlannerTable').innerHTML = `<div class="route-planner-loading"><i data-lucide="loader-circle"></i><strong>正在读取排行并排除近期重复书籍</strong><span>需要访问各产品线的真实排行，通常需要几十秒。页面可以继续停留。</span></div>`;
+  button.disabled = true;
+  if (buttonLabel) buttonLabel.textContent = '读取中…';
+  icons();
+  const timer = window.setInterval(() => {
+    const seconds = Math.floor((Date.now() - startedAt) / 1000);
+    $('#routePlannerStatus').textContent = `已等待 ${seconds} 秒 · 正在分批读取 ${routeCount} 条路线（每批 3 条）`;
+  }, 1000);
   try {
     const topN = Number($('#plannerTopN').value || 3);
     const copyStrategy = $('#plannerCopyStrategy').value || 'llm';
+    const cooldownDays = Number($('#plannerCooldownDays').value || 7);
+    const platform = $('#plannerPlatform').value || '';
+    const accountId = $('#plannerAccount').value || '';
     const date = plannerDateValue();
-    state.routePlan = await api(`/api/route-planner?topN=${topN}&copyStrategy=${encodeURIComponent(copyStrategy)}&date=${encodeURIComponent(date)}`, { timeoutMs: 240000 });
+    state.routePlan = await api(`/api/route-planner?topN=${topN}&copyStrategy=${encodeURIComponent(copyStrategy)}&cooldownDays=${cooldownDays}&platform=${encodeURIComponent(platform)}&accountId=${encodeURIComponent(accountId)}&date=${encodeURIComponent(date)}`, { timeoutMs: 240000 });
     const ready = state.routePlan.routes.filter((route) => route.routeStatus === 'ready').length;
     const slots = state.routePlan.routes.reduce((sum, route) => sum + (route.slots || []).length, 0);
-    $('#routePlannerStatus').textContent = `已生成 ${ready}/14 条路线 · ${slots} 个排期 · ${state.routePlan.timezone}`;
+    const total = Number(state.routePlan.routeCount || state.routePlan.routes.length || 0);
+    const elapsed = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+    $('#routePlannerStatus').textContent = `已生成 ${ready}/${total} 条路线 · ${slots} 个排期 · 用时 ${elapsed} 秒`;
     renderRoutePlan(); icons();
   } catch (error) {
     $('#routePlannerStatus').textContent = `规划失败：${error.message}`;
     showToast(error.message, 'error');
-  } finally { state.routePlanLoading = false; $('#loadRoutePlan').disabled = false; }
+  } finally { window.clearInterval(timer); state.routePlanLoading = false; button.disabled = false; if (buttonLabel) buttonLabel.textContent = '生成规划'; }
 }
 
 async function loadLeaderboard({ refresh = false, silent = false } = {}) {
@@ -4547,6 +4543,7 @@ async function loadLeaderboard({ refresh = false, silent = false } = {}) {
         state.catalogFilters.accountId = String(body.target.accountId || state.catalogFilters.accountId);
       }
       syncCatalogTargetControls();
+      syncRoutePlannerAccounts();
     }
     const incomingBooks = (body.books || []).map((book) => ({ ...book, ...(body.target ? { selectionTarget: body.target } : {}) }));
     const incomingEligible = requestSource !== 'catalog' || responseAllowsCatalogRanking(body, incomingBooks);
@@ -4757,7 +4754,7 @@ function dispatchesForRun(run) {
     && videoRetryAt > Date.now();
   const posterFinished = ['done', 'partial', 'ambiguous'].includes(String(run.stages?.P3_5?.status || ''));
   if (waitingForVideoCapacity && posterFinished) return [];
-  const modelChoice = run.input?.creativeProfile?.modelChoice || 'hy3';
+  const modelChoice = run.input?.creativeProfile?.modelChoice || 'deepseek-v4-flash-preview';
   return [{ key: `run:${run.id}`, payload: { id: run.id }, modelChoice, longTask: usesLongBackground(modelChoice) }];
 }
 
@@ -4770,7 +4767,7 @@ function hasAutomaticCreativeRecovery(run) {
 }
 
 function dispatchesForPlan(job) {
-  const modelChoice = job.input?.modelChoice || 'hy3';
+  const modelChoice = job.input?.modelChoice || 'deepseek-v4-flash-preview';
   return [{ key: `plan:${job.id}`, payload: { planId: job.id }, modelChoice, longTask: usesLongBackground(modelChoice) }];
 }
 
@@ -4814,12 +4811,6 @@ async function retryRun(id) {
   catch (error) { showToast(error.message, 'error'); }
 }
 
-async function continuePosterGeneration(id) {
-  const dispatched = dispatchWorkerOnce(`run:${id}`, { id }, { cooldownMs: 0 });
-  showToast(dispatched ? '海报生成已继续，任务 ID 会在提交前保存' : '海报任务正在推进中');
-  if (dispatched) setTimeout(() => loadStatus({ silent: true }), 700);
-}
-
 async function useEvidenceFallback(id) {
   try {
     await api('/api/runs', { method: 'PATCH', body: JSON.stringify({ id, action: 'continue_from_evidence' }), timeoutMs: 30000 });
@@ -4850,7 +4841,7 @@ async function reconcileAttribution(id) {
 }
 
 async function removeRunAsset(run, asset) {
-  const labels = { copy: '文案', video: '视频', reference_video: '参考海报版视频', posters: '海报' };
+  const labels = { copy: '文案', video: '视频', reference_video: '参考视频' };
   if (!window.confirm(`从当前任务中移除${labels[asset] || '该素材'}？这不会删除已在外部平台创建的 Code、短链或付费任务。`)) return;
   try {
     await api('/api/runs', { method: 'PATCH', body: JSON.stringify({ id: run.id, action: 'delete_asset', asset }) });
@@ -4868,18 +4859,6 @@ async function decideOptimization(run, decision) {
     if (decision === 'apply') { showToast(`${modelLabel(run.input?.creativeProfile?.modelChoice)} 正在生成优化版本`); await kickWorker(); }
     else showToast('已保留当前创意包');
   } catch (error) { showToast(error.message, 'error'); }
-}
-
-async function startReferenceVideo(runId, posterVariant) {
-  const button = $('#createReferenceVideo');
-  if (button) button.disabled = true;
-  try {
-    const body = await api('/api/reference-video', { method: 'POST', body: JSON.stringify({ runId, posterVariant }) });
-    showToast(body.video?.status === 'running' ? '海报参考版 AC 视频已提交' : '海报参考版视频状态已更新');
-    state.detailFingerprint = '';
-    await loadStatus();
-  } catch (error) { showToast(error.message, 'error'); }
-  finally { if (button) button.disabled = false; }
 }
 
 async function rewriteVideoPrompt(runId) {
@@ -4921,19 +4900,15 @@ async function startVideoRevision(runId) {
 function openConfirmation(kind, runId, options = {}) {
   state.confirmation = { kind, runId, ...options };
   const dialog = $('#confirmationDialog');
-  const reference = kind === 'reference_video';
   const revision = kind === 'video_revision';
   const characterAssets = kind === 'character_assets';
   const run = state.runs.find((item) => item.id === runId);
   const selectedModel = modelLabel(run?.input?.creativeProfile?.modelChoice);
-  const posterNumber = state.confirmation.posterVariant === 'luminous_cinema' ? '1' : '2';
-  $('#confirmationTitle').textContent = characterAssets ? '生成角色一致性参考图？' : reference ? `提交海报 ${posterNumber} 参考 AC 视频？` : revision ? '提交重写提示词版 AC 视频？' : `让 ${selectedModel} 再创作一版？`;
-  $('#confirmationDescription').textContent = reference
-    ? `将使用已完成的海报 ${posterNumber} 作为参考图，额外提交一条付费 AC 视频。原视频不会被替换，并受本日 40 条上限控制。`
-    : revision ? '将使用你刚刚核对并采用的新视频提示词，额外提交一条付费 AC 视频。原视频不会被替换，并受本日 40 条上限控制。'
+  $('#confirmationTitle').textContent = characterAssets ? '生成角色一致性参考图？' : revision ? '提交重写提示词版 AC 视频？' : `让 ${selectedModel} 再创作一版？`;
+  $('#confirmationDescription').textContent = revision ? '将使用你刚刚核对并采用的新视频提示词，额外提交一条付费 AC 视频。原视频不会被替换，并受本日 40 条上限控制。'
       : characterAssets ? '将由后端根据当前任务的已锁定书籍和章节证据创建人物参考资产。此操作不会提交 AC 视频；生成完成后仍需在导演控制区手动选择、保存和预览。'
-    : `${selectedModel} 会基于当前文案、原著证据、Code 和链接，生成明显不同的双语文案、视频脚本与海报提示词。不会自动提交付费视频或图片。`;
-  $('#confirmAction').textContent = characterAssets ? '确认生成角色图' : reference || revision ? '确认提交视频' : '确认生成新创意';
+    : `${selectedModel} 会基于当前文案、原著证据、Code 和链接，生成明显不同的双语文案与视频脚本。不会自动提交付费视频或图片。`;
+  $('#confirmAction').textContent = characterAssets ? '确认生成角色图' : revision ? '确认提交视频' : '确认生成新创意';
   dialog.showModal();
 }
 
@@ -4943,8 +4918,7 @@ async function confirmAction() {
   const button = $('#confirmAction');
   button.disabled = true;
   try {
-    if (request.kind === 'reference_video') await startReferenceVideo(request.runId, request.posterVariant);
-    else if (request.kind === 'video_revision') await startVideoRevision(request.runId);
+    if (request.kind === 'video_revision') await startVideoRevision(request.runId);
     else if (request.kind === 'character_assets') await generateCharacterAssets(request.runId, request.character);
     else {
       state.creativeVariantRunId = request.runId;
@@ -5037,7 +5011,7 @@ async function createProduction({ title, sku = '', source = 'manual', creativePr
   const request = (async () => {
     try {
       const campaign = scheduledAt ? { id: creativeVariantKey || `planner:${accountId}:${sku}`, slot: 1, paidMediaAuthorized: false, autoSocialEchoDraft: true, deliveryMode: 'scheduled', scheduledAt } : null;
-      const body = await api('/api/runs', { method: 'POST', body: JSON.stringify({ title, sku, promoter: 'xujt', paidAuthorized: true, fullBookEvidence: true, source, creativeProfile, planning, copyStrategy, creativeVariantKey, ...(campaign ? { campaign } : {}), accountId, p0Selection }) });
+      const body = await api('/api/runs', { method: 'POST', body: JSON.stringify({ title, sku, promoter: 'xujt', paidAuthorized: true, fullBookEvidence: true, posterGenerationRequired: false, source, creativeProfile, planning, copyStrategy, creativeVariantKey, ...(campaign ? { campaign } : {}), accountId, p0Selection }) });
       if (!body?.run?.id) throw new Error('后台没有返回可追踪的任务 ID，请稍后重试');
       pending.status = 'accepted';
       pending.runId = body.run.id;
@@ -5267,7 +5241,6 @@ $('#closeCreativePlan').addEventListener('click', () => {
 });
 $('#creativePlanQueueButton').addEventListener('click', () => { $('#planQueueDialog').showModal(); renderCreativePlanQueue(); icons(); });
 $('#closePlanQueue').addEventListener('click', () => $('#planQueueDialog').close());
-$('#closeImageViewer').addEventListener('click', () => $('#imageViewer').close());
 $('#closeWeeklyReport').addEventListener('click', () => $('#weeklyReportDialog').close());
 $('#refreshWeeklyReport').addEventListener('click', () => loadWeeklyReport());
 $('#copyWeeklyReport').addEventListener('click', () => copyAssetText(state.weeklyReport?.reportText, '周报已复制，可直接粘贴到汇报材料'));
@@ -5312,7 +5285,7 @@ $('#creativePlanForm').addEventListener('submit', async (event) => {
   await analyzeCreativePlan($('#planTitle').value.trim(), $('#planSku').value.trim());
 });
 $('#detailScrim').addEventListener('click', closeDetail);
-['#creativeStyle', '#ctaStyle', '#videoStyle', '#posterStyle'].forEach((selector) => $(selector).addEventListener('change', renderCreativeProfilePreview));
+['#creativeStyle', '#ctaStyle', '#videoStyle'].forEach((selector) => $(selector).addEventListener('change', renderCreativeProfilePreview));
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && state.detailOpen) closeDetail(); });
 $('#refreshLeaderboard').addEventListener('click', () => loadLeaderboard({ refresh: true }));
 $('#retryCovers').addEventListener('click', () => {
@@ -5385,8 +5358,10 @@ document.querySelectorAll('#densityControl button').forEach((button) => button.a
 
 renderCreativeProfilePreview();
 syncCatalogTargetControls();
+syncRoutePlannerAccounts();
 plannerDateValue();
 $('#loadRoutePlan')?.addEventListener('click', loadRoutePlan);
+$('#plannerPlatform')?.addEventListener('change', syncRoutePlannerAccounts);
 icons();
 // Render the most recent verified state immediately, then reconcile it in the background.
 const restoredDashboard = restoreDashboardSnapshot();
