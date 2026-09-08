@@ -398,7 +398,7 @@ function creativeProfileHtml(profile, preview = false) {
 function productionModelRouteHtml(run) {
   const planning = run.input?.planning;
   const taskRoute = run.artifacts?.modelRoute || {};
-  const production = taskRoute.activeModel || run.input?.creativeProfile?.modelChoice || planning?.actualModel || 'hy3';
+  const production = taskRoute.activeModel || run.input?.creativeProfile?.modelChoice || planning?.actualModel || 'deepseek-v4-flash-preview';
   const taskPreferred = taskRoute.preferredModel || production;
   const taskSwitch = taskRoute.fallbackUsed && modelLabel(taskPreferred) !== modelLabel(production);
   if (!planning?.actualModel) {
@@ -4123,7 +4123,7 @@ function videoHtml(run) {
 function imagesHtml(run) {
   const images = run.artifacts?.images || [];
   const concepts = run.artifacts?.posterPrompts || [];
-  if (!images.length && concepts.length) return `<div class="media-grid">${concepts.map((item) => `<article class="poster-concept"><div><i data-lucide="sparkles"></i><strong>${escapeHtml(item.variant)}</strong><span>视觉概念已就绪，等待图像任务提交</span></div><p>${escapeHtml(item.zhPrompt || item.prompt)}</p></article>`).join('')}</div>`;
+  if (!images.length && concepts.length) return `<div class="poster-ready-bar"><div><strong>两套海报概念已就绪</strong><span>电影感负责抓眼，编辑感适合静态信息流；生成后可放大预览，也可选作 AC 视频参考图。</span></div><button type="button" class="primary-command" data-generate-posters="${escapeHtml(run.id)}"><i data-lucide="images"></i>生成海报</button></div><div class="media-grid">${concepts.map((item) => `<article class="poster-concept"><div><i data-lucide="sparkles"></i><strong>${escapeHtml(item.variant === 'luminous_cinema' ? '电影感主视觉' : item.variant === 'editorial_romance' ? '编辑感情绪图' : item.variant)}</strong><span>视觉概念已就绪</span></div><p>${escapeHtml(item.zhPrompt || item.prompt)}</p></article>`).join('')}</div>`;
   if (!images.length) return '<div class="media-placeholder">两张推广海报将在这里显示</div>';
   return `<div class="media-grid">${images.map((item) => { const previewable = item.status === 'success' && item.url; const mediaUrl = previewable ? `/api/media?url=${encodeURIComponent(item.url)}` : ''; const referenceHint = item.variant === 'luminous_cinema' && previewable ? '<span class="poster-reference-hint"><i data-lucide="clapperboard"></i>可作为 AC 参考视频</span>' : ''; const unavailable = item.status === 'preview_failed'; return `<article class="poster-item ${previewable ? 'ready' : ''} ${unavailable ? 'failed' : ''}">${previewable ? `<button class="open-image-preview" type="button" data-image-url="${escapeHtml(mediaUrl)}" data-image-label="${escapeHtml(item.variant)}"><img src="${escapeHtml(mediaUrl)}" alt="${escapeHtml(item.variant)}" onerror="this.closest('.poster-item').classList.add('failed');this.closest('button').disabled=true"><span class="poster-expand"><i data-lucide="maximize-2"></i> 预览海报</span></button>` : `<div class="poster-live"><i data-lucide="${unavailable ? 'image-off' : 'image'}"></i><strong>${escapeHtml(item.variant)}</strong><span>${escapeHtml(unavailable ? '供应商链接失效，未重复扣费提交' : (item.status || '等待生成'))}${item.progress != null ? ` · ${escapeHtml(item.progress)}%` : ''}</span>${unavailable && item.error ? `<small>${escapeHtml(item.error)}</small>` : ''}</div>`}<span>${escapeHtml(item.variant)} · ${escapeHtml(item.status)}</span>${referenceHint}</article>`; }).join('')}</div>`;
 }
@@ -4300,6 +4300,7 @@ function renderDetail() {
     state.detailFingerprint = '';
     renderDetail(); icons();
   }));
+  panel.querySelector('[data-generate-posters]')?.addEventListener('click', (event) => continuePosterGeneration(event.currentTarget.dataset.generatePosters));
   $('#createReferenceVideo')?.addEventListener('click', (event) => openConfirmation('reference_video', run.id, { posterVariant: event.currentTarget.dataset.posterVariant }));
   $('#rewriteVideoPrompt')?.addEventListener('click', () => rewriteVideoPrompt(run.id));
   $('#createVideoRevision')?.addEventListener('click', () => openConfirmation('video_revision', run.id));
@@ -4461,8 +4462,18 @@ function renderRoutePlan() {
   const table = $('#routePlannerTable');
   if (!table) return;
   if (!body) { table.innerHTML = '<div class="route-planner-empty">点击“生成规划”，读取 14 条账号路线的 verified ranking。</div>'; return; }
-  const rows = body.routes.flatMap((route) => (route.slots || []).map((slot) => `<tr><td><strong>${escapeHtml(route.accountTitle)}</strong><small>${escapeHtml(route.appKey)}</small></td><td><span class="platform-chip ${escapeHtml(route.platform)}">${escapeHtml(route.platform)}</span></td><td><strong>${escapeHtml(slot.title || '—')}</strong><small>${escapeHtml(slot.sku || '')}</small></td><td>#${Number(slot.rank || 0)}</td><td>${compactNumber(slot.metrics?.baseReadUnt || 0)}</td><td>${percentage(slot.metrics?.firstReadUntRate)}</td><td>${percentage(slot.metrics?.read20wRate || slot.metrics?.read10wRate)}</td><td><time>${new Date(slot.scheduledAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}</time></td><td><span class="strategy-chip">${slot.copyStrategy === 'evidence_fallback' ? '证据兜底' : 'LLM 六步法'}</span><small>${escapeHtml(slot.usage === 'unused' ? '未使用' : '已使用回填')}</small></td><td><code>${escapeHtml(slot.creativeVariantKey)}</code></td></tr>`));
-  table.innerHTML = rows.length ? `<table><thead><tr><th>账号</th><th>平台</th><th>书籍</th><th>排行</th><th>UV</th><th>首读</th><th>长读</th><th>发布时间</th><th>文案路线</th><th>创意变体</th></tr></thead><tbody>${rows.join('')}</tbody></table>` : '<div class="route-planner-empty">当前没有返回可用的 verified 书籍，请稍后重试。</div>';
+  const strategyLabel = body.copyStrategy === 'hy3' ? 'HY3 快速六步法' : body.copyStrategy === 'evidence_fallback' ? '证据兜底' : 'DeepSeek 六步法';
+  const rows = body.routes.flatMap((route) => {
+    if (!(route.slots || []).length) return [`<tr class="route-unavailable"><td><strong>${escapeHtml(route.accountTitle)}</strong><small>${escapeHtml(route.appKey)}</small></td><td><span class="platform-chip ${escapeHtml(route.platform)}">${escapeHtml(route.platform)}</span></td><td colspan="7"><span class="route-status">本路线暂未拿到可用排行</span><small>${escapeHtml(route.error || '可重新生成规划')}</small></td><td><button type="button" class="route-refresh" data-route-refresh="${escapeHtml(route.accountId)}">重新读取</button></td></tr>`];
+    return route.slots.map((slot) => `<tr><td><strong>${escapeHtml(route.accountTitle)}</strong><small>${escapeHtml(route.appKey)}</small></td><td><span class="platform-chip ${escapeHtml(route.platform)}">${escapeHtml(route.platform)}</span></td><td><strong>${escapeHtml(slot.title || '—')}</strong><small>${escapeHtml(slot.sku || '')}</small></td><td>#${Number(slot.rank || 0)}</td><td>${compactNumber(slot.metrics?.baseReadUnt || 0)}</td><td>${percentage(slot.metrics?.firstReadUntRate)}</td><td>${percentage(slot.metrics?.read20wRate || slot.metrics?.read10wRate)}</td><td><time>${new Date(slot.scheduledAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}</time></td><td><span class="strategy-chip">${strategyLabel}</span><small>${escapeHtml(slot.usage === 'unused' ? '未使用' : '已使用回填')}</small></td><td><code>${escapeHtml(slot.creativeVariantKey)}</code><button type="button" class="route-generate" data-route-generate="${escapeHtml(JSON.stringify({ ...slot, accountId: route.accountId, accountTitle: route.accountTitle, appKey: route.appKey, platform: route.platform }))}">生成</button></td></tr>`);
+  });
+  table.innerHTML = rows.length ? `<table><thead><tr><th>账号</th><th>平台</th><th>书籍</th><th>排行</th><th>UV</th><th>首读</th><th>长读</th><th>发布时间</th><th>文案路线</th><th>创意变体 / 下一步</th></tr></thead><tbody>${rows.join('')}</tbody></table>` : '<div class="route-planner-empty">当前没有返回可用的 verified 书籍，请稍后重试。</div>';
+  table.querySelectorAll('[data-route-generate]').forEach((button) => button.addEventListener('click', () => {
+    const slot = JSON.parse(button.dataset.routeGenerate);
+    const modelChoice = slot.copyStrategy === 'hy3' ? 'hy3' : 'deepseek-v4-flash-preview';
+    createProduction({ title: slot.title, sku: slot.sku, source: 'route_planner', creativeProfile: { modelChoice }, copyStrategy: slot.copyStrategy, creativeVariantKey: slot.creativeVariantKey, scheduledAt: slot.scheduledAt, delivery: { accountId: Number(slot.accountId), accountTitle: slot.accountTitle, appKey: slot.appKey, platform: slot.platform }, p0Selection: { source: 'route_planner', sourceRank: Number(slot.rank || 0), readerBase: Number(slot.metrics?.baseReadUnt || 0), firstReadRate: Number(slot.metrics?.firstReadUntRate || 0), longReadRate: Number(slot.metrics?.read20wRate || slot.metrics?.read10wRate || 0), target: { accountId: Number(slot.accountId), accountTitle: slot.accountTitle, appKey: slot.appKey, platform: slot.platform } } }).catch((error) => showToast(error.message, 'error'));
+  }));
+  table.querySelectorAll('[data-route-refresh]').forEach((button) => button.addEventListener('click', loadRoutePlan));
 }
 
 async function loadRoutePlan() {
@@ -4474,7 +4485,7 @@ async function loadRoutePlan() {
     const topN = Number($('#plannerTopN').value || 3);
     const copyStrategy = $('#plannerCopyStrategy').value || 'llm';
     const date = plannerDateValue();
-    state.routePlan = await api(`/api/route-planner?topN=${topN}&copyStrategy=${encodeURIComponent(copyStrategy)}&date=${encodeURIComponent(date)}`, { timeoutMs: 120000 });
+    state.routePlan = await api(`/api/route-planner?topN=${topN}&copyStrategy=${encodeURIComponent(copyStrategy)}&date=${encodeURIComponent(date)}`, { timeoutMs: 240000 });
     const ready = state.routePlan.routes.filter((route) => route.routeStatus === 'ready').length;
     const slots = state.routePlan.routes.reduce((sum, route) => sum + (route.slots || []).length, 0);
     $('#routePlannerStatus').textContent = `已生成 ${ready}/14 条路线 · ${slots} 个排期 · ${state.routePlan.timezone}`;
@@ -4803,6 +4814,12 @@ async function retryRun(id) {
   catch (error) { showToast(error.message, 'error'); }
 }
 
+async function continuePosterGeneration(id) {
+  const dispatched = dispatchWorkerOnce(`run:${id}`, { id }, { cooldownMs: 0 });
+  showToast(dispatched ? '海报生成已继续，任务 ID 会在提交前保存' : '海报任务正在推进中');
+  if (dispatched) setTimeout(() => loadStatus({ silent: true }), 700);
+}
+
 async function useEvidenceFallback(id) {
   try {
     await api('/api/runs', { method: 'PATCH', body: JSON.stringify({ id, action: 'continue_from_evidence' }), timeoutMs: 30000 });
@@ -5005,7 +5022,7 @@ function markPendingProduction({ title, sku = '', source = 'manual', creativePro
   return pending;
 }
 
-async function createProduction({ title, sku = '', source = 'manual', creativeProfile = {}, planning = null, delivery = null, p0Selection = null, kick = true, notify = true }) {
+async function createProduction({ title, sku = '', source = 'manual', creativeProfile = {}, planning = null, delivery = null, p0Selection = null, copyStrategy = 'llm', creativeVariantKey = '', scheduledAt = '', kick = true, notify = true }) {
   const accountId = Number(delivery?.accountId || state.catalogFilters.accountId || 0);
   if (!accountId) throw new Error('请先选择一个已核验的目标账号');
   const key = routeProductionIdentity({ title, sku }, { accountId });
@@ -5019,7 +5036,8 @@ async function createProduction({ title, sku = '', source = 'manual', creativePr
   const pending = markPendingProduction({ title, sku, source, creativeProfile, delivery: { ...(delivery || {}), accountId }, p0Selection });
   const request = (async () => {
     try {
-      const body = await api('/api/runs', { method: 'POST', body: JSON.stringify({ title, sku, promoter: 'xujt', paidAuthorized: true, fullBookEvidence: true, source, creativeProfile, planning, accountId, p0Selection }) });
+      const campaign = scheduledAt ? { id: creativeVariantKey || `planner:${accountId}:${sku}`, slot: 1, paidMediaAuthorized: false, autoSocialEchoDraft: true, deliveryMode: 'scheduled', scheduledAt } : null;
+      const body = await api('/api/runs', { method: 'POST', body: JSON.stringify({ title, sku, promoter: 'xujt', paidAuthorized: true, fullBookEvidence: true, source, creativeProfile, planning, copyStrategy, creativeVariantKey, ...(campaign ? { campaign } : {}), accountId, p0Selection }) });
       if (!body?.run?.id) throw new Error('后台没有返回可追踪的任务 ID，请稍后重试');
       pending.status = 'accepted';
       pending.runId = body.run.id;

@@ -175,7 +175,7 @@
       <section id="routePlannerPanel" class="route-planner-panel" aria-live="polite">
         <header class="route-planner-head">
           <div><span class="eyebrow">14 ROUTES · RANKING API</span><h2>账号发布规划</h2><p>每条账号路线独立读取已验证排行；同书可跨账号复用，但每个 slot 都有独立创意变体。</p></div>
-          <div class="route-planner-controls"><label>每路线<select id="plannerTopN"><option value="1">1 本</option><option value="3" selected>3 本</option><option value="5">5 本</option></select></label><label>文案路线<select id="plannerCopyStrategy"><option value="llm">LLM 六步法</option><option value="evidence_fallback">证据兜底</option></select></label><label>日期<input id="plannerDate" type="date"></label><button id="loadRoutePlan" class="primary-command" type="button"><i data-lucide="calendar-range"></i><span>生成规划</span></button></div>
+          <div class="route-planner-controls"><label>每路线<select id="plannerTopN"><option value="1">1 本</option><option value="3" selected>3 本</option><option value="5">5 本</option></select></label><label>文案路线<select id="plannerCopyStrategy"><option value="llm">DeepSeek 六步法</option><option value="hy3">HY3 快速六步法</option><option value="evidence_fallback">证据兜底</option></select></label><label>日期<input id="plannerDate" type="date"></label><button id="loadRoutePlan" class="primary-command" type="button"><i data-lucide="calendar-range"></i><span>生成规划</span></button></div>
         </header>
         <div id="routePlannerStatus" class="route-planner-status">尚未生成规划</div>
         <div id="routePlannerTable" class="route-planner-table"><div class="route-planner-empty">点击“生成规划”，读取 14 条账号路线的 verified ranking。</div></div>

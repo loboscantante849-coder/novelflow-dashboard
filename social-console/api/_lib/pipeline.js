@@ -1881,7 +1881,7 @@ function applySourceGroundedCreativeFallback(run, creative, error, options = {})
 }
 
 function autoPromoteEvidenceFallback(run) {
-  return ['llm', 'evidence_fallback'].includes(String(run?.input?.copyStrategy || ''));
+  return ['llm', 'hy3', 'evidence_fallback'].includes(String(run?.input?.copyStrategy || ''));
 }
 
 async function finalizeCreativeDraft(redis, run) {

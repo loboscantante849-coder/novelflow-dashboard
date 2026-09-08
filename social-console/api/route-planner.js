@@ -72,9 +72,23 @@ async function loadRoute(route, topN, date, routeIndex, usedByAccount) {
       metrics: { baseReadUnt: Number(book.baseReadUnt || 0), firstReadUntRate: Number(book.firstReadUntRate || 0), read10wRate: Number(book.read10wRate || 0), read20wRate: Number(book.read20wRate || 0), ttProfit: Number(book.ttProfit || 0) },
       usage, scheduledAt: scheduleAt(date, route.platform, routeIndex, slotIndex),
       creativeVariantKey: `planner:${date}:${route.accountId}:${route.platform}:${book.bookSkuId}:${slotIndex + 1}`,
-      copyStrategy: 'llm'
+      copyStrategy: 'llm', accountId: route.accountId, accountTitle: route.accountTitle, appKey: route.appKey, platform: route.platform
     }))
   };
+}
+
+async function mapWithConcurrency(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  async function consume() {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      try { results[index] = { status: 'fulfilled', value: await worker(items[index], index) }; }
+      catch (reason) { results[index] = { status: 'rejected', reason }; }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, consume));
+  return results;
 }
 
 module.exports = async (req, res) => {
@@ -84,7 +98,7 @@ module.exports = async (req, res) => {
   if (!redis) return res.status(503).json({ error: 'Social console storage is not configured' });
   const topN = Math.max(1, Math.min(10, Number(req.query?.topN) || 3));
   const date = shanghaiDate(req.query?.date);
-  const copyStrategy = ['llm', 'evidence_fallback'].includes(String(req.query?.copyStrategy)) ? String(req.query.copyStrategy) : 'llm';
+  const copyStrategy = ['llm', 'hy3', 'evidence_fallback'].includes(String(req.query?.copyStrategy)) ? String(req.query.copyStrategy) : 'llm';
   const summaries = await listRunSummaries(redis, 500);
   const usedByAccount = new Map();
   summaries.forEach((run) => {
@@ -92,7 +106,10 @@ module.exports = async (req, res) => {
     const sku = String(run.input?.sku || run.input?.verifiedBook?.bookSkuId || '');
     if (accountId && sku) usedByAccount.set(`${accountId}:${sku}`, true);
   });
-  const settled = await Promise.allSettled(ACCOUNT_ROUTES.map((route, index) => loadRoute(route, topN, date, index, usedByAccount)));
+  // A small parallel pool keeps every route independent without flooding the
+  // ranking and bookstore upstreams. The previous 14-way burst commonly left
+  // only the first two routes populated.
+  const settled = await mapWithConcurrency(ACCOUNT_ROUTES, 3, (route, index) => loadRoute(route, topN, date, index, usedByAccount));
   const routes = settled.map((entry, index) => entry.status === 'fulfilled' ? { ...entry.value, slots: entry.value.slots.map((slot) => ({ ...slot, copyStrategy })) } : ({
     accountId: ACCOUNT_ROUTES[index].accountId, accountTitle: ACCOUNT_ROUTES[index].accountTitle, appKey: ACCOUNT_ROUTES[index].appKey,
     platform: ACCOUNT_ROUTES[index].platform, routeStatus: 'unavailable', slots: [], error: String(entry.reason?.message || '排行 API 暂时不可用').slice(0, 180)
