@@ -281,6 +281,19 @@ module.exports = async (req, res) => {
       return res.status(200).json({ success: true, inviteCode: publicRecord(stored) });
     } catch (_error) {
       if (_error && ['INVITE_IDENTITY_CONFLICT', 'INVITE_RECORD_INVALID'].includes(_error.code)) {
+        // A legacy alias conflict should be self-healing when the upstream
+        // record can authoritatively identify the account. Rebuild only the
+        // canonical invite record; wallet and payout identity stay untouched.
+        try {
+          const remote = await findRemote({ kolName: username, isEnable: true }, Date.now() + REQUEST_TIMEOUT_MS);
+          if (remote) {
+            const recovered = normalizeRemoteRecord(remote, username);
+            await saveRecord(redis, username, recovered);
+            return res.status(200).json({ success: true, inviteCode: publicRecord(recovered), recovered: true });
+          }
+        } catch (_recoveryError) {
+          // Keep the explicit conflict response below when upstream is unavailable.
+        }
         return res.status(409).json({ error: 'Invite code identity recovery is required', code: _error.code });
       }
       return res.status(503).json({ error: 'Storage temporarily unavailable', code: 'STORAGE_UNAVAILABLE' });
