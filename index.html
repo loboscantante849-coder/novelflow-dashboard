@@ -3518,14 +3518,9 @@
                     <div class="stats-overview-label" data-i18n="profile_reader_new_users">Reader New Users</div>
                 </div>
                 <div class="stats-overview-card">
-                    <div class="stats-overview-icon">&#128101;</div>
-                    <div class="stats-overview-value" id="siteInviteTotal">0</div>
-                    <div class="stats-overview-label" data-i18n="profile_platform_registrations">Website Registrations</div>
-                </div>
-                <div class="stats-overview-card">
-                    <div class="stats-overview-icon">&#8681;</div>
-                    <div class="stats-overview-value" id="appInviteTotal">0</div>
-                    <div class="stats-overview-label" data-i18n="profile_app_registrations">App Registrations</div>
+                    <div class="stats-overview-icon">&#8599;</div>
+                    <div class="stats-overview-value" id="readerVisits">--</div>
+                    <div class="stats-overview-label" data-i18n="profile_reader_visits">Reader Activations</div>
                 </div>
             </div>
             <p id="statsLastUpdated" class="login-tip" style="display:none" aria-live="polite"><span data-i18n="stats_snapshot_updated">Data updated</span>: <span id="statsLastUpdatedTime">--</span></p>
@@ -4460,8 +4455,7 @@
                 profile_reader_new_users: 'Reader New Users',
                 stats_snapshot_updated: 'Data updated',
                 stats_snapshot_delayed: 'Data is delayed; recent readers may be missing.',
-                profile_platform_registrations: 'Website Registrations',
-                profile_app_registrations: 'App Registrations',
+                profile_reader_visits: 'Reader Activations',
                 my_books_search_placeholder: 'Search your books, codes, or links',
                 my_books_search_empty: 'No promoted books match your search.',
                 recommender_standard: 'NovelFlow Recommender',
@@ -5090,8 +5084,7 @@
                 profile_reader_new_users: 'Nuevos lectores',
                 stats_snapshot_updated: 'Datos actualizados',
                 stats_snapshot_delayed: 'Los datos están retrasados; pueden faltar lectores recientes.',
-                profile_platform_registrations: 'Registros en el sitio web',
-                profile_app_registrations: 'Registros en la app',
+                profile_reader_visits: 'Activaciones de lectores',
                 my_books_search_placeholder: 'Busca tus libros, codigos o enlaces',
                 my_books_search_empty: 'No hay libros promocionados que coincidan.',
                 recommender_standard: 'Recomendador NovelFlow',
@@ -8174,23 +8167,18 @@
             const availableEl = document.getElementById('availableIncome');
             const withdrawnEl = document.getElementById('withdrawnIncome');
             const readerEl = document.getElementById('readerNewUsers');
-            const inviteEl = document.getElementById('siteInviteTotal');
-            const appInviteEl = document.getElementById('appInviteTotal');
+            const visitsEl = document.getElementById('readerVisits');
             if (incomeEl) incomeEl.textContent = moneyOrDash(lifetime);
             if (availableEl) availableEl.textContent = moneyOrDash(wallet && (wallet.withdrawable_balance ?? wallet.available_balance));
             if (withdrawnEl) withdrawnEl.textContent = moneyOrDash(wallet && (wallet.withdrawn_total ?? wallet.approved_total));
-            const referrals = data && data.referrals;
-            const websiteRegistrations = data && data.referrals
-                ? (data.referrals.website_registrations ?? data.referrals.total)
-                : null;
-            const appRegistrations = data && data.referrals ? data.referrals.app_registrations : null;
             const countOrDash = value => value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(value).toLocaleString() : '--';
+            const readerVisits = stats && stats.total_visits !== null && stats.total_visits !== undefined
+                ? stats.total_visits : null;
             const readerNewUsers = stats && stats.total_new !== null && stats.total_new !== undefined && Number.isFinite(Number(stats.total_new))
                 ? stats.total_new
                 : null;
             if (readerEl) readerEl.textContent = countOrDash(readerNewUsers);
-            if (inviteEl) inviteEl.textContent = countOrDash(websiteRegistrations);
-            if (appInviteEl) appInviteEl.textContent = countOrDash(appRegistrations);
+            if (visitsEl) visitsEl.textContent = countOrDash(readerVisits);
 
             const uid = document.getElementById('profileUid');
             if (uid && AppState.isLoggedIn && AppState.user) {
