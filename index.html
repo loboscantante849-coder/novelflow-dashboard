@@ -3462,7 +3462,7 @@
                 <!-- Campaign Missions (horizontal scroll) -->
                 <div class="campaigns-header">
                     <div class="campaigns-title" data-i18n="campaign_missions_title">🎯 Campaign Missions</div>
-                    <div style="font-size:11px;color:var(--ink-mute);" data-i18n="campaign_swipe_hint">Swipe →</div>
+                    <div style="display:flex;align-items:center;gap:10px;"><a href="campaign.html" style="font-size:11px;color:var(--primary);font-weight:600;text-decoration:none;">Explore book picks ↗</a><div style="font-size:11px;color:var(--ink-mute);" data-i18n="campaign_swipe_hint">Swipe →</div></div>
                 </div>
                 <div class="campaign-scroll-list" id="campaignList">
                     <!-- rendered by renderCampaigns() -->
@@ -4040,6 +4040,7 @@
                 EquityCodeState.results = [];
                 EquityCodeState.loading = false;
                 EquityCodeState.loadingMessage = '';
+                EquityCodeState.loadErrorKey = '';
                 EquityCodeState.loadedUser = null;
                 EquityCodeState.searchRequest += 1;
                 EquityCodeState.loadRequest += 1;
@@ -4598,6 +4599,7 @@
                 invite_code_unbinding: 'Unbinding invite code...',
                 invite_code_creation_failed: 'Creation did not finish. Retrying will reuse the same reserved code.',
                 invite_code_load_failed: 'Unable to load invite code',
+                invite_code_identity_review: 'Your invite code needs an identity review. Please contact support.',
                 invite_code_create_failed: 'Unable to create invite code',
                 invite_code_unbind_failed: 'Unable to unbind invite code',
                 invite_code_ready: 'Your invite code is ready',
@@ -4930,6 +4932,7 @@
                 invite_code_unbinding: 'Desvinculando el código de invitación...',
                 invite_code_creation_failed: 'La creación no terminó. Al reintentar se usará el mismo código reservado.',
                 invite_code_load_failed: 'No se pudo cargar el código de invitación',
+                invite_code_identity_review: 'Tu código de invitación necesita una revisión de identidad. Contacta con soporte.',
                 invite_code_create_failed: 'No se pudo crear el código de invitación',
                 invite_code_unbind_failed: 'No se pudo desvincular el código de invitación',
                 invite_code_ready: 'Tu código de invitación está listo',
@@ -6172,6 +6175,7 @@
             results: [],
             loading: false,
             loadingMessage: '',
+            loadErrorKey: '',
             loadedUser: null,
             searchTimer: null,
             searchRequest: 0,
@@ -6276,6 +6280,12 @@
                 return;
             }
 
+            if (EquityCodeState.loadErrorKey) {
+                body.innerHTML = '<div class="equity-status failed">' + escapeHtml(getText(EquityCodeState.loadErrorKey)) + '</div>' +
+                    '<button class="equity-action-btn" onclick="loadEquityCode(true)">' + escapeHtml(getText('invite_code_retry')) + '</button>';
+                return;
+            }
+
             const record = EquityCodeState.record;
             if (record && (record.status === 'active' || record.status === 'expired')) {
                 const active = record.status === 'active';
@@ -6351,6 +6361,7 @@
                 return;
             }
             EquityCodeState.loading = true;
+            EquityCodeState.loadErrorKey = '';
             EquityCodeState.loadingMessage = getText('invite_code_loading');
             EquityCodeState.loadedUser = username;
             const requestId = ++EquityCodeState.loadRequest;
@@ -6360,11 +6371,17 @@
                 if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.loadRequest) return;
                 const data = await response.json();
                 if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.loadRequest) return;
-                if (!response.ok) throw new Error(equityApiMessage(data, 'invite_code_load_failed'));
+                if (!response.ok) {
+                    const error = new Error(equityApiMessage(data, 'invite_code_load_failed'));
+                    error.code = data && data.code;
+                    throw error;
+                }
                 EquityCodeState.record = data.inviteCode || null;
             } catch (error) {
                 if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.loadRequest || isAbortError(error)) return;
                 EquityCodeState.loadedUser = null;
+                EquityCodeState.loadErrorKey = error.code === 'INVITE_IDENTITY_CONFLICT' || error.code === 'INVITE_RECORD_INVALID'
+                    ? 'invite_code_identity_review' : 'invite_code_load_failed';
                 showToast(error.message || getText('invite_code_load_failed'), 'error');
             } finally {
                 if (AuthSession.isCurrent(session) && requestId === EquityCodeState.loadRequest) {
@@ -6440,6 +6457,9 @@
                 BOOK_NOT_FOUND: 'invite_code_no_matches',
                 INVALID_BOOK: 'invite_code_no_matches',
                 CREATION_IN_PROGRESS: 'invite_code_creating',
+                INVITE_IDENTITY_CONFLICT: 'invite_code_identity_review',
+                INVITE_RECORD_INVALID: 'invite_code_identity_review',
+                INVITE_IDENTITY_CHANGED: 'invite_code_identity_review',
                 USER_DATA_BUSY: 'invite_code_creation_failed'
             };
             return getText(keyByCode[code] || fallbackKey);
