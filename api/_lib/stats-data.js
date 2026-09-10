@@ -504,9 +504,13 @@ async function loadSubmissions(redis, username, admin, debugLog, options = {}) {
         if (myBooks.length) debugLog?.push(`loaded ${myBooks.length} books from ${walletKey}`);
       }
     } catch (e) {
+      if (e && e.code === 'WALLET_IDENTITY_CONFLICT') {
+        debugLog?.push(`wallet identity conflict: skipped legacy wallet books for ${walletUsername}`);
+      } else {
       const error = new Error(`User cloud data unavailable: ${e.message}`);
       error.code = 'USER_DATA_UNAVAILABLE';
       throw error;
+      }
     }
     // Equity codes are a separate, server-owned asset namespace. Include the
     // authenticated user's exact invite code without guessing ownership.
