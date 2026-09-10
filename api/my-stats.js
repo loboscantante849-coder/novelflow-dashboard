@@ -95,13 +95,13 @@ module.exports = async (req, res) => {
 
     if (!isAdmin && adData) {
       usernameCanon = resolvePromoterKey(username, adData);
-      const walletIdentity = await resolveReadOnlyWalletStorageIdentity(redis, username, {
+      let walletIdentity = await resolveReadOnlyWalletStorageIdentity(redis, username, {
         expectedPrincipal: isAdmin ? null : principalFromPayload(payload),
       });
-      if (walletIdentity.conflict) {
-        return res.status(409).json({ error: 'Account identity recovery required', code: 'WALLET_IDENTITY_CONFLICT' });
-      }
-      if (adData.by_promoter?.[usernameCanon]) {
+      // Stats are read-only. A legacy wallet alias conflict must not blank
+      // confirmed traffic/new-user data; financial attribution remains gated.
+      if (walletIdentity.conflict) walletIdentity = { ...walletIdentity, storageUsername: username, statsIdentityConflict: true };
+      if (!walletIdentity.statsIdentityConflict && adData.by_promoter?.[usernameCanon]) {
         const ownership = await inspectApprovedSourceWalletOwner(
           redis,
           adData,
