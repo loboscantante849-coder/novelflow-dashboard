@@ -178,6 +178,21 @@ async function resolveReadOnlyWalletStorageIdentity(redis, requestedUsername, { 
   const identity = await resolveWalletStorageIdentity(redis, requestedUsername);
   if (!identity.conflict) return identity;
 
+  // Safe generic recovery for legacy duplicate keys: if all records are
+  // healthy and every explicit owner index matches the authenticated
+  // principal, use the canonical storage key without merging balances.
+  const genericMatches = Array.from(new Set(identity.matches || []));
+  if (genericMatches.length >= 2 && expectedPrincipal) {
+    const ownerKeys = genericMatches.flatMap(name => [`nf_identity_owner:${name}`, `nf_user_pass_owner:${name}`]);
+    const rawOwners = typeof redis.mget === 'function' ? await redis.mget(...ownerKeys) : await Promise.all(ownerKeys.map(key => redis.get(key)));
+    const owners = rawOwners.filter(Boolean).map(value => canonicalReadOnlyOwner(value));
+    const principal = canonicalReadOnlyOwner(expectedPrincipal);
+    const records = await Promise.all(genericMatches.map(async name => parseReadOnlyWalletRecord(await redis.get(`nf_user_data:${name}`))));
+    if (records.every(healthyReadOnlyWalletRecord) && owners.length && owners.every(owner => owner === principal)) {
+      return { ...identity, storageUsername: identity.primaryUsername, conflict: false, readOnlyLegacyConflict: true };
+    }
+  }
+
   const matches = new Set(identity.matches || []);
   if (identity.primaryUsername !== CONS_READ_ONLY_CANONICAL ||
       matches.size !== 2 ||
