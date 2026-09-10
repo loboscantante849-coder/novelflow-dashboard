@@ -68,6 +68,7 @@ async function loadRecordState(redis, username) {
     if (distinct.size > 1) {
       const error = new Error('Multiple invite code records resolve to this account');
       error.code = 'INVITE_IDENTITY_CONFLICT';
+      error.matches = matches;
       throw error;
     }
   }
@@ -285,7 +286,18 @@ module.exports = async (req, res) => {
         // record can authoritatively identify the account. Rebuild only the
         // canonical invite record; wallet and payout identity stay untouched.
         try {
-          const remote = await findRemote({ kolName: username, isEnable: true }, Date.now() + REQUEST_TIMEOUT_MS);
+          if (_error.code === 'INVITE_IDENTITY_CONFLICT' && Array.isArray(_error.matches) && _error.matches.length) {
+            const canonical = _error.matches.find(match => match.key === recordKey(username)) || _error.matches[0];
+            const repaired = normalizeRemoteRecord(canonical.record, username);
+            await saveRecord(redis, username, repaired);
+            return res.status(200).json({ success: true, inviteCode: publicRecord(repaired), recovered: true });
+          }
+          const aliases = recordKeys(username).map(key => key.slice('nf_equity_code:'.length));
+          let remote = null;
+          for (const alias of aliases) {
+            remote = await findRemote({ kolName: alias, isEnable: true }, Date.now() + REQUEST_TIMEOUT_MS);
+            if (remote) break;
+          }
           if (remote) {
             const recovered = normalizeRemoteRecord(remote, username);
             await saveRecord(redis, username, recovered);

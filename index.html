@@ -4406,6 +4406,25 @@
                 status_failed: 'Failed',
                 status_creating: 'Creating video (~25 min)...',
                 no_reels: 'No reels yet',
+                earnings_center: 'Earnings Center',
+                available_balance: 'Available Balance',
+                total_earned: 'Total Earned',
+                pending_settlement: 'Pending Settlement',
+                platform_bonus: 'PLATFORM BONUS',
+                promotional_reward_withdrawable: 'Promotional reward, withdrawable',
+                earnings_detail: 'Earnings Detail',
+                withdrawal_history: 'Withdrawal History',
+                request_withdrawal: '💵 Request Withdrawal',
+                fee_label: '5% FEE',
+                withdrawal_hint: 'Minimum $10 · 5% fee · Net paid to your PayPal within 3–5 days',
+                amount_usd: 'Amount (USD)',
+                paypal_account: 'PayPal Account',
+                submit_request: 'Submit Request',
+                no_earnings: 'No earnings yet',
+                no_withdrawals: 'No withdrawals yet',
+                cps_earnings: 'CPS Earnings',
+                withdrawal: 'Withdrawal',
+                earlier: 'Earlier',
                 loading: 'Loading...',
                 no_books: 'No books found',
                 search_failed: 'Search failed',
@@ -4865,6 +4884,25 @@
                 status_failed: 'Fallido',
                 status_creating: 'Creando video (~25 min)...',
                 no_reels: 'Aún no hay reels',
+                earnings_center: 'Centro de ganancias',
+                available_balance: 'Saldo disponible',
+                total_earned: 'Total ganado',
+                pending_settlement: 'Liquidación pendiente',
+                platform_bonus: 'BONIFICACIÓN DE LA PLATAFORMA',
+                promotional_reward_withdrawable: 'Recompensa promocional, retirable',
+                earnings_detail: 'Detalle de ganancias',
+                withdrawal_history: 'Historial de retiros',
+                request_withdrawal: '💵 Solicitar retiro',
+                fee_label: 'COMISIÓN 5%',
+                withdrawal_hint: 'Mínimo $10 · comisión 5% · Pago neto a PayPal en 3–5 días',
+                amount_usd: 'Cantidad (USD)',
+                paypal_account: 'Cuenta de PayPal',
+                submit_request: 'Enviar solicitud',
+                no_earnings: 'Aún no hay ganancias',
+                no_withdrawals: 'Aún no hay retiros',
+                cps_earnings: 'Ganancias CPS',
+                withdrawal: 'Retiro',
+                earlier: 'Anterior',
                 loading: 'Cargando...',
                 no_books: 'No se encontraron libros',
                 search_failed: 'Búsqueda fallida',
@@ -11433,38 +11471,38 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
   <div class="earn-panel" role="dialog" aria-modal="true" aria-label="Earnings Center">
     <div class="earn-header">
       <button class="earn-close" onclick="closeEarningsModal()" aria-label="Close">×</button>
-      <div class="earn-title">Earnings Center</div>
+      <div class="earn-title" data-i18n="earnings_center">Earnings Center</div>
       <div style="width:30px;"></div>
     </div>
     <div class="earn-body">
       <div class="earn-stats">
         <div class="earn-stat primary">
           <div class="earn-stat-val" id="earnAvailVal">$0.00</div>
-          <div class="earn-stat-label">Available Balance</div>
+          <div class="earn-stat-label" data-i18n="available_balance">Available Balance</div>
         </div>
         <div class="earn-stat">
           <div class="earn-stat-val" id="earnTotalVal">$0.00</div>
-          <div class="earn-stat-label">Total Earned</div>
+          <div class="earn-stat-label" data-i18n="total_earned">Total Earned</div>
         </div>
         <div class="earn-stat">
           <span class="earn-stat-soon">Soon</span>
           <div class="earn-stat-val" id="earnPendingVal">$0.00</div>
-          <div class="earn-stat-label">Pending Settlement</div>
+          <div class="earn-stat-label" data-i18n="pending_settlement">Pending Settlement</div>
         </div>
       </div>
       <div id="earnBonusBanner">
         <div class="earn-bonus-left">
           <span style="font-size:20px;">🎁</span>
           <div>
-            <div class="earn-bonus-tag">PLATFORM BONUS</div>
-            <div class="earn-bonus-sub">Promotional reward, withdrawable</div>
+            <div class="earn-bonus-tag" data-i18n="platform_bonus">PLATFORM BONUS</div>
+            <div class="earn-bonus-sub" data-i18n="promotional_reward_withdrawable">Promotional reward, withdrawable</div>
           </div>
         </div>
         <div class="earn-bonus-val" id="earnBonusVal">$0.00</div>
       </div>
       <div class="earn-tabs">
-        <div class="earn-tab active" data-earn-tab="detail" onclick="switchEarnTab('detail')">Earnings Detail</div>
-        <div class="earn-tab" data-earn-tab="history" onclick="switchEarnTab('history')">Withdrawal History</div>
+        <div class="earn-tab active" data-earn-tab="detail" onclick="switchEarnTab('detail')" data-i18n="earnings_detail">Earnings Detail</div>
+        <div class="earn-tab" data-earn-tab="history" onclick="switchEarnTab('history')" data-i18n="withdrawal_history">Withdrawal History</div>
       </div>
       <div class="earn-tab-panel active" id="earnTabDetail">
         <div id="earnDetailList"><div class="earn-empty">Loading…</div></div>
@@ -11474,12 +11512,12 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
       </div>
       <div class="earn-form">
         <div class="earn-form-title">
-          💵 Request Withdrawal
-          <span class="earn-fee-badge">5% FEE</span>
+          <span data-i18n="request_withdrawal">💵 Request Withdrawal</span>
+          <span class="earn-fee-badge" data-i18n="fee_label">5% FEE</span>
         </div>
-        <div class="earn-form-hint">Minimum $10 · 5% fee · Net paid to your PayPal within 3–5 days</div>
+        <div class="earn-form-hint" data-i18n="withdrawal_hint">Minimum $10 · 5% fee · Net paid to your PayPal within 3–5 days</div>
         <div class="earn-field">
-          <label for="earnAmountInput">Amount (USD)</label>
+          <label for="earnAmountInput" data-i18n="amount_usd">Amount (USD)</label>
           <div class="earn-amount-wrap">
             <span class="earn-currency">$</span>
             <input type="number" id="earnAmountInput" min="10" step="0.01" placeholder="Enter amount USD" inputmode="decimal" oninput="earnValidateForm()">
@@ -11492,11 +11530,11 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
           </div>
         </div>
         <div class="earn-field">
-          <label for="earnEmailInput">PayPal Account</label>
+          <label for="earnEmailInput" data-i18n="paypal_account">PayPal Account</label>
           <input type="email" id="earnEmailInput" placeholder="your@email.com" oninput="earnValidateForm()">
         </div>
         <div class="earn-fee-preview" id="earnFeePreview" style="display:none;font-size:12px;color:var(--ink-mute);text-align:center;margin:6px 0 0;padding:6px 8px;background:var(--canvas-soft);border-radius:8px;"></div>
-        <button type="button" class="earn-submit" id="earnSubmitBtn" onclick="submitWithdrawal()" disabled>Submit Request</button>
+        <button type="button" class="earn-submit" id="earnSubmitBtn" onclick="submitWithdrawal()" disabled data-i18n="submit_request">Submit Request</button>
         <div class="earn-err" id="earnFormErr"></div>
       </div>
     </div>
@@ -11633,7 +11671,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
     const daily = Array.isArray(data.earnings_detail) ? data.earnings_detail.slice() : [];
     daily.sort((a,b) => (b.date||'').localeCompare(a.date||''));
     if (!daily.length) {
-      de.innerHTML = '<div class="earn-empty">No earnings yet</div>';
+      de.innerHTML = '<div class="earn-empty">' + (typeof getText === 'function' ? getText('no_earnings') : 'No earnings yet') + '</div>';
     } else {
       function mondayOf(dateStr) {
         const dt = new Date(dateStr + 'T00:00:00');
@@ -11643,7 +11681,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
         return m.toISOString().slice(0,10);
       }
       function fmtRange(monKey) {
-        if (monKey === 'earlier') return 'Earlier';
+        if (monKey === 'earlier') return typeof getText === 'function' ? getText('earlier') : 'Earlier';
         const m = new Date(monKey + 'T00:00:00');
         const s = new Date(m); s.setDate(m.getDate() + 6);
         const f = d => d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
@@ -11667,7 +11705,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
       if (earlierTotal > 0) items.push({ label: 'Earlier', amount: earlierTotal });
       de.innerHTML = items.map(it =>
         '<div class="earn-list-item">' +
-          '<div class="earn-list-left"><div class="earn-list-title">CPS Earnings</div><div class="earn-list-sub">' + escapeHtml(it.label) + '</div></div>' +
+          '<div class="earn-list-left"><div class="earn-list-title">' + (typeof getText === 'function' ? getText('cps_earnings') : 'CPS Earnings') + '</div><div class="earn-list-sub">' + escapeHtml(it.label) + '</div></div>' +
           '<div class="earn-list-right"><div class="earn-list-amount">+' + fmt$(it.amount) + '</div></div>' +
         '</div>'
       ).join('');
@@ -11677,7 +11715,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
     const wds = Array.isArray(data.withdrawals) ? data.withdrawals.slice() : [];
     wds.sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''));
     if (!wds.length) {
-      he.innerHTML = '<div class="earn-empty">No withdrawals yet</div>';
+      he.innerHTML = '<div class="earn-empty">' + (typeof getText === 'function' ? getText('no_withdrawals') : 'No withdrawals yet') + '</div>';
     } else {
       he.innerHTML = wds.map(w => {
         let when = w.created_at || '';
@@ -11695,7 +11733,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
           : ('-' + fmt$(w.amount));
         return '<div class="earn-list-item">' +
           '<div class="earn-list-left">' +
-            '<div class="earn-list-title">Withdrawal</div>' +
+            '<div class="earn-list-title">' + (typeof getText === 'function' ? getText('withdrawal') : 'Withdrawal') + '</div>' +
             '<div class="earn-list-sub">' + escapeHtml(when) + (acct ? ' · ' + acct : '') + '</div>' +
           '</div>' +
           '<div class="earn-list-right">' +
