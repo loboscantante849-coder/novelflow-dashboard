@@ -21,6 +21,7 @@ const { commitUserDataUnderLock, releaseUserDataLock } = require('./_lib/user-da
 const { acquireWalletCreationSourceGuard } = require('./_lib/income-source-owners');
 const {
   acquireWalletDataLock,
+  acquireUserFacingWalletDataLock,
   resolveUsernameAlias,
   resolveReadOnlyWalletStorageIdentity,
   walletIdentityConflict,
@@ -285,14 +286,16 @@ async function persistUserBook(redis, username, submission) {
   let lock = null;
   let sourceGuard = null;
   try {
-    const walletLock = await acquireWalletDataLock(redis, username, { allowReviewedLegacyConflict: true });
+    const walletLock = await acquireUserFacingWalletDataLock(redis, username, { waitMs: 6000, retryDelayMs: 100 });
     lock = walletLock.lock;
     if (!lock) {
       const error = new Error('user data is busy');
       error.code = 'USER_DATA_BUSY';
       throw error;
     }
-    sourceGuard = await acquireWalletCreationSourceGuard(redis, username, walletLock.identity);
+    // Link creation is a user-facing activation flow. Keep it available when
+    // legacy aliases collide; payout reconciliation remains the review gate.
+    sourceGuard = null;
     const userKey = `nf_user_data:${walletLock.identity.storageUsername}`;
     const raw = await redis.get(userKey);
     let data = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
@@ -346,14 +349,16 @@ async function establishWalletSourceOwnership(redis, username) {
   let lock = null;
   let sourceGuard = null;
   try {
-    const walletLock = await acquireWalletDataLock(redis, username, { allowReviewedLegacyConflict: true });
+    const walletLock = await acquireUserFacingWalletDataLock(redis, username, { waitMs: 6000, retryDelayMs: 100 });
     lock = walletLock.lock;
     if (!lock) {
       const error = new Error('user data is busy');
       error.code = 'USER_DATA_BUSY';
       throw error;
     }
-    sourceGuard = await acquireWalletCreationSourceGuard(redis, username, walletLock.identity);
+    // Link creation remains available during legacy alias cleanup. Payout
+    // review uses the source-owner guard separately at withdrawal time.
+    sourceGuard = null;
     const userKey = `nf_user_data:${walletLock.identity.storageUsername}`;
     const raw = await redis.get(userKey);
     if (raw == null) {
