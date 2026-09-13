@@ -73,7 +73,7 @@ function creativeRepairModel(modelChoice) {
   // TokenDance DeepSeek preview rather than cycling back into GLM.
   const choice = String(modelChoice || '').toLowerCase();
   if (choice === 'glm-5.3-flash') return 'deepseek-v4-flash-preview';
-  if (choice === 'deepseek-v4-flash-preview') return 'hy3';
+  if (choice === 'deepseek-v4-flash-preview') return 'deepseek';
   // Keep the legacy logical DeepSeek route on its own provider for existing
   // non-campaign tasks; only the new V4 Preview route advances to HY3.
   if (choice === 'deepseek') return 'deepseek';
@@ -877,7 +877,7 @@ function normalizeCreative(result, run, options = {}) {
     const similarity = shingleSimilarity(copyShingles(posts[0].content), copyShingles(posts[1].content));
     if (similarity >= 0.72) throw new providers.ProviderError('Creative versions repeat the same copy skeleton; rewrite with different form, rhythm, and CTA');
   }
-  const videoPrompt = source.videoPrompt || {};
+  let videoPrompt = source.videoPrompt || {};
   const posterPrompts = Array.isArray(source.posterPrompts) ? source.posterPrompts : [];
   const byVariant = new Map(posterPrompts.map((item) => [String(item.variant || ''), item]));
   if (options.skipMedia !== true) {
@@ -906,6 +906,13 @@ function normalizeCreative(result, run, options = {}) {
     const videoEvidence = Array.isArray(videoPrompt.sourceEvidence) ? videoPrompt.sourceEvidence : [];
     if (videoEvidence.length < 3 || videoEvidence.some((item) => !Number(item?.chapter) || String(item?.quote || '').trim().length < 8)) throw new providers.ProviderError('Video prompt must cite three grounded story beats');
     if (!evidenceMatchesSource(videoEvidence, sourceChapters)) throw new providers.ProviderError('Video prompt evidence must be exact text from its cited chapter');
+    if (videoPrompt.scenePlan) {
+      const compiled = compileVideoScenePlan(videoPrompt.scenePlan, videoEvidence);
+      // The scene plan is authoritative. Replacing the free-form fields here
+      // keeps AC's adCopy and buildRequirement byte-for-byte aligned with the
+      // validated beats instead of trusting a second model-written version.
+      videoPrompt = { ...videoPrompt, ...compiled };
+    }
   }
   const videoEvidence = Array.isArray(videoPrompt.sourceEvidence) ? videoPrompt.sourceEvidence : [];
   if (options.skipMedia !== true && needsPosterCreative) {
@@ -1189,7 +1196,9 @@ async function p2(redis, run) {
         // Some TokenDance routes now reject romance/abuse source text at the
         // provider safety layer. Give the operator-approved fast route one
         // bounded compatibility attempt before marking the run unrecoverable.
-        if (/inappropriate content|content policy|safety filter/i.test(message) && current !== 'hy3') {
+        const preferredRoute = String(run.input?.creativeProfile?.modelChoice || route.preferredModel || '').toLowerCase();
+        const deepSeekLocked = preferredRoute === 'deepseek' || preferredRoute === 'deepseek-v4-flash-preview';
+        if (/inappropriate content|content policy|safety filter/i.test(message) && current !== 'hy3' && !deepSeekLocked) {
           const nextAttemptAt = new Date(Date.now() + 1000).toISOString();
           evidence.storyBrief = { ...story, status: 'recovering', modelChoice: 'hy3', fallbackUsed: false, nextAttemptAt, error: message, fallbackFrom: current };
           route.activeModel = 'hy3';
@@ -1576,6 +1585,54 @@ function premiumVideoEvidenceViolation(videoPrompt = {}) {
   return '';
 }
 
+// A scenePlan is the canonical, model-facing contract for a renderable clip.
+// Keep the compiler deterministic: once a plan passes this gate, AC receives
+// one continuous scene with the same actions in both prompt fields.
+function compileVideoScenePlan(scenePlan = {}, sourceEvidence = []) {
+  if (!scenePlan || typeof scenePlan !== 'object' || Array.isArray(scenePlan)) throw new providers.ProviderError('Video scenePlan must be an object', { status: 422, code: 'video_scene_plan_invalid' });
+  const text = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+  const scene = text(scenePlan.scene || scenePlan.location);
+  const lighting = text(scenePlan.lighting);
+  const cast = Array.isArray(scenePlan.cast) ? scenePlan.cast : [];
+  const props = Array.isArray(scenePlan.props) ? scenePlan.props.map(text).filter(Boolean) : [];
+  const negative = Array.isArray(scenePlan.negative) ? scenePlan.negative.map(text).filter(Boolean) : [];
+  const beats = Array.isArray(scenePlan.timeBeats) ? scenePlan.timeBeats : [];
+  if (scene.length < 8) throw new providers.ProviderError('Video scenePlan needs one concrete continuous location', { status: 422, code: 'video_scene_plan_invalid' });
+  if (cast.length < 2 || cast.length > 3 || cast.some((item) => !item || text(item.name || item.role).length < 2 || text(item.anchor).length < 12)) throw new providers.ProviderError('Video scenePlan needs two stable adult character anchors', { status: 422, code: 'video_scene_plan_invalid' });
+  if (!props.length || !lighting) throw new providers.ProviderError('Video scenePlan needs a conflict prop and motivated lighting', { status: 422, code: 'video_scene_plan_invalid' });
+  if (beats.length !== 4) throw new providers.ProviderError('Video scenePlan must contain exactly four time beats', { status: 422, code: 'video_scene_plan_invalid' });
+  const expected = ['0-3s', '3-6s', '6-9s', '9-12s'];
+  const normalizedBeats = beats.map((beat, index) => {
+    const time = text(beat?.time || (beat?.start != null && beat?.end != null ? `${beat.start}-${beat.end}` : ''));
+    const normalizedTime = time.replace(/\s+/g, '').replace(/seconds?/gi, 's');
+    if (normalizedTime !== expected[index]) throw new providers.ProviderError(`Video scenePlan beat ${index + 1} must cover ${expected[index]}`, { status: 422, code: 'video_scene_plan_invalid' });
+    const shot = text(beat?.shot || beat?.camera);
+    const action = text(beat?.action);
+    const reaction = text(beat?.reaction);
+    const sound = text(beat?.sound);
+    const dialogue = text(beat?.dialogue || beat?.line);
+    if ([shot, action, reaction, sound].some((value) => value.length < 8)) throw new providers.ProviderError(`Video scenePlan beat ${index + 1} is missing camera, action, reaction, or sound`, { status: 422, code: 'video_scene_plan_invalid' });
+    return { time: expected[index], shot, action, reaction, sound, dialogue };
+  });
+  const dialogueWords = normalizedBeats.map((beat) => beat.dialogue).join(' ').match(/[A-Za-z]+(?:'[A-Za-z]+)?/g) || [];
+  if (normalizedBeats.filter((beat) => beat.dialogue).length > 6 || dialogueWords.length > 32) throw new providers.ProviderError('Video scenePlan dialogue exceeds six short lines or 32 spoken words', { status: 422, code: 'video_scene_plan_invalid' });
+  const evidenceIds = Array.isArray(scenePlan.evidenceIds) ? scenePlan.evidenceIds.map((id) => text(id)).filter(Boolean) : [];
+  if (evidenceIds.length && (evidenceIds.length !== 3 || new Set(evidenceIds).size !== 3)) throw new providers.ProviderError('Video scenePlan must cite three different evidence IDs', { status: 422, code: 'video_scene_plan_invalid' });
+  const evidence = Array.isArray(sourceEvidence) ? sourceEvidence : [];
+  if (evidenceIds.length) {
+    const supplied = new Set(evidence.map((item) => text(item?.evidenceId)).filter(Boolean));
+    if (supplied.size && evidenceIds.some((id) => !supplied.has(id))) throw new providers.ProviderError('Video scenePlan evidenceIds must match sourceEvidence', { status: 422, code: 'video_scene_plan_invalid' });
+  }
+  const chapters = evidence.map((item) => Number(item?.chapter)).filter(Number.isFinite).filter(Boolean).sort((a, b) => a - b);
+  if (chapters.length >= 3 && chapters.slice(1).some((chapter, index) => chapter - chapters[index] > 1)) throw new providers.ProviderError('Video scene evidence must stay within contiguous chapters', { status: 422, code: 'video_scene_plan_invalid' });
+  const castLine = cast.map((item) => `${text(item.role || 'character')} (${text(item.name || '')}): ${text(item.anchor)}`).join('; ');
+  const propLine = props.slice(0, 3).join(', ');
+  const beatLines = normalizedBeats.map((beat) => `[${beat.time}] Shot: ${beat.shot}. Action: ${beat.action}. Reaction: ${beat.reaction}. Sound: ${beat.sound}.${beat.dialogue ? ` Dialogue: ${beat.dialogue}.` : ''}`);
+  const adCopy = `12-second vertical 9:16 cinematic scene. Continuous location: ${scene}. CHARACTER LOCK: ${castLine}. Conflict object: ${propLine}. LIGHTING: ${lighting}. ${beatLines.join(' ')} VISUAL/SOUND: keep one coherent palette and tactile materials, motivated camera movement, clear diegetic sound beneath restrained music. NEGATIVE: ${negative.length ? negative.join(', ') : 'no subtitles, readable text, logos, watermarks, CTA cards, identity drift'}.`;
+  const buildRequirement = `Create one continuous 12-second 9:16 scene in ${scene}. Keep ${cast.map((item) => text(item.name || item.role)).join(' and ')} visually identical with the stated anchors; use ${propLine} as the central conflict object and ${lighting}. Execute four beats: ${normalizedBeats.map((beat) => `${beat.time} ${beat.action} (reaction: ${beat.reaction}; sound: ${beat.sound})`).join('; ')}. Use only the listed short dialogue, with no narrator. End on the unresolved supported choice in the final beat. ${negative.length ? negative.join(', ') : 'No subtitles, readable text, logos, watermarks, CTA cards, or identity drift.'}`;
+  return { scenePlan: { ...scenePlan, scene, cast: cast.map((item) => ({ role: text(item.role || 'character'), name: text(item.name || ''), anchor: text(item.anchor) })), props, lighting, timeBeats: normalizedBeats, negative, evidenceIds }, adCopy, buildRequirement };
+}
+
 function groundedVideoFallback(run, draft) {
   const post = draft.parts?.posts?.[0];
   const six = post?.sixSteps || {};
@@ -1601,8 +1658,8 @@ function groundedVideoFallback(run, draft) {
   return {
     hook, valuePromise, escalation, reversal, cliffhanger,
     sourceEvidence: evidence.slice(0, 3), evidenceChapters: evidence.slice(0, 3).map((item) => item.chapter),
-    adCopy: [hook, escalation, reversal, cliffhanger].join(' '),
-    buildRequirement: '0-2s: immediate close-up of the source-grounded disruption. 2-5s: show the protagonist\'s personal stake through one concrete action. 5-8s: tighten framing as pressure rises. 8-11s: reveal the documented power reversal. 11-15s: hold on the unresolved choice. Vertical 9:16, adult characters, consistent appearance and wardrobe, cinematic continuity, no subtitles, readable text, logos, CTA cards, or identity drift.',
+    adCopy: `12-second vertical 9:16, one continuous unbroken take in the source setting. CHARACTER LOCK: keep the two adult leads from the saved chapter evidence in the same wardrobe, proportions and positions. Conflict object/action: ${hook}. [0-3s] HOOK — close tracking shot as the protagonist performs the documented action; the counterpart visibly reacts; diegetic sound from the object. [3-6s] ESCALATION — continue the same camera move as the counterpart answers with the documented pressure: ${escalation}; show a concrete hand or body response and its sound. [6-9s] CLIMAX — move to a tight two-shot as the protagonist makes the supported choice: ${reversal}; hold on the physical consequence and a brief silence. [9-12s] TURN AND CLIFFHANGER — keep both adults in frame as the unresolved consequence lands: ${cliffhanger}; cut before resolution. Use motivated light from one direction, tactile surfaces and restrained music under clear diegetic sound. No subtitles, readable text, CTA cards, logos, watermarks, identity drift, or invented events.`,
+    buildRequirement: 'Create one continuous 12-second 9:16 scene in the source setting. Keep two adult leads visually identical and center the documented conflict object. At 0-3s show the opening action and reaction; at 3-6s continue into the documented pressure; at 6-9s show the supported choice and physical consequence; at 9-12s hold on the unresolved ending before resolution. Use only the saved short dialogue or silence, no narrator. No subtitles, readable text, CTA cards, logos, watermarks, or identity drift.',
     zhHook: `钩子：${hook}`, zhValuePromise: `价值：${valuePromise}`, zhEscalation: `升级：${escalation}`, zhReversal: `反转：${reversal}`, zhCliffhanger: `悬念：${cliffhanger}`,
     zhAdCopy: '旁白严格复用已保存的六步法文案冲突，不新增剧情事实。',
     zhBuildRequirement: '0-2秒冲突特写；2-5秒个人代价；5-8秒压力升级；8-11秒权力反转；11-15秒停在未决选择。竖屏9:16，角色外观一致，无字幕、可读文字、Logo或CTA卡片。',
@@ -1621,14 +1678,18 @@ function sourceGroundedCreativeFallback(run, options = {}) {
   const requiredEmojiSuffix = run.input?.creativeProfile?.emojiRange === '3-5' ? ' \u2728' : '';
   const chapters = sceneEvidenceChapters(run);
   const candidates = chapters
-    .map((chapter) => ({ chapter: Number(chapter.order), quote: chapterEvidenceQuote(chapter.content, 36, 180) }))
-    .filter((item) => item.quote)
+    .map((chapter) => ({ chapter: Number(chapter.order), quote: chapterEvidenceQuote(chapter.content, 36, 180).replace(/^\s*[A-Za-z][A-Za-z .'-]{0,40}\bPOV\s*:?\s*/i, '') }))
+    // Never carry routine wake-up, warning, or explicit excerpts into a paid
+    // revision. They are low-signal and routinely produce unusable first
+    // frames in Seedance; selecting a smaller safe window is preferable to
+    // silently shipping the unsafe quote.
+    .filter((item) => item.quote && videoEvidenceScore(item.quote) > 0 && !/\b(?:woke|wake|wakes|waking|jolted awake|phone alarm|morning routine|opening my eyes)\b/i.test(item.quote))
     .sort((left, right) => left.chapter - right.chapter);
   // AC contracts must describe one coherent scene. Select the strongest three
   // excerpts from a single <= six-chapter span rather than independently
   // taking high-scoring moments from across the sampled book.
-  const windows = candidates.map((start) => candidates.filter((item) => item.chapter >= start.chapter && item.chapter - start.chapter <= 5));
-  const eligible = windows.filter((window) => window.length >= 3);
+  const windows = candidates.map((start) => candidates.filter((item) => item.chapter >= start.chapter && item.chapter - start.chapter <= 2));
+  const eligible = windows.filter((window) => window.length >= 3 && window.slice(1).every((item, index) => item.chapter - window[index].chapter <= 1));
   const bestWindow = eligible.sort((left, right) => {
     const score = (items) => items.reduce((total, item) => total + videoEvidenceScore(item.quote), 0);
     return score(right) - score(left) || left[0].chapter - right[0].chapter;
@@ -3745,4 +3806,4 @@ async function processRun(redis, run, options = {}) {
   return options?.batch ? processRunBatch(redis, run, options) : processRunOnce(redis, run);
 }
 
-module.exports = { processRun, processRunOnce, processRunBatch, p1, p2, p3, p5, selectedChapters, normalizeCreative, assertPremiumCopyOpening, assertVisibleLanguage, sourceGroundedCreativeFallback, applySourceGroundedCreativeFallback, reserveCampaignCreativeUniqueness, recoverAmbiguousPostersFromExactSibling, recoverPreparedVideoFromExactSibling, videoContractFingerprint, chapterEvidenceQuote, summarizeAnalytics, refreshAnalytics, cleanError, videoPayload, referenceVideoPayload, normalizeAttributionStage };
+module.exports = { processRun, processRunOnce, processRunBatch, p1, p2, p3, p5, selectedChapters, normalizeCreative, compileVideoScenePlan, assertPremiumCopyOpening, assertVisibleLanguage, sourceGroundedCreativeFallback, applySourceGroundedCreativeFallback, reserveCampaignCreativeUniqueness, recoverAmbiguousPostersFromExactSibling, recoverPreparedVideoFromExactSibling, videoContractFingerprint, chapterEvidenceQuote, summarizeAnalytics, refreshAnalytics, cleanError, videoPayload, referenceVideoPayload, normalizeAttributionStage };

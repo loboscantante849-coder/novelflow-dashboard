@@ -15,6 +15,10 @@ test('GLM 5.3 Flash keeps the historical DeepSeek Preview logical reserve route'
   assert.equal(providers.operationsTimeoutForModel('glm-5.3-flash'), 300000);
 });
 
+test('DeepSeek Preview never silently falls back to HY3', () => {
+  assert.equal(providers.reserveModelFor('deepseek-v4-flash-preview'), 'deepseek');
+});
+
 test('legacy DeepSeek Preview aliases normalize to the published TokenDance model ID', () => {
   assert.equal(normalizeTokenDanceDeepSeekModel('deepseek-v4-flash-preview'), 'deepseek-v4-flash');
   assert.equal(normalizeTokenDanceDeepSeekModel(' DEEPSEEK-V4-FLASH-PREVIEW '), 'deepseek-v4-flash');

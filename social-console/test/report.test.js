@@ -26,7 +26,7 @@ test('weekly report aggregates only real saved assets, tracking, and attribution
   const report = buildWeeklyReport([run()], { limit: 5, used: 1, remaining: 4 }, 7, new Date('2026-07-22T00:00:00.000Z'));
   assert.equal(report.operations.total, 1);
   assert.equal(report.assets.copy, 2);
-  assert.equal(report.assets.posters, 1);
+  assert.equal(report.assets.posters || 0, 0);
   assert.equal(report.assets.videos, 1);
   assert.equal(report.tracking.verified, 1);
   assert.equal(report.analytics.pullUv, 200);

@@ -15,11 +15,10 @@ function assetCounts(runs) {
   return runs.reduce((total, run) => {
     const artifacts = run.artifacts || {};
     total.copy += Array.isArray(artifacts.posts) ? artifacts.posts.length : 0;
-    total.posters += Array.isArray(artifacts.images) ? artifacts.images.filter((image) => image.url).length : 0;
     total.videos += artifacts.video?.videoUrls?.length || 0;
     total.videos += artifacts.referenceVideo?.videoUrls?.length || 0;
     return total;
-  }, { copy: 0, posters: 0, videos: 0 });
+  }, { copy: 0, videos: 0 });
 }
 
 function analyticsTotals(runs) {
@@ -74,7 +73,7 @@ function buildHighlights(analytics, operations, risks) {
   } else {
     highlights.push({ tone: 'neutral', title: '归因样本仍在积累', detail: '当前尚无可汇总的归因样本，不对素材效果作结论。' });
   }
-  if (operations.completed) highlights.push({ tone: 'positive', title: '可复用产能已形成', detail: `${operations.completed} 个任务已完成，后续可直接从素材库取用已有文案、海报和视频。` });
+  if (operations.completed) highlights.push({ tone: 'positive', title: '可复用产能已形成', detail: `${operations.completed} 个任务已完成，后续可直接从素材库取用已有文案和视频。` });
   if (risks.length) highlights.push({ tone: 'attention', title: '需要优先处理', detail: `${risks.length} 个任务存在阻塞、失败或归因缺口，已列入待决事项。` });
   return highlights.slice(0, 3);
 }
@@ -85,7 +84,7 @@ function buildRecommendations(operations, assets, tracking, analytics, risks) {
   if (analytics.reliableRuns && analytics.activationRate >= 35) recommendations.push('对已验证的高激活创意方向追加同题材变体，并保持同一追踪口径以验证可复制性。');
   else if (analytics.attributedRuns) recommendations.push('先用现有归因样本复核钩子与落地页承诺是否一致，再决定是否放大素材生产。');
   else recommendations.push('优先完成首批 Code 与短链可归因的发布，再进入效果放大阶段。');
-  if (!assets.videos && operations.completed) recommendations.push('已完成任务尚未形成视频成片，可从已有海报与视频提示词中选择一条进入人工审核后的生成队列。');
+  if (!assets.videos && operations.completed) recommendations.push('已完成任务尚未形成视频成片，可从已有视频提示词进入人工审核后的生成队列。');
   if (tracking.verified < operations.completed) recommendations.push('把每个完成任务的 Code 与短链核验作为交付门槛，保证后续经营数据能回流。');
   return recommendations.slice(0, 3);
 }
@@ -97,7 +96,7 @@ function reportText(report) {
     '',
     `一、本周交付`,
     `- 覆盖任务：${operations.total} 个；本周期新建：${operations.created} 个；当前完成：${operations.completed} 个；生产中：${operations.running} 个。`,
-    `- 素材产出：文案 ${assets.copy} 份，海报 ${assets.posters} 张，视频 ${assets.videos} 条。`,
+    `- 素材产出：文案 ${assets.copy} 份，视频 ${assets.videos} 条。`,
     `- 追踪闭环：${tracking.verified}/${operations.completed} 个完成任务已同时具备 Code 和短链。`,
     '',
     '二、真实归因',

@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const providers = require('../api/_lib/providers');
-const { processRun, processRunBatch, p1, p2, p3, selectedChapters, normalizeCreative, assertPremiumCopyOpening, sourceGroundedCreativeFallback, reserveCampaignCreativeUniqueness, recoverAmbiguousPostersFromExactSibling, recoverPreparedVideoFromExactSibling, videoContractFingerprint, chapterEvidenceQuote, summarizeAnalytics, videoPayload } = require('../api/_lib/pipeline');
+const { processRun, processRunBatch, p1, p2, p3, selectedChapters, normalizeCreative, compileVideoScenePlan, assertPremiumCopyOpening, sourceGroundedCreativeFallback, reserveCampaignCreativeUniqueness, recoverAmbiguousPostersFromExactSibling, recoverPreparedVideoFromExactSibling, videoContractFingerprint, chapterEvidenceQuote, summarizeAnalytics, videoPayload } = require('../api/_lib/pipeline');
 const { processCreativePlan } = require('../api/_lib/creative-plans');
 const { newRun, newCreativePlan, reserveVideoSlot, saveRun, registerActiveRun } = require('../api/_lib/store');
 const { normalizeDelivery } = require('../api/_lib/distribution');
@@ -114,8 +114,9 @@ test('source-grounded fallback keeps video evidence within one six-chapter span'
     ] } }
   };
   const creative = sourceGroundedCreativeFallback(run);
-  const chapters = creative.videoPrompt.evidenceChapters;
-  assert.ok(Math.max(...chapters) - Math.min(...chapters) <= 5);
+  // The v3 contract fails closed when three adjacent source beats are not available;
+  // a wide chapter span would let AC invent connective action between unrelated scenes.
+  assert.equal(creative, null);
 });
 
 test('scene lock never widens to unrelated chapters when its evidence is insufficient', () => {
@@ -2323,4 +2324,46 @@ test('analytics labels insufficient samples instead of overclaiming', () => {
   const result = summarizeAnalytics([{ adId: '55555', pullUv: 20, activeUv: 4, newUv: 3, d7Income: 0 }], '55555', '', { from: '2026-07-01', to: '2026-07-17' });
   assert.equal(result.summary.sampleState, 'insufficient');
   assert.match(result.findings.join(' '), /样本量不足/);
+});
+
+test('video scenePlan compiles deterministic AC prompts from four executable beats', () => {
+  const plan = {
+    scene: 'A locked office with rain against the windows',
+    cast: [
+      { role: 'protagonist', name: 'Mara', anchor: 'adult woman, navy coat, wet hair, steady posture' },
+      { role: 'counterpart', name: 'Evan', anchor: 'adult man, charcoal suit, tense jaw, guarded stance' }
+    ],
+    props: ['signed contract on the desk'],
+    lighting: 'cold window light from camera left with warm desk lamp fill',
+    timeBeats: [
+      { time: '0-3s', shot: 'tight handheld push toward the contract', action: 'Mara pins the signed contract under her palm', reaction: 'Evan freezes at the desk edge', sound: 'paper slap and rain', dialogue: 'Mara: You signed this.' },
+      { time: '3-6s', shot: 'rack focus from her hand to his face', action: 'Evan reaches for the page', reaction: 'Mara pulls it out of reach', sound: 'chair scrape', dialogue: 'Evan: It was never yours.' },
+      { time: '6-9s', shot: 'slow close orbit around the desk', action: 'Mara turns the final page toward him', reaction: 'his expression drops', sound: 'paper turn and silence' },
+      { time: '9-12s', shot: 'locked close-up on the seal', action: 'Mara lifts the document toward the closing door', reaction: 'Evan steps forward but stops', sound: 'door latch and rain' }
+    ],
+    negative: ['no subtitles', 'no readable text', 'no logos'],
+    evidenceIds: ['C3Q1', 'C4Q1', 'C4Q2']
+  };
+  const compiled = compileVideoScenePlan(plan, [
+    { evidenceId: 'C3Q1', chapter: 3 }, { evidenceId: 'C4Q1', chapter: 4 }, { evidenceId: 'C4Q2', chapter: 4 }
+  ]);
+  assert.match(compiled.adCopy, /\[0-3s\]/);
+  assert.match(compiled.buildRequirement, /0-3s/);
+  assert.equal(compiled.scenePlan.timeBeats.length, 4);
+});
+
+test('video scenePlan rejects non-contiguous evidence chapters', () => {
+  const plan = {
+    scene: 'A courthouse hallway with a locked side door',
+    cast: [
+      { role: 'protagonist', name: 'Mara', anchor: 'adult woman, navy coat, wet hair, steady posture' },
+      { role: 'counterpart', name: 'Evan', anchor: 'adult man, charcoal suit, tense jaw, guarded stance' }
+    ],
+    props: ['sealed envelope'], lighting: 'hard overhead light',
+    timeBeats: ['0-3s', '3-6s', '6-9s', '9-12s'].map((time) => ({ time, shot: 'close camera move', action: 'one concrete action', reaction: 'visible reaction', sound: 'footsteps' })),
+    evidenceIds: ['C1Q1', 'C3Q1', 'C3Q2']
+  };
+  assert.throws(() => compileVideoScenePlan(plan, [
+    { evidenceId: 'C1Q1', chapter: 1 }, { evidenceId: 'C3Q1', chapter: 3 }, { evidenceId: 'C3Q2', chapter: 3 }
+  ]), /contiguous chapters/);
 });

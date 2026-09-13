@@ -50,16 +50,27 @@ function usageState(lastUsedAt, planTime, cooldownDays) {
   return ageDays >= cooldownDays ? 'cooldown_clear' : 'recent';
 }
 
-async function loadRoute(route, topN, date, routeIndex, recentByAccount, cooldownDays) {
+async function loadRouteCatalog(route, catalogCache) {
+  const cached = catalogCache.get(route.appKey);
+  if (cached) return cached;
+  const promise = (async () => {
+    const filters = plannerFilters(route);
+    let verifiedTargetCatalog = null;
+    if (['maxnovel', 'storyca', 'novelvio'].includes(route.appKey)) {
+      verifiedTargetCatalog = await providers.topBooks(500, { applicationId: filters.applicationId, deadlineMs: 18000 });
+      filters.skuIds = verifiedTargetCatalog.map((book) => book.bookSkuId);
+    }
+    const result = await leaderboard.catalogBooks(30, 'baseReadUnt', filters, { deadlineMs: 18000 });
+    const enriched = await leaderboard.enrichBooks(result.books, true, filters, verifiedTargetCatalog);
+    return enriched;
+  })();
+  catalogCache.set(route.appKey, promise);
+  return promise;
+}
+
+async function loadRoute(route, topN, date, routeIndex, recentByAccount, cooldownDays, catalogCache) {
   const target = normalizeDelivery({ accountId: route.accountId });
-  const filters = plannerFilters(route);
-  let verifiedTargetCatalog = null;
-  if (['maxnovel', 'storyca', 'novelvio'].includes(route.appKey)) {
-    verifiedTargetCatalog = await providers.topBooks(500, { applicationId: filters.applicationId, deadlineMs: 18000 });
-    filters.skuIds = verifiedTargetCatalog.map((book) => book.bookSkuId);
-  }
-  const result = await leaderboard.catalogBooks(30, 'baseReadUnt', filters, { deadlineMs: 18000 });
-  const enriched = await leaderboard.enrichBooks(result.books, true, filters, verifiedTargetCatalog);
+  const enriched = await loadRouteCatalog(route, catalogCache);
   const eligible = enriched
     .filter((book) => book?.ownershipVerified === true && book?.automationReady !== false)
     .filter((book) => Number(book.baseReadUnt) > 0 && ['baseReadUnt', 'firstReadUntRate', 'read10wRate', 'read20wRate', 'ttProfit'].some((key) => Number.isFinite(Number(book[key]))))
@@ -143,10 +154,11 @@ module.exports = async (req, res) => {
   // A small parallel pool keeps every route independent without flooding the
   // ranking and bookstore upstreams. The previous 14-way burst commonly left
   // only the first two routes populated.
-  const settled = await mapWithConcurrency(selectedRoutes, 3, (route, index) => loadRoute(route, topN, date, index, recentByAccount, cooldownDays));
+  const catalogCache = new Map();
+  const settled = await mapWithConcurrency(selectedRoutes, 3, (route, index) => loadRoute(route, topN, date, index, recentByAccount, cooldownDays, catalogCache));
   const routes = settled.map((entry, index) => entry.status === 'fulfilled' ? { ...entry.value, slots: entry.value.slots.map((slot) => ({ ...slot, copyStrategy })) } : ({
     accountId: selectedRoutes[index].accountId, accountTitle: selectedRoutes[index].accountTitle, appKey: selectedRoutes[index].appKey,
     platform: selectedRoutes[index].platform, routeStatus: 'unavailable', slots: [], error: String(entry.reason?.message || '排行 API 暂时不可用').slice(0, 180)
   }));
-  return res.status(200).json({ generatedAt: new Date().toISOString(), date, timezone: 'Asia/Shanghai', topN, copyStrategy, cooldownDays, platform, accountId: accountId || null, routeCount: selectedRoutes.length, totalRouteCount: ACCOUNT_ROUTES.length, routes });
+  return res.status(200).json({ generatedAt: new Date().toISOString(), date, timezone: 'Asia/Shanghai', topN, copyStrategy, cooldownDays, platform, accountId: accountId || null, routeCount: selectedRoutes.length, totalRouteCount: ACCOUNT_ROUTES.length, targetOptions: ACCOUNT_ROUTES.map((route) => normalizeDelivery({ accountId: route.accountId })).filter(Boolean), routes });
 };
