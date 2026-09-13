@@ -195,3 +195,19 @@ body{background:#f5f7f7}.app-shell{grid-template-columns:244px 1fr}.topbar{heigh
 @media(max-width:1180px){.route-planner-controls{grid-template-columns:repeat(3,minmax(130px,1fr))}}
 @media(max-width:760px){.route-planner-controls{grid-template-columns:1fr}.route-planner-controls label,.route-planner-controls .primary-command{grid-column:1/-1;min-width:0;width:100%}.route-planner-controls select,.route-planner-controls input{width:100%;min-width:0}.route-plan-summary{flex-wrap:wrap;gap:8px}.route-plan-summary small{width:100%;margin-left:0}.route-planner-table td{white-space:normal}.route-planner-table table{min-width:620px}}
 .one-click-status{padding:9px 12px!important;background:#fff!important;border-color:var(--line)!important;box-shadow:none!important}.one-click-status>header{align-items:center!important}.one-click-status>header>span{width:24px!important;height:24px!important;border-radius:5px!important}.one-click-status>header>div{min-width:0}.one-click-toggle{margin-left:auto;border:1px solid var(--line);border-radius:5px;background:#fff;color:var(--ink);padding:6px 9px;font-size:10px;font-weight:750;white-space:nowrap}.one-click-items[hidden]{display:none!important}
+/* Image and poster generation are retired from the operator surface. */
+.video-director-control,.poster-reference-hint,[data-node="P3_5"],.stage-poster,.poster-prompts{display:none!important}
+.route-generate.submitting{background:var(--amber);border-color:var(--amber);cursor:wait}.route-generate.accepted{background:var(--green);border-color:var(--green)}.route-generate.failed{background:#b42318;border-color:#b42318}
+
+/* Final distill pass: make planning the single visual anchor. */
+.route-planner-panel{position:relative;overflow:hidden;background:var(--paper);border-color:var(--line);}
+.route-planner-batch-bar{display:flex;align-items:center;gap:10px;margin:8px 0;border:1px solid #cfe4dc;border-radius:6px;padding:8px 10px;background:#f5fbf8;color:var(--green);font-size:11px}.route-planner-batch-bar small{color:var(--muted);font-size:10px}.route-planner-batch-bar .primary-command{height:30px;margin-left:auto;border-radius:5px;font-size:10px}.route-planner-batch-bar button:disabled{opacity:.6;cursor:wait}
+.route-select{display:inline-flex;align-items:center;margin-right:6px;vertical-align:middle;cursor:pointer}.route-select input{position:absolute;opacity:0}.route-select span{display:inline-block;width:14px;height:14px;border:1px solid #aab8b3;border-radius:3px;background:#fff}.route-select input:checked+span{border-color:var(--green);background:var(--green);box-shadow:inset 0 0 0 3px #fff}.route-select input:disabled+span{opacity:.45;cursor:not-allowed}
+.route-planner-head h2{font-size:20px;letter-spacing:-.01em}.route-planner-head p{font-size:11px}
+.route-planner-controls{padding-top:2px}.route-planner-controls label{font-size:10px;font-weight:700;color:#68717c}.route-planner-controls select,.route-planner-controls input{min-height:36px;border-radius:6px;font-size:11px}
+.route-planner-controls .primary-command{height:36px;border-radius:6px;font-size:11px}
+.route-planner-status{margin:12px 0 8px;padding:8px 10px;border-radius:5px;background:#f6f8fb;font-size:11px}
+.route-planner-table{border:1px solid #e8ebf0;border-radius:6px}.route-planner-table th{padding:8px 9px;background:#f8f9fb;font-size:10px}.route-planner-table td{padding:9px;font-size:11px}.route-planner-table td small{font-size:9px}
+.route-planner-table tbody tr:hover{background:#fbfcfe}.route-generate,.route-refresh{min-height:28px;border-radius:5px;font-size:10px}
+.leaderboard-cover img,.today-cover img,.book-cover img,.asset-cover-preview img{display:block;width:100%;height:100%;object-fit:contain!important;object-position:center top;background:#e8efed}
+@media(max-width:760px){.route-planner-panel{margin-top:14px;padding:14px}.route-planner-head h2{font-size:18px}.route-planner-status{font-size:10px}}

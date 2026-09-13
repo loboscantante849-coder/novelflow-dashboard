@@ -395,6 +395,9 @@ function buildRunInput(book, body = {}, planning = null) {
     if (scheduledAt && !Number.isFinite(Date.parse(scheduledAt))) {
       throw new providers.ProviderError('Campaign scheduledAt must be a valid ISO timestamp', { status: 400 });
     }
+    if (scheduledAt && Date.parse(scheduledAt) <= Date.now() + 60 * 1000) {
+      throw new providers.ProviderError('Scheduled campaign delivery must be at least one minute in the future', { status: 400 });
+    }
     const deliveryMode = requestedMode || (scheduledAt ? 'scheduled' : 'draft');
     if (deliveryMode === 'scheduled' && !scheduledAt) {
       throw new providers.ProviderError('Scheduled campaign delivery requires scheduledAt', { status: 400 });
@@ -1009,7 +1012,18 @@ module.exports = async (req, res) => {
         const planning = await resolvePlanning(redis, req.body?.planning);
         if (planning && !run.input?.planning?.strategy) run.input.planning = planning;
         delete run.artifacts.creativeDraft;
-        delete run.artifacts.modelRoute;
+        // Persist the operator's route choice across worker retries. Clearing
+        // the route here used to let ensureModelRoute resurrect stale HY3.
+        run.artifacts.modelRoute = {
+          ...(run.artifacts.modelRoute || {}),
+          preferredModel: modelChoice,
+          activeModel: modelChoice,
+          fallbackModel: '',
+          fallbackUsed: false,
+          fallbackFrom: '',
+          switchedAt: new Date().toISOString(),
+          switchReason: 'operator_selected_model'
+        };
         run.state = 'running';
         if (run.stages?.P2?.status !== 'done') {
           if (run.artifacts?.evidence) run.artifacts.evidence.storyBrief = {};

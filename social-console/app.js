@@ -1,5 +1,5 @@
 const storedRecommendationHistory = (() => { try { return JSON.parse(localStorage.getItem('nf_social:recommendation_history') || '[]'); } catch { return []; } })();
-const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, pointsBudget: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogUsageFilter: 'all', catalogFilters: { line: 'novelflow', platform: 'facebook', accountId: '13751295', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all', readBaseMin: '0', firstReadMin: '0', longReadMin: '0' }, catalogTarget: null, catalogTargetOptions: [], historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 12, statusScope: 'recent', statusCampaignId: '', detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, kickPromise: null, longKickKey: '', startingProductions: new Set(), planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0, routePlan: null, routePlanLoading: false, productionTrayExpanded: false, leaderboardReceiptRefreshKey: '' };
+const state = { runs: [], planJobs: [], capabilities: {}, videoLimit: null, pointsBudget: null, leaderboard: [], leaderboardUpdated: '', leaderboardWindow: null, leaderboardMetrics: null, leaderboardPage: 1, leaderboardCoverKey: '', leaderboardLoading: false, leaderboardSource: 'catalog', catalogDays: 30, catalogSort: 'baseReadUnt', catalogUsageFilter: 'all', catalogFilters: { line: 'novelflow', platform: 'facebook', accountId: '13751295', language: 'EN', complete: '已完结', status: '上架', length: 'all', genre: 'all', readBaseMin: '0', firstReadMin: '0', longReadMin: '0' }, catalogTarget: null, catalogTargetOptions: [], historyDecisionFilter: 'all', selectedBooks: new Set(), windowDays: 7, selectedId: '', view: 'operations', overviewFilter: 'all', density: 'comfortable', query: '', statusLimit: 12, statusScope: 'recent', statusCampaignId: '', detailFingerprint: '', detailOpen: false, detailTarget: '', selectedNode: '', kicking: false, kickPromise: null, longKickKey: '', startingProductions: new Set(), planning: false, assistantRunning: false, creativePlan: null, confirmation: null, creativeVariantRunId: '', recommendationCycle: 0, recommendationHistory: Array.isArray(storedRecommendationHistory) ? storedRecommendationHistory.slice(-9) : [], weeklyReport: null, weeklyReportDays: 7, weeklyReportLoading: false, todayRecommendationDays: 0, routePlan: null, routePlanLoading: false, routePlanSlotStates: new Map(), routePlanSelected: new Set(), routePlanBatchStarting: false, routePlanBatchProgress: null, productionTrayExpanded: false, leaderboardReceiptRefreshKey: '' };
 const TARGET_ROUTE_FALLBACKS = [
   [13751295, 'NovelFlow', 'novelflow', 'facebook'], [13943450, 'NovelFlow', 'novelflow', 'instagram'], [13943940, 'NovelFlow', 'novelflow', 'tiktok'],
   [13943483, 'AstraNovel', 'astranovel', 'facebook'], [15401748, 'AstraNovel', 'astranovel', 'instagram'], [13944009, 'astranovel_freenovels', 'astranovel', 'tiktok'],
@@ -2682,7 +2682,7 @@ function renderHistoryDecisionBar(books) {
     ['insufficient', historyDecisionMeta.insufficient.label, historyDecisionMeta.insufficient.icon]
   ];
   bar.hidden = false;
-  bar.innerHTML = `<div class="history-scope"><strong>这是你们历史 Code / 链接的书级归因</strong><span>不是单条文案、海报或视频的素材表现；留存尚未接通。</span></div><div class="history-filters">${items.map(([key, label, icon]) => `<button type="button" class="history-filter ${state.historyDecisionFilter === key ? 'active' : ''}" data-history-filter="${key}" aria-pressed="${state.historyDecisionFilter === key}" ${key !== 'all' && !counts[key] ? 'disabled' : ''}><i data-lucide="${icon}"></i><span>${label}</span><b>${counts[key]}</b></button>`).join('')}</div>`;
+  bar.innerHTML = `<div class="history-scope"><strong>这是你们历史 Code / 链接的书级归因</strong><span>这里展示文案与视频的实际表现；留存尚未接通。</span></div><div class="history-filters">${items.map(([key, label, icon]) => `<button type="button" class="history-filter ${state.historyDecisionFilter === key ? 'active' : ''}" data-history-filter="${key}" aria-pressed="${state.historyDecisionFilter === key}" ${key !== 'all' && !counts[key] ? 'disabled' : ''}><i data-lucide="${icon}"></i><span>${label}</span><b>${counts[key]}</b></button>`).join('')}</div>`;
   bar.querySelectorAll('[data-history-filter]').forEach((button) => button.addEventListener('click', () => {
     state.historyDecisionFilter = button.dataset.historyFilter;
     renderLeaderboard();
@@ -3084,15 +3084,14 @@ function renderModelMix() {
 
 function assetSummary(run) {
   const posts = Array.isArray(run.artifacts?.posts) ? run.artifacts.posts.filter((item) => String(item?.content || '').trim()).length : 0;
-  const posters = Array.isArray(run.artifacts?.images) ? run.artifacts.images.filter((item) => item?.status === 'success' && item?.url).length : 0;
   const video = run.artifacts?.video?.videoUrls?.[0] ? 1 : 0;
   const tracking = run.artifacts?.code && run.artifacts?.shortUrl ? 1 : 0;
-  return { posts, posters, video, tracking, total: posts + posters + video + tracking };
+  return { posts, video, tracking, total: posts + video + tracking };
 }
 
 function runHasUsableAssets(run) {
   const assets = assetSummary(run);
-  return assets.posts + assets.posters + assets.video > 0;
+  return assets.posts + assets.video > 0;
 }
 
 function runNeedsAttention(run) {
@@ -3349,7 +3348,7 @@ function renderWeeklyReport() {
   const assets = report.assets || {};
   const tracking = report.tracking || {};
   const rate = analytics.activationRate == null ? '--' : `${analytics.activationRate}%`;
-  content.innerHTML = `<section class="report-kpis"><div><span>覆盖任务</span><strong>${reportNumber(operations.total)}</strong><small>新建 ${reportNumber(operations.created)} · 完成 ${reportNumber(operations.completed)}</small></div><div><span>可用素材</span><strong>${reportNumber(assets.copy + assets.posters + assets.videos)}</strong><small>文案 ${reportNumber(assets.copy)} · 海报 ${reportNumber(assets.posters)} · 视频 ${reportNumber(assets.videos)}</small></div><div><span>追踪闭环</span><strong>${reportNumber(tracking.verified)}/${reportNumber(operations.completed)}</strong><small>完成任务已验证 Code + 短链</small></div><div><span>真实归因</span><strong>${reportNumber(analytics.pullUv)} UV</strong><small>${reportNumber(analytics.attributedRuns)} 个任务回传 · 激活率 ${rate}</small></div></section><section class="report-section"><header><div><span class="eyebrow">LEADERSHIP TAKEAWAYS</span><h3>管理层该看的结论</h3></div><span class="report-scope">只基于已回传数据</span></header><div class="report-highlights">${(report.highlights || []).map((item) => `<article class="report-highlight ${escapeHtml(item.tone || 'neutral')}"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.detail)}</p></article>`).join('') || '<p class="report-empty">暂无可验证结论。</p>'}</div></section><section class="report-section report-performance"><header><div><span class="eyebrow">ATTRIBUTION</span><h3>实际归因，不做猜测</h3></div><span class="report-scope">${analytics.reliableRuns ? `${analytics.reliableRuns} 个样本达到可靠阈值` : '样本量不足时不下结论'}</span></header><div class="report-metrics"><div><span>拉起 UV</span><strong>${reportNumber(analytics.pullUv)}</strong></div><div><span>激活 UV</span><strong>${reportNumber(analytics.activeUv)}</strong></div><div><span>新用户</span><strong>${reportNumber(analytics.newUv)}</strong></div><div><span>D7 收入</span><strong>${reportNumber(analytics.d7Income)}</strong></div></div></section><section class="report-section report-decisions"><header><div><span class="eyebrow">DECISIONS NEEDED</span><h3>需要推进的事项</h3></div><span class="report-scope">${(report.risks || []).length ? '点击可进入对应任务' : '当前无待决任务'}</span></header><div class="report-risk-list">${(report.risks || []).length ? report.risks.map((risk) => `<button type="button" class="report-risk ${escapeHtml(risk.level || 'attention')}" data-report-run="${escapeHtml(risk.id)}"><span><i data-lucide="${risk.level === 'critical' ? 'triangle-alert' : 'circle-alert'}"></i></span><div><strong>${escapeHtml(risk.title)}</strong><small>${escapeHtml(risk.reason)}</small></div><i data-lucide="arrow-up-right"></i></button>`).join('') : '<div class="report-clear"><i data-lucide="circle-check-big"></i><span>当前没有阻塞、失败或归因缺口任务。</span></div>'}</div></section><section class="report-section report-next"><header><div><span class="eyebrow">NEXT WEEK</span><h3>建议的下一步</h3></div></header><ol>${(report.recommendations || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ol></section>`;
+  content.innerHTML = `<section class="report-kpis"><div><span>覆盖任务</span><strong>${reportNumber(operations.total)}</strong><small>新建 ${reportNumber(operations.created)} · 完成 ${reportNumber(operations.completed)}</small></div><div><span>可用素材</span><strong>${reportNumber(assets.copy + assets.videos)}</strong><small>文案 ${reportNumber(assets.copy)} · 视频 ${reportNumber(assets.videos)}</small></div><div><span>追踪闭环</span><strong>${reportNumber(tracking.verified)}/${reportNumber(operations.completed)}</strong><small>完成任务已验证 Code + 短链</small></div><div><span>真实归因</span><strong>${reportNumber(analytics.pullUv)} UV</strong><small>${reportNumber(analytics.attributedRuns)} 个任务回传 · 激活率 ${rate}</small></div></section><section class="report-section"><header><div><span class="eyebrow">LEADERSHIP TAKEAWAYS</span><h3>管理层该看的结论</h3></div><span class="report-scope">只基于已回传数据</span></header><div class="report-highlights">${(report.highlights || []).map((item) => `<article class="report-highlight ${escapeHtml(item.tone || 'neutral')}"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.detail)}</p></article>`).join('') || '<p class="report-empty">暂无可验证结论。</p>'}</div></section><section class="report-section report-performance"><header><div><span class="eyebrow">ATTRIBUTION</span><h3>实际归因，不做猜测</h3></div><span class="report-scope">${analytics.reliableRuns ? `${analytics.reliableRuns} 个样本达到可靠阈值` : '样本量不足时不下结论'}</span></header><div class="report-metrics"><div><span>拉起 UV</span><strong>${reportNumber(analytics.pullUv)}</strong></div><div><span>激活 UV</span><strong>${reportNumber(analytics.activeUv)}</strong></div><div><span>新用户</span><strong>${reportNumber(analytics.newUv)}</strong></div><div><span>D7 收入</span><strong>${reportNumber(analytics.d7Income)}</strong></div></div></section><section class="report-section report-decisions"><header><div><span class="eyebrow">DECISIONS NEEDED</span><h3>需要推进的事项</h3></div><span class="report-scope">${(report.risks || []).length ? '点击可进入对应任务' : '当前无待决任务'}</span></header><div class="report-risk-list">${(report.risks || []).length ? report.risks.map((risk) => `<button type="button" class="report-risk ${escapeHtml(risk.level || 'attention')}" data-report-run="${escapeHtml(risk.id)}"><span><i data-lucide="${risk.level === 'critical' ? 'triangle-alert' : 'circle-alert'}"></i></span><div><strong>${escapeHtml(risk.title)}</strong><small>${escapeHtml(risk.reason)}</small></div><i data-lucide="arrow-up-right"></i></button>`).join('') : '<div class="report-clear"><i data-lucide="circle-check-big"></i><span>当前没有阻塞、失败或归因缺口任务。</span></div>'}</div></section><section class="report-section report-next"><header><div><span class="eyebrow">NEXT WEEK</span><h3>建议的下一步</h3></div></header><ol>${(report.recommendations || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ol></section>`;
   content.querySelectorAll('[data-report-run]').forEach((button) => button.addEventListener('click', () => {
     $('#weeklyReportDialog').close();
     openDetail(button.dataset.reportRun);
@@ -3422,7 +3421,7 @@ function renderAssetLibrary() {
   }));
   list.querySelectorAll('[data-preview-media]').forEach((button) => button.addEventListener('click', () => {
     const run = state.runs.find((item) => item.id === button.dataset.previewMedia);
-    const url = run?.artifacts?.video?.videoUrls?.[0] || run?.artifacts?.images?.find((item) => item?.status === 'success' && item.url)?.url;
+    const url = run?.artifacts?.video?.videoUrls?.[0] || '';
     if (url) window.open(url, '_blank', 'noopener');
   }));
   renderRunLoadMore();
@@ -4437,24 +4436,75 @@ function plannerRouteCount() {
 function renderRoutePlan() {
   const body = state.routePlan;
   const table = $('#routePlannerTable');
+  const batchBar = $('#routePlannerBatchBar');
+  const batchCount = $('#routePlannerBatchCount');
+  const updateBatchBar = () => {
+    const count = state.routePlanSelected.size;
+    if (batchBar) batchBar.hidden = !body || count === 0;
+    if (batchCount) batchCount.textContent = state.routePlanBatchProgress ? `正在入队 ${state.routePlanBatchProgress.completed}/${state.routePlanBatchProgress.total} 条` : `已选 ${count}/10 条`;
+  };
   if (!table) return;
-  if (!body) { table.innerHTML = '<div class="route-planner-empty">选择平台或账号，然后生成排期。</div>'; return; }
-  const strategyLabel = body.copyStrategy === 'hy3' ? 'HY3 快线' : body.copyStrategy === 'evidence_fallback' ? '证据兜底' : 'DeepSeek 主线';
+  if (!body) { table.innerHTML = '<div class="route-planner-empty">选择平台或账号，然后生成排期。</div>'; updateBatchBar(); return; }
+  const strategyLabel = body.copyStrategy === 'hy3' ? '兼容路线' : body.copyStrategy === 'evidence_fallback' ? '证据兜底' : 'DeepSeek 主线';
   const usageLabel = (slot) => slot.usage === 'never_used' ? '从未使用' : slot.usage === 'cooldown_clear' ? `已过 ${Number(slot.cooldownDays || body.cooldownDays || 7)} 天冷却` : '近期回填';
   const rows = body.routes.flatMap((route) => {
     const platformTitle = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok' }[route.platform] || route.platform;
     if (!(route.slots || []).length) return [`<tr class="route-unavailable"><td><strong>${escapeHtml(route.accountTitle)}</strong><small>${escapeHtml(route.appKey)}</small></td><td><span class="platform-chip ${escapeHtml(route.platform)}">${escapeHtml(platformTitle)}</span></td><td colspan="3"><span class="route-status">本路线暂未拿到可用排行</span><small>${escapeHtml(route.error || '可重新生成规划')}</small></td><td><button type="button" class="route-refresh" data-route-refresh="${escapeHtml(route.accountId)}">重新读取</button></td></tr>`];
-    return route.slots.map((slot) => `<tr><td><strong>${escapeHtml(route.accountTitle)}</strong><small>${escapeHtml(route.appKey)}</small></td><td><span class="platform-chip ${escapeHtml(route.platform)}">${escapeHtml(platformTitle)}</span></td><td><strong>${escapeHtml(slot.title || '—')}</strong><small>#${Number(slot.rank || 0)} · UV ${compactNumber(slot.metrics?.baseReadUnt || 0)} · 首读 ${percentage(slot.metrics?.firstReadUntRate)} · 长读 ${percentage(slot.metrics?.read20wRate || slot.metrics?.read10wRate)}</small></td><td><time>${new Date(slot.scheduledAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}</time></td><td><span class="strategy-chip">${strategyLabel}</span><small>${escapeHtml(usageLabel(slot))}</small></td><td><span class="variant-chip" title="${escapeHtml(slot.creativeVariantKey)}">V${Number(slot.slot || 1)}</span><button type="button" class="route-generate" data-route-generate="${escapeHtml(JSON.stringify({ ...slot, accountId: route.accountId, accountTitle: route.accountTitle, appKey: route.appKey, platform: route.platform }))}">生成</button></td></tr>`);
+    return route.slots.map((slot) => {
+      const key = slot.creativeVariantKey;
+      const stateValue = state.routePlanSlotStates.get(key) || '';
+      const actionLabel = stateValue === 'submitting' ? '提交中…' : stateValue === 'accepted' ? '已入队' : stateValue === 'failed' ? '重试' : '下一步生成';
+      const disabled = stateValue === 'submitting' || stateValue === 'accepted';
+      const selected = state.routePlanSelected.has(key);
+      return `<tr><td><label class="route-select" title="加入本轮批量入队"><input type="checkbox" data-route-select="${escapeHtml(key)}" ${selected ? 'checked' : ''} ${disabled || (!selected && state.routePlanSelected.size >= 10) ? 'disabled' : ''}><span></span></label><strong>${escapeHtml(route.accountTitle)}</strong><small>${escapeHtml(route.appKey)}</small></td><td><span class="platform-chip ${escapeHtml(route.platform)}">${escapeHtml(platformTitle)}</span></td><td><strong>${escapeHtml(slot.title || '—')}</strong><small>#${Number(slot.rank || 0)} · UV ${compactNumber(slot.metrics?.baseReadUnt || 0)} · 首读 ${percentage(slot.metrics?.firstReadUntRate)} · 长读 ${percentage(slot.metrics?.read20wRate || slot.metrics?.read10wRate)}</small></td><td><time>${new Date(slot.scheduledAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}</time></td><td><span class="strategy-chip">${strategyLabel}</span><small>${escapeHtml(usageLabel(slot))}</small></td><td><span class="variant-chip" title="${escapeHtml(slot.creativeVariantKey)}">V${Number(slot.slot || 1)}</span><button type="button" class="route-generate ${stateValue || ''}" data-route-generate="${escapeHtml(JSON.stringify({ ...slot, accountId: route.accountId, accountTitle: route.accountTitle, appKey: route.appKey, platform: route.platform }))}" ${disabled ? 'disabled' : ''}>${actionLabel}</button></td></tr>`;
+    });
   });
   const platforms = new Set(body.routes.map((route) => route.platform)).size;
   const slots = body.routes.reduce((sum, route) => sum + (route.slots || []).length, 0);
-  table.innerHTML = rows.length ? `<div class="route-plan-summary"><span><strong>${body.routeCount}</strong> 条路线</span><span><strong>${slots}</strong> 个排期</span><span><strong>${platforms}</strong> 个平台</span><small>同一账号近 ${Number(body.cooldownDays || 7)} 天内优先不重复</small></div><table><thead><tr><th>账号</th><th>平台</th><th>书籍与指标</th><th>发布时间</th><th>文案与冷却</th><th>下一步</th></tr></thead><tbody>${rows.join('')}</tbody></table>` : '<div class="route-planner-empty">当前筛选没有可用书籍，请调整账号或稍后重试。</div>';
-  table.querySelectorAll('[data-route-generate]').forEach((button) => button.addEventListener('click', () => {
+  table.innerHTML = rows.length ? `<div class="route-plan-summary"><span><strong>${body.routeCount}</strong> 条路线</span><span><strong>${slots}</strong> 个排期</span><span><strong>${platforms}</strong> 个平台</span><small>同一账号近 ${Number(body.cooldownDays || 7)} 天内优先不重复 · 可勾选最多 10 条</small></div><table><thead><tr><th>账号</th><th>平台</th><th>书籍与指标</th><th>发布时间</th><th>文案与冷却</th><th>下一步</th></tr></thead><tbody>${rows.join('')}</tbody></table>` : '<div class="route-planner-empty">当前筛选没有可用书籍，请调整平台或账号。</div>';
+  updateBatchBar();
+  table.querySelectorAll('[data-route-select]').forEach((input) => input.addEventListener('change', () => { if (input.checked) { if (state.routePlanSelected.size >= 10) { input.checked = false; return; } state.routePlanSelected.add(input.dataset.routeSelect); } else state.routePlanSelected.delete(input.dataset.routeSelect); renderRoutePlan(); icons(); }));
+  table.querySelectorAll('[data-route-generate]').forEach((button) => button.addEventListener('click', async () => {
     const slot = JSON.parse(button.dataset.routeGenerate);
     const modelChoice = slot.copyStrategy === 'hy3' ? 'hy3' : 'deepseek-v4-flash-preview';
-    createProduction({ title: slot.title, sku: slot.sku, source: 'route_planner', creativeProfile: { modelChoice }, copyStrategy: slot.copyStrategy, creativeVariantKey: slot.creativeVariantKey, scheduledAt: slot.scheduledAt, delivery: { accountId: Number(slot.accountId), accountTitle: slot.accountTitle, appKey: slot.appKey, platform: slot.platform }, p0Selection: { source: 'route_planner', sourceRank: Number(slot.rank || 0), readerBase: Number(slot.metrics?.baseReadUnt || 0), firstReadRate: Number(slot.metrics?.firstReadUntRate || 0), longReadRate: Number(slot.metrics?.read20wRate || slot.metrics?.read10wRate || 0), target: { accountId: Number(slot.accountId), accountTitle: slot.accountTitle, appKey: slot.appKey, platform: slot.platform } } }).catch((error) => showToast(error.message, 'error'));
+    state.routePlanSlotStates.set(slot.creativeVariantKey, 'submitting');
+    renderRoutePlan();
+    try {
+      await createProduction({ title: slot.title, sku: slot.sku, source: 'route_planner', creativeProfile: { modelChoice }, copyStrategy: slot.copyStrategy, creativeVariantKey: slot.creativeVariantKey, scheduledAt: slot.scheduledAt, delivery: { accountId: Number(slot.accountId), accountTitle: slot.accountTitle, appKey: slot.appKey, platform: slot.platform }, p0Selection: { source: 'route_planner', sourceRank: Number(slot.rank || 0), readerBase: Number(slot.metrics?.baseReadUnt || 0), firstReadRate: Number(slot.metrics?.firstReadUntRate || 0), longReadRate: Number(slot.metrics?.read20wRate || slot.metrics?.read10wRate || 0), target: { accountId: Number(slot.accountId), accountTitle: slot.accountTitle, appKey: slot.appKey, platform: slot.platform } } });
+      state.routePlanSlotStates.set(slot.creativeVariantKey, 'accepted');
+      showToast(`《${slot.title}》已入队，将在 ${new Date(slot.scheduledAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })} 定时处理`);
+    } catch (error) {
+      state.routePlanSlotStates.set(slot.creativeVariantKey, 'failed');
+      showToast(error.message, 'error');
+    }
+    renderRoutePlan(); icons();
   }));
   table.querySelectorAll('[data-route-refresh]').forEach((button) => button.addEventListener('click', loadRoutePlan));
+}
+
+async function startRoutePlanBatch() {
+  if (state.routePlanBatchStarting) return;
+  const slots = (state.routePlan?.routes || []).flatMap((route) => (route.slots || []).map((slot) => ({ ...slot, accountId: route.accountId, accountTitle: route.accountTitle, appKey: route.appKey, platform: route.platform }))).filter((slot) => state.routePlanSelected.has(slot.creativeVariantKey));
+  if (!slots.length) { showToast('请先勾选规划中的排期'); return; }
+  if (slots.length > 10) { showToast('本轮最多入队 10 条视频', 'error'); return; }
+  state.routePlanBatchStarting = true;
+  state.routePlanBatchProgress = { total: slots.length, completed: 0, failed: 0 };
+  renderRoutePlan(); icons();
+  let accepted = 0;
+  for (const slot of slots) {
+    try {
+      await createProduction({ title: slot.title, sku: slot.sku, source: 'route_planner_batch', creativeProfile: { modelChoice: 'deepseek-v4-flash-preview' }, copyStrategy: 'llm', creativeVariantKey: slot.creativeVariantKey, scheduledAt: slot.scheduledAt, paidMediaSubmissionAuthorized: true, delivery: { accountId: Number(slot.accountId), accountTitle: slot.accountTitle, appKey: slot.appKey, platform: slot.platform }, p0Selection: { source: 'route_planner', sourceRank: Number(slot.rank || 0), readerBase: Number(slot.metrics?.baseReadUnt || 0), firstReadRate: Number(slot.metrics?.firstReadUntRate || 0), longReadRate: Number(slot.metrics?.read20wRate || slot.metrics?.read10wRate || 0), target: { accountId: Number(slot.accountId), accountTitle: slot.accountTitle, appKey: slot.appKey, platform: slot.platform } }, kick: false, notify: false });
+      state.routePlanSlotStates.set(slot.creativeVariantKey, 'accepted'); accepted += 1;
+    } catch { state.routePlanSlotStates.set(slot.creativeVariantKey, 'failed'); state.routePlanBatchProgress.failed += 1; }
+    state.routePlanBatchProgress.completed += 1; renderRoutePlan(); icons();
+  }
+  state.routePlanSelected.clear();
+  state.routePlanBatchStarting = false;
+  const failed = state.routePlanBatchProgress.failed;
+  state.routePlanBatchProgress = null;
+  renderRoutePlan(); icons();
+  await kickWorker();
+  showToast(`已入队 ${accepted}/${slots.length} 条，全部使用 DeepSeek 视频路线并保留未来定时发布${failed ? `；${failed} 条失败待处理` : ''}`);
 }
 
 async function loadRoutePlan() {
@@ -4481,6 +4531,10 @@ async function loadRoutePlan() {
     const accountId = $('#plannerAccount').value || '';
     const date = plannerDateValue();
     state.routePlan = await api(`/api/route-planner?topN=${topN}&copyStrategy=${encodeURIComponent(copyStrategy)}&cooldownDays=${cooldownDays}&platform=${encodeURIComponent(platform)}&accountId=${encodeURIComponent(accountId)}&date=${encodeURIComponent(date)}`, { timeoutMs: 240000 });
+    if (Array.isArray(state.routePlan.targetOptions) && state.routePlan.targetOptions.length) {
+      state.catalogTargetOptions = state.routePlan.targetOptions;
+      syncRoutePlannerAccounts();
+    }
     const ready = state.routePlan.routes.filter((route) => route.routeStatus === 'ready').length;
     const slots = state.routePlan.routes.reduce((sum, route) => sum + (route.slots || []).length, 0);
     const total = Number(state.routePlan.routeCount || state.routePlan.routes.length || 0);
@@ -4997,7 +5051,7 @@ function markPendingProduction({ title, sku = '', source = 'manual', creativePro
   return pending;
 }
 
-async function createProduction({ title, sku = '', source = 'manual', creativeProfile = {}, planning = null, delivery = null, p0Selection = null, copyStrategy = 'llm', creativeVariantKey = '', scheduledAt = '', kick = true, notify = true }) {
+async function createProduction({ title, sku = '', source = 'manual', creativeProfile = {}, planning = null, delivery = null, p0Selection = null, copyStrategy = 'llm', creativeVariantKey = '', scheduledAt = '', paidMediaSubmissionAuthorized = false, kick = true, notify = true }) {
   const accountId = Number(delivery?.accountId || state.catalogFilters.accountId || 0);
   if (!accountId) throw new Error('请先选择一个已核验的目标账号');
   const key = routeProductionIdentity({ title, sku }, { accountId });
@@ -5012,7 +5066,7 @@ async function createProduction({ title, sku = '', source = 'manual', creativePr
   const request = (async () => {
     try {
       const campaign = scheduledAt ? { id: creativeVariantKey || `planner:${accountId}:${sku}`, slot: 1, paidMediaAuthorized: false, autoSocialEchoDraft: true, deliveryMode: 'scheduled', scheduledAt } : null;
-      const body = await api('/api/runs', { method: 'POST', body: JSON.stringify({ title, sku, promoter: 'xujt', paidAuthorized: true, fullBookEvidence: true, posterGenerationRequired: false, source, creativeProfile, planning, copyStrategy, creativeVariantKey, ...(campaign ? { campaign } : {}), accountId, p0Selection }) });
+      const body = await api('/api/runs', { method: 'POST', body: JSON.stringify({ title, sku, promoter: 'xujt', paidAuthorized: true, paidMediaSubmissionAuthorized: paidMediaSubmissionAuthorized === true, fullBookEvidence: true, posterGenerationRequired: false, source, creativeProfile, planning, copyStrategy, creativeVariantKey, ...(campaign ? { campaign } : {}), accountId, p0Selection }) });
       if (!body?.run?.id) throw new Error('后台没有返回可追踪的任务 ID，请稍后重试');
       pending.status = 'accepted';
       pending.runId = body.run.id;
@@ -5363,6 +5417,7 @@ syncRoutePlannerAccounts();
 plannerDateValue();
 $('#loadRoutePlan')?.addEventListener('click', loadRoutePlan);
 $('#plannerPlatform')?.addEventListener('change', syncRoutePlannerAccounts);
+$('#startRoutePlanBatch')?.addEventListener('click', startRoutePlanBatch);
 icons();
 // Render the most recent verified state immediately, then reconcile it in the background.
 const restoredDashboard = restoreDashboardSnapshot();
