@@ -506,7 +506,7 @@ test('7-day grand prize credits cash first and defers VIP to explicit confirmati
   }
 });
 
-test('wallet writes fail closed when a case-only duplicate source key exists', async () => {
+test('check-in uses canonical wallet while preserving a legacy duplicate for payout review', async () => {
   const canonical = JSON.stringify({ points: 10 });
   const legacy = JSON.stringify({ points: 99, keep: 'legacy-review' });
   FakeRedis.reset({
@@ -519,9 +519,8 @@ test('wallet writes fail closed when a case-only duplicate source key exists', a
     body: { action: 'checkin' },
   });
 
-  assert.equal(response.statusCode, 409);
-  assert.equal(response.body.code, 'WALLET_IDENTITY_CONFLICT');
-  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:xenomorphette')).points, 10);
+  assert.equal(response.statusCode, 200);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:xenomorphette')).points, 15);
   assert.equal(FakeRedis.values.get('nf_user_data:Xenomorphette'), legacy);
 });
 

@@ -293,9 +293,12 @@ async function persistUserBook(redis, username, submission) {
       error.code = 'USER_DATA_BUSY';
       throw error;
     }
-    // Link creation is a user-facing activation flow. Keep it available when
-    // legacy aliases collide; payout reconciliation remains the review gate.
-    sourceGuard = null;
+    // Keep the source guard for normal accounts. During legacy alias cleanup,
+    // skip only this guard so activation can proceed; payout review remains
+    // the financial control.
+    sourceGuard = walletLock.identity.conflict
+      ? null
+      : await acquireWalletCreationSourceGuard(redis, username, walletLock.identity);
     const userKey = `nf_user_data:${walletLock.identity.storageUsername}`;
     const raw = await redis.get(userKey);
     let data = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
@@ -356,9 +359,9 @@ async function establishWalletSourceOwnership(redis, username) {
       error.code = 'USER_DATA_BUSY';
       throw error;
     }
-    // Link creation remains available during legacy alias cleanup. Payout
-    // review uses the source-owner guard separately at withdrawal time.
-    sourceGuard = null;
+    sourceGuard = walletLock.identity.conflict
+      ? null
+      : await acquireWalletCreationSourceGuard(redis, username, walletLock.identity);
     const userKey = `nf_user_data:${walletLock.identity.storageUsername}`;
     const raw = await redis.get(userKey);
     if (raw == null) {
