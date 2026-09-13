@@ -369,8 +369,27 @@ async function acquireCheckinWalletDataLock(redis, requestedUsername, options = 
   }
 }
 
+// User-facing non-financial flows should remain usable while duplicate legacy
+// wallet keys are being cleaned up. Pick the canonical key and retain a
+// conflict marker for later payout review; never use this helper for balance
+// or withdrawal mutations.
+async function acquireUserFacingWalletDataLock(redis, requestedUsername, options = {}) {
+  const primary = resolveUsernameAlias(requestedUsername);
+  if (!primary) { const error = new Error('Invalid wallet identity'); error.code = 'INVALID_WALLET_IDENTITY'; throw error; }
+  const lock = await acquireUserDataLock(redis, primary, options);
+  if (!lock) return { lock: null, identity: { primaryUsername: primary, storageUsername: primary, conflict: false, matches: [] } };
+  const identity = await resolveWalletStorageIdentity(redis, requestedUsername);
+  let blocked = false;
+  if (identity.conflict && Array.isArray(identity.matches) && identity.matches.length) {
+    const records = await Promise.all(identity.matches.map(async name => parseReadOnlyWalletRecord(await redis.get(`nf_user_data:${name}`))));
+    blocked = records.some(record => !record || record.disabled || record.wallet_merged_into);
+  }
+  return { lock, identity: { ...identity, storageUsername: primary, conflict: Boolean(identity.conflict), userFacingConflict: Boolean(identity.conflict), userFacingBlocked: blocked } };
+}
+
 module.exports = {
   acquireCheckinWalletDataLock,
+  acquireUserFacingWalletDataLock,
   acquireWalletDataLock,
   caseVariantWalletPattern,
   findCaseVariantWallets,

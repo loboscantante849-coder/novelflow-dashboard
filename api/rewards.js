@@ -27,6 +27,7 @@ const { acquireWalletCreationSourceGuard } = require('./_lib/income-source-owner
 const { localLoginCredentialCandidates } = require('./_lib/login-identity');
 const {
   acquireCheckinWalletDataLock,
+  acquireUserFacingWalletDataLock,
   acquireWalletDataLock,
   resolveUsernameAlias,
 } = require('./_lib/wallet-identity');
@@ -281,10 +282,7 @@ module.exports = async (req, res) => {
       retryDelayMs: 100,
     };
     walletLock = action === 'checkin'
-      ? await acquireCheckinWalletDataLock(redis, username, {
-        ...lockOptions,
-        expectedPrincipal: principalFromPayload(payload),
-      })
+      ? await acquireUserFacingWalletDataLock(redis, username, lockOptions)
       : await acquireWalletDataLock(redis, username, lockOptions);
   } catch (error) {
     if (error && error.code === 'WALLET_IDENTITY_CONFLICT') {
@@ -296,6 +294,10 @@ module.exports = async (req, res) => {
   if (!lock) {
     return res.status(409).json({ error: 'User data is being updated', code: 'USER_DATA_BUSY' });
   }
+  if (identity.userFacingBlocked) {
+    await releaseUserDataLock(redis, lock);
+    return res.status(409).json({ error: 'Account requires recovery', code: 'WALLET_IDENTITY_CONFLICT' });
+  }
 
   let sourceGuard = null;
   try {
@@ -303,8 +305,7 @@ module.exports = async (req, res) => {
     // points/streak. A legacy case-only duplicate reporting key must not block
     // that non-financial action, but it must also never cause a new wallet to
     // be created. Financial rewards keep the strict source-owner guard.
-    const establishedCheckinWallet = action === 'checkin' &&
-      (identity.matches.length === 1 || identity.reviewedLegacyCheckinWallet === true);
+    const establishedCheckinWallet = action === 'checkin';
     if (!establishedCheckinWallet) {
       sourceGuard = await acquireWalletCreationSourceGuard(redis, username, identity);
     }
