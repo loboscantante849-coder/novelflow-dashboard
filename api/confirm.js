@@ -474,6 +474,7 @@ module.exports = async (req, res) => {
       return res.status(409).json({ error: 'Account identity recovery required', code: error.code });
     }
     if (error && ['INCOME_SOURCE_OWNER_UNVERIFIED', 'INCOME_SOURCE_OWNER_CONFLICT', 'INCOME_SOURCE_BUSY'].includes(error.code)) {
+      console.warn('[confirm] preflight rejected', { user: cleanUsername, code: error.code });
       return res.status(409).json({ error: error.message, code: error.code });
     }
     return res.status(503).json({ error: 'Service temporarily unavailable', code: error && error.code || 'USER_DATA_UNAVAILABLE' });

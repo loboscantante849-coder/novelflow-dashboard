@@ -146,18 +146,31 @@ module.exports = async (req, res) => {
       }
 
       let sourceGuard = null;
+      let redisKey = `nf_user_data:${identity.storageUsername}`;
       try {
         try {
-          sourceGuard = identity && identity.conflict
-            ? null
-            : await acquireWalletCreationSourceGuard(redis, primaryUsername, identity);
+          // The source-owner guard exists so an unverified account cannot
+          // CREATE a wallet for somebody else's income source. Syncing an
+          // account record that already exists is the member's own data, so the
+          // guard is skipped there and the attribution stays flagged for the
+          // payout review instead of failing the upload.
+          const existingRecordRaw = await redis.get(redisKey);
+          const walletRecordExists = existingRecordRaw !== null && existingRecordRaw !== undefined;
+          if ((identity && identity.conflict) || walletRecordExists) {
+            if (identity && identity.conflict) {
+              console.warn('[user-data] sync on reconciled wallet', { user: primaryUsername, review: 'identity_conflict' });
+            }
+            sourceGuard = null;
+          } else {
+            sourceGuard = await acquireWalletCreationSourceGuard(redis, primaryUsername, identity);
+          }
         } catch (error) {
           if (error && ['INCOME_SOURCE_OWNER_UNVERIFIED', 'INCOME_SOURCE_OWNER_CONFLICT', 'INCOME_SOURCE_BUSY'].includes(error.code)) {
+            console.warn('[user-data] write rejected', { user: primaryUsername, code: error.code });
             return res.status(409).json({ error: error.message, code: error.code });
           }
           return res.status(503).json({ error: 'User data storage is temporarily unavailable', code: error && error.code || 'USER_DATA_UNAVAILABLE' });
         }
-        const redisKey = `nf_user_data:${identity.storageUsername}`;
         // Fetch existing server data first (merge strategy: client cannot overwrite server-managed fields)
         let existing = await redis.get(redisKey);
         if (existing) {
