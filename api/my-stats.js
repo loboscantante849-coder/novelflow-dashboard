@@ -184,6 +184,9 @@ module.exports = async (req, res) => {
         });
       }
 
+      // Operator-reviewed income corrections apply to every user-facing branch.
+      const incomeAdjustment = await readIncomeAdjustment(redis, usernameCanon || username);
+
       if (allPromoters) {
         const seenAdminAdIds = new Set();
         const books = [];
@@ -391,7 +394,8 @@ module.exports = async (req, res) => {
         total_visits: totalVisits,
         total_unique: totalVisits,
         total_new: totalNew,
-        total_income: totalIncome,
+        total_income: r2(totalIncome + incomeAdjustment),
+        income_adjustment: incomeAdjustment,
         last_updated: adData.last_updated || null,
           data_through: adData.date_range?.to || adData.date_range?.end || null,
         visits_daily, unique_daily, new_users_daily, income_daily,
@@ -480,7 +484,6 @@ module.exports = async (req, res) => {
         if (v.new_users) nd[dt]=v.new_users;
         if (v.income) id[dt]=r2(v.income);
       }
-      const incomeAdjustment = await readIncomeAdjustment(redis, usernameCanon || username);
       return res.status(200).json(finalize({
         username, isAdmin,
         total_visits: tv, total_unique: tv, total_new: tn, total_income: r2(ti + incomeAdjustment),
