@@ -312,6 +312,24 @@ const creativeProfileOptions = {
 };
 
 const modelLabels = { 'glm-5.3-flash': 'GLM 5.3 Flash', 'deepseek-v4-flash-preview': 'DeepSeek V4 Flash Preview', 'ling-3.0-flash': 'Ling 3.0 Flash', deepseek: 'DeepSeek V4 Flash Preview', 'deepseek-chat': 'DeepSeek', 'deepseek-v4-pro': 'DeepSeek V4 Pro', 'seed-2.1-turbo': 'Seed 2.1 Turbo', 'doubao-seed-2-1-turbo-260628': 'Seed 2.1 Turbo', 'qwen3.7-max': 'Qwen 3.7 Max', 'minimax-m2.7': 'MiniMax M2.7', hy3: 'HY3', 'kimi-k2.7-code': 'Kimi K2.7 Code', 'qwen3.5-flash': 'Qwen 3.5 Flash', 'glm-4.5-air': 'GLM 4.5 Air', 'kimi-k2.5': 'Kimi K2.5', 'minimax-m2.5': 'MiniMax M2.5', 'metrics-fallback': '中台指标兜底', 'glm-5.2': 'GLM 5.2', 'kimi-k3': 'Kimi K3', 'minimax-m3': 'MiniMax M3' };
+
+// Legacy runs can still carry P3.5/poster wording in their operational
+// projection. Posters are retired from this console, so keep that history
+// from leaking back into the current video-only operator surface.
+function operatorFacingText(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  const cleaned = text
+    .replace(/海报结果需人工核验[；;]?/gi, '')
+    .replace(/海报已单独排队重试[^；;。.]*/gi, '')
+    .replace(/海报未纳入[^；;。.]*/gi, '')
+    .replace(/poster(?:s| prompts?)?[^；;。.]*/gi, '')
+    .replace(/P3[_\.]?5/gi, '')
+    .replace(/^[\s·；;，,]+|[\s·；;，,]+$/g, '')
+    .replace(/[；;]{2,}/g, '；')
+    .trim();
+  return cleaned || '后台继续推进';
+}
 function modelLabel(value) { return modelLabels[String(value || '').toLowerCase()] || String(value || 'AI'); }
 function modelBrand(value) {
   const key = String(value || '').toLowerCase();
@@ -1059,7 +1077,7 @@ function renderCapabilities() {
   const readyCount = values.filter(Boolean).length;
   const allReady = values.length > 0 && readyCount === values.length;
   $('#systemState').classList.toggle('online', allReady);
-  $('#systemState').innerHTML = `<span class="pulse-dot"></span>生产配置 ${readyCount}/${values.length || 6}`;
+  $('#systemState').innerHTML = `<span class="pulse-dot"></span>${allReady ? '系统就绪' : '需检查配置'}`;
   const video = state.videoLimit || { used: 0, limit: 40, remaining: 40, scope: 'day', timeZone: 'Asia/Shanghai' };
   const capacity = $('#videoCapacity');
   capacity.classList.toggle('at-limit', Number(video.remaining) === 0);
@@ -2505,7 +2523,7 @@ function activeAutopilotItems() {
       const done = completedHarnessStages(run);
       const live = currentStage(run);
       const model = modelLabel(run.artifacts?.modelRoute?.activeModel || run.input?.creativeProfile?.modelChoice || 'deepseek-v4-flash-preview');
-      const next = run.autopilot?.nextActionLabel || live?.[1]?.label || stageLabels[live?.[0]] || '后台正在推进';
+      const next = operatorFacingText(run.autopilot?.nextActionLabel || live?.[1]?.label || stageLabels[live?.[0]] || '后台正在推进');
       return {
         kind: 'run', key: `run:${run.id}`, runId: run.id, title: run.input?.title || run.artifacts?.book?.title || '未命名任务',
         routeIdentity: routeProductionIdentity({ title: run.input?.title || run.artifacts?.book?.title, sku: run.input?.sku || run.artifacts?.book?.bookSkuId }, run.input?.delivery || {}),
@@ -3163,11 +3181,11 @@ function runOutcome(run) {
   if (harnessStatus === 'ambiguous' || publicationStatus === 'publish_ambiguous') {
     return { className: 'ambiguous', label: 'P7 需人工对账 · 禁止重复提交' };
   }
-  const ambiguous = Object.entries(run.stages || {}).find(([, stage]) => stage?.status === 'ambiguous');
+  const ambiguous = Object.entries(run.stages || {}).find(([key, stage]) => key !== 'P3_5' && stage?.status === 'ambiguous');
   if (ambiguous) {
     return { className: 'ambiguous', label: `需人工核验 · ${stageLabels[ambiguous[0]] || ambiguous[0]}` };
   }
-  const partial = Object.entries(run.stages || {}).find(([, stage]) => stage?.status === 'partial');
+  const partial = Object.entries(run.stages || {}).find(([key, stage]) => key !== 'P3_5' && stage?.status === 'partial');
   if (run.state === 'completed' && partial) {
     return { className: 'partial', label: `主体完成 · ${stageLabels[partial[0]] || partial[0]}部分完成` };
   }
@@ -3178,7 +3196,7 @@ function runOutcome(run) {
     || operations.internalPublicationDraftId) {
     return { className: 'partial', label: review.deliveryMode === 'scheduled' ? 'P7 内部定时草稿待提交' : 'P7 内部草稿待存入 SocialEcho' };
   }
-  if (operations.blocked) return { className: 'blocked', label: `已阻塞 · ${operations.blockedReason || '需要处理'}` };
+  if (operations.blocked) return { className: 'blocked', label: `已阻塞 · ${operatorFacingText(operations.blockedReason || '需要处理')}` };
   return { className: run.state, label: labels[run.state] || run.state };
 }
 
@@ -3248,14 +3266,14 @@ function renderRunList() {
     const outcome = runOutcome(run);
     const ops = run.operations || {};
     const activeKey = ops.currentStage || active[0] || '';
-    const activeLabel = ops.currentStageLabel || stageLabels[activeKey] || activeKey;
+    const activeLabel = operatorFacingText(ops.currentStageLabel || stageLabels[activeKey] || activeKey);
     const nextAttempt = ops.nextAttemptAt ? `下次 ${ops.nextAttemptAt}` : '';
-    const blocker = ops.blockedReason || '';
+    const blocker = operatorFacingText(ops.blockedReason || '');
     const externalId = ops.socialEchoExternalDraftId || (ops.externalTaskIds?.P4 ? taskIdForUi(ops.externalTaskIds.P4) : '');
     const schedule = ops.scheduledAt ? `排期 ${ops.scheduledAt}` : '';
     return `<article class="run-row ${run.id === state.selectedId ? 'selected' : ''}" data-id="${escapeHtml(run.id)}">
       <div class="book-cell">${cover(run)}<div><div class="book-name">${escapeHtml(run.input?.title)}</div><div class="book-meta">SKU ${escapeHtml(run.input?.sku)} · ${escapeHtml(new Date(run.createdAt).toLocaleDateString('zh-CN'))}</div></div></div>
-      <div class="stage-meter"><div class="stage-track">${stages.map((item) => `<i class="stage-segment ${stageClass(item)}"></i>`).join('')}</div><div class="stage-label">${escapeHtml(activeLabel)} · ${stages.filter((item) => item.status === 'done').length}/${HARNESS_NODE_COUNT}</div><small class="run-operational-meta">${escapeHtml(ops.nextActionLabel || '')}${nextAttempt ? ` · ${escapeHtml(nextAttempt)}` : ''}</small></div>
+      <div class="stage-meter"><div class="stage-track">${stages.map((item) => `<i class="stage-segment ${stageClass(item)}"></i>`).join('')}</div><div class="stage-label">${escapeHtml(activeLabel)} · ${stages.filter((item) => item.status === 'done').length}/${HARNESS_NODE_COUNT}</div><small class="run-operational-meta">${escapeHtml(operatorFacingText(ops.nextActionLabel || ''))}${nextAttempt ? ` · ${escapeHtml(nextAttempt)}` : ''}</small></div>
       <div class="tracking-cell"><strong>${run.artifacts?.code ? `Code ${escapeHtml(run.artifacts.code)}` : '待分配'}</strong><span>${escapeHtml(run.artifacts?.shortUrl || '短链待创建')}</span></div>
       <div><span class="status-badge ${escapeHtml(outcome.className)}">${escapeHtml(outcome.label)}</span><small class="run-operational-meta">${escapeHtml(blocker || schedule || (externalId ? `外部 ID ${externalId}` : ops.recoverable ? '可恢复' : ''))}</small>${failedRunActionsHtml(run, true)}</div>
     </article>`;
@@ -3565,9 +3583,9 @@ function productionStatusHtml(run, active) {
       : isCreative
         ? `${modelLabel(model)} 正在${key === 'P2' ? '梳理全书结构' : '生成创意素材'}，任务不会因页面关闭而中断。`
         : '正在等待前置节点或外部任务返回；不会重复创建 Code 或视频。';
-  const nextStep = overdue ? '请在“模型活动”确认是否已有产物；没有产物时再手动选择重试或切换模型，避免双重调用。' : /repairing/.test(String(stage.phase || '')) ? (next ? `${next} 前后台会自动完成修复，不需要点击。` : '后台会自动完成修复，不需要点击。') : stage.phase === 'fallback_scheduled' ? (next ? `${next} 后启动唯一备用模型。` : '备用模型将在下一次后台推进时启动。') : key === 'P3' ? '完成后会依次保存文案、视频提示词和成品质检。' : key === 'P2' ? '完成后将继续创建 Code 和短链，再进入创意生成。' : stage.label || '后台会在状态变化后自动推进下一节点。';
+  const nextStep = overdue ? '请在“模型活动”确认是否已有产物；没有产物时再手动选择重试或切换模型，避免双重调用。' : /repairing/.test(String(stage.phase || '')) ? (next ? `${next} 前后台会自动完成修复，不需要点击。` : '后台会自动完成修复，不需要点击。') : stage.phase === 'fallback_scheduled' ? (next ? `${next} 后启动唯一备用模型。` : '备用模型将在下一次后台推进时启动。') : key === 'P3' ? '完成后会依次保存文案、视频提示词和成品质检。' : key === 'P2' ? '完成后将继续创建 Code 和短链，再进入创意生成。' : operatorFacingText(stage.label) || '后台会在状态变化后自动推进下一节点。';
   const recoveryAction = overdue && key === 'P3' && !/repairing/.test(String(stage.phase || '')) ? `<button class="primary-command ai-wait-recovery" data-ai-wait-recovery="${escapeHtml(run.id)}" type="button"><i data-lucide="route"></i>启用唯一备用继续</button>` : '';
-  return `<aside class="production-status-card ${overdue ? 'overdue' : stage.phase === 'fallback_scheduled' ? 'fallback' : ''}"><div class="production-status-icon"><i data-lucide="${overdue ? 'circle-alert' : stage.phase === 'fallback_scheduled' ? 'route' : 'loader-circle'}"></i></div><div><span>当前正在发生什么</span><strong>${escapeHtml(stageLabels[key] || key)} · ${escapeHtml(waitDurationLabel(stage.startedAt || run.updatedAt))}${overdue ? ' · 已超时' : ''}</strong><p>${escapeHtml(situation)}</p><small><b>下一步：</b>${escapeHtml(nextStep)}</small></div><div class="production-status-meta"><span>${isCreative ? modelLogoHtml(model, { compact: true }) : '自动推进'}</span><small>${overdue ? `正常窗口 ${Math.ceil(expectedSeconds / 60)} 分钟 · 未自动重发` : stage.error ? escapeHtml(stage.error) : '状态已持久化，可关闭页面'}</small>${recoveryAction}</div></aside>`;
+  return `<aside class="production-status-card ${overdue ? 'overdue' : stage.phase === 'fallback_scheduled' ? 'fallback' : ''}"><div class="production-status-icon"><i data-lucide="${overdue ? 'circle-alert' : stage.phase === 'fallback_scheduled' ? 'route' : 'loader-circle'}"></i></div><div><span>当前正在发生什么</span><strong>${escapeHtml(stageLabels[key] || key)} · ${escapeHtml(waitDurationLabel(stage.startedAt || run.updatedAt))}${overdue ? ' · 已超时' : ''}</strong><p>${escapeHtml(situation)}</p><small><b>下一步：</b>${escapeHtml(nextStep)}</small></div><div class="production-status-meta"><span>${isCreative ? modelLogoHtml(model, { compact: true }) : '自动推进'}</span><small>${overdue ? `正常窗口 ${Math.ceil(expectedSeconds / 60)} 分钟 · 未自动重发` : stage.error ? escapeHtml(operatorFacingText(stage.error)) : '状态已持久化，可关闭页面'}</small>${recoveryAction}</div></aside>`;
 }
 
 async function recoverAiWait(id, button) {
@@ -3712,7 +3730,7 @@ function harnessLedgerHtml(run) {
     <header class="harness-detail-head"><div><span class="eyebrow">P0-P7 HARNESS LEDGER</span><h3>可恢复、可审计的生产账本</h3><p>同一个目标路由贯穿选书、Code、媒体和 SocialEcho 草稿；外部任务 ID 先保存再轮询。</p></div><span class="harness-completion ${escapeHtml(harness.status || '')}"><strong>${Number(completion.percent || 0)}%</strong><small>${Number(completion.completed || 0)}/${Number(completion.total || HARNESS_NODE_COUNT)} 节点</small></span></header>
     <div class="harness-target-lock ${target.locked ? 'locked' : 'unlocked'}"><div><span>目标路由</span><strong>${escapeHtml(target.appName || target.appKey || '未锁定')} / ${escapeHtml(platformLabel)} / ${escapeHtml(target.accountTitle || '未绑定账号')}</strong><small>${target.applicationId ? `applicationId ${escapeHtml(String(target.applicationId).slice(-16))}` : '缺少 applicationId，禁止执行'} · accountId ${escapeHtml(String(target.accountId || '—'))}</small></div><b><i data-lucide="${target.locked ? 'lock-keyhole' : 'unlock-keyhole'}"></i>${target.locked ? 'route locked' : 'route pending'}</b></div>
     <div class="harness-p0-snapshot"><span>P0 书籍快照</span><strong>${escapeHtml(harness.book?.title || run.input?.title || '未锁定书籍')}</strong><small>SKU ${escapeHtml(harness.book?.sku || '—')} · 中台 rank ${escapeHtml(String(p0.sourceRank || '—'))} · 近 ${escapeHtml(String(p0.windowDays || '—'))} 天</small><div><b>阅读 ${compactNumber(p0.readerBase)}</b><b>首读 ${p0Percent(p0.firstReadRate)}</b><b>长读 ${p0Percent(p0.longReadRate)}</b><b>趋势 ${p0.trend7v30 == null ? '—' : p0Percent(p0.trend7v30)}</b></div></div>
-    <div class="harness-ledger-list">${stages.map((stage) => { const external = stage.externalTaskId ? `外部 ID ${escapeHtml(taskId(stage.externalTaskId))}` : ''; const internal = stage.internalTaskId ? `内部 ID ${escapeHtml(taskId(stage.internalTaskId))}` : ''; const schedule = stage.scheduledAt ? `排期 ${escapeHtml(stage.scheduledAt)}` : ''; return `<article class="harness-ledger-row status-${escapeHtml(stage.status || 'waiting')}"><div class="harness-step-key"><b>${escapeHtml(stage.key)}</b><span>${escapeHtml(stage.label || stageLabels[stage.key] || stage.key)}</span></div><div><strong>${escapeHtml(stage.purpose || '等待节点执行')}</strong><small>${escapeHtml(stage.artifact || '—')}</small></div><div><span class="harness-status-chip">${escapeHtml(harnessStatusLabel(stage.status))}</span><small>${external || internal || stage.nextAttemptAt ? `${external}${external && internal ? ' · ' : ''}${internal}${(external || internal) && stage.nextAttemptAt ? ' · ' : ''}${stage.nextAttemptAt ? `下次尝试 ${escapeHtml(stage.nextAttemptAt)}` : ''}` : stage.recoverable ? '可恢复' : ''}${schedule ? `<br>${schedule}` : ''}</small></div><div class="harness-next-action">${stage.status === 'ambiguous' ? '先对账，不得重提' : stage.status === 'failed' ? '人工确认失败后再重试' : stage.status === 'blocked' ? '处理阻塞条件' : stage.status === 'done' ? '已留存产物' : '等待后台推进'}</div></article>`; }).join('')}</div>
+    <div class="harness-ledger-list">${stages.map((stage) => { const external = stage.externalTaskId ? `外部 ID ${escapeHtml(taskId(stage.externalTaskId))}` : ''; const internal = stage.internalTaskId ? `内部 ID ${escapeHtml(taskId(stage.internalTaskId))}` : ''; const schedule = stage.scheduledAt ? `排期 ${escapeHtml(stage.scheduledAt)}` : ''; return `<article class="harness-ledger-row status-${escapeHtml(stage.status || 'waiting')}"><div class="harness-step-key"><b>${escapeHtml(stage.key)}</b><span>${escapeHtml(operatorFacingText(stage.label || stageLabels[stage.key] || stage.key))}</span></div><div><strong>${escapeHtml(operatorFacingText(stage.purpose || '等待节点执行'))}</strong><small>${escapeHtml(operatorFacingText(stage.artifact || '—'))}</small></div><div><span class="harness-status-chip">${escapeHtml(harnessStatusLabel(stage.status))}</span><small>${external || internal || stage.nextAttemptAt ? `${external}${external && internal ? ' · ' : ''}${internal}${(external || internal) && stage.nextAttemptAt ? ' · ' : ''}${stage.nextAttemptAt ? `下次尝试 ${escapeHtml(stage.nextAttemptAt)}` : ''}` : stage.recoverable ? '可恢复' : ''}${schedule ? `<br>${schedule}` : ''}</small></div><div class="harness-next-action">${stage.status === 'ambiguous' ? '先对账，不得重提' : stage.status === 'failed' ? '人工确认失败后再重试' : stage.status === 'blocked' ? '处理阻塞条件' : stage.status === 'done' ? '已留存产物' : '等待后台推进'}</div></article>`; }).join('')}</div>
     ${blockers.length ? `<aside class="harness-blockers"><strong><i data-lucide="triangle-alert"></i>当前阻塞</strong>${blockers.map((item) => `<span>${escapeHtml(item.stage)} · ${escapeHtml(item.reason)}</span>`).join('')}</aside>` : '<aside class="harness-clear"><i data-lucide="shield-check"></i>当前没有需要人工升级的 Harness 阻塞</aside>'}
   </section>`;
 }
@@ -4514,14 +4532,14 @@ async function loadRoutePlan() {
   const startedAt = Date.now();
   const button = $('#loadRoutePlan');
   const buttonLabel = button.querySelector('span');
-  $('#routePlannerStatus').textContent = `正在分批读取 ${routeCount} 条路线，每批 3 条…`;
-  $('#routePlannerTable').innerHTML = `<div class="route-planner-loading"><i data-lucide="loader-circle"></i><strong>正在读取排行并排除近期重复书籍</strong><span>需要访问各产品线的真实排行，通常需要几十秒。页面可以继续停留。</span></div>`;
+  $('#routePlannerStatus').textContent = `正在读取 ${routeCount} 条路线…`;
+  $('#routePlannerTable').innerHTML = `<div class="route-planner-loading"><i data-lucide="loader-circle"></i><strong>正在读取排行并排除近期重复书籍</strong><span>需要访问真实排行，通常需要几十秒；页面可以继续停留。</span></div>`;
   button.disabled = true;
   if (buttonLabel) buttonLabel.textContent = '读取中…';
   icons();
   const timer = window.setInterval(() => {
     const seconds = Math.floor((Date.now() - startedAt) / 1000);
-    $('#routePlannerStatus').textContent = `已等待 ${seconds} 秒 · 正在分批读取 ${routeCount} 条路线（每批 3 条）`;
+    $('#routePlannerStatus').textContent = `已等待 ${seconds} 秒 · 正在读取 ${routeCount} 条路线，排除近 7 天重复`;
   }, 1000);
   try {
     const topN = Number($('#plannerTopN').value || 3);
