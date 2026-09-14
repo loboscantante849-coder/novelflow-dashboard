@@ -20,7 +20,7 @@ const {
 const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
 const { inspectApprovedSourceWalletOwner } = require('./_lib/income-source-owners');
 const { principalFromPayload } = require('./_lib/identity');
-const { resolveReadOnlyWalletStorageIdentity } = require('./_lib/wallet-identity');
+const { resolveUserFacingWalletStorageIdentity } = require('./_lib/wallet-identity');
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
@@ -93,15 +93,15 @@ module.exports = async (req, res) => {
     const adData = await getAdIdDetails(IS_PROD ? [] : debugLog);
     let usernameCanon = allPromoters ? null : resolvePromoterKey(username, adData);
 
+    let incomeReviewRequired = false;
     if (!isAdmin && adData) {
       usernameCanon = resolvePromoterKey(username, adData);
-      let walletIdentity = await resolveReadOnlyWalletStorageIdentity(redis, username, {
-        expectedPrincipal: isAdmin ? null : principalFromPayload(payload),
-      });
-      // Stats are read-only. A legacy wallet alias conflict must not blank
-      // confirmed traffic/new-user data; financial attribution remains gated.
-      if (walletIdentity.conflict) walletIdentity = { ...walletIdentity, storageUsername: username, statsIdentityConflict: true };
-      if (!walletIdentity.statsIdentityConflict && adData.by_promoter?.[usernameCanon]) {
+      // Stats are read-only. A legacy wallet alias or income-source conflict
+      // must not blank confirmed traffic/new-user data; the ambiguity is
+      // reported through `income_review_required` for the payout review.
+      const walletIdentity = await resolveUserFacingWalletStorageIdentity(redis, username);
+      incomeReviewRequired = Boolean(walletIdentity.reviewRequired);
+      if (adData.by_promoter?.[usernameCanon]) {
         const ownership = await inspectApprovedSourceWalletOwner(
           redis,
           adData,
@@ -110,15 +110,9 @@ module.exports = async (req, res) => {
           null,
           { allowEquivalentAliases: Boolean(walletIdentity.readOnlyLegacyConflict) },
         );
-        if (!ownership.approved) {
-          return res.status(403).json({ error: 'Income source owner is not verified', code: 'INCOME_SOURCE_OWNER_UNVERIFIED' });
-        }
-        if (!ownership.unique) {
-          return res.status(409).json({
-            error: 'Income source ownership requires reconciliation',
-            code: 'INCOME_SOURCE_OWNER_CONFLICT',
-            wallet_count: ownership.owners.length,
-          });
+        if (!ownership.approved || !ownership.unique) {
+          incomeReviewRequired = true;
+          debugLog.push(`income attribution needs review: approved=${ownership.approved} unique=${ownership.unique}`);
         }
       }
     }
@@ -139,11 +133,12 @@ module.exports = async (req, res) => {
 
     // Helper to strip debug from response body
     const finalize = (obj) => {
+      const withReviewFlag = { ...obj, income_review_required: Boolean(incomeReviewRequired) };
       if (IS_PROD) {
-        const { debug, ...rest } = obj;
+        const { debug, ...rest } = withReviewFlag;
         return rest;
       }
-      return obj;
+      return withReviewFlag;
     };
 
     if (adData) {

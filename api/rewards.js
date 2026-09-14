@@ -15,7 +15,13 @@
  * Auth: JWT required. All mutations apply ONLY to the authenticated user.
  */
 const { handlePreflight } = require('./_lib/cors');
-const { assertAccountIdentity, getAuthPayload, getRedis, checkRateLimit, getClientIp } = require('./_lib/security');
+const {
+  assertAccountIdentityForSession,
+  getAuthPayload,
+  getRedis,
+  checkRateLimit,
+  getClientIp,
+} = require('./_lib/security');
 const { principalFromPayload } = require('./_lib/identity');
 const { Redis } = require('@upstash/redis');
 const { commitUserDataUnderLock, releaseUserDataLock } = require('./_lib/user-data-lock');
@@ -248,7 +254,9 @@ module.exports = async (req, res) => {
   const redis = redisClient();
   if (!redis) return res.status(503).json({ error: 'Database unavailable' });
   try {
-    await assertAccountIdentity(redis, payload);
+    // A historical owner-index spelling mismatch must not stop a signed-in
+    // member from checking in or claiming a campaign reward.
+    await assertAccountIdentityForSession(redis, payload);
   } catch (error) {
     return res.status(error && error.code === 'ACCOUNT_IDENTITY_CONFLICT' ? 409 : 503).json({
       error: 'Account identity recovery required',
@@ -281,9 +289,7 @@ module.exports = async (req, res) => {
       waitMs: action === 'checkin' ? 6000 : 0,
       retryDelayMs: 100,
     };
-    walletLock = action === 'checkin'
-      ? await acquireUserFacingWalletDataLock(redis, username, lockOptions)
-      : await acquireWalletDataLock(redis, username, lockOptions);
+    walletLock = await acquireUserFacingWalletDataLock(redis, username, lockOptions);
   } catch (error) {
     if (error && error.code === 'WALLET_IDENTITY_CONFLICT') {
       return res.status(409).json({ error: 'Account identity recovery required', code: error.code });
@@ -301,12 +307,12 @@ module.exports = async (req, res) => {
 
   let sourceGuard = null;
   try {
-    // Daily check-in changes only the already-established canonical wallet's
-    // points/streak. A legacy case-only duplicate reporting key must not block
-    // that non-financial action, but it must also never cause a new wallet to
-    // be created. Financial rewards keep the strict source-owner guard.
+    // Daily check-in only appends points/streak to the account wallet, so it
+    // never needs the source-owner guard. Other rewards keep the guard while
+    // the wallet is unambiguous; a historical duplicate is flagged for payout
+    // review instead of blocking the member.
     const establishedCheckinWallet = action === 'checkin';
-    if (!establishedCheckinWallet) {
+    if (!establishedCheckinWallet && !identity.conflict) {
       sourceGuard = await acquireWalletCreationSourceGuard(redis, username, identity);
     }
     const walletUsername = identity.storageUsername;

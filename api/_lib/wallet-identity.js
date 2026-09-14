@@ -166,6 +166,57 @@ function canonicalReadOnlyOwner(value) {
 }
 
 /**
+ * User-facing flows (session status, cloud sync, statistics, check-in, invite
+ * codes, promotion links and reels) must stay usable while historical wallet
+ * spellings are still being reconciled. Pick the record that actually holds
+ * the account data instead of blindly taking the canonical key, keep the
+ * duplicate visible through `reviewRequired`, and never merge balances.
+ * Withdrawal approval keeps using the strict resolvers.
+ */
+function walletRecordHasContent(record) {
+  if (!record || typeof record !== 'object') return false;
+  const myBooks = Array.isArray(record.myBooks) ? record.myBooks.length : 0;
+  const checkinHistory = record.checkin && Array.isArray(record.checkin.history)
+    ? record.checkin.history.length
+    : 0;
+  const numeric = ['points', 'bonus_balance', 'vip_days', 'streak_grand_sequence']
+    .some(field => Number(record[field]) > 0);
+  const claimed = record.claimed && typeof record.claimed === 'object'
+    && Object.keys(record.claimed).length > 0;
+  return myBooks > 0 || checkinHistory > 0 || numeric || Boolean(claimed);
+}
+
+async function resolveUserFacingWalletStorageIdentity(redis, requestedUsername) {
+  const identity = await resolveWalletStorageIdentity(redis, requestedUsername);
+  if (!identity.conflict) return { ...identity, reviewRequired: false, blocked: false };
+
+  const matches = Array.from(new Set(identity.matches || []));
+  if (!matches.length) return { ...identity, reviewRequired: true, blocked: false };
+
+  const entries = await Promise.all(matches.map(async name => ({
+    name,
+    record: parseReadOnlyWalletRecord(await redis.get(`nf_user_data:${name}`)),
+  })));
+  const blocked = entries.some(({ record }) => !record || record.disabled || record.wallet_merged_into);
+  const primary = entries.find(({ name }) => name === identity.primaryUsername) || null;
+  const withContent = entries.filter(({ record }) => walletRecordHasContent(record));
+
+  let storageUsername = null;
+  if (primary && walletRecordHasContent(primary.record)) storageUsername = primary.name;
+  if (!storageUsername && withContent.length === 1) storageUsername = withContent[0].name;
+  if (!storageUsername && primary) storageUsername = primary.name;
+  if (!storageUsername) [storageUsername] = matches;
+
+  return {
+    ...identity,
+    storageUsername,
+    conflict: true,
+    reviewRequired: true,
+    blocked,
+  };
+}
+
+/**
  * The Cons account has one reviewed production-only exception: two historical
  * wallet records may coexist under the canonical and old credential spelling.
  * Read-only session/stat flows can select the canonical record only when both
@@ -373,18 +424,31 @@ async function acquireCheckinWalletDataLock(redis, requestedUsername, options = 
 // wallet keys are being cleaned up. Pick the canonical key and retain a
 // conflict marker for later payout review; never use this helper for balance
 // or withdrawal mutations.
+/**
+ * Acquire the user-data lock for a user-facing flow. Historical duplicate
+ * wallet spellings no longer abort the request; the lock stays on the canonical
+ * primary key while reads and writes use the record that actually holds the
+ * account data. Disabled/merged records are still reported through `blocked`.
+ */
 async function acquireUserFacingWalletDataLock(redis, requestedUsername, options = {}) {
   const primary = resolveUsernameAlias(requestedUsername);
-  if (!primary) { const error = new Error('Invalid wallet identity'); error.code = 'INVALID_WALLET_IDENTITY'; throw error; }
-  const lock = await acquireUserDataLock(redis, primary, options);
-  if (!lock) return { lock: null, identity: { primaryUsername: primary, storageUsername: primary, conflict: false, matches: [] } };
-  const identity = await resolveWalletStorageIdentity(redis, requestedUsername);
-  let blocked = false;
-  if (identity.conflict && Array.isArray(identity.matches) && identity.matches.length) {
-    const records = await Promise.all(identity.matches.map(async name => parseReadOnlyWalletRecord(await redis.get(`nf_user_data:${name}`))));
-    blocked = records.some(record => !record || record.disabled || record.wallet_merged_into);
+  if (!primary) {
+    const error = new Error('Invalid wallet identity');
+    error.code = 'INVALID_WALLET_IDENTITY';
+    throw error;
   }
-  return { lock, identity: { ...identity, storageUsername: primary, conflict: Boolean(identity.conflict), userFacingConflict: Boolean(identity.conflict), userFacingBlocked: blocked } };
+  const lock = await acquireUserDataLock(redis, primary, options);
+  const identity = await resolveUserFacingWalletStorageIdentity(redis, requestedUsername);
+  if (!lock) return { lock: null, identity: { ...identity, storageUsername: primary } };
+  return {
+    lock,
+    identity: {
+      ...identity,
+      conflict: Boolean(identity.conflict),
+      userFacingConflict: Boolean(identity.conflict),
+      userFacingBlocked: Boolean(identity.blocked),
+    },
+  };
 }
 
 module.exports = {
@@ -395,7 +459,9 @@ module.exports = {
   findCaseVariantWallets,
   resolveUsernameAlias,
   resolveReadOnlyWalletStorageIdentity,
+  resolveUserFacingWalletStorageIdentity,
   resolveWalletStorageIdentity,
+  walletRecordHasContent,
   walletIdentityConflict,
   walletStorageCandidates,
 };

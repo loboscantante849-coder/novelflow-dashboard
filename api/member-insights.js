@@ -1,7 +1,7 @@
 const { Redis } = require('@upstash/redis');
 const { handlePreflight } = require('./_lib/cors');
 const {
-  assertAccountIdentity,
+  assertAccountIdentityForSession,
   checkRateLimit,
   getAuthPayload,
   getClientIp,
@@ -12,7 +12,10 @@ const { ensureMemberIdentity, memberMetaKey } = require('./_lib/member-identity'
 const { ensureReferralCode } = require('./_lib/referrals');
 const { referralCommissionStatement, roundMoney } = require('./_lib/referral-commission');
 const { inspectApprovedSourceWalletOwner, loadSourceOwnerIndex } = require('./_lib/income-source-owners');
-const { resolveReadOnlyWalletStorageIdentity } = require('./_lib/wallet-identity');
+const {
+  resolveReadOnlyWalletStorageIdentity,
+  resolveUserFacingWalletStorageIdentity,
+} = require('./_lib/wallet-identity');
 
 const RECOMMENDER_NS = 'nf_recommender:v1';
 const MAX_REFERRAL_DETAILS = 250;
@@ -47,7 +50,7 @@ module.exports = async (req, res) => {
     if (await isDisabledUser(redis, payload, { failClosed: true, allowSafeReadOnlyWalletConflict: true })) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
-    await assertAccountIdentity(redis, payload);
+    await assertAccountIdentityForSession(redis, payload);
     const allowed = await checkRateLimit(redis, `nf_rate:member_insights:${username}`, 120, 3600, { failClosed: true }) &&
       await checkRateLimit(redis, `nf_rate:member_insights_ip:${getClientIp(req)}`, 600, 3600, { failClosed: true });
     if (!allowed) return res.status(429).json({ error: 'Too many requests', code: 'RATE_LIMITED' });
@@ -81,7 +84,7 @@ module.exports = async (req, res) => {
       const promoterKey = statsAvailable ? resolvePromoterKey(child, adData) : null;
       let ownership = null;
       if (promoterKey && adData.by_promoter[promoterKey]) {
-        const walletIdentity = await resolveReadOnlyWalletStorageIdentity(redis, child);
+        const walletIdentity = await resolveUserFacingWalletStorageIdentity(redis, child);
         if (!walletIdentity.conflict) {
           ownership = await inspectApprovedSourceWalletOwner(
             redis,

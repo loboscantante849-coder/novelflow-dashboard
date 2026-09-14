@@ -107,6 +107,8 @@ test('reviewed Cons duplicate wallets can check in only through the canonical re
     'nf_identity_owner:cons_espher': 'local:@cons espher',
     'nf_identity_owner:@cons espher': 'local:@cons espher',
     'nf_user_pass_owner:@cons espher': 'local:@cons espher',
+    'nf_user_subs:cons_espher': ['verified-code'],
+    nf_subs: { 'verified-code': JSON.stringify({ code: 'verified-code', bookId: 'verified-book', status: 'completed' }) },
   });
 
   const response = await invoke(rewards, {
@@ -121,7 +123,7 @@ test('reviewed Cons duplicate wallets can check in only through the canonical re
   assert.equal(FakeRedis.values.get('nf_user_data:@cons espher'), legacyWallet);
 });
 
-test('reviewed Cons duplicate wallets still block cash reward mutations', async () => {
+test('reviewed Cons duplicate wallets credit the data-bearing record instead of blocking', async () => {
   const today = new Date().toISOString().slice(0, 10);
   const canonicalWallet = JSON.stringify({
     points: 50,
@@ -135,6 +137,8 @@ test('reviewed Cons duplicate wallets still block cash reward mutations', async 
     'nf_identity_owner:cons_espher': 'local:@cons espher',
     'nf_identity_owner:@cons espher': 'local:@cons espher',
     'nf_user_pass_owner:@cons espher': 'local:@cons espher',
+    'nf_user_subs:cons_espher': ['verified-code'],
+    nf_subs: { 'verified-code': JSON.stringify({ code: 'verified-code', bookId: 'verified-book', status: 'completed' }) },
   });
 
   const response = await invoke(rewards, {
@@ -142,9 +146,10 @@ test('reviewed Cons duplicate wallets still block cash reward mutations', async 
     body: { action: 'claim_streak_grand' },
   });
 
-  assert.equal(response.statusCode, 409);
-  assert.equal(response.body.code, 'WALLET_IDENTITY_CONFLICT');
-  assert.equal(FakeRedis.values.get('nf_user_data:cons_espher'), canonicalWallet);
+  assert.equal(response.statusCode, 200);
+  const saved = JSON.parse(FakeRedis.values.get('nf_user_data:cons_espher'));
+  assert.equal(saved.bonus_balance, 2.5);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:@cons espher')).points, 9);
 });
 
 test('a disabled reviewed Cons duplicate still blocks check-in', async () => {
@@ -524,7 +529,7 @@ test('check-in uses canonical wallet while preserving a legacy duplicate for pay
   assert.equal(FakeRedis.values.get('nf_user_data:Xenomorphette'), legacy);
 });
 
-test('case-only duplicate source keys still block the financial 7-day cash reward', async () => {
+test('case-only duplicate source keys credit the canonical wallet for the 7-day cash reward', async () => {
   const wallet = {
     points: 50,
     bonus_balance: 4,
@@ -543,9 +548,9 @@ test('case-only duplicate source keys still block the financial 7-day cash rewar
     body: { action: 'claim_streak_grand' },
   });
 
-  assert.equal(response.statusCode, 409);
-  assert.equal(response.body.code, 'WALLET_IDENTITY_CONFLICT');
-  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:xenomorphette')).bonus_balance, 4);
+  assert.equal(response.statusCode, 200);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:xenomorphette')).bonus_balance, 4.5);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:Xenomorphette')).points, 99);
 });
 
 test('7-day grand prize credits cash without a NovelFlow ID and leaves VIP pending', async () => {

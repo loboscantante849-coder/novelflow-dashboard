@@ -15,6 +15,7 @@ const { normalizeHttpsCoverUrl, backfillBookCovers } = require('./book-covers');
 const {
   resolveUsernameAlias,
   resolveReadOnlyWalletStorageIdentity,
+  resolveUserFacingWalletStorageIdentity,
   walletIdentityConflict,
   walletStorageCandidates,
 } = require('./wallet-identity');
@@ -472,8 +473,9 @@ async function loadSubmissions(redis, username, admin, debugLog, options = {}) {
   // link-only and code-only records, so de-duplicate after loading both sources.
   if (!admin) {
     try {
-      const identity = await resolveReadOnlyWalletStorageIdentity(redis, walletUsername, options);
-      if (identity.conflict) throw walletIdentityConflict(identity);
+      // Cloud-sync books belong to the member's own record; a duplicate
+      // historical spelling must not hide them from the statistics view.
+      const identity = await resolveUserFacingWalletStorageIdentity(redis, walletUsername);
       const walletKey = `nf_user_data:${identity.storageUsername}`;
       const kvData = await redis.get(walletKey);
       const walletRecord = kvData && typeof kvData === 'string' ? JSON.parse(kvData) : kvData;

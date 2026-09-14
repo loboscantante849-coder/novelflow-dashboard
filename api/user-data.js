@@ -12,14 +12,19 @@ const { handlePreflight } = require('./_lib/cors');
 const { Redis } = require('@upstash/redis');
 const { mergeBookState } = require('./_lib/sync');
 const { commitUserDataUnderLock, releaseUserDataLock } = require('./_lib/user-data-lock');
-const { assertAccountIdentity, checkRateLimit, getAuthPayload, getClientIp } = require('./_lib/security');
+const {
+  assertAccountIdentityForSession,
+  checkRateLimit,
+  getAuthPayload,
+  getClientIp,
+} = require('./_lib/security');
 const { principalFromPayload } = require('./_lib/identity');
 const { splitStoredBonus } = require('./_lib/commission-policy');
 const { acquireWalletCreationSourceGuard } = require('./_lib/income-source-owners');
 const {
-  acquireWalletDataLock,
+  acquireUserFacingWalletDataLock,
   resolveUsernameAlias,
-  resolveReadOnlyWalletStorageIdentity,
+  resolveUserFacingWalletStorageIdentity,
 } = require('./_lib/wallet-identity');
 
 const MAX_SYNC_BODY_BYTES = 512 * 1024;
@@ -53,7 +58,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    await assertAccountIdentity(redis, payload);
+    await assertAccountIdentityForSession(redis, payload);
   } catch (error) {
     return res.status(error && error.code === 'ACCOUNT_IDENTITY_CONFLICT' ? 409 : 503).json({
       error: 'Account identity recovery required',
@@ -65,15 +70,7 @@ module.exports = async (req, res) => {
 
   try {
     if (req.method === 'GET') {
-      const identity = await resolveReadOnlyWalletStorageIdentity(redis, primaryUsername, {
-        expectedPrincipal: principalFromPayload(payload),
-      });
-      if (identity.conflict) {
-        return res.status(409).json({
-          error: 'Account identity recovery required',
-          code: 'WALLET_IDENTITY_CONFLICT',
-        });
-      }
+      const identity = await resolveUserFacingWalletStorageIdentity(redis, primaryUsername);
       const redisKey = `nf_user_data:${identity.storageUsername}`;
       const data = await redis.get(redisKey);
       if (!data) {
@@ -128,7 +125,12 @@ module.exports = async (req, res) => {
 
       let walletLock;
       try {
-        walletLock = await acquireWalletDataLock(redis, primaryUsername);
+        // Cloud sync must keep working while historical wallet spellings are
+        // reconciled; payout review remains the financial control.
+        walletLock = await acquireUserFacingWalletDataLock(redis, primaryUsername, {
+          waitMs: 6000,
+          retryDelayMs: 100,
+        });
       } catch (error) {
         if (error && error.code === 'WALLET_IDENTITY_CONFLICT') {
           return res.status(409).json({
@@ -146,7 +148,9 @@ module.exports = async (req, res) => {
       let sourceGuard = null;
       try {
         try {
-          sourceGuard = await acquireWalletCreationSourceGuard(redis, primaryUsername, identity);
+          sourceGuard = identity && identity.conflict
+            ? null
+            : await acquireWalletCreationSourceGuard(redis, primaryUsername, identity);
         } catch (error) {
           if (error && ['INCOME_SOURCE_OWNER_UNVERIFIED', 'INCOME_SOURCE_OWNER_CONFLICT', 'INCOME_SOURCE_BUSY'].includes(error.code)) {
             return res.status(409).json({ error: error.message, code: error.code });

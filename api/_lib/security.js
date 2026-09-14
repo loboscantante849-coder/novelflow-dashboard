@@ -6,11 +6,17 @@
 const { verifyAccessToken } = require('./auth');
 const crypto = require('crypto');
 const { Redis } = require('@upstash/redis');
-const { assertAccountIdentity, principalFromPayload } = require('./identity');
+const {
+  assertAccountIdentity,
+  assertAccountIdentityForSession,
+  principalFromPayload,
+  userFacingIdentityCompat,
+} = require('./identity');
 const { canonicalizeLocalSessionPayload } = require('./login-identity');
 const { isSystemStatsBucket } = require('./promoter-access');
 const {
   resolveReadOnlyWalletStorageIdentity,
+  resolveUserFacingWalletStorageIdentity,
   resolveWalletStorageIdentity,
   walletIdentityConflict,
 } = require('./wallet-identity');
@@ -68,11 +74,17 @@ function getAuthPayload(req) {
 async function getAccountWalletData(redis, username, {
   allowSafeReadOnlyWalletConflict = false,
   expectedPrincipal = null,
+  allowLegacyAliasConflict = false,
 } = {}) {
-  const identity = allowSafeReadOnlyWalletConflict
-    ? await resolveReadOnlyWalletStorageIdentity(redis, username, { expectedPrincipal })
-    : await resolveWalletStorageIdentity(redis, username);
-  if (identity.conflict) throw walletIdentityConflict(identity);
+  let identity;
+  if (allowLegacyAliasConflict) {
+    identity = await resolveUserFacingWalletStorageIdentity(redis, username);
+  } else if (allowSafeReadOnlyWalletConflict) {
+    identity = await resolveReadOnlyWalletStorageIdentity(redis, username, { expectedPrincipal });
+  } else {
+    identity = await resolveWalletStorageIdentity(redis, username);
+  }
+  if (identity.conflict && !allowLegacyAliasConflict) throw walletIdentityConflict(identity);
   const raw = await redis.get(`nf_user_data:${identity.storageUsername}`);
   if (!raw) return null;
   const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -100,10 +112,57 @@ function parseAccountStatusRecord(raw) {
  * historical wallet duplicate block authentication. Any disabled/merged
  * record still wins; malformed records and unresolved conflicts fail closed.
  */
+/**
+ * Read every wallet record that resolves to a username for a user-facing flow.
+ * Duplicate spellings are returned together so the caller can still detect a
+ * disabled/merged tombstone without aborting. A single unparsable duplicate is
+ * skipped rather than stranding the account; if nothing parses, the caller
+ * still fails closed through ACCOUNT_STATUS_UNAVAILABLE.
+ */
+async function getUserFacingStatusRecords(redis, username) {
+  const identity = await resolveWalletStorageIdentity(redis, username);
+  const storageNames = identity.conflict
+    ? Array.from(new Set(identity.matches || []))
+    : [identity.storageUsername];
+  if (!storageNames.length) return [];
+  const keys = storageNames.map(name => `nf_user_data:${name}`);
+  const values = typeof redis.mget === 'function'
+    ? await redis.mget(...keys)
+    : await Promise.all(keys.map(key => redis.get(key)));
+  if (!Array.isArray(values) || values.length !== keys.length) {
+    const error = new Error('Account status lookup returned an invalid response');
+    error.code = 'ACCOUNT_STATUS_UNAVAILABLE';
+    throw error;
+  }
+  const records = [];
+  let unreadable = 0;
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    try {
+      const record = parseAccountStatusRecord(value);
+      if (record) records.push(record);
+      else unreadable += 1;
+    } catch (_error) {
+      unreadable += 1;
+    }
+  }
+  if (!records.length && unreadable > 0) {
+    const error = new Error('Account status record is unreadable');
+    error.code = 'ACCOUNT_STATUS_UNAVAILABLE';
+    throw error;
+  }
+  return records;
+}
+
 async function getAccountStatusRecords(redis, username, {
   allowSafeReadOnlyWalletConflict = false,
   expectedPrincipal = null,
+  allowLegacyAliasConflict = false,
 } = {}) {
+  if (allowLegacyAliasConflict) {
+    const records = await getUserFacingStatusRecords(redis, username);
+    return records;
+  }
   const identity = await resolveWalletStorageIdentity(redis, username);
   if (!identity.conflict) {
     const raw = await redis.get(`nf_user_data:${identity.storageUsername}`);
@@ -154,7 +213,9 @@ async function isAdminUser(redis, username, { failClosed = false } = {}) {
     return false;
   }
   try {
-    const data = await getAccountWalletData(redis, u);
+    const data = await getAccountWalletData(redis, u, {
+      allowLegacyAliasConflict: userFacingIdentityCompat(),
+    });
     return Boolean(data && !data.wallet_merged_into && (data.accountType === 'admin' || data.isAdmin === true));
   } catch (cause) {
     if (failClosed) {
@@ -176,6 +237,7 @@ async function isAdminUser(redis, username, { failClosed = false } = {}) {
 async function isDisabledUser(redis, usernameOrPayload, {
   failClosed = false,
   allowSafeReadOnlyWalletConflict = false,
+  allowLegacyAliasConflict = userFacingIdentityCompat(),
 } = {}) {
   const payload = usernameOrPayload && typeof usernameOrPayload === 'object' ? usernameOrPayload : null;
   const u = String(payload ? payload.username : usernameOrPayload || '').toLowerCase();
@@ -188,7 +250,21 @@ async function isDisabledUser(redis, usernameOrPayload, {
     return false;
   }
   try {
-    if (payload) await assertAccountIdentity(redis, payload);
+    if (payload) {
+      if (allowLegacyAliasConflict) {
+        await assertAccountIdentityForSession(redis, payload);
+      } else {
+        await assertAccountIdentity(redis, payload);
+      }
+    }
+    if (allowLegacyAliasConflict) {
+      const records = await getAccountStatusRecords(redis, u, {
+        allowLegacyAliasConflict: true,
+        allowSafeReadOnlyWalletConflict: true,
+        expectedPrincipal: payload ? principalFromPayload(payload) : null,
+      });
+      return records.some(record => record && (record.disabled || record.wallet_merged_into));
+    }
     if (allowSafeReadOnlyWalletConflict) {
       const records = await getAccountStatusRecords(redis, u, {
         allowSafeReadOnlyWalletConflict: true,
@@ -316,6 +392,10 @@ module.exports = {
   isAdminUser,
   isDisabledUser,
   assertAccountIdentity,
+  assertAccountIdentityForSession,
+  getAccountWalletData,
+  getUserFacingStatusRecords,
+  userFacingIdentityCompat,
   timingSafeEqual,
   checkAdminKey,
   checkRateLimit,
