@@ -160,7 +160,14 @@ async function loadWalletAliasTargets(redis, names) {
   const targets = new Map();
   if (!redis || typeof redis.get !== 'function' || !names.length) return targets;
   for (const name of names) {
-    const raw = await redis.get(`nf_wallet_alias:${String(name).toLowerCase()}`);
+    let raw;
+    try {
+      raw = await redis.get(`nf_wallet_alias:${String(name).toLowerCase()}`);
+    } catch (_error) {
+      // An unreadable marker must never take the wallet down; the caller keeps
+      // treating the spellings as separate keys.
+      continue;
+    }
     if (!raw) continue;
     const trimmed = String(raw).trim();
     if (!trimmed || trimmed === String(name).trim()) continue;
@@ -516,6 +523,7 @@ async function acquireUserFacingWalletDataLock(redis, requestedUsername, options
 }
 
 module.exports = {
+  loadWalletAliasTargets,
   acquireCheckinWalletDataLock,
   acquireUserFacingWalletDataLock,
   acquireWalletDataLock,

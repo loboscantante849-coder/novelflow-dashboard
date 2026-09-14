@@ -970,3 +970,39 @@ test('an operator alias marker folds duplicate spellings into one wallet', async
   assert.equal(unmarked.conflict, true);
   assert.equal(unmarked.reviewRequired, true);
 });
+
+test('alias markers keep the member income visible for folded spellings', async () => {
+  FakeRedis.reset({
+    'nf_user_data:rootadmin': JSON.stringify({ accountType: 'admin' }),
+    'nf_user_data:eliza stellar': JSON.stringify({
+      bonus_balance: 34.84,
+      withdrawals: [],
+      balance_migrations: {
+        commission_80_v1: {
+          status: 'applied',
+          effective_date: '2026-08-10',
+          commission_rate: 0.8,
+          historical_gross_income: 30,
+        },
+      },
+    }),
+    'nf_user_data:Eliza Stellar': JSON.stringify({ bonus_balance: 0, withdrawals: [] }),
+    'nf_user_data:eliza_star': JSON.stringify({ bonus_balance: 0, withdrawals: [] }),
+    'nf_wallet_alias:eliza_star': 'eliza stellar',
+    'nf_wallet_alias:eliza stellar': 'eliza stellar',
+  });
+  const scoped = withIncomeSource();
+  const token = signAccessToken({ type: 'local', username: 'rootadmin' });
+  try {
+    const read = await invoke(scoped.handler, {
+      method: 'GET',
+      headers: { cookie: `nf_token=${token}` },
+      query: { username: 'eliza stellar' },
+    });
+    assert.equal(read.statusCode, 200);
+    assert.equal(read.body.source_total_dn_income, 60);
+    assert.ok(read.body.total_earned > 40, `expected real earnings, got ${read.body.total_earned}`);
+  } finally {
+    scoped.restore();
+  }
+});
