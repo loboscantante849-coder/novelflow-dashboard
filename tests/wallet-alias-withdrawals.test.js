@@ -226,7 +226,7 @@ test('a sole legacy Eliza wallet remains the storage key under the primary lock'
   }
 });
 
-test('duplicate wallet identities fail closed before a withdrawal can be created', async () => {
+test('duplicate wallet identities keep the payout usable and reviewable', async () => {
   const star = JSON.stringify({ bonus_balance: 60, withdrawals: [] });
   const stellar = JSON.stringify({ bonus_balance: 60, withdrawals: [] });
   FakeRedis.reset({
@@ -242,8 +242,9 @@ test('duplicate wallet identities fail closed before a withdrawal can be created
       headers: { cookie: `nf_token=${token}` },
       query: { username: 'eliza_stellar' },
     });
-    assert.equal(read.statusCode, 409);
-    assert.equal(read.body.code, 'WALLET_IDENTITY_CONFLICT');
+    assert.equal(read.statusCode, 200);
+    assert.equal(read.body.review_required, true);
+    assert.ok(read.body.review_reasons.includes('wallet_identity_conflict'));
 
     const submit = await invoke(scoped.handler, {
       method: 'POST',
@@ -255,17 +256,21 @@ test('duplicate wallet identities fail closed before a withdrawal can be created
         idempotency_key: 'eliza-alias-wallet-0002',
       },
     });
-    assert.equal(submit.statusCode, 409);
-    assert.equal(submit.body.code, 'WALLET_IDENTITY_CONFLICT');
+    assert.equal(submit.statusCode, 200);
+    assert.equal(submit.body.review_required, true);
+    const requestId = submit.body.request_id;
+    assert.ok(requestId);
 
     const approve = await invoke(scoped.handler, {
       method: 'PATCH',
       headers: { cookie: `nf_token=${token}` },
-      body: { username: 'eliza_stellar', request_id: 'wd_existing', action: 'approve' },
+      body: { username: 'eliza_stellar', request_id: requestId, action: 'approve' },
     });
-    assert.equal(approve.statusCode, 409);
-    assert.equal(approve.body.code, 'WALLET_IDENTITY_CONFLICT');
-    assert.equal(FakeRedis.values.get('nf_user_data:eliza_star'), star);
+    assert.equal(approve.statusCode, 200);
+    // The write lands on the data-bearing canonical record only.
+    const saved = JSON.parse(FakeRedis.values.get('nf_user_data:eliza_star'));
+    assert.equal(saved.withdrawals.length, 1);
+    assert.equal(saved.withdrawals[0].status, 'approved');
     assert.equal(FakeRedis.values.get('nf_user_data:eliza_stellar'), stellar);
   } finally {
     scoped.restore();
@@ -323,9 +328,14 @@ test('POST and PATCH recheck duplicate aliases after the primary lock is acquire
         body: operation.body,
       });
       assert.equal(inserted, true);
-      assert.equal(result.statusCode, 409);
-      assert.equal(result.body.code, 'WALLET_IDENTITY_CONFLICT');
-      assert.equal(FakeRedis.values.get('nf_user_data:eliza_star'), primary);
+      assert.equal(result.statusCode, 200, JSON.stringify(result.body));
+      const settled = JSON.parse(FakeRedis.values.get('nf_user_data:eliza_star'));
+      assert.equal(settled.withdrawals.length, 1);
+      // The alias that appeared mid-flight is preserved untouched for review.
+      assert.deepEqual(
+        JSON.parse(FakeRedis.values.get('nf_user_data:eliza_stellar')),
+        { bonus_balance: 60, withdrawals: [] },
+      );
       assert.equal(FakeRedis.values.has('nf_user_data_lock:v2:eliza_star'), false);
     } finally {
       FakeRedis.prototype.set = originalSet;
@@ -445,7 +455,7 @@ test('invalid wallet identity lookup shapes fail closed', async () => {
   }
 });
 
-test('ordinary punctuation wallets sharing one reporting source fail closed', async () => {
+test('ordinary punctuation wallets sharing one reporting source stay usable under review', async () => {
   const first = JSON.stringify({ bonus_balance: 60, withdrawals: [] });
   const second = JSON.stringify({ bonus_balance: 60, withdrawals: [] });
   FakeRedis.reset({
@@ -461,8 +471,11 @@ test('ordinary punctuation wallets sharing one reporting source fail closed', as
       headers: { cookie: `nf_token=${token}` },
       query: { username: 'foo.bar' },
     });
-    assert.equal(read.statusCode, 409);
-    assert.equal(read.body.code, 'INCOME_SOURCE_OWNER_CONFLICT');
+    assert.equal(read.statusCode, 200);
+    assert.equal(read.body.review_required, true);
+    assert.ok(read.body.review_reasons.includes('income_source_owner_conflict'));
+    // Disputed attribution never contributes canonical source income.
+    assert.equal(read.body.source_total_dn_income, 0);
 
     const write = await invoke(scoped.handler, {
       method: 'POST',
@@ -474,9 +487,13 @@ test('ordinary punctuation wallets sharing one reporting source fail closed', as
         idempotency_key: 'punctuation-owner-0001', // gitleaks:allow — deterministic test value
       },
     });
-    assert.equal(write.statusCode, 409);
-    assert.equal(write.body.code, 'INCOME_SOURCE_OWNER_CONFLICT');
-    assert.equal(FakeRedis.values.get('nf_user_data:foo.bar'), first);
+    assert.equal(write.statusCode, 200);
+    assert.equal(write.body.review_required, true);
+
+    const saved = JSON.parse(FakeRedis.values.get('nf_user_data:foo.bar'));
+    assert.equal(saved.withdrawals.length, 1);
+    assert.equal(saved.withdrawals[0].review_required, true);
+    assert.ok(saved.withdrawals[0].review_reasons.includes('income_source_owner_conflict'));
     assert.equal(FakeRedis.values.get('nf_user_data:foo_bar'), second);
   } finally {
     scoped.restore();
@@ -655,7 +672,7 @@ test('wallet mutations preserve an explicit null withdrawals field', async () =>
   }
 });
 
-test('a sole unverified punctuation wallet cannot consume canonical source income', async () => {
+test('an unverified punctuation wallet only ever spends its own stored balance', async () => {
   const original = JSON.stringify({ bonus_balance: 60, withdrawals: [] });
   FakeRedis.reset({
     'nf_user_data:rootadmin': JSON.stringify({ accountType: 'admin' }),
@@ -674,9 +691,12 @@ test('a sole unverified punctuation wallet cannot consume canonical source incom
         idempotency_key: 'unverified-existing-owner-0001', // gitleaks:allow — deterministic test value
       },
     });
-    assert.equal(result.statusCode, 409);
-    assert.equal(result.body.code, 'INCOME_SOURCE_OWNER_UNVERIFIED');
-    assert.equal(FakeRedis.values.get('nf_user_data:foo.bar'), original);
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.body.review_required, true);
+    const saved = JSON.parse(FakeRedis.values.get('nf_user_data:foo.bar'));
+    assert.equal(saved.withdrawals.length, 1);
+    assert.equal(saved.withdrawals[0].amount, 20);
+    assert.deepEqual(saved.withdrawals[0].review_reasons, ['income_source_owner_unverified']);
   } finally {
     scoped.restore();
   }

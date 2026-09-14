@@ -33,7 +33,11 @@ const {
 const { getAdIdDetails, getLegacyDataJson, resolvePromoterKey } = require('./_lib/stats-data');
 const { isSystemStatsBucket } = require('./_lib/promoter-access');
 const { isApprovedSourceOwner, loadSourceOwnerIndex } = require('./_lib/income-source-owners');
-const { acquireWalletDataLock } = require('./_lib/wallet-identity');
+const {
+  acquireUserFacingWalletDataLock,
+  acquireWalletDataLock,
+  resolveUserFacingWalletStorageIdentity,
+} = require('./_lib/wallet-identity');
 const {
   resolveUsernameAlias,
   resolveWalletStorageIdentity,
@@ -175,6 +179,14 @@ function parseStoredUserData(raw) {
   return data;
 }
 
+function reviewReasonsFor(ownerState, identity) {
+  const reasons = [];
+  if (identity && identity.conflict) reasons.push('wallet_identity_conflict');
+  if (ownerState && ownerState.conflict) reasons.push('income_source_owner_conflict');
+  if (ownerState && ownerState.unverified) reasons.push('income_source_owner_unverified');
+  return reasons;
+}
+
 function walletIdentityConflict(res, identity) {
   return res.status(409).json({
     error: 'Multiple wallet records resolve to the same user',
@@ -305,11 +317,14 @@ module.exports = async (req, res) => {
               const incomeProfile = promoterIncomeProfile(incomeSources, uname);
               const verifiedOwner = !incomeProfile.found ||
                 isApprovedSourceOwner(incomeSources.adData, sourceKey, uname);
-              if (!verifiedOwner || owners.length !== 1 || owners[0] !== uname) {
+              const attributionDisputed = !verifiedOwner || owners.length !== 1 || owners[0] !== uname;
+              if (attributionDisputed) {
+                // Disputed attribution is shown to the reviewer instead of
+                // being filtered out, otherwise a member's pending payout can
+                // silently disappear from the queue.
                 walletConflictsExcluded += 1;
-                return;
               }
-              const walletIncome = computeWalletBalances(ud, incomeProfile, 0).commission_income;
+              const walletIncome = computeWalletBalances(ud, attributionDisputed ? null : incomeProfile, 0).commission_income;
               for (const w of ud.withdrawals) {
                 if (!w || !w.id) continue;
                 const st = (w.status || 'pending').toLowerCase();
@@ -318,6 +333,9 @@ module.exports = async (req, res) => {
                   username: uname,
                   ...w,
                   dn_income: Number(walletIncome).toFixed(2),
+                  ...(attributionDisputed && !w.review_required
+                    ? { review_required: true, review_reasons: ['income_source_owner_review'] }
+                    : {}),
                 });
               }
             });
@@ -356,8 +374,7 @@ module.exports = async (req, res) => {
         return res.status(403).json({ error: 'Forbidden: can only view your own data', code: 'FORBIDDEN' });
       }
 
-      const identity = await resolveWalletStorageIdentity(redis, targetUser);
-      if (identity.conflict) return walletIdentityConflict(res, identity);
+      const identity = await resolveUserFacingWalletStorageIdentity(redis, targetUser);
       const walletUsername = identity.storageUsername;
       const redisKey = `nf_user_data:${walletUsername}`;
       let userData = null;
@@ -384,20 +401,26 @@ module.exports = async (req, res) => {
         targetUser,
         walletUsername,
       );
-      if (ownerState.conflict) return incomeSourceOwnerConflict(res, ownerState.owners);
-      if (ownerState.unverified) return incomeSourceOwnerUnverified(res);
-      const incomeProfile = ownerState.profile;
+      // A disputed wallet or income source no longer hides the member's own
+      // balance. The amount is computed from the wallet record alone so it can
+      // never include income that is still attributed to another account, and
+      // the request is flagged for the manual payout review.
+      const reviewReasons = reviewReasonsFor(ownerState, identity);
+      const reviewRequired = reviewReasons.length > 0;
+      const incomeProfile = reviewRequired ? null : ownerState.profile;
       const balances = computeWalletBalances(
         userData,
         incomeProfile,
         await getIncomeAdjustment(redis, promoterIdentity(incomeSources, targetUser), { failClosed: true }),
       );
-      const daily = buildEarningsDetail(incomeProfile, userData, 30);
+      const daily = buildEarningsDetail(reviewRequired ? ownerState.profile : incomeProfile, userData, 30);
 
       return res.status(200).json({
         success: true,
         username: targetUser,
         wallet_username: walletUsername,
+        review_required: reviewRequired,
+        review_reasons: reviewReasons,
         ...balances,
         earnings_detail: daily,
         min_withdrawal: MIN_WITHDRAWAL,
@@ -436,11 +459,13 @@ module.exports = async (req, res) => {
 
       let walletLock;
       try {
-        walletLock = await acquireWalletDataLock(redis, targetUser);
+        // A historical alias must not stop a member from requesting a payout;
+        // the administrator reviews every request before money moves.
+        walletLock = await acquireUserFacingWalletDataLock(redis, targetUser, {
+          waitMs: 6000,
+          retryDelayMs: 100,
+        });
       } catch (error) {
-        if (error && error.code === 'WALLET_IDENTITY_CONFLICT') {
-          return walletIdentityConflict(res, error.identity || { matches: [] });
-        }
         return res.status(503).json({ error: 'Wallet storage temporarily unavailable', code: 'WALLET_UNAVAILABLE' });
       }
       const { lock, identity } = walletLock;
@@ -468,8 +493,20 @@ module.exports = async (req, res) => {
         targetUser,
         walletUsername,
       );
-      if (ownerState.conflict) return incomeSourceOwnerConflict(res, ownerState.owners);
-      if (ownerState.unverified) return incomeSourceOwnerUnverified(res);
+      const reviewReasons = reviewReasonsFor(ownerState, identity);
+      const reviewRequired = reviewReasons.length > 0;
+
+      // A disputed source can request a payout from a wallet that already
+      // holds its balance, but it must never conjure a brand-new wallet for a
+      // source another account owns.
+      if (reviewRequired) {
+        let walletExists = false;
+        try { walletExists = Boolean(await redis.get(redisKey)); } catch (_error) { walletExists = false; }
+        if (!walletExists) {
+          if (ownerState.conflict) return incomeSourceOwnerConflict(res, ownerState.owners);
+          return incomeSourceOwnerUnverified(res);
+        }
+      }
 
       let userData;
       try {
@@ -509,7 +546,7 @@ module.exports = async (req, res) => {
         });
       }
 
-      const incomeProfile = ownerState.profile;
+      const incomeProfile = reviewRequired ? null : ownerState.profile;
       const incomeAdjustment = await getIncomeAdjustment(redis, promoterIdentity(incomeSources, targetUser), { failClosed: true });
       const balances = computeWalletBalances(userData, incomeProfile, incomeAdjustment);
 
@@ -541,7 +578,12 @@ module.exports = async (req, res) => {
         idempotency_key: idempotencyKey,
         status: 'pending',
         created_at: new Date().toISOString(),
+        wallet_username: walletUsername,
       };
+      if (reviewRequired) {
+        request.review_required = true;
+        request.review_reasons = reviewReasons;
+      }
       userData.withdrawals.push(request);
 
       await commitUserDataUnderLock(redis, redisKey, userData, [lock, incomeSourceLock]);
@@ -551,7 +593,11 @@ module.exports = async (req, res) => {
         success: true,
         wallet_username: walletUsername,
         request_id: request.id,
-        message: `Withdrawal request submitted. $${netAmount.toFixed(2)} will be sent to your PayPal after 5% fee within 3-5 business days.`,
+        review_required: reviewRequired,
+        review_reasons: reviewReasons,
+        message: reviewRequired
+          ? `Withdrawal request submitted. $${netAmount.toFixed(2)} will be sent to your PayPal after the 5% fee once our team finishes the manual review.`
+          : `Withdrawal request submitted. $${netAmount.toFixed(2)} will be sent to your PayPal after 5% fee within 3-5 business days.`,
         request,
         fee_percent: 5,
         net_amount: netAmount,
@@ -581,11 +627,13 @@ module.exports = async (req, res) => {
 
       let walletLock;
       try {
-        walletLock = await acquireWalletDataLock(redis, targetUser);
+        // The administrator is the financial control here, so a historical
+        // alias must not stop them from reviewing a queued payout.
+        walletLock = await acquireUserFacingWalletDataLock(redis, targetUser, {
+          waitMs: 6000,
+          retryDelayMs: 100,
+        });
       } catch (error) {
-        if (error && error.code === 'WALLET_IDENTITY_CONFLICT') {
-          return walletIdentityConflict(res, error.identity || { matches: [] });
-        }
         return res.status(503).json({ error: 'Wallet storage temporarily unavailable', code: 'WALLET_UNAVAILABLE' });
       }
       const { lock, identity } = walletLock;
@@ -616,8 +664,6 @@ module.exports = async (req, res) => {
           targetUser,
           walletUsername,
         );
-        if (ownerState.conflict) return incomeSourceOwnerConflict(res, ownerState.owners);
-        if (ownerState.unverified) return incomeSourceOwnerUnverified(res);
       }
 
       let userData;
@@ -655,7 +701,11 @@ module.exports = async (req, res) => {
       }
 
       if (action === 'approve') {
-        const reviewProfile = ownerState.profile;
+        const approvalReasons = reviewReasonsFor(ownerState, identity);
+        // Disputed attribution is approved against the wallet record alone so
+        // the payout can never include another account's income. The reviewer
+        // sees the reasons on the request before confirming.
+        const reviewProfile = approvalReasons.length ? null : ownerState.profile;
         const reviewBalances = computeWalletBalances(
           userData,
           reviewProfile,
@@ -674,6 +724,7 @@ module.exports = async (req, res) => {
       wd.status = action === 'approve' ? 'approved' : 'rejected';
       wd.processed_at = new Date().toISOString();
       wd.processed_by = jwtUsername;
+      if (action === 'approve') wd.review_completed_by = jwtUsername;
       if (note) wd.admin_note = String(note).slice(0, 500);
 
       // rejected 时钱自动回到 available_balance（因为 pendingTotal 已不再计入）
@@ -684,7 +735,9 @@ module.exports = async (req, res) => {
       let balanceRefreshRequired = false;
       try {
         if (!incomeSources) incomeSources = await loadIncomeSources();
-        const incomeProfile = ownerState?.profile || promoterIncomeProfile(incomeSources, targetUser);
+        const refreshedReasons = reviewReasonsFor(ownerState, identity);
+        const incomeProfile = (refreshedReasons.length ? null : ownerState && ownerState.profile)
+          || (refreshedReasons.length ? null : promoterIncomeProfile(incomeSources, targetUser));
         newBalances = computeWalletBalances(
           userData,
           incomeProfile,
