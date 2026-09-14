@@ -3456,6 +3456,10 @@
                     <div style="display:flex;gap:6px;">
                         <input type="text" id="novelflowIdInput" maxlength="80" autocomplete="off" autocapitalize="none" spellcheck="false" data-i18n-placeholder="app_user_id_placeholder" placeholder="24-character App User ID" style="flex:1;padding:7px 10px;border:1px solid var(--hairline);border-radius:8px;font-size:12px;font-family:inherit;">
                         <button onclick="submitBindId()" data-i18n="bind_btn" style="padding:7px 12px;background:var(--ruby);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Bind</button>
+                        <button id="unbindIdBtn" onclick="unbindNovelFlowId()" data-i18n="unbind_btn" style="display:none;padding:7px 12px;background:transparent;color:var(--ink-mute);border:1px solid var(--hairline);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Unbind</button>
+                    </div>
+                    <div id="firstBindHint" style="display:none;margin-top:8px;font-size:11px;line-height:1.45;color:var(--ink);background:rgba(255,107,157,0.08);border-radius:8px;padding:8px;">
+                        <span data-i18n="first_bind_bonus">🎁 First-time binding gift: 3 days of VIP</span>
                     </div>
                 </div>
 
@@ -4719,6 +4723,19 @@
                 daily_checkin_total: '7 days: 50 pts automatically. Claim $0.50 + 2 VIP after binding your ID and bringing 1 new reader.',
                 streak_unlock_hint: 'Complete 7 check-ins + 1 link + 1 task to unlock',
                 bind_id_required: '🔗 Bind NovelFlow ID (required for VIP rewards)',
+                unbind_btn: 'Unbind',
+                first_bind_bonus: '🎁 First-time binding gift: 3 days of VIP',
+                first_bind_popup_title: 'NovelFlow ID linked!',
+                first_bind_popup_sub: 'Your 3 VIP days are on the way and usually arrive within a few minutes. You can unbind and change the ID any time.',
+                first_bind_popup_ok: 'Got it',
+                first_bind_used: 'This NovelFlow ID already received the first-time gift.',
+                unbind_confirm_title: 'Unbind this NovelFlow ID?',
+                unbind_confirm_sub: 'Rewards and VIP days are delivered to the bound ID, so unbind only if the ID is wrong. You can bind a different one right away.',
+                unbind_confirm_yes: 'Yes, unbind',
+                unbind_confirm_no: 'Cancel',
+                unbind_success: 'NovelFlow ID unbound. You can bind another one now.',
+                unbind_failed: 'Could not unbind the ID. Please try again.',
+                unbind_missing: 'No NovelFlow ID is bound.',
                 app_user_id_placeholder: '24-character App User ID',
                 toast_not_enough: 'Not enough points (need 1000)',
                 toast_vip_activated: '🎉 VIP activated for 3 days!',
@@ -5072,6 +5089,19 @@
                 daily_checkin_total: '7 días: 50 pts automáticos. Reclama $0.50 + 2 VIP tras vincular tu ID y traer 1 lector nuevo.',
                 streak_unlock_hint: 'Completa 7 check-ins + 1 enlace + 1 tarea para desbloquearlo',
                 bind_id_required: '🔗 Vincula tu ID de NovelFlow (necesario para recompensas VIP)',
+                unbind_btn: 'Desvincular',
+                first_bind_bonus: '🎁 Regalo por vincular por primera vez: 3 días de VIP',
+                first_bind_popup_title: '¡ID de NovelFlow vinculado!',
+                first_bind_popup_sub: 'Tus 3 días de VIP están en camino y suelen llegar en pocos minutos. Puedes desvincular y cambiar el ID cuando quieras.',
+                first_bind_popup_ok: 'Entendido',
+                first_bind_used: 'Este ID de NovelFlow ya recibió el regalo de primera vinculación.',
+                unbind_confirm_title: '¿Desvincular este ID de NovelFlow?',
+                unbind_confirm_sub: 'Las recompensas y los días VIP se envían al ID vinculado, así que desvincula solo si el ID es incorrecto. Puedes vincular otro de inmediato.',
+                unbind_confirm_yes: 'Sí, desvincular',
+                unbind_confirm_no: 'Cancelar',
+                unbind_success: 'ID de NovelFlow desvinculado. Ya puedes vincular otro.',
+                unbind_failed: 'No se pudo desvincular el ID. Inténtalo de nuevo.',
+                unbind_missing: 'No hay ningún ID de NovelFlow vinculado.',
                 app_user_id_placeholder: 'ID de usuario de la app de 24 caracteres',
                 toast_not_enough: 'Puntos insuficientes (necesitas 1000)',
                 toast_vip_activated: '🎉 ¡VIP activado por 3 días!',
@@ -6044,17 +6074,89 @@
             const bindBtn = input.parentElement.querySelector('button');
             if (bindBtn) bindBtn.disabled = true;
             try {
-                await RewardsAPI.call('bind_id', { bind_id: id });
+                const result = await RewardsAPI.call('bind_id', { bind_id: id });
                 const btn = document.getElementById('taskBindClaimBtn');
                 if (btn && !isMissionClaimed('bindId')) btn.disabled = false;
                 input.disabled = true;
                 input.value = id;
                 if (bindBtn) { bindBtn.textContent = '✓'; }
+                localStorage.setItem(getUserKey('bind_id'), id);
+                updateBindRowUI(id, true);
                 showToast(getText('toast_id_bound'), 'success');
+                const gift = result && result.first_bind_vip;
+                if (gift && gift.granted && gift.days > 0) {
+                    showFirstBindVipPopup(gift.days);
+                } else if (gift && gift.reason === 'id_already_rewarded') {
+                    showToast(getText('first_bind_used'), 'info');
+                }
             } catch (e) {
                 showToast(e.message || getText('toast_invalid_id'), 'error');
                 if (bindBtn) bindBtn.disabled = false;
             }
+        }
+
+        function updateBindRowUI(bindId, verified) {
+            const row = document.getElementById('bindIdRow');
+            const input = document.getElementById('novelflowIdInput');
+            const unbindBtn = document.getElementById('unbindIdBtn');
+            const hint = document.getElementById('firstBindHint');
+            const bindBtn = input && input.parentElement ? input.parentElement.querySelector('button') : null;
+            if (row) row.style.display = 'flex';
+            if (input) {
+                input.value = bindId || '';
+                input.disabled = Boolean(bindId && verified);
+            }
+            if (bindBtn) bindBtn.style.display = bindId && verified ? 'none' : '';
+            if (unbindBtn) unbindBtn.style.display = bindId ? '' : 'none';
+            if (hint) hint.style.display = bindId ? 'none' : '';
+        }
+
+        function showFirstBindVipPopup(days) {
+            const overlay = document.createElement('div');
+            overlay.className = 'milestone-overlay';
+            overlay.onclick = () => overlay.remove();
+            overlay.innerHTML = '<div class="milestone-popup">' +
+                '<div class="milestone-popup-icon">🎁</div>' +
+                '<div class="milestone-popup-title">' + escapeHtml(getText('first_bind_popup_title')) + '</div>' +
+                '<div class="milestone-popup-points" style="color:#FFD700;">+' + Number(days) + ' ' + escapeHtml(getText('days_streak')) + ' VIP</div>' +
+                '<div class="milestone-popup-sub">' + escapeHtml(getText('first_bind_popup_sub')) + '</div>' +
+                '<button class="milestone-popup-btn" onclick="this.closest(\'.milestone-overlay\').remove()">' + escapeHtml(getText('first_bind_popup_ok')) + '</button>' +
+                '</div>';
+            document.body.appendChild(overlay);
+        }
+
+        async function unbindNovelFlowId() {
+            const current = localStorage.getItem(getUserKey('bind_id')) || '';
+            if (!current) { showToast(getText('unbind_missing'), 'error'); return; }
+            const overlay = document.createElement('div');
+            overlay.className = 'milestone-overlay';
+            overlay.onclick = () => overlay.remove();
+            overlay.innerHTML = '<div class="milestone-popup">' +
+                '<div class="milestone-popup-icon">⚠️</div>' +
+                '<div class="milestone-popup-title">' + escapeHtml(getText('unbind_confirm_title')) + '</div>' +
+                '<div class="milestone-popup-sub">' + escapeHtml(getText('unbind_confirm_sub')) + '</div>' +
+                '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">' +
+                '<button class="milestone-popup-btn" id="unbindConfirmBtn">' + escapeHtml(getText('unbind_confirm_yes')) + '</button>' +
+                '<button class="milestone-popup-btn" style="background:var(--canvas-soft);color:var(--ink);" id="unbindCancelBtn">' + escapeHtml(getText('unbind_confirm_no')) + '</button>' +
+                '</div></div>';
+            document.body.appendChild(overlay);
+            const cancel = overlay.querySelector('#unbindCancelBtn');
+            const confirmBtn = overlay.querySelector('#unbindConfirmBtn');
+            if (cancel) cancel.onclick = () => overlay.remove();
+            if (confirmBtn) confirmBtn.onclick = async () => {
+                confirmBtn.disabled = true;
+                try {
+                    await RewardsAPI.call('unbind_id', { confirm: true });
+                    localStorage.removeItem(getUserKey('bind_id'));
+                    updateBindRowUI('', false);
+                    overlay.remove();
+                    showToast(getText('unbind_success'), 'success');
+                } catch (e) {
+                    confirmBtn.disabled = false;
+                    overlay.remove();
+                    showToast(e.message || getText('unbind_failed'), 'error');
+                }
+            };
         }
 
         async function exchangeVIP() {

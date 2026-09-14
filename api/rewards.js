@@ -48,6 +48,10 @@ const STREAK_POINTS = [5, 5, 5, 5, 5, 10, 15]; // day 1-7
 const MISSION_POINTS = { share1: 20, share3: 50, bindId: 30 };
 const VIP_COST = 1000;
 const VIP_DAYS_AWARDED = 3;
+// One free VIP grant per NovelFlow app id the first time it is bound, so the
+// member can confirm the binding and the delivery chain in one step.
+const FIRST_BIND_VIP_DAYS = 3;
+const FIRST_BIND_MARKER_PREFIX = 'nf_first_bind_vip:v1:';
 const STREAK_GRAND_BONUS = 0.50;
 const STREAK_GRAND_VIP = 2;
 const STREAK_GRAND_REQUIRED = 7;
@@ -308,6 +312,10 @@ module.exports = async (req, res) => {
   }
 
   let sourceGuard = null;
+  // First-bind gift bookkeeping has to survive into the catch block so a failed
+  // commit releases the per-id marker instead of burning it.
+  let firstBindMarkerKey = null;
+  let firstBindMarkerClaimed = false;
   try {
     // Daily check-in only appends points/streak to the account wallet, so it
     // never needs the source-owner guard. Other rewards keep the guard while
@@ -424,10 +432,95 @@ module.exports = async (req, res) => {
         data.bind_id = member.user_id;
         data.bind_id_verified_at = new Date().toISOString();
         historyDetails = { bind_id_verified: true };
+
+        // First-bind gift: 3 days of VIP, once per app id and once per account.
+        // The per-id marker is what makes an unbind/rebind loop worthless.
+        let firstBindVip = { days: 0, granted: false, reason: 'already_claimed' };
+        if (!data.first_bind_vip_at) {
+          const memberId = String(member.user_id).toLowerCase();
+          const markerKey = `${FIRST_BIND_MARKER_PREFIX}${memberId}`;
+          let markerClaimed = false;
+          try {
+            markerClaimed = Boolean(await redis.set(markerKey, username, { nx: true }));
+          } catch (_error) {
+            markerClaimed = false;
+          }
+          if (!markerClaimed) {
+            firstBindVip = { days: 0, granted: false, reason: 'id_already_rewarded' };
+          } else {
+            try {
+              const binding = await loadVerifiedNovelFlowBinding(redis, username, memberId);
+              vipEntitlementEvent = buildVipEntitlement({
+                username,
+                binding: binding || { user_id: memberId },
+                source: 'first_bind',
+                sourceId: 1,
+                days: FIRST_BIND_VIP_DAYS,
+                metadata: { reason: 'first_bind' },
+              });
+              firstBindMarkerKey = markerKey;
+              firstBindMarkerClaimed = true;
+              data.first_bind_vip_at = new Date().toISOString();
+              historyDetails = { ...historyDetails, first_bind_vip_days: FIRST_BIND_VIP_DAYS };
+              firstBindVip = { days: FIRST_BIND_VIP_DAYS, granted: true, reason: 'granted' };
+            } catch (_error) {
+              try { await redis.del(markerKey); } catch (_cleanupError) {}
+              firstBindVip = { days: 0, granted: false, reason: 'unavailable' };
+            }
+          }
+        }
+
         result = {
           ...result,
           bind_id: member.user_id,
-          message: 'NovelFlow ID bound successfully!',
+          first_bind_vip: firstBindVip,
+          message: firstBindVip.granted
+            ? `NovelFlow ID bound successfully! +${FIRST_BIND_VIP_DAYS} days of VIP are on the way.`
+            : 'NovelFlow ID bound successfully!',
+        };
+        break;
+      }
+
+      // ========== UNBIND NOVELFLOW ID ==========
+      case 'unbind_id': {
+        if (req.body && req.body.confirm !== true) {
+          return res.status(400).json({
+            error: 'Unbinding requires confirmation',
+            code: 'CONFIRMATION_REQUIRED',
+          });
+        }
+        const previousMemberId = data.bind_id ? String(data.bind_id).toLowerCase() : null;
+        if (!previousMemberId) {
+          return res.status(400).json({ error: 'No NovelFlow ID is bound', code: 'NO_BIND_ID' });
+        }
+        // Release the binding pair only when it belongs to this account; a
+        // mismatched or foreign record is left untouched.
+        try {
+          const userKey = `nf_app_binding:v1:user:${username}`;
+          const memberKey = `nf_app_binding:v1:member:${previousMemberId}`;
+          const [bindingRaw, ownerRaw] = typeof redis.mget === 'function'
+            ? await redis.mget(userKey, memberKey)
+            : await Promise.all([redis.get(userKey), redis.get(memberKey)]);
+          let binding = bindingRaw;
+          if (typeof bindingRaw === 'string') {
+            try { binding = JSON.parse(bindingRaw); } catch (_error) { binding = null; }
+          }
+          const owner = String(ownerRaw || '').trim().toLowerCase();
+          if (binding && typeof binding === 'object' && String(binding.username || '').toLowerCase() === username) {
+            await redis.del(userKey);
+          }
+          if (owner === username) await redis.del(memberKey);
+        } catch (_error) {
+          // The account record is still cleared below; a stale binding key only
+          // means the same id cannot be reused until it is cleaned up.
+        }
+        data.bind_id = null;
+        data.bind_id_verified_at = null;
+        historyDetails = { bind_id_unbound: true, previous_member_id: previousMemberId };
+        result = {
+          ...result,
+          bind_id: null,
+          message: 'NovelFlow ID unbound. You can bind a different ID now.',
         };
         break;
       }
@@ -583,6 +676,8 @@ module.exports = async (req, res) => {
       vip_days: data.vip_days,
       checkin: data.checkin,
       bind_id: data.bind_id || null,
+      bind_id_verified_at: data.bind_id_verified_at || null,
+      first_bind_vip_at: data.first_bind_vip_at || null,
       claimed: data.claimed,
       bonus_campaign1_claimed: data.bonus_campaign1_claimed || null,
       streak_grand_claimed: data.streak_grand_claimed || null,
@@ -604,6 +699,10 @@ module.exports = async (req, res) => {
     return res.status(200).json(result);
 
   } catch (error) {
+    // A failed commit must not consume the first-bind gift.
+    if (firstBindMarkerClaimed && firstBindMarkerKey) {
+      try { await redis.del(firstBindMarkerKey); } catch (_cleanupError) {}
+    }
     console.error('[rewards] Error:', {
       action,
       username,

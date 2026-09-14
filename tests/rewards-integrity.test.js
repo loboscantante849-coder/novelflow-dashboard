@@ -733,3 +733,87 @@ test('a NovelFlow ID pasted with its profile label is still accepted', async () 
   assert.equal(normalizePublicId(id.slice(0, 23)), null);
   assert.equal(normalizePublicId(''), null);
 });
+
+test('a first binding grants three VIP days once per app id', async () => {
+  const userId = '69aa3b8cf8225baa929dedf8';
+  const bindingUserKeyName = `nf_app_binding:v1:user:zoe`;
+  const bindingMemberKeyName = `nf_app_binding:v1:member:${userId}`;
+  const markerKey = `nf_first_bind_vip:v1:${userId}`;
+
+  FakeRedis.reset({ 'nf_user_data:zoe': JSON.stringify({ points: 5 }) });
+  mockMemberLookup();
+
+  const first = await invoke(rewards, {
+    headers: authHeaders('zoe'),
+    body: { action: 'bind_id', bind_id: 'ID: ' + userId },
+  });
+
+  assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+  assert.deepEqual(first.body.first_bind_vip, { days: 3, granted: true, reason: 'granted' });
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).bind_id, userId);
+  assert.equal(FakeRedis.values.get(markerKey), 'zoe');
+  assert.equal(FakeRedis.values.get(bindingMemberKeyName), 'zoe');
+  const eventKey = [...FakeRedis.values.keys()].find(key => key.startsWith('nf_vip_event:v1:'));
+  assert.ok(eventKey, 'a VIP entitlement event should be queued');
+  const event = JSON.parse(FakeRedis.values.get(eventKey));
+  assert.equal(event.source, 'first_bind');
+  assert.equal(event.user_id, userId);
+  assert.equal(event.days, 3);
+  assert.equal(event.status, 'pending');
+
+  // Unbinding and binding the same id again must not hand out another gift.
+  const unbind = await invoke(rewards, {
+    headers: authHeaders('zoe'),
+    body: { action: 'unbind_id', confirm: true },
+  });
+  assert.equal(unbind.statusCode, 200, JSON.stringify(unbind.body));
+  assert.equal(FakeRedis.values.has(bindingUserKeyName), false);
+  assert.equal(FakeRedis.values.has(bindingMemberKeyName), false);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).bind_id, null);
+
+  const again = await invoke(rewards, {
+    headers: authHeaders('zoe'),
+    body: { action: 'bind_id', bind_id: userId },
+  });
+  assert.equal(again.statusCode, 200, JSON.stringify(again.body));
+  assert.equal(again.body.first_bind_vip.granted, false);
+  assert.equal(again.body.first_bind_vip.reason, 'already_claimed');
+});
+
+test('unbinding needs explicit confirmation and rejects unbound accounts', async () => {
+  FakeRedis.reset({ 'nf_user_data:zoe': JSON.stringify({ points: 5, bind_id: '69aa3b8cf8225baa929dedf8' }) });
+
+  const missingConfirm = await invoke(rewards, {
+    headers: authHeaders('zoe'),
+    body: { action: 'unbind_id' },
+  });
+  assert.equal(missingConfirm.statusCode, 400);
+  assert.equal(missingConfirm.body.code, 'CONFIRMATION_REQUIRED');
+
+  FakeRedis.reset({ 'nf_user_data:zoe': JSON.stringify({ points: 5 }) });
+  const notBound = await invoke(rewards, {
+    headers: authHeaders('zoe'),
+    body: { action: 'unbind_id', confirm: true },
+  });
+  assert.equal(notBound.statusCode, 400);
+  assert.equal(notBound.body.code, 'NO_BIND_ID');
+});
+
+test('the first-bind gift is limited per account even with a different id', async () => {
+  const first = '69aa3b8cf8225baa929dedf8';
+  const second = '69aa3b8cf8225baa929dedf9';
+  FakeRedis.reset({ 'nf_user_data:zoe': JSON.stringify({ points: 5 }) });
+  mockMemberLookup();
+
+  const granted = await invoke(rewards, { headers: authHeaders('zoe'), body: { action: 'bind_id', bind_id: first } });
+  assert.equal(granted.body.first_bind_vip.granted, true);
+
+  const unbind = await invoke(rewards, { headers: authHeaders('zoe'), body: { action: 'unbind_id', confirm: true } });
+  assert.equal(unbind.statusCode, 200);
+
+  const secondBind = await invoke(rewards, { headers: authHeaders('zoe'), body: { action: 'bind_id', bind_id: second } });
+  assert.equal(secondBind.statusCode, 200, JSON.stringify(secondBind.body));
+  assert.equal(secondBind.body.first_bind_vip.granted, false);
+  assert.equal(secondBind.body.first_bind_vip.reason, 'already_claimed');
+  assert.equal(FakeRedis.values.has(`nf_first_bind_vip:v1:${second}`), false);
+});
