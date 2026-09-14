@@ -8478,7 +8478,11 @@
                 : Math.max(0, (Number(cloud.bonus_balance) || 0) - legacyCarryover);
             localStorage.setItem(getUserKey('reward_income_total'), String(rewardIncome));
 
-            if (typeof cloud.bind_id === 'string' && cloud.bind_id) {
+            // Only a verified binding may lock the ID field. A legacy or
+            // mistyped value used to be cached locally, which disabled the
+            // input and left the account unable to re-enter the correct ID
+            // while every VIP reward kept failing.
+            if (typeof cloud.bind_id === 'string' && cloud.bind_id && cloud.bind_id_verified_at) {
                 localStorage.setItem(getUserKey('bind_id'), cloud.bind_id);
             } else {
                 localStorage.removeItem(getUserKey('bind_id'));
