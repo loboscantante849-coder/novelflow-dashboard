@@ -10,7 +10,7 @@ process.env.KV_REST_API_TOKEN = 'test-token';
 
 const { signAccessToken } = require('../api/_lib/auth');
 const statsData = require('../api/_lib/stats-data');
-const { resolveUsernameAlias, resolveWalletStorageIdentity, resolveReadOnlyWalletStorageIdentity } = require('../api/_lib/wallet-identity');
+const { resolveUsernameAlias, resolveWalletStorageIdentity, resolveReadOnlyWalletStorageIdentity, resolveUserFacingWalletStorageIdentity } = require('../api/_lib/wallet-identity');
 const { userDataLockKey } = require('../api/_lib/user-data-lock');
 const { isAdminUser, isDisabledUser } = require('../api/_lib/security');
 
@@ -945,4 +945,28 @@ test('non-finite stored wallet money is reconciled instead of withdrawable', asy
   } finally {
     scoped.restore();
   }
+});
+
+test('an operator alias marker folds duplicate spellings into one wallet', async () => {
+  FakeRedis.reset({
+    'nf_user_data:eliza stellar': JSON.stringify({ points: 730, myBooks: [{ code: '1' }], withdrawals: [] }),
+    'nf_user_data:Eliza Stellar': JSON.stringify({ points: 290, withdrawals: [] }),
+    'nf_user_data:eliza_star': JSON.stringify({ points: 55, withdrawals: [] }),
+    'nf_wallet_alias:eliza_star': 'eliza stellar',
+    'nf_wallet_alias:eliza stellar': 'eliza stellar',
+  });
+  const identity = await resolveUserFacingWalletStorageIdentity(new FakeRedis(), 'eliza_star');
+  assert.equal(identity.conflict, false);
+  assert.equal(identity.reviewRequired, false);
+  assert.equal(identity.storageUsername, 'eliza stellar');
+
+  // Without the marker the same keys stay a conflict, so a typo can never
+  // silently join two wallets.
+  FakeRedis.reset({
+    'nf_user_data:eliza stellar': JSON.stringify({ points: 730, withdrawals: [] }),
+    'nf_user_data:eliza_star': JSON.stringify({ points: 55, withdrawals: [] }),
+  });
+  const unmarked = await resolveUserFacingWalletStorageIdentity(new FakeRedis(), 'eliza_star');
+  assert.equal(unmarked.conflict, true);
+  assert.equal(unmarked.reviewRequired, true);
 });
