@@ -2516,6 +2516,23 @@ function pendingProductionLabel(item) {
 }
 
 function activeAutopilotItems() {
+  // Keep this projection independently evaluable in lightweight embeds and
+  // tests that load only the status helpers. The full page still uses the
+  // shared operatorFacingText sanitizer below.
+  const facing = (value) => {
+    const text = String(value || '').trim();
+    if (!text) return '';
+    const cleaned = text
+      .replace(/海报结果需人工核验[；;]?/gi, '')
+      .replace(/海报已单独排队重试[^；;。.]*/gi, '')
+      .replace(/海报未纳入[^；;。.]*/gi, '')
+      .replace(/poster(?:s| prompts?)?[^；;。.]*/gi, '')
+      .replace(/P3[_\.]?5/gi, '')
+      .replace(/^[\s·；;，,]+|[\s·；;，,]+$/g, '')
+      .replace(/[；;]{2,}/g, '；')
+      .trim();
+    return cleaned || '后台继续推进';
+  };
   return state.runs
     .filter((run) => ['queued', 'running', 'blocked', 'failed'].includes(run.state) && run.autopilot?.enabled !== false)
     .slice(0, 6)
@@ -2523,7 +2540,7 @@ function activeAutopilotItems() {
       const done = completedHarnessStages(run);
       const live = currentStage(run);
       const model = modelLabel(run.artifacts?.modelRoute?.activeModel || run.input?.creativeProfile?.modelChoice || 'deepseek-v4-flash-preview');
-      const next = operatorFacingText(run.autopilot?.nextActionLabel || live?.[1]?.label || stageLabels[live?.[0]] || '后台正在推进');
+      const next = facing(run.autopilot?.nextActionLabel || live?.[1]?.label || stageLabels[live?.[0]] || '后台正在推进');
       return {
         kind: 'run', key: `run:${run.id}`, runId: run.id, title: run.input?.title || run.artifacts?.book?.title || '未命名任务',
         routeIdentity: routeProductionIdentity({ title: run.input?.title || run.artifacts?.book?.title, sku: run.input?.sku || run.artifacts?.book?.bookSkuId }, run.input?.delivery || {}),
@@ -3185,7 +3202,7 @@ function runOutcome(run) {
   if (ambiguous) {
     return { className: 'ambiguous', label: `需人工核验 · ${stageLabels[ambiguous[0]] || ambiguous[0]}` };
   }
-  const partial = Object.entries(run.stages || {}).find(([key, stage]) => key !== 'P3_5' && stage?.status === 'partial');
+  const partial = Object.entries(run.stages || {}).find(([, stage]) => stage?.status === 'partial');
   if (run.state === 'completed' && partial) {
     return { className: 'partial', label: `主体完成 · ${stageLabels[partial[0]] || partial[0]}部分完成` };
   }

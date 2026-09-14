@@ -1101,8 +1101,8 @@ function normalizeCreativeWireObject(value) {
   // a second, bulky prompt that can be truncated or drift from the plan.
   if (normalized.scenePlan && typeof normalized.scenePlan === 'object' && !Array.isArray(normalized.scenePlan)) {
     const derived = deriveVideoPromptFields(normalized.scenePlan);
-    if (derived.adCopy && !String(normalized.adCopy || '').trim()) normalized.adCopy = derived.adCopy;
-    if (derived.buildRequirement && !String(normalized.buildRequirement || '').trim()) normalized.buildRequirement = derived.buildRequirement;
+    if (derived.adCopy) normalized.adCopy = derived.adCopy;
+    if (derived.buildRequirement) normalized.buildRequirement = derived.buildRequirement;
   }
   return normalized;
 }
