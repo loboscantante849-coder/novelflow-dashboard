@@ -1006,3 +1006,17 @@ test('alias markers keep the member income visible for folded spellings', async 
     scoped.restore();
   }
 });
+
+test('folded spellings count as one owner of an income source', async () => {
+  FakeRedis.reset({
+    'nf_user_data:eliza stellar': JSON.stringify({ withdrawals: [] }),
+    'nf_user_data:Eliza Stellar': JSON.stringify({ withdrawals: [] }),
+    'nf_user_data:eliza_star': JSON.stringify({ withdrawals: [] }),
+    'nf_wallet_alias:eliza_star': 'eliza stellar',
+    'nf_wallet_alias:eliza stellar': 'eliza stellar',
+  });
+  const { loadSourceOwnerIndex } = require('../api/_lib/income-source-owners');
+  const adData = { by_promoter: { eliza_stellar: { display_name: 'Eliza Stellar', links: [] } }, ad_ids: {} };
+  const index = await loadSourceOwnerIndex(new FakeRedis(), adData);
+  assert.deepEqual(index.ownersBySource.get('eliza_stellar'), ['eliza stellar']);
+});

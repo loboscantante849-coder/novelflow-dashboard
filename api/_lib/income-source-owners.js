@@ -1,7 +1,7 @@
 const { createPromoterKeyResolver, getAdIdDetails } = require('./stats-data');
 const { acquireUserDataLock, releaseUserDataLock } = require('./user-data-lock');
 const { VERIFIED_SOURCE_OWNER_ALIASES } = require('./income-source-aliases');
-const { resolveUsernameAlias } = require('./wallet-identity');
+const { loadWalletAliasTargets, resolveUsernameAlias } = require('./wallet-identity');
 
 function normalizeOwner(value) {
   return String(value || '').trim().toLowerCase();
@@ -85,12 +85,20 @@ async function scanWalletKeys(redis) {
   return Array.from(keys);
 }
 
-function buildSourceOwnerIndex(walletKeys, resolveSourceKey) {
+function buildSourceOwnerIndex(walletKeys, resolveSourceKey, aliasTargets = new Map()) {
   const ownersBySource = new Map();
+  const seen = new Set();
   for (const key of walletKeys) {
-    const username = String(key).replace(/^nf_user_data:/, '');
-    const sourceKey = resolveSourceKey(username);
+    const raw = String(key).replace(/^nf_user_data:/, '');
+    // Spellings the operator folded into one member count as one owner,
+    // otherwise a historical duplicate looks like a second wallet claiming the
+    // same income source and blocks the member from creating links.
+    const username = aliasTargets.get(raw) || raw;
+    const sourceKey = resolveSourceKey(username) || resolveSourceKey(raw);
     if (!sourceKey) continue;
+    const dedupe = `${sourceKey}::${username.toLowerCase()}`;
+    if (seen.has(dedupe)) continue;
+    seen.add(dedupe);
     const owners = ownersBySource.get(sourceKey) || [];
     owners.push(username);
     ownersBySource.set(sourceKey, owners);
@@ -101,10 +109,19 @@ function buildSourceOwnerIndex(walletKeys, resolveSourceKey) {
 async function loadSourceOwnerIndex(redis, adData) {
   const resolveSourceKey = createPromoterKeyResolver(adData || {});
   const walletKeys = await scanWalletKeys(redis);
+  let aliasTargets = new Map();
+  try {
+    aliasTargets = await loadWalletAliasTargets(
+      redis,
+      walletKeys.map(key => String(key).replace(/^nf_user_data:/, '')),
+    );
+  } catch (_error) {
+    aliasTargets = new Map();
+  }
   return {
     walletKeys,
     resolveSourceKey,
-    ownersBySource: buildSourceOwnerIndex(walletKeys, resolveSourceKey),
+    ownersBySource: buildSourceOwnerIndex(walletKeys, resolveSourceKey, aliasTargets),
   };
 }
 
