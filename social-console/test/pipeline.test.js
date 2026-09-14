@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const providers = require('../api/_lib/providers');
-const { processRun, processRunBatch, p1, p2, p3, selectedChapters, normalizeCreative, compileVideoScenePlan, assertPremiumCopyOpening, sourceGroundedCreativeFallback, reserveCampaignCreativeUniqueness, recoverAmbiguousPostersFromExactSibling, recoverPreparedVideoFromExactSibling, videoContractFingerprint, chapterEvidenceQuote, summarizeAnalytics, videoPayload } = require('../api/_lib/pipeline');
+const { processRun, processRunBatch, p1, p2, p3, selectedChapters, normalizeCreative, compileVideoScenePlan, assertPremiumCopyOpening, sourceGroundedCreativeFallback, reserveCampaignCreativeUniqueness, recoverAmbiguousPostersFromExactSibling, recoverPreparedVideoFromExactSibling, videoContractFingerprint, chapterEvidenceQuote, summarizeAnalytics, videoPayload, ensureModelRoute, creativeRepairModel } = require('../api/_lib/pipeline');
 const { processCreativePlan } = require('../api/_lib/creative-plans');
 const { newRun, newCreativePlan, reserveVideoSlot, saveRun, registerActiveRun } = require('../api/_lib/store');
 const { normalizeDelivery } = require('../api/_lib/distribution');
@@ -2051,6 +2051,21 @@ test('P2 uses locked evidence after one malformed DeepSeek repair instead of a t
   assert.equal(run.stages.P2.status, 'done');
   assert.equal(run.stages.P2.phase, 'evidence_continuation');
   assert.equal(run.artifacts.modelRoute.activeModel, 'deepseek');
+});
+
+test('premium uniqueness campaign stays on DeepSeek when a stale HY3 route is present', () => {
+  const run = newRun({
+    title: 'Pinned Romance', sku: 'pinned-sku', promoter: 'xujt',
+    paidAuthorized: true,
+    creativeProfile: { modelChoice: 'deepseek-v4-flash-preview', qualityMode: 'premium', uniquenessRequired: true },
+    campaign: { id: 'campaign_pinned_20260914' }
+  });
+  run.artifacts.modelRoute = { preferredModel: 'deepseek-v4-flash-preview', activeModel: 'hy3', fallbackModel: 'hy3', fallbackUsed: true };
+  const route = ensureModelRoute(run);
+  assert.equal(route.preferredModel, 'deepseek-v4-flash-preview');
+  assert.equal(route.activeModel, 'deepseek-v4-flash-preview');
+  assert.equal(run.input.creativeProfile.modelChoice, 'deepseek-v4-flash-preview');
+  assert.equal(creativeRepairModel(route.activeModel), 'deepseek');
 });
 
 test('nonrecoverable P3 model configuration errors stop background recovery', async (t) => {
