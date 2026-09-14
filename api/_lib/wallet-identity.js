@@ -128,12 +128,54 @@ async function resolveWalletStorageIdentity(redis, requestedUsername) {
     ...directMatches,
     ...caseVariantMatches,
   ]));
+  // An operator can consolidate historical spellings of one account. The
+  // marker records that two keys are the same person, so the duplicate stops
+  // counting as a separate wallet (which used to blank the member's income on
+  // their own page) while nothing is deleted and login keeps working.
+  const aliasTargets = await loadWalletAliasTargets(redis, matches);
+  const collapsed = new Map();
+  for (const name of matches) {
+    const target = aliasTargets.get(name) || name;
+    const key = String(target).trim();
+    if (!collapsed.has(key)) collapsed.set(key, target);
+  }
+  if (collapsed.size === 1) {
+    const [onlyName] = collapsed.values();
+    return {
+      primaryUsername,
+      storageUsername: onlyName,
+      conflict: false,
+      matches: [onlyName],
+    };
+  }
   return {
     primaryUsername,
     storageUsername: matches.length === 1 ? matches[0] : primaryUsername,
     conflict: matches.length > 1,
     matches,
   };
+}
+
+async function loadWalletAliasTargets(redis, names) {
+  const targets = new Map();
+  if (!redis || typeof redis.get !== 'function' || !names.length) return targets;
+  for (const name of names) {
+    const raw = await redis.get(`nf_wallet_alias:${String(name).toLowerCase()}`);
+    if (!raw) continue;
+    const trimmed = String(raw).trim();
+    if (!trimmed || trimmed === String(name).trim()) continue;
+    targets.set(name, trimmed);
+  }
+  // Follow at most a few hops so a stale marker cannot loop.
+  for (let hop = 0; hop < 4; hop += 1) {
+    let changed = false;
+    for (const [name, target] of targets.entries()) {
+      const next = targets.get(target);
+      if (next) { targets.set(name, next); changed = true; }
+    }
+    if (!changed) break;
+  }
+  return targets;
 }
 
 function parseReadOnlyWalletRecord(raw) {
