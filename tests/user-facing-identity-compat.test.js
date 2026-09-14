@@ -140,3 +140,46 @@ test('a conflicting identity owner index is tolerated in production only', async
   assert.equal(compatible.statusCode, 200);
   assert.equal(compatible.body.data.points, 5);
 });
+
+test('an established wallet skips the income-source guard on sync', async () => {
+  process.env.VERCEL_ENV = 'production';
+  const owners = require('../api/_lib/income-source-owners');
+  const originalGuard = owners.acquireWalletCreationSourceGuard;
+  const calls = [];
+  owners.acquireWalletCreationSourceGuard = async (redis, username) => {
+    calls.push(username);
+    const error = new Error('Wallet identity is not the verified owner of this income source');
+    error.code = 'INCOME_SOURCE_OWNER_UNVERIFIED';
+    throw error;
+  };
+  delete require.cache[require.resolve('../api/user-data')];
+  const handler = require('../api/user-data');
+  try {
+    const token = signAccessToken({ type: 'local', username: 'foo.bar' });
+
+    // The account record already exists, so syncing it is the member's own
+    // data and the guard must not run at all.
+    FakeRedis.reset({ 'nf_user_data:foo.bar': JSON.stringify({ points: 3 }) });
+    const existing = await invoke(handler, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: { data: { myBooks: [{ bookId: 'b2', code: '2' }] } },
+    });
+    assert.equal(existing.statusCode, 200, JSON.stringify(existing.body));
+    assert.deepEqual(calls, []);
+
+    // A wallet that would be created still goes through the guard.
+    FakeRedis.reset({});
+    const creating = await invoke(handler, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: { data: { myBooks: [{ bookId: 'b3', code: '3' }] } },
+    });
+    assert.equal(creating.statusCode, 409);
+    assert.equal(creating.body.code, 'INCOME_SOURCE_OWNER_UNVERIFIED');
+    assert.deepEqual(calls, ['foo.bar']);
+  } finally {
+    owners.acquireWalletCreationSourceGuard = originalGuard;
+    delete require.cache[require.resolve('../api/user-data')];
+  }
+});
