@@ -7,9 +7,17 @@ const GRANT_API = 'https://admin.novelflow.app/api/v1/usermanage/member';
 const REQUEST_TIMEOUT_MS = 7000;
 const OBJECT_ID_RE = /^[a-f0-9]{24}$/i;
 
+// Members copy the ID the way the app profile shows it, which is often
+// `ID: 69aa3b8cf8225baa929dedf8` or a line with surrounding text. Pull out the
+// first standalone 24-character hex token instead of rejecting the paste: the
+// stored value has to be the bare ID or every VIP reward keeps failing.
 function normalizePublicId(value) {
-  const id = String(value || '').trim();
-  return OBJECT_ID_RE.test(id) ? id.toLowerCase() : null;
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const direct = OBJECT_ID_RE.test(raw) ? raw.toLowerCase() : null;
+  if (direct) return direct;
+  const match = raw.match(/(?:^|[^0-9a-f])([0-9a-f]{24})(?![0-9a-f])/i);
+  return match ? match[1].toLowerCase() : null;
 }
 
 function extractRows(payload) {

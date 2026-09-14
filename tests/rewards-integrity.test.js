@@ -716,3 +716,18 @@ test('the 7-day streak grand prize rejects a second claim during its cooldown', 
   assert.equal(response.body.code, 'STREAK_GRAND_COOLDOWN');
   assert.ok(Date.parse(response.body.available_at) > Date.now());
 });
+
+test('a NovelFlow ID pasted with its profile label is still accepted', async () => {
+  const { normalizePublicId } = require('../api/_lib/novelflow-member');
+  const id = '69aa3b8cf8225baa929dedf8';
+  assert.equal(normalizePublicId(id), id);
+  assert.equal(normalizePublicId('ID: ' + id), id);
+  assert.equal(normalizePublicId('ID:' + id.toUpperCase()), id);
+  assert.equal(normalizePublicId('  ' + id + '  '), id);
+  assert.equal(normalizePublicId('my id is ' + id + ' thanks'), id);
+  // Values that are not a standalone 24-character id still fail.
+  assert.equal(normalizePublicId('abc123'), null);
+  assert.equal(normalizePublicId(id + 'f'), null);
+  assert.equal(normalizePublicId(id.slice(0, 23)), null);
+  assert.equal(normalizePublicId(''), null);
+});
