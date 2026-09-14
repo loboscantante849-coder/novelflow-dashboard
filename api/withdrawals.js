@@ -46,7 +46,6 @@ const {
   isSafeMoneyValue,
 } = require('./_lib/wallet-contract');
 const { buildIncomeProfile } = require('./_lib/commission-policy');
-const { applyRecoveredIncome, loadRecoveredIncome } = require('./_lib/recovered-income');
 const {
   MIN_WITHDRAWAL,
   MAX_WITHDRAWAL,
@@ -72,22 +71,18 @@ async function loadIncomeSources() {
   return { data, adData };
 }
 
-async function promoterIncomeProfile(redis, sources, username) {
+function promoterIncomeProfile(sources, username) {
   const resolved = sources.adData ? resolvePromoterKey(username, sources.adData) : username;
-  const profile = buildIncomeProfile(sources.data, resolved || username);
-  // Recovered legacy codes keep their real dates, so pre-cutoff amounts stay
-  // in the historical carryover and later amounts follow the current rate.
-  const recovered = await loadRecoveredIncome(redis, [resolved, username, profile.sourceKey]);
-  return applyRecoveredIncome(profile, recovered);
+  return buildIncomeProfile(sources.data, resolved || username);
 }
 
 function promoterIdentity(sources, username) {
   return (sources.adData && resolvePromoterKey(username, sources.adData)) || username;
 }
 
-async function incomeSourceContext(redis, sources, username) {
+function incomeSourceContext(sources, username) {
   const reportingUsername = promoterIdentity(sources, username);
-  const profile = await promoterIncomeProfile(redis, sources, username);
+  const profile = buildIncomeProfile(sources.data, reportingUsername);
   return {
     profile,
     sourceKey: sources.adData ? reportingUsername : (profile.sourceKey || reportingUsername),
@@ -96,7 +91,7 @@ async function incomeSourceContext(redis, sources, username) {
 }
 
 async function inspectIncomeSourceOwner(redis, sources, targetUser, walletUsername) {
-  const context = await incomeSourceContext(redis, sources, targetUser);
+  const context = incomeSourceContext(sources, targetUser);
   if (!context.profile.found) return { ...context, conflict: false, owners: [] };
   const index = await loadSourceOwnerIndex(redis, sources.adData);
   const indexedSource = index.resolveSourceKey(targetUser) || context.sourceKey;
@@ -112,7 +107,7 @@ async function inspectIncomeSourceOwner(redis, sources, targetUser, walletUserna
 }
 
 async function acquireIncomeSourceOwnerLock(redis, sources, targetUser) {
-  const context = await incomeSourceContext(redis, sources, targetUser);
+  const context = incomeSourceContext(sources, targetUser);
   if (!context.profile.found) return { ...context, lock: null, required: false };
   const lock = await acquireUserDataLock(redis, `income-source-owner:${context.sourceKey}`);
   return { ...context, lock, required: true };
@@ -182,22 +177,6 @@ function parseStoredUserData(raw) {
     throw error;
   }
   return data;
-}
-
-/**
- * True when every wallet that resolves to this income source is one of the
- * member's own spellings. Several spellings of one person are a naming problem;
- * a source shared with a different login name is a real ownership dispute.
- */
-function ownersAreOwnSpellings(ownerState, identity) {
-  const owners = (ownerState && Array.isArray(ownerState.owners) ? ownerState.owners : [])
-    .map(name => String(name || '').trim().toLowerCase())
-    .filter(Boolean);
-  if (!owners.length) return false;
-  const spellings = new Set((identity && Array.isArray(identity.matches) ? identity.matches : [])
-    .map(name => String(name || '').trim().toLowerCase())
-    .filter(Boolean));
-  return owners.every(name => spellings.has(name));
 }
 
 function reviewReasonsFor(ownerState, identity) {
@@ -321,22 +300,21 @@ module.exports = async (req, res) => {
               error.code = 'WALLET_OWNER_LOOKUP_UNAVAILABLE';
               throw error;
             }
-            for (let i = 0; i < keys.length; i++) {
-              const k = keys[i];
+            keys.forEach((k, i) => {
               const v = values[i];
-              if (!v) continue;
+              if (!v) return;
               let ud = v;
-              if (typeof v === 'string') { try { ud = JSON.parse(v); } catch(_) { continue; } }
-              if (!ud || typeof ud !== 'object' || !Array.isArray(ud.withdrawals)) continue;
+              if (typeof v === 'string') { try { ud = JSON.parse(v); } catch(_) { return; } }
+              if (!ud || typeof ud !== 'object' || !Array.isArray(ud.withdrawals)) return;
               const uname = k.replace(/^nf_user_data:/, '');
-              if (isSystemStatsBucket(uname)) continue;
+              if (isSystemStatsBucket(uname)) return;
               if (ud.wallet_merged_into) {
                 mergedWalletsExcluded += 1;
-                continue;
+                return;
               }
               const sourceKey = ownerIndex.resolveSourceKey(uname);
               const owners = sourceKey ? ownerIndex.ownersBySource.get(sourceKey) || [] : [];
-              const incomeProfile = await promoterIncomeProfile(redis, incomeSources, uname);
+              const incomeProfile = promoterIncomeProfile(incomeSources, uname);
               const verifiedOwner = !incomeProfile.found ||
                 isApprovedSourceOwner(incomeSources.adData, sourceKey, uname);
               const attributionDisputed = !verifiedOwner || owners.length !== 1 || owners[0] !== uname;
@@ -360,7 +338,7 @@ module.exports = async (req, res) => {
                     : {}),
                 });
               }
-            }
+            });
           }
         }
 
@@ -429,19 +407,13 @@ module.exports = async (req, res) => {
       // the request is flagged for the manual payout review.
       const reviewReasons = reviewReasonsFor(ownerState, identity);
       const reviewRequired = reviewReasons.length > 0;
-      // Several wallet spellings of one member are a naming problem, not a
-      // disputed owner, so the member still sees their own income while the
-      // review flags keep the payout gated. When the source is shared with a
-      // different login name the profile stays blank, because that income may
-      // belong to another account.
-      const spellingGroupOnly = ownersAreOwnSpellings(ownerState, identity);
-      const incomeProfile = (reviewRequired && !spellingGroupOnly) ? null : ownerState.profile;
+      const incomeProfile = reviewRequired ? null : ownerState.profile;
       const balances = computeWalletBalances(
         userData,
         incomeProfile,
         await getIncomeAdjustment(redis, promoterIdentity(incomeSources, targetUser), { failClosed: true }),
       );
-      const daily = buildEarningsDetail(incomeProfile || ownerState.profile, userData, 30);
+      const daily = buildEarningsDetail(reviewRequired ? ownerState.profile : incomeProfile, userData, 30);
 
       return res.status(200).json({
         success: true,
@@ -574,9 +546,7 @@ module.exports = async (req, res) => {
         });
       }
 
-      const incomeProfile = (reviewRequired && !ownersAreOwnSpellings(ownerState, identity))
-        ? null
-        : ownerState.profile;
+      const incomeProfile = reviewRequired ? null : ownerState.profile;
       const incomeAdjustment = await getIncomeAdjustment(redis, promoterIdentity(incomeSources, targetUser), { failClosed: true });
       const balances = computeWalletBalances(userData, incomeProfile, incomeAdjustment);
 
@@ -767,7 +737,7 @@ module.exports = async (req, res) => {
         if (!incomeSources) incomeSources = await loadIncomeSources();
         const refreshedReasons = reviewReasonsFor(ownerState, identity);
         const incomeProfile = (refreshedReasons.length ? null : ownerState && ownerState.profile)
-          || (refreshedReasons.length ? null : await promoterIncomeProfile(redis, incomeSources, targetUser));
+          || (refreshedReasons.length ? null : promoterIncomeProfile(incomeSources, targetUser));
         newBalances = computeWalletBalances(
           userData,
           incomeProfile,
