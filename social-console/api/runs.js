@@ -588,6 +588,33 @@ function archiveUnstartedRun(run) {
   return run;
 }
 
+function archiveUnsubmittedDuplicate(run) {
+  if (!run || ['completed', 'archived'].includes(String(run.state || ''))) {
+    throw Object.assign(new Error('Completed or already archived tasks cannot be marked as duplicate'), { status: 409 });
+  }
+  const hasAttemptedMedia = [run?.artifacts?.video, run?.artifacts?.referenceVideo, ...(run?.artifacts?.images || [])]
+    .some((asset) => String(asset?.threadId || asset?.taskId || asset?.submitAttemptedAt || '').trim());
+  if (hasAttemptedMedia) {
+    throw Object.assign(new Error('A task with an external media task or submission attempt cannot be archived as an unsubmitted duplicate'), { status: 409 });
+  }
+  const review = run?.artifacts?.review || {};
+  const publication = run?.artifacts?.publication || {};
+  const externalDraftId = String(review.socialEchoDraftId || review.externalDraftId || publication.externalDraftId || publication.provider?.externalDraftId || '').trim();
+  const publicationStatus = String(review.publicationStatus || publication.status || '').toLowerCase();
+  if (externalDraftId || ['external_draft', 'submitted', 'published', 'submitting', 'publish_ambiguous', 'uploading'].includes(publicationStatus)) {
+    throw Object.assign(new Error('A run with a SocialEcho external draft cannot be archived as an unsubmitted duplicate'), { status: 409 });
+  }
+  const archivedAt = new Date().toISOString();
+  run.state = 'archived';
+  run.archivedAt = archivedAt;
+  run.events = [...(run.events || []), {
+    at: archivedAt,
+    type: 'unsubmitted_duplicate_archived',
+    message: 'Operator archived this duplicate run before any external media task or SocialEcho draft was submitted'
+  }].slice(-120);
+  return run;
+}
+
 function holdRunForP0Review(run) {
   if (!['queued', 'running'].includes(String(run?.state || ''))) {
     throw Object.assign(new Error('Only queued or active tasks without a terminal outcome can be held for P0 review'), { status: 409 });
@@ -1027,7 +1054,12 @@ module.exports = async (req, res) => {
             secondaryForm: existingProfile.secondaryForm || 'accusation_aftershock',
             openingGrammar: existingProfile.openingGrammar || 'conflict_object_action',
             hookDevice: existingProfile.hookDevice || 'object_closeup'
-          } : {})
+          } : {}),
+          // Recovery can explicitly pin the visible language for a routed
+          // batch. This prevents catalog metadata from flipping an English
+          // campaign into a multilingual validation path.
+          ...(req.body?.forceEnglish === true ? { forceEnglish: true, outputLanguage: 'en' } : {}),
+          ...(String(req.body?.outputLanguage || '').toLowerCase() === 'en' ? { outputLanguage: 'en' } : {})
         };
         const planning = await resolvePlanning(redis, req.body?.planning);
         if (planning && !run.input?.planning?.strategy) run.input.planning = planning;
