@@ -110,9 +110,23 @@ function ensureModelRoute(run) {
   run.artifacts = run.artifacts || {};
   const selected = String(run.input?.creativeProfile?.modelChoice || 'hy3');
   const existing = run.artifacts.modelRoute || {};
+  // Premium uniqueness campaigns explicitly pinned to DeepSeek must never be
+  // resurrected onto a stale HY3 route left by an older retry. Keep the
+  // correction narrow to these paid campaign runs; legacy/non-campaign jobs
+  // retain their historical reserve policy.
+  const deepSeekPinned = run.input?.creativeProfile?.uniquenessRequired === true
+    && run.input?.creativeProfile?.qualityMode === 'premium'
+    && String(run.input?.campaign?.id || '').trim()
+    && ['deepseek', 'deepseek-v4-flash-preview'].includes(String(existing.preferredModel || selected).toLowerCase());
+  const preferred = deepSeekPinned
+    ? (['deepseek', 'deepseek-v4-flash-preview'].includes(String(existing.preferredModel || '').toLowerCase()) ? String(existing.preferredModel) : selected)
+    : String(existing.preferredModel || selected);
+  const active = deepSeekPinned && !['deepseek', 'deepseek-v4-flash-preview'].includes(String(existing.activeModel || '').toLowerCase())
+    ? preferred
+    : String(existing.activeModel || selected);
   run.artifacts.modelRoute = {
-    preferredModel: String(existing.preferredModel || selected),
-    activeModel: String(existing.activeModel || selected),
+    preferredModel: preferred,
+    activeModel: active,
     fallbackModel: String(existing.fallbackModel || ''),
     fallbackUsed: existing.fallbackUsed === true,
     switchedAt: existing.switchedAt || '',
@@ -1245,7 +1259,15 @@ async function p2(redis, run) {
         await saveRun(redis, run);
         return;
       }
-      const next = providers.reserveModelFor(current);
+      // Keep DeepSeek pinned for premium uniqueness campaigns. The generic
+      // provider reserve intentionally serves legacy jobs with HY3, but that
+      // reserve would violate this campaign's explicit model contract.
+      const next = (run.input?.creativeProfile?.uniquenessRequired === true
+        && run.input?.creativeProfile?.qualityMode === 'premium'
+        && String(run.input?.campaign?.id || '').trim()
+        && ['deepseek', 'deepseek-v4-flash-preview'].includes(String(current).toLowerCase()))
+        ? creativeRepairModel(current)
+        : providers.reserveModelFor(current);
       const nextAttemptAt = new Date(Date.now() + 1000).toISOString();
       evidence.storyBrief = { status: 'recovering', attempt, modelChoice: next, fallbackUsed: true, nextAttemptAt, error: cleanError(error), fallbackFrom: current };
       route.activeModel = next;
@@ -3839,4 +3861,4 @@ async function processRun(redis, run, options = {}) {
   return options?.batch ? processRunBatch(redis, run, options) : processRunOnce(redis, run);
 }
 
-module.exports = { processRun, processRunOnce, processRunBatch, p1, p2, p3, p5, selectedChapters, normalizeCreative, compileVideoScenePlan, assertPremiumCopyOpening, assertVisibleLanguage, sourceGroundedCreativeFallback, applySourceGroundedCreativeFallback, reserveCampaignCreativeUniqueness, recoverAmbiguousPostersFromExactSibling, recoverPreparedVideoFromExactSibling, videoContractFingerprint, chapterEvidenceQuote, summarizeAnalytics, refreshAnalytics, cleanError, videoPayload, referenceVideoPayload, normalizeAttributionStage };
+module.exports = { processRun, processRunOnce, processRunBatch, p1, p2, p3, p5, selectedChapters, normalizeCreative, compileVideoScenePlan, assertPremiumCopyOpening, assertVisibleLanguage, sourceGroundedCreativeFallback, applySourceGroundedCreativeFallback, reserveCampaignCreativeUniqueness, recoverAmbiguousPostersFromExactSibling, recoverPreparedVideoFromExactSibling, videoContractFingerprint, chapterEvidenceQuote, summarizeAnalytics, refreshAnalytics, cleanError, videoPayload, referenceVideoPayload, normalizeAttributionStage, ensureModelRoute, creativeRepairModel };
