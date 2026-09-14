@@ -289,8 +289,11 @@ module.exports = async (req, res) => {
   try {
     // A cloud-sync write can overlap a tap on Check In. Wait briefly for that
     // normal write to finish instead of failing the user-facing action.
+    // The dashboard syncs in the background, so every reward action waits
+    // briefly for the wallet lock instead of failing the member with
+    // "user data is being updated".
     const lockOptions = {
-      waitMs: action === 'checkin' ? 6000 : 0,
+      waitMs: 6000,
       retryDelayMs: 100,
     };
     walletLock = await acquireUserFacingWalletDataLock(redis, username, lockOptions);
