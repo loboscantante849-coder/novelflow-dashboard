@@ -197,7 +197,9 @@ async function resolveUserFacingWalletStorageIdentity(redis, requestedUsername) 
     name,
     record: parseReadOnlyWalletRecord(await redis.get(`nf_user_data:${name}`)),
   })));
-  const blocked = entries.some(({ record }) => !record || record.disabled || record.wallet_merged_into);
+  // Only an explicit tombstone blocks the account. A duplicate spelling that
+  // cannot be read (or no longer exists) must never strand the member.
+  const blocked = entries.some(({ record }) => Boolean(record) && (record.disabled || record.wallet_merged_into));
   const primary = entries.find(({ name }) => name === identity.primaryUsername) || null;
   const withContent = entries.filter(({ record }) => walletRecordHasContent(record));
 
