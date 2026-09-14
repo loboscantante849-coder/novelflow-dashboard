@@ -4728,6 +4728,7 @@
                 first_bind_popup_title: 'NovelFlow ID linked!',
                 first_bind_popup_sub: 'Your 3 VIP days are on the way and usually arrive within a few minutes. You can unbind and change the ID any time.',
                 first_bind_popup_ok: 'Got it',
+                vip_days_unit: 'days of VIP',
                 first_bind_used: 'This NovelFlow ID already received the first-time gift.',
                 unbind_confirm_title: 'Unbind this NovelFlow ID?',
                 unbind_confirm_sub: 'Rewards and VIP days are delivered to the bound ID, so unbind only if the ID is wrong. You can bind a different one right away.',
@@ -5094,6 +5095,7 @@
                 first_bind_popup_title: '¡ID de NovelFlow vinculado!',
                 first_bind_popup_sub: 'Tus 3 días de VIP están en camino y suelen llegar en pocos minutos. Puedes desvincular y cambiar el ID cuando quieras.',
                 first_bind_popup_ok: 'Entendido',
+                vip_days_unit: 'días de VIP',
                 first_bind_used: 'Este ID de NovelFlow ya recibió el regalo de primera vinculación.',
                 unbind_confirm_title: '¿Desvincular este ID de NovelFlow?',
                 unbind_confirm_sub: 'Las recompensas y los días VIP se envían al ID vinculado, así que desvincula solo si el ID es incorrecto. Puedes vincular otro de inmediato.',
@@ -6118,7 +6120,7 @@
             overlay.innerHTML = '<div class="milestone-popup">' +
                 '<div class="milestone-popup-icon">🎁</div>' +
                 '<div class="milestone-popup-title">' + escapeHtml(getText('first_bind_popup_title')) + '</div>' +
-                '<div class="milestone-popup-points" style="color:#FFD700;">+' + Number(days) + ' ' + escapeHtml(getText('days_streak')) + ' VIP</div>' +
+                '<div class="milestone-popup-points" style="color:#FFD700;">+' + Number(days) + ' ' + escapeHtml(getText('vip_days_unit')) + '</div>' +
                 '<div class="milestone-popup-sub">' + escapeHtml(getText('first_bind_popup_sub')) + '</div>' +
                 '<button class="milestone-popup-btn" onclick="this.closest(\'.milestone-overlay\').remove()">' + escapeHtml(getText('first_bind_popup_ok')) + '</button>' +
                 '</div>';
