@@ -99,9 +99,11 @@ test('legacy withdrawal locks cannot block a new check-in', async () => {
 
 test('reviewed Cons duplicate wallets can check in only through the canonical record', async () => {
   const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-  const legacyWallet = JSON.stringify({ points: 91, checkin: { streak: 6, lastCheckin: yesterday, history: [yesterday] } });
+  // The canonical record holds the member's history, which is what production
+  // looks like once the legacy spelling has been reconciled.
+  const legacyWallet = JSON.stringify({ points: 10, checkin: { streak: 1, lastCheckin: '2026-01-01', history: ['2026-01-01'] } });
   FakeRedis.reset({
-    'nf_user_data:cons_espher': JSON.stringify({ points: 10, checkin: { streak: 4, lastCheckin: yesterday, history: [yesterday] } }),
+    'nf_user_data:cons_espher': JSON.stringify({ points: 91, checkin: { streak: 6, lastCheckin: yesterday, history: [yesterday] } }),
     'nf_user_data:@cons espher': legacyWallet,
     // The old display spelling is a verified alias of the canonical local principal.
     'nf_identity_owner:cons_espher': 'local:@cons espher',
@@ -117,9 +119,9 @@ test('reviewed Cons duplicate wallets can check in only through the canonical re
   });
 
   assert.equal(response.statusCode, 200);
-  assert.equal(response.body.snapshot.points, 15);
-  assert.equal(response.body.snapshot.checkin.streak, 5);
-  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:cons_espher')).points, 15);
+  assert.equal(response.body.snapshot.points, 106);
+  assert.equal(response.body.snapshot.checkin.streak, 7);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:cons_espher')).points, 106);
   assert.equal(FakeRedis.values.get('nf_user_data:@cons espher'), legacyWallet);
 });
 
@@ -512,8 +514,8 @@ test('7-day grand prize credits cash first and defers VIP to explicit confirmati
 });
 
 test('check-in uses canonical wallet while preserving a legacy duplicate for payout review', async () => {
-  const canonical = JSON.stringify({ points: 10 });
-  const legacy = JSON.stringify({ points: 99, keep: 'legacy-review' });
+  const canonical = JSON.stringify({ points: 99 });
+  const legacy = JSON.stringify({ points: 10, keep: 'legacy-review' });
   FakeRedis.reset({
     'nf_user_data:xenomorphette': canonical,
     'nf_user_data:Xenomorphette': legacy,
@@ -525,7 +527,7 @@ test('check-in uses canonical wallet while preserving a legacy duplicate for pay
   });
 
   assert.equal(response.statusCode, 200);
-  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:xenomorphette')).points, 15);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:xenomorphette')).points, 104);
   assert.equal(FakeRedis.values.get('nf_user_data:Xenomorphette'), legacy);
 });
 

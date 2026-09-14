@@ -39,19 +39,24 @@ function resolveUsernameAlias(rawName) {
   return WALLET_PRIMARY_BY_EXPLICIT_ALIAS.get(raw) || raw;
 }
 
+// Every reviewed spelling of one account must be looked up, otherwise a record
+// that holds the member's real history stays invisible. Eliza_Star, for
+// example, keeps her books and VIP days under `eliza stellar` (with a space),
+// which the old two-name list never read.
+const WALLET_CANDIDATES_BY_PRIMARY = (() => {
+  const grouped = new Map();
+  for (const [raw, primary] of WALLET_PRIMARY_BY_EXPLICIT_ALIAS.entries()) {
+    if (!grouped.has(primary)) grouped.set(primary, []);
+    if (!grouped.get(primary).includes(raw)) grouped.get(primary).push(raw);
+  }
+  return grouped;
+})();
+
 function walletStorageCandidates(rawName) {
   const primaryUsername = resolveUsernameAlias(rawName);
   if (!primaryUsername) return [];
-  // `eliza_stellar` is the only verified legacy reporting-key wallet. Reads
-  // may preserve it when it is the sole record, but every writer locks star.
-  if (primaryUsername === 'eliza_star') return ['eliza_star', 'eliza_stellar'];
-  // Reads may preserve one sole historical Cons key. If more than one of
-  // these records exists, resolveWalletStorageIdentity deliberately reports
-  // a conflict so balances cannot be merged implicitly.
-  if (primaryUsername === 'cons_espher') {
-    return ['cons_espher', '@cons espher', 'cons espher', '@cons_espher'];
-  }
-  return [primaryUsername];
+  const aliases = WALLET_CANDIDATES_BY_PRIMARY.get(primaryUsername) || [];
+  return Array.from(new Set([primaryUsername, ...aliases]));
 }
 
 function caseVariantWalletPattern(username) {
@@ -174,16 +179,26 @@ function canonicalReadOnlyOwner(value) {
  * Withdrawal approval keeps using the strict resolvers.
  */
 function walletRecordHasContent(record) {
-  if (!record || typeof record !== 'object') return false;
+  return walletRecordContentScore(record) > 0;
+}
+
+// Weigh what the member actually accumulated so a legacy spelling holding the
+// real history wins over a near-empty canonical stub. Balances only break ties;
+// the payout review still inspects duplicates.
+function walletRecordContentScore(record) {
+  if (!record || typeof record !== 'object' || Array.isArray(record)) return -1;
   const myBooks = Array.isArray(record.myBooks) ? record.myBooks.length : 0;
-  const checkinHistory = record.checkin && Array.isArray(record.checkin.history)
+  const withdrawals = Array.isArray(record.withdrawals) ? record.withdrawals.length : 0;
+  const claimed = record.claimed && typeof record.claimed === 'object'
+    ? Object.keys(record.claimed).length
+    : 0;
+  const checkins = record.checkin && Array.isArray(record.checkin.history)
     ? record.checkin.history.length
     : 0;
-  const numeric = ['points', 'bonus_balance', 'vip_days', 'streak_grand_sequence']
-    .some(field => Number(record[field]) > 0);
-  const claimed = record.claimed && typeof record.claimed === 'object'
-    && Object.keys(record.claimed).length > 0;
-  return myBooks > 0 || checkinHistory > 0 || numeric || Boolean(claimed);
+  const money = (Number(record.bonus_balance) || 0) + (Number(record.points) || 0) / 1000;
+  const vip = Number(record.vip_days) || 0;
+  const bind = record.bind_id ? (record.bind_id_verified_at ? 5 : 1) : 0;
+  return myBooks * 10 + withdrawals * 20 + claimed * 5 + checkins + money + vip + bind;
 }
 
 async function resolveUserFacingWalletStorageIdentity(redis, requestedUsername) {
@@ -200,13 +215,18 @@ async function resolveUserFacingWalletStorageIdentity(redis, requestedUsername) 
   // Only an explicit tombstone blocks the account. A duplicate spelling that
   // cannot be read (or no longer exists) must never strand the member.
   const blocked = entries.some(({ record }) => Boolean(record) && (record.disabled || record.wallet_merged_into));
-  const primary = entries.find(({ name }) => name === identity.primaryUsername) || null;
-  const withContent = entries.filter(({ record }) => walletRecordHasContent(record));
-
-  let storageUsername = null;
-  if (primary && walletRecordHasContent(primary.record)) storageUsername = primary.name;
-  if (!storageUsername && withContent.length === 1) storageUsername = withContent[0].name;
-  if (!storageUsername && primary) storageUsername = primary.name;
+  // Evaluate the canonical spelling first so it wins an exact tie, otherwise
+  // the record holding the member's real history is selected.
+  const ordered = entries.slice().sort((a, b) => (a.name === identity.primaryUsername ? -1 : b.name === identity.primaryUsername ? 1 : 0));
+  let storageUsername = ordered.length ? ordered[0].name : null;
+  let bestScore = ordered.length ? walletRecordContentScore(ordered[0].record) : -1;
+  for (const entry of ordered.slice(1)) {
+    const score = walletRecordContentScore(entry.record);
+    if (score > bestScore) {
+      bestScore = score;
+      storageUsername = entry.name;
+    }
+  }
   if (!storageUsername) [storageUsername] = matches;
 
   return {
@@ -463,6 +483,7 @@ module.exports = {
   resolveReadOnlyWalletStorageIdentity,
   resolveUserFacingWalletStorageIdentity,
   resolveWalletStorageIdentity,
+  walletRecordContentScore,
   walletRecordHasContent,
   walletIdentityConflict,
   walletStorageCandidates,
