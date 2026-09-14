@@ -139,8 +139,10 @@ test('limited subsidy has a poster hero and a home floating entry', () => {
 });
 
 test('all VIP forms require the real 24-character NovelFlow App user ID', () => {
-  assert.match(source, /function normalizeActivityNovelFlowId[\s\S]*\^\[a-f0-9\]\{24\}\$/i);
-  assert.match(source, /id="activityNovelFlowId"[^>]+maxlength="24"[^>]+pattern="\[A-Fa-f0-9\]\{24\}"/);
-  assert.match(source, /id="novelflowIdInput"[^>]+maxlength="24"[^>]+pattern="\[A-Fa-f0-9\]\{24\}"/);
+  // The normalizer only ever yields a bare 24-character id, even when the
+  // member pastes the whole profile line ("ID: 69aa3b8c...").
+  assert.match(source, /function normalizeActivityNovelFlowId[\s\S]*\[0-9a-f\]\{24\}[\s\S]*toLowerCase\(\)/i);
+  assert.match(source, /id="activityNovelFlowId"[^>]+maxlength="80"/);
+  assert.match(source, /id="novelflowIdInput"[^>]+maxlength="80"/);
   assert.match(source, /ID de usuario de 24 caracteres/);
 });

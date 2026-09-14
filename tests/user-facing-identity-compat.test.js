@@ -183,3 +183,27 @@ test('an established wallet skips the income-source guard on sync', async () => 
     delete require.cache[require.resolve('../api/user-data')];
   }
 });
+
+test('the record holding the most history wins over a smaller canonical record', async () => {
+  process.env.VERCEL_ENV = 'production';
+  // Mirrors the real Eliza_Star shape: three spellings exist and the canonical
+  // key holds only a fraction of her books, points and VIP days.
+  FakeRedis.reset({
+    'nf_user_data:eliza_star': JSON.stringify({ points: 55, myBooks: new Array(35).fill({ bookId: 'b', code: '1' }) }),
+    'nf_user_data:eliza_stellar': JSON.stringify({ points: 290, myBooks: new Array(40).fill({ bookId: 'b', code: '2' }) }),
+    'nf_user_data:eliza stellar': JSON.stringify({
+      points: 725,
+      vip_days: 9,
+      bind_id: '697816adf3624595557e36c1',
+      bind_id_verified_at: '2026-08-21T03:53:28.049Z',
+      myBooks: new Array(70).fill({ bookId: 'b', code: '3' }),
+    }),
+  });
+
+  const response = await invoke(userData, { method: 'GET', headers: authHeaders('eliza stellar') });
+
+  assert.equal(response.statusCode, 200, JSON.stringify(response.body));
+  assert.equal(response.body.data.points, 725);
+  assert.equal(response.body.data.myBooks.length, 70);
+  assert.equal(response.body.data.vip_days, 9);
+});
