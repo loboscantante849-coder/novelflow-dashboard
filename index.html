@@ -10701,7 +10701,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 container.innerHTML = books.slice(0, 5).map(b =>
                     '<div class="reel-book-option" data-bookid="' + escapeHtml(b.bookId || b.id || '') + '" data-nf-action="select-xmp-book" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--hairline);font-size:13px;display:flex;gap:8px;align-items:center;">' +
                     '<img src="' + escapeHtml(safeClientUrl(b.cover, { allowBlob: true })) + '" style="width:30px;height:40px;border-radius:4px;object-fit:cover;" onerror="this.style.display=\'none\'">' +
-                    '<div><div style="font-weight:500;">' + escapeHtml(b.title || 'Untitled') + '</div><div style="font-size:11px;color:var(--ink-mute);">' + escapeHtml(b.author || '') + '</div></div></div>'
+                    '<div><div class="reel-book-title" style="font-weight:500;">' + escapeHtml(b.title || 'Untitled') + '</div><div class="reel-book-author" style="font-size:11px;color:var(--ink-mute);">' + escapeHtml(b.author || '') + '</div></div></div>'
                 ).join('');
             } catch(e) { container.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--ink-mute);">Search failed</div>'; }
         }
@@ -10800,7 +10800,12 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
         function selectReelBook(el) {
             document.querySelectorAll('.reel-book-option').forEach(e => e.style.background = '');
             el.style.background = 'var(--canvas-soft)';
-            reelSelectedBook = { bookId: el.dataset.bookid, title: el.querySelector('div > div').textContent };
+            const titleEl = el.querySelector('.reel-book-title');
+            reelSelectedBook = {
+                bookId: el.dataset.bookid,
+                title: (titleEl ? titleEl.textContent : '').trim() || 'Untitled',
+                author: (el.querySelector('.reel-book-author')?.textContent || '').trim()
+            };
             document.getElementById('reelsCreateBtn').disabled = false;
             document.getElementById('reelsCreateBtn').textContent = '🎬 Create Reel';
             document.getElementById('reelOptions').style.display = 'block';
