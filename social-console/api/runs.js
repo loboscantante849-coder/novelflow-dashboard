@@ -696,6 +696,14 @@ module.exports = async (req, res) => {
   if (String(req.method || '').toUpperCase() === 'GET') {
     if (!requireSession(req, res)) return;
   } else if (!requireOperatorMutation(req, res)) return;
+  // POST creates a new run; update payloads must never fall through into the
+  // paid creation path, even if they also include a valid book and account.
+  // Reject by field presence before storage/provider reads so a misspelled
+  // method cannot allocate a duplicate task or reuse creation authorization.
+  if (String(req.method || '').toUpperCase() === 'POST'
+    && ['action', 'id'].some((key) => Object.prototype.hasOwnProperty.call(req.body || {}, key))) {
+    return res.status(400).json({ error: 'POST only creates a new run. Use PATCH with id and action to update an existing run.', code: 'run_update_requires_patch' });
+  }
   const redis = getRedis();
   if (!redis) return res.status(503).json({ error: 'Social console storage is not configured' });
   try {
