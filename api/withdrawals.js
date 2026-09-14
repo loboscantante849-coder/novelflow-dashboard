@@ -36,6 +36,7 @@ const { isApprovedSourceOwner, loadSourceOwnerIndex } = require('./_lib/income-s
 const {
   acquireUserFacingWalletDataLock,
   acquireWalletDataLock,
+  loadWalletAliasTargets,
   resolveUserFacingWalletStorageIdentity,
 } = require('./_lib/wallet-identity');
 const {
@@ -189,15 +190,20 @@ function parseStoredUserData(raw) {
  * member's own spellings. Several spellings of one person are a naming problem;
  * a source shared with a different login name is a real ownership dispute.
  */
-function ownersAreOwnSpellings(ownerState, identity) {
-  const owners = (ownerState && Array.isArray(ownerState.owners) ? ownerState.owners : [])
-    .map(name => String(name || '').trim().toLowerCase())
+function ownersAreOwnSpellings(ownerState, identity, aliasTargets = new Map()) {
+  const raw = (ownerState && Array.isArray(ownerState.owners) ? ownerState.owners : [])
+    .map(name => String(name || '').trim())
     .filter(Boolean);
-  if (!owners.length) return false;
+  if (!raw.length) return false;
   const spellings = new Set((identity && Array.isArray(identity.matches) ? identity.matches : [])
     .map(name => String(name || '').trim().toLowerCase())
     .filter(Boolean));
-  return owners.every(name => spellings.has(name));
+  return raw.every(name => {
+    // A spelling the operator already folded into the same member is not a
+    // foreign owner, otherwise the member's own income stays hidden.
+    const folded = aliasTargets.get(name) || name;
+    return spellings.has(String(folded).trim().toLowerCase());
+  });
 }
 
 function reviewReasonsFor(ownerState, identity) {
@@ -434,7 +440,11 @@ module.exports = async (req, res) => {
       // review flags keep the payout gated. When the source is shared with a
       // different login name the profile stays blank, because that income may
       // belong to another account.
-      const spellingGroupOnly = ownersAreOwnSpellings(ownerState, identity);
+      const ownerAliasTargets = await loadWalletAliasTargets(
+        redis,
+        Array.from(new Set([...(identity.matches || []), ...((ownerState && ownerState.owners) || [])])),
+      );
+      const spellingGroupOnly = ownersAreOwnSpellings(ownerState, identity, ownerAliasTargets);
       const incomeProfile = (reviewRequired && !spellingGroupOnly) ? null : ownerState.profile;
       const balances = computeWalletBalances(
         userData,
@@ -574,7 +584,11 @@ module.exports = async (req, res) => {
         });
       }
 
-      const incomeProfile = (reviewRequired && !ownersAreOwnSpellings(ownerState, identity))
+      const ownerAliasTargets = await loadWalletAliasTargets(
+        redis,
+        Array.from(new Set([...(identity.matches || []), ...((ownerState && ownerState.owners) || [])])),
+      );
+      const incomeProfile = (reviewRequired && !ownersAreOwnSpellings(ownerState, identity, ownerAliasTargets))
         ? null
         : ownerState.profile;
       const incomeAdjustment = await getIncomeAdjustment(redis, promoterIdentity(incomeSources, targetUser), { failClosed: true });
