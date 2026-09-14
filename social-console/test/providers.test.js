@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const providers = require('../api/_lib/providers');
-const { modelTemperature, operationsTimeoutForModel, creativeWireUsesResponses, modelEnvelopeDiagnostic, parseModelJson, extractModelText, requestedCreativeSection, normalizeCreativeWireSection, normalizeTokenDanceDeepSeekModel, copyModelConfig, structuredShape, buildEvidenceBank, hydrateCreativeEvidence } = providers;
+const { modelTemperature, operationsTimeoutForModel, creativeWireUsesResponses, modelEnvelopeDiagnostic, parseModelJson, extractModelText, requestedCreativeSection, normalizeCreativeWireSection, normalizeTokenDanceDeepSeekModel, copyModelConfig, structuredShape, buildEvidenceBank, hydrateCreativeEvidence, deriveVideoPromptFields } = providers;
 
 test('Kimi K2.7 Code receives its provider-required temperature without changing other models', () => {
   assert.equal(modelTemperature('kimi-k2.7-code', 0.25), 1);
@@ -139,6 +139,38 @@ test('video section accepts only a non-conflicting complementary Responses array
   assert.equal(video.valuePromise, parts[0].value_promise);
   assert.equal(video.adCopy, parts[1].ad_copy);
   assert.equal(requestedCreativeSection([{ hook: 'one' }, { hook: 'two' }], 'videoPrompt'), undefined);
+});
+
+test('compact scenePlan responses derive AC prompt fields without model-written duplicates', () => {
+  const scenePlan = {
+    scene: 'A courthouse corridor at dusk',
+    cast: [
+      { role: 'protagonist', name: 'Mara', anchor: 'adult woman, red coat, tense shoulders, dark braided hair' },
+      { role: 'counterpart', name: 'Evan', anchor: 'adult man, charcoal suit, loosened tie, guarded jaw' }
+    ],
+    props: ['sealed divorce folder'],
+    lighting: 'cold window light cuts across the folder',
+    negative: ['no subtitles', 'no readable text'],
+    timeBeats: [
+      { time: '0-3s', shot: 'handheld close-up tracks the folder', action: 'Mara tears the seal open', reaction: 'Evan stops mid-step', sound: 'paper rip and shoes halt' },
+      { time: '3-6s', shot: 'camera arcs to a tight two-shot', action: 'Mara holds out the signed page', reaction: 'Evan reaches then withdraws', sound: 'page slap and breath' },
+      { time: '6-9s', shot: 'slow push toward their hands', action: 'Evan blocks the corridor', reaction: 'Mara lifts her chin', sound: 'distant courthouse bell' },
+      { time: '9-12s', shot: 'camera stays as Mara turns away', action: 'Mara leaves the folder behind', reaction: 'Evan grabs it too late', sound: 'door latch clicks' }
+    ]
+  };
+  const fields = deriveVideoPromptFields(scenePlan);
+  assert.match(fields.adCopy, /12-second vertical 9:16/);
+  assert.match(fields.adCopy, /\[0-3s\]/);
+  assert.match(fields.buildRequirement, /four beats/);
+  const compact = normalizeCreativeWireSection('videoPrompt', { hook: 'A sealed folder tears open.', scenePlan });
+  assert.equal(compact.adCopy, fields.adCopy);
+  assert.equal(compact.buildRequirement, fields.buildRequirement);
+});
+
+test('flattened compact video responses are accepted before scene validation', () => {
+  const scenePlan = { scene: 'A narrow office', cast: [{ name: 'Mara', anchor: 'adult woman in a red coat' }, { name: 'Evan', anchor: 'adult man in a charcoal suit' }], props: ['sealed folder'], lighting: 'window light', timeBeats: [] };
+  const compact = { hook: 'A source-grounded disruption', scenePlan, sourceEvidence: [] };
+  assert.equal(requestedCreativeSection(compact, 'videoPrompt'), compact);
 });
 
 test('structured diagnostics disclose only a bounded response shape, never source content', () => {

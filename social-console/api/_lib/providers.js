@@ -937,8 +937,12 @@ function requestedCreativeSection(value, section) {
       collect(value);
       const direct = candidates.find((item) => item && typeof item === 'object' && !Array.isArray(item)
         && Object.prototype.hasOwnProperty.call(item, 'hook')
-        && ['adCopy', 'ad_copy'].some((key) => Object.prototype.hasOwnProperty.call(item, key))
-        && ['buildRequirement', 'build_requirement'].some((key) => Object.prototype.hasOwnProperty.call(item, key)));
+        // scenePlan is the canonical compact wire contract. Older providers
+        // may still return the derived prompt fields; accept both shapes and
+        // let normalization derive the fields when they are omitted.
+        && (Object.prototype.hasOwnProperty.call(item, 'scenePlan')
+          || (['adCopy', 'ad_copy'].some((key) => Object.prototype.hasOwnProperty.call(item, key))
+            && ['buildRequirement', 'build_requirement'].some((key) => Object.prototype.hasOwnProperty.call(item, key)))));
       if (direct) return requestedCreativeSection(direct, 'videoPrompt');
       // A few Responses-compatible gateways serialize a single video package
       // as two complementary objects (beats + director contract). Merge only
@@ -956,12 +960,12 @@ function requestedCreativeSection(value, section) {
           }
           if (conflict) break;
         }
-        const meaningful = ['hook', 'valuePromise', 'value_promise', 'adCopy', 'ad_copy', 'buildRequirement', 'build_requirement']
+        const meaningful = ['hook', 'valuePromise', 'value_promise', 'scenePlan', 'sourceEvidence', 'source_evidence', 'adCopy', 'ad_copy', 'buildRequirement', 'build_requirement']
           .filter((key) => Object.prototype.hasOwnProperty.call(merged, key)).length;
         if (!conflict && meaningful >= 2) return requestedCreativeSection(merged, 'videoPrompt');
       }
       const partial = candidates.find((item) => item && typeof item === 'object' && !Array.isArray(item)
-        && ['hook', 'valuePromise', 'value_promise', 'adCopy', 'ad_copy', 'buildRequirement', 'build_requirement']
+        && ['hook', 'valuePromise', 'value_promise', 'scenePlan', 'sourceEvidence', 'source_evidence', 'adCopy', 'ad_copy', 'buildRequirement', 'build_requirement']
           .filter((key) => Object.prototype.hasOwnProperty.call(item, key)).length >= 2);
       if (partial) return requestedCreativeSection(partial, 'videoPrompt');
     }
@@ -1029,13 +1033,14 @@ function requestedCreativeSection(value, section) {
   // Some compatible JSON-mode gateways flatten a one-section schema. Accept
   // that video-only response shape, then leave the existing evidence and
   // field validation to the caller.
-  if (section === 'videoPrompt' && ['valuePromise', 'adCopy', 'buildRequirement'].some((key) => Object.prototype.hasOwnProperty.call(result, key))) return result;
-  if (section === 'videoPrompt' && ['value_promise', 'ad_copy', 'build_requirement', 'source_evidence', 'evidence_chapters'].some((key) => Object.prototype.hasOwnProperty.call(result, key))) {
+  if (section === 'videoPrompt' && ['valuePromise', 'scenePlan', 'sourceEvidence', 'adCopy', 'buildRequirement'].some((key) => Object.prototype.hasOwnProperty.call(result, key))) return result;
+  if (section === 'videoPrompt' && ['value_promise', 'scene_plan', 'source_evidence', 'ad_copy', 'build_requirement', 'evidence_chapters'].some((key) => Object.prototype.hasOwnProperty.call(result, key))) {
     return {
       ...result,
       valuePromise: result.valuePromise || result.value_promise,
       adCopy: result.adCopy || result.ad_copy,
       buildRequirement: result.buildRequirement || result.build_requirement,
+      scenePlan: result.scenePlan || result.scene_plan,
       sourceEvidence: result.sourceEvidence || result.source_evidence,
       evidenceChapters: result.evidenceChapters || result.evidence_chapters
     };
@@ -1090,7 +1095,47 @@ function normalizeCreativeWireObject(value) {
       if (match) normalized.sixSteps[canonical] = match[1];
     }
   }
+  // Video generation uses a compact scenePlan on the model wire.  The paid
+  // AC adapter still expects adCopy/buildRequirement, so derive those fields
+  // deterministically from the same beats instead of asking DeepSeek to echo
+  // a second, bulky prompt that can be truncated or drift from the plan.
+  if (normalized.scenePlan && typeof normalized.scenePlan === 'object' && !Array.isArray(normalized.scenePlan)) {
+    const derived = deriveVideoPromptFields(normalized.scenePlan);
+    if (derived.adCopy && !String(normalized.adCopy || '').trim()) normalized.adCopy = derived.adCopy;
+    if (derived.buildRequirement && !String(normalized.buildRequirement || '').trim()) normalized.buildRequirement = derived.buildRequirement;
+  }
   return normalized;
+}
+
+function deriveVideoPromptFields(scenePlan = {}) {
+  const text = (input) => String(input || '').replace(/\s+/g, ' ').trim();
+  const scene = text(scenePlan.scene || scenePlan.location);
+  const lighting = text(scenePlan.lighting);
+  const cast = Array.isArray(scenePlan.cast) ? scenePlan.cast : [];
+  const props = Array.isArray(scenePlan.props) ? scenePlan.props.map(text).filter(Boolean) : [];
+  const negative = Array.isArray(scenePlan.negative) ? scenePlan.negative.map(text).filter(Boolean) : [];
+  const beats = Array.isArray(scenePlan.timeBeats) ? scenePlan.timeBeats : [];
+  if (scene.length < 8 || cast.length < 2 || !props.length || !lighting || beats.length !== 4) return {};
+  const expected = ['0-3s', '3-6s', '6-9s', '9-12s'];
+  const normalizedBeats = beats.map((beat, index) => {
+    const time = text(beat?.time || (beat?.start != null && beat?.end != null ? `${beat.start}-${beat.end}` : expected[index]));
+    const normalizedTime = time.replace(/\s+/g, '').replace(/seconds?/gi, 's');
+    const safeTime = normalizedTime === expected[index] ? expected[index] : time || expected[index];
+    return {
+      time: safeTime,
+      shot: text(beat?.shot || beat?.camera),
+      action: text(beat?.action),
+      reaction: text(beat?.reaction),
+      sound: text(beat?.sound),
+      dialogue: text(beat?.dialogue || beat?.line)
+    };
+  });
+  const castLine = cast.map((item) => `${text(item?.role || 'character')} (${text(item?.name)}): ${text(item?.anchor)}`).join('; ');
+  const propLine = props.slice(0, 3).join(', ');
+  const beatLines = normalizedBeats.map((beat) => `[${beat.time}] Shot: ${beat.shot}. Action: ${beat.action}. Reaction: ${beat.reaction}. Sound: ${beat.sound}.${beat.dialogue ? ` Dialogue: ${beat.dialogue}.` : ''}`);
+  const adCopy = `12-second vertical 9:16 cinematic scene. Continuous location: ${scene}. CHARACTER LOCK: ${castLine}. Conflict object: ${propLine}. LIGHTING: ${lighting}. ${beatLines.join(' ')} VISUAL/SOUND: keep one coherent palette and tactile materials, motivated camera movement, clear diegetic sound beneath restrained music. NEGATIVE: ${negative.length ? negative.join(', ') : 'no subtitles, readable text, logos, watermarks, CTA cards, identity drift'}.`;
+  const buildRequirement = `Create one continuous 12-second 9:16 scene in ${scene}. Keep ${cast.map((item) => text(item?.name || item?.role)).join(' and ')} visually identical with the stated anchors; use ${propLine} as the central conflict object and ${lighting}. Execute four beats: ${normalizedBeats.map((beat) => `${beat.time} ${beat.action} (reaction: ${beat.reaction}; sound: ${beat.sound})`).join('; ')}. Use only the listed short dialogue, with no narrator. End on the unresolved supported choice in the final beat. ${negative.length ? negative.join(', ') : 'No subtitles, readable text, logos, watermarks, CTA cards, or identity drift.'}`;
+  return { adCopy, buildRequirement };
 }
 
 function normalizeCreativeWireSection(section, value) {
@@ -1421,6 +1466,25 @@ The videoPrompt is a high-retention vertical short-video story package, not gene
     ],
     qualityReview: { recommendation: 'keep|refine', conclusion: 'Chinese operator-facing conclusion', why: 'Chinese source-grounded reason', target: 'copy|video|poster|package' }
   };
+  // Keep the model-facing video contract small.  adCopy/buildRequirement are
+  // deterministic render fields compiled from scenePlan after validation;
+  // requesting them here duplicates every beat and is the main source of
+  // truncated DeepSeek JSON responses.
+  const videoResponseSchema = {
+    hook: schema.videoPrompt.hook,
+    valuePromise: schema.videoPrompt.valuePromise,
+    escalation: schema.videoPrompt.escalation,
+    reversal: schema.videoPrompt.reversal,
+    cliffhanger: schema.videoPrompt.cliffhanger,
+    scenePlan: schema.videoPrompt.scenePlan,
+    sourceEvidence: schema.videoPrompt.sourceEvidence,
+    zhHook: schema.videoPrompt.zhHook,
+    zhValuePromise: schema.videoPrompt.zhValuePromise,
+    zhEscalation: schema.videoPrompt.zhEscalation,
+    zhReversal: schema.videoPrompt.zhReversal,
+    zhCliffhanger: schema.videoPrompt.zhCliffhanger,
+    evidenceChapters: schema.videoPrompt.evidenceChapters
+  };
   const source = {
     book, sourceLanguage, outputLanguage: languageLabel, tracking: { code, shortUrl: includeLink ? shortUrl : '', includeLink, omitTracking }, delivery, creativeProfile,
     evidenceBank,
@@ -1483,16 +1547,15 @@ The videoPrompt is a high-retention vertical short-video story package, not gene
   const videoInstruction = `${shared}
 Create one 12-second vertical 9:16 cinematic scene for AC Ad_Plot_Seedance. The output language is ${languageLabel}. The viewer should understand an immediate conflict through visible action, short character dialogue and reactions. Do not write a book synopsis or a narrator reading production instructions. ONE CONTINUOUS UNBROKEN TAKE: no jump cuts, no montage, no teleporting; camera changes must be motivated and physically continuous. The four timed blocks are beat markers inside this single take.
 SOURCE AND SCENE: Choose one continuous, source-supported confrontation, discovery, departure, rescue or power shift. Return a scenePlan object with exactly four timeBeats covering 0-3s, 3-6s, 6-9s and 9-12s. Each beat must contain camera, one feasible action, visible reaction, sound, and optional attributed dialogue. Include location, timeOfDay, cast (2 stable adult character anchors), props, motivated lighting, negative constraints, and evidenceIds. The three evidenceIds must map to sourceEvidence and come from contiguous chapters (adjacent chapter gaps <= 1). The server compiles adCopy/buildRequirement from scenePlan, so keep scenePlan concrete and concise. Keep the original setting and relationships; never relocate a historical story to a modern fight club or add a crowd, authority figure, glowing eyes or violence just to imitate a reference. Prefer two active adult characters. A source-essential third character may deliver the final interruption; keep background people indistinct and non-speaking. Use stable role labels tied to source names and consistent visual anchors; avoid speaking names merely for exposition. If a MANDATORY SCENE LOCK or MANDATORY VISUAL CONTINUITY is supplied, preserve it throughout.
-AD COPY: adCopy is the complete executable video prompt, about 220-320 words (roughly 1,600-2,600 characters) of direction, NOT 200 words of spoken narration. Begin with duration, aspect ratio, genre, location and a compact CHARACTER LOCK. Then write exactly four timed blocks:
+COMPACT OUTPUT: return only the scenePlan and the five short summary fields above. The server compiles the executable AC adCopy and buildRequirement from the validated scenePlan, so do not repeat the four beats in additional prose fields. Keep the scenePlan concise enough to fit one complete JSON response:
 [0-3s] HOOK: start during a consequential action, accusation or source-supported witness reaction. Give the viewer a concrete reason to ask what happens next; no empty establishing montage.
 [3-6s] ESCALATION: one choice or action changes the other character's behavior. A short reply contradicts, refuses or raises the stakes.
 [6-9s] CLIMAX: bring the decisive action or relationship boundary into close-up. Show its physical consequence, expression and reaction; allow a brief silence instead of extra exposition.
 [9-12s] TURN AND CLIFFHANGER: reveal a source-supported shift, interruption or unfinished choice and cut before its resolution. A threatened action may remain unfinished. Do not invent a reversal to fill the slot or default every ending to an Alpha entrance. Fade to black only if it does not consume the decisive beat.
 Each block must specify shot size or camera movement, who does one feasible action to what, the visible reaction, and a sound cue. Dialogue must be attributed to the correct speaker with emotion and delivery. Aim for 4-6 short lines, usually 3-8 words each, with at most 24-32 spoken English words TOTAL across the whole clip; use an equivalent natural speech duration in other languages. Fewer lines are better when the source or action needs silence. Do not overlap speakers or force rapid speech. Separate spoken dialogue clearly from silent direction. Adapt speech faithfully to the source; never claim invented dialogue is an exact chapter quotation.
-Finish adCopy with a compact VISUAL AND SOUND note: motivated lighting, one coherent color palette, tactile materials, close-up emphasis, restrained camera motion, audible environmental/action cues and music beneath clear speech. Match these to this book, not a stock neon or supernatural look.
-BUILD REQUIREMENT: buildRequirement is a concise 60-100 word execution summary of the SAME four timings, setting, character anchors, central object/action, spoken-word budget and unresolved ending. Do not introduce alternate shots, new dialogue or additional facts. Require a 12-second 9:16 scene with no narrator reading directions. Keep production instructions out of spoken audio.
+Match motivated lighting, tactile materials, restrained camera motion and diegetic sound to this book, not a stock neon or supernatural look. Do not output adCopy, buildRequirement, zhAdCopy, or zhBuildRequirement; those fields are compiled server-side from scenePlan after validation.
 CONSTRAINTS: No burned-in subtitles, readable text, title/CTA cards, Code, links, logos or watermarks. Captions, if needed, belong in a separate post-production track. No explicit sexual imagery, unsupported threats, duplicated characters, identity drift or elaborate unsupported transformations. Emotional conflict must be shown in action rather than generic adjectives.
-SCHEMA: Preserve every required videoPrompt field. hook summarizes 0-3s; valuePromise describes the personal stake shown there (not an extra timed shot); escalation summarizes 3-6s; reversal describes the supported shift across 6-12s; cliffhanger is the unresolved 9-12s ending. Include scenePlan with scene, cast, props, lighting, negative and exactly four timeBeats. Every timeBeat must contain time, shot, action, reaction and sound and must describe one feasible action in the same continuous location. Keep cast to the two named adult roles unless evidence requires a third. Include exactly 3 sourceEvidence objects containing only different supplied evidenceId values. Chinese operator translations belong only in zh fields. Return only the required JSON object.`;
+SCHEMA: hook summarizes 0-3s; valuePromise describes the personal stake shown there (not an extra timed shot); escalation summarizes 3-6s; reversal describes the supported shift across 6-12s; cliffhanger is the unresolved 9-12s ending. Include scenePlan with scene, cast, props, lighting, negative and exactly four timeBeats. Every timeBeat must contain time, shot, action, reaction and sound and must describe one feasible action in the same continuous location. Keep cast to the two named adult roles unless evidence requires a third. Include exactly 3 sourceEvidence objects containing only different supplied evidenceId values. Chinese operator translations belong only in zh fields. Return only the compact required JSON object.`;
   const premiumOpeningInstruction = 'QUALITY BAR FOR THE FIRST SHOT: begin with a concrete, source-grounded action or conflict object. Never use a generic bedroom/bed establishing shot, waking up, opening eyes, lying down, sitting up in bed, or a morning routine as the 0-3s opener. Also reject a static phone stare, mirror injury touch, single-face crying or gasping, empty room/window shot, or ordinary hallway walk when there is no second actor, conflict object, or decisive action in the first beat. If the evidence includes a bed, show a decisive action or reaction from that evidence instead; the bedroom may appear only after the hook when source-essential.';
   const mechanicalBridgeInstruction = 'COPY QUALITY BAR: Do not use stock bridge sentences or repeat a house template. Never write "That one line changes the air", "The pressure is already there, sharp and personal", "Then the story turns just enough", "What looked survivable becomes", or "And then comes the shift nobody can take back". Replace them with a source-specific physical detail, consequence, or choice. Never begin a post with a chapter label (for example Chapter 1), "Note to Readers", or a bare POV label such as "POV:" or "Aina\'s POV".';
   const postsInstructionPremium = `${postsInstruction}\n${mechanicalBridgeInstruction}`;
@@ -1533,13 +1596,13 @@ SCHEMA: Preserve every required videoPrompt field. hook summarizes 0-3s; valuePr
   };
   const runSections = async (config) => Promise.all([
     sectionRequest(config, 'copy generation', postsInstructionPremium, { posts: schema.posts }, structuredOutputBudget(3800)),
-    sectionRequest(config, 'video generation', videoInstructionPremium, { videoPrompt: schema.videoPrompt }, structuredOutputBudget(2600)),
+    sectionRequest(config, 'video generation', videoInstructionPremium, { videoPrompt: videoResponseSchema }, structuredOutputBudget(2600)),
     sectionRequest(config, 'poster generation', postersInstruction, { posterPrompts: schema.posterPrompts }, structuredOutputBudget(1800)),
     sectionRequest(config, 'quality review', reviewInstruction, { qualityReview: schema.qualityReview }, structuredOutputBudget(1200))
   ]);
   const sectionSpec = {
     posts: ['copy generation', postsInstructionPremium, { posts: schema.posts }, structuredOutputBudget(6000)],
-    videoPrompt: ['video generation', videoInstructionPremium, { videoPrompt: schema.videoPrompt }, structuredOutputBudget(6000)],
+    videoPrompt: ['video generation', videoInstructionPremium, { videoPrompt: videoResponseSchema }, structuredOutputBudget(6000)],
     posterPrompts: ['poster generation', postersInstruction, { posterPrompts: schema.posterPrompts }, structuredOutputBudget(2600)],
     qualityReview: ['quality review', reviewInstruction, { qualityReview: schema.qualityReview }, structuredOutputBudget(1800)]
   }[requestedSection];
@@ -2413,4 +2476,4 @@ async function reportRows(code, linkId, days = 90, range = {}) {
 
 function sha(value) { return crypto.createHash('sha256').update(String(value)).digest('hex'); }
 
-module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, findExactBookBySku, exactBookFromCatalog, topBooks, searchBooks, performanceBooks, contentDashboardBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, linkDetail, generateCreative, localizeAdVideoPrompt, repairAdVideoPrompt, analyzeCreativePlan, analyzeOperations, analyzeBookCandidates, extractScreenshotText, analyzeScreenshotWithSeed, copilotReply, generateDistributionPlan, rewritePosterPrompt, findAcTask, submitAc, acResult, extractAcVideoMedia, taskIdOf, validateVideo, validateImage, generateIIITImage, generateMeituImage, submitImage, imageResult, reportRows, funnelReportRows, funnelReportIds, putreportRows, putreportDimensionRows, putreportBreakdownRows, sha, titleKey, modelTemperature, operationsTimeoutForModel, creativeWireUsesResponses, modelEnvelopeDiagnostic, reserveModelFor, normalizeTokenDanceDeepSeekModel, copyModelConfig, parseModelJson, extractModelText, requestedCreativeSection, normalizeCreativeWireSection, structuredShape, buildEvidenceBank, hydrateCreativeEvidence };
+module.exports = { ProviderError, enabled, absoluteUrl, findExactBook, findExactBookBySku, exactBookFromCatalog, topBooks, searchBooks, performanceBooks, contentDashboardBooks, listChapters, chapterContent, keywordRecord, createKeyword, findLink, createLink, linkDetail, generateCreative, localizeAdVideoPrompt, repairAdVideoPrompt, analyzeCreativePlan, analyzeOperations, analyzeBookCandidates, extractScreenshotText, analyzeScreenshotWithSeed, copilotReply, generateDistributionPlan, rewritePosterPrompt, findAcTask, submitAc, acResult, extractAcVideoMedia, taskIdOf, validateVideo, validateImage, generateIIITImage, generateMeituImage, submitImage, imageResult, reportRows, funnelReportRows, funnelReportIds, putreportRows, putreportDimensionRows, putreportBreakdownRows, sha, titleKey, modelTemperature, operationsTimeoutForModel, creativeWireUsesResponses, modelEnvelopeDiagnostic, reserveModelFor, normalizeTokenDanceDeepSeekModel, copyModelConfig, parseModelJson, extractModelText, requestedCreativeSection, normalizeCreativeWireSection, deriveVideoPromptFields, structuredShape, buildEvidenceBank, hydrateCreativeEvidence };
