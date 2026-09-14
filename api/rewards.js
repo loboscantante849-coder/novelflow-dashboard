@@ -298,9 +298,11 @@ module.exports = async (req, res) => {
   }
   const { lock, identity } = walletLock;
   if (!lock) {
+    console.warn('[rewards] wallet busy', { action, username });
     return res.status(409).json({ error: 'User data is being updated', code: 'USER_DATA_BUSY' });
   }
   if (identity.userFacingBlocked) {
+    console.warn('[rewards] account blocked by wallet record', { action, username });
     await releaseUserDataLock(redis, lock);
     return res.status(409).json({ error: 'Account requires recovery', code: 'WALLET_IDENTITY_CONFLICT' });
   }
@@ -312,8 +314,11 @@ module.exports = async (req, res) => {
     // the wallet is unambiguous; a historical duplicate is flagged for payout
     // review instead of blocking the member.
     const establishedCheckinWallet = action === 'checkin';
-    if (!establishedCheckinWallet && !identity.conflict) {
+    const existingWalletRecord = Boolean(await redis.get(`nf_user_data:${identity.storageUsername}`));
+    if (!establishedCheckinWallet && !identity.conflict && !existingWalletRecord) {
       sourceGuard = await acquireWalletCreationSourceGuard(redis, username, identity);
+    } else if (!establishedCheckinWallet && existingWalletRecord && !identity.conflict) {
+      console.warn('[rewards] source guard skipped for existing wallet', { action, username });
     }
     const walletUsername = identity.storageUsername;
     const data = normalizeUserData(await getUserData(redis, walletUsername));
