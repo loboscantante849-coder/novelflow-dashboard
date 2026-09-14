@@ -6220,15 +6220,11 @@
             const bindId = localStorage.getItem(getUserKey('bind_id'));
             const bindRow = document.getElementById('bindIdRow');
             const tBb = document.getElementById('taskBindClaimBtn');
-            if (bindId) {
-                if (bindRow) bindRow.style.display = 'flex';
-                const input = document.getElementById('novelflowIdInput');
-                if (input) { input.value = bindId; input.disabled = true; }
-            } else {
-                if (bindRow) bindRow.style.display = 'flex';
-                const input = document.getElementById('novelflowIdInput');
-                if (input) { input.value = ''; input.disabled = false; }
-            }
+            if (bindRow) bindRow.style.display = 'flex';
+            // A locally cached id is always a verified one, so the field stays
+            // locked only for a real binding; otherwise it re-opens for entry
+            // and the first-bind gift hint stays visible.
+            updateBindRowUI(bindId || '', Boolean(bindId));
             if (tBb) {
                 if (isMissionClaimed('bindId')) {
                     tBb.disabled = true; tBb.classList.add('claimed'); tBb.innerHTML = '<span class="mission-claim-text">✓</span>';
