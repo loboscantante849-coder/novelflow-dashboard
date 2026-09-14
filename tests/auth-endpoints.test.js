@@ -1455,9 +1455,12 @@ test('concurrent withdrawal submissions cannot lose an acknowledged request', as
     invoke(withdrawals, request),
     invoke(withdrawals, request),
   ]);
-  assert.deepEqual(results.map(result => result.statusCode).sort(), [200, 409]);
-  assert.equal(results.find(result => result.statusCode === 409).body.code, 'WALLET_BUSY');
-  assert.equal(results.find(result => result.statusCode === 200).body.available_balance, 20);
+  // A double tap waits for the in-flight write and resolves through the
+  // idempotency key instead of failing with a confusing busy error.
+  assert.deepEqual(results.map(result => result.statusCode), [200, 200]);
+  assert.equal(results.filter(result => result.body.idempotent === true).length, 1);
+  const created = results.find(result => result.body.idempotent !== true);
+  assert.equal(created.body.available_balance, 20);
 
   const saved = JSON.parse(FakeRedis.values.get(`nf_user_data:${username}`));
   assert.equal(saved.withdrawals.length, 1);
