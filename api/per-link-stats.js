@@ -31,6 +31,21 @@ const { resolveUserFacingWalletStorageIdentity } = require('./_lib/wallet-identi
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
+// Operator-reviewed income corrections live in their own key; the wallet
+// already adds them, so the statistics view shows the same number.
+async function readIncomeAdjustment(redis, promoterKey) {
+  if (!redis || !promoterKey) return 0;
+  try {
+    const raw = await redis.get(`nf_admin_income_adjustment:${promoterKey}`);
+    if (raw == null) return 0;
+    const record = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const amount = Number(record && record.amount);
+    return Number.isFinite(amount) && Math.abs(amount) <= 100000000 ? Math.round(amount * 100) / 100 : 0;
+  } catch (_error) {
+    return 0;
+  }
+}
+
 module.exports = async (req, res) => {
   setCORSHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -114,6 +129,7 @@ module.exports = async (req, res) => {
       }
       debugLog.push(`username "${username}" → canon="${usernameCanon}"`);
     }
+    const incomeAdjustment = await readIncomeAdjustment(redis, usernameCanon || username);
     const submissions = redis ? await loadSubmissions(
       redis,
       username,
@@ -316,7 +332,8 @@ module.exports = async (req, res) => {
         total_visits: totalVisits,
         total_unique: totalVisits,
         total_new: totalNew,
-        total_income: totalIncome,
+        total_income: totalIncome + incomeAdjustment,
+        income_adjustment: incomeAdjustment,
         last_updated: adData.last_updated || null,
           data_through: adData.date_range?.to || adData.date_range?.end || null,
         daily, links,
@@ -393,7 +410,8 @@ module.exports = async (req, res) => {
     return res.status(200).json(finalize({
       username, isAdmin: admin,
       total_visits: totalVisits, total_unique: totalVisits,
-      total_new: totalNew, total_income: totalIncome,
+      total_new: totalNew, total_income: totalIncome + incomeAdjustment,
+      income_adjustment: incomeAdjustment,
       last_updated: linkStats.last_updated || new Date().toISOString(),
       daily, links,
       debug: debugLog, version: 'v6-unified-funnel',

@@ -36,6 +36,24 @@ function matchesAuthenticatedLabel(value, payload) {
     .some(candidate => String(candidate).trim().toLowerCase() === requested);
 }
 
+/**
+ * Operator-reviewed income corrections (for example a migration that dropped
+ * historical rows) live in their own key. The wallet already adds them, so the
+ * statistics view has to show the same number.
+ */
+async function readIncomeAdjustment(redis, promoterKey) {
+  if (!redis || !promoterKey) return 0;
+  try {
+    const raw = await redis.get(`nf_admin_income_adjustment:${promoterKey}`);
+    if (raw == null) return 0;
+    const record = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const amount = Number(record && record.amount);
+    return Number.isFinite(amount) && Math.abs(amount) <= 100000000 ? r2(amount) : 0;
+  } catch (_error) {
+    return 0;
+  }
+}
+
 module.exports = async (req, res) => {
   if (handlePreflight(req, res)) return;
 
@@ -462,9 +480,11 @@ module.exports = async (req, res) => {
         if (v.new_users) nd[dt]=v.new_users;
         if (v.income) id[dt]=r2(v.income);
       }
+      const incomeAdjustment = await readIncomeAdjustment(redis, usernameCanon || username);
       return res.status(200).json(finalize({
         username, isAdmin,
-        total_visits: tv, total_unique: tv, total_new: tn, total_income: ti,
+        total_visits: tv, total_unique: tv, total_new: tn, total_income: r2(ti + incomeAdjustment),
+        income_adjustment: incomeAdjustment,
         last_updated: dataJson.last_updated || new Date().toISOString(),
         visits_daily: vd, unique_daily: ud, new_users_daily: nd, income_daily: id,
         books, debug: debugLog, version: 'v6.1-security',
