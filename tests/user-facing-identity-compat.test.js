@@ -109,6 +109,20 @@ test('a disabled duplicate wallet still blocks the account', async () => {
   assert.equal(response.body.code, 'WALLET_IDENTITY_CONFLICT');
 });
 
+test('an unreadable duplicate record does not block the account', async () => {
+  process.env.VERCEL_ENV = 'production';
+  FakeRedis.reset({
+    'nf_user_data:eliza_star': 'not-json{',
+    'nf_user_data:eliza_stellar': JSON.stringify({ points: 12, myBooks: [{ bookId: 'b', code: '1' }] }),
+  });
+
+  const response = await invoke(userData, { method: 'GET', headers: authHeaders() });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.points, 12);
+  assert.equal(response.body.data.myBooks.length, 1);
+});
+
 test('a conflicting identity owner index is tolerated in production only', async () => {
   const ownerRecords = {
     'nf_user_data:eliza_star': JSON.stringify({ points: 5 }),
