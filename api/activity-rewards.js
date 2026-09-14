@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { Redis } = require('@upstash/redis');
 const { handlePreflight } = require('./_lib/cors');
 const {
-  assertAccountIdentity,
+  assertAccountIdentityForSession,
   checkRateLimit,
   getAuthPayload,
   getClientIp,
@@ -526,7 +526,7 @@ module.exports = async (req, res) => {
     if (await isDisabledUser(redis, payload, { failClosed: true })) {
       return res.status(403).json({ error: 'Account disabled', code: 'ACCOUNT_DISABLED' });
     }
-    await assertAccountIdentity(redis, payload);
+    await assertAccountIdentityForSession(redis, payload);
     const admin = await isAdminUser(redis, username);
     const query = req.query || {};
     const exportMode = String(query.admin_export || '').toLowerCase();

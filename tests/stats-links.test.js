@@ -89,7 +89,7 @@ test('stats endpoints fail visibly and production responses omit debug details',
 
   assert.match(perLink, /res\.status\(503\)/);
   assert.match(myStats, /res\.status\(503\)/);
-  assert.match(perLink, /const \{ debug, \.\.\.publicBody \} = body/);
+  assert.match(perLink, /const \{ debug, \.\.\.publicBody \} = withReviewFlag/);
   assert.match(perLink, /buildLegacyAdIdLookup/);
   assert.match(perLink, /if \(!linkStats\) throw new Error/);
   assert.match(myStats, /if \(!dataJson\) throw new Error/);

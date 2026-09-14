@@ -94,7 +94,7 @@ test('all user-data writers use the shared distributed lock', () => {
   for (const file of ['api/user-data.js', 'api/rewards.js', 'api/confirm.js', 'api/withdrawals.js']) {
     const fileSource = fs.readFileSync(path.join(ROOT, file), 'utf8');
     assert.match(fileSource, /_lib\/user-data-lock/);
-    assert.match(fileSource, /acquireWalletDataLock|acquireUserDataLock/);
+    assert.match(fileSource, /acquireWalletDataLock|acquireUserDataLock|acquireUserFacingWalletDataLock/);
   }
 });
 
