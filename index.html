@@ -10709,7 +10709,11 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
         function selectXMPBook(el) {
             document.querySelectorAll('#xmpBookResults .reel-book-option').forEach(e => e.style.background = '');
             el.style.background = 'var(--canvas-soft)';
-            xmpSelectedBook = { bookId: el.dataset.bookid, title: el.querySelector('div > div').textContent };
+            const xmpTitleEl = el.querySelector('.reel-book-title');
+            xmpSelectedBook = {
+                bookId: el.dataset.bookid,
+                title: (xmpTitleEl ? xmpTitleEl.textContent : '').trim() || 'Untitled'
+            };
             document.getElementById('xmpAssetSection').style.display = 'block';
             document.getElementById('xmpEmptyHint').style.display = 'none';
             loadXMPMaterials(xmpSelectedBook.title);  // Search XMP by book name for matching videos
@@ -10792,7 +10796,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 container.innerHTML = books.slice(0, 5).map(b => 
                     '<div class="reel-book-option" data-bookid="' + escapeHtml(b.bookId || b.id || b.book_id || '') + '" data-nf-action="select-reel-book" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--hairline);font-size:13px;display:flex;gap:8px;align-items:center;">' +
                     '<img src="' + escapeHtml(safeClientUrl(b.cover, { allowBlob: true })) + '" style="width:30px;height:40px;border-radius:4px;object-fit:cover;" onerror="this.style.display=\'none\'">' +
-                    '<div><div style="font-weight:500;">' + escapeHtml(b.title || 'Untitled') + '</div><div style="font-size:11px;color:var(--ink-mute);">' + escapeHtml(b.author || '') + '</div></div></div>'
+                    '<div><div class="reel-book-title" style="font-weight:500;">' + escapeHtml(b.title || 'Untitled') + '</div><div class="reel-book-author" style="font-size:11px;color:var(--ink-mute);">' + escapeHtml(b.author || '') + '</div></div></div>'
                 ).join('');
             } catch(e) { container.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--ink-mute);">Search failed</div>'; }
         }
