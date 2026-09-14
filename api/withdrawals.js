@@ -413,7 +413,11 @@ module.exports = async (req, res) => {
         incomeProfile,
         await getIncomeAdjustment(redis, promoterIdentity(incomeSources, targetUser), { failClosed: true }),
       );
-      const daily = buildEarningsDetail(reviewRequired ? ownerState.profile : incomeProfile, userData, 30);
+      // Members only need the credited amount. The internal split (gross and the
+      // per-day rate) is bookkeeping for payout review and must not ship to the
+      // client, where anyone could read it from the response body.
+      const daily = buildEarningsDetail(reviewRequired ? ownerState.profile : incomeProfile, userData, 30)
+        .map(day => ({ date: day.date, amount: day.amount }));
 
       return res.status(200).json({
         success: true,
