@@ -67,6 +67,32 @@ function creativeModelLabel(run) {
   })[run.input?.creativeProfile?.modelChoice] || 'AI';
 }
 
+// Keep the portfolio format contract valid for legacy and hand-created runs.
+// New runs are sanitized in api/runs.js, but older queued runs can still carry
+// uniquenessRequired=true with empty form fields. Normalizing that state before
+// P3 generation lets the provider receive the same assignments that the
+// validator enforces, while preserving every explicit operator selection.
+function ensureCreativeProfileDefaults(run) {
+  const profile = run?.input?.creativeProfile;
+  if (!profile || profile.uniquenessRequired !== true) return false;
+  const defaults = {
+    creativeForm: 'evidence_discovery',
+    secondaryForm: 'accusation_aftershock',
+    hookDevice: 'object_closeup',
+    openingGrammar: 'conflict_object_action',
+    videoGrammar: 'discovery_consequence_reaction',
+    ctaMode: 'unresolved_question'
+  };
+  let changed = false;
+  for (const [key, value] of Object.entries(defaults)) {
+    if (!String(profile[key] || '').trim()) {
+      profile[key] = value;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 function creativeRepairModel(modelChoice) {
   // GLM can return a prose envelope instead of the required structured
   // package. Its single bounded repair therefore uses the configured
@@ -3410,6 +3436,13 @@ async function advancePosters(redis, run) {
 // continue through all immediately-runnable free stages without requiring a
 // browser click for every node.
 async function processRunOnce(redis, run, options = {}) {
+  // Repair incomplete portfolio assignments before any P3 request is built.
+  // This is a metadata-only migration: it never touches evidence, copy, or
+  // external media IDs, and strict normalizeCreative checks remain intact.
+  if (ensureCreativeProfileDefaults(run)) {
+    addEvent(run, 'creative_profile_defaults_repaired', 'Filled missing uniqueness-required creative format assignments before P3 generation');
+    await saveRun(redis, run);
+  }
   // Migrate unfinished legacy tasks to the operator-approved DeepSeek route.
   // Completed media is never rewritten; only a still-open creative stage moves.
   if (run.stages?.P3?.status !== 'done' && String(run.input?.creativeProfile?.modelChoice || '') === 'glm-5.3-flash'

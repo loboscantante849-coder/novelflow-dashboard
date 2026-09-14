@@ -110,13 +110,25 @@ function sanitizeCreativeProfile(value) {
   sanitized.sceneRepeatIndex = Math.max(0, Math.min(Number(profile.sceneRepeatIndex) || 0, 3));
   sanitized.sceneRepeatCount = Math.max(0, Math.min(Number(profile.sceneRepeatCount) || 0, 3));
   sanitized.voiceStyle = VOICE_STYLES.has(String(profile.voiceStyle || '')) ? String(profile.voiceStyle) : 'cinematic';
-  sanitized.creativeForm = CREATIVE_FORMS.has(String(profile.creativeForm || '')) ? String(profile.creativeForm) : '';
-  sanitized.secondaryForm = SECONDARY_FORMS.has(String(profile.secondaryForm || '')) ? String(profile.secondaryForm) : '';
-  sanitized.hookDevice = HOOK_DEVICES.has(String(profile.hookDevice || '')) ? String(profile.hookDevice) : '';
-  sanitized.openingGrammar = OPENING_GRAMMARS.has(String(profile.openingGrammar || '')) ? String(profile.openingGrammar) : '';
-  sanitized.videoGrammar = VIDEO_GRAMMARS.has(String(profile.videoGrammar || '')) ? String(profile.videoGrammar) : '';
-  sanitized.ctaMode = CTA_MODES.has(String(profile.ctaMode || '')) ? String(profile.ctaMode) : '';
   sanitized.uniquenessRequired = profile.uniquenessRequired === true;
+  // A uniqueness-required campaign has a strict portfolio contract: P3
+  // validates the model's formatId/openingGrammar against these assignments.
+  // Older callers omitted the fields, which persisted empty identifiers and
+  // made every otherwise valid response fail as "assigned format 0". Fill
+  // only missing values with the reviewed source-grounded defaults; explicit
+  // valid operator choices remain untouched.
+  sanitized.creativeForm = CREATIVE_FORMS.has(String(profile.creativeForm || ''))
+    ? String(profile.creativeForm) : sanitized.uniquenessRequired ? 'evidence_discovery' : '';
+  sanitized.secondaryForm = SECONDARY_FORMS.has(String(profile.secondaryForm || ''))
+    ? String(profile.secondaryForm) : sanitized.uniquenessRequired ? 'accusation_aftershock' : '';
+  sanitized.hookDevice = HOOK_DEVICES.has(String(profile.hookDevice || ''))
+    ? String(profile.hookDevice) : sanitized.uniquenessRequired ? 'object_closeup' : '';
+  sanitized.openingGrammar = OPENING_GRAMMARS.has(String(profile.openingGrammar || ''))
+    ? String(profile.openingGrammar) : sanitized.uniquenessRequired ? 'conflict_object_action' : '';
+  sanitized.videoGrammar = VIDEO_GRAMMARS.has(String(profile.videoGrammar || ''))
+    ? String(profile.videoGrammar) : sanitized.uniquenessRequired ? 'discovery_consequence_reaction' : '';
+  sanitized.ctaMode = CTA_MODES.has(String(profile.ctaMode || ''))
+    ? String(profile.ctaMode) : sanitized.uniquenessRequired ? 'unresolved_question' : '';
   sanitized.draftPostIndex = Number(profile.draftPostIndex) === 1 ? 1 : 0;
   sanitized.qualityMode = profile.qualityMode === 'premium' ? 'premium' : 'standard';
   return sanitized;
@@ -1300,6 +1312,7 @@ module.exports.copyAssetPayload = copyAssetPayload;
 module.exports.listRunsPayload = listRunsPayload;
 module.exports.loadRunView = loadRunView;
 module.exports.buildRunInput = buildRunInput;
+module.exports.sanitizeCreativeProfile = sanitizeCreativeProfile;
 module.exports.exactLookupFailure = exactLookupFailure;
 module.exports.waitForActiveRun = waitForActiveRun;
 module.exports.archiveFailedRuns = archiveFailedRuns;

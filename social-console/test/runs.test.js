@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { copyAssetPayload, listRunsPayload, loadRunView, buildRunInput, exactLookupFailure, archiveFailedRuns, archiveUnstartedRun, holdRunForP0Review, releaseP0ReviewHold, rewriteModelChoice, resetManualCreativeRetry, reusableSiblingVideo, authorizePaidMediaSubmission, reviewVideoFidelity, skipUnsubmittedPosters, attachOperatorCatalogueEvidence } = require('../api/runs');
+const { copyAssetPayload, listRunsPayload, loadRunView, buildRunInput, sanitizeCreativeProfile, exactLookupFailure, archiveFailedRuns, archiveUnstartedRun, holdRunForP0Review, releaseP0ReviewHold, rewriteModelChoice, resetManualCreativeRetry, reusableSiblingVideo, authorizePaidMediaSubmission, reviewVideoFidelity, skipUnsubmittedPosters, attachOperatorCatalogueEvidence } = require('../api/runs');
 
 test('exact bookstore failures preserve identity versus transient HTTP semantics', () => {
   assert.equal(exactLookupFailure(Object.assign(new Error('missing'), { status: 404, code: 'exact_not_found' }), 'Book', 'NovelFlow').status, 422);
@@ -297,6 +297,20 @@ test('switching a uniqueness-required run model fills only missing format locks'
   assert.equal(patched.creativeForm, 'evidence_discovery');
   assert.equal(patched.secondaryForm, 'accusation_aftershock');
   assert.equal(patched.modelChoice, 'glm-5.3-flash');
+});
+
+test('uniqueness-required profiles receive strict creative format defaults at input time', () => {
+  const profile = sanitizeCreativeProfile({ uniquenessRequired: true, modelChoice: 'deepseek' });
+  assert.equal(profile.creativeForm, 'evidence_discovery');
+  assert.equal(profile.secondaryForm, 'accusation_aftershock');
+  assert.equal(profile.hookDevice, 'object_closeup');
+  assert.equal(profile.openingGrammar, 'conflict_object_action');
+  assert.equal(profile.videoGrammar, 'discovery_consequence_reaction');
+  assert.equal(profile.ctaMode, 'unresolved_question');
+  const explicit = sanitizeCreativeProfile({ uniquenessRequired: true, creativeForm: 'pursuit_in_motion', secondaryForm: 'blocked_escape', openingGrammar: 'movement_interruption' });
+  assert.equal(explicit.creativeForm, 'pursuit_in_motion');
+  assert.equal(explicit.secondaryForm, 'blocked_escape');
+  assert.equal(explicit.openingGrammar, 'movement_interruption');
 });
 
 test('run input keeps the verified SocialEcho delivery route', () => {
