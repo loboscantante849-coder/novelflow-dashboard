@@ -32,3 +32,34 @@ test('Profile uses an explicit placeholder and lets trusted API covers repair st
   assert.match(source, /if \(local && local\.cover !== apiBook\.cover\)/);
   assert.match(source, /onerror="this\.onerror=null;this\.src='\/book-cover-placeholder\.svg'"/);
 });
+
+test('a wrong-typed cover cache key is repaired instead of failing every write', async () => {
+  const { cacheBookCover, writeCoverHash } = require('../api/_lib/book-covers');
+  const calls = [];
+  let failFirst = true;
+  const redis = {
+    async hset(key, values) {
+      calls.push(['hset', key, values]);
+      if (failFirst) {
+        failFirst = false;
+        const error = new Error('WRONGTYPE Operation against a key holding the wrong kind of value');
+        throw error;
+      }
+      return 'OK';
+    },
+    async del(key) {
+      calls.push(['del', key]);
+      return 1;
+    },
+  };
+
+  const stored = await cacheBookCover(redis, 'book-1', 'https://cdn.example/book-1.jpg');
+
+  assert.equal(stored, true);
+  assert.deepEqual(calls, [
+    ['hset', 'nf_book_covers', { 'book-1': 'https://cdn.example/book-1.jpg' }],
+    ['del', 'nf_book_covers'],
+    ['hset', 'nf_book_covers', { 'book-1': 'https://cdn.example/book-1.jpg' }],
+  ]);
+  assert.equal(typeof writeCoverHash, 'function');
+});

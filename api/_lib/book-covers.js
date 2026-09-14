@@ -78,12 +78,30 @@ async function fetchTrustedBookCover(bookId, { timeoutMs = DEFAULT_TIMEOUT_MS } 
   return extractBookCover(await response.json(), normalizedBookId);
 }
 
+/**
+ * The cover table is a pure presentation cache, so a key left behind by an
+ * older release with a different Redis type is replaced once instead of
+ * failing every write. Without this repair each promotion-link creation and
+ * statistics view kept re-fetching covers because nothing could be cached.
+ */
+async function writeCoverHash(redis, values) {
+  const entries = values && typeof values === 'object' ? values : {};
+  if (!redis || !Object.keys(entries).length) return false;
+  try {
+    await redis.hset(COVER_HASH_KEY, entries);
+    return true;
+  } catch (_error) {
+    await redis.del(COVER_HASH_KEY);
+    await redis.hset(COVER_HASH_KEY, entries);
+    return true;
+  }
+}
+
 async function cacheBookCover(redis, bookId, cover) {
   const normalizedBookId = String(bookId || '').trim();
   const normalizedCover = normalizeHttpsCoverUrl(cover);
   if (!redis || !normalizedBookId || !normalizedCover) return false;
-  await redis.hset(COVER_HASH_KEY, { [normalizedBookId]: normalizedCover });
-  return true;
+  return writeCoverHash(redis, { [normalizedBookId]: normalizedCover });
 }
 
 function coverMissKey(bookId) {
@@ -151,7 +169,7 @@ async function backfillBookCovers(redis, bookIds, debugLog, options = {}) {
 
   if (Object.keys(resolved).length) {
     try {
-      await redis.hset(COVER_HASH_KEY, resolved);
+      await writeCoverHash(redis, resolved);
     } catch (error) {
       debugLog?.push(`cover cache write failed; continuing with fetched covers: ${error.message}`);
     }
@@ -165,6 +183,7 @@ async function backfillBookCovers(redis, bookIds, debugLog, options = {}) {
 
 module.exports = {
   COVER_HASH_KEY,
+  writeCoverHash,
   normalizeHttpsCoverUrl,
   extractBookCover,
   fetchTrustedBookCover,
