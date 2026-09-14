@@ -50,6 +50,8 @@ export const config = {
     '/SECURITY_QUICK_FIX.md',
     '/:document(.+\\.md)',
     '/ac-sdk.js',
+    '/prototypes',
+    '/prototypes/:path*',
   ],
 };
 
