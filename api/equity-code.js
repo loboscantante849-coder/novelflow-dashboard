@@ -256,10 +256,23 @@ async function releaseLock(redis, key, token) {
   }
 }
 
+// The invite-code feature is offline in this release while it is reworked.
+// Set EQUITY_CODE_ENABLED=true to bring the endpoint back; existing codes that
+// were already handed out keep working on the store side.
+function equityCodeEnabled() {
+  return String(process.env.EQUITY_CODE_ENABLED || 'false').trim().toLowerCase() === 'true';
+}
+
 module.exports = async (req, res) => {
   if (handlePreflight(req, res)) return;
   if (!['GET', 'POST'].includes(req.method)) {
     return res.status(405).json({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' });
+  }
+  if (!equityCodeEnabled()) {
+    return res.status(503).json({
+      error: 'Invite codes are temporarily unavailable while we rework this feature.',
+      code: 'EQUITY_CODE_OFFLINE',
+    });
   }
 
   const auth = canonicalizeLocalSessionPayload(getAuthPayload(req));

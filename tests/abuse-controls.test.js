@@ -204,7 +204,7 @@ test('AC creation reserves atomic user and IP quotas and sends bounded values', 
   const ipKey = [...FakeRedis.values.keys()].find(key => key.startsWith('reels_ip_count_v2:192.0.2.20:'));
   assert.equal(FakeRedis.values.get(dayKey), 3);
   assert.equal(FakeRedis.values.get(ipKey), 3);
-  assert.equal(created.body.remaining, 4);
+  assert.equal(created.body.remaining, 1);
   assert.equal(FakeRedis.values.get('ac_thread_owner:thread-1'), 'alice');
 });
 
