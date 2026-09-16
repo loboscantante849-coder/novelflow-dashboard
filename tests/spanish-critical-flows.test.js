@@ -20,7 +20,7 @@ test('Spanish critical flows have localized login, check-in, cash, VIP, and reco
   for (const text of [
     'Usuario o contraseña incorrectos.',
     'No se pudo hacer check-in. Inténtalo de nuevo.',
-    '+$0.50 acreditado en tu saldo',
+    '+2 días VIP desbloqueados',
     'Confirmar 2 días VIP',
     'Vincula primero tu ID de NovelFlow para recibir los 2 días VIP.',
     'Un registro antiguo de la cuenta necesita revisión.',

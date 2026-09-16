@@ -150,7 +150,7 @@ test('reviewed Cons duplicate wallets credit the data-bearing record instead of 
 
   assert.equal(response.statusCode, 200);
   const saved = JSON.parse(FakeRedis.values.get('nf_user_data:cons_espher'));
-  assert.equal(saved.bonus_balance, 2.5);
+  assert.equal(saved.bonus_balance, 2);
   assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:@cons espher')).points, 9);
 });
 
@@ -463,7 +463,7 @@ test('VIP exchange uses the immutable server binding when NovelFlow lookup is un
   }
 });
 
-test('7-day grand prize credits cash first and defers VIP to explicit confirmation', async () => {
+test('7-day grand prize unlocks the VIP reward and defers delivery to explicit confirmation', async () => {
   const originalFetch = global.fetch;
   const memberId = '67e519c3da10a5c772ca196e';
   const binding = {
@@ -494,10 +494,10 @@ test('7-day grand prize credits cash first and defers VIP to explicit confirmati
       body: { action: 'claim_streak_grand' },
     });
     assert.equal(response.statusCode, 200);
-    assert.equal(response.body.bonus_awarded, 0.5);
+    assert.equal(response.body.bonus_awarded, 0);
     assert.equal(response.body.vip_days_awarded, 0);
     assert.equal(response.body.vip_confirmation_required, true);
-    assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).bonus_balance, 4.5);
+    assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).bonus_balance, 4);
     assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).vip_days, 0);
 
     const confirm = await invoke(rewards, {
@@ -531,7 +531,7 @@ test('check-in uses canonical wallet while preserving a legacy duplicate for pay
   assert.equal(FakeRedis.values.get('nf_user_data:Xenomorphette'), legacy);
 });
 
-test('case-only duplicate source keys credit the canonical wallet for the 7-day cash reward', async () => {
+test('case-only duplicate source keys credit the canonical wallet for the 7-day VIP reward', async () => {
   const wallet = {
     points: 50,
     bonus_balance: 4,
@@ -551,11 +551,11 @@ test('case-only duplicate source keys credit the canonical wallet for the 7-day 
   });
 
   assert.equal(response.statusCode, 200);
-  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:xenomorphette')).bonus_balance, 4.5);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:xenomorphette')).bonus_balance, 4);
   assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:Xenomorphette')).points, 99);
 });
 
-test('7-day grand prize credits cash without a NovelFlow ID and leaves VIP pending', async () => {
+test('7-day grand prize unlocks without a NovelFlow ID and leaves VIP pending', async () => {
   FakeRedis.reset({
     'nf_user_data:zoe': JSON.stringify({
       points: 50,
@@ -571,10 +571,10 @@ test('7-day grand prize credits cash without a NovelFlow ID and leaves VIP pendi
     body: { action: 'claim_streak_grand' },
   });
   assert.equal(response.statusCode, 200);
-  assert.equal(response.body.bonus_awarded, 0.5);
+  assert.equal(response.body.bonus_awarded, 0);
   assert.equal(response.body.vip_confirmation_required, true);
   const saved = JSON.parse(FakeRedis.values.get('nf_user_data:zoe'));
-  assert.equal(saved.bonus_balance, 4.5);
+  assert.equal(saved.bonus_balance, 4);
   assert.equal(saved.streak_grand_vip_pending.sequence, 1);
 });
 
@@ -625,7 +625,7 @@ test('a failed atomic VIP commit leaves both points and the entitlement unchange
   }
 });
 
-test('a failed streak VIP confirmation preserves the credited cash and pending VIP', async () => {
+test('a failed streak VIP confirmation preserves the unlocked reward and pending VIP', async () => {
   const originalFetch = global.fetch;
   const originalEval = FakeRedis.prototype.eval;
   mockMemberLookup();
@@ -641,11 +641,11 @@ test('a failed streak VIP confirmation preserves the credited cash and pending V
     nf_subs: { 'verified-code': JSON.stringify({ code: 'verified-code', bookId: 'verified-book', status: 'completed' }) },
   });
   try {
-    const cash = await invoke(rewards, {
+    const unlock = await invoke(rewards, {
       headers: authHeaders(),
       body: { action: 'claim_streak_grand' },
     });
-    assert.equal(cash.statusCode, 200);
+    assert.equal(unlock.statusCode, 200);
     FakeRedis.prototype.eval = async function evalWithFailure(script, keys, args) {
       if (String(script).includes('NF_VIP_USER_DATA_COMMIT_V1')) throw new Error('simulated atomic commit failure');
       return originalEval.call(this, script, keys, args);
@@ -656,7 +656,7 @@ test('a failed streak VIP confirmation preserves the credited cash and pending V
     });
     assert.equal(response.statusCode, 503);
     const saved = JSON.parse(FakeRedis.values.get('nf_user_data:zoe'));
-    assert.equal(saved.bonus_balance, 4.5);
+    assert.equal(saved.bonus_balance, 4);
     assert.ok(saved.streak_grand_claimed);
     assert.equal(saved.streak_grand_vip_pending.sequence, 1);
     assert.equal(saved.vip_days, 0);
@@ -689,7 +689,7 @@ test('the 7-day streak grand prize can be claimed again after a seven-day cooldo
       body: { action: 'claim_streak_grand' },
     });
     assert.equal(response.statusCode, 200);
-    assert.equal(response.body.bonus_awarded, 0.5);
+    assert.equal(response.body.bonus_awarded, 0);
     assert.equal(response.body.vip_days_awarded, 0);
     const saved = JSON.parse(FakeRedis.values.get('nf_user_data:zoe'));
     assert.equal(saved.streak_grand_sequence, 2);

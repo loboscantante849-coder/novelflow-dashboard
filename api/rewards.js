@@ -9,7 +9,7 @@
  *   - claim_mission   : Claim a completed mission (share1=20pts, share3=50pts, bindId=30pts)
  *   - bind_id         : Save NovelFlow ID (bind_id) — validated client-side, server stores it
  *   - exchange_vip    : Spend 1000 points for 3 VIP days
- *   - claim_streak_grand : Claim the 7-day streak cash bonus (+$0.5)
+ *   - claim_streak_grand : Unlock the 7-day streak VIP reward (no cash)
  *   - confirm_streak_vip : Confirm delivery of the separate 2-day VIP reward
  *
  * Auth: JWT required. All mutations apply ONLY to the authenticated user.
@@ -52,7 +52,6 @@ const VIP_DAYS_AWARDED = 3;
 // member can confirm the binding and the delivery chain in one step.
 const FIRST_BIND_VIP_DAYS = 3;
 const FIRST_BIND_MARKER_PREFIX = 'nf_first_bind_vip:v1:';
-const STREAK_GRAND_BONUS = 0.50;
 const STREAK_GRAND_VIP = 2;
 const STREAK_GRAND_REQUIRED = 7;
 const STREAK_GRAND_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
@@ -602,23 +601,23 @@ module.exports = async (req, res) => {
             bonus_awarded: 0,
             vip_days_awarded: 0,
             vip_confirmation_required: true,
-            message: 'The $0.50 bonus was already credited. Confirm VIP delivery separately.',
+            message: 'Your 7-day VIP reward is already unlocked. Confirm VIP delivery separately.',
           };
           break;
         }
         const streakGrandSequence = Math.max(0, Number(data.streak_grand_sequence) || 0) + 1;
-        data.bonus_balance = Math.round((data.bonus_balance + STREAK_GRAND_BONUS) * 100) / 100;
+        // The 7-day streak pays VIP days only; the cash part was retired.
         data.streak_grand_sequence = streakGrandSequence;
         data.streak_grand_claimed = new Date().toISOString();
         data.streak_grand_vip_pending = { sequence: streakGrandSequence, created_at: data.streak_grand_claimed };
         result = {
           ...result,
-          bonus_awarded: STREAK_GRAND_BONUS,
+          bonus_awarded: 0,
           vip_days_awarded: 0,
           vip_confirmation_required: true,
           total_bonus: data.bonus_balance,
           total_vip_days: data.vip_days,
-          message: `7-day streak cash bonus claimed! +$${STREAK_GRAND_BONUS}. Confirm VIP delivery separately.`,
+          message: '7-day streak reward unlocked! Confirm your VIP delivery separately.',
         };
         break;
       }
