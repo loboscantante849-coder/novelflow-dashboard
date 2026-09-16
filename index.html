@@ -1049,6 +1049,7 @@
         .campaign-poster-banner .campaign-ribbon { z-index: 1; }
         .campaign-card.completed .campaign-banner { background: linear-gradient(135deg, #94a3b8, #64748b); }
         .campaign-card.locked .campaign-banner { background: linear-gradient(135deg, #cbd5e1, #94a3b8); }
+        .campaign-tiktok-banner { background: linear-gradient(135deg, #111827, #25F4EE 55%, #FE2C55); }
         .campaign-ribbon {
             position: absolute;
             top: 8px; right: -28px;
@@ -3172,7 +3173,7 @@
                 <div class="reels-header">
                     <span class="reels-header-title">🎬 Video Creator</span>
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="font-size:11px;color:var(--ink-mute);" id="reelsDailyInfo">3 left today</span>
+                        <span style="font-size:11px;color:var(--ink-mute);" id="reelsDailyInfo">4 left today</span>
                         <button class="reels-adv-toggle" id="reelAdvToggle" onclick="toggleAdvMode()">⚙️ Switch to Advanced</button>
                     </div>
                 </div>
@@ -3431,23 +3432,6 @@
                     <button class="vip-mini-btn" id="vipExchangeBtn" onclick="exchangeVIP()" disabled>Exchange</button>
                 </div>
 
-                <section class="equity-code-panel" aria-labelledby="equityCodeTitle">
-                    <div class="equity-code-head">
-                        <div>
-                            <div class="equity-code-title" id="equityCodeTitle" data-i18n="invite_code_title">My Invite Code</div>
-                            <div class="equity-code-sub" data-i18n="invite_code_sub">One active code per account</div>
-                        </div>
-                        <div class="equity-code-terms" aria-label="Invite code terms">
-                            <span class="equity-code-term">Facebook</span>
-                            <span class="equity-code-term">1-Day VIP</span>
-                            <span class="equity-code-term" data-i18n="invite_code_validity">7 days</span>
-                        </div>
-                    </div>
-                    <div class="equity-code-help" data-i18n="invite_code_help">Gives one reader 1-Day VIP. It does not replace your promotion link and code; keep using your promotion link when sharing.</div>
-                    <div class="equity-code-body" id="equityCodeBody" aria-live="polite">
-                        <div class="equity-loading" data-i18n="invite_code_loading">Loading invite code...</div>
-                    </div>
-                </section>
 
                 <!-- Bind ID (collapsed - kept functional but visually slim) -->
                 <div id="bindIdRow" style="display:none;margin-top:10px;background:var(--canvas-soft);border-radius:10px;padding:10px;">
@@ -4473,6 +4457,12 @@
                 campaign_limited_ribbon: 'LIMITED',
                 campaign_ended_ribbon: 'ENDED',
                 campaign_limited_cta: 'View rewards',
+                campaign_tiktok_ribbon: 'Coming soon',
+                campaign_tiktok_name: 'TikTok Campaign',
+                campaign_tiktok_when: 'Starts September 21',
+                campaign_tiktok_reward: 'To be announced',
+                campaign_tiktok_status: 'Reward and rules will be announced on the start date. Get your videos ready.',
+                campaign_tiktok_cta: 'Not started yet',
                 activity_modal_title: 'Limited Subsidy',
                 profile_promotion_earnings: 'Cumulative Earnings',
                 profile_available_withdraw: 'Ready to Withdraw',
@@ -5152,6 +5142,12 @@
                 campaign_limited_ribbon: 'LIMITADA',
                 campaign_ended_ribbon: 'FINALIZADA',
                 campaign_limited_cta: 'Ver recompensas',
+                campaign_tiktok_ribbon: 'Próximamente',
+                campaign_tiktok_name: 'Campaña de TikTok',
+                campaign_tiktok_when: 'Comienza el 21 de septiembre',
+                campaign_tiktok_reward: 'Por anunciar',
+                campaign_tiktok_status: 'La recompensa y las reglas se anunciarán el día del inicio. Ve preparando tus vídeos.',
+                campaign_tiktok_cta: 'Aún no disponible',
                 activity_modal_title: 'Subsidio por tiempo limitado',
                 profile_promotion_earnings: 'Ganancias acumuladas',
                 profile_available_withdraw: 'Listo para retirar',
@@ -6485,6 +6481,8 @@
         }
 
         async function loadEquityCode(force) {
+            // Invite codes are offline in this release; the panel is not rendered.
+            if (!document.getElementById('equityCodeBody')) return;
             if (!AppState.isLoggedIn || !AppState.user) {
                 EquityCodeState.loadRequest += 1;
                 EquityCodeState.record = null;
@@ -6921,7 +6919,20 @@
                         '<button class="campaign-cta" type="button" data-nf-action="open-activity">' + escapeHtml(getText('campaign_limited_cta')) + '</button>' +
                     '</div>' +
                 '</div>';
-            list.innerHTML = campaign1 + limited;
+            const tiktok = '' +
+                '<div class="campaign-card locked">' +
+                    '<div class="campaign-banner campaign-tiktok-banner"><span>🎵</span><div class="campaign-ribbon">' +
+                        escapeHtml(getText('campaign_tiktok_ribbon')) +
+                    '</div></div>' +
+                    '<div class="campaign-body">' +
+                        '<div style="font-size:9px;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:3px;">' + escapeHtml(getText('campaign_tiktok_when')) + '</div>' +
+                        '<div class="campaign-name">' + escapeHtml(getText('campaign_tiktok_name')) + '</div>' +
+                        '<div class="campaign-reward">' + escapeHtml(rewardLabel) + ': <span class="amt">' + escapeHtml(getText('campaign_tiktok_reward')) + '</span></div>' +
+                        '<div class="campaign-status">' + escapeHtml(getText('campaign_tiktok_status')) + '</div>' +
+                        '<button class="campaign-cta" type="button" disabled>' + escapeHtml(getText('campaign_tiktok_cta')) + '</button>' +
+                    '</div>' +
+                '</div>';
+            list.innerHTML = tiktok + campaign1 + limited;
             const activityFab = document.getElementById('activityFab');
             if (activityFab) activityFab.classList.toggle('show', AppState.currentTab === 'home' && AppState.isLoggedIn && !activityEnded);
         }
@@ -10533,16 +10544,16 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
         function updateReelsDailyInfo() {
             const el = document.getElementById('reelsDailyInfo');
             if (el) {
-                const remaining = REELS_DAILY_LIMIT - getReelsDailyCount();
+                const remaining = Math.max(0, REELS_DAILY_LIMIT - getReelsDailyCount());
                 el.textContent = remaining + getText('reels_left');
             }
         }
-        const REELS_DAILY_LIMIT = 7;
+        const REELS_DAILY_LIMIT = 4;
 
         function updateReelsStatusBar() {
             const statusEl = document.getElementById('reelsStatusText');
             if (!statusEl) return;
-            const remaining = REELS_DAILY_LIMIT - getReelsDailyCount();
+            const remaining = Math.max(0, REELS_DAILY_LIMIT - getReelsDailyCount());
             const myReelIds = JSON.parse(localStorage.getItem(getUserKey('my_reel_ids')) || '[]');
             const total = myReelIds.length;
             if (total === 0) {
@@ -11022,7 +11033,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 }
                 if (result.success) {
                     incrementReelsCount();
-                    const remaining = REELS_DAILY_LIMIT - getReelsDailyCount();
+                    const remaining = Math.max(0, REELS_DAILY_LIMIT - getReelsDailyCount());
                     // Show detailed feedback
                     const taskData = result.data?.data || result.data || {};
                     const taskId = getReelTaskId(result.data || result);

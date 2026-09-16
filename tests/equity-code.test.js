@@ -5,6 +5,9 @@ const { installFakeUpstash, invoke } = require('./helpers/endpoint');
 const FakeRedis = installFakeUpstash();
 
 process.env.JWT_SECRET = 'equity-test-secret-not-used-in-production';
+// The endpoint is offline by default in production; these tests cover the
+// feature itself, so they opt back in explicitly.
+process.env.EQUITY_CODE_ENABLED = 'true';
 process.env.KV_REST_API_URL = 'https://redis.invalid';
 process.env.KV_REST_API_TOKEN = 'test-token';
 
@@ -343,4 +346,23 @@ test('allocates a new code after the cooldown instead of reusing the disabled co
   const stored = JSON.parse(FakeRedis.values.get('nf_equity_code:alice'));
   assert.equal(stored.history.length, 1);
   assert.equal(stored.history[0].code, '81234');
+});
+
+test('the invite code endpoint is offline unless explicitly enabled', async () => {
+  const previous = process.env.EQUITY_CODE_ENABLED;
+  process.env.EQUITY_CODE_ENABLED = 'false';
+  try {
+    const read = await invoke(equityCode, {
+      method: 'GET',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(read.statusCode, 503);
+    assert.equal(read.body.code, 'EQUITY_CODE_OFFLINE');
+
+    const create = await invoke(equityCode, authenticated({ action: 'create', bookId: BOOK_ID }));
+    assert.equal(create.statusCode, 503);
+    assert.equal(create.body.code, 'EQUITY_CODE_OFFLINE');
+  } finally {
+    process.env.EQUITY_CODE_ENABLED = previous;
+  }
 });
