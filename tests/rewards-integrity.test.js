@@ -817,3 +817,41 @@ test('the first-bind gift is limited per account even with a different id', asyn
   assert.equal(secondBind.body.first_bind_vip.reason, 'already_claimed');
   assert.equal(FakeRedis.values.has(`nf_first_bind_vip:v1:${second}`), false);
 });
+
+test('a binding left under a renamed spelling no longer blocks a new ID', async () => {
+  const oldId = '69aa3b8cf8225baa929dedf8';
+  const newId = '69aa3b8cf8225baa929dedf9';
+  FakeRedis.reset({
+    'nf_user_data:zoe': JSON.stringify({ points: 5 }),
+    // Legacy spelling wrote the binding record with a different case, so the
+    // unbind path keyed off the wallet value never released it.
+    'nf_app_binding:v1:user:Zoe': JSON.stringify({ version: 1, username: 'Zoe', user_id: oldId }),
+    'nf_app_binding:v1:member:69aa3b8cf8225baa929dedf8': 'Zoe',
+  });
+  mockMemberLookup();
+
+  const rebound = await invoke(rewards, { headers: authHeaders('zoe'), body: { action: 'bind_id', bind_id: newId } });
+  assert.equal(rebound.statusCode, 200, JSON.stringify(rebound.body));
+  assert.equal(rebound.body.bind_id, newId);
+  assert.equal(FakeRedis.values.has('nf_app_binding:v1:user:Zoe'), false);
+  assert.equal(FakeRedis.values.has('nf_app_binding:v1:member:69aa3b8cf8225baa929dedf8'), false);
+  assert.equal(FakeRedis.values.get('nf_app_binding:v1:member:69aa3b8cf8225baa929dedf9'), 'zoe');
+  assert.ok(FakeRedis.values.get('nf_app_binding:v1:user:zoe'));
+});
+
+test('unbinding releases a binding whose wallet value was a legacy paste', async () => {
+  const memberId = '69aa3b8cf8225baa929dedf8';
+  FakeRedis.reset({
+    // The wallet kept the raw "ID: ..." paste, so the old cleanup looked up the
+    // wrong member key and the account stayed "already bound".
+    'nf_user_data:zoe': JSON.stringify({ points: 5, bind_id: 'ID: ' + memberId }),
+    'nf_app_binding:v1:user:zoe': JSON.stringify({ version: 1, username: 'zoe', user_id: memberId }),
+    'nf_app_binding:v1:member:69aa3b8cf8225baa929dedf8': 'zoe',
+  });
+
+  const res = await invoke(rewards, { headers: authHeaders('zoe'), body: { action: 'unbind_id', confirm: true } });
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.equal(FakeRedis.values.has('nf_app_binding:v1:user:zoe'), false);
+  assert.equal(FakeRedis.values.has('nf_app_binding:v1:member:69aa3b8cf8225baa929dedf8'), false);
+  assert.equal(JSON.parse(FakeRedis.values.get('nf_user_data:zoe')).bind_id, null);
+});
