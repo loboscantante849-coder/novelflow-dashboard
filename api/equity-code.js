@@ -8,14 +8,21 @@ const {
   EQUITY_API_BASE,
   BOOK_API_BASE,
   VALIDITY_MS,
-  RECREATE_COOLDOWN_MS,
+  REWARD_DAYS,
+  MAX_ACTIVE_CODES,
+  CREATE_WINDOW_MS,
+  MAX_CREATES_PER_WINDOW,
   FIRST_CODE,
+  activeCodes,
   canonicalUsername,
+  codeStatus,
+  normalizeAccountRecord,
+  publicAccount,
+  publicCode,
   safeParse,
   extractRows,
   extractBook,
   normalizeRemoteRecord,
-  publicRecord,
   equityPayload,
 } = require('./_lib/equity-code');
 
@@ -223,27 +230,6 @@ function disabledRemotePayload(remote, record, username) {
   };
 }
 
-function markUnbound(record, now = Date.now()) {
-  const audit = {
-    code: record.code,
-    bookId: record.bookId,
-    bookTitle: record.bookTitle,
-    startTime: record.startTime,
-    endTime: record.endTime,
-    remoteId: record.remoteId || null,
-    unboundAt: now,
-  };
-  return {
-    ...record,
-    status: 'unbound',
-    isEnable: false,
-    unboundAt: now,
-    cooldownUntil: now + RECREATE_COOLDOWN_MS,
-    updatedAt: now,
-    history: [...(Array.isArray(record.history) ? record.history : []), audit],
-  };
-}
-
 async function releaseLock(redis, key, token) {
   try {
     await redis.eval(
@@ -256,11 +242,10 @@ async function releaseLock(redis, key, token) {
   }
 }
 
-// The invite-code feature is offline in this release while it is reworked.
-// Set EQUITY_CODE_ENABLED=true to bring the endpoint back; existing codes that
-// were already handed out keep working on the store side.
+// Gift codes are back on. Set EQUITY_CODE_ENABLED=false to take the feature
+// down again without a code change.
 function equityCodeEnabled() {
-  return String(process.env.EQUITY_CODE_ENABLED || 'false').trim().toLowerCase() === 'true';
+  return String(process.env.EQUITY_CODE_ENABLED || 'true').trim().toLowerCase() !== 'false';
 }
 
 module.exports = async (req, res) => {
@@ -270,7 +255,7 @@ module.exports = async (req, res) => {
   }
   if (!equityCodeEnabled()) {
     return res.status(503).json({
-      error: 'Invite codes are temporarily unavailable while we rework this feature.',
+      error: 'Gift codes are temporarily unavailable while we rework this feature.',
       code: 'EQUITY_CODE_OFFLINE',
     });
   }
@@ -289,22 +274,43 @@ module.exports = async (req, res) => {
     return res.status(503).json({ error: 'Service temporarily unavailable', code: 'ACCOUNT_STATUS_UNAVAILABLE' });
   }
 
+  async function loadAccount() {
+    const state = await migrateLegacyRecord(redis, await loadRecordState(redis, username));
+    return normalizeAccountRecord(state.record, username);
+  }
+
+  function newestCode(account) {
+    const codes = (account && Array.isArray(account.codes) ? account.codes : [])
+      .slice()
+      .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+    return codes.length ? publicCode(codes[0]) : null;
+  }
+
+  async function saveAccount(account) {
+    account.updatedAt = Date.now();
+    await saveRecord(redis, username, account);
+    return account;
+  }
+
   if (req.method === 'GET') {
     try {
-      const stored = await loadRecord(redis, username);
-      return res.status(200).json({ success: true, inviteCode: publicRecord(stored) });
-    } catch (_error) {
-      if (_error && ['INVITE_IDENTITY_CONFLICT', 'INVITE_RECORD_INVALID'].includes(_error.code)) {
+      // Reads stay read-only: a legacy spelling is migrated when the member
+      // next changes something, not while they are just looking at the page.
+      const state = await loadRecordState(redis, username);
+      const account = normalizeAccountRecord(state.record, username);
+      const active = activeCodes(account);
+      return res.status(200).json({
+        success: true,
+        account: publicAccount(account),
+        // Kept for older clients that still read a single record.
+        inviteCode: newestCode(account),
+      });
+    } catch (error) {
+      if (error && ['INVITE_IDENTITY_CONFLICT', 'INVITE_RECORD_INVALID'].includes(error.code)) {
         // A legacy alias conflict should be self-healing when the upstream
         // record can authoritatively identify the account. Rebuild only the
-        // canonical invite record; wallet and payout identity stay untouched.
+        // canonical gift-code record; wallet and payout identity stay untouched.
         try {
-          if (_error.code === 'INVITE_IDENTITY_CONFLICT' && Array.isArray(_error.matches) && _error.matches.length) {
-            const canonical = _error.matches.find(match => match.key === recordKey(username)) || _error.matches[0];
-            const repaired = normalizeRemoteRecord(canonical.record, username);
-            await saveRecord(redis, username, repaired);
-            return res.status(200).json({ success: true, inviteCode: publicRecord(repaired), recovered: true });
-          }
           const aliases = recordKeys(username).map(key => key.slice('nf_equity_code:'.length));
           let remote = null;
           for (const alias of aliases) {
@@ -312,14 +318,15 @@ module.exports = async (req, res) => {
             if (remote) break;
           }
           if (remote) {
-            const recovered = normalizeRemoteRecord(remote, username);
-            await saveRecord(redis, username, recovered);
-            return res.status(200).json({ success: true, inviteCode: publicRecord(recovered), recovered: true });
+            const recovered = normalizeAccountRecord(normalizeRemoteRecord(remote, username), username);
+            recovered.createLog = [Date.now()];
+            await saveAccount(recovered);
+            return res.status(200).json({ success: true, account: publicAccount(recovered), recovered: true });
           }
         } catch (_recoveryError) {
           // Keep the explicit conflict response below when upstream is unavailable.
         }
-        return res.status(409).json({ error: 'Invite code identity recovery is required', code: _error.code });
+        return res.status(409).json({ error: 'Gift code identity recovery is required', code: error.code });
       }
       return res.status(503).json({ error: 'Storage temporarily unavailable', code: 'STORAGE_UNAVAILABLE' });
     }
@@ -327,18 +334,19 @@ module.exports = async (req, res) => {
 
   let allowed;
   try {
-    allowed = await checkRateLimit(redis, `nf_rate:equity:${username}`, 10, 3600, { failClosed: true }) &&
-      await checkRateLimit(redis, `nf_rate:equity_ip:${getClientIp(req)}`, 30, 3600, { failClosed: true });
+    allowed = await checkRateLimit(redis, `nf_rate:equity:${username}`, 20, 3600, { failClosed: true }) &&
+      await checkRateLimit(redis, `nf_rate:equity_ip:${getClientIp(req)}`, 60, 3600, { failClosed: true });
   } catch (_error) {
     return res.status(503).json({ error: 'Service temporarily unavailable', code: 'RATE_LIMIT_UNAVAILABLE' });
   }
   if (!allowed) return res.status(429).json({ error: 'Too many requests', code: 'RATE_LIMITED' });
 
   const action = String((req.body && req.body.action) || 'create');
-  if (!['create', 'unbind'].includes(action)) {
+  if (!['create', 'stop', 'unbind'].includes(action)) {
     return res.status(400).json({ error: 'Invalid action', code: 'INVALID_ACTION' });
   }
   const bookId = String((req.body && req.body.bookId) || '').trim();
+  const targetCode = String((req.body && req.body.code) || '').trim();
   if (action === 'create' && !/^[a-f0-9]{24}$/i.test(bookId)) {
     return res.status(400).json({ error: 'Select a valid book from search results', code: 'INVALID_BOOK' });
   }
@@ -353,11 +361,11 @@ module.exports = async (req, res) => {
   }
   if (!locked) {
     try {
-      const current = await loadRecord(redis, username);
+      const account = await loadAccount();
       return res.status(409).json({
-        error: 'An invite code update is already in progress',
+        error: 'A gift code update is already in progress',
         code: action === 'create' ? 'CREATION_IN_PROGRESS' : 'UPDATE_IN_PROGRESS',
-        inviteCode: publicRecord(current),
+        account: publicAccount(account),
       });
     } catch (_error) {
       return res.status(503).json({ error: 'Storage temporarily unavailable', code: 'STORAGE_UNAVAILABLE' });
@@ -366,66 +374,84 @@ module.exports = async (req, res) => {
 
   try {
     const deadlineAt = Date.now() + OPERATION_DEADLINE_MS;
-    const recordState = await migrateLegacyRecord(redis, await loadRecordState(redis, username));
-    let record = recordState.record;
-    if (action === 'unbind') {
-      if (record && record.status === 'unbound') {
-        return res.status(200).json({ success: true, inviteCode: publicRecord(record), existing: true });
-      }
-      if (!record) {
-        const existing = await findRemote({ kolName: username, isEnable: true }, deadlineAt);
-        if (!existing) return res.status(404).json({ error: 'No invite code to unbind', code: 'INVITE_NOT_FOUND' });
-        record = normalizeRemoteRecord(existing, username);
-      }
+    const account = await loadAccount();
+    const now = Date.now();
 
-      const remote = await findRemote({ code: record.code }, deadlineAt);
-      if (!remote) {
-        return res.status(502).json({ error: 'Invite code could not be verified', code: 'UPSTREAM_RECORD_NOT_FOUND' });
+    // ---------- stop one code (no cooldown, other codes keep running) ----------
+    if (action === 'stop' || action === 'unbind') {
+      const running = activeCodes(account, now);
+      const entry = targetCode
+        ? account.codes.find(item => String(item.code) === targetCode)
+        : running[0];
+      if (!entry) return res.status(404).json({ error: 'No gift code to stop', code: 'INVITE_NOT_FOUND' });
+      if (entry.status === 'stopped') {
+        return res.status(200).json({ success: true, account: publicAccount(account), stopped: entry.code, existing: true });
       }
-      const remoteEnabled = isRemoteEnabled(remote);
-      if (remoteEnabled) {
+      const remote = await findRemote({ code: entry.code }, deadlineAt);
+      if (!remote) {
+        return res.status(502).json({ error: 'Gift code could not be verified', code: 'UPSTREAM_RECORD_NOT_FOUND' });
+      }
+      if (isRemoteEnabled(remote)) {
         try {
-          await createRemote(disabledRemotePayload(remote, record, username), deadlineAt);
+          await createRemote(disabledRemotePayload(remote, entry, username), deadlineAt);
         } catch (error) {
           let reconciled = null;
-          try { reconciled = await findRemote({ code: record.code }, deadlineAt); } catch (_lookupError) {}
-          const stillEnabled = isRemoteEnabled(reconciled);
-          if (stillEnabled) {
-            return res.status(502).json({ error: 'Unable to unbind invite code', code: 'UPSTREAM_UNBIND_FAILED' });
+          try { reconciled = await findRemote({ code: entry.code }, deadlineAt); } catch (_lookupError) {}
+          if (isRemoteEnabled(reconciled)) {
+            return res.status(502).json({ error: 'Unable to stop gift code', code: 'UPSTREAM_UNBIND_FAILED' });
           }
         }
       }
-
-      record = markUnbound(record);
-      await saveRecord(redis, username, record);
-      return res.status(200).json({ success: true, inviteCode: publicRecord(record) });
+      entry.status = 'stopped';
+      entry.isEnable = false;
+      entry.stoppedAt = now;
+      entry.updatedAt = now;
+      await saveAccount(account);
+      return res.status(200).json({ success: true, account: publicAccount(account), stopped: entry.code });
     }
 
-    const now = Date.now();
-    if (record && record.status === 'unbound' && Number(record.cooldownUntil) > now) {
-      return res.status(429).json({
-        error: 'You can create another invite code after the 7-day cooldown',
-        code: 'RECREATE_COOLDOWN',
-        cooldownUntil: Number(record.cooldownUntil),
-        inviteCode: publicRecord(record),
-      });
-    }
-    if (record && ['active', 'expired'].includes(publicRecord(record).status)) {
-      return res.status(200).json({ success: true, inviteCode: publicRecord(record), existing: true });
-    }
-    if (record && record.status !== 'unbound' && record.bookId && record.bookId !== bookId) {
+    // ---------- create a code for another book ----------
+    const running = activeCodes(account, now);
+    if (running.length >= MAX_ACTIVE_CODES) {
       return res.status(409).json({
-        error: 'This account already has an invite code request for another book',
-        code: 'BOOK_ALREADY_SELECTED',
-        inviteCode: publicRecord(record),
+        error: `You can keep ${MAX_ACTIVE_CODES} gift codes at the same time. Stop one before adding another.`,
+        code: 'ACTIVE_LIMIT',
+        account: publicAccount(account),
       });
     }
+    const inWindow = account.createLog.filter(value => value > now - CREATE_WINDOW_MS);
+    if (inWindow.length >= MAX_CREATES_PER_WINDOW) {
+      const nextSlotAt = Math.min(...inWindow) + CREATE_WINDOW_MS;
+      return res.status(429).json({
+        error: 'You have created the maximum number of gift codes for this week.',
+        code: 'CREATE_QUOTA',
+        next_slot_at: nextSlotAt,
+        account: publicAccount(account),
+      });
+    }
+    const sameBook = running.find(entry => String(entry.bookId) === bookId);
+    if (sameBook) {
+      return res.status(200).json({ success: true, account: publicAccount(account), inviteCode: publicCode(sameBook), existing: true });
+    }
 
+    // Reconcile with upstream before allocating a new number: an earlier attempt
+    // may have succeeded without us recording it.
     const remoteExisting = await findRemote({ kolName: username, isEnable: true }, deadlineAt);
     if (remoteExisting) {
-      record = normalizeRemoteRecord(remoteExisting, username);
-      await saveRecord(redis, username, record);
-      return res.status(200).json({ success: true, inviteCode: publicRecord(record), existing: true });
+      const remoteCode = String(remoteExisting.code || '');
+      const known = account.codes.find(entry => String(entry.code) === remoteCode);
+      if (known) {
+        known.status = codeStatus(normalizeRemoteRecord(remoteExisting, username), now);
+        known.endTime = Number(remoteExisting.endTime) || known.endTime;
+        known.updatedAt = now;
+        await saveAccount(account);
+        return res.status(200).json({ success: true, account: publicAccount(account), inviteCode: publicCode(known), existing: true });
+      }
+      const adopted = normalizeRemoteRecord(remoteExisting, username);
+      account.codes.push(adopted);
+      account.createLog.push(now);
+      await saveAccount(account);
+      return res.status(200).json({ success: true, account: publicAccount(account), inviteCode: publicCode(adopted), existing: true });
     }
 
     const book = await verifyBook(bookId, deadlineAt);
@@ -433,56 +459,75 @@ module.exports = async (req, res) => {
     const verifiedTitle = String(book.title || book.bookName || '').trim();
     if (!verifiedTitle) return res.status(502).json({ error: 'Book data is incomplete', code: 'INVALID_BOOK_DATA' });
 
-    let code = record && record.status !== 'unbound' && record.code ? String(record.code) : null;
-    if (code) {
-      const codeOwner = await findRemote({ code }, deadlineAt);
-      if (codeOwner && canonicalUsername(codeOwner.kolName) !== username) code = null;
+    // A previous attempt for this book may have reserved a number already; a
+    // retry must reuse it instead of burning a second code.
+    let entry = account.codes.find(item => String(item.bookId) === bookId
+      && ['failed', 'processing'].includes(String(item.status)));
+    let code;
+    if (entry && entry.code) {
+      code = String(entry.code);
+      entry.status = 'processing';
+      entry.updatedAt = now;
+    } else {
+      code = await allocateCode(redis, username, deadlineAt);
+      entry = {
+        code,
+        username,
+        bookId,
+        bookTitle: verifiedTitle,
+        channel: 'Facebook',
+        rewardName: `${REWARD_DAYS}-Day VIP`,
+        rewardDays: REWARD_DAYS,
+        status: 'processing',
+        startTime: now,
+        endTime: now + VALIDITY_MS,
+        createdAt: now,
+        updatedAt: now,
+      };
+      account.codes.push(entry);
+      account.createLog.push(now);
     }
-    if (!code) code = await allocateCode(redis, username, deadlineAt);
-    const history = record && Array.isArray(record.history) ? record.history : [];
-    record = {
-      status: 'processing', username, code, bookId, bookTitle: verifiedTitle,
-      channel: 'Facebook', rewardName: '1-Day VIP', rewardDays: 1,
-      startTime: now, endTime: now + VALIDITY_MS,
-      createdAt: record && record.status !== 'unbound' && record.createdAt ? record.createdAt : now,
-      updatedAt: now,
-      history,
-    };
-    await saveRecord(redis, username, record);
+    await saveAccount(account);
 
-    const payload = equityPayload({ username, code, bookId, now });
+    const payload = equityPayload({ username, code, bookId, now, days: REWARD_DAYS });
     try {
       const result = await createRemote(payload, deadlineAt);
       const data = result && result.data;
-      record.status = 'active';
-      record.remoteId = (data && data.id) || result.id || null;
-      record.updatedAt = Date.now();
-      await saveRecord(redis, username, record);
-      return res.status(201).json({ success: true, inviteCode: publicRecord(record) });
+      entry.status = 'active';
+      entry.remoteId = (data && data.id) || result.id || null;
+      entry.updatedAt = Date.now();
+      await saveAccount(account);
+      return res.status(201).json({ success: true, account: publicAccount(account), inviteCode: publicCode(entry) });
     } catch (error) {
       let reconciled = null;
-      try { reconciled = await findRemote({ kolName: username, isEnable: true }, deadlineAt); } catch (_lookupError) {}
-      if (reconciled) {
-        record = normalizeRemoteRecord(reconciled, username);
-        if (!record.bookTitle) record.bookTitle = verifiedTitle;
-        await saveRecord(redis, username, record);
-        return res.status(200).json({ success: true, inviteCode: publicRecord(record), reconciled: true });
+      try { reconciled = await findRemote({ code }, deadlineAt); } catch (_lookupError) {}
+      if (!reconciled) {
+        // The submit may have landed even though the response was lost; the
+        // account-level lookup is the authoritative check.
+        try { reconciled = await findRemote({ kolName: username, isEnable: true }, deadlineAt); } catch (_lookupError) {}
       }
-      record.status = 'failed';
-      record.lastError = error.message;
-      record.updatedAt = Date.now();
-      await saveRecord(redis, username, record);
+      if (reconciled) {
+        const adopted = normalizeRemoteRecord(reconciled, username);
+        Object.assign(entry, adopted, { status: 'active', updatedAt: Date.now() });
+        await saveAccount(account);
+        return res.status(200).json({ success: true, account: publicAccount(account), inviteCode: publicCode(entry), reconciled: true });
+      }
+      entry.status = 'failed';
+      entry.lastError = error.message;
+      entry.updatedAt = Date.now();
+      await saveAccount(account);
       return res.status(502).json({
-        error: 'Invite code creation failed. You can safely retry with the same book.',
+        error: 'Gift code creation failed. You can safely retry with the same book.',
         code: 'UPSTREAM_CREATE_FAILED',
-        inviteCode: publicRecord(record),
+        account: publicAccount(account),
+        inviteCode: publicCode(entry),
       });
     }
   } catch (error) {
     console.error('[equity-code]', error.message);
     const status = error && error.code === 'UPSTREAM_TIMEOUT' ? 504 : (error && error.code === 'UPSTREAM_AUTH_UNAVAILABLE' ? 503 : 502);
     return res.status(status).json({
-      error: status === 504 ? 'Invite code request timed out. Please retry.' : 'Invite code service unavailable',
+      error: status === 504 ? 'Gift code request timed out. Please retry.' : 'Gift code service unavailable',
       code: error && error.code ? error.code : 'UPSTREAM_UNAVAILABLE',
     });
   } finally {

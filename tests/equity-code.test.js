@@ -5,9 +5,6 @@ const { installFakeUpstash, invoke } = require('./helpers/endpoint');
 const FakeRedis = installFakeUpstash();
 
 process.env.JWT_SECRET = 'equity-test-secret-not-used-in-production';
-// The endpoint is offline by default in production; these tests cover the
-// feature itself, so they opt back in explicitly.
-process.env.EQUITY_CODE_ENABLED = 'true';
 process.env.KV_REST_API_URL = 'https://redis.invalid';
 process.env.KV_REST_API_TOKEN = 'test-token';
 
@@ -93,7 +90,7 @@ test('fails closed when account status or rate-limit state is unavailable', asyn
   }
 });
 
-test('creates one Facebook 1-Day VIP code for a verified SKU with a seven-day window', async () => {
+test('creates a Facebook 3-Day VIP gift code for a verified SKU with a 30-day window', async () => {
   const calls = [];
   global.fetch = successFetch(calls);
   const before = Date.now();
@@ -103,7 +100,8 @@ test('creates one Facebook 1-Day VIP code for a verified SKU with a seven-day wi
   assert.equal(created.body.inviteCode.code, '90032');
   assert.equal(created.body.inviteCode.bookTitle, 'Verified Book');
   assert.equal(created.body.inviteCode.channel, 'Facebook');
-  assert.equal(created.body.inviteCode.rewardName, '1-Day VIP');
+  assert.equal(created.body.inviteCode.rewardName, '3-Day VIP');
+  assert.equal(created.body.inviteCode.rewardDays, 3);
   assert.equal(created.body.inviteCode.endTime - created.body.inviteCode.startTime, VALIDITY_MS);
   assert.ok(created.body.inviteCode.startTime >= before);
 
@@ -128,8 +126,8 @@ test('creates one Facebook 1-Day VIP code for a verified SKU with a seven-day wi
     code: '90032',
     relatedSkuId: BOOK_ID,
     rewardType: 1,
-    rewardName: '1-Day VIP',
-    rewardValue: 1,
+    rewardName: '3-Day VIP',
+    rewardValue: 3,
     isEnable: true,
   });
   assert.equal(payload.endTime - payload.startTime, VALIDITY_MS);
@@ -257,7 +255,10 @@ test('Cons legacy login sessions can read and atomically recover the established
   assert.equal(created.statusCode, 201);
   assert.equal(created.body.inviteCode.username, 'cons_espher');
   assert.equal(FakeRedis.values.has('nf_equity_code:@cons espher'), false);
-  assert.equal(JSON.parse(FakeRedis.values.get('nf_equity_code:cons_espher')).status, 'active');
+  const migrated = JSON.parse(FakeRedis.values.get('nf_equity_code:cons_espher'));
+  assert.ok(migrated.codes.some(entry => entry.status === 'active'
+    && String(entry.code) === String(created.body.inviteCode.code)));
+  assert.ok(migrated.codes.some(entry => String(entry.code) === '90037'));
 });
 
 test('GET returns a controlled storage error when Redis is unavailable', async () => {
@@ -276,12 +277,12 @@ test('GET returns a controlled storage error when Redis is unavailable', async (
   }
 });
 
-test('unbind disables the remote code and starts a seven-day cooldown', async () => {
+test('stopping a code disables the remote record and leaves the account usable', async () => {
   const now = Date.now();
   FakeRedis.reset({
     'nf_equity_code:alice': JSON.stringify({
       status: 'active', username: 'alice', code: '90032', bookId: BOOK_ID,
-      bookTitle: 'Verified Book', rewardName: '1-Day VIP', rewardDays: 1,
+      bookTitle: 'Verified Book', rewardName: '3-Day VIP', rewardDays: 3,
       startTime: now - 1000, endTime: now + VALIDITY_MS,
     }),
   });
@@ -294,38 +295,67 @@ test('unbind disables the remote code and starts a seven-day cooldown', async ()
     return response({ data: { records: [{
       id: 'remote-1', applicationId: '642fc1ace309494378a774a6', channel: 5,
       kolName: 'alice', code: '90032', relatedSkuId: BOOK_ID,
-      rewardType: 1, rewardName: '1-Day VIP', rewardValue: 1,
+      rewardType: 1, rewardName: '3-Day VIP', rewardValue: 3,
       startTime: now - 1000, endTime: now + VALIDITY_MS, isEnable: true,
     }] } });
   };
 
-  const before = Date.now();
-  const res = await invoke(equityCode, authenticated({ action: 'unbind' }));
+  const res = await invoke(equityCode, authenticated({ action: 'stop', code: '90032' }));
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body.inviteCode.status, 'unbound');
-  assert.ok(res.body.inviteCode.cooldownUntil >= before + RECREATE_COOLDOWN_MS);
+  assert.equal(res.body.stopped, '90032');
+  assert.equal(res.body.account.active, 0);
+  assert.equal(res.body.account.codes[0].status, 'stopped');
+  // No cooldown: a mistake never freezes the feature.
+  assert.equal(res.body.account.codes[0].cooldownUntil, undefined);
   assert.equal(savedPayload.id, 'remote-1');
   assert.equal(savedPayload.code, '90032');
   assert.equal(savedPayload.isEnable, false);
-
-  const stored = JSON.parse(FakeRedis.values.get('nf_equity_code:alice'));
-  assert.equal(stored.history.length, 1);
-  assert.equal(stored.history[0].code, '90032');
-  assert.equal(res.body.inviteCode.history, undefined);
 });
 
-test('blocks recreation during cooldown without calling upstream', async () => {
+test('a stopped book can be replaced immediately with a fresh code', async () => {
+  const now = Date.now();
   FakeRedis.reset({
     'nf_equity_code:alice': JSON.stringify({
-      status: 'unbound', username: 'alice', code: '90032', bookId: BOOK_ID,
-      cooldownUntil: Date.now() + RECREATE_COOLDOWN_MS,
+      version: 2, username: 'alice',
+      codes: [{
+        code: '81234', username: 'alice', bookId: BOOK_ID, bookTitle: 'Verified Book',
+        status: 'stopped', rewardDays: 3, startTime: now - 90000, endTime: now + VALIDITY_MS,
+        createdAt: now - 90000, stoppedAt: now - 1000,
+      }],
+      createLog: [now - 90000],
     }),
   });
-  global.fetch = async () => { throw new Error('upstream must not be called during cooldown'); };
+  const calls = [];
+  global.fetch = successFetch(calls);
 
   const res = await invoke(equityCode, authenticated({ action: 'create', bookId: BOOK_ID }));
-  assert.equal(res.statusCode, 429);
-  assert.equal(res.body.code, 'RECREATE_COOLDOWN');
+  assert.equal(res.statusCode, 201);
+  assert.equal(res.body.inviteCode.code, '90032');
+  assert.equal(res.body.inviteCode.status, 'active');
+  assert.equal(res.body.account.active, 1);
+});
+
+test('five active codes are allowed and the sixth is refused', async () => {
+  const now = Date.now();
+  const books = ['a', 'b', 'c', 'd', 'e'].map(letter => letter.repeat(24));
+  FakeRedis.reset({
+    'nf_equity_code:alice': JSON.stringify({
+      version: 2, username: 'alice',
+      codes: books.map((bookId, index) => ({
+        code: String(90040 + index), username: 'alice', bookId, bookTitle: `Book ${index}`,
+        status: 'active', rewardDays: 3, startTime: now - 1000, endTime: now + VALIDITY_MS,
+        createdAt: now - 1000,
+      })),
+      createLog: books.map(() => now - 1000),
+    }),
+  });
+  global.fetch = async () => { throw new Error('upstream must not be called at the active limit'); };
+
+  const res = await invoke(equityCode, authenticated({ action: 'create', bookId: 'f'.repeat(24) }));
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.code, 'ACTIVE_LIMIT');
+  assert.equal(res.body.account.active, 5);
+  assert.equal(res.body.account.quota.max_active, 5);
 });
 
 test('allocates a new code after the cooldown instead of reusing the disabled code', async () => {
@@ -346,23 +376,4 @@ test('allocates a new code after the cooldown instead of reusing the disabled co
   const stored = JSON.parse(FakeRedis.values.get('nf_equity_code:alice'));
   assert.equal(stored.history.length, 1);
   assert.equal(stored.history[0].code, '81234');
-});
-
-test('the invite code endpoint is offline unless explicitly enabled', async () => {
-  const previous = process.env.EQUITY_CODE_ENABLED;
-  process.env.EQUITY_CODE_ENABLED = 'false';
-  try {
-    const read = await invoke(equityCode, {
-      method: 'GET',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    assert.equal(read.statusCode, 503);
-    assert.equal(read.body.code, 'EQUITY_CODE_OFFLINE');
-
-    const create = await invoke(equityCode, authenticated({ action: 'create', bookId: BOOK_ID }));
-    assert.equal(create.statusCode, 503);
-    assert.equal(create.body.code, 'EQUITY_CODE_OFFLINE');
-  } finally {
-    process.env.EQUITY_CODE_ENABLED = previous;
-  }
 });
