@@ -1290,6 +1290,9 @@
             color: var(--ink-secondary); font-size: 10px; white-space: nowrap;
         }
         .equity-code-body { margin-top: 12px; }
+        .equity-quota { font-size: 11px; color: var(--ink-mute); margin-bottom: 8px; }
+        .equity-code-card { border: 1px solid var(--hairline); border-radius: 10px; padding: 10px; margin-bottom: 8px; }
+        .equity-add-title { font-size: 11px; font-weight: 700; color: var(--ink); margin: 6px 0 4px; }
         .equity-search-row { display: flex; gap: 6px; }
         .equity-search-input {
             width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--hairline);
@@ -3433,6 +3436,24 @@
                 </div>
 
 
+                <section class="equity-code-panel" aria-labelledby="equityCodeTitle">
+                    <div class="equity-code-head">
+                        <div>
+                            <div class="equity-code-title" id="equityCodeTitle" data-i18n="invite_code_title">My Gift Codes</div>
+                            <div class="equity-code-sub" data-i18n="invite_code_sub">Up to 5 books at a time</div>
+                        </div>
+                        <div class="equity-code-terms" aria-label="Gift code terms">
+                            <span class="equity-code-term">Facebook</span>
+                            <span class="equity-code-term" data-i18n="invite_code_reward_term">3-Day VIP</span>
+                            <span class="equity-code-term" data-i18n="invite_code_validity">30 days</span>
+                        </div>
+                    </div>
+                    <div class="equity-code-help" data-i18n="invite_code_help">Give a new reader 3 days of VIP for one of your books. It does not replace your promotion link and code.</div>
+                    <div class="equity-code-body" id="equityCodeBody" aria-live="polite">
+                        <div class="equity-loading" data-i18n="invite_code_loading">Loading gift codes...</div>
+                    </div>
+                </section>
+
                 <!-- Bind ID (collapsed - kept functional but visually slim) -->
                 <div id="bindIdRow" style="display:none;margin-top:10px;background:var(--canvas-soft);border-radius:10px;padding:10px;">
                     <div style="font-size:11px;font-weight:600;color:var(--ink);margin-bottom:6px;" data-i18n="bind_id_required">🔗 Bind NovelFlow ID (required for VIP rewards)</div>
@@ -4023,6 +4044,7 @@
             }
             if (typeof EquityCodeState !== 'undefined') {
                 clearTimeout(EquityCodeState.searchTimer);
+                EquityCodeState.account = null;
                 EquityCodeState.record = null;
                 EquityCodeState.selectedBook = null;
                 EquityCodeState.results = [];
@@ -4584,10 +4606,19 @@
                 no_desc: 'No description available.',
                 no_books_cat: 'No books found for this category',
                 daily_missions: '🎯 Daily Missions',
-                invite_code_title: 'My Invite Code',
-                invite_code_sub: 'One active code per account',
-                invite_code_help: 'Gives one reader 1-Day VIP. It does not replace your promotion link and code; keep using your promotion link when sharing.',
-                invite_code_validity: '7 days',
+                invite_code_title: 'My Gift Codes',
+                invite_code_sub: 'Up to 5 books at a time',
+                invite_code_help: 'Give a new reader 3 days of VIP for one of your books. It does not replace your promotion link and code.',
+                invite_code_reward_term: '3-Day VIP',
+                invite_code_quota: '{active}/{max} codes in use · {used}/{cap} created this week',
+                invite_code_none: 'No gift code yet. Pick a book below to create one.',
+                invite_code_add: 'Add a code for another book',
+                invite_code_limit: 'You already hold 5 gift codes. Stop one before adding another book.',
+                invite_code_quota_limit: 'Weekly limit reached. A new slot opens {date}.',
+                invite_code_stopped: 'Stopped',
+                invite_code_stop_confirm_title: 'Stop this gift code?',
+                invite_code_stop_confirm_msg: 'Readers can no longer claim it. You can create a new code for the same book right away.',
+                invite_code_validity: '30 days',
                 invite_code_login: 'Log in to continue',
                 invite_code_loading: 'Loading invite code...',
                 invite_code_copy: 'Copy',
@@ -4601,7 +4632,7 @@
                 invite_code_active: 'Active',
                 invite_code_remaining: 'remaining',
                 invite_code_expired: 'Expired. Contact an administrator to extend this code.',
-                invite_code_unbind: 'Unbind Invite Code',
+                invite_code_unbind: 'Stop this code',
                 invite_code_previous_book: 'Previous book',
                 invite_code_available_again: 'Can create again',
                 invite_code_cooldown: 'Unbound. New invite codes are locked for',
@@ -4621,7 +4652,7 @@
                 invite_code_unbound_success: 'Invite code unbound. 7-day cooldown started.',
                 invite_code_this_book: 'this book',
                 invite_code_retry: 'Retry',
-                invite_code_generate: 'Generate Invite Code',
+                invite_code_generate: 'Create gift code',
                 invite_code_choose_another: 'Choose another book',
                 invite_code_cancel: 'Cancel',
                 invite_code_confirm: 'Confirm',
@@ -4951,10 +4982,19 @@
                 no_desc: 'Sin descripción disponible.',
                 no_books_cat: 'No se encontraron libros en esta categoría',
                 daily_missions: '🎯 Misiones Diarias',
-                invite_code_title: 'Mi Código de Invitación',
-                invite_code_sub: 'Un código activo por cuenta',
-                invite_code_help: 'Da 1 día VIP a un lector. No sustituye tu enlace ni tu código de promoción; sigue usando tu enlace de promoción al compartir.',
-                invite_code_validity: '7 días',
+                invite_code_title: 'Mis códigos de regalo',
+                invite_code_sub: 'Hasta 5 libros a la vez',
+                invite_code_help: 'Regala 3 días de VIP a un lector nuevo por uno de tus libros. No sustituye tu enlace ni tu código de promoción.',
+                invite_code_reward_term: '3 días VIP',
+                invite_code_quota: '{active}/{max} códigos en uso · {used}/{cap} creados esta semana',
+                invite_code_none: 'Todavía no tienes códigos. Elige un libro abajo para crear uno.',
+                invite_code_add: 'Añadir un código para otro libro',
+                invite_code_limit: 'Ya tienes 5 códigos de regalo. Detén uno antes de añadir otro libro.',
+                invite_code_quota_limit: 'Límite semanal alcanzado. Se abre un hueco el {date}.',
+                invite_code_stopped: 'Detenido',
+                invite_code_stop_confirm_title: '¿Detener este código de regalo?',
+                invite_code_stop_confirm_msg: 'Los lectores ya no podrán canjearlo. Puedes crear un código nuevo para el mismo libro de inmediato.',
+                invite_code_validity: '30 días',
                 invite_code_login: 'Inicia sesión para continuar',
                 invite_code_loading: 'Cargando código de invitación...',
                 invite_code_copy: 'Copiar',
@@ -4968,7 +5008,7 @@
                 invite_code_active: 'Activo',
                 invite_code_remaining: 'restantes',
                 invite_code_expired: 'Vencido. Contacta a un administrador para extender este código.',
-                invite_code_unbind: 'Desvincular código',
+                invite_code_unbind: 'Detener este código',
                 invite_code_previous_book: 'Libro anterior',
                 invite_code_available_again: 'Disponible de nuevo',
                 invite_code_cooldown: 'Desvinculado. Los nuevos códigos están bloqueados por',
@@ -4988,7 +5028,7 @@
                 invite_code_unbound_success: 'Código desvinculado. Comenzó la espera de 7 días.',
                 invite_code_this_book: 'este libro',
                 invite_code_retry: 'Reintentar',
-                invite_code_generate: 'Generar código de invitación',
+                invite_code_generate: 'Crear código de regalo',
                 invite_code_choose_another: 'Elegir otro libro',
                 invite_code_cancel: 'Cancelar',
                 invite_code_confirm: 'Confirmar',
@@ -6306,6 +6346,7 @@
 
         // ========== One-time invite code ==========
         const EquityCodeState = {
+            account: null,
             record: null,
             selectedBook: null,
             results: [],
@@ -6404,6 +6445,33 @@
                 '<div class="equity-book-author">' + escapeHtml(getText('invite_code_selected_book')) + '</div></div></div>';
         }
 
+        function equityCodeCard(entry) {
+            const status = String(entry.status || 'active');
+            const remaining = status === 'active' && Number(entry.endTime) > 0
+                ? Math.max(0, Math.ceil((Number(entry.endTime) - Date.now()) / 86400000)) : 0;
+            const statusLine = status === 'active'
+                ? '<div class="equity-status active">' + escapeHtml(getText('invite_code_active')) + (entry.endTime ? ' - ' + remaining + ' ' + escapeHtml(getText('invite_code_remaining')) : '') + '</div>'
+                : (status === 'stopped'
+                    ? '<div class="equity-status expired">' + escapeHtml(getText('invite_code_stopped')) + '</div>'
+                    : (status === 'processing'
+                        ? '<div class="equity-status processing">' + escapeHtml(getText('invite_code_creating')) + '</div>'
+                        : (status === 'failed'
+                            ? '<div class="equity-status failed">' + escapeHtml(getText('invite_code_creation_failed')) + '</div>'
+                            : '<div class="equity-status expired">' + escapeHtml(getText('invite_code_expired')) + '</div>')));
+            const stopButton = (status === 'active' || status === 'expired')
+                ? '<button class="equity-action-btn danger" onclick="requestEquityUnbind(\'' + escapeHtml(String(entry.code)) + '\')">' + escapeHtml(getText('invite_code_unbind')) + '</button>'
+                : '';
+            return '<div class="equity-code-card">' +
+                '<div class="equity-code-value-row">' +
+                '<div class="equity-code-value">' + escapeHtml(entry.code) + '</div>' +
+                '<button class="equity-copy-btn" type="button" onclick="copyEquityCode(\'' + escapeHtml(String(entry.code)) + '\')" title="' + escapeHtml(getText('invite_code_copy_title')) + '">' + escapeHtml(getText('invite_code_copy')) + '</button></div>' +
+                '<dl class="equity-code-meta">' +
+                '<dt>' + escapeHtml(getText('invite_code_book')) + '</dt><dd>' + escapeHtml(entry.bookTitle || entry.bookId || getText('invite_code_assigned')) + '</dd>' +
+                '<dt>' + escapeHtml(getText('invite_code_reward')) + '</dt><dd>' + escapeHtml(entry.rewardName || '3-Day VIP') + '</dd>' +
+                '<dt>' + escapeHtml(getText('invite_code_valid_until')) + '</dt><dd>' + escapeHtml(formatEquityDate(entry.endTime)) + '</dd></dl>' +
+                statusLine + stopButton + '</div>';
+        }
+
         function renderEquityCode() {
             const body = document.getElementById('equityCodeBody');
             if (!body) return;
@@ -6415,69 +6483,44 @@
                 body.innerHTML = '<div class="equity-loading">' + escapeHtml(EquityCodeState.loadingMessage || getText('invite_code_loading')) + '</div>';
                 return;
             }
-
             if (EquityCodeState.loadErrorKey) {
                 body.innerHTML = '<div class="equity-status failed">' + escapeHtml(getText(EquityCodeState.loadErrorKey)) + '</div>' +
                     '<button class="equity-action-btn" onclick="loadEquityCode(true)">' + escapeHtml(getText('invite_code_retry')) + '</button>';
                 return;
             }
 
-            const record = EquityCodeState.record;
-            if (record && (record.status === 'active' || record.status === 'expired')) {
-                const active = record.status === 'active';
-                const remaining = active && Number(record.endTime) > 0
-                    ? Math.max(0, Math.ceil((Number(record.endTime) - Date.now()) / 86400000)) : 0;
-                body.innerHTML = '<div class="equity-code-value-row">' +
-                    '<div class="equity-code-value">' + escapeHtml(record.code) + '</div>' +
-                    '<button class="equity-copy-btn" type="button" onclick="copyEquityCode()" title="' + escapeHtml(getText('invite_code_copy_title')) + '">' + escapeHtml(getText('invite_code_copy')) + '</button></div>' +
-                    '<dl class="equity-code-meta">' +
-                    '<dt>' + escapeHtml(getText('invite_code_book')) + '</dt><dd>' + escapeHtml(record.bookTitle || record.bookId || getText('invite_code_assigned')) + '</dd>' +
-                    '<dt>' + escapeHtml(getText('invite_code_reward')) + '</dt><dd>' + escapeHtml(record.rewardName || '1-Day VIP') + '</dd>' +
-                    '<dt>' + escapeHtml(getText('invite_code_channel')) + '</dt><dd>' + escapeHtml(record.channel || 'Facebook') + '</dd>' +
-                    '<dt>' + escapeHtml(getText('invite_code_valid_until')) + '</dt><dd>' + escapeHtml(formatEquityDate(record.endTime)) + '</dd></dl>' +
-                    (active
-                        ? '<div class="equity-status active">' + escapeHtml(getText('invite_code_active')) + (record.endTime ? ' - ' + remaining + ' ' + escapeHtml(getText('invite_code_remaining')) : '') + '</div>'
-                        : '<div class="equity-status expired">' + escapeHtml(getText('invite_code_expired')) + '</div>') +
-                    '<button class="equity-action-btn danger" onclick="requestEquityUnbind()">' + escapeHtml(getText('invite_code_unbind')) + '</button>';
-                return;
-            }
+            const account = EquityCodeState.account || { codes: [], active: 0, quota: {} };
+            const codes = Array.isArray(account.codes) ? account.codes : [];
+            const quota = account.quota || {};
+            const maxActive = Number(quota.max_active) || 5;
+            const activeCount = Number(account.active) || 0;
+            const usedThisWeek = Number(quota.creates_in_window) || 0;
+            const weeklyCap = Number(quota.max_creates_in_window) || 10;
 
-            if (record && record.status === 'unbound' && Number(record.cooldownUntil) > Date.now()) {
-                const cooldownDays = Math.max(1, Math.ceil((Number(record.cooldownUntil) - Date.now()) / 86400000));
-                body.innerHTML = '<div class="equity-code-value-row"><div class="equity-code-value">' + escapeHtml(record.code) + '</div></div>' +
-                    '<dl class="equity-code-meta"><dt>' + escapeHtml(getText('invite_code_previous_book')) + '</dt><dd>' + escapeHtml(record.bookTitle || record.bookId || getText('invite_code_assigned')) + '</dd>' +
-                    '<dt>' + escapeHtml(getText('invite_code_available_again')) + '</dt><dd>' + escapeHtml(formatEquityDate(record.cooldownUntil)) + '</dd></dl>' +
-                    '<div class="equity-status processing">' + escapeHtml(getText('invite_code_cooldown')) + ' ' + cooldownDays + ' ' + escapeHtml(getText('invite_code_more_days')) + '</div>' +
-                    '<button class="equity-action-btn" disabled>' + escapeHtml(getText('invite_code_cooldown_button')) + '</button>';
-                return;
-            }
-
-            if (record && record.status === 'processing') {
-                body.innerHTML = renderEquitySelectedBook({ title: record.bookTitle || record.bookId }) +
-                    '<div class="equity-status processing">' + escapeHtml(getText('invite_code_creating')) + '</div>' +
-                    '<button class="equity-action-btn" disabled>' + escapeHtml(getText('invite_code_processing')) + '</button>';
-                return;
-            }
-
-            if (record && record.status === 'failed') {
-                body.innerHTML = renderEquitySelectedBook({ title: record.bookTitle || record.bookId }) +
-                    '<div class="equity-status failed">' + escapeHtml(getText('invite_code_creation_failed')) + '</div>' +
-                    '<button class="equity-action-btn" onclick="requestEquityCreation()">' + escapeHtml(getText('invite_code_retry')) + '</button>';
-                return;
-            }
+            let html = '<div class="equity-quota">' + escapeHtml(getText('invite_code_quota')
+                .replace('{active}', String(activeCount)).replace('{max}', String(maxActive))
+                .replace('{used}', String(usedThisWeek)).replace('{cap}', String(weeklyCap))) + '</div>';
+            html += codes.length
+                ? codes.map(equityCodeCard).join('')
+                : '<div class="equity-empty">' + escapeHtml(getText('invite_code_none')) + '</div>';
 
             const selected = EquityCodeState.selectedBook;
-            if (selected) {
-                body.innerHTML = renderEquitySelectedBook(selected) +
+            if (activeCount >= maxActive) {
+                html += '<div class="equity-status processing">' + escapeHtml(getText('invite_code_limit')) + '</div>';
+            } else if (quota.next_slot_at && usedThisWeek >= weeklyCap) {
+                html += '<div class="equity-status processing">' + escapeHtml(getText('invite_code_quota_limit').replace('{date}', formatEquityDate(quota.next_slot_at))) + '</div>';
+            } else if (selected) {
+                html += renderEquitySelectedBook(selected) +
                     '<button class="equity-action-btn" onclick="requestEquityCreation()">' + escapeHtml(getText('invite_code_generate')) + '</button>' +
                     '<button class="equity-action-btn" style="background:transparent;color:var(--ink-mute);border:1px solid var(--hairline);" onclick="clearEquityBook()">' + escapeHtml(getText('invite_code_choose_another')) + '</button>';
-                return;
+            } else {
+                html += '<div class="equity-add-title">' + escapeHtml(getText('invite_code_add')) + '</div>' +
+                    '<div class="equity-search-row">' +
+                    '<input class="equity-search-input" id="equityBookSearch" type="search" maxlength="120" autocomplete="off" ' +
+                    'placeholder="' + escapeHtml(getText('invite_code_search')) + '" oninput="queueEquityBookSearch(this.value)"></div>' +
+                    '<div class="equity-search-results" id="equitySearchResults"></div>';
             }
-
-            body.innerHTML = '<div class="equity-search-row">' +
-                '<input class="equity-search-input" id="equityBookSearch" type="search" maxlength="120" autocomplete="off" ' +
-                'placeholder="' + escapeHtml(getText('invite_code_search')) + '" oninput="queueEquityBookSearch(this.value)"></div>' +
-                '<div class="equity-search-results" id="equitySearchResults"></div>';
+            body.innerHTML = html;
         }
 
         async function loadEquityCode(force) {
@@ -6514,7 +6557,8 @@
                     error.code = data && data.code;
                     throw error;
                 }
-                EquityCodeState.record = data.inviteCode || null;
+                EquityCodeState.account = data.account || null;
+                EquityCodeState.record = data.inviteCode || (data.account && data.account.codes && data.account.codes[0]) || null;
             } catch (error) {
                 if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.loadRequest || isAbortError(error)) return;
                 EquityCodeState.loadedUser = null;
@@ -6628,6 +6672,7 @@
                 if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.actionRequest) return;
                 const data = await response.json();
                 if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.actionRequest) return;
+                if (data.account) EquityCodeState.account = data.account;
                 if (data.inviteCode) EquityCodeState.record = data.inviteCode;
                 if (!response.ok) {
                     if (data.code === 'CREATION_IN_PROGRESS') {
@@ -6669,19 +6714,19 @@
             });
         }
 
-        function requestEquityUnbind() {
-            const record = EquityCodeState.record;
-            if (!record || !record.code) return;
+        function requestEquityUnbind(code) {
+            const target = String(code || (EquityCodeState.record && EquityCodeState.record.code) || '');
+            if (!target) return;
             openEquityConfirmation({
-                title: getText('invite_code_unbind_confirm_title'),
-                message: getText('invite_code_unbind_confirm_message'),
+                title: getText('invite_code_stop_confirm_title'),
+                message: getText('invite_code_stop_confirm_msg'),
                 confirmLabel: getText('invite_code_unbind'),
                 danger: true,
-                action: unbindEquityCode
+                action: () => unbindEquityCode(target)
             });
         }
 
-        async function unbindEquityCode() {
+        async function unbindEquityCode(code) {
             const session = AuthSession.capture();
             if (!session) return;
             const requestId = ++EquityCodeState.actionRequest;
@@ -6692,11 +6737,12 @@
                 const response = await authFetch('/api/equity-code', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'unbind' })
+                    body: JSON.stringify({ action: 'stop', code: String(code || '') })
                 });
                 if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.actionRequest) return;
                 const data = await response.json();
                 if (!AuthSession.isCurrent(session) || requestId !== EquityCodeState.actionRequest) return;
+                if (data.account) EquityCodeState.account = data.account;
                 if (data.inviteCode) EquityCodeState.record = data.inviteCode;
                 if (!response.ok) throw new Error(equityApiMessage(data, 'invite_code_unbind_failed'));
                 EquityCodeState.selectedBook = null;
@@ -6714,8 +6760,8 @@
             }
         }
 
-        function copyEquityCode() {
-            const code = EquityCodeState.record && EquityCodeState.record.code;
+        function copyEquityCode(explicit) {
+            const code = explicit || (EquityCodeState.record && EquityCodeState.record.code);
             if (!code) return;
             navigator.clipboard.writeText(String(code))
                 .then(() => showToast(getText('invite_code_copied'), 'success'))
@@ -6921,7 +6967,7 @@
                 '</div>';
             const tiktok = '' +
                 '<div class="campaign-card locked">' +
-                    '<div class="campaign-banner campaign-tiktok-banner"><span>🎵</span><div class="campaign-ribbon">' +
+                    '<div class="campaign-banner campaign-poster-banner"><img class="campaign-poster" src="/campaign-tiktok-poster.png" alt="" loading="lazy" decoding="async"><div class="campaign-ribbon">' +
                         escapeHtml(getText('campaign_tiktok_ribbon')) +
                     '</div></div>' +
                     '<div class="campaign-body">' +
