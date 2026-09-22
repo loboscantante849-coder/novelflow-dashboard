@@ -240,6 +240,47 @@ async function loadVerifiedPromotionEligibility(redis, username) {
   return { assetCount, newUsers };
 }
 
+/**
+ * Release every NovelFlow binding this account still owns.
+ *
+ * The wallet's bind_id and the Redis binding pair can drift (a legacy paste, a
+ * renamed spelling, an interrupted unbind). While the pair exists the bind
+ * script answers "already bound" and the member is stuck until an admin
+ * intervenes, so any rebind or unbind first releases what is genuinely ours.
+ */
+async function releaseOwnNovelFlowBindings(redis, username, { keepMemberId = null } = {}) {
+  const owner = String(username || '').trim().toLowerCase();
+  const alias = String(resolveUsernameAlias(username) || '').trim().toLowerCase();
+  const keep = keepMemberId ? String(keepMemberId).trim().toLowerCase() : null;
+  const released = [];
+  let cursor = '0';
+  do {
+    const [next, keys] = await redis.scan(cursor, { match: 'nf_app_binding:v1:user:*', count: 100 });
+    cursor = String(next || '0');
+    for (const key of Array.isArray(keys) ? keys : []) {
+      const raw = await redis.get(key);
+      if (!raw) continue;
+      let binding = raw;
+      if (typeof raw === 'string') {
+        try { binding = JSON.parse(raw); } catch (_error) { continue; }
+      }
+      if (!binding || typeof binding !== 'object') continue;
+      const bindingUser = String(binding.username || '').trim().toLowerCase();
+      if (bindingUser !== owner && bindingUser !== alias) continue;
+      const memberId = String(binding.user_id || '').trim().toLowerCase();
+      if (!memberId) continue;
+      if (keep && memberId === keep) continue;
+      const memberKey = `nf_app_binding:v1:member:${memberId}`;
+      const memberOwner = String(await redis.get(memberKey) || '').trim().toLowerCase();
+      if (memberOwner && memberOwner !== owner && memberOwner !== alias) continue;
+      await redis.del(key);
+      if (memberOwner) await redis.del(memberKey);
+      released.push(memberId);
+    }
+  } while (cursor !== '0');
+  return released;
+}
+
 async function resolveRewardVipBinding(redis, username, memberId, source) {
   const savedBinding = await loadVerifiedNovelFlowBinding(redis, username, memberId);
   if (savedBinding) return savedBinding;
@@ -422,6 +463,19 @@ module.exports = async (req, res) => {
         let member;
         try {
           member = await resolveNovelFlowMember(bind_id);
+        } catch (error) {
+          const status = ['NOVELFLOW_USER_NOT_FOUND', 'INVALID_NOVELFLOW_USER_ID'].includes(error && error.code) ? 400 : 503;
+          return res.status(status).json({
+            error: error.message || 'NovelFlow ID could not be verified',
+            code: error.code || 'NOVELFLOW_LOOKUP_FAILED',
+          });
+        }
+        try {
+          // A previous binding of this same account must not block a new ID.
+          const released = await releaseOwnNovelFlowBindings(redis, username, { keepMemberId: member.user_id });
+          if (released.length) {
+            historyDetails = { ...historyDetails, rebound_from: released };
+          }
           await bindNovelFlowMember(redis, username, member, { source: 'rewards' });
         } catch (error) {
           const status = ['NOVELFLOW_USER_NOT_FOUND', 'INVALID_NOVELFLOW_USER_ID'].includes(error && error.code) ? 400
@@ -495,23 +549,11 @@ module.exports = async (req, res) => {
         if (!previousMemberId) {
           return res.status(400).json({ error: 'No NovelFlow ID is bound', code: 'NO_BIND_ID' });
         }
-        // Release the binding pair only when it belongs to this account; a
-        // mismatched or foreign record is left untouched.
+        // Release every binding pair this account still owns. Keying the cleanup
+        // off the wallet's bind_id alone left the account "already bound" when
+        // that value was a legacy paste or a renamed spelling.
         try {
-          const userKey = `nf_app_binding:v1:user:${username}`;
-          const memberKey = `nf_app_binding:v1:member:${previousMemberId}`;
-          const [bindingRaw, ownerRaw] = typeof redis.mget === 'function'
-            ? await redis.mget(userKey, memberKey)
-            : await Promise.all([redis.get(userKey), redis.get(memberKey)]);
-          let binding = bindingRaw;
-          if (typeof bindingRaw === 'string') {
-            try { binding = JSON.parse(bindingRaw); } catch (_error) { binding = null; }
-          }
-          const owner = String(ownerRaw || '').trim().toLowerCase();
-          if (binding && typeof binding === 'object' && String(binding.username || '').toLowerCase() === username) {
-            await redis.del(userKey);
-          }
-          if (owner === username) await redis.del(memberKey);
+          await releaseOwnNovelFlowBindings(redis, username);
         } catch (_error) {
           // The account record is still cleared below; a stale binding key only
           // means the same id cannot be reused until it is cleaned up.
