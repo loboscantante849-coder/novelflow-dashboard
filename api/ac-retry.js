@@ -3,6 +3,7 @@
  * 重试AC视频任务（已鉴权 + threadId ownership校验）
  */
 const { setCORSHeaders } = require('./_lib/cors');
+const { isVideoGenerationEnabled } = require('./_lib/feature-flags');
 const { checkRateLimit, getAuthPayload, getClientIp, getRedis, isAdminUser, isDisabledUser } = require('./_lib/security');
 const {
   fetchAcWithTokenFallback,
@@ -34,6 +35,14 @@ module.exports = async (req, res) => {
     }
   } catch (e) {
     return res.status(503).json({ error: 'Account status unavailable', code: e.code || 'ACCOUNT_STATUS_UNAVAILABLE' });
+  }
+
+  // Operator kill switch: retrying also starts a new generation.
+  if (!(await isVideoGenerationEnabled(redis))) {
+    return res.status(503).json({
+      error: 'Video generation is temporarily paused. Your existing reels are still available.',
+      code: 'VIDEO_GENERATION_PAUSED',
+    });
   }
 
   // Ownership check

@@ -3180,6 +3180,10 @@
                         <button class="reels-adv-toggle" id="reelAdvToggle" onclick="toggleAdvMode()">⚙️ Switch to Advanced</button>
                     </div>
                 </div>
+                <div id="videoPausedBanner" style="display:none;margin:0 16px 10px;padding:10px 12px;border-radius:10px;background:rgba(255,107,157,0.10);border:1px solid rgba(255,107,157,0.35);">
+                    <div style="font-size:12px;font-weight:700;color:var(--ink);" data-i18n="video_paused_title">🎬 Video generation is paused</div>
+                    <div style="font-size:11px;line-height:1.5;color:var(--ink-mute);margin-top:3px;" data-i18n="video_paused_sub">New videos cannot be generated right now. Your existing reels are still available in My Reels.</div>
+                </div>
                 <!-- Mode Tabs -->
                 <div style="display:flex;gap:0;padding:0 16px 8px;">
                     <button id="reelModeAI" onclick="switchReelMode('ai')" style="flex:1;padding:8px;border:1px solid var(--hairline);border-radius:8px 0 0 8px;font-size:12px;font-weight:600;background:linear-gradient(135deg,#FF6B9D,#C084FC);color:white;border:none;cursor:pointer;font-family:inherit;" data-i18n="ai_generate">🤖 AI Generate</button>
@@ -3771,6 +3775,7 @@
         // ========== Global State ==========
         const AppState = {
             currentTab: 'home',
+            videoGenerationEnabled: true,
             currentLang: localStorage.getItem('novelflow_lang') || 'en',
             searchLang: 'en',
             isLoggedIn: false,
@@ -4285,6 +4290,9 @@
             if (activityFab) activityFab.classList.toggle('show', tabName === 'home' && AppState.isLoggedIn && activityWindow().active);
             // Only show language switch on profile tab
             document.body.classList.toggle('profile-active', tabName === 'profile');
+            if (tabName === 'submit' && typeof loadVideoGenerationFlag === 'function') {
+                setTimeout(() => loadVideoGenerationFlag(), 0);
+            }
             if (tabName === 'tasks' && typeof loadEquityCode === 'function') {
                 setTimeout(() => loadEquityCode(false), 0);
             }
@@ -4348,6 +4356,9 @@
                 
                 // Reels
                 ai_generate: '🤖 AI Generate',
+                video_paused_title: '🎬 Video generation is paused',
+                video_paused_sub: 'New videos cannot be generated right now. Your existing reels are still available in My Reels.',
+                video_paused_toast: 'Video generation is temporarily paused',
                 asset_library: '🎬 My Reels',
                 create_reel: 'Create Reel',
                 my_reels: 'My Reels',
@@ -4855,6 +4866,9 @@
                 
                 // Reels
                 ai_generate: '🤖 Generar con IA',
+                video_paused_title: '🎬 La generación de vídeos está pausada',
+                video_paused_sub: 'Ahora mismo no se pueden generar vídeos nuevos. Tus reels existentes siguen disponibles en Mis Reels.',
+                video_paused_toast: 'La generación de vídeos está pausada temporalmente',
                 asset_library: '🎬 Mis Reels',
                 create_reel: 'Crear Reel',
                 my_reels: 'Mis Reels',
@@ -10352,6 +10366,7 @@ function renderMyBooks() {
 
         // ========== Init =========="
         document.addEventListener('DOMContentLoaded', async () => {
+            if (typeof loadVideoGenerationFlag === 'function') loadVideoGenerationFlag();
             const authResult = new URLSearchParams(window.location.search).get('auth');
             if (authResult === 'identity_conflict') {
                 setTimeout(() => showToast(
@@ -11018,10 +11033,40 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
             await doCreateReel(currentRecommendBook.bookId);
         }
 
+        // ========== Video generation kill switch ==========
+        function applyVideoGenerationFlag(enabled) {
+            AppState.videoGenerationEnabled = enabled !== false;
+            const banner = document.getElementById('videoPausedBanner');
+            if (banner) banner.style.display = AppState.videoGenerationEnabled ? 'none' : 'block';
+            const btn = document.getElementById('reelsCreateBtn');
+            const modalBtn = document.getElementById('modalCreateReelBtn');
+            if (!AppState.videoGenerationEnabled) {
+                if (btn) { btn.disabled = true; btn.textContent = getText('video_paused_title'); }
+                if (modalBtn) { modalBtn.disabled = true; modalBtn.textContent = getText('video_paused_title'); }
+            }
+            updateReelsStatusBar();
+        }
+
+        async function loadVideoGenerationFlag() {
+            try {
+                const resp = await fetch('/api/ac-health', { cache: 'no-store' });
+                const data = await resp.json();
+                if (data && typeof data.video_generation_enabled === 'boolean') {
+                    applyVideoGenerationFlag(data.video_generation_enabled);
+                }
+            } catch (_error) {
+                // Best effort: the server still refuses to create videos.
+            }
+        }
+
         // Core reel creation logic
         async function doCreateReel(bookId) {
             const session = AuthSession.capture();
             if (!session) return;
+            if (!AppState.videoGenerationEnabled) {
+                showToast(getText('video_paused_toast'), 'error');
+                return;
+            }
             const dailyCount = getReelsDailyCount();
             if (dailyCount >= REELS_DAILY_LIMIT) {
                 showToast(getText('toast_daily_limit'), 'error');
@@ -11293,6 +11338,10 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
         async function retryReel(threadId) {
             const session = AuthSession.capture();
             if (!session || !threadId) return;
+            if (!AppState.videoGenerationEnabled) {
+                showToast(getText('video_paused_toast'), 'error');
+                return;
+            }
             try {
                 const resp = await authFetch('/api/ac-retry', { method:'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({threadId}) });
                 const result = await resp.json();
