@@ -21,6 +21,7 @@ const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security
 const { inspectApprovedSourceWalletOwner } = require('./_lib/income-source-owners');
 const { principalFromPayload } = require('./_lib/identity');
 const { resolveUserFacingWalletStorageIdentity } = require('./_lib/wallet-identity');
+const { applyDisplayCommission } = require('./_lib/commission-policy');
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
@@ -217,7 +218,7 @@ module.exports = async (req, res) => {
               (pEntry.books || []).find(b => (b.ad_ids || []).map(String).includes(adId))?.name ||
               'Unknown';
             const bookId = sub.bookId || st.book_id || null;
-            const dn = r2(st.dn_income);
+            const dn = applyDisplayCommission(st.dn_income);
 
             for (const [dt, dv] of Object.entries(st.daily || {})) {
               if (!aggDaily[dt]) aggDaily[dt] = { visits: 0, unique_users: 0, new_users: 0, income: 0 };
@@ -228,7 +229,7 @@ module.exports = async (req, res) => {
             }
             totalVisits += st.pull_uv || 0;
             totalNew += st.new_uv || 0;
-            totalIncome += st.dn_income || 0;
+            totalIncome += applyDisplayCommission(st.dn_income || 0);
 
             books.push({
               bookName,
@@ -242,9 +243,9 @@ module.exports = async (req, res) => {
               visits: st.pull_uv || 0,
               unique_users: st.pull_uv || 0,
               new_users: st.new_uv || 0,
-              d14_income: r2(st.d14_income),
+              d14_income: applyDisplayCommission(st.d14_income),
               dn_income: dn,
-              income: r2(st.d14_income),
+              income: dn,
               channel,
             });
           }
@@ -255,7 +256,7 @@ module.exports = async (req, res) => {
           if (v.visits) visits_daily[dt] = v.visits;
           if (v.unique_users) unique_daily[dt] = v.unique_users;
           if (v.new_users) new_users_daily[dt] = v.new_users;
-          if (v.income) income_daily[dt] = r2(v.income);
+          if (v.income) income_daily[dt] = applyDisplayCommission(v.income);
         }
 
         if (!IS_PROD) debugLog.push(`admin primary path: ${books.length} book rows, income=$${r2(totalIncome).toFixed(2)}`);
@@ -292,7 +293,7 @@ module.exports = async (req, res) => {
 
         const bookName = sub.matchedBookName || sub.bookName || st.book_name || 'Unknown';
         const bookId = sub.bookId || null;
-        const dn = r2(st.dn_income);
+        const dn = applyDisplayCommission(st.dn_income);
 
         for (const [dt, dv] of Object.entries(st.daily || {})) {
           if (!aggDaily[dt]) aggDaily[dt] = { visits: 0, unique_users: 0, new_users: 0, income: 0 };
@@ -314,9 +315,9 @@ module.exports = async (req, res) => {
           visits: st.pull_uv || 0,
           unique_users: st.pull_uv || 0,
           new_users: st.new_uv || 0,
-          d14_income: r2(st.d14_income),
+          d14_income: applyDisplayCommission(st.d14_income),
           dn_income: dn,
-          income: r2(st.d14_income),
+          income: dn,
           channel,
           assetIds: st.assetIds,
           assetCount: st.assetCount,
@@ -339,7 +340,7 @@ module.exports = async (req, res) => {
           for (const pb of (promoterEntry?.books || [])) {
             if ((pb.ad_ids || []).map(String).includes(adId)) { bookName = pb.name; break; }
           }
-          const dn = r2(st.dn_income);
+          const dn = applyDisplayCommission(st.dn_income);
           for (const [dt, dv] of Object.entries(st.daily || {})) {
             if (!aggDaily[dt]) aggDaily[dt] = { visits: 0, unique_users: 0, new_users: 0, income: 0 };
             aggDaily[dt].visits += dv.pull_uv || 0;
@@ -359,9 +360,9 @@ module.exports = async (req, res) => {
             visits: st.pull_uv || 0,
             unique_users: st.pull_uv || 0,
             new_users: st.new_uv || 0,
-            d14_income: r2(st.d14_income),
+            d14_income: applyDisplayCommission(st.d14_income),
             dn_income: dn,
-            income: r2(st.d14_income),
+            income: dn,
             channel: channel + ' (synced)',
           });
           orphanCount++;
@@ -386,7 +387,7 @@ module.exports = async (req, res) => {
         if (v.visits) visits_daily[dt] = v.visits;
         if (v.unique_users) unique_daily[dt] = v.unique_users;
         if (v.new_users) new_users_daily[dt] = v.new_users;
-        if (v.income) income_daily[dt] = r2(v.income);
+        if (v.income) income_daily[dt] = applyDisplayCommission(v.income);
       }
 
       return res.status(200).json(finalize({
@@ -441,7 +442,7 @@ module.exports = async (req, res) => {
         timeoutMs: 3000,
       }) : {};
       for (const l of matched.links) {
-        const dn = r2(l.dn || l.d14_income || l.subscription_revenue || 0);
+        const dn = applyDisplayCommission(l.dn || l.d14_income || l.subscription_revenue || 0);
         if (l.unique_daily) for (const [dt, v] of Object.entries(l.unique_daily)) {
           if (!aggDaily[dt]) aggDaily[dt] = { visits: 0, unique_users: 0, new_users: 0, income: 0 };
           aggDaily[dt].visits += v; aggDaily[dt].unique_users += v;
@@ -469,8 +470,9 @@ module.exports = async (req, res) => {
           visits: l.visits || l.total_visits || l.unique_visitors || 0,
           unique_users: l.unique_visitors || l.unique_users || l.visits || 0,
           new_users: l.new_users || 0,
-          d14_income: r2(l.d14_income || 0),
+          d14_income: applyDisplayCommission(l.d14_income || 0),
           dn_income: dn,
+          income: dn,
           channel: l.channel || 'link',
         });
       }
@@ -482,7 +484,7 @@ module.exports = async (req, res) => {
         if (v.visits) vd[dt]=v.visits;
         if (v.unique_users) ud[dt]=v.unique_users;
         if (v.new_users) nd[dt]=v.new_users;
-        if (v.income) id[dt]=r2(v.income);
+        if (v.income) id[dt]=applyDisplayCommission(v.income);
       }
       return res.status(200).json(finalize({
         username, isAdmin,

@@ -95,11 +95,12 @@ test('stats endpoints fail visibly and production responses omit debug details',
   assert.match(myStats, /if \(!dataJson\) throw new Error/);
 });
 
-test('dashboard labels daily revenue as attributed income and counts assets', () => {
+test('dashboard labels daily revenue as 80% net income and counts assets', () => {
   const source = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 
-  assert.match(source, /daily_books_income: 'Attributed income'/);
-  assert.match(source, /Business date \(UTC\+8\).*Cumulative attributed income/);
+  assert.match(source, /daily_books_income: 'Net income \(80%\)'/);
+  assert.match(source, /Business date \(UTC\+8\).*Cumulative net income \(80%\)/);
+  assert.match(source, /perf_tab_income: 'Net income \(80%\)'/);
   assert.match(source, /dailyBookHelper\.countAssets\(perfLinks\)/);
   assert.match(source, /STATS_UNAVAILABLE/);
   assert.match(source, /_lastPerfUsername !== currentPerfUsername/);
