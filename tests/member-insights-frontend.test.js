@@ -17,6 +17,19 @@ test('profile exposes cumulative earnings, withdrawable funds, withdrawals, read
   assert.doesNotMatch(source, /id="bonusProfileCard"|id="profileBonusValue"/);
 });
 
+test('performance dashboard shows wallet balance separately from attributed income', () => {
+  assert.match(source, /id="perfWallet"[^>]*>--</);
+  assert.match(source, /data-i18n="perf_label_wallet"/);
+  assert.match(source, /data-i18n="perf_label_attributed_income"/);
+  assert.match(source, /withdrawable_balance \?\? wallet\.available_balance/);
+  assert.match(source, /renderPerformanceWallet\(MemberInsights\.wallet\)/);
+  assert.match(source, /MemberInsights\.wallet = data;/);
+  assert.match(source, /renderMemberOverview\(\);/);
+  for (const key of ['perf_label_attributed_income', 'perf_label_wallet', 'perf_wallet_total', 'perf_wallet_note']) {
+    assert.equal((source.match(new RegExp(`${key}:`, 'g')) || []).length, 2, `${key} should exist in EN and ES`);
+  }
+});
+
 test('recommender badges are server-derived and open an account-scoped detail view', () => {
   assert.match(source, /id="recommenderBadge"[^>]+data-nf-action="open-referral-details"/);
   assert.match(source, /tier === 'premium'/);
