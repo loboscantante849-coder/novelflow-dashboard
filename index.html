@@ -2537,9 +2537,12 @@
         .perf-tier-badge { background: rgba(255,215,0,0.25); color: #FFD700; padding: 3px 10px; border-radius: 20px; font-size: 13px; font-weight: 700; }
         .perf-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px; }
         .perf-stat { text-align: center; }
+        .perf-stat-action { cursor: pointer; border-radius: 8px; transition: background 0.2s; }
+        .perf-stat-action:hover, .perf-stat-action:focus-visible { background: rgba(255,255,255,0.08); outline: none; }
         .perf-stat-value { font-size: 20px; font-weight: 700; color: white; line-height: 1.2; }
         .perf-stat-value.zero { color: rgba(255,255,255,0.4); }
         .perf-stat-label { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 2px; }
+        .perf-money-note { margin: -4px 0 10px; font-size: 10px; line-height: 1.45; color: rgba(255,255,255,0.5); }
         .perf-footer { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: rgba(255,255,255,0.4); }
         .perf-refresh { background: none; border: none; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 12px; padding: 4px 8px; }
         .perf-refresh:hover { color: white; }
@@ -3039,9 +3042,14 @@
                         <button type="button" onclick="loadPerformanceDashboard()" data-i18n="retry_btn">Retry</button>
                     </div>
                     <div class="perf-grid">
+                        <div class="perf-stat perf-stat-action" id="perfWalletCard" role="button" tabindex="0" onclick="openEarningsModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openEarningsModal();}" title="Open Earnings Center">
+                            <div class="perf-stat-value" id="perfWallet">--</div>
+                            <div class="perf-stat-label" data-i18n="perf_label_wallet">Available balance</div>
+                            <div class="perf-stat-change flat" id="perfWalletDetail">—</div>
+                        </div>
                         <div class="perf-stat">
                             <div class="perf-stat-value" id="perfIncome">$0</div>
-                            <div class="perf-stat-label" data-i18n="perf_label_income">Income</div>
+                            <div class="perf-stat-label" data-i18n="perf_label_attributed_income">Attributed income</div>
                             <div class="perf-stat-change flat" id="perfIncomeChange">—</div>
                         </div>
                         <div class="perf-stat">
@@ -3063,6 +3071,7 @@
                             <div class="perf-stat-label" data-i18n="perf_label_assets">Promo assets</div>
                         </div>
                     </div>
+                    <div class="perf-money-note" data-i18n="perf_wallet_note">Wallet figures match the Earnings Center. Attributed income is campaign performance and may differ after commission and withdrawals.</div>
                     <!-- Trend Chart -->
                     <div class="perf-chart-section">
                         <div class="perf-chart-header">
@@ -4092,6 +4101,10 @@
             });
             const perfIncome = document.getElementById('perfIncome');
             if (perfIncome) perfIncome.textContent = '$0.00';
+            const perfWallet = document.getElementById('perfWallet');
+            if (perfWallet) { perfWallet.textContent = '--'; perfWallet.className = 'perf-stat-value zero'; }
+            const perfWalletDetail = document.getElementById('perfWalletDetail');
+            if (perfWalletDetail) perfWalletDetail.textContent = '—';
             const dailyRows = document.getElementById('dailyBookRows');
             const dailyTotal = document.getElementById('dailyBookTotal');
             if (dailyRows) dailyRows.replaceChildren();
@@ -4781,6 +4794,10 @@
                 tier_books_week: '0/5 books this week',
                 perf_dashboard_title: '📊 Performance Dashboard',
                 perf_label_income: 'Income',
+                perf_label_attributed_income: 'Attributed income',
+                perf_label_wallet: 'Available balance',
+                perf_wallet_total: 'Total {amount}',
+                perf_wallet_note: 'Wallet figures match the Earnings Center. Attributed income is campaign performance and may differ after commission and withdrawals.',
                 perf_label_unique: 'Unique',
                 perf_label_new: 'New Users',
                 perf_label_visits: 'Visits',
@@ -5160,6 +5177,10 @@
                 tier_books_week: '0/5 libros esta semana',
                 perf_dashboard_title: '📊 Panel de Rendimiento',
                 perf_label_income: 'Ingresos',
+                perf_label_attributed_income: 'Ingreso atribuido',
+                perf_label_wallet: 'Saldo disponible',
+                perf_wallet_total: 'Total {amount}',
+                perf_wallet_note: 'Las cifras de la cartera coinciden con el Centro de ganancias. El ingreso atribuido es rendimiento de campaña y puede variar después de la comisión y los retiros.',
                 perf_label_unique: 'Únicos',
                 perf_label_new: 'Nuevos',
                 perf_label_visits: 'Visitas',
@@ -8397,7 +8418,7 @@
             if (overview && AppState.isLoggedIn) overview.style.display = 'grid';
             const lifetime = wallet && Number.isFinite(Number(wallet.total_earned))
                 ? Number(wallet.total_earned)
-                : (stats && Number.isFinite(Number(stats.total_income)) ? Number(stats.total_income) : null);
+                : null;
             const incomeEl = document.getElementById('totalIncome');
             const availableEl = document.getElementById('availableIncome');
             const withdrawnEl = document.getElementById('withdrawnIncome');
@@ -8406,6 +8427,7 @@
             if (incomeEl) incomeEl.textContent = moneyOrDash(lifetime);
             if (availableEl) availableEl.textContent = moneyOrDash(wallet && (wallet.withdrawable_balance ?? wallet.available_balance));
             if (withdrawnEl) withdrawnEl.textContent = moneyOrDash(wallet && (wallet.withdrawn_total ?? wallet.approved_total));
+            renderPerformanceWallet(wallet);
             const countOrDash = value => value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(value).toLocaleString() : '--';
             const readerVisits = stats && stats.total_visits !== null && stats.total_visits !== undefined
                 ? stats.total_visits : null;
@@ -8434,6 +8456,31 @@
             if (badgeSub && tier !== 'none') {
                 const count = data && data.referrals ? Number(data.referrals.total || 0).toLocaleString() : '0';
                 badgeSub.textContent = getText('recommender_identity_sub').replace('{count}', count);
+            }
+        }
+
+        function renderPerformanceWallet(wallet) {
+            const valueEl = document.getElementById('perfWallet');
+            const detailEl = document.getElementById('perfWalletDetail');
+            if (!valueEl) return;
+            const availableRaw = wallet && (wallet.withdrawable_balance ?? wallet.available_balance);
+            const totalRaw = wallet && wallet.total_earned;
+            const available = availableRaw === null || availableRaw === undefined || availableRaw === ''
+                ? null : Number(availableRaw);
+            const total = totalRaw === null || totalRaw === undefined || totalRaw === ''
+                ? null : Number(totalRaw);
+            if (Number.isFinite(available)) {
+                valueEl.textContent = moneyOrDash(available);
+                valueEl.className = 'perf-stat-value' + (available ? '' : ' zero');
+            } else {
+                valueEl.textContent = '--';
+                valueEl.className = 'perf-stat-value zero';
+            }
+            if (detailEl) {
+                detailEl.textContent = Number.isFinite(total)
+                    ? getText('perf_wallet_total').replace('{amount}', moneyOrDash(total))
+                    : '—';
+                detailEl.className = 'perf-stat-change flat';
             }
         }
 
@@ -10229,6 +10276,10 @@ function renderMyBooks() {
                 renderChangeEl('perfNewChange', calcChange(data.new_users_daily));
                 renderChangeEl('perfVisitsChange', calcChange(data.visits_daily || {}));
                 
+                // Keep the performance surface aligned with the wallet ledger
+                // when the member overview was already loaded.
+                renderPerformanceWallet(MemberInsights.wallet);
+
                 // Render trend chart
                 renderTrendChart(data);
                 renderDailyBookPerformance(data);
@@ -11862,6 +11913,12 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
       if (!r.ok) throw new Error(data.error || ('Failed to load earnings (' + r.status + ')'));
       _earnData = data;
       renderEarnings(data);
+      // Keep the profile and home-dashboard wallet figures on the exact same
+      // ledger response the Earnings Center just rendered.
+      if (typeof MemberInsights !== 'undefined') {
+        MemberInsights.wallet = data;
+        renderMemberOverview();
+      }
     } catch(e) {
       if (!AuthSession.isCurrent(session) || isAbortError(e)) return;
       console.error('[Earnings] load failed:', e);
