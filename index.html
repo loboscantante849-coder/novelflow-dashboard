@@ -3049,7 +3049,7 @@
                         </div>
                         <div class="perf-stat">
                             <div class="perf-stat-value" id="perfIncome">$0</div>
-                            <div class="perf-stat-label" data-i18n="perf_label_attributed_income">Attributed income</div>
+                            <div class="perf-stat-label" data-i18n="perf_label_attributed_income">Net income (80%)</div>
                             <div class="perf-stat-change flat" id="perfIncomeChange">—</div>
                         </div>
                         <div class="perf-stat">
@@ -3071,7 +3071,7 @@
                             <div class="perf-stat-label" data-i18n="perf_label_assets">Promo assets</div>
                         </div>
                     </div>
-                    <div class="perf-money-note" data-i18n="perf_wallet_note">Wallet figures match the Earnings Center. Attributed income is campaign performance and may differ after commission and withdrawals.</div>
+                    <div class="perf-money-note" data-i18n="perf_wallet_note">Income figures use the 80% net commission rate. Wallet balance may also differ after bonuses, adjustments, or withdrawals.</div>
                     <!-- Trend Chart -->
                     <div class="perf-chart-section">
                         <div class="perf-chart-header">
@@ -3079,7 +3079,7 @@
                             <div class="perf-chart-tabs">
                                 <button class="perf-chart-tab active" onclick="switchChartMode('visits')" id="chartTabVisits" data-i18n="perf_tab_visits">Visits</button>
                                 <button class="perf-chart-tab" onclick="switchChartMode('newusers')" id="chartTabNewusers" data-i18n="perf_tab_new">New Users</button>
-                                <button class="perf-chart-tab" onclick="switchChartMode('income')" id="chartTabIncome" data-i18n="perf_tab_income">Income</button>
+                                <button class="perf-chart-tab" onclick="switchChartMode('income')" id="chartTabIncome" data-i18n="perf_tab_income">Net income (80%)</button>
                             </div>
                         </div>
                         <div class="perf-chart-container">
@@ -3109,7 +3109,7 @@
                                 <span data-i18n="daily_books_new">New</span><span class="daily-book-sort-indicator"></span>
                             </button>
                             <button class="daily-book-sort" type="button" data-daily-sort="income" onclick="setDailyBookSort('income')">
-                                <span data-i18n="daily_books_income">Attributed income</span><span class="daily-book-sort-indicator"></span>
+                                <span data-i18n="daily_books_income">Net income (80%)</span><span class="daily-book-sort-indicator"></span>
                             </button>
                         </div>
                         <div class="daily-book-rows" id="dailyBookRows"></div>
@@ -4794,10 +4794,10 @@
                 tier_books_week: '0/5 books this week',
                 perf_dashboard_title: '📊 Performance Dashboard',
                 perf_label_income: 'Income',
-                perf_label_attributed_income: 'Attributed income',
+                perf_label_attributed_income: 'Net income (80%)',
                 perf_label_wallet: 'Available balance',
                 perf_wallet_total: 'Total {amount}',
-                perf_wallet_note: 'Wallet figures match the Earnings Center. Attributed income is campaign performance and may differ after commission and withdrawals.',
+                perf_wallet_note: 'Income figures use the 80% net commission rate. Wallet balance may also differ after bonuses, adjustments, or withdrawals.',
                 perf_label_unique: 'Unique',
                 perf_label_new: 'New Users',
                 perf_label_visits: 'Visits',
@@ -4808,15 +4808,15 @@
                 perf_tab_visits: 'Visits',
                 perf_tab_new: 'New Users',
                 perf_tab_unique: 'Unique',
-                perf_tab_income: 'Attributed income',
+                perf_tab_income: 'Net income (80%)',
                 perf_detail_on: 'on',
                 date_not_set: 'Not set',
                 chart_no_data: 'No data yet',
                 daily_books_title: 'Daily Book Performance',
-                daily_books_timezone: 'Business date (UTC+8) · Cumulative attributed income',
+                daily_books_timezone: 'Business date (UTC+8) · Cumulative net income (80%)',
                 daily_books_book: 'Book',
                 daily_books_new: 'New',
-                daily_books_income: 'Attributed income',
+                daily_books_income: 'Net income (80%)',
                 daily_books_total: 'Total',
                 daily_books_empty: 'No book activity on this date',
                 daily_books_asset: 'asset',
@@ -5177,10 +5177,10 @@
                 tier_books_week: '0/5 libros esta semana',
                 perf_dashboard_title: '📊 Panel de Rendimiento',
                 perf_label_income: 'Ingresos',
-                perf_label_attributed_income: 'Ingreso atribuido',
+                perf_label_attributed_income: 'Ingreso neto (80%)',
                 perf_label_wallet: 'Saldo disponible',
                 perf_wallet_total: 'Total {amount}',
-                perf_wallet_note: 'Las cifras de la cartera coinciden con el Centro de ganancias. El ingreso atribuido es rendimiento de campaña y puede variar después de la comisión y los retiros.',
+                perf_wallet_note: 'Las cifras de ingresos usan la comisión neta del 80%. El saldo de la cartera también puede variar por bonos, ajustes o retiros.',
                 perf_label_unique: 'Únicos',
                 perf_label_new: 'Nuevos',
                 perf_label_visits: 'Visitas',
@@ -5191,15 +5191,15 @@
                 perf_tab_visits: 'Visitas',
                 perf_tab_new: 'Nuevos usuarios',
                 perf_tab_unique: 'Únicos',
-                perf_tab_income: 'Ingreso atribuido',
+                perf_tab_income: 'Ingreso neto (80%)',
                 perf_detail_on: 'el',
                 date_not_set: 'Sin definir',
                 chart_no_data: 'Aún no hay datos',
                 daily_books_title: 'Rendimiento Diario por Libro',
-                daily_books_timezone: 'Fecha comercial (UTC+8) · Ingreso atribuido acumulado',
+                daily_books_timezone: 'Fecha comercial (UTC+8) · Ingreso neto acumulado (80%)',
                 daily_books_book: 'Libro',
                 daily_books_new: 'Nuevos',
-                daily_books_income: 'Ingreso atribuido',
+                daily_books_income: 'Ingreso neto (80%)',
                 daily_books_total: 'Total',
                 daily_books_empty: 'Sin actividad por libro en esta fecha',
                 daily_books_asset: 'recurso',
@@ -9428,7 +9428,7 @@ function renderMyBooks() {
                             </div>
                             <div class="my-book-expanded-stat income">
                                 <div class="my-book-expanded-stat-icon">&#128176;</div>
-                                <div class="my-book-expanded-stat-label">Income</div>
+                                <div class="my-book-expanded-stat-label">Net Income (80%)</div>
                                 <div class="my-book-expanded-stat-value">${incomeFmt.text}</div>
                             </div>
                         </div>
