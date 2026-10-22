@@ -20,6 +20,14 @@ function roundMoney(value) {
   return isSafeMoneyValue(numeric) ? Math.round(numeric * 100) / 100 : 0;
 }
 
+// User-facing statistics expose the amount the member can actually earn, not
+// the upstream gross attribution. Wallet settlement remains authoritative and
+// may additionally include historical carryover, bonuses, or adjustments.
+function applyDisplayCommission(value) {
+  if (value === null || value === undefined || value === '') return 0;
+  return roundMoney(Number(value) * COMMISSION_RATE);
+}
+
 function normalizeDaily(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   const daily = {};
@@ -348,6 +356,7 @@ module.exports = {
   COMMISSION_EFFECTIVE_DATE,
   COMMISSION_MIGRATION_ID,
   COMMISSION_RATE,
+  applyDisplayCommission,
   buildEarningsDetail,
   buildIncomeProfile,
   computeWalletBalances,

@@ -28,6 +28,7 @@ const {
 const { inspectApprovedSourceWalletOwner } = require('./_lib/income-source-owners');
 const { principalFromPayload } = require('./_lib/identity');
 const { resolveUserFacingWalletStorageIdentity } = require('./_lib/wallet-identity');
+const { applyDisplayCommission } = require('./_lib/commission-policy');
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
@@ -180,7 +181,7 @@ module.exports = async (req, res) => {
                 visits: dv.pull_uv || 0,
                 unique_users: dv.pull_uv || 0,
                 new_users: dv.new_uv || 0,
-                income: r2(dv.d14_income || 0),
+                income: applyDisplayCommission(dv.dn_income || 0),
               };
               if (!aggDaily[dt]) aggDaily[dt] = { visits: 0, unique_users: 0, new_users: 0, income: 0 };
               aggDaily[dt].visits += daily[dt].visits;
@@ -188,7 +189,7 @@ module.exports = async (req, res) => {
               aggDaily[dt].new_users += daily[dt].new_users;
               aggDaily[dt].income += daily[dt].income;
             }
-            const dn = r2(st.dn_income);
+            const dn = applyDisplayCommission(st.dn_income);
             links.push({
               bookName,
               bookId,
@@ -201,8 +202,9 @@ module.exports = async (req, res) => {
               visits: st.pull_uv || 0,
               unique_users: st.pull_uv || 0,
               new_users: st.new_uv || 0,
-              d14_income: r2(st.d14_income),
+              d14_income: applyDisplayCommission(st.d14_income),
               dn_income: dn,
+              income: dn,
               channel,
               daily,
             });
@@ -224,7 +226,7 @@ module.exports = async (req, res) => {
               visits: dv.pull_uv || 0,
               unique_users: dv.pull_uv || 0,
               new_users: dv.new_uv || 0,
-              income: r2(dv.d14_income || 0),
+              income: applyDisplayCommission(dv.dn_income || 0),
             };
             if (!aggDaily[dt]) aggDaily[dt] = { visits: 0, unique_users: 0, new_users: 0, income: 0 };
             aggDaily[dt].visits += daily[dt].visits;
@@ -232,7 +234,7 @@ module.exports = async (req, res) => {
             aggDaily[dt].new_users += daily[dt].new_users;
             aggDaily[dt].income += daily[dt].income;
           }
-          const dn = r2(st.dn_income);
+          const dn = applyDisplayCommission(st.dn_income);
           links.push({
             bookName, bookId,
             code: sub.code || code || 'N/A',
@@ -244,8 +246,9 @@ module.exports = async (req, res) => {
             visits: st.pull_uv || 0,
             unique_users: st.pull_uv || 0,
             new_users: st.new_uv || 0,
-            d14_income: r2(st.d14_income),
+            d14_income: applyDisplayCommission(st.d14_income),
             dn_income: dn,
+            income: dn,
             channel,
             assetIds: st.assetIds,
             assetCount: st.assetCount,
@@ -275,19 +278,19 @@ module.exports = async (req, res) => {
           for (const pb of (promoterEntry?.books || [])) {
             if ((pb.ad_ids || []).map(String).includes(adId)) { bookName = pb.name; break; }
           }
-          const dn = r2(st.dn_income);
+          const dn = applyDisplayCommission(st.dn_income);
           const dailyRow = {};
           for (const [dt, dv] of Object.entries(st.daily || {})) {
             if (!aggDaily[dt]) aggDaily[dt] = { visits:0, unique_users:0, new_users:0, income:0 };
             aggDaily[dt].visits += dv.pull_uv || 0;
             aggDaily[dt].unique_users += dv.pull_uv || 0;
             aggDaily[dt].new_users += dv.new_uv || 0;
-            aggDaily[dt].income += dv.d14_income || 0;
+            aggDaily[dt].income += applyDisplayCommission(dv.dn_income || 0);
             dailyRow[dt] = {
               visits: dv.pull_uv || 0,
               unique_users: dv.pull_uv || 0,
               new_users: dv.new_uv || 0,
-              income: r2(dv.d14_income || 0),
+              income: applyDisplayCommission(dv.dn_income || 0),
             };
           }
           links.push({
@@ -301,7 +304,7 @@ module.exports = async (req, res) => {
             visits: st.pull_uv || 0,
             unique_users: st.pull_uv || 0,
             new_users: st.new_uv || 0,
-            d14_income: r2(st.d14_income), dn_income: dn,
+            d14_income: applyDisplayCommission(st.d14_income), dn_income: dn, income: dn,
             channel,
             daily: dailyRow,
           });
@@ -312,7 +315,7 @@ module.exports = async (req, res) => {
 
       const totalVisits = links.reduce((s, l) => s + l.visits, 0);
       const totalNew = links.reduce((s, l) => s + l.new_users, 0);
-      const totalIncome = r2(links.reduce((s, l) => s + l.d14_income, 0));
+      const totalIncome = r2(links.reduce((s, l) => s + l.dn_income, 0));
 
       // Round aggregated daily income
       const daily = {};
@@ -368,7 +371,7 @@ module.exports = async (req, res) => {
           visits: row.pull_uv || 0,
           unique_users: row.pull_uv || 0,
           new_users: row.new_uv || 0,
-          income: r2(row.dn_income || 0),
+          income: applyDisplayCommission(row.dn_income || 0),
         };
       }
       for (const [dt, v] of Object.entries(daily)) {
@@ -390,8 +393,9 @@ module.exports = async (req, res) => {
         visits: stats.pull_uv || 0,
         unique_users: stats.pull_uv || 0,
         new_users: stats.new_uv || 0,
-        d14_income: r2(stats.d14_income || 0),
-        dn_income: r2(stats.dn_income || 0),
+        d14_income: applyDisplayCommission(stats.d14_income || 0),
+        dn_income: applyDisplayCommission(stats.dn_income || 0),
+        income: applyDisplayCommission(stats.dn_income || 0),
         channel: stats.channel,
         assetIds: stats.assetIds,
         assetCount: stats.assetCount,

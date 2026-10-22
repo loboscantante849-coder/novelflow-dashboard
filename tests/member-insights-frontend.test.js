@@ -17,6 +17,26 @@ test('profile exposes cumulative earnings, withdrawable funds, withdrawals, read
   assert.doesNotMatch(source, /id="bonusProfileCard"|id="profileBonusValue"/);
 });
 
+test('performance dashboard shows wallet balance separately from attributed income', () => {
+  assert.match(source, /id="perfWallet"[^>]*>--</);
+  assert.match(source, /data-i18n="perf_label_wallet"/);
+  assert.match(source, /data-i18n="perf_label_attributed_income"/);
+  assert.match(source, /withdrawable_balance \?\? wallet\.available_balance/);
+  assert.match(source, /renderPerformanceWallet\(MemberInsights\.wallet\)/);
+  assert.match(source, /MemberInsights\.wallet = data;/);
+  assert.match(source, /renderMemberOverview\(\);/);
+  for (const key of ['perf_label_attributed_income', 'perf_label_wallet', 'perf_wallet_total', 'perf_wallet_note']) {
+    assert.equal((source.match(new RegExp(`${key}:`, 'g')) || []).length, 2, `${key} should exist in EN and ES`);
+  }
+});
+
+test('profile explains that wallet lifetime earnings differ from attributed commission', () => {
+  assert.match(source, /id="statsIncomeNote"/);
+  assert.match(source, /profile_wallet_note/);
+  assert.match(source, /Ganancias acumuladas en cartera/);
+  assert.match(source, /por eso pueden diferir de la comisión atribuida/);
+});
+
 test('recommender badges are server-derived and open an account-scoped detail view', () => {
   assert.match(source, /id="recommenderBadge"[^>]+data-nf-action="open-referral-details"/);
   assert.match(source, /tier === 'premium'/);
@@ -63,7 +83,7 @@ test('performance errors keep the dashboard surface visible', () => {
 
 test('new member-facing labels include English and Spanish translations', () => {
   for (const key of [
-    'profile_promotion_earnings', 'profile_available_withdraw', 'profile_withdrawn',
+    'profile_promotion_earnings', 'profile_wallet_note', 'my_book_net_income', 'profile_available_withdraw', 'profile_withdrawn',
     'profile_reader_new_users', 'profile_reader_visits', 'recommender_standard', 'recommender_premium', 'recommender_identity_eyebrow',
     'referral_details_title', 'referral_details_kicker', 'referral_details_premium_copy', 'referral_details_standard_copy',
     'referral_link_label', 'referral_copy_link', 'referral_link_copied', 'referral_network_members', 'referral_network_reader_users',
