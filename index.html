@@ -3049,7 +3049,7 @@
                         </div>
                         <div class="perf-stat">
                             <div class="perf-stat-value" id="perfIncome">$0</div>
-                            <div class="perf-stat-label" data-i18n="perf_label_attributed_income">Net income (80%)</div>
+                            <div class="perf-stat-label" data-i18n="perf_label_attributed_income">Commission (80%)</div>
                             <div class="perf-stat-change flat" id="perfIncomeChange">—</div>
                         </div>
                         <div class="perf-stat">
@@ -3071,7 +3071,7 @@
                             <div class="perf-stat-label" data-i18n="perf_label_assets">Promo assets</div>
                         </div>
                     </div>
-                    <div class="perf-money-note" data-i18n="perf_wallet_note">Income figures use the 80% net commission rate. Wallet balance may also differ after bonuses, adjustments, or withdrawals.</div>
+                    <div class="perf-money-note" data-i18n="perf_wallet_note">Commission figures use the 80% attributed rate. Wallet lifetime earnings may still differ because of historical income, bonuses, adjustments, or withdrawals.</div>
                     <!-- Trend Chart -->
                     <div class="perf-chart-section">
                         <div class="perf-chart-header">
@@ -3079,7 +3079,7 @@
                             <div class="perf-chart-tabs">
                                 <button class="perf-chart-tab active" onclick="switchChartMode('visits')" id="chartTabVisits" data-i18n="perf_tab_visits">Visits</button>
                                 <button class="perf-chart-tab" onclick="switchChartMode('newusers')" id="chartTabNewusers" data-i18n="perf_tab_new">New Users</button>
-                                <button class="perf-chart-tab" onclick="switchChartMode('income')" id="chartTabIncome" data-i18n="perf_tab_income">Net income (80%)</button>
+                                <button class="perf-chart-tab" onclick="switchChartMode('income')" id="chartTabIncome" data-i18n="perf_tab_income">Commission (80%)</button>
                             </div>
                         </div>
                         <div class="perf-chart-container">
@@ -3109,7 +3109,7 @@
                                 <span data-i18n="daily_books_new">New</span><span class="daily-book-sort-indicator"></span>
                             </button>
                             <button class="daily-book-sort" type="button" data-daily-sort="income" onclick="setDailyBookSort('income')">
-                                <span data-i18n="daily_books_income">Net income (80%)</span><span class="daily-book-sort-indicator"></span>
+                                <span data-i18n="daily_books_income">Commission (80%)</span><span class="daily-book-sort-indicator"></span>
                             </button>
                         </div>
                         <div class="daily-book-rows" id="dailyBookRows"></div>
@@ -3545,6 +3545,7 @@
                     <div class="stats-overview-label" data-i18n="profile_reader_visits">Reader Activations</div>
                 </div>
             </div>
+            <p id="statsIncomeNote" class="login-tip" data-i18n="profile_wallet_note" style="display:none;margin:8px 16px 0;">Wallet lifetime earnings include historical income, bonuses, adjustments, and withdrawals, so they can differ from attributed commission.</p>
             <p id="statsLastUpdated" class="login-tip" style="display:none" aria-live="polite"><span data-i18n="stats_snapshot_updated">Data updated</span>: <span id="statsLastUpdatedTime">--</span></p>
             <button class="recommender-badge" id="recommenderBadge" type="button" data-nf-action="open-referral-details">
                 <span class="badge-mark" aria-hidden="true">N</span>
@@ -4088,6 +4089,8 @@
             if (statsOverview) statsOverview.style.display = 'none';
             if (statsLoadingArea) statsLoadingArea.replaceChildren();
             if (statsLastUpdated) statsLastUpdated.style.display = 'none';
+            const incomeNote = document.getElementById('statsIncomeNote');
+            if (incomeNote) incomeNote.style.display = 'none';
 
             const perfData = document.getElementById('perfData');
             const perfLogin = document.getElementById('perfLoginPrompt');
@@ -4510,7 +4513,9 @@
                 campaign_tiktok_status: 'Reward and rules will be announced on the start date. Get your videos ready.',
                 campaign_tiktok_cta: 'Not started yet',
                 activity_modal_title: 'Limited Subsidy',
-                profile_promotion_earnings: 'Cumulative Earnings',
+                profile_promotion_earnings: 'Wallet Lifetime Earnings',
+                profile_wallet_note: 'Wallet lifetime earnings include historical income, bonuses, adjustments, and withdrawals, so they can differ from attributed commission.',
+                my_book_net_income: 'Commission (80%)',
                 profile_available_withdraw: 'Ready to Withdraw',
                 profile_withdrawn: 'Withdrawn',
                 profile_reader_new_users: 'Reader New Users',
@@ -4794,10 +4799,10 @@
                 tier_books_week: '0/5 books this week',
                 perf_dashboard_title: '📊 Performance Dashboard',
                 perf_label_income: 'Income',
-                perf_label_attributed_income: 'Net income (80%)',
+                perf_label_attributed_income: 'Commission (80%)',
                 perf_label_wallet: 'Available balance',
                 perf_wallet_total: 'Total {amount}',
-                perf_wallet_note: 'Income figures use the 80% net commission rate. Wallet balance may also differ after bonuses, adjustments, or withdrawals.',
+                perf_wallet_note: 'Commission figures use the 80% attributed rate. Wallet lifetime earnings may still differ because of historical income, bonuses, adjustments, or withdrawals.',
                 perf_label_unique: 'Unique',
                 perf_label_new: 'New Users',
                 perf_label_visits: 'Visits',
@@ -4808,15 +4813,15 @@
                 perf_tab_visits: 'Visits',
                 perf_tab_new: 'New Users',
                 perf_tab_unique: 'Unique',
-                perf_tab_income: 'Net income (80%)',
+                perf_tab_income: 'Commission (80%)',
                 perf_detail_on: 'on',
                 date_not_set: 'Not set',
                 chart_no_data: 'No data yet',
                 daily_books_title: 'Daily Book Performance',
-                daily_books_timezone: 'Business date (UTC+8) · Cumulative net income (80%)',
+                daily_books_timezone: 'Business date (UTC+8) · Cumulative commission (80%)',
                 daily_books_book: 'Book',
                 daily_books_new: 'New',
-                daily_books_income: 'Net income (80%)',
+                daily_books_income: 'Commission (80%)',
                 daily_books_total: 'Total',
                 daily_books_empty: 'No book activity on this date',
                 daily_books_asset: 'asset',
@@ -5177,10 +5182,10 @@
                 tier_books_week: '0/5 libros esta semana',
                 perf_dashboard_title: '📊 Panel de Rendimiento',
                 perf_label_income: 'Ingresos',
-                perf_label_attributed_income: 'Ingreso neto (80%)',
+                perf_label_attributed_income: 'Comisión (80%)',
                 perf_label_wallet: 'Saldo disponible',
                 perf_wallet_total: 'Total {amount}',
-                perf_wallet_note: 'Las cifras de ingresos usan la comisión neta del 80%. El saldo de la cartera también puede variar por bonos, ajustes o retiros.',
+                perf_wallet_note: 'Las comisiones usan la tasa atribuida del 80%. Las ganancias de la cartera aún pueden variar por ingresos históricos, bonos, ajustes o retiros.',
                 perf_label_unique: 'Únicos',
                 perf_label_new: 'Nuevos',
                 perf_label_visits: 'Visitas',
@@ -5191,15 +5196,15 @@
                 perf_tab_visits: 'Visitas',
                 perf_tab_new: 'Nuevos usuarios',
                 perf_tab_unique: 'Únicos',
-                perf_tab_income: 'Ingreso neto (80%)',
+                perf_tab_income: 'Comisión (80%)',
                 perf_detail_on: 'el',
                 date_not_set: 'Sin definir',
                 chart_no_data: 'Aún no hay datos',
                 daily_books_title: 'Rendimiento Diario por Libro',
-                daily_books_timezone: 'Fecha comercial (UTC+8) · Ingreso neto acumulado (80%)',
+                daily_books_timezone: 'Fecha comercial (UTC+8) · Comisión acumulada (80%)',
                 daily_books_book: 'Libro',
                 daily_books_new: 'Nuevos',
-                daily_books_income: 'Ingreso neto (80%)',
+                daily_books_income: 'Comisión (80%)',
                 daily_books_total: 'Total',
                 daily_books_empty: 'Sin actividad por libro en esta fecha',
                 daily_books_asset: 'recurso',
@@ -5224,7 +5229,9 @@
                 campaign_tiktok_status: 'La recompensa y las reglas se anunciarán el día del inicio. Ve preparando tus vídeos.',
                 campaign_tiktok_cta: 'Aún no disponible',
                 activity_modal_title: 'Subsidio por tiempo limitado',
-                profile_promotion_earnings: 'Ganancias acumuladas',
+                profile_promotion_earnings: 'Ganancias acumuladas en cartera',
+                profile_wallet_note: 'Las ganancias de la cartera incluyen ingresos históricos, bonos, ajustes y retiros; por eso pueden diferir de la comisión atribuida.',
+                my_book_net_income: 'Comisión (80%)',
                 profile_available_withdraw: 'Listo para retirar',
                 profile_withdrawn: 'Retirado',
                 profile_reader_new_users: 'Nuevos lectores',
@@ -8425,6 +8432,8 @@
             const readerEl = document.getElementById('readerNewUsers');
             const visitsEl = document.getElementById('readerVisits');
             if (incomeEl) incomeEl.textContent = moneyOrDash(lifetime);
+            const incomeNote = document.getElementById('statsIncomeNote');
+            if (incomeNote) incomeNote.style.display = AppState.isLoggedIn && wallet ? 'block' : 'none';
             if (availableEl) availableEl.textContent = moneyOrDash(wallet && (wallet.withdrawable_balance ?? wallet.available_balance));
             if (withdrawnEl) withdrawnEl.textContent = moneyOrDash(wallet && (wallet.withdrawn_total ?? wallet.approved_total));
             renderPerformanceWallet(wallet);
@@ -9428,7 +9437,7 @@ function renderMyBooks() {
                             </div>
                             <div class="my-book-expanded-stat income">
                                 <div class="my-book-expanded-stat-icon">&#128176;</div>
-                                <div class="my-book-expanded-stat-label">Net Income (80%)</div>
+                                <div class="my-book-expanded-stat-label" data-i18n="my_book_net_income">Commission (80%)</div>
                                 <div class="my-book-expanded-stat-value">${incomeFmt.text}</div>
                             </div>
                         </div>

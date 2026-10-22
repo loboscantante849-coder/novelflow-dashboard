@@ -95,12 +95,20 @@ test('stats endpoints fail visibly and production responses omit debug details',
   assert.match(myStats, /if \(!dataJson\) throw new Error/);
 });
 
-test('dashboard labels daily revenue as 80% net income and counts assets', () => {
+test('all user-facing statistics apply the attributed commission rate', () => {
+  for (const relativePath of STATS_ENDPOINTS) {
+    const source = fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
+    assert.match(source, /applyDisplayCommission/);
+    assert.doesNotMatch(source, /const dn = r2\(st\.dn_income\)/);
+  }
+});
+
+test('dashboard labels daily revenue as attributed commission and counts assets', () => {
   const source = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 
-  assert.match(source, /daily_books_income: 'Net income \(80%\)'/);
-  assert.match(source, /Business date \(UTC\+8\).*Cumulative net income \(80%\)/);
-  assert.match(source, /perf_tab_income: 'Net income \(80%\)'/);
+  assert.match(source, /daily_books_income: 'Commission \(80%\)'/);
+  assert.match(source, /Business date \(UTC\+8\).*Cumulative commission \(80%\)/);
+  assert.match(source, /perf_tab_income: 'Commission \(80%\)'/);
   assert.match(source, /dailyBookHelper\.countAssets\(perfLinks\)/);
   assert.match(source, /STATS_UNAVAILABLE/);
   assert.match(source, /_lastPerfUsername !== currentPerfUsername/);

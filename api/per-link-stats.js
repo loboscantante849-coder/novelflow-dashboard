@@ -278,7 +278,7 @@ module.exports = async (req, res) => {
           for (const pb of (promoterEntry?.books || [])) {
             if ((pb.ad_ids || []).map(String).includes(adId)) { bookName = pb.name; break; }
           }
-          const dn = r2(st.dn_income);
+          const dn = applyDisplayCommission(st.dn_income);
           const dailyRow = {};
           for (const [dt, dv] of Object.entries(st.daily || {})) {
             if (!aggDaily[dt]) aggDaily[dt] = { visits:0, unique_users:0, new_users:0, income:0 };

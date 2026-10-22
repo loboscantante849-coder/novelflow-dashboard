@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
   COMMISSION_MIGRATION_ID,
+  applyDisplayCommission,
   buildEarningsDetail,
   buildIncomeProfile,
   computeWalletBalances,
@@ -27,6 +28,12 @@ const source = {
     },
   },
 };
+
+test('attributed commission displays the member share instead of upstream gross revenue', () => {
+  assert.equal(applyDisplayCommission(32.37), 25.9);
+  assert.equal(applyDisplayCommission(0), 0);
+  assert.equal(applyDisplayCommission(null), 0);
+});
 
 test('system statistics buckets never resolve to user income', () => {
   const profile = buildIncomeProfile(source, '_unmapped');

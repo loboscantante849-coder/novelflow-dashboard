@@ -30,6 +30,13 @@ test('performance dashboard shows wallet balance separately from attributed inco
   }
 });
 
+test('profile explains that wallet lifetime earnings differ from attributed commission', () => {
+  assert.match(source, /id="statsIncomeNote"/);
+  assert.match(source, /profile_wallet_note/);
+  assert.match(source, /Ganancias acumuladas en cartera/);
+  assert.match(source, /por eso pueden diferir de la comisión atribuida/);
+});
+
 test('recommender badges are server-derived and open an account-scoped detail view', () => {
   assert.match(source, /id="recommenderBadge"[^>]+data-nf-action="open-referral-details"/);
   assert.match(source, /tier === 'premium'/);
@@ -76,7 +83,7 @@ test('performance errors keep the dashboard surface visible', () => {
 
 test('new member-facing labels include English and Spanish translations', () => {
   for (const key of [
-    'profile_promotion_earnings', 'profile_available_withdraw', 'profile_withdrawn',
+    'profile_promotion_earnings', 'profile_wallet_note', 'my_book_net_income', 'profile_available_withdraw', 'profile_withdrawn',
     'profile_reader_new_users', 'profile_reader_visits', 'recommender_standard', 'recommender_premium', 'recommender_identity_eyebrow',
     'referral_details_title', 'referral_details_kicker', 'referral_details_premium_copy', 'referral_details_standard_copy',
     'referral_link_label', 'referral_copy_link', 'referral_link_copied', 'referral_network_members', 'referral_network_reader_users',
