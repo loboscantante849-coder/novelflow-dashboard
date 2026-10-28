@@ -490,6 +490,9 @@ async function loadSubmissions(redis, username, admin, debugLog, options = {}) {
           const bookCode = submissionIdentifier(book.code);
           const bookLinkId = submissionIdentifier(book.linkId);
           if (!bookLinkId && !bookCode) continue;
+          // CloudSync is client-writable. It may preserve display metadata, but
+          // it is not proof that the member owns the referenced income source.
+          // Only server-confirmed submissions may authorize unmapped ad IDs.
           subs.push(markVerifiedAssets({
             discordUsername: username,
             status: 'completed',

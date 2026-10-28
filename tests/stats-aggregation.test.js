@@ -81,6 +81,45 @@ test('client CloudSync asset ids cannot grant access to another promoter statist
   assert.equal(result.dn_income, 0);
 });
 
+
+test('client CloudSync cannot claim income from an unowned pipeline link', async () => {
+  const redis = {
+    async smembers() { return []; },
+    async get(key) {
+      if (key === 'nf_user_data:alice') {
+        return JSON.stringify({
+          myBooks: [{
+            linkId: 'orphan-link',
+            title: 'Atada a la Bestia. Deseada por el Caballero',
+          }],
+        });
+      }
+      return null;
+    },
+  };
+  const submissions = await loadSubmissions(redis, 'alice', false, []);
+  const lookup = buildAdIdLookup({
+    by_promoter: { alice: { links: [], codes: [], invites: [] } },
+    ad_ids: {
+      'orphan-link': {
+        ad_id: 'orphan-link',
+        channel: 'link',
+        username: null,
+        username_canon: null,
+        book_name: null,
+        book_id: null,
+        stats: { pull_uv: 7, active_uv: 4, new_uv: 1, dn_income: 23.37 },
+        daily: [],
+      },
+    },
+  }, 'alice', false, submissions);
+
+  assert.equal(lookup.byAdId['orphan-link'], undefined);
+  const result = aggregateSubmissionStats(submissions[0], lookup.byAdId);
+  assert.equal(result.pull_uv, 0);
+  assert.equal(result.dn_income, 0);
+});
+
 test('legacy fallback counts only server-verified submission identifiers', () => {
   const lookup = buildLegacyAdIdLookup({
     'owned-link': { visits: 7, dn_income: 1.25 },
