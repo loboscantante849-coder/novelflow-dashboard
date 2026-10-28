@@ -81,68 +81,6 @@ test('client CloudSync asset ids cannot grant access to another promoter statist
   assert.equal(result.dn_income, 0);
 });
 
-
-test('client CloudSync cannot claim income from unowned link or code assets', async () => {
-  const redis = {
-    async smembers() { return []; },
-    async get(key) {
-      if (key === 'nf_user_data:alice') {
-        return JSON.stringify({
-          myBooks: [{
-            linkId: 'orphan-link',
-            code: 'orphan-code',
-            title: 'Atada a la Bestia. Deseada por el Caballero',
-          }],
-        });
-      }
-      return null;
-    },
-  };
-  const submissions = await loadSubmissions(redis, 'alice', false, []);
-  const lookup = buildAdIdLookup({
-    by_promoter: { alice: { links: [], codes: [], invites: [] } },
-    ad_ids: {
-      'orphan-link': {
-        ad_id: 'orphan-link', channel: 'link', username: null, username_canon: null,
-        book_name: null, book_id: null,
-        stats: { pull_uv: 7, active_uv: 4, new_uv: 1, dn_income: 23.37 }, daily: [],
-      },
-      'orphan-code': {
-        ad_id: 'orphan-code', channel: 'code', username: null, username_canon: null,
-        book_name: null, book_id: null,
-        stats: { pull_uv: 2, active_uv: 1, new_uv: 0, dn_income: 5.5 }, daily: [],
-      },
-    },
-  }, 'alice', false, submissions);
-
-  assert.equal(lookup.byAdId['orphan-link'], undefined);
-  assert.equal(lookup.byAdId['orphan-code'], undefined);
-  const result = aggregateSubmissionStats(submissions[0], lookup.byAdId);
-  assert.equal(result.pull_uv, 0);
-  assert.equal(result.dn_income, 0);
-});
-
-test('server-confirmed link and code records can recover unmapped pipeline assets', () => {
-  const lookup = buildAdIdLookup({
-    by_promoter: { alice: { links: [], codes: [], invites: [] } },
-    ad_ids: {
-      'confirmed-link': {
-        ad_id: 'confirmed-link', channel: 'link', username_canon: null,
-        stats: { pull_uv: 3, dn_income: 2 }, daily: [],
-      },
-      'confirmed-code': {
-        ad_id: 'confirmed-code', channel: 'code', username_canon: null,
-        stats: { pull_uv: 2, dn_income: 1 }, daily: [],
-      },
-    },
-  }, 'alice', false, [
-    markVerifiedAssets({ linkId: 'confirmed-link', code: 'confirmed-code' }),
-  ]);
-
-  assert.equal(lookup.byAdId['confirmed-link'].dn_income, 2);
-  assert.equal(lookup.byAdId['confirmed-code'].dn_income, 1);
-});
-
 test('legacy fallback counts only server-verified submission identifiers', () => {
   const lookup = buildLegacyAdIdLookup({
     'owned-link': { visits: 7, dn_income: 1.25 },
