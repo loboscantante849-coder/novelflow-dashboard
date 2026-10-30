@@ -52,7 +52,7 @@ function parseInteger(value, fallback, min, max) {
 function parseAcRequest(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
   const bookId = typeof body.book_id === 'string' ? body.book_id.trim() : '';
-  const template = body.template === undefined ? 'Ad_Plot_Video_V3' : body.template;
+  const template = body.template === undefined ? 'Ad_Plot_Seedance' : body.template;
   const language = body.language === undefined ? 'English' : body.language;
   const aspectRatio = body.aspect_ratio === undefined ? '9:16' : body.aspect_ratio;
   const num = parseInteger(body.num, 1, 1, 3);

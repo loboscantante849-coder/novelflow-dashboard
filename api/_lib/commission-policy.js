@@ -118,7 +118,7 @@ function incomeProfileReconciliation(profile) {
   const dailyTotal = roundMoney(profile.dailyTotal !== undefined
     ? profile.dailyTotal
     : Object.values(profile.daily || {}).reduce((sum, amount) => sum + Number(amount || 0), 0));
-  const reasons = [];
+  const reasons = Array.isArray(profile.reconciliationReasons) ? [...profile.reconciliationReasons] : [];
   const dailyMissing = grossTotal > 0 && Object.keys(profile.daily || {}).length === 0;
   if (dailyMissing) reasons.push('income_daily_detail_missing');
   if (dailyTotal !== grossTotal) reasons.push('income_daily_total_mismatch');

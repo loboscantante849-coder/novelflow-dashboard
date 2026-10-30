@@ -3210,6 +3210,7 @@
                             <div id="reelBasicFields">
                             <div class="reels-adv-label" style="margin-top:8px;" data-i18n="adv_video_style">🎬 Video Style</div>
                             <select id="reelTemplateBasic" class="reels-adv-input" style="cursor:pointer;">
+                                <option value="Ad_Plot_Seedance" data-i18n="tmpl_seedance">🎬 Story Seedance 2.0</option>
                                 <option value="Ad_Plot_Video_V3" data-i18n="tmpl_story">📖 Story Slideshow (Video + Images)</option>
                                 <option value="PPT_Porn" data-i18n="tmpl_spicy">🔥 Spicy &amp; Steamy</option>
                                 <option value="Ad_Plot_Video_V2" data-i18n="tmpl_sora">🎥 Story Sora (AI Cinematic)</option>
@@ -3237,6 +3238,7 @@
                             <!-- Template -->
                             <div class="reels-adv-label" data-i18n="adv_video_style">🎬 Video Style</div>
                             <select id="reelTemplateAdv" class="reels-adv-input" style="cursor:pointer;">
+                                <option value="Ad_Plot_Seedance" data-i18n="tmpl_seedance">🎬 Story Seedance 2.0</option>
                                 <option value="Ad_Plot_Video_V3" data-i18n="tmpl_story">📖 Story Slideshow (Video + Images)</option>
                                 <option value="PPT_Porn" data-i18n="tmpl_spicy">🔥 Spicy &amp; Steamy</option>
                                 <option value="Ad_Plot_Video_V2" data-i18n="tmpl_sora">🎥 Story Sora (AI Cinematic)</option>
@@ -3244,7 +3246,6 @@
                                 <option value="PPT_Multi" data-i18n="tmpl_ppt_multi">📑 Slideshow Multi-style</option>
                                 <option value="Comic" data-i18n="tmpl_comic">🖼 Comic Style</option>
                                 <option value="PPT_Porn_Loop_Video" data-i18n="tmpl_ppt_porn_loop">🔥 Spicy Loop Video</option>
-                                <option value="Ad_Plot_Seedance" data-i18n="tmpl_seedance">🎬 Story Seedance 2.0</option>
                                 <option value="Digital" data-i18n="tmpl_digital">🤖 Digital Avatar</option>
                                 <option value="Extract" data-i18n="tmpl_extract">🧊 Satisfying / Decompress</option>
                             </select>
@@ -11143,7 +11144,7 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
                 // Determine if advanced mode is open
                 const isAdvOpen = document.getElementById('reelAdvPanel')?.classList.contains('open');
                 const templateSelect = isAdvOpen ? document.getElementById('reelTemplateAdv') : document.getElementById('reelTemplateBasic');
-                const selectedTemplate = templateSelect ? templateSelect.value : 'Ad_Plot_Video_V3';
+                const selectedTemplate = templateSelect ? templateSelect.value : 'Ad_Plot_Seedance';
                 // Language: EN system = English, ES system = Spanish
                 const reelLang = AppState.currentLang === 'es' ? 'Spanish' : 'English';
                 const reelCountry = AppState.currentLang === 'es' ? 'ES' : 'US';
