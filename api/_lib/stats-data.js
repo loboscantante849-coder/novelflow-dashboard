@@ -11,6 +11,7 @@
 const { Redis } = require('@upstash/redis');
 const { normalizeRedisKeys } = require('./redis-values');
 const { isSystemStatsBucket } = require('./promoter-access');
+const { applyReviewedAttribution } = require('./reviewed-attribution');
 const { normalizeHttpsCoverUrl, backfillBookCovers } = require('./book-covers');
 const {
   resolveUsernameAlias,
@@ -198,7 +199,7 @@ async function fetchJsonWithTimeout(url, timeoutMs = FETCH_TIMEOUT_MS) {
 /**
  * Fetch ad_id_details.json with in-memory cache and one retry.
  */
-async function getAdIdDetails(debugLog) {
+async function getRawAdIdDetails(debugLog) {
   const now = Date.now();
   if (AD_CACHE.data && AD_CACHE.expires > now) {
     debugLog?.push(`ad_id_details: cache hit (${Object.keys(AD_CACHE.data.ad_ids || {}).length} ad_ids)`);
@@ -232,6 +233,10 @@ async function getAdIdDetails(debugLog) {
   }
   debugLog?.push(`ad_id_details: all fetches failed: ${lastErr?.message}`);
   return null;
+}
+
+async function getAdIdDetails(debugLog) {
+  return applyReviewedAttribution(await getRawAdIdDetails(debugLog));
 }
 
 // Authentication namespace creation must never rely on the bundled fallback:

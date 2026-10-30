@@ -47,7 +47,8 @@ const {
   isSafeMoneyValue,
 } = require('./_lib/wallet-contract');
 const { buildIncomeProfile } = require('./_lib/commission-policy');
-const { applyRecoveredIncome, loadRecoveredIncome } = require('./_lib/recovered-income');
+const { loadRecoveredIncome } = require('./_lib/recovered-income');
+const { reviewedIncomeProfile } = require('./_lib/reviewed-attribution');
 const {
   MIN_WITHDRAWAL,
   MAX_WITHDRAWAL,
@@ -79,7 +80,7 @@ async function promoterIncomeProfile(redis, sources, username) {
   // Recovered legacy codes keep their real dates, so pre-cutoff amounts stay
   // in the historical carryover and later amounts follow the current rate.
   const recovered = await loadRecoveredIncome(redis, [resolved, username, profile.sourceKey]);
-  return applyRecoveredIncome(profile, recovered);
+  return reviewedIncomeProfile(profile, recovered, sources.adData, resolved || username);
 }
 
 function promoterIdentity(sources, username) {

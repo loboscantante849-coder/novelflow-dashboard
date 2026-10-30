@@ -119,7 +119,7 @@ module.exports = async (req, res) => {
       // must not blank confirmed traffic/new-user data; the ambiguity is
       // reported through `income_review_required` for the payout review.
       const walletIdentity = await resolveUserFacingWalletStorageIdentity(redis, username);
-      incomeReviewRequired = Boolean(walletIdentity.reviewRequired);
+      incomeReviewRequired = Boolean(walletIdentity.reviewRequired || adData.reviewed_attribution_issues?.[usernameCanon]?.length);
       if (adData.by_promoter?.[usernameCanon]) {
         const ownership = await inspectApprovedSourceWalletOwner(
           redis,

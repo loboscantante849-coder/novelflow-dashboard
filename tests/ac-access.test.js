@@ -77,6 +77,25 @@ test('disabled accounts cannot create or upload AC work', async () => {
   }
 });
 
+test('new reels default to Seedance while explicit template choices are preserved', async () => {
+  const originalFetch = global.fetch;
+  const payloads = [];
+  global.fetch = async (_url, options) => {
+    payloads.push(JSON.parse(options.body));
+    return response({ thread_id: `test-thread-${payloads.length}` });
+  };
+  try {
+    FakeRedis.reset({ 'nf_user_data:template-user': JSON.stringify({}), ac_token: 'test-ac-token' });
+    for (const body of [{ book_id: 'book-1' }, { book_id: 'book-1', template: 'PPT_Porn' }]) {
+      const result = await invoke(acCreate, { method: 'POST', headers: authHeaders('template-user'), body });
+      assert.equal(result.statusCode, 200);
+    }
+    assert.deepEqual(payloads.map(payload => payload.template), ['Ad_Plot_Seedance', 'PPT_Porn']);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('AC task ownership is required before calling the upstream service', async () => {
   let upstreamCalls = 0;
   const originalFetch = global.fetch;

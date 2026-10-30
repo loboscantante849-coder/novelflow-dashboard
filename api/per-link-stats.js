@@ -113,7 +113,7 @@ module.exports = async (req, res) => {
       // Legacy alias and income-source ambiguity are reported for the payout
       // review instead of failing the per-link statistics request.
       const walletIdentity = await resolveUserFacingWalletStorageIdentity(redis, username);
-      incomeReviewRequired = Boolean(walletIdentity.reviewRequired);
+      incomeReviewRequired = Boolean(walletIdentity.reviewRequired || adData?.reviewed_attribution_issues?.[usernameCanon]?.length);
       if (adData?.by_promoter?.[usernameCanon]) {
         const ownership = await inspectApprovedSourceWalletOwner(
           redis,
