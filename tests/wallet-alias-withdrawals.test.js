@@ -1,3 +1,4 @@
+const { incomeSnapshot } = require('./helpers/income-snapshot');
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
@@ -26,7 +27,7 @@ function withIncomeSource() {
       },
     },
   });
-  statsData.getAdIdDetails = async () => ({
+  statsData.getAdIdDetails = async () => incomeSnapshot((await statsData.getLegacyDataJson()).users, {
     by_promoter: { eliza_stellar: { display_name: 'Eliza Stellar', links: [] } },
     ad_ids: {},
   });
@@ -53,7 +54,7 @@ function withPunctuationIncomeSource({ approvedRaw = null } = {}) {
       },
     },
   });
-  statsData.getAdIdDetails = async () => ({
+  statsData.getAdIdDetails = async () => incomeSnapshot((await statsData.getLegacyDataJson()).users, {
     by_promoter: { foo_bar: { display_name: 'Foo Bar', links: [] } },
     ad_ids: approvedRaw ? {
       'trusted-ad': { username: approvedRaw, username_canon: 'foo_bar' },

@@ -17,6 +17,7 @@
  *                 daily: { dt: {visits, unique_users, new_users, income} } } ] }
  * A submission's distinct linkId and code channels are combined; duplicate ad_ids are counted once.
  */
+const { loadIncomeLedger } = require('./_lib/income-ledger');
 const { setCORSHeaders } = require('./_lib/cors');
 const { getAuthPayload, isAdminUser, isDisabledUser } = require('./_lib/security');
 const {
@@ -87,8 +88,17 @@ module.exports = async (req, res) => {
   const allPromoters = admin && !String(requestedUsername || '').trim();
   const debugLog = [];
   let incomeReviewRequired = false;
+  let ledger = null;
 
   const finalize = body => {
+    if (ledger && !allPromoters && body.last_updated !== undefined) {
+      const profile = ledger.profileFor(username);
+      const daily = { ...(body.daily || {}) };
+      for (const [dt, amount] of Object.entries(profile.daily)) {
+        daily[dt] = { ...(daily[dt] || { visits: 0, unique_users: 0, new_users: 0 }), income: applyDisplayCommission(amount) };
+      }
+      body = { ...body, daily, total_income: r2(profile.displayIncome + (body.income_adjustment || 0)) };
+    }
     const withReviewFlag = { ...body, income_review_required: Boolean(incomeReviewRequired) };
     if (!IS_PROD) return withReviewFlag;
     const { debug, ...publicBody } = withReviewFlag;
@@ -106,14 +116,17 @@ module.exports = async (req, res) => {
     // admin determined above via isAdminUser(redis, jwtUsername)
     let usernameCanon = null;
 
-    const adData = await getAdIdDetails(debugLog);
+    let adData = await getAdIdDetails(debugLog);
+    ledger = adData ? await loadIncomeLedger(redis, adData) : null;
+    if (ledger) adData = ledger.adData;
+    incomeReviewRequired = Boolean(ledger && (allPromoters ? Object.values(ledger.profiles).some(p => p.reconciliationReasons.length) : ledger.profileFor(username).reconciliationReasons.length));
     if (!allPromoters) usernameCanon = resolvePromoterKey(username, adData);
     if (!admin) {
       usernameCanon = resolvePromoterKey(username, adData);
       // Legacy alias and income-source ambiguity are reported for the payout
       // review instead of failing the per-link statistics request.
       const walletIdentity = await resolveUserFacingWalletStorageIdentity(redis, username);
-      incomeReviewRequired = Boolean(walletIdentity.reviewRequired || adData?.reviewed_attribution_issues?.[usernameCanon]?.length);
+      incomeReviewRequired = Boolean(incomeReviewRequired || walletIdentity.reviewRequired || adData?.reviewed_attribution_issues?.[usernameCanon]?.length);
       if (adData?.by_promoter?.[usernameCanon]) {
         const ownership = await inspectApprovedSourceWalletOwner(
           redis,

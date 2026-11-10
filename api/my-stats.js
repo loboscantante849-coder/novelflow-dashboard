@@ -10,6 +10,7 @@
  * Primary data source: GitHub ad_id_details.json (pipeline pre-aggregated every 2h).
  * Redis used for submission metadata / covers.
  */
+const { loadIncomeLedger } = require('./_lib/income-ledger');
 const { handlePreflight } = require('./_lib/cors');
 const {
   getRedis, canonize, resolvePromoterKey, isAdmin: legacyIsAdmin,
@@ -109,17 +110,19 @@ module.exports = async (req, res) => {
 
   try {
     // 1. Fetch primary data
-    const adData = await getAdIdDetails(IS_PROD ? [] : debugLog);
+    let adData = await getAdIdDetails(IS_PROD ? [] : debugLog);
+    const ledger = adData ? await loadIncomeLedger(redis, adData) : null;
+    if (ledger) adData = ledger.adData;
     let usernameCanon = allPromoters ? null : resolvePromoterKey(username, adData);
 
-    let incomeReviewRequired = false;
+    let incomeReviewRequired = Boolean(ledger && (allPromoters ? Object.values(ledger.profiles).some(p => p.reconciliationReasons.length) : ledger.profileFor(username).reconciliationReasons.length));
     if (!isAdmin && adData) {
       usernameCanon = resolvePromoterKey(username, adData);
       // Stats are read-only. A legacy wallet alias or income-source conflict
       // must not blank confirmed traffic/new-user data; the ambiguity is
       // reported through `income_review_required` for the payout review.
       const walletIdentity = await resolveUserFacingWalletStorageIdentity(redis, username);
-      incomeReviewRequired = Boolean(walletIdentity.reviewRequired || adData.reviewed_attribution_issues?.[usernameCanon]?.length);
+      incomeReviewRequired = Boolean(incomeReviewRequired || walletIdentity.reviewRequired || adData.reviewed_attribution_issues?.[usernameCanon]?.length);
       if (adData.by_promoter?.[usernameCanon]) {
         const ownership = await inspectApprovedSourceWalletOwner(
           redis,
@@ -152,6 +155,11 @@ module.exports = async (req, res) => {
 
     // Helper to strip debug from response body
     const finalize = (obj) => {
+      if (ledger && !allPromoters && obj.last_updated !== undefined) {
+        const profile = ledger.profileFor(username);
+        obj = { ...obj, total_income: r2(profile.displayIncome + (obj.income_adjustment || 0)),
+          income_daily: Object.fromEntries(Object.entries(profile.daily).map(([dt, amount]) => [dt, applyDisplayCommission(amount)])) };
+      }
       const withReviewFlag = { ...obj, income_review_required: Boolean(incomeReviewRequired) };
       if (IS_PROD) {
         const { debug, ...rest } = withReviewFlag;

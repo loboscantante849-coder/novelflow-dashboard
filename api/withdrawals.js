@@ -30,7 +30,7 @@ const {
   commitUserDataUnderLock,
   releaseUserDataLock,
 } = require('./_lib/user-data-lock');
-const { getAdIdDetails, getLegacyDataJson, resolvePromoterKey } = require('./_lib/stats-data');
+const { getAdIdDetails, resolvePromoterKey } = require('./_lib/stats-data');
 const { isSystemStatsBucket } = require('./_lib/promoter-access');
 const { isApprovedSourceOwner, loadSourceOwnerIndex } = require('./_lib/income-source-owners');
 const {
@@ -46,9 +46,7 @@ const {
   buildEarningsDetail,
   isSafeMoneyValue,
 } = require('./_lib/wallet-contract');
-const { buildIncomeProfile } = require('./_lib/commission-policy');
-const { loadRecoveredIncome } = require('./_lib/recovered-income');
-const { reviewedIncomeProfile } = require('./_lib/reviewed-attribution');
+const { loadIncomeLedger } = require('./_lib/income-ledger');
 const {
   MIN_WITHDRAWAL,
   MAX_WITHDRAWAL,
@@ -61,26 +59,21 @@ function redisClient() {
   return new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
 }
 
-async function loadIncomeSources() {
-  const [data, adData] = await Promise.all([
-    getLegacyDataJson(),
-    getAdIdDetails(),
-  ]);
-  if (!data || !data.users) {
+async function loadIncomeSources(redis) {
+  try {
+    const snapshot = await getAdIdDetails();
+    const ledger = await loadIncomeLedger(redis, snapshot);
+    return { adData: ledger.adData, ledger };
+  } catch (cause) {
     const error = new Error('Income source is temporarily unavailable');
     error.code = 'INCOME_SOURCE_UNAVAILABLE';
+    error.cause = cause;
     throw error;
   }
-  return { data, adData };
 }
 
 async function promoterIncomeProfile(redis, sources, username) {
-  const resolved = sources.adData ? resolvePromoterKey(username, sources.adData) : username;
-  const profile = buildIncomeProfile(sources.data, resolved || username);
-  // Recovered legacy codes keep their real dates, so pre-cutoff amounts stay
-  // in the historical carryover and later amounts follow the current rate.
-  const recovered = await loadRecoveredIncome(redis, [resolved, username, profile.sourceKey]);
-  return reviewedIncomeProfile(profile, recovered, sources.adData, resolved || username);
+  return sources.ledger.profileFor(username);
 }
 
 function promoterIdentity(sources, username) {
@@ -309,7 +302,7 @@ module.exports = async (req, res) => {
           return res.status(400).json({ error: 'Invalid status filter; use pending|approved|rejected|all' });
         }
         if (!redis) return res.status(500).json({ error: 'Redis not configured' });
-        const incomeSources = await loadIncomeSources();
+        const incomeSources = await loadIncomeSources(redis);
 
         // Index every wallet once so merged wallets and duplicate reporting
         // owners cannot make the admin queue double-count the same income.
@@ -353,7 +346,8 @@ module.exports = async (req, res) => {
                 // silently disappear from the queue.
                 walletConflictsExcluded += 1;
               }
-              const walletIncome = computeWalletBalances(ud, attributionDisputed ? null : incomeProfile, 0).commission_income;
+              const balances = computeWalletBalances(ud, attributionDisputed ? null : incomeProfile, 0);
+              const walletIncome = balances.commission_income;
               for (const w of ud.withdrawals) {
                 if (!w || !w.id) continue;
                 const st = (w.status || 'pending').toLowerCase();
@@ -362,8 +356,9 @@ module.exports = async (req, res) => {
                   username: uname,
                   ...w,
                   dn_income: Number(walletIncome).toFixed(2),
-                  ...(attributionDisputed && !w.review_required
-                    ? { review_required: true, review_reasons: ['income_source_owner_review'] }
+                  ...((attributionDisputed || balances.reconciliation_required)
+                    ? { review_required: true, review_reasons: [...new Set([...(w.review_reasons || []),
+                      ...(attributionDisputed ? ['income_source_owner_review'] : []), ...(balances.reconciliation_reasons || [])])] }
                     : {}),
                 });
               }
@@ -423,7 +418,7 @@ module.exports = async (req, res) => {
         return res.status(409).json({ error: 'This wallet has been merged into a primary account', code: 'WALLET_MERGED', wallet_merged_into: canonizeUser(userData.wallet_merged_into) || String(userData.wallet_merged_into).slice(0, 50) });
       }
 
-      const incomeSources = await loadIncomeSources();
+      const incomeSources = await loadIncomeSources(redis);
       const ownerState = await inspectIncomeSourceOwner(
         redis,
         incomeSources,
@@ -515,7 +510,7 @@ module.exports = async (req, res) => {
       try {
       const walletUsername = identity.storageUsername;
       const redisKey = `nf_user_data:${walletUsername}`;
-      const incomeSources = await loadIncomeSources();
+      const incomeSources = await loadIncomeSources(redis);
       let incomeSourceLock = null;
       try {
       const sourceLockState = await acquireIncomeSourceOwnerLock(redis, incomeSources, targetUser);
@@ -694,7 +689,7 @@ module.exports = async (req, res) => {
       try {
       let ownerState = null;
       if (action === 'approve') {
-        incomeSources = await loadIncomeSources();
+        incomeSources = await loadIncomeSources(redis);
         const sourceLockState = await acquireIncomeSourceOwnerLock(redis, incomeSources, targetUser);
         if (sourceLockState.required && !sourceLockState.lock) {
           return res.status(409).json({
@@ -779,7 +774,7 @@ module.exports = async (req, res) => {
       let newBalances = null;
       let balanceRefreshRequired = false;
       try {
-        if (!incomeSources) incomeSources = await loadIncomeSources();
+        if (!incomeSources) incomeSources = await loadIncomeSources(redis);
         const refreshedReasons = reviewReasonsFor(ownerState, identity);
         const incomeProfile = (refreshedReasons.length ? null : ownerState && ownerState.profile)
           || (refreshedReasons.length ? null : await promoterIncomeProfile(redis, incomeSources, targetUser));

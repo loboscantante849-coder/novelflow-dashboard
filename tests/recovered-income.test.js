@@ -1,3 +1,4 @@
+const { incomeSnapshot } = require('./helpers/income-snapshot');
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
@@ -16,7 +17,9 @@ function withIncomeSources(users, byPromoter) {
   const originalLegacy = statsData.getLegacyDataJson;
   const originalAd = statsData.getAdIdDetails;
   statsData.getLegacyDataJson = async () => ({ users });
-  statsData.getAdIdDetails = async () => ({ by_promoter: byPromoter, ad_ids: {} });
+  statsData.getAdIdDetails = async () => incomeSnapshot(users, { by_promoter: byPromoter, ad_ids: {
+    '4712': { channel: 'code', stats: { dn_income: 10 }, daily: [{ dt: '2026-08-19', dn_income: 10 }] },
+  } });
   delete require.cache[require.resolve('../api/withdrawals')];
   return {
     handler: require('../api/withdrawals'),
