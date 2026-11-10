@@ -1,3 +1,4 @@
+const { incomeSnapshot } = require('./helpers/income-snapshot');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const test = require('node:test');
@@ -1600,9 +1601,8 @@ test('withdrawal creation is blocked when income details require reconciliation'
       },
     },
   });
-  statsData.getAdIdDetails = async () => ({
-    by_promoter: { [username]: { display_name: username, links: [] } },
-    ad_ids: {},
+  statsData.getAdIdDetails = async () => incomeSnapshot((await statsData.getLegacyDataJson()).users, {
+    by_promoter: { [username]: { display_name: username, links: [] } }, ad_ids: {},
   });
   delete require.cache[require.resolve('../api/withdrawals')];
   const isolatedWithdrawals = require('../api/withdrawals');
@@ -1620,7 +1620,8 @@ test('withdrawal creation is blocked when income details require reconciliation'
 
     assert.equal(response.statusCode, 409);
     assert.equal(response.body.code, 'INCOME_RECONCILIATION_REQUIRED');
-    assert.deepEqual(response.body.reconciliation_reasons, ['income_daily_total_mismatch']);
+    assert.ok(response.body.reconciliation_reasons.includes('income_daily_total_mismatch'));
+    assert.ok(response.body.reconciliation_reasons.includes(`asset_daily_mismatch:fixture-${username}`));
     const saved = JSON.parse(FakeRedis.values.get(`nf_user_data:${username}`));
     assert.deepEqual(saved.withdrawals, []);
   } finally {
@@ -1653,9 +1654,8 @@ test('admin approval is blocked while the target wallet requires reconciliation'
       },
     },
   });
-  statsData.getAdIdDetails = async () => ({
-    by_promoter: { [username]: { display_name: username, links: [] } },
-    ad_ids: {},
+  statsData.getAdIdDetails = async () => incomeSnapshot((await statsData.getLegacyDataJson()).users, {
+    by_promoter: { [username]: { display_name: username, links: [] } }, ad_ids: {},
   });
   delete require.cache[require.resolve('../api/withdrawals')];
   const isolatedWithdrawals = require('../api/withdrawals');

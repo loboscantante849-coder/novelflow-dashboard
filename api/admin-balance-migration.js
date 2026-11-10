@@ -1,3 +1,4 @@
+const { loadIncomeLedger } = require('./_lib/income-ledger');
 const { Redis } = require('@upstash/redis');
 const { handlePreflight } = require('./_lib/cors');
 const {
@@ -11,7 +12,6 @@ const {
 const {
   createPromoterKeyResolver,
   getAdIdDetails,
-  getLegacyDataJson,
   resolvePromoterKey,
 } = require('./_lib/stats-data');
 const {
@@ -29,7 +29,6 @@ const {
   COMMISSION_EFFECTIVE_DATE,
   COMMISSION_MIGRATION_ID,
   COMMISSION_RATE,
-  buildIncomeProfile,
   computeWalletBalances,
   historicalGrossBefore,
   isSafeMoneyValue,
@@ -108,15 +107,15 @@ function existingMigration(userData) {
   return marker && typeof marker === 'object' && !Array.isArray(marker) ? marker : null;
 }
 
-function prepareDetail({ username, userData, adjustment, data, adData, sourceKey: resolvedSourceKey }) {
+function prepareDetail({ username, userData, adjustment, data, adData, sourceKey: resolvedSourceKey, incomeProfile }) {
   const sourceKey = resolvedSourceKey === undefined
     ? resolvePromoterKey(username, adData)
     : resolvedSourceKey;
   if (!sourceKey || !adData.by_promoter[sourceKey]) return null;
-  const profile = buildIncomeProfile(data, sourceKey);
+  const profile = incomeProfile;
   if (!profile.found || profile.grossTotal <= 0) return null;
 
-  const anomalies = [];
+  const anomalies = [...(profile.reconciliationReasons || [])];
   if (userData.bonus_balance !== undefined &&
       (!isSafeMoneyValue(userData.bonus_balance) || Number(userData.bonus_balance) < 0)) {
     anomalies.push('invalid_bonus_balance');
@@ -226,17 +225,19 @@ function buildSummary({ userKeys, details, corruptRecords, duplicateSources, exc
 }
 
 async function analyzeMigration(redis) {
-  const [data, adData, userKeys] = await Promise.all([
-    getLegacyDataJson(),
+  const [snapshot, userKeys] = await Promise.all([
     getAdIdDetails(),
     scanWalletKeys(redis),
   ]);
-  if (!data || !data.users || !adData || !adData.by_promoter) {
+  if (!snapshot || !snapshot.by_promoter) {
     const error = new Error('Income source unavailable');
     error.code = 'INCOME_SOURCE_UNAVAILABLE';
     throw error;
   }
 
+  const ledger = await loadIncomeLedger(redis, snapshot);
+  const adData = ledger.adData;
+  const data = { last_updated: adData.last_updated, date_range: adData.date_range };
   const userValues = await mgetExact(redis, userKeys);
   const usernames = userKeys.map(key => key.replace(/^nf_user_data:/, ''));
   const resolveSourceKey = createPromoterKeyResolver(adData);
@@ -268,6 +269,7 @@ async function analyzeMigration(redis) {
       data,
       adData,
       sourceKey: sourceKeys[index],
+      incomeProfile: ledger.profileFor(username),
     });
     if (!detail) continue;
     details.push(detail);
@@ -400,13 +402,20 @@ async function applyDetail(redis, entry, analysis, ownersBySource) {
     }
     const adjustmentRaw = await redis.get(`nf_admin_income_adjustment:${detail.source_key}`);
     const adjustment = parseAdjustmentAmount(adjustmentRaw);
+    const currentLedger = await loadIncomeLedger(redis, await getAdIdDetails());
+    if (!currentLedger.adData.date_range?.from || !currentLedger.adData.date_range?.to ||
+        currentLedger.adData.date_range.from > analysis.data.date_range.from ||
+        currentLedger.adData.date_range.to < analysis.data.date_range.to) {
+      return { status: 'error', historicalGross: 0, code: 'SOURCE_HISTORY_INCOMPLETE' };
+    }
     const currentDetail = prepareDetail({
       username: detail.username,
       userData: current,
       adjustment,
-      data: analysis.data,
-      adData: analysis.adData,
-      sourceKey: analysis.resolveSourceKey(detail.username),
+      data: currentLedger.adData,
+      adData: currentLedger.adData,
+      sourceKey: resolvePromoterKey(detail.username, currentLedger.adData),
+      incomeProfile: currentLedger.profileFor(detail.username),
     });
     if (!currentDetail || currentDetail.already_migrated) {
       return { status: currentDetail ? 'skipped' : 'error', historicalGross: 0, code: 'SOURCE_MAPPING_CHANGED' };
@@ -416,7 +425,7 @@ async function applyDetail(redis, entry, analysis, ownersBySource) {
     }
 
     const appliedAt = new Date().toISOString();
-    const marker = migrationMarker(currentDetail.profile, analysis.data.last_updated, appliedAt);
+    const marker = migrationMarker(currentDetail.profile, currentLedger.adData.last_updated, appliedAt);
     const updated = {
       ...current,
       bonus_balance: roundMoney(currentDetail.bonus_before + marker.historical_gross_income),

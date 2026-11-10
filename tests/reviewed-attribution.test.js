@@ -6,7 +6,9 @@ process.env.JWT_SECRET = 'reviewed-assets-test-only';
 process.env.KV_REST_API_URL = 'https://redis.invalid';
 process.env.KV_REST_API_TOKEN = 'test-only';
 
-const { applyReviewedAttribution, reviewedIncomeProfile } = require('../api/_lib/reviewed-attribution');
+const { applyReviewedAttribution } = require('../api/_lib/reviewed-attribution');
+const { buildIncomeLedger } = require('../api/_lib/income-ledger');
+const profileFor = (recovered, snapshot, username) => buildIncomeLedger(snapshot, {}, { [`nf_recovered_income:${username}`]: recovered }).profileFor(username);
 const { computeWalletBalances } = require('../api/_lib/commission-policy');
 const { signAccessToken } = require('../api/_lib/auth');
 const owner = 'estefanyb_05';
@@ -38,20 +40,20 @@ test('reviewed assets survive repeated pipeline refreshes without mutating or du
   const next = fixture();
   next.ad_ids['6174'].stats.dn_income += 1;
   next.ad_ids['6174'].daily.push({ dt: '2026-10-28', dn_income: 1 });
-  const profile = reviewedIncomeProfile(base, recovered, applyReviewedAttribution(next), owner);
+  const profile = profileFor(recovered, applyReviewedAttribution(next), owner);
   assert.equal(profile.grossTotal, 11.5);
   assert.equal(profile.daily['2026-10-28'], 1);
 });
 
 test('wallet replaces the recovery snapshot with current assets once, preserving commission dates', () => {
   const fixed = applyReviewedAttribution(fixture());
-  const profile = reviewedIncomeProfile(base, recovered, fixed, owner);
+  const profile = profileFor(recovered, fixed, owner);
   assert.equal(profile.grossTotal, 10.5); // Not 19.5 with the old $9 counted twice.
   const balances = computeWalletBalances({ bonus_balance: 0, withdrawals: [] }, profile);
   assert.equal(balances.reconciliation_required, false);
   assert.equal(balances.total_earned, 10); // $8 historical + $2.5 * 80%.
   // When the producer eventually repairs ownership too, there is no second credit.
-  assert.equal(reviewedIncomeProfile(profile, recovered, applyReviewedAttribution(fixed), owner).grossTotal, 10.5);
+  assert.equal(profileFor(recovered, applyReviewedAttribution(fixed), owner).grossTotal, 10.5);
 });
 
 test('ownership conflicts never overwrite another promoter or become withdrawable', () => {
@@ -60,8 +62,8 @@ test('ownership conflicts never overwrite another promoter or become withdrawabl
   const fixed = applyReviewedAttribution(source);
   assert.equal(fixed.ad_ids['6174'].username_canon, 'someone_else');
   assert.deepEqual(fixed.reviewed_attribution_issues[owner], ['6174']);
-  const profile = reviewedIncomeProfile(base, recovered, fixed, owner);
-  assert.equal(profile.grossTotal, 9.5); // Preserve previous display pending review.
+  const profile = profileFor(recovered, fixed, owner);
+  assert.equal(profile.grossTotal, 2.5); // Disputed income is excluded, never added from the old recovery.
   assert.equal(computeWalletBalances({ bonus_balance: 0 }, profile).reconciliation_required, true);
 });
 
@@ -86,19 +88,19 @@ test('missing recovered assets, truncated daily history and inconsistent totals 
     source => { source.ad_ids['6174'].daily[0].dn_income = 'invalid'; },
   ]) {
     const source = fixture(); change(source);
-    const profile = reviewedIncomeProfile(base, recovered, applyReviewedAttribution(source), owner);
+    const profile = profileFor(recovered, applyReviewedAttribution(source), owner);
     assert.equal(computeWalletBalances({ bonus_balance: 0 }, profile).reconciliation_required, true);
   }
   for (const invalid of [{ ...recovered, assets: [] }, { ...recovered, total: 12 }]) {
-    const profile = reviewedIncomeProfile(base, invalid, applyReviewedAttribution(fixture()), owner);
+    const profile = profileFor(invalid, applyReviewedAttribution(fixture()), owner);
     assert.equal(computeWalletBalances({ bonus_balance: 0 }, profile).reconciliation_required, true);
   }
 });
 
-test('unreviewed users retain their existing recovery behavior', () => {
-  const profile = reviewedIncomeProfile(base, recovered, applyReviewedAttribution(fixture()), 'other');
-  assert.equal(profile.grossTotal, 9.5);
-  assert.equal(profile.reconciliationReasons, undefined);
+test('unreviewed users use the same ownership reconciliation as every other account', () => {
+  const profile = profileFor(recovered, applyReviewedAttribution(fixture()), 'other');
+  assert.equal(profile.grossTotal, 0);
+  assert.ok(profile.reconciliationReasons.some(reason => reason.startsWith('asset_conflict:')));
 });
 
 test('authenticated stats and wallet agree even with an empty Redis submission index', async () => {

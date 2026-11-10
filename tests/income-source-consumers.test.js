@@ -244,12 +244,12 @@ test('stats include owned assets omitted from the secondary promoter index exact
   }
 });
 
-test('admin global stats do not count an asset twice through promoter indexes', async () => {
+test('admin global stats exclude assets disputed by two promoter indexes', async () => {
   FakeRedis.values.set('nf_user_data:operator', JSON.stringify({ accountType: 'admin' }));
   currentAdData.by_promoter.alias = { links: ['trusted-link'] };
   for (const endpoint of [myStats, perLinkStats]) {
     const result = await invoke(endpoint, { method: 'GET', headers: authHeaders('operator'), query: {} });
     assert.equal(result.statusCode, 200);
-    assert.equal(result.body.total_new, 2);
+    assert.equal(result.body.total_new, 0);
   }
 });

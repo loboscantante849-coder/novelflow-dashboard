@@ -1,3 +1,4 @@
+const { incomeSnapshot } = require('./helpers/income-snapshot');
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
@@ -34,7 +35,7 @@ const adData = {
 
 const statsData = require('../api/_lib/stats-data');
 statsData.getLegacyDataJson = async () => incomeData;
-statsData.getAdIdDetails = async () => adData;
+statsData.getAdIdDetails = async () => incomeSnapshot(incomeData.users, { ...adData, date_range: incomeData.date_range, last_updated: incomeData.last_updated });
 delete require.cache[require.resolve('../api/admin-balance-migration')];
 
 const migration = require('../api/admin-balance-migration');

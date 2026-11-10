@@ -632,6 +632,7 @@ function buildAdIdLookup(adData, usernameCanon, admin, submissions = []) {
       })();
 
   for (const [adId, entry] of Object.entries(adData.ad_ids)) {
+    if (adData.income_ledger && (adData.attribution_conflicts?.[adId] || (!admin && entry.username_canon !== usernameCanon))) continue;
     if (allowedAdIds && !allowedAdIds.has(adId)) {
       // For normal users we still want to include the ad_id if the user's Redis submission points
       // to it even if pipeline mapping missed it (username_canon can differ) — fall back to matching
