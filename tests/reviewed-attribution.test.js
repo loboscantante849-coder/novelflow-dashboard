@@ -136,3 +136,44 @@ test('authenticated stats and wallet agree even with an empty Redis submission i
     for (const file of files) delete require.cache[require.resolve(file)];
   }
 });
+
+test('reviewed DRAS code and link are attributed once and keep their daily income', () => {
+  const dras = 'dras';
+  const drasLink = '6ab30f4648073e3f299905f0';
+  const source = {
+    last_updated: '2026-11-09T19:13:04Z',
+    date_range: { from: '2026-02-01', to: '2026-11-08' },
+    by_promoter: {
+      [dras]: { display_name: 'DRAS', links: ['existing-link'], codes: [], invites: [] },
+    },
+    ad_ids: {
+      'existing-link': {
+        ad_id: 'existing-link', media_source: 'link', channel: 'link', username: 'DRAS', username_canon: dras,
+        book_id: 'existing-book', book_name: 'Existing Book',
+        stats: { dn_income: 0.42, pull_uv: 8, new_uv: 2 },
+        daily: [{ dt: '2026-08-20', dn_income: 0.37 }, { dt: '2026-09-08', dn_income: 0.05 }],
+      },
+      '6065': {
+        ad_id: '6065', media_source: 'code', channel: 'code', username: null, username_canon: null,
+        stats: { dn_income: 0, pull_uv: 15, new_uv: 0 },
+        daily: [{ dt: '2026-09-23', dn_income: 0 }],
+      },
+      [drasLink]: {
+        ad_id: drasLink, media_source: 'link', channel: 'link', username: null, username_canon: null,
+        stats: { dn_income: 89.59, pull_uv: 61, new_uv: 6 },
+        daily: [{ dt: '2026-10-12', dn_income: 22.23 }, { dt: '2026-11-08', dn_income: 67.36 }],
+      },
+    },
+  };
+
+  const fixed = applyReviewedAttribution(source);
+  const ledger = buildIncomeLedger(fixed);
+  const profile = ledger.profileFor(dras);
+  assert.equal(fixed.ad_ids['6065'].username_canon, dras);
+  assert.equal(fixed.ad_ids[drasLink].username_canon, dras);
+  assert.deepEqual(new Set(profile.assetIds), new Set(['existing-link', '6065', drasLink]));
+  assert.equal(profile.grossTotal, 90.01);
+  assert.equal(profile.dailyTotal, 90.01);
+  assert.equal(profile.displayIncome, 72.01);
+  assert.equal(profile.reconciliationReasons.length, 0);
+});
