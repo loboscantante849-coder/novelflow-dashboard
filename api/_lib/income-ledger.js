@@ -21,8 +21,7 @@ function assetKey(id, channel) {
 /** Pure reconciliation. Every source+asset ID is credited to at most one source. */
 function buildIncomeLedger(snapshot, submissions = {}, recoveryRecords = {}, equityRecords = {}) {
   if (!snapshot?.ad_ids || !snapshot?.by_promoter) throw new Error('Income snapshot unavailable');
-  // Lazy import avoids a cycle with stats-data's reviewed ownership overlay.
-  const { createPromoterKeyResolver } = require('./stats-data');
+  const { createPromoterKeyResolver } = require('./promoter-resolution');
   const resolveSource = createPromoterKeyResolver(snapshot);
   const claims = new Map(), metadata = new Map(), issues = new Map(), recoveries = new Map();
   const rawOwners = new Map();
@@ -221,8 +220,8 @@ async function loadIncomeLedger(redis, snapshot) {
   async function loadRecords(prefix) {
     let cursor = '0'; const keys = new Set(); let pages = 0;
     do {
-      if (++pages > 100) throw new Error('Attribution index exceeded bounded scan');
-      const result = await redis.scan(cursor, { match: `${prefix}*`, count: 200 });
+      if (++pages > 1000) throw new Error('Attribution index exceeded bounded scan');
+      const result = await redis.scan(cursor, { match: `${prefix}*`, count: 1000 });
       if (!Array.isArray(result) || result.length !== 2 || !Array.isArray(result[1])) throw new Error('Invalid attribution index');
       cursor = String(result[0]);
       for (const key of result[1]) if (String(key).startsWith(prefix)) keys.add(String(key));
