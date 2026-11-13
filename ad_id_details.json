@@ -1,12 +1,12 @@
 {
-  "last_updated": "2026-11-12T23:53:50Z",
+  "last_updated": "2026-11-13T07:22:51Z",
   "date_range": {
     "from": "2026-02-01",
-    "to": "2026-11-11"
+    "to": "2026-11-12"
   },
-  "total_ad_ids": 2701,
+  "total_ad_ids": 2711,
   "mapped_ad_ids": 474,
-  "unmapped_ad_ids": 2227,
+  "unmapped_ad_ids": 2237,
   "ad_ids": {
     "6912db8f2f6a6207884b6fe3": {
       "ad_id": "6912db8f2f6a6207884b6fe3",
@@ -3147,10 +3147,10 @@
         "new_uv": 2.0,
         "d0_income": 17.8,
         "d7_income": 0.0,
-        "d14_income": 41.79,
-        "d30_income": 65.78,
+        "d14_income": 41.83,
+        "d30_income": 65.82,
         "d90_income": 0.0,
-        "dn_income": 77.77
+        "dn_income": 77.81
       },
       "daily": [
         {
@@ -3174,8 +3174,8 @@
           "pull_uv": 1.0,
           "active_uv": 1.0,
           "new_uv": 1.0,
-          "d14_income": 0.0,
-          "dn_income": 0.0
+          "d14_income": 0.04,
+          "dn_income": 0.04
         }
       ],
       "first_seen": "2026-02-07",
@@ -8305,15 +8305,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 170.0,
+        "pull_uv": 171.0,
         "active_uv": 31.0,
         "new_uv": 8.0,
-        "d0_income": 66.66,
+        "d0_income": 66.76,
         "d7_income": 0.0,
-        "d14_income": 108.49,
-        "d30_income": 108.51,
+        "d14_income": 108.59,
+        "d30_income": 108.61,
         "d90_income": 0.0,
-        "dn_income": 109.34
+        "dn_income": 109.44
       },
       "daily": [
         {
@@ -8993,8 +8993,8 @@
           "pull_uv": 2.0,
           "active_uv": 2.0,
           "new_uv": 1.0,
-          "d14_income": 15.14,
-          "dn_income": 15.14
+          "d14_income": 15.24,
+          "dn_income": 15.24
         },
         {
           "dt": "2026-11-11",
@@ -9003,13 +9003,21 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-03-02",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
-        "putreport": 5.8,
-        "codefunnel": 94.2
+        "putreport": 5.7,
+        "codefunnel": 94.3
       }
     },
     "69a25112f459769caf4f1b2b": {
@@ -12847,15 +12855,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 1177.0,
-        "active_uv": 394.0,
-        "new_uv": 77.0,
-        "d0_income": 297.16,
+        "pull_uv": 1182.0,
+        "active_uv": 396.0,
+        "new_uv": 78.0,
+        "d0_income": 297.17,
         "d7_income": 0.0,
-        "d14_income": 785.57,
-        "d30_income": 981.4,
+        "d14_income": 785.58,
+        "d30_income": 981.41,
         "d90_income": 0.0,
-        "dn_income": 1077.77
+        "dn_income": 1077.78
       },
       "daily": [
         {
@@ -14545,13 +14553,21 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 5.0,
+          "active_uv": 2.0,
+          "new_uv": 1.0,
+          "d14_income": 0.01,
+          "dn_income": 0.01
         }
       ],
       "first_seen": "2026-03-17",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
-        "putreport": 12.8,
-        "codefunnel": 87.2
+        "putreport": 12.7,
+        "codefunnel": 87.3
       }
     },
     "69a6e9e2d67993625c4d2fca": {
@@ -33008,7 +33024,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 39.0,
+        "pull_uv": 40.0,
         "active_uv": 4.0,
         "new_uv": 0.0,
         "d0_income": 0.2,
@@ -33210,10 +33226,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-05-02",
-      "last_seen": "2026-10-13",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -33438,8 +33462,8 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 95.0,
-        "active_uv": 10.0,
+        "pull_uv": 96.0,
+        "active_uv": 11.0,
         "new_uv": 2.0,
         "d0_income": 20.75,
         "d7_income": 0.0,
@@ -33832,10 +33856,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 1.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-05-02",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -39382,15 +39414,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 26.0,
+        "pull_uv": 27.0,
         "active_uv": 1.0,
         "new_uv": 0.0,
         "d0_income": 0.01,
         "d7_income": 0.0,
-        "d14_income": 0.02,
-        "d30_income": 0.02,
+        "d14_income": 0.07,
+        "d30_income": 0.07,
         "d90_income": 0.0,
-        "dn_income": 0.02
+        "dn_income": 0.07
       },
       "daily": [
         {
@@ -39430,8 +39462,8 @@
           "pull_uv": 5.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.02,
-          "dn_income": 0.02
+          "d14_income": 0.07,
+          "dn_income": 0.07
         },
         {
           "dt": "2026-11-09",
@@ -39456,10 +39488,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-05-07",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -48780,7 +48820,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 70.0,
+        "pull_uv": 71.0,
         "active_uv": 6.0,
         "new_uv": 1.0,
         "d0_income": 0.1,
@@ -48902,10 +48942,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-05-14",
-      "last_seen": "2026-11-05",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -49064,7 +49112,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 19.0,
+        "pull_uv": 20.0,
         "active_uv": 6.0,
         "new_uv": 1.0,
         "d0_income": 2.94,
@@ -49178,10 +49226,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-05-14",
-      "last_seen": "2026-08-27",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -51446,7 +51502,7 @@
       "book_name": "Oops, Wrong Girl to Bully",
       "book_id": "68f5f1b9db4a76340fd1c964",
       "stats": {
-        "pull_uv": 313.0,
+        "pull_uv": 314.0,
         "active_uv": 44.0,
         "new_uv": 2.0,
         "d0_income": 18.79,
@@ -51728,10 +51784,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-05-18",
-      "last_seen": "2026-07-21",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -59109,7 +59173,7 @@
       "book_name": "Donati",
       "book_id": "68c85faeba420d14b6bdb012",
       "stats": {
-        "pull_uv": 19.0,
+        "pull_uv": 20.0,
         "active_uv": 0.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
@@ -59215,10 +59279,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-05-26",
-      "last_seen": "2026-11-09",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -60033,15 +60105,15 @@
       "book_name": "Donati",
       "book_id": "68c85faeba420d14b6bdb012",
       "stats": {
-        "pull_uv": 50.0,
-        "active_uv": 3.0,
+        "pull_uv": 51.0,
+        "active_uv": 4.0,
         "new_uv": 0.0,
-        "d0_income": 0.05,
+        "d0_income": 0.25,
         "d7_income": 0.0,
-        "d14_income": 0.05,
-        "d30_income": 0.05,
+        "d14_income": 0.56,
+        "d30_income": 0.56,
         "d90_income": 0.0,
-        "dn_income": 0.05
+        "dn_income": 0.56
       },
       "daily": [
         {
@@ -60227,10 +60299,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-11",
+          "pull_uv": 1.0,
+          "active_uv": 1.0,
+          "new_uv": 0.0,
+          "d14_income": 0.51,
+          "dn_income": 0.51
         }
       ],
       "first_seen": "2026-05-26",
-      "last_seen": "2026-11-10",
+      "last_seen": "2026-11-11",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -64821,10 +64901,10 @@
         "new_uv": 65.0,
         "d0_income": 103.76,
         "d7_income": 0.0,
-        "d14_income": 367.53,
-        "d30_income": 374.48,
+        "d14_income": 367.54,
+        "d30_income": 374.49,
         "d90_income": 0.0,
-        "dn_income": 374.48
+        "dn_income": 374.49
       },
       "daily": [
         {
@@ -65488,8 +65568,8 @@
           "pull_uv": 1.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.05,
-          "dn_income": 0.05
+          "d14_income": 0.06,
+          "dn_income": 0.06
         }
       ],
       "first_seen": "2026-06-03",
@@ -66567,10 +66647,10 @@
         "new_uv": 13.0,
         "d0_income": 33.98,
         "d7_income": 0.0,
-        "d14_income": 37.73,
-        "d30_income": 37.73,
+        "d14_income": 54.15,
+        "d30_income": 54.15,
         "d90_income": 0.0,
-        "dn_income": 37.73
+        "dn_income": 54.15
       },
       "daily": [
         {
@@ -66842,8 +66922,8 @@
           "pull_uv": 1.0,
           "active_uv": 1.0,
           "new_uv": 1.0,
-          "d14_income": 0.08,
-          "dn_income": 0.08
+          "d14_income": 16.5,
+          "dn_income": 16.5
         }
       ],
       "first_seen": "2026-06-04",
@@ -77898,9 +77978,9 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 3.0,
-        "active_uv": 0.0,
-        "new_uv": 0.0,
+        "pull_uv": 4.0,
+        "active_uv": 1.0,
+        "new_uv": 1.0,
         "d0_income": 0.0,
         "d7_income": 0.0,
         "d14_income": 0.0,
@@ -77932,10 +78012,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 1.0,
+          "new_uv": 1.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-06-14",
-      "last_seen": "2026-08-27",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -96212,7 +96300,7 @@
       "book_name": "From Substitute To Queen",
       "book_id": "683e6b32580dc3bf4e269560",
       "stats": {
-        "pull_uv": 13.0,
+        "pull_uv": 14.0,
         "active_uv": 1.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
@@ -96294,10 +96382,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-07-03",
-      "last_seen": "2026-07-30",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -101491,15 +101587,15 @@
       "book_name": "Invisible To Her Bully",
       "book_id": "68c998aa316482b0ec5277a2",
       "stats": {
-        "pull_uv": 683.0,
-        "active_uv": 222.0,
+        "pull_uv": 686.0,
+        "active_uv": 224.0,
         "new_uv": 12.0,
-        "d0_income": 226.53,
+        "d0_income": 226.58,
         "d7_income": 0.0,
-        "d14_income": 403.98,
-        "d30_income": 403.98,
+        "d14_income": 408.52,
+        "d30_income": 408.52,
         "d90_income": 0.0,
-        "dn_income": 403.98
+        "dn_income": 408.52
       },
       "daily": [
         {
@@ -102491,12 +102587,20 @@
           "pull_uv": 2.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.98,
-          "dn_income": 0.98
+          "d14_income": 5.47,
+          "dn_income": 5.47
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 3.0,
+          "active_uv": 2.0,
+          "new_uv": 0.0,
+          "d14_income": 0.05,
+          "dn_income": 0.05
         }
       ],
       "first_seen": "2026-07-08",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -104608,15 +104712,15 @@
       "book_name": "Casada con el Multimillonario Que Me Traicionó",
       "book_id": "6a4605365b06915f2476b0f3",
       "stats": {
-        "pull_uv": 29.0,
-        "active_uv": 18.0,
-        "new_uv": 9.0,
-        "d0_income": 1.63,
+        "pull_uv": 30.0,
+        "active_uv": 19.0,
+        "new_uv": 10.0,
+        "d0_income": 3.43,
         "d7_income": 0.0,
-        "d14_income": 3.39,
-        "d30_income": 3.39,
+        "d14_income": 5.19,
+        "d30_income": 5.19,
         "d90_income": 0.0,
-        "dn_income": 3.39
+        "dn_income": 5.19
       },
       "daily": [
         {
@@ -104778,10 +104882,18 @@
           "new_uv": 1.0,
           "d14_income": 1.62,
           "dn_income": 1.62
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 1.0,
+          "new_uv": 1.0,
+          "d14_income": 1.8,
+          "dn_income": 1.8
         }
       ],
       "first_seen": "2026-07-10",
-      "last_seen": "2026-10-17",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -126310,7 +126422,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 13.0,
+        "pull_uv": 14.0,
         "active_uv": 1.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
@@ -126408,10 +126520,18 @@
           "new_uv": 0.0,
           "d14_income": 0.01,
           "dn_income": 0.01
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-08-13",
-      "last_seen": "2026-10-20",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -126500,7 +126620,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 39.0,
+        "pull_uv": 40.0,
         "active_uv": 8.0,
         "new_uv": 2.0,
         "d0_income": 4.52,
@@ -126702,10 +126822,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-08-13",
-      "last_seen": "2026-11-07",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -137765,8 +137893,8 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 33.0,
-        "active_uv": 17.0,
+        "pull_uv": 34.0,
+        "active_uv": 18.0,
         "new_uv": 3.0,
         "d0_income": 15.99,
         "d7_income": 0.0,
@@ -137909,12 +138037,20 @@
           "pull_uv": 1.0,
           "active_uv": 1.0,
           "new_uv": 1.0,
-          "d14_income": 11.45,
-          "dn_income": 11.45
+          "d14_income": 11.43,
+          "dn_income": 11.43
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 1.0,
+          "new_uv": 0.0,
+          "d14_income": 0.02,
+          "dn_income": 0.02
         }
       ],
       "first_seen": "2026-08-24",
-      "last_seen": "2026-11-09",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -147065,10 +147201,10 @@
         "new_uv": 0.0,
         "d0_income": 0.03,
         "d7_income": 0.0,
-        "d14_income": 0.08,
-        "d30_income": 0.08,
+        "d14_income": 0.12,
+        "d30_income": 0.12,
         "d90_income": 0.0,
-        "dn_income": 0.08
+        "dn_income": 0.12
       },
       "daily": [
         {
@@ -147092,8 +147228,8 @@
           "pull_uv": 1.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.08,
-          "dn_income": 0.08
+          "d14_income": 0.12,
+          "dn_income": 0.12
         }
       ],
       "first_seen": "2026-09-05",
@@ -156096,10 +156232,10 @@
         "new_uv": 3.0,
         "d0_income": 0.98,
         "d7_income": 0.0,
-        "d14_income": 6.56,
-        "d30_income": 6.56,
+        "d14_income": 10.2,
+        "d30_income": 10.2,
         "d90_income": 0.0,
-        "dn_income": 6.56
+        "dn_income": 10.2
       },
       "daily": [
         {
@@ -156203,8 +156339,8 @@
           "pull_uv": 1.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.31,
-          "dn_income": 0.31
+          "d14_income": 3.95,
+          "dn_income": 3.95
         }
       ],
       "first_seen": "2026-09-17",
@@ -162254,15 +162390,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 67.0,
-        "active_uv": 28.0,
+        "pull_uv": 69.0,
+        "active_uv": 29.0,
         "new_uv": 6.0,
-        "d0_income": 87.94,
+        "d0_income": 87.97,
         "d7_income": 0.0,
-        "d14_income": 90.07,
-        "d30_income": 90.07,
+        "d14_income": 90.71,
+        "d30_income": 90.71,
         "d90_income": 0.0,
-        "dn_income": 90.07
+        "dn_income": 90.71
       },
       "daily": [
         {
@@ -162478,8 +162614,8 @@
           "pull_uv": 7.0,
           "active_uv": 5.0,
           "new_uv": 3.0,
-          "d14_income": 39.32,
-          "dn_income": 39.32
+          "d14_income": 39.77,
+          "dn_income": 39.77
         },
         {
           "dt": "2026-11-09",
@@ -162494,20 +162630,28 @@
           "pull_uv": 1.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.95,
-          "dn_income": 0.95
+          "d14_income": 1.05,
+          "dn_income": 1.05
         },
         {
           "dt": "2026-11-11",
           "pull_uv": 3.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.08,
-          "dn_income": 0.08
+          "d14_income": 0.14,
+          "dn_income": 0.14
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 2.0,
+          "active_uv": 1.0,
+          "new_uv": 0.0,
+          "d14_income": 0.03,
+          "dn_income": 0.03
         }
       ],
       "first_seen": "2026-09-23",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -166875,10 +167019,10 @@
         "new_uv": 4.0,
         "d0_income": 7.82,
         "d7_income": 0.0,
-        "d14_income": 27.21,
-        "d30_income": 27.21,
+        "d14_income": 27.25,
+        "d30_income": 27.25,
         "d90_income": 0.0,
-        "dn_income": 27.21
+        "dn_income": 27.25
       },
       "daily": [
         {
@@ -167062,8 +167206,8 @@
           "pull_uv": 1.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 14.94,
-          "dn_income": 14.94
+          "d14_income": 14.98,
+          "dn_income": 14.98
         },
         {
           "dt": "2026-11-10",
@@ -167871,15 +168015,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 25.0,
-        "active_uv": 11.0,
+        "pull_uv": 26.0,
+        "active_uv": 12.0,
         "new_uv": 8.0,
-        "d0_income": 0.23,
+        "d0_income": 0.24,
         "d7_income": 0.0,
-        "d14_income": 12.27,
-        "d30_income": 12.27,
+        "d14_income": 12.28,
+        "d30_income": 12.28,
         "d90_income": 0.0,
-        "dn_income": 12.27
+        "dn_income": 12.28
       },
       "daily": [
         {
@@ -168017,10 +168161,18 @@
           "new_uv": 1.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 1.0,
+          "new_uv": 0.0,
+          "d14_income": 0.01,
+          "dn_income": 0.01
         }
       ],
       "first_seen": "2026-10-03",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -168273,15 +168425,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 20.0,
-        "active_uv": 5.0,
-        "new_uv": 4.0,
+        "pull_uv": 21.0,
+        "active_uv": 6.0,
+        "new_uv": 5.0,
         "d0_income": 0.38,
         "d7_income": 0.0,
-        "d14_income": 3.24,
-        "d30_income": 3.24,
+        "d14_income": 3.3,
+        "d30_income": 3.3,
         "d90_income": 0.0,
-        "dn_income": 3.24
+        "dn_income": 3.3
       },
       "daily": [
         {
@@ -168361,12 +168513,20 @@
           "pull_uv": 1.0,
           "active_uv": 1.0,
           "new_uv": 1.0,
-          "d14_income": 0.06,
-          "dn_income": 0.06
+          "d14_income": 0.12,
+          "dn_income": 0.12
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 1.0,
+          "new_uv": 1.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-10-03",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -170422,7 +170582,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 28.0,
+        "pull_uv": 29.0,
         "active_uv": 2.0,
         "new_uv": 0.0,
         "d0_income": 0.27,
@@ -170496,10 +170656,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-10-07",
-      "last_seen": "2026-10-22",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -175187,7 +175355,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 4.0,
+        "pull_uv": 9.0,
         "active_uv": 0.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
@@ -175229,10 +175397,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 5.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-10-13",
-      "last_seen": "2026-10-25",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -177353,12 +177529,12 @@
         "pull_uv": 58.0,
         "active_uv": 9.0,
         "new_uv": 1.0,
-        "d0_income": 1.53,
+        "d0_income": 1.31,
         "d7_income": 0.0,
-        "d14_income": 2.11,
-        "d30_income": 2.11,
+        "d14_income": 1.89,
+        "d30_income": 1.89,
         "d90_income": 0.0,
-        "dn_income": 2.11
+        "dn_income": 1.89
       },
       "daily": [
         {
@@ -177422,8 +177598,8 @@
           "pull_uv": 1.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.34,
-          "dn_income": 0.34
+          "d14_income": 0.12,
+          "dn_income": 0.12
         }
       ],
       "first_seen": "2026-10-16",
@@ -177640,8 +177816,8 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 25.0,
-        "active_uv": 6.0,
+        "pull_uv": 26.0,
+        "active_uv": 7.0,
         "new_uv": 0.0,
         "d0_income": 0.12,
         "d7_income": 0.0,
@@ -177738,10 +177914,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 1.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-10-17",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -180130,7 +180314,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 5.0,
+        "pull_uv": 10.0,
         "active_uv": 1.0,
         "new_uv": 1.0,
         "d0_income": 0.0,
@@ -180156,10 +180340,18 @@
           "new_uv": 1.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 5.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-10-21",
-      "last_seen": "2026-10-26",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -181161,7 +181353,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 46.0,
+        "pull_uv": 47.0,
         "active_uv": 3.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
@@ -181251,10 +181443,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-10-23",
-      "last_seen": "2026-11-01",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -181308,10 +181508,10 @@
         "new_uv": 0.0,
         "d0_income": 0.02,
         "d7_income": 0.0,
-        "d14_income": 0.02,
-        "d30_income": 0.02,
+        "d14_income": 0.2,
+        "d30_income": 0.2,
         "d90_income": 0.0,
-        "dn_income": 0.02
+        "dn_income": 0.2
       },
       "daily": [
         {
@@ -181391,8 +181591,8 @@
           "pull_uv": 1.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.0,
-          "dn_income": 0.0
+          "d14_income": 0.18,
+          "dn_income": 0.18
         }
       ],
       "first_seen": "2026-10-23",
@@ -182447,15 +182647,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 91.0,
+        "pull_uv": 96.0,
         "active_uv": 54.0,
         "new_uv": 40.0,
         "d0_income": 1.54,
         "d7_income": 0.0,
-        "d14_income": 4.47,
-        "d30_income": 4.47,
+        "d14_income": 4.53,
+        "d30_income": 4.53,
         "d90_income": 0.0,
-        "dn_income": 4.47
+        "dn_income": 4.53
       },
       "daily": [
         {
@@ -182575,8 +182775,8 @@
           "pull_uv": 3.0,
           "active_uv": 3.0,
           "new_uv": 2.0,
-          "d14_income": 0.2,
-          "dn_income": 0.2
+          "d14_income": 0.25,
+          "dn_income": 0.25
         },
         {
           "dt": "2026-11-09",
@@ -182591,12 +182791,20 @@
           "pull_uv": 8.0,
           "active_uv": 4.0,
           "new_uv": 3.0,
-          "d14_income": 0.1,
-          "dn_income": 0.1
+          "d14_income": 0.11,
+          "dn_income": 0.11
         },
         {
           "dt": "2026-11-11",
-          "pull_uv": 5.0,
+          "pull_uv": 6.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 4.0,
           "active_uv": 0.0,
           "new_uv": 0.0,
           "d14_income": 0.0,
@@ -182604,7 +182812,7 @@
         }
       ],
       "first_seen": "2026-10-23",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -185782,15 +185990,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 4.0,
-        "active_uv": 3.0,
-        "new_uv": 1.0,
-        "d0_income": 0.16,
+        "pull_uv": 5.0,
+        "active_uv": 4.0,
+        "new_uv": 2.0,
+        "d0_income": 0.23,
         "d7_income": 0.0,
-        "d14_income": 0.95,
-        "d30_income": 0.95,
+        "d14_income": 1.02,
+        "d30_income": 1.02,
         "d90_income": 0.0,
-        "dn_income": 0.95
+        "dn_income": 1.02
       },
       "daily": [
         {
@@ -185824,10 +186032,18 @@
           "new_uv": 1.0,
           "d14_income": 0.11,
           "dn_income": 0.11
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 1.0,
+          "new_uv": 1.0,
+          "d14_income": 0.07,
+          "dn_income": 0.07
         }
       ],
       "first_seen": "2026-10-27",
-      "last_seen": "2026-11-02",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -185876,7 +186092,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 65.0,
+        "pull_uv": 66.0,
         "active_uv": 9.0,
         "new_uv": 0.0,
         "d0_income": 0.32,
@@ -185942,10 +186158,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-10-28",
-      "last_seen": "2026-11-08",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -186982,8 +187206,8 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 22.0,
-        "active_uv": 2.0,
+        "pull_uv": 23.0,
+        "active_uv": 3.0,
         "new_uv": 0.0,
         "d0_income": 0.09,
         "d7_income": 0.0,
@@ -187056,10 +187280,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 1.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-10-30",
-      "last_seen": "2026-11-09",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -187623,10 +187855,10 @@
         "new_uv": 0.0,
         "d0_income": 0.11,
         "d7_income": 0.0,
-        "d14_income": 0.11,
-        "d30_income": 0.11,
+        "d14_income": 0.14,
+        "d30_income": 0.14,
         "d90_income": 0.0,
-        "dn_income": 0.11
+        "dn_income": 0.14
       },
       "daily": [
         {
@@ -187650,8 +187882,8 @@
           "pull_uv": 2.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.11,
-          "dn_income": 0.11
+          "d14_income": 0.14,
+          "dn_income": 0.14
         }
       ],
       "first_seen": "2026-10-30",
@@ -188139,8 +188371,8 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 74.0,
-        "active_uv": 13.0,
+        "pull_uv": 75.0,
+        "active_uv": 14.0,
         "new_uv": 0.0,
         "d0_income": 0.07,
         "d7_income": 0.0,
@@ -188213,10 +188445,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 1.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-10-31",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -188641,7 +188881,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 2.0,
+        "pull_uv": 3.0,
         "active_uv": 0.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
@@ -188667,10 +188907,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-01",
-      "last_seen": "2026-11-03",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -189516,7 +189764,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 3.0,
+        "pull_uv": 4.0,
         "active_uv": 0.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
@@ -189550,10 +189798,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-02",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -190158,15 +190414,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 60.0,
+        "pull_uv": 62.0,
         "active_uv": 10.0,
         "new_uv": 1.0,
         "d0_income": 0.0,
         "d7_income": 0.0,
-        "d14_income": 0.08,
-        "d30_income": 0.08,
+        "d14_income": 0.09,
+        "d30_income": 0.09,
         "d90_income": 0.0,
-        "dn_income": 0.08
+        "dn_income": 0.09
       },
       "daily": [
         {
@@ -190222,8 +190478,8 @@
           "pull_uv": 2.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.0,
-          "dn_income": 0.0
+          "d14_income": 0.01,
+          "dn_income": 0.01
         },
         {
           "dt": "2026-11-11",
@@ -190232,10 +190488,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 2.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-04",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -190466,10 +190730,10 @@
         "new_uv": 0.0,
         "d0_income": 0.23,
         "d7_income": 0.0,
-        "d14_income": 0.3,
-        "d30_income": 0.3,
+        "d14_income": 0.49,
+        "d30_income": 0.49,
         "d90_income": 0.0,
-        "dn_income": 0.3
+        "dn_income": 0.49
       },
       "daily": [
         {
@@ -190493,8 +190757,8 @@
           "pull_uv": 4.0,
           "active_uv": 2.0,
           "new_uv": 0.0,
-          "d14_income": 0.3,
-          "dn_income": 0.3
+          "d14_income": 0.49,
+          "dn_income": 0.49
         },
         {
           "dt": "2026-11-11",
@@ -190730,7 +190994,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 4.0,
+        "pull_uv": 5.0,
         "active_uv": 0.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
@@ -190748,10 +191012,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-06",
-      "last_seen": "2026-11-06",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -190816,7 +191088,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 2.0,
+        "pull_uv": 4.0,
         "active_uv": 0.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
@@ -190842,10 +191114,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 2.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-06",
-      "last_seen": "2026-11-10",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -190894,7 +191174,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 1.0,
+        "pull_uv": 3.0,
         "active_uv": 0.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
@@ -190912,10 +191192,26 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-11",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-06",
-      "last_seen": "2026-11-06",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -191001,10 +191297,10 @@
         "new_uv": 0.0,
         "d0_income": 1.57,
         "d7_income": 0.0,
-        "d14_income": 2.86,
-        "d30_income": 2.86,
+        "d14_income": 3.74,
+        "d30_income": 3.74,
         "d90_income": 0.0,
-        "dn_income": 2.86
+        "dn_income": 3.74
       },
       "daily": [
         {
@@ -191020,8 +191316,8 @@
           "pull_uv": 4.0,
           "active_uv": 3.0,
           "new_uv": 0.0,
-          "d14_income": 2.74,
-          "dn_income": 2.74
+          "d14_income": 3.62,
+          "dn_income": 3.62
         },
         {
           "dt": "2026-11-08",
@@ -191149,15 +191445,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 5.0,
+        "pull_uv": 6.0,
         "active_uv": 1.0,
         "new_uv": 0.0,
-        "d0_income": 0.41,
+        "d0_income": 0.4,
         "d7_income": 0.0,
-        "d14_income": 0.41,
-        "d30_income": 0.41,
+        "d14_income": 0.4,
+        "d30_income": 0.4,
         "d90_income": 0.0,
-        "dn_income": 0.41
+        "dn_income": 0.4
       },
       "daily": [
         {
@@ -191181,8 +191477,8 @@
           "pull_uv": 2.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.41,
-          "dn_income": 0.41
+          "d14_income": 0.4,
+          "dn_income": 0.4
         },
         {
           "dt": "2026-11-10",
@@ -191191,10 +191487,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-06",
-      "last_seen": "2026-11-10",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -191412,10 +191716,10 @@
         "new_uv": 0.0,
         "d0_income": 2.01,
         "d7_income": 0.0,
-        "d14_income": 4.56,
-        "d30_income": 4.56,
+        "d14_income": 22.97,
+        "d30_income": 22.97,
         "d90_income": 0.0,
-        "dn_income": 4.56
+        "dn_income": 22.97
       },
       "daily": [
         {
@@ -191431,16 +191735,16 @@
           "pull_uv": 13.0,
           "active_uv": 3.0,
           "new_uv": 0.0,
-          "d14_income": 4.43,
-          "dn_income": 4.43
+          "d14_income": 4.47,
+          "dn_income": 4.47
         },
         {
           "dt": "2026-11-08",
           "pull_uv": 2.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.13,
-          "dn_income": 0.13
+          "d14_income": 18.5,
+          "dn_income": 18.5
         },
         {
           "dt": "2026-11-10",
@@ -191514,10 +191818,10 @@
         "new_uv": 0.0,
         "d0_income": 0.2,
         "d7_income": 0.0,
-        "d14_income": 0.72,
-        "d30_income": 0.72,
+        "d14_income": 0.7,
+        "d30_income": 0.7,
         "d90_income": 0.0,
-        "dn_income": 0.72
+        "dn_income": 0.7
       },
       "daily": [
         {
@@ -191525,8 +191829,8 @@
           "pull_uv": 20.0,
           "active_uv": 2.0,
           "new_uv": 0.0,
-          "d14_income": 0.72,
-          "dn_income": 0.72
+          "d14_income": 0.7,
+          "dn_income": 0.7
         },
         {
           "dt": "2026-11-08",
@@ -191565,10 +191869,10 @@
         "new_uv": 0.0,
         "d0_income": 0.03,
         "d7_income": 0.0,
-        "d14_income": 0.1,
-        "d30_income": 0.1,
+        "d14_income": 0.11,
+        "d30_income": 0.11,
         "d90_income": 0.0,
-        "dn_income": 0.1
+        "dn_income": 0.11
       },
       "daily": [
         {
@@ -191576,8 +191880,8 @@
           "pull_uv": 8.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.1,
-          "dn_income": 0.1
+          "d14_income": 0.11,
+          "dn_income": 0.11
         }
       ],
       "first_seen": "2026-11-07",
@@ -192017,15 +192321,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 16.0,
+        "pull_uv": 17.0,
         "active_uv": 2.0,
         "new_uv": 0.0,
-        "d0_income": 0.25,
+        "d0_income": 0.27,
         "d7_income": 0.0,
-        "d14_income": 0.27,
-        "d30_income": 0.27,
+        "d14_income": 0.3,
+        "d30_income": 0.3,
         "d90_income": 0.0,
-        "dn_income": 0.27
+        "dn_income": 0.3
       },
       "daily": [
         {
@@ -192049,8 +192353,8 @@
           "pull_uv": 3.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.18,
-          "dn_income": 0.18
+          "d14_income": 0.2,
+          "dn_income": 0.2
         },
         {
           "dt": "2026-11-10",
@@ -192065,12 +192369,20 @@
           "pull_uv": 4.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.09,
-          "dn_income": 0.09
+          "d14_income": 0.1,
+          "dn_income": 0.1
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-07",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -192119,15 +192431,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 4.0,
-        "active_uv": 2.0,
+        "pull_uv": 5.0,
+        "active_uv": 3.0,
         "new_uv": 0.0,
-        "d0_income": 1.17,
+        "d0_income": 1.45,
         "d7_income": 0.0,
-        "d14_income": 1.66,
-        "d30_income": 1.66,
+        "d14_income": 2.15,
+        "d30_income": 2.15,
         "d90_income": 0.0,
-        "dn_income": 1.66
+        "dn_income": 2.15
       },
       "daily": [
         {
@@ -192135,8 +192447,8 @@
           "pull_uv": 2.0,
           "active_uv": 2.0,
           "new_uv": 0.0,
-          "d14_income": 1.66,
-          "dn_income": 1.66
+          "d14_income": 1.87,
+          "dn_income": 1.87
         },
         {
           "dt": "2026-11-08",
@@ -192145,10 +192457,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 1.0,
+          "new_uv": 0.0,
+          "d14_income": 0.28,
+          "dn_income": 0.28
         }
       ],
       "first_seen": "2026-11-07",
-      "last_seen": "2026-11-08",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -192197,15 +192517,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 38.0,
+        "pull_uv": 39.0,
         "active_uv": 3.0,
         "new_uv": 0.0,
         "d0_income": 0.24,
         "d7_income": 0.0,
-        "d14_income": 2.06,
-        "d30_income": 2.06,
+        "d14_income": 2.25,
+        "d30_income": 2.25,
         "d90_income": 0.0,
-        "dn_income": 2.06
+        "dn_income": 2.25
       },
       "daily": [
         {
@@ -192221,8 +192541,8 @@
           "pull_uv": 6.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 2.06,
-          "dn_income": 2.06
+          "d14_income": 2.25,
+          "dn_income": 2.25
         },
         {
           "dt": "2026-11-09",
@@ -192247,10 +192567,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-07",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -192312,10 +192640,10 @@
         "new_uv": 0.0,
         "d0_income": 0.53,
         "d7_income": 0.0,
-        "d14_income": 1.05,
-        "d30_income": 1.05,
+        "d14_income": 1.07,
+        "d30_income": 1.07,
         "d90_income": 0.0,
-        "dn_income": 1.05
+        "dn_income": 1.07
       },
       "daily": [
         {
@@ -192323,8 +192651,8 @@
           "pull_uv": 3.0,
           "active_uv": 2.0,
           "new_uv": 0.0,
-          "d14_income": 1.05,
-          "dn_income": 1.05
+          "d14_income": 1.07,
+          "dn_income": 1.07
         }
       ],
       "first_seen": "2026-11-07",
@@ -192471,7 +192799,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 23.0,
+        "pull_uv": 24.0,
         "active_uv": 0.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
@@ -192513,10 +192841,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-08",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -192573,15 +192909,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 14.0,
-        "active_uv": 1.0,
+        "pull_uv": 15.0,
+        "active_uv": 2.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
         "d7_income": 0.0,
-        "d14_income": 0.16,
-        "d30_income": 0.16,
+        "d14_income": 0.18,
+        "d30_income": 0.18,
         "d90_income": 0.0,
-        "dn_income": 0.16
+        "dn_income": 0.18
       },
       "daily": [
         {
@@ -192589,8 +192925,8 @@
           "pull_uv": 11.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.16,
-          "dn_income": 0.16
+          "d14_income": 0.18,
+          "dn_income": 0.18
         },
         {
           "dt": "2026-11-09",
@@ -192615,10 +192951,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 1.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-08",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -192772,8 +193116,8 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 3.0,
-        "active_uv": 0.0,
+        "pull_uv": 5.0,
+        "active_uv": 1.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
         "d7_income": 0.0,
@@ -192798,10 +193142,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 2.0,
+          "active_uv": 1.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-08",
-      "last_seen": "2026-11-09",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -192885,15 +193237,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 10.0,
+        "pull_uv": 12.0,
         "active_uv": 2.0,
         "new_uv": 0.0,
         "d0_income": 0.5,
         "d7_income": 0.0,
-        "d14_income": 0.9,
-        "d30_income": 0.9,
+        "d14_income": 0.93,
+        "d30_income": 0.93,
         "d90_income": 0.0,
-        "dn_income": 0.9
+        "dn_income": 0.93
       },
       "daily": [
         {
@@ -192901,8 +193253,8 @@
           "pull_uv": 7.0,
           "active_uv": 2.0,
           "new_uv": 0.0,
-          "d14_income": 0.9,
-          "dn_income": 0.9
+          "d14_income": 0.93,
+          "dn_income": 0.93
         },
         {
           "dt": "2026-11-09",
@@ -192911,10 +193263,26 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-11",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-08",
-      "last_seen": "2026-11-09",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -192928,7 +193296,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 1.0,
+        "pull_uv": 2.0,
         "active_uv": 0.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
@@ -192946,10 +193314,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-08",
-      "last_seen": "2026-11-08",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -192968,10 +193344,10 @@
         "new_uv": 0.0,
         "d0_income": 0.03,
         "d7_income": 0.0,
-        "d14_income": 0.03,
-        "d30_income": 0.03,
+        "d14_income": 0.07,
+        "d30_income": 0.07,
         "d90_income": 0.0,
-        "dn_income": 0.03
+        "dn_income": 0.07
       },
       "daily": [
         {
@@ -192979,8 +193355,8 @@
           "pull_uv": 1.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.03,
-          "dn_income": 0.03
+          "d14_income": 0.07,
+          "dn_income": 0.07
         }
       ],
       "first_seen": "2026-11-08",
@@ -193033,15 +193409,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 38.0,
-        "active_uv": 4.0,
+        "pull_uv": 40.0,
+        "active_uv": 6.0,
         "new_uv": 0.0,
-        "d0_income": 1.1,
+        "d0_income": 1.23,
         "d7_income": 0.0,
-        "d14_income": 1.17,
-        "d30_income": 1.17,
+        "d14_income": 1.33,
+        "d30_income": 1.33,
         "d90_income": 0.0,
-        "dn_income": 1.17
+        "dn_income": 1.33
       },
       "daily": [
         {
@@ -193049,16 +193425,16 @@
           "pull_uv": 22.0,
           "active_uv": 3.0,
           "new_uv": 0.0,
-          "d14_income": 0.08,
-          "dn_income": 0.08
+          "d14_income": 0.11,
+          "dn_income": 0.11
         },
         {
           "dt": "2026-11-09",
           "pull_uv": 13.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 1.09,
-          "dn_income": 1.09
+          "d14_income": 1.22,
+          "dn_income": 1.22
         },
         {
           "dt": "2026-11-10",
@@ -193075,10 +193451,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 2.0,
+          "active_uv": 2.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-08",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -193092,15 +193476,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 17.0,
-        "active_uv": 0.0,
+        "pull_uv": 19.0,
+        "active_uv": 1.0,
         "new_uv": 0.0,
-        "d0_income": 0.0,
+        "d0_income": 0.01,
         "d7_income": 0.0,
-        "d14_income": 0.0,
-        "d30_income": 0.0,
+        "d14_income": 0.01,
+        "d30_income": 0.01,
         "d90_income": 0.0,
-        "dn_income": 0.0
+        "dn_income": 0.01
       },
       "daily": [
         {
@@ -193121,15 +193505,23 @@
         },
         {
           "dt": "2026-11-11",
-          "pull_uv": 1.0,
+          "pull_uv": 2.0,
           "active_uv": 0.0,
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 1.0,
+          "new_uv": 0.0,
+          "d14_income": 0.01,
+          "dn_income": 0.01
         }
       ],
       "first_seen": "2026-11-08",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -193267,12 +193659,12 @@
         "pull_uv": 12.0,
         "active_uv": 2.0,
         "new_uv": 0.0,
-        "d0_income": 1.42,
+        "d0_income": 1.41,
         "d7_income": 0.0,
-        "d14_income": 2.47,
-        "d30_income": 2.47,
+        "d14_income": 2.63,
+        "d30_income": 2.63,
         "d90_income": 0.0,
-        "dn_income": 2.47
+        "dn_income": 2.63
       },
       "daily": [
         {
@@ -193288,8 +193680,8 @@
           "pull_uv": 10.0,
           "active_uv": 2.0,
           "new_uv": 0.0,
-          "d14_income": 2.47,
-          "dn_income": 2.47
+          "d14_income": 2.63,
+          "dn_income": 2.63
         }
       ],
       "first_seen": "2026-11-08",
@@ -193307,7 +193699,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 1.0,
+        "pull_uv": 2.0,
         "active_uv": 1.0,
         "new_uv": 1.0,
         "d0_income": 0.0,
@@ -193325,10 +193717,18 @@
           "new_uv": 1.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-08",
-      "last_seen": "2026-11-08",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -193385,15 +193785,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 18.0,
+        "pull_uv": 19.0,
         "active_uv": 2.0,
         "new_uv": 0.0,
-        "d0_income": 0.01,
+        "d0_income": 0.0,
         "d7_income": 0.0,
-        "d14_income": 0.01,
-        "d30_income": 0.01,
+        "d14_income": 0.0,
+        "d30_income": 0.0,
         "d90_income": 0.0,
-        "dn_income": 0.01
+        "dn_income": 0.0
       },
       "daily": [
         {
@@ -193401,8 +193801,8 @@
           "pull_uv": 15.0,
           "active_uv": 2.0,
           "new_uv": 0.0,
-          "d14_income": 0.01,
-          "dn_income": 0.01
+          "d14_income": 0.0,
+          "dn_income": 0.0
         },
         {
           "dt": "2026-11-10",
@@ -193411,10 +193811,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-09",
-      "last_seen": "2026-11-10",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -193463,7 +193871,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 8.0,
+        "pull_uv": 10.0,
         "active_uv": 1.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
@@ -193497,10 +193905,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 2.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-09",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -193514,7 +193930,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 4.0,
+        "pull_uv": 5.0,
         "active_uv": 0.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
@@ -193532,10 +193948,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-09",
-      "last_seen": "2026-11-09",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -193584,15 +194008,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 19.0,
-        "active_uv": 3.0,
+        "pull_uv": 23.0,
+        "active_uv": 5.0,
         "new_uv": 0.0,
-        "d0_income": 0.73,
+        "d0_income": 1.69,
         "d7_income": 0.0,
-        "d14_income": 0.87,
-        "d30_income": 0.87,
+        "d14_income": 1.96,
+        "d30_income": 1.96,
         "d90_income": 0.0,
-        "dn_income": 0.87
+        "dn_income": 1.96
       },
       "daily": [
         {
@@ -193600,8 +194024,8 @@
           "pull_uv": 12.0,
           "active_uv": 2.0,
           "new_uv": 0.0,
-          "d14_income": 0.73,
-          "dn_income": 0.73
+          "d14_income": 0.93,
+          "dn_income": 0.93
         },
         {
           "dt": "2026-11-10",
@@ -193618,10 +194042,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 4.0,
+          "active_uv": 2.0,
+          "new_uv": 0.0,
+          "d14_income": 0.89,
+          "dn_income": 0.89
         }
       ],
       "first_seen": "2026-11-09",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -193721,15 +194153,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 48.0,
+        "pull_uv": 53.0,
         "active_uv": 10.0,
         "new_uv": 0.0,
-        "d0_income": 1.09,
+        "d0_income": 1.06,
         "d7_income": 0.0,
-        "d14_income": 1.09,
-        "d30_income": 1.09,
+        "d14_income": 1.06,
+        "d30_income": 1.06,
         "d90_income": 0.0,
-        "dn_income": 1.09
+        "dn_income": 1.06
       },
       "daily": [
         {
@@ -193737,8 +194169,8 @@
           "pull_uv": 36.0,
           "active_uv": 8.0,
           "new_uv": 0.0,
-          "d14_income": 0.78,
-          "dn_income": 0.78
+          "d14_income": 0.74,
+          "dn_income": 0.74
         },
         {
           "dt": "2026-11-10",
@@ -193750,15 +194182,23 @@
         },
         {
           "dt": "2026-11-11",
-          "pull_uv": 1.0,
+          "pull_uv": 2.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.29,
-          "dn_income": 0.29
+          "d14_income": 0.3,
+          "dn_income": 0.3
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 4.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-09",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -193777,10 +194217,10 @@
         "new_uv": 0.0,
         "d0_income": 0.05,
         "d7_income": 0.0,
-        "d14_income": 0.05,
-        "d30_income": 0.05,
+        "d14_income": 0.07,
+        "d30_income": 0.07,
         "d90_income": 0.0,
-        "dn_income": 0.05
+        "dn_income": 0.07
       },
       "daily": [
         {
@@ -193788,8 +194228,8 @@
           "pull_uv": 9.0,
           "active_uv": 4.0,
           "new_uv": 0.0,
-          "d14_income": 0.05,
-          "dn_income": 0.05
+          "d14_income": 0.07,
+          "dn_income": 0.07
         },
         {
           "dt": "2026-11-10",
@@ -193971,7 +194411,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 4.0,
+        "pull_uv": 5.0,
         "active_uv": 0.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
@@ -193997,10 +194437,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-09",
-      "last_seen": "2026-11-10",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -194124,10 +194572,10 @@
         "new_uv": 0.0,
         "d0_income": 0.33,
         "d7_income": 0.0,
-        "d14_income": 0.36,
-        "d30_income": 0.36,
+        "d14_income": 0.39,
+        "d30_income": 0.39,
         "d90_income": 0.0,
-        "dn_income": 0.36
+        "dn_income": 0.39
       },
       "daily": [
         {
@@ -194135,8 +194583,8 @@
           "pull_uv": 4.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
-          "d14_income": 0.36,
-          "dn_income": 0.36
+          "d14_income": 0.39,
+          "dn_income": 0.39
         }
       ],
       "first_seen": "2026-11-10",
@@ -194224,7 +194672,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 28.0,
+        "pull_uv": 33.0,
         "active_uv": 3.0,
         "new_uv": 0.0,
         "d0_income": 0.04,
@@ -194245,15 +194693,23 @@
         },
         {
           "dt": "2026-11-11",
-          "pull_uv": 6.0,
+          "pull_uv": 7.0,
           "active_uv": 1.0,
           "new_uv": 0.0,
           "d14_income": 0.01,
           "dn_income": 0.01
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 4.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-10",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -194267,15 +194723,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 31.0,
+        "pull_uv": 36.0,
         "active_uv": 11.0,
         "new_uv": 0.0,
         "d0_income": 0.08,
         "d7_income": 0.0,
-        "d14_income": 0.08,
-        "d30_income": 0.08,
+        "d14_income": 1.07,
+        "d30_income": 1.07,
         "d90_income": 0.0,
-        "dn_income": 0.08
+        "dn_income": 1.07
       },
       "daily": [
         {
@@ -194288,15 +194744,23 @@
         },
         {
           "dt": "2026-11-11",
-          "pull_uv": 10.0,
+          "pull_uv": 11.0,
           "active_uv": 2.0,
+          "new_uv": 0.0,
+          "d14_income": 0.99,
+          "dn_income": 0.99
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 4.0,
+          "active_uv": 0.0,
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-10",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -194353,7 +194817,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 1.0,
+        "pull_uv": 2.0,
         "active_uv": 0.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
@@ -194371,10 +194835,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-10",
-      "last_seen": "2026-11-10",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -194388,15 +194860,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 3.0,
+        "pull_uv": 4.0,
         "active_uv": 2.0,
         "new_uv": 0.0,
         "d0_income": 0.07,
         "d7_income": 0.0,
-        "d14_income": 1.18,
-        "d30_income": 1.18,
+        "d14_income": 1.63,
+        "d30_income": 1.63,
         "d90_income": 0.0,
-        "dn_income": 1.18
+        "dn_income": 1.63
       },
       "daily": [
         {
@@ -194404,12 +194876,12 @@
           "pull_uv": 2.0,
           "active_uv": 2.0,
           "new_uv": 0.0,
-          "d14_income": 1.18,
-          "dn_income": 1.18
+          "d14_income": 1.63,
+          "dn_income": 1.63
         },
         {
           "dt": "2026-11-11",
-          "pull_uv": 1.0,
+          "pull_uv": 2.0,
           "active_uv": 0.0,
           "new_uv": 0.0,
           "d14_income": 0.0,
@@ -194630,7 +195102,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 1.0,
+        "pull_uv": 2.0,
         "active_uv": 0.0,
         "new_uv": 0.0,
         "d0_income": 0.0,
@@ -194648,10 +195120,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-11",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -194700,28 +195180,36 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 26.0,
-        "active_uv": 10.0,
+        "pull_uv": 41.0,
+        "active_uv": 14.0,
         "new_uv": 0.0,
-        "d0_income": 16.78,
+        "d0_income": 16.8,
         "d7_income": 0.0,
-        "d14_income": 16.78,
-        "d30_income": 16.78,
+        "d14_income": 17.21,
+        "d30_income": 17.21,
         "d90_income": 0.0,
-        "dn_income": 16.78
+        "dn_income": 17.21
       },
       "daily": [
         {
           "dt": "2026-11-11",
-          "pull_uv": 26.0,
-          "active_uv": 10.0,
+          "pull_uv": 30.0,
+          "active_uv": 11.0,
           "new_uv": 0.0,
-          "d14_income": 16.78,
-          "dn_income": 16.78
+          "d14_income": 17.19,
+          "dn_income": 17.19
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 11.0,
+          "active_uv": 3.0,
+          "new_uv": 0.0,
+          "d14_income": 0.02,
+          "dn_income": 0.02
         }
       ],
       "first_seen": "2026-11-11",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -194735,7 +195223,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 7.0,
+        "pull_uv": 11.0,
         "active_uv": 2.0,
         "new_uv": 0.0,
         "d0_income": 0.02,
@@ -194748,15 +195236,23 @@
       "daily": [
         {
           "dt": "2026-11-11",
-          "pull_uv": 7.0,
+          "pull_uv": 6.0,
           "active_uv": 2.0,
           "new_uv": 0.0,
           "d14_income": 0.02,
           "dn_income": 0.02
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 5.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-11",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -194770,15 +195266,15 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 1.0,
-        "active_uv": 0.0,
+        "pull_uv": 10.0,
+        "active_uv": 2.0,
         "new_uv": 0.0,
-        "d0_income": 0.0,
+        "d0_income": 0.09,
         "d7_income": 0.0,
-        "d14_income": 0.0,
-        "d30_income": 0.0,
+        "d14_income": 0.09,
+        "d30_income": 0.09,
         "d90_income": 0.0,
-        "dn_income": 0.0
+        "dn_income": 0.09
       },
       "daily": [
         {
@@ -194788,10 +195284,18 @@
           "new_uv": 0.0,
           "d14_income": 0.0,
           "dn_income": 0.0
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 9.0,
+          "active_uv": 2.0,
+          "new_uv": 0.0,
+          "d14_income": 0.09,
+          "dn_income": 0.09
         }
       ],
       "first_seen": "2026-11-11",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -194866,6 +195370,49 @@
         "codefunnel": 100.0
       }
     },
+    "6aeda8a0f45681c0b9d34649": {
+      "ad_id": "6aeda8a0f45681c0b9d34649",
+      "media_source": "link",
+      "channel": "link",
+      "username": null,
+      "username_canon": null,
+      "book_name": null,
+      "book_id": null,
+      "stats": {
+        "pull_uv": 6.0,
+        "active_uv": 2.0,
+        "new_uv": 0.0,
+        "d0_income": 0.47,
+        "d7_income": 0.0,
+        "d14_income": 1.21,
+        "d30_income": 1.21,
+        "d90_income": 0.0,
+        "dn_income": 1.21
+      },
+      "daily": [
+        {
+          "dt": "2026-11-11",
+          "pull_uv": 2.0,
+          "active_uv": 2.0,
+          "new_uv": 0.0,
+          "d14_income": 1.21,
+          "dn_income": 1.21
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 4.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
+        }
+      ],
+      "first_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
+      "source_mix": {
+        "codefunnel": 100.0
+      }
+    },
     "6aeda8d5ee341ebd2f97d197": {
       "ad_id": "6aeda8d5ee341ebd2f97d197",
       "media_source": "link",
@@ -194875,7 +195422,7 @@
       "book_name": null,
       "book_id": null,
       "stats": {
-        "pull_uv": 1.0,
+        "pull_uv": 2.0,
         "active_uv": 1.0,
         "new_uv": 0.0,
         "d0_income": 0.32,
@@ -194893,10 +195440,18 @@
           "new_uv": 0.0,
           "d14_income": 0.32,
           "dn_income": 0.32
+        },
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
         }
       ],
       "first_seen": "2026-11-11",
-      "last_seen": "2026-11-11",
+      "last_seen": "2026-11-12",
       "source_mix": {
         "codefunnel": 100.0
       }
@@ -195040,14 +195595,329 @@
       "source_mix": {
         "codefunnel": 100.0
       }
+    },
+    "6368": {
+      "ad_id": "6368",
+      "media_source": "code",
+      "channel": "code",
+      "username": null,
+      "username_canon": null,
+      "book_name": null,
+      "book_id": null,
+      "stats": {
+        "pull_uv": 1.0,
+        "active_uv": 0.0,
+        "new_uv": 0.0,
+        "d0_income": 0.0,
+        "d7_income": 0.0,
+        "d14_income": 0.0,
+        "d30_income": 0.0,
+        "d90_income": 0.0,
+        "dn_income": 0.0
+      },
+      "daily": [
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
+        }
+      ],
+      "first_seen": "2026-11-12",
+      "last_seen": "2026-11-12",
+      "source_mix": {
+        "codefunnel": 100.0
+      }
+    },
+    "6ae46560a5748cda4f020c9d": {
+      "ad_id": "6ae46560a5748cda4f020c9d",
+      "media_source": "link",
+      "channel": "link",
+      "username": null,
+      "username_canon": null,
+      "book_name": null,
+      "book_id": null,
+      "stats": {
+        "pull_uv": 1.0,
+        "active_uv": 0.0,
+        "new_uv": 0.0,
+        "d0_income": 0.0,
+        "d7_income": 0.0,
+        "d14_income": 0.0,
+        "d30_income": 0.0,
+        "d90_income": 0.0,
+        "dn_income": 0.0
+      },
+      "daily": [
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
+        }
+      ],
+      "first_seen": "2026-11-12",
+      "last_seen": "2026-11-12",
+      "source_mix": {
+        "codefunnel": 100.0
+      }
+    },
+    "6ae46653410bfc2ab5a4285b": {
+      "ad_id": "6ae46653410bfc2ab5a4285b",
+      "media_source": "link",
+      "channel": "link",
+      "username": null,
+      "username_canon": null,
+      "book_name": null,
+      "book_id": null,
+      "stats": {
+        "pull_uv": 1.0,
+        "active_uv": 0.0,
+        "new_uv": 0.0,
+        "d0_income": 0.0,
+        "d7_income": 0.0,
+        "d14_income": 0.0,
+        "d30_income": 0.0,
+        "d90_income": 0.0,
+        "dn_income": 0.0
+      },
+      "daily": [
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
+        }
+      ],
+      "first_seen": "2026-11-12",
+      "last_seen": "2026-11-12",
+      "source_mix": {
+        "codefunnel": 100.0
+      }
+    },
+    "6aed4441102b308ef82e0948": {
+      "ad_id": "6aed4441102b308ef82e0948",
+      "media_source": "link",
+      "channel": "link",
+      "username": null,
+      "username_canon": null,
+      "book_name": null,
+      "book_id": null,
+      "stats": {
+        "pull_uv": 11.0,
+        "active_uv": 1.0,
+        "new_uv": 0.0,
+        "d0_income": 0.0,
+        "d7_income": 0.0,
+        "d14_income": 0.0,
+        "d30_income": 0.0,
+        "d90_income": 0.0,
+        "dn_income": 0.0
+      },
+      "daily": [
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 11.0,
+          "active_uv": 1.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
+        }
+      ],
+      "first_seen": "2026-11-12",
+      "last_seen": "2026-11-12",
+      "source_mix": {
+        "codefunnel": 100.0
+      }
+    },
+    "6aed44532306e70d8ac80ab9": {
+      "ad_id": "6aed44532306e70d8ac80ab9",
+      "media_source": "link",
+      "channel": "link",
+      "username": null,
+      "username_canon": null,
+      "book_name": null,
+      "book_id": null,
+      "stats": {
+        "pull_uv": 26.0,
+        "active_uv": 3.0,
+        "new_uv": 0.0,
+        "d0_income": 0.24,
+        "d7_income": 0.0,
+        "d14_income": 0.24,
+        "d30_income": 0.24,
+        "d90_income": 0.0,
+        "dn_income": 0.24
+      },
+      "daily": [
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 26.0,
+          "active_uv": 3.0,
+          "new_uv": 0.0,
+          "d14_income": 0.24,
+          "dn_income": 0.24
+        }
+      ],
+      "first_seen": "2026-11-12",
+      "last_seen": "2026-11-12",
+      "source_mix": {
+        "codefunnel": 100.0
+      }
+    },
+    "6aed9b0d3021933d368ec348": {
+      "ad_id": "6aed9b0d3021933d368ec348",
+      "media_source": "link",
+      "channel": "link",
+      "username": null,
+      "username_canon": null,
+      "book_name": null,
+      "book_id": null,
+      "stats": {
+        "pull_uv": 1.0,
+        "active_uv": 1.0,
+        "new_uv": 0.0,
+        "d0_income": 0.09,
+        "d7_income": 0.0,
+        "d14_income": 0.09,
+        "d30_income": 0.09,
+        "d90_income": 0.0,
+        "dn_income": 0.09
+      },
+      "daily": [
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 1.0,
+          "new_uv": 0.0,
+          "d14_income": 0.09,
+          "dn_income": 0.09
+        }
+      ],
+      "first_seen": "2026-11-12",
+      "last_seen": "2026-11-12",
+      "source_mix": {
+        "codefunnel": 100.0
+      }
+    },
+    "6aeda8a7f45681c0b9d3464b": {
+      "ad_id": "6aeda8a7f45681c0b9d3464b",
+      "media_source": "link",
+      "channel": "link",
+      "username": null,
+      "username_canon": null,
+      "book_name": null,
+      "book_id": null,
+      "stats": {
+        "pull_uv": 1.0,
+        "active_uv": 0.0,
+        "new_uv": 0.0,
+        "d0_income": 0.0,
+        "d7_income": 0.0,
+        "d14_income": 0.0,
+        "d30_income": 0.0,
+        "d90_income": 0.0,
+        "dn_income": 0.0
+      },
+      "daily": [
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
+        }
+      ],
+      "first_seen": "2026-11-12",
+      "last_seen": "2026-11-12",
+      "source_mix": {
+        "codefunnel": 100.0
+      }
+    },
+    "6aedb6775f7c6666b78dffb0": {
+      "ad_id": "6aedb6775f7c6666b78dffb0",
+      "media_source": "link",
+      "channel": "link",
+      "username": null,
+      "username_canon": null,
+      "book_name": null,
+      "book_id": null,
+      "stats": {
+        "pull_uv": 1.0,
+        "active_uv": 0.0,
+        "new_uv": 0.0,
+        "d0_income": 0.0,
+        "d7_income": 0.0,
+        "d14_income": 0.0,
+        "d30_income": 0.0,
+        "d90_income": 0.0,
+        "dn_income": 0.0
+      },
+      "daily": [
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 1.0,
+          "active_uv": 0.0,
+          "new_uv": 0.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
+        }
+      ],
+      "first_seen": "2026-11-12",
+      "last_seen": "2026-11-12",
+      "source_mix": {
+        "codefunnel": 100.0
+      }
+    },
+    "6af5c2433a1f376673cf57c3": {
+      "ad_id": "6af5c2433a1f376673cf57c3",
+      "media_source": "link",
+      "channel": "link",
+      "username": null,
+      "username_canon": null,
+      "book_name": null,
+      "book_id": null,
+      "stats": {
+        "pull_uv": 2.0,
+        "active_uv": 1.0,
+        "new_uv": 1.0,
+        "d0_income": 0.0,
+        "d7_income": 0.0,
+        "d14_income": 0.0,
+        "d30_income": 0.0,
+        "d90_income": 0.0,
+        "dn_income": 0.0
+      },
+      "daily": [
+        {
+          "dt": "2026-11-12",
+          "pull_uv": 2.0,
+          "active_uv": 1.0,
+          "new_uv": 1.0,
+          "d14_income": 0.0,
+          "dn_income": 0.0
+        }
+      ],
+      "first_seen": "2026-11-12",
+      "last_seen": "2026-11-12",
+      "source_mix": {
+        "codefunnel": 100.0
+      }
     }
   },
   "by_promoter": {
     "cons_espher": {
       "display_name": "Cons Espher",
-      "total_uv": 517.0,
-      "total_new": 239.0,
-      "total_dn": 67.28,
+      "total_uv": 518.0,
+      "total_new": 240.0,
+      "total_dn": 69.08,
       "link_count": 35,
       "code_count": 3,
       "invite_count": 0,
@@ -195085,9 +195955,9 @@
           "ad_ids": [
             "6a505150d21546b9421e7ef3"
           ],
-          "uv": 29.0,
-          "new": 9.0,
-          "dn": 3.39
+          "uv": 30.0,
+          "new": 10.0,
+          "dn": 5.19
         },
         {
           "name": "LA ESPOSA DEL CEO",
@@ -195583,7 +196453,7 @@
       "display_name": "Comfort Tei",
       "total_uv": 51.0,
       "total_new": 0.0,
-      "total_dn": 0.02,
+      "total_dn": 0.2,
       "link_count": 0,
       "code_count": 3,
       "invite_count": 0,
@@ -195595,7 +196465,7 @@
           ],
           "uv": 45.0,
           "new": 0.0,
-          "dn": 0.02
+          "dn": 0.2
         },
         {
           "name": "Tutor To My High School Bully",
@@ -195676,9 +196546,9 @@
     },
     "eliza_stellar": {
       "display_name": "Eliza Stellar",
-      "total_uv": 924.0,
+      "total_uv": 926.0,
       "total_new": 42.0,
-      "total_dn": 73.58,
+      "total_dn": 90.51,
       "link_count": 25,
       "code_count": 28,
       "invite_count": 0,
@@ -195693,7 +196563,7 @@
           ],
           "uv": 65.0,
           "new": 14.0,
-          "dn": 38.08
+          "dn": 54.5
         },
         {
           "name": "Fates Hands",
@@ -195739,6 +196609,19 @@
           "dn": 5.41
         },
         {
+          "name": "Donati",
+          "ad_ids": [
+            "6a092a574710fa5d80474a8e",
+            "4627",
+            "4727",
+            "6a151395914fbdd8ec89058c",
+            "5678"
+          ],
+          "uv": 97.0,
+          "new": 2.0,
+          "dn": 1.18
+        },
+        {
           "name": "Shattered Alpha's Hidden Rose",
           "ad_ids": [
             "5616",
@@ -195769,19 +196652,6 @@
           "uv": 43.0,
           "new": 2.0,
           "dn": 0.73
-        },
-        {
-          "name": "Donati",
-          "ad_ids": [
-            "6a092a574710fa5d80474a8e",
-            "4627",
-            "4727",
-            "6a151395914fbdd8ec89058c",
-            "5678"
-          ],
-          "uv": 95.0,
-          "new": 2.0,
-          "dn": 0.67
         },
         {
           "name": "The Biker Alpha Who Became My Second Chance Mate",
@@ -195974,7 +196844,7 @@
     },
     "tom": {
       "display_name": "tom",
-      "total_uv": 681.0,
+      "total_uv": 682.0,
       "total_new": 7.0,
       "total_dn": 297.09,
       "link_count": 1,
@@ -195987,7 +196857,7 @@
             "4639",
             "6a0a73cf0771c1ae3226f9a1"
           ],
-          "uv": 681.0,
+          "uv": 682.0,
           "new": 7.0,
           "dn": 297.09
         }
@@ -196168,9 +197038,9 @@
     },
     "英语": {
       "display_name": "英语",
-      "total_uv": 20453.0,
+      "total_uv": 20456.0,
       "total_new": 348.0,
-      "total_dn": 3863.84,
+      "total_dn": 3868.39,
       "link_count": 52,
       "code_count": 59,
       "invite_count": 0,
@@ -196183,9 +197053,9 @@
             "5101",
             "6a4e04cba81606e7f26b5b21"
           ],
-          "uv": 2097.0,
+          "uv": 2100.0,
           "new": 110.0,
-          "dn": 849.05
+          "dn": 853.59
         },
         {
           "name": "Scarlett",
@@ -196207,7 +197077,7 @@
           ],
           "uv": 1698.0,
           "new": 65.0,
-          "dn": 391.96
+          "dn": 391.97
         },
         {
           "name": "The CEO's Unspoken Love",
@@ -196814,7 +197684,7 @@
     },
     "xenomorphette": {
       "display_name": "Xenomorphette",
-      "total_uv": 527.0,
+      "total_uv": 528.0,
       "total_new": 41.0,
       "total_dn": 110.21,
       "link_count": 23,
@@ -196986,7 +197856,7 @@
             "6a41678c3a0258849f4c1a3a",
             "5644"
           ],
-          "uv": 14.0,
+          "uv": 15.0,
           "new": 0.0,
           "dn": 0.0
         },
