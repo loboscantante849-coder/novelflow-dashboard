@@ -5,6 +5,7 @@
  */
 
 const { setCORSHeaders } = require('./_lib/cors');
+const { isVideoGenerationEnabled, VIDEO_GENERATION_PAUSED_RESPONSE } = require('./_lib/feature-flags');
 const {
   checkRateLimit,
   getAuthPayload,
@@ -61,6 +62,10 @@ module.exports = async (req, res) => {
     }
   } catch (e) {
     return res.status(503).json({ error: 'Account status unavailable', code: e.code || 'ACCOUNT_STATUS_UNAVAILABLE' });
+  }
+
+  if (!(await isVideoGenerationEnabled(redis))) {
+    return res.status(503).json(VIDEO_GENERATION_PAUSED_RESPONSE);
   }
 
   if (!process.env.BLOB_READ_WRITE_TOKEN) {

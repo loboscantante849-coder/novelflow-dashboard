@@ -18,6 +18,7 @@ const acInterrupt = require('../api/ac-interrupt');
 const acList = require('../api/ac-list');
 const acResult = require('../api/ac-result');
 const acRefresh = require('../api/ac-refresh');
+const acHealth = require('../api/ac-health');
 const { isLegacyAcRemarkOwnedBy } = require('../api/_lib/ac-ownership');
 
 function authHeaders(username) {
@@ -75,6 +76,50 @@ test('disabled accounts cannot create or upload AC work', async () => {
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+test('the production pause blocks new video work and keeps existing reels readable', async t => {
+  const previousFlag = process.env.VIDEO_GENERATION_ENABLED;
+  process.env.VIDEO_GENERATION_ENABLED = 'false';
+  t.after(() => {
+    if (previousFlag === undefined) delete process.env.VIDEO_GENERATION_ENABLED;
+    else process.env.VIDEO_GENERATION_ENABLED = previousFlag;
+  });
+
+  const username = 'paused-video-user';
+  const threadId = 'previous-reel';
+  FakeRedis.reset({
+    [`nf_user_data:${username}`]: JSON.stringify({}),
+    [`ac_thread_owner:${threadId}`]: username,
+    'nf_feature:video_generation': 'on',
+    ac_token: 'test-ac-token',
+  });
+  const headers = authHeaders(username);
+  const videoUrl = 'https://video.example/existing.mp4';
+  const upstream = t.mock.method(global, 'fetch', async url => {
+    if (String(url).includes('/creative/paged-list')) {
+      return response({ items: [{ thread_id: threadId, remark: `nf_${username}_1700000000000` }] });
+    }
+    assert.match(String(url), /\/creative\/previous-reel\/result$/);
+    return response({ final_result: [{ video_url: videoUrl }] });
+  });
+
+  const health = await invoke(acHealth, { method: 'GET' });
+  assert.equal(health.body.video_generation_enabled, false);
+  for (const [handler, body] of [[acCreate, { book_id: 'book-1' }], [acRetry, { threadId }], [acUpload, {}]]) {
+    const paused = await invoke(handler, { method: 'POST', headers, body });
+    assert.equal(paused.statusCode, 503);
+    assert.equal(paused.body.code, 'VIDEO_GENERATION_PAUSED');
+  }
+  assert.equal(upstream.mock.callCount(), 0);
+  assert.equal(Array.from(FakeRedis.values.keys()).some(key => /reels_count|reels_ip_count|nf_rate:ac_(retry|upload)/.test(key)), false);
+
+  const listed = await invoke(acList, { method: 'GET', headers });
+  assert.equal(listed.statusCode, 200);
+  assert.equal(listed.body.data.items[0].thread_id, threadId);
+  const result = await invoke(acResult, { method: 'GET', headers, query: { threadId } });
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.body.data.final_result[0].video_url, videoUrl);
 });
 
 test('new reels default to Seedance while explicit template choices are preserved', async () => {

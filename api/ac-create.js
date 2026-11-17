@@ -31,7 +31,7 @@ async function reserveDailySlots(redis, key, amount) {
 }
 
 const { setCORSHeaders } = require('./_lib/cors');
-const { isVideoGenerationEnabled } = require('./_lib/feature-flags');
+const { isVideoGenerationEnabled, VIDEO_GENERATION_PAUSED_RESPONSE } = require('./_lib/feature-flags');
 const { getAuthPayload, getClientIp, getRedis, isDisabledUser } = require('./_lib/security');
 const {
   fetchAcWithTokenFallback,
@@ -119,10 +119,7 @@ module.exports = async (req, res) => {
 
   // Operator kill switch: new generations stop, existing reels stay viewable.
   if (!(await isVideoGenerationEnabled(redis))) {
-    return res.status(503).json({
-      error: 'Video generation is temporarily paused. Your existing reels are still available.',
-      code: 'VIDEO_GENERATION_PAUSED',
-    });
+    return res.status(503).json(VIDEO_GENERATION_PAUSED_RESPONSE);
   }
 
   // Use server-stored AC token: KV first → env var; never accept token from client
