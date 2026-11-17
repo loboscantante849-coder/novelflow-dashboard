@@ -6,6 +6,10 @@
  * is a hard override for the case where Redis itself is the problem.
  */
 const VIDEO_GENERATION_KEY = 'nf_feature:video_generation';
+const VIDEO_GENERATION_PAUSED_RESPONSE = {
+  error: 'Video generation is temporarily paused. Your existing reels are still available.',
+  code: 'VIDEO_GENERATION_PAUSED',
+};
 
 const DISABLED_VALUES = new Set(['off', 'false', '0', 'no', 'paused', 'disabled']);
 
@@ -42,6 +46,7 @@ function parseFeatureFlagValue(value) {
 
 module.exports = {
   VIDEO_GENERATION_KEY,
+  VIDEO_GENERATION_PAUSED_RESPONSE,
   isVideoGenerationEnabled,
   parseFeatureFlagValue,
 };
