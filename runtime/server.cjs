@@ -107,7 +107,9 @@ if (require.main === module) {
   process.env.NODE_ENV = 'production'; process.env.VERCEL_ENV = 'production';
   process.env.VIDEO_GENERATION_ENABLED = 'false';
   const root = path.resolve(__dirname, '..');
-  const server = http.createServer(createApp(root, { release: process.env.RELEASE_SHA }));
+  const buildFile = path.join(__dirname, 'build.json');
+  const release = fs.existsSync(buildFile) ? JSON.parse(fs.readFileSync(buildFile)).release : process.env.RELEASE_SHA;
+  const server = http.createServer(createApp(root, { release }));
   server.requestTimeout = 65000; server.headersTimeout = 15000;
   server.listen(Number(process.env.PORT || 4180), '127.0.0.1', () => console.log('NovelFlow runtime ready'));
   process.on('SIGTERM', () => { server.close(() => process.exit(0)); });

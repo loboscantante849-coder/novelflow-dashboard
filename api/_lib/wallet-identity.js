@@ -159,15 +159,31 @@ async function resolveWalletStorageIdentity(redis, requestedUsername) {
 async function loadWalletAliasTargets(redis, names) {
   const targets = new Map();
   if (!redis || typeof redis.get !== 'function' || !names.length) return targets;
-  for (const name of names) {
-    let raw;
-    try {
-      raw = await redis.get(`nf_wallet_alias:${String(name).toLowerCase()}`);
-    } catch (_error) {
-      // An unreadable marker must never take the wallet down; the caller keeps
-      // treating the spellings as separate keys.
-      continue;
+  // Ownership checks can inspect every wallet. Batch marker reads instead of
+  // multiplying cross-region network latency by the number of accounts.
+  const keys = [...new Set(names.map(name => `nf_wallet_alias:${String(name).toLowerCase()}`))];
+  const markers = new Map();
+  for (let offset = 0; offset < keys.length; offset += 128) {
+    const batch = keys.slice(offset, offset + 128);
+    let values = null;
+    if (typeof redis.mget === 'function') {
+      try {
+        const result = await redis.mget(...batch);
+        if (Array.isArray(result) && result.length === batch.length) values = result;
+      } catch (_error) { /* preserve partial availability with bounded fallback */ }
     }
+    if (!values) {
+      values = [];
+      for (let index = 0; index < batch.length; index += 8) {
+        values.push(...await Promise.all(batch.slice(index, index + 8).map(async key => {
+          try { return await redis.get(key); } catch (_error) { return null; }
+        })));
+      }
+    }
+    batch.forEach((key, index) => markers.set(key, values[index]));
+  }
+  for (const name of names) {
+    const raw = markers.get(`nf_wallet_alias:${String(name).toLowerCase()}`);
     if (!raw) continue;
     const trimmed = String(raw).trim();
     if (!trimmed || trimmed === String(name).trim()) continue;

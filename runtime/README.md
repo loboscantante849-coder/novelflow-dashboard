@@ -19,7 +19,9 @@ until the corresponding business rules have been migrated and tested.
 
 ## Publishing
 
-The `Release to Tencent` GitHub workflow is manually dispatched. It runs the
+The `Release to Tencent` GitHub workflow template is in `runtime/tencent-release.workflow.yml`.
+Activation in `.github/workflows` is pending a GitHub credential with workflow permission;
+the current CLI credential can publish source but cannot modify workflows. Once activated, it is manually dispatched. It runs the
 repository checks, packages tracked source, and sends it through a dedicated SSH
 key. The server pins that key to one application and a root-owned
 `receive-release.py`; it cannot open a shell, forward ports or deploy the other

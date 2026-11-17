@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Root-owned receiver used only by a restricted SSH deployment key."""
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -34,6 +35,7 @@ with open('/run/lock/novelflow-' + app + '.lock', 'w') as lock:
                     raise SystemExit('Archive too large')
                 out.write(chunk)
         release = base / 'releases' / (app + '-' + str(time.time_ns()))
+        release_hash = hashlib.sha256(archive.read_bytes()).hexdigest()
         release.mkdir()
         try:
             with tarfile.open(archive, 'r:gz') as tar:
@@ -50,6 +52,7 @@ with open('/run/lock/novelflow-' + app + '.lock', 'w') as lock:
             for required in ['runtime/server.cjs', 'runtime/static.json', 'index.html', 'package.json']:
                 if not (release / required).is_file():
                     raise ValueError('Missing release file')
+            (release / 'runtime/build.json').write_text(json.dumps({'release': release_hash}))
             uid = pwd.getpwnam('novelflow').pw_uid
             gid = pwd.getpwnam('novelflow').pw_gid
             for root, dirs, files in os.walk(release):
@@ -77,7 +80,8 @@ with open('/run/lock/novelflow-' + app + '.lock', 'w') as lock:
                     try:
                         with urllib.request.urlopen('http://127.0.0.1:' + str(port) + '/_runtime/health', timeout=3) as r:
                             body = json.load(r)
-                            healthy = r.status == 200 and body.get('videoGeneration') == 'disabled'
+                            healthy = (r.status == 200 and body.get('videoGeneration') == 'disabled'
+                                       and body.get('release') == release_hash)
                         if healthy:
                             break
                     except Exception:
