@@ -1,5 +1,7 @@
 export const config = {
   matcher: [
+    '/runtime',
+    '/runtime/:path*',
     '/data.json',
     '/data.json.bak',
     '/data.json.bak:rest(\\..+)',
