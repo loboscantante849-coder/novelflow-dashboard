@@ -2951,6 +2951,7 @@
 
     </style>
 
+    <link rel="stylesheet" href="/cps-pause-notice.css">
 <!-- VERSION: 20260518-204300 --></head>
 <body>
     <!-- Language Switch -->
@@ -3181,6 +3182,42 @@
 
         <!-- Tab 2: Submit -->
         <div class="tab-content" id="tab-submit">
+            <article class="cps-notice" lang="en" aria-labelledby="cpsNoticeTitle">
+                <h1 id="cpsNoticeTitle" class="cps-notice-sr">NovelFlow CPS Promotion Update</h1>
+                <img class="cps-notice-poster" src="/cps-promotion-poster.webp" width="1536" height="1024" loading="lazy" decoding="async"
+                     alt="CPS is taking a short pause. A black-haired character with a white scarf reads by lamplight.">
+                <div class="cps-notice-content">
+                    <dl class="cps-notice-dates" aria-label="Promotion schedule and withdrawals">
+                        <div>
+                            <dt>Current promotion ends</dt>
+                            <dd><time datetime="2026-11-20">November 20</time></dd>
+                        </div>
+                        <div>
+                            <dt>Expected pause</dt>
+                            <dd>1–2 months</dd>
+                        </div>
+                    </dl>
+                    <button type="button" class="cps-notice-withdraw" onclick="openEarningsModal()">Open Earnings &amp; Withdrawals <span aria-hidden="true">→</span></button>
+                    <div class="cps-notice-letter">
+                        <h2>Dear Promotion Partners,</h2>
+                        <p>Thank you for taking part in NovelFlow’s CPS promotion and for supporting us along the way. We’re upgrading the program and will pause it while we make those changes.</p>
+                        <p>During the pause, you won’t be able to create new promotion links or codes. We’ll post in the community as soon as the promotion reopens.</p>
+                        <h3>Your earnings and withdrawals</h3>
+                        <p>We’re processing submitted withdrawal requests and sending payments in batches. If you haven’t withdrawn your earnings yet, you can still request a withdrawal as usual or leave your balance in your account for now. Your earnings will stay safely recorded and protected throughout the upgrade.</p>
+                        <h3>A little peek at what’s next</h3>
+                        <p>Other novel platforms under <strong>Novelsnack</strong> are already running promotions.</p>
+                        <p>Questions about the pause or your withdrawals? DM <strong>novelflow</strong> in our Discord community.</p>
+                    </div>
+                    <footer class="cps-notice-closing">
+                        <p><strong>Thank you for being with us all this time.</strong> Wishing you a little happiness every day and plenty of time to enjoy a good story. ❤️</p>
+                        <div class="cps-notice-actions">
+                            <button id="cpsNoticeAcknowledge" type="button">Got it <span lang="zh-Hans">好的</span></button>
+                            <button id="cpsNoticeEncourage" type="button" aria-haspopup="dialog" aria-controls="cpsNoticeNote">Keep going! <span lang="zh-Hans">加油</span></button>
+                        </div>
+                        <p id="cpsNoticeStatus" role="status"></p>
+                    </footer>
+                </div>
+            </article>
             
             <!-- AC Reels Creator -->
             <div class="reels-section" id="reelsSection">
@@ -12143,5 +12180,23 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
 })();
 </script>
 
+<dialog id="cpsNoticeNote" class="cps-notice-dialog" lang="en" aria-labelledby="cpsNoticeNoteTitle">
+    <h2 id="cpsNoticeNoteTitle">A little time apart makes the next hello even better.</h2>
+    <p>Have a good way to promote novels or reading apps, or a community or channel that could help? DM <strong>novelflow</strong> on Discord. We’d love to hear your ideas and work together.</p>
+    <p class="cps-notice-heart" aria-label="With love">♥</p>
+    <form method="dialog"><button type="submit" autofocus>Close</button></form>
+</dialog>
+<script>
+    (() => {
+        const encourage = document.getElementById('cpsNoticeEncourage');
+        const note = document.getElementById('cpsNoticeNote');
+
+        document.getElementById('cpsNoticeAcknowledge').addEventListener('click', () => {
+            document.getElementById('cpsNoticeStatus').textContent = 'Thanks for reading.';
+        });
+        encourage.addEventListener('click', () => note.showModal());
+        note.addEventListener('close', () => encourage.focus());
+    })();
+</script>
 </body>
 </html>

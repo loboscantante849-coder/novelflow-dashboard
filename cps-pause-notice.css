@@ -1,0 +1,119 @@
+.cps-notice,
+.cps-notice-dialog {
+    --notice-paper: #f8f6f1;
+    --notice-ink: #171931;
+    --notice-muted: #49485c;
+    --notice-rule: #d9d4e0;
+    --notice-indigo: #3c32bf;
+    --notice-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    background: var(--notice-paper);
+    color: var(--notice-ink);
+    font: 400 1rem/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.cps-notice {
+    width: min(calc(100% - 24px), 800px);
+    margin: 12px auto 24px;
+    border: 1px solid var(--notice-rule);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.cps-notice-poster {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: #151626;
+}
+
+.cps-notice-content { padding: clamp(16px, 4vw, 32px); }
+
+.cps-notice-dates {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 0;
+}
+
+.cps-notice-dates dt { color: var(--notice-muted); font-size: .875rem; }
+.cps-notice-dates dd { margin: 2px 0 0; font: 600 clamp(1.2rem, 4.6vw, 1.6rem)/1.2 var(--notice-serif); }
+
+.cps-notice-withdraw {
+    margin: 4px 0 16px;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--notice-indigo);
+    font: inherit;
+    font-weight: 650;
+    text-decoration: underline;
+    text-underline-offset: .2em;
+    cursor: pointer;
+}
+
+.cps-notice-letter,
+.cps-notice-closing { padding-top: 16px; border-top: 1px solid var(--notice-rule); }
+.cps-notice-closing { margin-top: 16px; }
+
+.cps-notice h2,
+.cps-notice h3,
+.cps-notice-dialog h2 { font: 600 clamp(1.35rem, 4.5vw, 1.8rem)/1.18 var(--notice-serif); }
+.cps-notice h3 { margin-top: 1.2rem; font-size: clamp(1.25rem, 4vw, 1.5rem); }
+.cps-notice p,
+.cps-notice-dialog p { margin: .65rem 0 0; color: var(--notice-muted); }
+.cps-notice strong,
+.cps-notice-dialog strong { color: var(--notice-ink); }
+
+.cps-notice-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 1rem; }
+.cps-notice-actions button,
+.cps-notice-dialog button {
+    display: inline-flex;
+    align-items: center;
+    gap: .45em;
+    min-height: 46px;
+    border: 1px solid #c9c3d9;
+    border-radius: 8px;
+    padding: .6rem .85rem;
+    background: transparent;
+    color: var(--notice-ink);
+    font: inherit;
+    font-size: .9rem;
+    font-weight: 650;
+    line-height: 1.2;
+    cursor: pointer;
+}
+
+.cps-notice-actions span { font-size: .82em; font-weight: 500; }
+.cps-notice-actions #cpsNoticeEncourage { border-color: var(--notice-indigo); background: var(--notice-indigo); color: #fff; }
+.cps-notice-actions #cpsNoticeEncourage:hover { background: #2c259e; }
+.cps-notice button:focus-visible,
+.cps-notice-dialog button:focus-visible { outline: 3px solid var(--notice-indigo); outline-offset: 3px; }
+
+#cpsNoticeStatus { margin: .4rem 0 0; font-size: .875rem; }
+#cpsNoticeStatus:empty { margin: 0; }
+
+.cps-notice-dialog {
+    width: min(calc(100% - 32px), 32rem);
+    max-height: calc(100% - 32px);
+    margin: auto;
+    padding: clamp(20px, 5vw, 36px);
+    border: 0;
+    border-radius: 14px;
+    box-shadow: 0 22px 58px rgb(15 12 37 / 27%);
+}
+
+.cps-notice-dialog::backdrop { background: rgb(17 17 36 / 67%); }
+.cps-notice-dialog .cps-notice-heart { color: #9a2c5e; font-size: 1.7rem; }
+.cps-notice-dialog form { margin-top: 1rem; }
+
+.cps-notice-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
