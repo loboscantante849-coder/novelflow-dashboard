@@ -167,7 +167,7 @@ test('book catalogue requests are single-owner, abortable, and language scoped',
   const loader = section('// ========== Load Books from Backend API ==========', 'function hideLoadingAndShowContent()');
 
   assert.match(languageSwitch, /reloadBooks = true/);
-  assert.match(languageSwitch, /if \(reloadBooks\) loadBooks\(\)/);
+  assert.match(languageSwitch, /if \(reloadBooks && !cpsWithdrawalsOnly\) loadBooks\(\)/);
   assert.match(initialLanguage, /switchLang\(AppState\.currentLang, false\)/);
   assert.match(loader, /let _bookLoadRequestId = 0/);
   assert.match(loader, /_bookLoadController\.abort\(\)/);

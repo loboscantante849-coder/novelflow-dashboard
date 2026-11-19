@@ -6,6 +6,9 @@ const path = require('node:path');
 const http = require('node:http');
 const { pipeline } = require('node:stream');
 
+const CPS_PAUSE_AT = Date.parse('2026-11-20T00:00:00+08:00');
+const CPS_PROMOTION_PAGES = new Set(['app.html', 'book-list.html', 'promoters-wanted.html', 'promotion-playbook.html', 'promotion-guide.html']);
+
 function createApp(root, options = {}) {
   root = fs.realpathSync(root);
   const files = new Set(JSON.parse(fs.readFileSync(path.join(root, 'runtime/static.json'))));
@@ -50,7 +53,17 @@ function createApp(root, options = {}) {
       const url = new URL(req.url, 'http://localhost');
       const pathname = decodeURIComponent(url.pathname);
       if (pathname.includes('\\') || pathname.includes('\0') || pathname.split('/').some(p => p.startsWith('.'))) return res.status(404).end('Not Found');
+      const untilCpsPause = CPS_PAUSE_AT - (options.now || Date.now)();
+      const withdrawalsOnly = untilCpsPause <= 0;
       if (pathname === '/_runtime/health') return res.json({ status: 'ok', release: options.release || 'local', videoGeneration: process.env.VIDEO_GENERATION_ENABLED === 'false' ? 'disabled' : 'configured' });
+      if (pathname === '/cps-mode.js') {
+        if (req.method !== 'GET' && req.method !== 'HEAD') return res.status(405).end('Method not allowed');
+        res.setHeader('Content-Type', 'text/javascript; charset=utf-8');
+        if (req.method === 'HEAD') return res.end();
+        return res.end(withdrawalsOnly
+          ? "document.documentElement.dataset.cpsWithdrawalsOnly = 'true';"
+          : `setTimeout(() => location.reload(), ${Math.min(untilCpsPause, 2147483647)});`);
+      }
       if (pathname.startsWith('/api/')) {
         const route = routes.find(r => r.match.test(pathname));
         if (!route) return res.status(404).end('Not Found');
@@ -72,6 +85,10 @@ function createApp(root, options = {}) {
           try { req.body = contentType === 'application/json' ? (body ? JSON.parse(body) : {}) : Object.fromEntries(new URLSearchParams(body)); }
           catch { return res.status(400).json({ error: 'Invalid JSON' }); }
         }
+        if (withdrawalsOnly && req.method === 'POST' && (pathname === '/api/confirm' ||
+            (pathname === '/api/equity-code' && String(req.body?.action || 'create') === 'create'))) {
+          return res.status(403).json({ error: 'CPS promotion is paused. Withdrawals remain open.', code: 'CPS_PROMOTION_PAUSED' });
+        }
         const handler = require(route.full);
         await handler(req, res);
         return;
@@ -80,6 +97,7 @@ function createApp(root, options = {}) {
       let file = pathname.slice(1);
       if (['', 'app-v2', 'app-v2.html', 'app-v2-v3', 'app-v2-v3.html'].includes(file)) file = 'index.html';
       if (!files.has(file) && !path.extname(file) && files.has(file + '.html')) file += '.html';
+      if (withdrawalsOnly && CPS_PROMOTION_PAGES.has(file)) return res.redirect(302, '/');
       if (!files.has(file)) return res.status(404).end('Not Found');
       const full = fs.realpathSync(path.join(root, file));
       if (!full.startsWith(root + path.sep)) return res.status(404).end('Not Found');

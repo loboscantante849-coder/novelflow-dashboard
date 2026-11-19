@@ -12,6 +12,7 @@
     <meta property="og:title" content="NovelFlow - Earn Money Promoting Books">
     <meta property="og:description" content="Discover books to promote, create referral links, and track your NovelFlow earnings.">
     <title>NovelFlow - Earn Money Promoting Books</title>
+    <script src="/cps-mode.js"></script>
     <link href="https://fonts.loli.net/css2?family=Inter:wght@300;400;500;600;700&display=swap" onerror="this.remove()" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -3007,6 +3008,13 @@
             </div>
         </div>
 
+        <main id="cpsWithdrawalPage" aria-labelledby="cpsWithdrawalTitle">
+            <header class="cps-withdrawal-intro">
+                <h1 id="cpsWithdrawalTitle" data-i18n="cps_withdrawal_title">Earnings &amp; Withdrawals</h1>
+                <p data-i18n="cps_withdrawal_intro">CPS promotion is paused. You can still view your balance and request withdrawals.</p>
+            </header>
+        </main>
+
         <!-- Tab 1: Home -->
         <div class="tab-content active" id="tab-home">
             <!-- Banner — Gradient Mesh with Floating Coins -->
@@ -3824,6 +3832,7 @@
 (function(){var _f=window.fetch;window.fetch=function(u,o){o=o||{};if(o.signal)return _f(u,o);var c=new AbortController(),t=setTimeout(function(){c.abort()},o.timeout||15000),n=Object.assign({},o,{signal:c.signal});return _f(u,n).then(function(r){clearTimeout(t);return r}).catch(function(e){clearTimeout(t);if(e.name==='AbortError'){return new Response(JSON.stringify({error:'timeout',offline:true}),{status:504,headers:{'Content-Type':'application/json'}})}throw e})}})();
 // NovelFlow v2.5.0 - Tasks & Bonus redesign - 2026-07-06
         // ========== Global State ==========
+        const cpsWithdrawalsOnly = document.documentElement.dataset.cpsWithdrawalsOnly === 'true';
         const AppState = {
             currentTab: 'home',
             videoGenerationEnabled: false,
@@ -4234,7 +4243,7 @@
             AppState.isLoggedIn = true;
             if (changed && typeof renderEquityCode === 'function') renderEquityCode();
             if (changed && AppState.currentTab === 'submit') switchReelMode(currentReelMode);
-            scheduleDailyActivityReminder();
+            if (!cpsWithdrawalsOnly) scheduleDailyActivityReminder();
             return changed;
         }
 
@@ -4339,6 +4348,7 @@
 
         // ========== Tab Switch ==========
         function switchTab(tabName) {
+            if (cpsWithdrawalsOnly) return;
             AppState.currentTab = tabName;
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.getElementById('tab-' + tabName)?.classList.add('active');
@@ -4489,6 +4499,8 @@
                 status_creating: 'Creating video (~25 min)...',
                 no_reels: 'No reels yet',
                 earnings_center: 'Earnings Center',
+                cps_withdrawal_title: 'Earnings & Withdrawals',
+                cps_withdrawal_intro: 'CPS promotion is paused. You can still view your balance and request withdrawals.',
                 available_balance: 'Available Balance',
                 total_earned: 'Total Earned',
                 pending_settlement: 'Pending Settlement',
@@ -5007,6 +5019,8 @@
                 status_creating: 'Creando video (~25 min)...',
                 no_reels: 'Aún no hay reels',
                 earnings_center: 'Centro de ganancias',
+                cps_withdrawal_title: 'Ganancias y retiros',
+                cps_withdrawal_intro: 'La promoción CPS está en pausa. Aún puedes consultar tu saldo y solicitar retiros.',
                 available_balance: 'Saldo disponible',
                 total_earned: 'Total ganado',
                 pending_settlement: 'Liquidación pendiente',
@@ -5459,10 +5473,10 @@
             AppState.currentLang = lang;
             AppState.searchLang = lang;
             localStorage.setItem('novelflow_lang', lang);
-            const pageTitle = lang === 'es'
+            const pageTitle = cpsWithdrawalsOnly ? 'NovelFlow · ' + getText('cps_withdrawal_title') : lang === 'es'
                 ? 'NovelFlow - Gana dinero promocionando libros'
                 : 'NovelFlow - Earn Money Promoting Books';
-            const pageDescription = lang === 'es'
+            const pageDescription = cpsWithdrawalsOnly ? getText('cps_withdrawal_intro') : lang === 'es'
                 ? 'Descubre libros para promocionar, crea enlaces de referencia y consulta tus ganancias en NovelFlow.'
                 : 'Discover books to promote, create referral links, and track your NovelFlow earnings.';
             document.documentElement.lang = lang;
@@ -5487,7 +5501,7 @@
             if (_lastPerfData) renderDailyBookPerformance(_lastPerfData);
             // Reload books for an explicit language change. Initial page setup
             // applies translations first and lets the main bootstrap load once.
-            if (reloadBooks) loadBooks();
+            if (reloadBooks && !cpsWithdrawalsOnly) loadBooks();
             // Update toggle buttons
             document.querySelectorAll('.lang-switch-btn').forEach(b => {
                 b.classList.toggle('active', b.dataset.lang === lang);
@@ -5546,7 +5560,7 @@
         
         // Apply saved language on load
         document.addEventListener('DOMContentLoaded', () => {
-            if (AppState.currentLang !== 'en') {
+            if (AppState.currentLang !== 'en' || cpsWithdrawalsOnly) {
                 switchLang(AppState.currentLang, false);
             }
         });
@@ -7529,7 +7543,7 @@
         
         // Initialize v2 checkin UI on load
         document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(updateCheckinV2UI, 100);
+            if (!cpsWithdrawalsOnly) setTimeout(updateCheckinV2UI, 100);
         });
 
         // ========== Generate Recommend Text ==========
@@ -7790,6 +7804,10 @@
                     setAuthenticatedUser(data.user);
                     localStorage.setItem('novelflow_user', JSON.stringify(data.user));
                     localStorage.setItem('novelflow_last_user', data.user.username);
+                    if (cpsWithdrawalsOnly) {
+                        updateProfileUI();
+                        return true;
+                    }
                     CloudSync.enable({ pull: false });
                     updateProfileUI();
                     if (typeof loadEquityCode === 'function') loadEquityCode(true);
@@ -7838,6 +7856,10 @@
                     const accountChanged = setAuthenticatedUser(user);
                     localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
                     localStorage.setItem('novelflow_last_user', AppState.user.username);
+                    if (cpsWithdrawalsOnly) {
+                        updateProfileUI();
+                        return;
+                    }
                     if (accountChanged) {
                         // Enter the authenticated user's local namespace before
                         // cloud merge so data from a previous account cannot leak.
@@ -7867,6 +7889,7 @@
                 if (data.needsRefresh) {
                     const refreshed = await refreshAuth();
                     if (refreshed) {
+                        if (cpsWithdrawalsOnly) return;
                         const session = AuthSession.capture();
                         if (!AuthSession.isCurrent(session)) return;
                         loadCheckinData();
@@ -9509,6 +9532,21 @@ function renderMyBooks() {
         }
 
         function updateProfileUI() {
+            if (cpsWithdrawalsOnly) {
+                const signedIn = AppState.isLoggedIn;
+                const loginForm = document.getElementById('loginForm');
+                const earnings = document.getElementById('earningsModal');
+                loginForm.style.display = signedIn ? 'none' : '';
+                updateTopbarUI();
+                if (signedIn && !earnings.classList.contains('show')) {
+                    openEarningsModal();
+                } else if (!signedIn) {
+                    earnings.classList.remove('show');
+                    document.getElementById('earnAmountInput').value = '';
+                    document.getElementById('earnEmailInput').value = '';
+                }
+                return;
+            }
             const avatar = document.getElementById('profileAvatar');
             const name = document.getElementById('profileName');
             const uid = document.getElementById('profileUid');
@@ -9594,6 +9632,11 @@ function renderMyBooks() {
                     setAuthenticatedUser({ username: authenticatedUsername, accountType: 'local', memberId: result.memberId || null });
                     localStorage.setItem('novelflow_user', JSON.stringify(AppState.user));
                     localStorage.setItem('novelflow_last_user', authenticatedUsername);
+                    if (cpsWithdrawalsOnly) {
+                        document.getElementById('regPassword').value = '';
+                        updateProfileUI();
+                        return;
+                    }
                     loadCheckinData();
                     loadMyBooks();
                     const session = AuthSession.capture(authenticatedUsername);
@@ -9629,7 +9672,7 @@ function renderMyBooks() {
         async function handleLogout() {
             // Persist the current namespace and invalidate its in-flight work immediately.
             if (AppState.myBooks.length > 0) saveMyBooks({ sync: false });
-            saveCheckinData();
+            if (!cpsWithdrawalsOnly) saveCheckinData();
             CloudSync.disable();
             AuthSession.transition('');
             try {
@@ -9645,6 +9688,10 @@ function renderMyBooks() {
             // uses keys like novelflow_xxx_{username} and persists across logins.
             // Only session info is cleared.
             clearAuthenticatedUser();
+            if (cpsWithdrawalsOnly) {
+                updateProfileUI();
+                return;
+            }
             AppState.myBooks = [];
             if (typeof EquityCodeState !== 'undefined') {
                 EquityCodeState.record = null;
@@ -10473,6 +10520,19 @@ function renderMyBooks() {
 
         // ========== Init =========="
         document.addEventListener('DOMContentLoaded', async () => {
+            if (cpsWithdrawalsOnly) {
+                const page = document.getElementById('cpsWithdrawalPage');
+                const earnings = document.getElementById('earningsModal');
+                const panel = earnings.querySelector('.earn-panel');
+                panel.removeAttribute('role');
+                panel.removeAttribute('aria-modal');
+                panel.removeAttribute('aria-label');
+                page.append(document.getElementById('loginForm'), earnings);
+                updateAuthModeUI('profile');
+                updateProfileUI();
+                await checkLoginStatus();
+                return;
+            }
             if (typeof loadVideoGenerationFlag === 'function') loadVideoGenerationFlag();
             const authResult = new URLSearchParams(window.location.search).get('auth');
             if (authResult === 'identity_conflict') {
@@ -11924,12 +11984,13 @@ el.innerHTML = enriched.map(renderReelCardHtml).join('');
     const m = $('earningsModal');
     if (!m) return;
     m.classList.add('show');
-    document.body.style.overflow = 'hidden';
+    if (!cpsWithdrawalsOnly) document.body.style.overflow = 'hidden';
     switchEarnTab('detail');
     loadEarningsData();
   };
 
   window.closeEarningsModal = function() {
+    if (cpsWithdrawalsOnly) return;
     const m = $('earningsModal');
     if (m) m.classList.remove('show');
     document.body.style.overflow = '';

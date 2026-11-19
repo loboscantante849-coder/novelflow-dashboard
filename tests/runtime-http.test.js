@@ -40,3 +40,47 @@ test('HTTP adapter preserves handlers and exposes only approved static files', a
   const head = await fetch(base + '/', {method:'HEAD'}); assert.equal(await head.text(), ''); assert.equal(head.headers.get('content-length'), '11');
   assert.equal((await fetch(base + '/', {method:'POST'})).status, 405);
 });
+
+test('the CPS cutoff uses Beijing midnight and keeps authentication and withdrawals reachable', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nf-cps-cutoff-'));
+  fs.mkdirSync(path.join(root, 'api/auth'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'runtime'));
+  fs.writeFileSync(path.join(root, 'runtime/static.json'), JSON.stringify(['index.html', 'promotion-guide.html']));
+  fs.writeFileSync(path.join(root, 'index.html'), '<script src="/cps-mode.js"></script>');
+  fs.writeFileSync(path.join(root, 'promotion-guide.html'), 'promotion guide');
+  for (const endpoint of ['confirm', 'equity-code', 'auth/login', 'withdrawals']) {
+    fs.writeFileSync(path.join(root, `api/${endpoint}.js`), "module.exports = (req, res) => res.json({ handler: req.method });");
+  }
+
+  let now = Date.parse('2026-11-19T15:59:59.999Z');
+  const server = http.createServer(createApp(root, { now: () => now }));
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(async () => { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); fs.rmSync(root, { recursive: true, force: true }); });
+  const url = 'http://127.0.0.1:' + server.address().port;
+  const post = (endpoint, body = {}) => fetch(url + '/api/' + endpoint, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+
+  const before = await fetch(url + '/cps-mode.js');
+  assert.match(before.headers.get('cache-control'), /no-store/);
+  assert.match(await before.text(), /location\.reload\(\), 1\)/);
+  assert.equal((await post('confirm')).status, 200);
+  assert.equal((await fetch(url + '/promotion-guide', { redirect: 'manual' })).status, 200);
+
+  now++;
+  const after = await fetch(url + '/cps-mode.js');
+  assert.match(await after.text(), /dataset\.cpsWithdrawalsOnly/);
+  assert.equal((await fetch(url + '/app-v2')).status, 200);
+  const retired = await fetch(url + '/promotion-guide', { redirect: 'manual' });
+  assert.equal(retired.status, 302);
+  assert.equal(retired.headers.get('location'), '/');
+  for (const endpoint of ['confirm', 'equity-code']) {
+    const response = await post(endpoint);
+    assert.equal(response.status, 403);
+    assert.equal((await response.json()).code, 'CPS_PROMOTION_PAUSED');
+  }
+  assert.equal((await post('equity-code', { action: 'stop' })).status, 200);
+  assert.equal((await post('auth/login')).status, 200);
+  assert.equal((await fetch(url + '/api/withdrawals')).status, 200);
+  assert.equal((await post('withdrawals')).status, 200);
+});

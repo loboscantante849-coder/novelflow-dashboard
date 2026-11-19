@@ -117,3 +117,71 @@
     clip-path: inset(50%);
     white-space: nowrap;
 }
+
+#cpsWithdrawalPage { display: none; }
+
+html[data-cps-withdrawals-only] .app-container > :not(#appTopbar, #cpsWithdrawalPage),
+html[data-cps-withdrawals-only] #topbarLoginBtn,
+#cpsWithdrawalPage #profileAuthMode,
+#cpsWithdrawalPage #profileReferralApplied,
+#cpsWithdrawalPage .earn-header { display: none !important; }
+
+html[data-cps-withdrawals-only] #cpsWithdrawalPage {
+    display: block;
+    width: min(calc(100% - 28px), 540px);
+    margin: clamp(20px, 5vw, 48px) auto;
+    padding-bottom: 20px;
+}
+
+.cps-withdrawal-intro {
+    border-radius: 14px;
+    padding: clamp(16px, 4vw, 28px);
+    background: #f8f6f1;
+    color: #171931;
+}
+
+.cps-withdrawal-intro h1 {
+    margin: 0 0 .45rem;
+    font: 600 clamp(1.65rem, 6vw, 2.25rem)/1.18 "Iowan Old Style", Palatino, Georgia, serif;
+}
+
+.cps-withdrawal-intro p { font-size: .95rem; line-height: 1.55; }
+
+#cpsWithdrawalPage #loginForm {
+    background: var(--canvas);
+    border: 1px solid var(--hairline);
+}
+
+#cpsWithdrawalPage .login-form h3 { color: var(--ink); font-weight: 600; }
+#cpsWithdrawalPage .login-form p,
+#cpsWithdrawalPage .login-tip,
+#cpsWithdrawalPage .login-input::placeholder { color: var(--ink-mute); }
+
+#cpsWithdrawalPage .login-input {
+    min-height: 44px;
+    border-color: var(--hairline);
+    background: var(--canvas-soft);
+    color: var(--ink);
+}
+
+#cpsWithdrawalPage .login-input:focus-visible { outline: 2px solid var(--primary); }
+#cpsWithdrawalPage .login-btn { min-height: 44px; }
+
+#cpsWithdrawalPage #earningsModal {
+    position: static;
+    padding: 0;
+    margin-top: 16px;
+    background: none;
+    overflow: visible;
+}
+
+#cpsWithdrawalPage .earn-panel {
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    overflow: visible;
+    border: 1px solid var(--hairline);
+    box-shadow: none;
+}
+
+#cpsWithdrawalPage .earn-body { overflow: visible; }
